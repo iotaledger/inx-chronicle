@@ -1,8 +1,21 @@
 [package]
-name = "chronicle"
+name = "chronicle-inx"
 version = "0.1.0"
+authors = [ "IOTA Stiftung" ]
 edition = "2021"
+description = "IOTA permanode implemented as an IOTA Node Extension (INX)"
+readme = "README.md"
+repository = "https://github.com/iotaledger/inx-chronicle"
+license = "Apache-2.0"
+keywords = [ "iota", "storage", "permanode", "node", "inx" ]
+homepage = "https://www.iota.org"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "chronicle"
+path = "src/lib.rs"
+
+[[bin]]
+name = "inx-chronicle"
+path = "src/main.rs"
 
 [dependencies]
