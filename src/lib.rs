@@ -5,6 +5,6 @@
 mod test {
     #[test]
     fn test_fn() {
-        assert!(true);
+        assert_eq!(true, true);
     }
 }
