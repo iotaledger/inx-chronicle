@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    paths-ignore: 
+      - '**.md'
+  pull_request:
+    paths-ignore: 
+      - '**.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        rust: [stable, beta]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        experimental: [false]
+        include:
+            # The following ensures that workflows relying on `nightly` don't break.
+          - rust: nightly
+            os: ubuntu-latest
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-test
+
+      - name: Doc Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-doctest
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+            profile: minimal
+            toolchain: nightly
+            override: true
+            components: rustfmt
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: ci-fmt
+
+  clippy:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ (matrix.rust != 'stable') }}
+    strategy:
+      matrix:
+        rust: [stable, beta]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-clippy
+
+  udeps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --force cargo-udeps
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: ci-udeps
+
+  docs:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+            profile: minimal
+            toolchain: nightly
+            override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: ci-doc
