@@ -10,13 +10,16 @@ use axum::{
     },
     http::Method,
     routing::*,
+    Json,
     Router,
 };
+use futures::TryStreamExt;
 use mongodb::{
     bson::{
         doc,
         Document,
     },
+    options::FindOptions,
     Database,
 };
 use prometheus::{
@@ -39,9 +42,15 @@ use super::{
     REGISTRY,
 };
 use crate::types::{
-    Message,
-    MessageId,
-    MessageRecord,
+    message::{
+        Message,
+        MessageId,
+        MessageRecord,
+    },
+    sync::{
+        SyncData,
+        SyncRecord,
+    },
 };
 
 type ListenerResult = Result<ListenerResponse, ListenerError>;
@@ -50,6 +59,7 @@ pub fn routes(database: Database) -> Router {
     let routes = Router::new()
         .route("/info", get(info))
         .route("/metrics", get(metrics))
+        .route("/sync", get(sync))
         .route("/messages/:message_id", get(get_message))
         .layer(Extension(database))
         .layer(CatchPanicLayer::new())
@@ -92,6 +102,63 @@ async fn metrics() -> Result<String, ListenerError> {
     let res_default = String::from_utf8(buffer).map_err(|e| ListenerError::Other(e.into()))?;
 
     Ok(format!("{}{}", res_custom, res_default))
+}
+
+async fn sync(database: Extension<Database>) -> Result<Json<SyncData>, ListenerError> {
+    let mut res = database
+        .collection::<SyncRecord>("sync")
+        .find(
+            doc! { "synced": true },
+            FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
+        )
+        .await?;
+    let mut sync_data = SyncData::default();
+    let mut last_record: Option<SyncRecord> = None;
+    while let Some(sync_record) = res.try_next().await? {
+        // Missing records go into gaps
+        if let Some(last) = last_record.as_ref() {
+            if last.milestone_index + 1 != sync_record.milestone_index {
+                sync_data
+                    .gaps
+                    .push(last.milestone_index + 1..sync_record.milestone_index - 1);
+            }
+        }
+        // Synced AND logged records go into completed
+        if sync_record.logged {
+            match sync_data.completed.last_mut() {
+                Some(last) => {
+                    if last.end + 1 == sync_record.milestone_index {
+                        last.end += 1;
+                    } else {
+                        sync_data
+                            .completed
+                            .push(sync_record.milestone_index..sync_record.milestone_index);
+                    }
+                }
+                None => sync_data
+                    .completed
+                    .push(sync_record.milestone_index..sync_record.milestone_index),
+            }
+        // Otherwise the are synced only
+        } else {
+            match sync_data.synced_but_unlogged.last_mut() {
+                Some(last) => {
+                    if last.end + 1 == sync_record.milestone_index {
+                        last.end += 1;
+                    } else {
+                        sync_data
+                            .synced_but_unlogged
+                            .push(sync_record.milestone_index..sync_record.milestone_index);
+                    }
+                }
+                None => sync_data
+                    .synced_but_unlogged
+                    .push(sync_record.milestone_index..sync_record.milestone_index),
+            }
+        }
+        last_record.replace(sync_record);
+    }
+    Ok(Json(sync_data))
 }
 
 async fn get_message(database: Extension<Database>, Path(message_id): Path<String>) -> ListenerResult {

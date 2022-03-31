@@ -16,7 +16,7 @@ use mongodb::bson::{
     Document,
 };
 
-use super::{
+use super::message::{
     Message,
     MessageId,
     MessageRecord,
