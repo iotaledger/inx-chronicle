@@ -22,8 +22,8 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "isHealthy")]
         is_healthy: bool,
     },
-    /// Response of GET /api/<keyspace>/messages/<message_id>
-    /// and GET /api/<keyspace>/transactions/<transaction_id>/included-message
+    /// Response of GET /api/<api_version>/messages/<message_id>
+    /// and GET /api/<api_version>/transactions/<transaction_id>/included-message
     Message {
         #[serde(rename = "networkId")]
         network_id: Option<u64>,
@@ -34,7 +34,7 @@ pub(crate) enum ListenerResponse {
         payload: Option<Value>,
         nonce: u64,
     },
-    /// Response of GET /api/<keyspace>/messages/<message_id>/metadata
+    /// Response of GET /api/<api_version>/messages/<message_id>/metadata
     MessageMetadata {
         #[serde(rename = "messageId")]
         message_id: String,
@@ -55,7 +55,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "shouldReattach", skip_serializing_if = "Option::is_none")]
         should_reattach: Option<bool>,
     },
-    /// Response of GET /api/<keyspace>/messages/<message_id>/children
+    /// Response of GET /api/<api_version>/messages/<message_id>/children
     MessageChildren {
         #[serde(rename = "messageId")]
         message_id: String,
@@ -65,7 +65,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "childrenMessageIds")]
         children_message_ids: Vec<String>,
     },
-    /// Response of GET /api/<keyspace>/messages/<message_id>/children[?expanded=true]
+    /// Response of GET /api/<api_version>/messages/<message_id>/children[?expanded=true]
     MessageChildrenExpanded {
         #[serde(rename = "messageId")]
         message_id: String,
@@ -75,7 +75,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "childrenMessageIds")]
         children_message_ids: Vec<Record>,
     },
-    /// Response of GET /api/<keyspace>/messages?<index>
+    /// Response of GET /api/<api_version>/messages?<index>
     MessagesForIndex {
         index: String,
         #[serde(rename = "maxResults")]
@@ -84,7 +84,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "messageIds")]
         message_ids: Vec<String>,
     },
-    /// Response of GET /api/<keyspace>/messages?<index>[&expanded=true]
+    /// Response of GET /api/<api_version>/messages?<index>[&expanded=true]
     MessagesForIndexExpanded {
         index: String,
         #[serde(rename = "maxResults")]
@@ -93,7 +93,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "messageIds")]
         message_ids: Vec<Record>,
     },
-    /// Response of GET /api/<keyspace>/messages?<index>
+    /// Response of GET /api/<api_version>/messages?<index>
     MessagesForTag {
         tag: String,
         #[serde(rename = "maxResults")]
@@ -102,7 +102,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "messageIds")]
         message_ids: Vec<String>,
     },
-    /// Response of GET /api/<keyspace>/messages?<index>[&expanded=true]
+    /// Response of GET /api/<api_version>/messages?<index>[&expanded=true]
     MessagesForTagExpanded {
         tag: String,
         #[serde(rename = "maxResults")]
@@ -111,7 +111,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "messageIds")]
         message_ids: Vec<Record>,
     },
-    /// Response of GET /api/<keyspace>/addresses/<address>/outputs
+    /// Response of GET /api/<api_version>/addresses/<address>/outputs
     OutputsForAddress {
         address: String,
         #[serde(rename = "maxResults")]
@@ -120,7 +120,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "outputIds")]
         output_ids: Vec<String>,
     },
-    /// Response of GET /api/<keyspace>/addresses/<address>/outputs[?expanded=true]
+    /// Response of GET /api/<api_version>/addresses/<address>/outputs[?expanded=true]
     OutputsForAddressExpanded {
         address: String,
         #[serde(rename = "maxResults")]
@@ -129,7 +129,7 @@ pub(crate) enum ListenerResponse {
         #[serde(rename = "outputIds")]
         output_ids: Vec<Record>,
     },
-    /// Response of GET /api/<keyspace>/outputs/<output_id>
+    /// Response of GET /api/<api_version>/outputs/<output_id>
     Output {
         #[serde(rename = "messageId")]
         message_id: String,
@@ -141,15 +141,15 @@ pub(crate) enum ListenerResponse {
         spending_transaction: Option<Value>,
         output: Value,
     },
-    /// Response of GET /api/<keyspace>/transactions/<message_id>
+    /// Response of GET /api/<api_version>/transactions/<message_id>
     Transaction(Transaction),
-    /// Response of GET /api/<keyspace>/transactions/ed25519/<address>
+    /// Response of GET /api/<api_version>/transactions/ed25519/<address>
     Transactions { transactions: Vec<Transaction> },
     TransactionHistory {
         address: String,
         transactions: Vec<Transfer>,
     },
-    /// Response of GET /api/<keyspace>/milestone/<index>
+    /// Response of GET /api/<api_version>/milestone/<index>
     Milestone {
         #[serde(rename = "index")]
         milestone_index: u32,
