@@ -4,6 +4,7 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
+use derive_more::From;
 use serde::{
     Deserialize,
     Serialize,
@@ -63,53 +64,19 @@ pub(crate) enum ListenerResponse {
         max_results: usize,
         count: usize,
         #[serde(rename = "childrenMessageIds")]
-        children_message_ids: Vec<String>,
+        children_message_ids: Vec<Expansion>,
     },
-    /// Response of GET /api/<api_version>/messages/<message_id>/children[?expanded=true]
-    MessageChildrenExpanded {
-        #[serde(rename = "messageId")]
-        message_id: String,
-        #[serde(rename = "maxResults")]
-        max_results: usize,
-        count: usize,
-        #[serde(rename = "childrenMessageIds")]
-        children_message_ids: Vec<Record>,
-    },
-    /// Response of GET /api/<api_version>/messages?<index>
-    MessagesForIndex {
-        index: String,
+    /// Response of GET /api/<api_version>/messages
+    MessagesForQuery {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        index: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tag: Option<String>,
         #[serde(rename = "maxResults")]
         max_results: usize,
         count: usize,
         #[serde(rename = "messageIds")]
-        message_ids: Vec<String>,
-    },
-    /// Response of GET /api/<api_version>/messages?<index>[&expanded=true]
-    MessagesForIndexExpanded {
-        index: String,
-        #[serde(rename = "maxResults")]
-        max_results: usize,
-        count: usize,
-        #[serde(rename = "messageIds")]
-        message_ids: Vec<Record>,
-    },
-    /// Response of GET /api/<api_version>/messages?<index>
-    MessagesForTag {
-        tag: String,
-        #[serde(rename = "maxResults")]
-        max_results: usize,
-        count: usize,
-        #[serde(rename = "messageIds")]
-        message_ids: Vec<String>,
-    },
-    /// Response of GET /api/<api_version>/messages?<index>[&expanded=true]
-    MessagesForTagExpanded {
-        tag: String,
-        #[serde(rename = "maxResults")]
-        max_results: usize,
-        count: usize,
-        #[serde(rename = "messageIds")]
-        message_ids: Vec<Record>,
+        message_ids: Vec<Expansion>,
     },
     /// Response of GET /api/<api_version>/addresses/<address>/outputs
     OutputsForAddress {
@@ -118,16 +85,7 @@ pub(crate) enum ListenerResponse {
         max_results: usize,
         count: usize,
         #[serde(rename = "outputIds")]
-        output_ids: Vec<String>,
-    },
-    /// Response of GET /api/<api_version>/addresses/<address>/outputs[?expanded=true]
-    OutputsForAddressExpanded {
-        address: String,
-        #[serde(rename = "maxResults")]
-        max_results: usize,
-        count: usize,
-        #[serde(rename = "outputIds")]
-        output_ids: Vec<Record>,
+        output_ids: Vec<Expansion>,
     },
     /// Response of GET /api/<api_version>/outputs/<output_id>
     Output {
@@ -173,6 +131,13 @@ impl IntoResponse for ListenerResponse {
         let success = SuccessBody::from(self);
         axum::Json(success).into_response()
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, From)]
+#[serde(untagged)]
+pub(crate) enum Expansion {
+    Simple(String),
+    Expanded(Record),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

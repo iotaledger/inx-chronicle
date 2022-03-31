@@ -11,10 +11,12 @@ use axum::{
     Json,
     Router,
 };
+use chrono::NaiveDateTime;
 use futures::TryStreamExt;
 use mongodb::{
     bson::{
         doc,
+        DateTime,
         Document,
     },
     options::FindOptions,
@@ -34,7 +36,12 @@ use tower_http::{
 };
 
 use super::{
-    extractors::Pagination,
+    extractors::{
+        Index,
+        Pagination,
+        Tag,
+        TimeRange,
+    },
     responses::{
         ListenerResponse,
         Record,
@@ -62,9 +69,10 @@ pub fn routes(database: Database) -> Router {
         .route("/info", get(info))
         .route("/metrics", get(metrics))
         .route("/sync", get(sync))
-        .route("/messages/:message_id", get(get_message))
-        .route("/messages/:message_id/metadata", get(get_message_metadata))
-        .route("/messages/:message_id/children", get(get_message_children))
+        .route("/:ver/messages/:message_id", get(get_message))
+        .route("/:ver/messages/:message_id/metadata", get(get_message_metadata))
+        .route("/:ver/messages/:message_id/children", get(get_message_children))
+        .route("/:ver/messages", get(get_message_query))
         .layer(Extension(database))
         .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
@@ -238,29 +246,148 @@ async fn get_message_children(
         .map(|d| MessageRecord::try_from(d))
         .collect::<Result<Vec<_>, _>>()?;
 
-    if let Some(Query(true)) = expanded {
-        Ok(ListenerResponse::MessageChildrenExpanded {
-            message_id: message_id.to_string(),
-            max_results: page_size,
-            count: messages.len(),
-            children_message_ids: messages
-                .into_iter()
-                .map(|record| Record {
-                    id: record.message_id().to_string(),
-                    inclusion_state: record.inclusion_state,
-                    milestone_index: record.milestone_index,
-                })
-                .collect(),
+    Ok(ListenerResponse::MessageChildren {
+        message_id: message_id.to_string(),
+        max_results: page_size,
+        count: messages.len(),
+        children_message_ids: messages
+            .into_iter()
+            .map(|record| {
+                if let Some(Query(true)) = expanded {
+                    Record {
+                        id: record.message_id().to_string(),
+                        inclusion_state: record.inclusion_state,
+                        milestone_index: record.milestone_index,
+                    }
+                    .into()
+                } else {
+                    record.message_id().to_string().into()
+                }
+            })
+            .collect(),
+    })
+}
+
+async fn start_milestone(database: &Database, start_timestamp: NaiveDateTime) -> anyhow::Result<i32> {
+    database
+        .collection::<Document>("messages")
+        .find(
+            doc! {"message.payload.essence.timestamp": { "$gte": DateTime::from_millis(start_timestamp.timestamp_millis()) }},
+            FindOptions::builder()
+                .sort(doc! {"milestone_index": 1})
+                .limit(1)
+                .build(),
+        )
+        .await?
+        .try_next()
+        .await?
+        .map(|mut d| {
+            d.get_document_mut("message")
+                .unwrap()
+                .get_document_mut("payload")
+                .unwrap()
+                .get_document_mut("essence")
+                .unwrap()
+                .remove("index")
+                .unwrap()
+                .as_i32()
+                .unwrap()
         })
-    } else {
-        Ok(ListenerResponse::MessageChildren {
-            message_id: message_id.to_string(),
-            max_results: page_size,
-            count: messages.len(),
-            children_message_ids: messages
-                .into_iter()
-                .map(|record| record.message_id().to_string())
-                .collect(),
+        .ok_or_else(|| anyhow::anyhow!("No milestones found in time range"))
+}
+
+async fn end_milestone(database: &Database, end_timestamp: NaiveDateTime) -> anyhow::Result<i32> {
+    database
+        .collection::<Document>("messages")
+        .find(
+            doc! {"message.payload.essence.timestamp": { "$lte": DateTime::from_millis(end_timestamp.timestamp_millis()) }},
+            FindOptions::builder()
+                .sort(doc! {"milestone_index": -1})
+                .limit(1)
+                .build(),
+        )
+        .await?
+        .try_next()
+        .await?
+        .map(|mut d| {
+            d.get_document_mut("message")
+                .unwrap()
+                .get_document_mut("payload")
+                .unwrap()
+                .get_document_mut("essence")
+                .unwrap()
+                .remove("index")
+                .unwrap()
+                .as_i32()
+                .unwrap()
         })
+        .ok_or_else(|| anyhow::anyhow!("No milestones found in time range"))
+}
+
+async fn get_message_query(
+    database: Extension<Database>,
+    index: Result<Index, ListenerError>,
+    tag: Result<Tag, ListenerError>,
+    Pagination { page_size, page }: Pagination,
+    expanded: Option<Query<bool>>,
+    TimeRange {
+        start_timestamp,
+        end_timestamp,
+    }: TimeRange,
+) -> ListenerResult {
+    let start_milestone = start_milestone(&database, start_timestamp).await?;
+    let end_milestone = end_milestone(&database, end_timestamp).await?;
+
+    let mut query = doc! { "milestone_index": { "$gt": start_milestone, "$lt": end_milestone } };
+    if let Err(ListenerError::InvalidHex) = index.as_ref() {
+        return Err(ListenerError::InvalidHex);
     }
+    if let Err(ListenerError::InvalidHex) = tag.as_ref() {
+        return Err(ListenerError::InvalidHex);
+    }
+    if let Ok(Index { index }) = index.as_ref() {
+        query.insert("message.payload.index", index);
+    }
+    if let Ok(Tag { tag }) = tag.as_ref() {
+        query.insert("message.payload.tag", tag);
+    }
+
+    let messages = database
+        .collection::<Document>("messages")
+        .find(
+            query,
+            FindOptions::builder()
+                .skip((page_size * page) as u64)
+                .sort(doc! {"milestone_index": -1})
+                .limit(page_size as i64)
+                .build(),
+        )
+        .await?
+        .try_collect::<Vec<_>>()
+        .await?
+        .into_iter()
+        .map(|d| MessageRecord::try_from(d))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(ListenerResponse::MessagesForQuery {
+        index: index.ok().map(|i| i.index),
+        tag: tag.ok().map(|i| i.tag),
+        max_results: page_size,
+        count: messages.len(),
+        message_ids: messages
+            .into_iter()
+            .map(|record| {
+                if let Some(Query(true)) = expanded {
+                    Record {
+                        id: record.message_id().to_string(),
+                        inclusion_state: record.inclusion_state,
+                        milestone_index: record.milestone_index,
+                    }
+                    .into()
+                } else {
+                    record.message_id().to_string().into()
+                }
+            })
+            .collect(),
+    })
 }

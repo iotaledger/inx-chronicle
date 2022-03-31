@@ -1,7 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::response::IntoResponse;
+use axum::{
+    extract::rejection::{
+        PathRejection,
+        QueryRejection,
+    },
+    response::IntoResponse,
+};
 use hyper::StatusCode;
 use serde::Serialize;
 use thiserror::Error;
@@ -21,9 +27,11 @@ pub enum ListenerError {
     #[error(transparent)]
     BadParse(anyhow::Error),
     #[error(transparent)]
-    PathError(anyhow::Error),
+    PathError(PathRejection),
     #[error(transparent)]
-    QueryError(anyhow::Error),
+    QueryError(QueryRejection),
+    #[error("Invalid time range!")]
+    BadTimeRange,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -32,9 +40,11 @@ impl ListenerError {
     pub fn status(&self) -> StatusCode {
         match self {
             ListenerError::NoResults | ListenerError::NotFound => StatusCode::NOT_FOUND,
-            ListenerError::IndexTooLarge | ListenerError::InvalidHex | ListenerError::BadParse(_) => {
-                StatusCode::BAD_REQUEST
-            }
+            ListenerError::IndexTooLarge
+            | ListenerError::InvalidHex
+            | ListenerError::BadParse(_)
+            | ListenerError::PathError(_)
+            | ListenerError::QueryError(_) => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
