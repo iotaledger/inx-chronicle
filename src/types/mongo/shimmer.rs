@@ -109,7 +109,7 @@ pub fn message_from_doc(mut doc: Document) -> anyhow::Result<Message> {
             .map(|p| message_id_from_bson(p))
             .collect::<Result<Vec<_>, _>>()?,
     )?)
-    .with_protocol_version(doc.get_i32("protocol_version")? as u8)
+    // .with_protocol_version(doc.get_i32("protocol_version")? as u8)
     .with_nonce_provider(doc.get_str("nonce")?.parse::<u64>()?, 0.0);
     if let Some(payload) = doc.take("payload").ok().map(|r| payload_from_bson(r)).transpose()? {
         builder = builder.with_payload(payload);
