@@ -15,7 +15,7 @@ use crate::types::LedgerInclusionState;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum ListenerResponse {
-    /// Response of GET /info
+    /// Response of GET /api/<api_version>/info
     Info {
         name: String,
         version: String,
@@ -157,7 +157,7 @@ pub(crate) enum ListenerResponse {
         message_id: String,
         timestamp: u64,
     },
-    /// Response of GET /analytics/addresses[?start_timestamp=<u32>&end_timestamp=<u32>]
+    /// Response of GET /api/<api_version>/analytics/addresses[?start_timestamp=<u32>&end_timestamp=<u32>]
     AddressAnalytics {
         #[serde(rename = "totalAddresses")]
         total_addresses: u64,

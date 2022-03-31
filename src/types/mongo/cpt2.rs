@@ -118,7 +118,7 @@ fn milestone_payload_to_bson(payload: &MilestonePayload) -> Bson {
     doc.insert("essence", milestone_essence_to_bson(&payload.essence()));
     doc.insert(
         "signatures",
-        payload.signatures().iter().map(|s| hex::encode(s)).collect::<Vec<_>>(),
+        payload.signatures().iter().map(hex::encode).collect::<Vec<_>>(),
     );
     Bson::Document(doc)
 }
@@ -264,7 +264,7 @@ fn milestone_essence_to_bson(essence: &MilestonePayloadEssence) -> Bson {
     );
     doc.insert(
         "public_keys",
-        essence.public_keys().iter().map(|p| hex::encode(p)).collect::<Vec<_>>(),
+        essence.public_keys().iter().map(hex::encode).collect::<Vec<_>>(),
     );
     doc.insert("receipt", essence.receipt().map(|p| payload_to_bson(p)));
     Bson::Document(doc)

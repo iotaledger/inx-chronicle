@@ -10,7 +10,13 @@ use std::{
     time::SystemTime,
 };
 
-use actix::prelude::*;
+use actix::{
+    Actor,
+    ActorContext,
+    Context,
+    Handler,
+    Message,
+};
 use axum::{
     http::{
         Request,

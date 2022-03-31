@@ -57,10 +57,11 @@ impl TryFrom<Document> for Message {
     type Error = anyhow::Error;
 
     fn try_from(value: Document) -> Result<Self, Self::Error> {
-        let protocol_version = value.get_i32("protocol_version")?;
+        let protocol_version = value.get_i32("protocol_version")? as u8;
         Ok(match protocol_version {
             0 => Message::Chrysalis(cpt2::message_from_doc(value)?),
-            _ => Message::Shimmer(shimmer::message_from_doc(value)?),
+            crate::shimmer::constant::PROTOCOL_VERSION => Message::Shimmer(shimmer::message_from_doc(value)?),
+            _ => anyhow::bail!("Unsupported protocol version: {}", protocol_version),
         })
     }
 }

@@ -1,7 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use actix::prelude::*;
+use actix::{
+    Actor,
+    System,
+};
 use chronicle::{
     api::{
         ChronicleAPI,
@@ -17,13 +20,8 @@ fn main() {
     dotenv::dotenv().unwrap();
     env_logger::init();
     let system = System::new();
-    let mut mongo_config = MongoConfig::default();
-    mongo_config.credential = Credential {
-        username: Some("root".to_string()),
-        password: Some("pass".to_string()),
-        ..Default::default()
-    }
-    .into();
+    let mongo_config =
+        MongoConfig::default().with_credential(Credential::default().with_username("root").with_password("pass"));
     system.block_on(async {
         let api_addr = ChronicleAPI::new(mongo_config).start();
         tokio::signal::ctrl_c().await.ok();

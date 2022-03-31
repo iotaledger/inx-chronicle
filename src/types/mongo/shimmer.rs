@@ -109,7 +109,6 @@ pub fn message_from_doc(mut doc: Document) -> anyhow::Result<Message> {
             .map(|p| message_id_from_bson(p))
             .collect::<Result<Vec<_>, _>>()?,
     )?)
-    // .with_protocol_version(doc.get_i32("protocol_version")? as u8)
     .with_nonce_provider(doc.get_str("nonce")?.parse::<u64>()?, 0.0);
     if let Some(payload) = doc.take("payload").ok().map(|r| payload_from_bson(r)).transpose()? {
         builder = builder.with_payload(payload);
@@ -178,7 +177,11 @@ fn milestone_payload_to_bson(payload: &MilestonePayload) -> Bson {
     doc.insert("essence", milestone_essence_to_bson(&payload.essence()));
     doc.insert(
         "signatures",
-        payload.signatures().map(|s| hex::encode(s)).collect::<Vec<_>>(),
+        payload
+            .signatures()
+            .iter()
+            .map(|s| to_bson(s).unwrap())
+            .collect::<Vec<_>>(),
     );
     Bson::Document(doc)
 }
@@ -189,7 +192,7 @@ fn milestone_payload_from_bson(bson: Bson) -> anyhow::Result<MilestonePayload> {
         milestone_essence_from_bson(doc.take("essence")?)?,
         doc.take_array("signatures")?
             .into_iter()
-            .map(|u| bytes_from_bson(u).and_then(|v| v.as_slice().try_into().map_err(|e| anyhow!("{}", e))))
+            .map(|u| from_bson(u).map_err(|e| anyhow!("{}", e)))
             .collect::<Result<Vec<_>, _>>()?,
     )?)
 }
@@ -321,10 +324,6 @@ fn milestone_essence_to_bson(essence: &MilestoneEssence) -> Bson {
         "next_pow_score_milestone_index",
         essence.next_pow_score_milestone_index() as i32,
     );
-    doc.insert(
-        "public_keys",
-        essence.public_keys().iter().map(|p| hex::encode(p)).collect::<Vec<_>>(),
-    );
     doc.insert("receipt", essence.receipt().map(|p| payload_to_bson(p)));
     Bson::Document(doc)
 }
@@ -343,10 +342,6 @@ fn milestone_essence_from_bson(bson: Bson) -> anyhow::Result<MilestoneEssence> {
         hex::decode(doc.get_str("merkle_proof")?)?.as_slice().try_into()?,
         doc.get_i64("next_pow_score")? as u32,
         doc.get_i32("next_pow_score_milestone_index")? as u32,
-        doc.take_array("public_keys")?
-            .into_iter()
-            .map(|p| bytes_from_bson(p).and_then(|v| v.as_slice().try_into().map_err(|e| anyhow!("{}", e))))
-            .collect::<Result<Vec<_>, _>>()?,
         doc.take("receipt").ok().map(|r| payload_from_bson(r)).transpose()?,
     )?)
 }

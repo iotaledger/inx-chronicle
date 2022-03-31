@@ -180,6 +180,119 @@ pub struct MongoConfig {
     pub write_concern: Option<WriteConcern>,
 }
 
+impl MongoConfig {
+    pub fn with_hosts(mut self, hosts: Vec<impl Into<ServerAddress>>) -> Self {
+        self.hosts = hosts.into_iter().map(Into::into).collect();
+        self
+    }
+
+    pub fn with_app_name(mut self, app_name: impl Into<String>) -> Self {
+        self.app_name.replace(app_name.into());
+        self
+    }
+
+    pub fn with_compressors(mut self, compressors: Vec<impl Into<Compressor>>) -> Self {
+        self.compressors
+            .replace(compressors.into_iter().map(Into::into).collect());
+        self
+    }
+
+    pub fn with_connect_timeout(mut self, connect_timeout: Duration) -> Self {
+        self.connect_timeout.replace(connect_timeout);
+        self
+    }
+
+    pub fn with_credential(mut self, credential: impl Into<Credential>) -> Self {
+        self.credential.replace(credential.into());
+        self
+    }
+
+    pub fn with_direct_connection(mut self, direct_connection: bool) -> Self {
+        self.direct_connection.replace(direct_connection);
+        self
+    }
+
+    pub fn with_driver_info(mut self, driver_info: impl Into<DriverInfo>) -> Self {
+        self.driver_info.replace(driver_info.into());
+        self
+    }
+
+    pub fn with_heartbeat_frequency(mut self, heartbeat_frequency: Duration) -> Self {
+        self.heartbeat_freq.replace(heartbeat_frequency);
+        self
+    }
+
+    pub fn with_local_threshold(mut self, local_threshold: Duration) -> Self {
+        self.local_threshold.replace(local_threshold);
+        self
+    }
+
+    pub fn with_max_idle_time(mut self, max_idle_time: Duration) -> Self {
+        self.max_idle_time.replace(max_idle_time);
+        self
+    }
+
+    pub fn with_max_pool_size(mut self, max_pool_size: u32) -> Self {
+        self.max_pool_size.replace(max_pool_size);
+        self
+    }
+
+    pub fn with_min_pool_size(mut self, min_pool_size: u32) -> Self {
+        self.min_pool_size.replace(min_pool_size);
+        self
+    }
+
+    pub fn with_read_concern(mut self, read_concern: impl Into<ReadConcern>) -> Self {
+        self.read_concern.replace(read_concern.into());
+        self
+    }
+
+    pub fn with_repl_set_name(mut self, repl_set_name: impl Into<String>) -> Self {
+        self.repl_set_name.replace(repl_set_name.into());
+        self
+    }
+
+    pub fn with_retry_reads(mut self, retry_reads: bool) -> Self {
+        self.retry_reads.replace(retry_reads);
+        self
+    }
+
+    pub fn with_retry_writes(mut self, retry_writes: bool) -> Self {
+        self.retry_writes.replace(retry_writes);
+        self
+    }
+
+    pub fn with_selection_criteria(mut self, selection_criteria: impl Into<ReadPreference>) -> Self {
+        self.selection_criteria.replace(selection_criteria.into());
+        self
+    }
+
+    pub fn with_server_api(mut self, server_api: impl Into<ServerApi>) -> Self {
+        self.server_api.replace(server_api.into());
+        self
+    }
+
+    pub fn with_server_selection_timeout(mut self, server_selection_timeout: Duration) -> Self {
+        self.server_selection_timeout.replace(server_selection_timeout);
+        self
+    }
+
+    pub fn with_default_database(mut self, default_database: impl Into<String>) -> Self {
+        self.default_database.replace(default_database.into());
+        self
+    }
+
+    pub fn with_tls(mut self, tls: impl Into<Tls>) -> Self {
+        self.tls.replace(tls.into());
+        self
+    }
+
+    pub fn with_write_concern(mut self, write_concern: impl Into<WriteConcern>) -> Self {
+        self.write_concern.replace(write_concern.into());
+        self
+    }
+}
+
 impl Default for MongoConfig {
     fn default() -> Self {
         Self {
@@ -274,6 +387,15 @@ impl Into<mongodb::options::ServerAddress> for ServerAddress {
     }
 }
 
+impl From<mongodb::options::ServerAddress> for ServerAddress {
+    fn from(addr: mongodb::options::ServerAddress) -> Self {
+        match addr {
+            mongodb::options::ServerAddress::Tcp { host, port } => ServerAddress::Tcp { host, port },
+            _ => panic!("Unsupported ServerAddress variant"),
+        }
+    }
+}
+
 fn default_hosts() -> Vec<ServerAddress> {
     vec![ServerAddress::default()]
 }
@@ -348,6 +470,20 @@ impl Into<mongodb::options::Compressor> for Compressor {
     }
 }
 
+impl From<mongodb::options::Compressor> for Compressor {
+    fn from(compressor: mongodb::options::Compressor) -> Self {
+        match compressor {
+            #[cfg(feature = "mongodb/zstd-compression")]
+            mongodb::options::Compressor::Zstd { level } => Compressor::Zstd { level },
+            #[cfg(feature = "mongodb/zlib-compression")]
+            mongodb::options::Compressor::Zlib { level } => Compressor::Zlib { level },
+            #[cfg(feature = "mongodb/snappy-compression")]
+            mongodb::options::Compressor::Snappy => Compressor::Snappy,
+            _ => panic!("Unsupported Compressor variant"),
+        }
+    }
+}
+
 /// Specifies whether TLS configuration should be used with the operations that the
 /// [`Client`](../struct.Client.html) performs.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -364,6 +500,15 @@ impl Into<mongodb::options::Tls> for Tls {
         match self {
             Tls::Enabled(tls_options) => mongodb::options::Tls::Enabled(tls_options.into()),
             Tls::Disabled => mongodb::options::Tls::Disabled,
+        }
+    }
+}
+
+impl From<mongodb::options::Tls> for Tls {
+    fn from(tls: mongodb::options::Tls) -> Self {
+        match tls {
+            mongodb::options::Tls::Enabled(tls_options) => Tls::Enabled(tls_options.into()),
+            mongodb::options::Tls::Disabled => Tls::Disabled,
         }
     }
 }
@@ -403,6 +548,16 @@ impl Into<mongodb::options::TlsOptions> for TlsOptions {
     }
 }
 
+impl From<mongodb::options::TlsOptions> for TlsOptions {
+    fn from(tls_options: mongodb::options::TlsOptions) -> Self {
+        TlsOptions {
+            allow_invalid_certificates: tls_options.allow_invalid_certificates,
+            ca_file_path: tls_options.ca_file_path,
+            cert_key_file_path: tls_options.cert_key_file_path,
+        }
+    }
+}
+
 /// Specifies how the driver should route a read operation to members of a replica set.
 ///
 /// If applicable, `tag_sets` can be used to target specific nodes in a replica set, and
@@ -439,6 +594,15 @@ impl Into<mongodb::options::SelectionCriteria> for ReadPreference {
     }
 }
 
+impl From<mongodb::options::SelectionCriteria> for ReadPreference {
+    fn from(selection_criteria: mongodb::options::SelectionCriteria) -> Self {
+        match selection_criteria {
+            mongodb::options::SelectionCriteria::ReadPreference(read_preference) => read_preference.into(),
+            _ => panic!("Unsupported SelectionCriteria variant"),
+        }
+    }
+}
+
 impl Into<mongodb::options::ReadPreference> for ReadPreference {
     fn into(self) -> mongodb::options::ReadPreference {
         match self {
@@ -451,6 +615,22 @@ impl Into<mongodb::options::ReadPreference> for ReadPreference {
                 mongodb::options::ReadPreference::SecondaryPreferred { options }
             }
             ReadPreference::Nearest { options } => mongodb::options::ReadPreference::Nearest { options },
+        }
+    }
+}
+
+impl From<mongodb::options::ReadPreference> for ReadPreference {
+    fn from(read_preference: mongodb::options::ReadPreference) -> Self {
+        match read_preference {
+            mongodb::options::ReadPreference::Primary => ReadPreference::Primary,
+            mongodb::options::ReadPreference::Secondary { options } => ReadPreference::Secondary { options },
+            mongodb::options::ReadPreference::PrimaryPreferred { options } => {
+                ReadPreference::PrimaryPreferred { options }
+            }
+            mongodb::options::ReadPreference::SecondaryPreferred { options } => {
+                ReadPreference::SecondaryPreferred { options }
+            }
+            mongodb::options::ReadPreference::Nearest { options } => ReadPreference::Nearest { options },
         }
     }
 }
@@ -478,6 +658,16 @@ impl Into<mongodb::options::DriverInfo> for DriverInfo {
             .version(self.version)
             .platform(self.platform)
             .build()
+    }
+}
+
+impl From<mongodb::options::DriverInfo> for DriverInfo {
+    fn from(driver_info: mongodb::options::DriverInfo) -> Self {
+        DriverInfo {
+            name: driver_info.name,
+            version: driver_info.version,
+            platform: driver_info.platform,
+        }
     }
 }
 
@@ -512,6 +702,33 @@ pub struct Credential {
     pub mechanism_properties: Option<Document>,
 }
 
+impl Credential {
+    pub fn with_username(mut self, username: impl Into<String>) -> Self {
+        self.username.replace(username.into());
+        self
+    }
+
+    pub fn with_source(mut self, source: impl Into<String>) -> Self {
+        self.source.replace(source.into());
+        self
+    }
+
+    pub fn with_password(mut self, password: impl Into<String>) -> Self {
+        self.password.replace(password.into());
+        self
+    }
+
+    pub fn with_mechanism(mut self, mechanism: impl Into<AuthMechanism>) -> Self {
+        self.mechanism.replace(mechanism.into());
+        self
+    }
+
+    pub fn with_mechanism_properties(mut self, properties: impl Into<Document>) -> Self {
+        self.mechanism_properties.replace(properties.into());
+        self
+    }
+}
+
 impl Into<mongodb::options::Credential> for Credential {
     fn into(self) -> mongodb::options::Credential {
         mongodb::options::Credential::builder()
@@ -521,6 +738,18 @@ impl Into<mongodb::options::Credential> for Credential {
             .mechanism(self.mechanism.map(Into::into))
             .mechanism_properties(self.mechanism_properties)
             .build()
+    }
+}
+
+impl From<mongodb::options::Credential> for Credential {
+    fn from(credential: mongodb::options::Credential) -> Self {
+        Credential {
+            username: credential.username,
+            source: credential.source,
+            password: credential.password,
+            mechanism: credential.mechanism.map(Into::into),
+            mechanism_properties: credential.mechanism_properties,
+        }
     }
 }
 
@@ -592,6 +821,22 @@ impl Into<mongodb::options::AuthMechanism> for AuthMechanism {
                     }
                 }
             }
+        }
+    }
+}
+
+impl From<mongodb::options::AuthMechanism> for AuthMechanism {
+    fn from(mechanism: mongodb::options::AuthMechanism) -> Self {
+        match mechanism {
+            mongodb::options::AuthMechanism::MongoDbCr => AuthMechanism::MongoDbCr,
+            mongodb::options::AuthMechanism::ScramSha1 => AuthMechanism::ScramSha1,
+            mongodb::options::AuthMechanism::ScramSha256 => AuthMechanism::ScramSha256,
+            mongodb::options::AuthMechanism::MongoDbX509 => AuthMechanism::MongoDbX509,
+            mongodb::options::AuthMechanism::Gssapi => AuthMechanism::Gssapi,
+            mongodb::options::AuthMechanism::Plain => AuthMechanism::Plain,
+            #[cfg(feature = "mongodb/aws-auth")]
+            mongodb::options::AuthMechanism::MongoDbAws => AuthMechanism::MongoDbAws,
+            _ => panic!("Unsupported authentication mechanism"),
         }
     }
 }
