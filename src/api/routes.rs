@@ -1,12 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
-
 use axum::{
     extract::{
         Extension,
-        Path,
+        Query,
     },
     http::Method,
     routing::*,
@@ -36,7 +34,11 @@ use tower_http::{
 };
 
 use super::{
-    responses::ListenerResponse,
+    extractors::Pagination,
+    responses::{
+        ListenerResponse,
+        Record,
+    },
     ListenerError,
     MetricsLayer,
     REGISTRY,
@@ -61,6 +63,8 @@ pub fn routes(database: Database) -> Router {
         .route("/metrics", get(metrics))
         .route("/sync", get(sync))
         .route("/messages/:message_id", get(get_message))
+        .route("/messages/:message_id/metadata", get(get_message_metadata))
+        .route("/messages/:message_id/children", get(get_message_children))
         .layer(Extension(database))
         .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
@@ -161,12 +165,11 @@ async fn sync(database: Extension<Database>) -> Result<Json<SyncData>, ListenerE
     Ok(Json(sync_data))
 }
 
-async fn get_message(database: Extension<Database>, Path(message_id): Path<String>) -> ListenerResult {
-    MessageId::from_str(&message_id).map_err(|e| ListenerError::BadParse(e.into()))?;
+async fn get_message(database: Extension<Database>, message_id: MessageId) -> ListenerResult {
     let rec = MessageRecord::try_from(
         database
             .collection::<Document>("messages")
-            .find_one(doc! {"message_id": &message_id}, None)
+            .find_one(doc! {"message_id": &message_id.to_string()}, None)
             .await?
             .ok_or_else(|| ListenerError::NoResults)?,
     )?;
@@ -188,4 +191,76 @@ async fn get_message(database: Extension<Database>, Path(message_id): Path<Strin
         .map_err(|e| ListenerError::Other(e.into()))?,
         nonce: rec.nonce(),
     })
+}
+
+async fn get_message_metadata(database: Extension<Database>, message_id: MessageId) -> ListenerResult {
+    let rec = MessageRecord::try_from(
+        database
+            .collection::<Document>("messages")
+            .find_one(doc! {"message_id": &message_id.to_string()}, None)
+            .await?
+            .ok_or_else(|| ListenerError::NoResults)?,
+    )?;
+
+    Ok(ListenerResponse::MessageMetadata {
+        message_id: rec.message_id().to_string(),
+        parent_message_ids: rec.message.parents().map(|id| id.to_string()).collect(),
+        is_solid: rec.inclusion_state.is_some(),
+        referenced_by_milestone_index: rec.inclusion_state.and(rec.milestone_index),
+        milestone_index: rec.inclusion_state.and(rec.milestone_index),
+        should_promote: Some(rec.inclusion_state.is_none()),
+        should_reattach: Some(rec.inclusion_state.is_none()),
+        ledger_inclusion_state: rec.inclusion_state.map(Into::into),
+        conflict_reason: rec.conflict_reason().map(|c| *c as u8),
+    })
+}
+
+async fn get_message_children(
+    database: Extension<Database>,
+    message_id: MessageId,
+    Pagination { page_size, page }: Pagination,
+    expanded: Option<Query<bool>>,
+) -> ListenerResult {
+    let messages = database
+        .collection::<Document>("messages")
+        .find(
+            doc! {"message.parents": &message_id.to_string()},
+            FindOptions::builder()
+                .skip((page_size * page) as u64)
+                .sort(doc! {"milestone_index": -1})
+                .limit(page_size as i64)
+                .build(),
+        )
+        .await?
+        .try_collect::<Vec<_>>()
+        .await?
+        .into_iter()
+        .map(|d| MessageRecord::try_from(d))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if let Some(Query(true)) = expanded {
+        Ok(ListenerResponse::MessageChildrenExpanded {
+            message_id: message_id.to_string(),
+            max_results: page_size,
+            count: messages.len(),
+            children_message_ids: messages
+                .into_iter()
+                .map(|record| Record {
+                    id: record.message_id().to_string(),
+                    inclusion_state: record.inclusion_state,
+                    milestone_index: record.milestone_index,
+                })
+                .collect(),
+        })
+    } else {
+        Ok(ListenerResponse::MessageChildren {
+            message_id: message_id.to_string(),
+            max_results: page_size,
+            count: messages.len(),
+            children_message_ids: messages
+                .into_iter()
+                .map(|record| record.message_id().to_string())
+                .collect(),
+        })
+    }
 }

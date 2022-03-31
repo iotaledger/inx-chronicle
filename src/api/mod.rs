@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod error;
+mod extractors;
 mod responses;
 mod routes;
 

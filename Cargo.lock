@@ -422,6 +422,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "anyhow",
+ "async-trait",
  "axum",
  "bee-message 0.1.6",
  "bee-message 0.2.0",

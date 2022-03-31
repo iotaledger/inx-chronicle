@@ -21,6 +21,10 @@ pub enum ListenerError {
     #[error(transparent)]
     BadParse(anyhow::Error),
     #[error(transparent)]
+    PathError(anyhow::Error),
+    #[error(transparent)]
+    QueryError(anyhow::Error),
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
