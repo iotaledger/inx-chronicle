@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{
-    extract::rejection::{
-        PathRejection,
-        QueryRejection,
-    },
+    extract::rejection::QueryRejection,
     response::IntoResponse,
 };
 use hyper::StatusCode;
@@ -27,8 +24,6 @@ pub enum ListenerError {
     #[error(transparent)]
     BadParse(anyhow::Error),
     #[error(transparent)]
-    PathError(PathRejection),
-    #[error(transparent)]
     QueryError(QueryRejection),
     #[error("Invalid time range!")]
     BadTimeRange,
@@ -43,7 +38,6 @@ impl ListenerError {
             ListenerError::IndexTooLarge
             | ListenerError::InvalidHex
             | ListenerError::BadParse(_)
-            | ListenerError::PathError(_)
             | ListenerError::QueryError(_) => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -56,6 +50,7 @@ impl ListenerError {
 
 impl IntoResponse for ListenerError {
     fn into_response(self) -> axum::response::Response {
+        log::error!("{:?}", self);
         let err = ErrorBody::from(self);
         match serde_json::to_string(&err) {
             Ok(json) => axum::response::Response::builder()

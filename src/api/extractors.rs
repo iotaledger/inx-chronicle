@@ -1,15 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    collections::HashMap,
-    str::FromStr,
-};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use axum::extract::{
     FromRequest,
-    Path,
     Query,
 };
 use chrono::{
@@ -17,21 +13,19 @@ use chrono::{
     NaiveDateTime,
 };
 use hex::FromHex;
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::error::ListenerError;
-use crate::types::message::MessageId;
 
-#[async_trait]
-impl<B: Send> FromRequest<B> for MessageId {
-    type Rejection = ListenerError;
-
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Path(message_id) = Path::<String>::from_request(req)
-            .await
-            .map_err(|e| ListenerError::PathError(e))?;
-        Ok(MessageId::from_str(&message_id).map_err(|e| ListenerError::BadParse(e.into()))?)
-    }
+#[derive(Copy, Clone, Deserialize)]
+pub enum APIVersion {
+    #[serde(rename = "v1")]
+    V1,
+    #[serde(rename = "v2")]
+    V2,
 }
 
 #[derive(Copy, Clone, Deserialize)]
@@ -62,59 +56,47 @@ impl<B: Send> FromRequest<B> for Pagination {
     }
 }
 
-#[derive(Clone, Deserialize)]
-pub struct Index {
-    pub index: String,
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MessagesQuery {
+    pub index: Option<String>,
+    pub tag: Option<String>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for Index {
+impl<B: Send> FromRequest<B> for MessagesQuery {
     type Rejection = ListenerError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut index) = Query::<Index>::from_request(req)
+        let Query(MessagesQuery { mut index, mut tag }) = Query::<MessagesQuery>::from_request(req)
             .await
             .map_err(|e| ListenerError::QueryError(e))?;
-        let query = req.uri().query().unwrap_or_default();
-        let query =
-            serde_urlencoded::from_str::<HashMap<String, String>>(query).map_err(|e| ListenerError::Other(e.into()))?;
-        let utf8 = query.get("utf8").map(|s| s.as_str());
-        if let Some("true") = utf8 {
-            index.index = hex::encode(index.index);
-        }
-        let index_bytes = Vec::<u8>::from_hex(&index.index).map_err(|_| ListenerError::InvalidHex)?;
-        if index_bytes.len() > 64 {
-            return Err(ListenerError::IndexTooLarge);
-        }
-        Ok(index)
-    }
-}
+        if index.is_some() || tag.is_some() {
+            let query = req.uri().query().unwrap_or_default();
+            let query = serde_urlencoded::from_str::<HashMap<String, String>>(query)
+                .map_err(|e| ListenerError::Other(e.into()))?;
+            let utf8 = query.get("utf8").map(|s| s.as_str());
 
-#[derive(Clone, Deserialize)]
-pub struct Tag {
-    pub tag: String,
-}
-
-#[async_trait]
-impl<B: Send> FromRequest<B> for Tag {
-    type Rejection = ListenerError;
-
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut tag) = Query::<Tag>::from_request(req)
-            .await
-            .map_err(|e| ListenerError::QueryError(e))?;
-        let query = req.uri().query().unwrap_or_default();
-        let query =
-            serde_urlencoded::from_str::<HashMap<String, String>>(query).map_err(|e| ListenerError::Other(e.into()))?;
-        let utf8 = query.get("utf8").map(|s| s.as_str());
-        if let Some("true") = utf8 {
-            tag.tag = hex::encode(tag.tag);
+            if let Some(index) = index.as_mut() {
+                if let Some("true") = utf8 {
+                    *index = hex::encode(&*index);
+                }
+                let index_bytes = Vec::<u8>::from_hex(index).map_err(|_| ListenerError::InvalidHex)?;
+                if index_bytes.len() > 64 {
+                    return Err(ListenerError::IndexTooLarge);
+                }
+            }
+            if let Some(tag) = tag.as_mut() {
+                if let Some("true") = utf8 {
+                    *tag = hex::encode(&*tag);
+                }
+                let tag_bytes = Vec::<u8>::from_hex(tag).map_err(|_| ListenerError::InvalidHex)?;
+                if tag_bytes.len() > 64 {
+                    return Err(ListenerError::TagTooLarge);
+                }
+            }
         }
-        let tag_bytes = Vec::<u8>::from_hex(&tag.tag).map_err(|_| ListenerError::InvalidHex)?;
-        if tag_bytes.len() > 64 {
-            return Err(ListenerError::IndexTooLarge);
-        }
-        Ok(tag)
+        Ok(MessagesQuery { index, tag })
     }
 }
 
@@ -154,5 +136,88 @@ impl<B: Send> FromRequest<B> for TimeRange {
             return Err(ListenerError::BadTimeRange);
         }
         Ok(time_range)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OutputsQuery {
+    pub address: Option<String>,
+    #[serde(rename = "requiresDustReturn")]
+    pub requires_dust_return: bool,
+    pub sender: Option<String>,
+    pub tag: Option<String>,
+    pub included: bool,
+}
+
+impl Default for OutputsQuery {
+    fn default() -> Self {
+        Self {
+            address: None,
+            requires_dust_return: false,
+            sender: None,
+            tag: None,
+            included: true,
+        }
+    }
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for OutputsQuery {
+    type Rejection = ListenerError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<OutputsQuery>::from_request(req)
+            .await
+            .map_err(|e| ListenerError::QueryError(e))?;
+        Ok(query)
+    }
+}
+
+#[derive(Copy, Clone, Deserialize)]
+#[serde(default)]
+pub struct Included {
+    pub included: bool,
+}
+
+impl Default for Included {
+    fn default() -> Self {
+        Self { included: true }
+    }
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for Included {
+    type Rejection = ListenerError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(included) = Query::<Included>::from_request(req)
+            .await
+            .map_err(|e| ListenerError::QueryError(e))?;
+        Ok(included)
+    }
+}
+
+#[derive(Copy, Clone, Deserialize)]
+#[serde(default)]
+pub struct Expanded {
+    pub expanded: bool,
+}
+
+impl Default for Expanded {
+    fn default() -> Self {
+        Self { expanded: false }
+    }
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for Expanded {
+    type Rejection = ListenerError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(expanded) = Query::<Expanded>::from_request(req)
+            .await
+            .map_err(|e| ListenerError::QueryError(e))?;
+        Ok(expanded)
     }
 }

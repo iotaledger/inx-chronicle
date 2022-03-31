@@ -11,6 +11,10 @@ use serde::{
 };
 use serde_json::Value;
 
+use super::extractors::{
+    MessagesQuery,
+    OutputsQuery,
+};
 use crate::types::LedgerInclusionState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -68,10 +72,7 @@ pub(crate) enum ListenerResponse {
     },
     /// Response of GET /api/<api_version>/messages
     MessagesForQuery {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        index: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        tag: Option<String>,
+        query: MessagesQuery,
         #[serde(rename = "maxResults")]
         max_results: usize,
         count: usize,
@@ -79,8 +80,8 @@ pub(crate) enum ListenerResponse {
         message_ids: Vec<Expansion>,
     },
     /// Response of GET /api/<api_version>/addresses/<address>/outputs
-    OutputsForAddress {
-        address: String,
+    OutputsForQuery {
+        query: OutputsQuery,
         #[serde(rename = "maxResults")]
         max_results: usize,
         count: usize,

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod message;
-mod mongo;
+pub mod mongo;
 pub mod sync;
 
 use anyhow::*;
