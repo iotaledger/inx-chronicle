@@ -291,6 +291,10 @@ impl MongoConfig {
         self.write_concern.replace(write_concern.into());
         self
     }
+
+    pub fn build(self) -> ClientOptions {
+        self.into()
+    }
 }
 
 impl Default for MongoConfig {
