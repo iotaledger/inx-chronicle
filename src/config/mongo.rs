@@ -22,7 +22,7 @@ use serde::{
     Serialize,
 };
 
-/// A clone of the `ClientOptions` structure from the `mongodb` crate
+/// A clone of the [`ClientOptions`] structure from the [`mongodb`] crate
 /// which can be Serialized.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MongoConfig {
@@ -180,6 +180,7 @@ pub struct MongoConfig {
     pub write_concern: Option<WriteConcern>,
 }
 
+#[allow(missing_docs)]
 impl MongoConfig {
     pub fn with_hosts(mut self, hosts: Vec<impl Into<ServerAddress>>) -> Self {
         self.hosts = hosts.into_iter().map(Into::into).collect();
@@ -247,7 +248,7 @@ impl MongoConfig {
         self
     }
 
-    pub fn with_repl_set_name(mut self, repl_set_name: impl Into<String>) -> Self {
+    pub fn with_replica_set_name(mut self, repl_set_name: impl Into<String>) -> Self {
         self.repl_set_name.replace(repl_set_name.into());
         self
     }
@@ -489,7 +490,7 @@ impl From<mongodb::options::Compressor> for Compressor {
 }
 
 /// Specifies whether TLS configuration should be used with the operations that the
-/// [`Client`](../struct.Client.html) performs.
+/// [`Client`](mongodb::Client) performs.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Tls {
     /// Enable TLS with the specified options.
@@ -517,10 +518,11 @@ impl From<mongodb::options::Tls> for Tls {
     }
 }
 
+/// Specifies the TLS configuration that the [`Client`](mongodb::Client) should use.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[allow(missing_docs)]
 pub struct TlsOptions {
-    /// Whether or not the [`Client`](../struct.Client.html) should return an error if the server
+    /// Whether or not the [`Client`](mongodb::Client) should return an error if the server
     /// presents an invalid certificate. This setting should _not_ be set to `true` in
     /// production; it should only be used for testing.
     ///
@@ -528,18 +530,36 @@ pub struct TlsOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_invalid_certificates: Option<bool>,
 
-    /// The path to the CA file that the [`Client`](../struct.Client.html) should use for TLS. If
+    /// The path to the CA file that the [`Client`](mongodb::Client) should use for TLS. If
     /// none is specified, then the driver will use the Mozilla root certificates from the
     /// `webpki-roots` crate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ca_file_path: Option<PathBuf>,
 
-    /// The path to the certificate file that the [`Client`](../struct.Client.html) should present
+    /// The path to the certificate file that the [`Client`](mongodb::Client) should present
     /// to the server to verify its identify. If none is specified, then the
-    /// [`Client`](../struct.Client.html) will not attempt to verify its identity to the
+    /// [`Client`](mongodb::Client) will not attempt to verify its identity to the
     /// server.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cert_key_file_path: Option<PathBuf>,
+}
+
+#[allow(missing_docs)]
+impl TlsOptions {
+    pub fn with_allow_invalid_certificates(mut self, allow_invalid_certificates: bool) -> Self {
+        self.allow_invalid_certificates = Some(allow_invalid_certificates);
+        self
+    }
+
+    pub fn with_ca_file_path(mut self, ca_file_path: PathBuf) -> Self {
+        self.ca_file_path = Some(ca_file_path);
+        self
+    }
+
+    pub fn with_cert_key_file_path(mut self, cert_key_file_path: PathBuf) -> Self {
+        self.cert_key_file_path = Some(cert_key_file_path);
+        self
+    }
 }
 
 impl From<TlsOptions> for mongodb::options::TlsOptions {
@@ -651,6 +671,27 @@ pub struct DriverInfo {
     pub platform: Option<String>,
 }
 
+#[allow(missing_docs)]
+impl DriverInfo {
+    pub fn named(name: String) -> Self {
+        Self {
+            name,
+            version: None,
+            platform: None,
+        }
+    }
+
+    pub fn with_version(mut self, version: String) -> Self {
+        self.version = Some(version);
+        self
+    }
+
+    pub fn with_platform(mut self, platform: String) -> Self {
+        self.platform = Some(platform);
+        self
+    }
+}
+
 impl From<DriverInfo> for mongodb::options::DriverInfo {
     fn from(driver_info: DriverInfo) -> Self {
         Self::builder()
@@ -702,6 +743,7 @@ pub struct Credential {
     pub mechanism_properties: Option<Document>,
 }
 
+#[allow(missing_docs)]
 impl Credential {
     pub fn with_username(mut self, username: impl Into<String>) -> Self {
         self.username.replace(username.into());
