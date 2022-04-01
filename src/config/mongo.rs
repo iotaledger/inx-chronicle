@@ -326,32 +326,32 @@ impl Default for MongoConfig {
     }
 }
 
-impl Into<ClientOptions> for MongoConfig {
-    fn into(self) -> ClientOptions {
-        let builder = ClientOptions::builder()
-            .hosts(self.hosts.into_iter().map(Into::into).collect::<Vec<_>>())
-            .app_name(self.app_name)
-            .compressors(self.compressors.map(|v| v.into_iter().map(Into::into).collect()))
-            .connect_timeout(self.connect_timeout)
-            .credential(self.credential.map(Into::into))
-            .direct_connection(self.direct_connection)
-            .driver_info(self.driver_info.map(Into::into))
-            .heartbeat_freq(self.heartbeat_freq)
-            .local_threshold(self.local_threshold)
-            .max_idle_time(self.max_idle_time)
-            .max_pool_size(self.max_pool_size)
-            .min_pool_size(self.min_pool_size)
-            .read_concern(self.read_concern)
-            .repl_set_name(self.repl_set_name)
-            .retry_reads(self.retry_reads)
-            .retry_writes(self.retry_writes)
-            .selection_criteria(self.selection_criteria.map(Into::into))
-            .server_api(self.server_api)
-            .server_selection_timeout(self.server_selection_timeout)
-            .default_database(self.default_database)
-            .tls(self.tls.map(Into::into))
-            .write_concern(self.write_concern);
-        builder.build()
+impl From<MongoConfig> for ClientOptions {
+    fn from(config: MongoConfig) -> Self {
+        Self::builder()
+            .hosts(config.hosts.into_iter().map(Into::into).collect::<Vec<_>>())
+            .app_name(config.app_name)
+            .compressors(config.compressors.map(|v| v.into_iter().map(Into::into).collect()))
+            .connect_timeout(config.connect_timeout)
+            .credential(config.credential.map(Into::into))
+            .direct_connection(config.direct_connection)
+            .driver_info(config.driver_info.map(Into::into))
+            .heartbeat_freq(config.heartbeat_freq)
+            .local_threshold(config.local_threshold)
+            .max_idle_time(config.max_idle_time)
+            .max_pool_size(config.max_pool_size)
+            .min_pool_size(config.min_pool_size)
+            .read_concern(config.read_concern)
+            .repl_set_name(config.repl_set_name)
+            .retry_reads(config.retry_reads)
+            .retry_writes(config.retry_writes)
+            .selection_criteria(config.selection_criteria.map(Into::into))
+            .server_api(config.server_api)
+            .server_selection_timeout(config.server_selection_timeout)
+            .default_database(config.default_database)
+            .tls(config.tls.map(Into::into))
+            .write_concern(config.write_concern)
+            .build()
     }
 }
 
@@ -383,10 +383,10 @@ impl Default for ServerAddress {
     }
 }
 
-impl Into<mongodb::options::ServerAddress> for ServerAddress {
-    fn into(self) -> mongodb::options::ServerAddress {
-        match self {
-            ServerAddress::Tcp { host, port } => mongodb::options::ServerAddress::Tcp { host, port },
+impl From<ServerAddress> for mongodb::options::ServerAddress {
+    fn from(address: ServerAddress) -> Self {
+        match address {
+            ServerAddress::Tcp { host, port } => Self::Tcp { host, port },
         }
     }
 }
@@ -430,9 +430,9 @@ pub enum Compressor {
     Snappy,
 }
 
-impl Into<mongodb::options::Compressor> for Compressor {
-    fn into(self) -> mongodb::options::Compressor {
-        match self {
+impl From<Compressor> for mongodb::options::Compressor {
+    fn from(compressor: Compressor) -> Self {
+        match compressor {
             Compressor::Zstd {
                 #[cfg(feature = "mongodb/zstd-compression")]
                 level,
@@ -441,7 +441,7 @@ impl Into<mongodb::options::Compressor> for Compressor {
             } => {
                 cfg_if! {
                     if #[cfg(feature = "mongodb/zstd-compression")] {
-                        mongodb::options::Compressor::Zstd { level }
+                        Self::Zstd { level }
                     } else {
                         panic!("mongodb/zstd-compression feature flag not enabled")
                     }
@@ -455,7 +455,7 @@ impl Into<mongodb::options::Compressor> for Compressor {
             } => {
                 cfg_if! {
                     if #[cfg(feature = "mongodb/zlib-compression")] {
-                        mongodb::options::Compressor::Zlib { level }
+                        Self::Zlib { level }
                     } else {
                         panic!("mongodb/zlib-compression feature flag not enabled")
                     }
@@ -464,7 +464,7 @@ impl Into<mongodb::options::Compressor> for Compressor {
             Compressor::Snappy => {
                 cfg_if! {
                     if #[cfg(feature = "mongodb/snappy-compression")] {
-                        mongodb::options::Compressor::Snappy
+                        Self::Snappy
                     } else {
                         panic!("mongodb/snappy-compression feature flag not enabled")
                     }
@@ -499,11 +499,11 @@ pub enum Tls {
     Disabled,
 }
 
-impl Into<mongodb::options::Tls> for Tls {
-    fn into(self) -> mongodb::options::Tls {
-        match self {
-            Tls::Enabled(tls_options) => mongodb::options::Tls::Enabled(tls_options.into()),
-            Tls::Disabled => mongodb::options::Tls::Disabled,
+impl From<Tls> for mongodb::options::Tls {
+    fn from(tls: Tls) -> Self {
+        match tls {
+            Tls::Enabled(tls_options) => Self::Enabled(tls_options.into()),
+            Tls::Disabled => Self::Disabled,
         }
     }
 }
@@ -542,12 +542,12 @@ pub struct TlsOptions {
     pub cert_key_file_path: Option<PathBuf>,
 }
 
-impl Into<mongodb::options::TlsOptions> for TlsOptions {
-    fn into(self) -> mongodb::options::TlsOptions {
-        mongodb::options::TlsOptions::builder()
-            .allow_invalid_certificates(self.allow_invalid_certificates)
-            .ca_file_path(self.ca_file_path)
-            .cert_key_file_path(self.cert_key_file_path)
+impl From<TlsOptions> for mongodb::options::TlsOptions {
+    fn from(tls_options: TlsOptions) -> Self {
+        Self::builder()
+            .allow_invalid_certificates(tls_options.allow_invalid_certificates)
+            .ca_file_path(tls_options.ca_file_path)
+            .cert_key_file_path(tls_options.cert_key_file_path)
             .build()
     }
 }
@@ -592,9 +592,9 @@ pub enum ReadPreference {
     Nearest { options: ReadPreferenceOptions },
 }
 
-impl Into<mongodb::options::SelectionCriteria> for ReadPreference {
-    fn into(self) -> mongodb::options::SelectionCriteria {
-        mongodb::options::SelectionCriteria::ReadPreference(self.into())
+impl From<ReadPreference> for mongodb::options::SelectionCriteria {
+    fn from(read_preference: ReadPreference) -> Self {
+        Self::ReadPreference(read_preference.into())
     }
 }
 
@@ -607,18 +607,14 @@ impl From<mongodb::options::SelectionCriteria> for ReadPreference {
     }
 }
 
-impl Into<mongodb::options::ReadPreference> for ReadPreference {
-    fn into(self) -> mongodb::options::ReadPreference {
-        match self {
-            ReadPreference::Primary => mongodb::options::ReadPreference::Primary,
-            ReadPreference::Secondary { options } => mongodb::options::ReadPreference::Secondary { options },
-            ReadPreference::PrimaryPreferred { options } => {
-                mongodb::options::ReadPreference::PrimaryPreferred { options }
-            }
-            ReadPreference::SecondaryPreferred { options } => {
-                mongodb::options::ReadPreference::SecondaryPreferred { options }
-            }
-            ReadPreference::Nearest { options } => mongodb::options::ReadPreference::Nearest { options },
+impl From<ReadPreference> for mongodb::options::ReadPreference {
+    fn from(read_preference: ReadPreference) -> Self {
+        match read_preference {
+            ReadPreference::Primary => Self::Primary,
+            ReadPreference::Secondary { options } => Self::Secondary { options },
+            ReadPreference::PrimaryPreferred { options } => Self::PrimaryPreferred { options },
+            ReadPreference::SecondaryPreferred { options } => Self::SecondaryPreferred { options },
+            ReadPreference::Nearest { options } => Self::Nearest { options },
         }
     }
 }
@@ -655,12 +651,12 @@ pub struct DriverInfo {
     pub platform: Option<String>,
 }
 
-impl Into<mongodb::options::DriverInfo> for DriverInfo {
-    fn into(self) -> mongodb::options::DriverInfo {
-        mongodb::options::DriverInfo::builder()
-            .name(self.name)
-            .version(self.version)
-            .platform(self.platform)
+impl From<DriverInfo> for mongodb::options::DriverInfo {
+    fn from(driver_info: DriverInfo) -> Self {
+        Self::builder()
+            .name(driver_info.name)
+            .version(driver_info.version)
+            .platform(driver_info.platform)
             .build()
     }
 }
@@ -733,14 +729,14 @@ impl Credential {
     }
 }
 
-impl Into<mongodb::options::Credential> for Credential {
-    fn into(self) -> mongodb::options::Credential {
-        mongodb::options::Credential::builder()
-            .username(self.username)
-            .source(self.source)
-            .password(self.password)
-            .mechanism(self.mechanism.map(Into::into))
-            .mechanism_properties(self.mechanism_properties)
+impl From<Credential> for mongodb::options::Credential {
+    fn from(credential: Credential) -> Self {
+        Self::builder()
+            .username(credential.username)
+            .source(credential.source)
+            .password(credential.password)
+            .mechanism(credential.mechanism.map(Into::into))
+            .mechanism_properties(credential.mechanism_properties)
             .build()
     }
 }
@@ -807,19 +803,19 @@ pub enum AuthMechanism {
     MongoDbAws,
 }
 
-impl Into<mongodb::options::AuthMechanism> for AuthMechanism {
-    fn into(self) -> mongodb::options::AuthMechanism {
-        match self {
-            AuthMechanism::MongoDbCr => mongodb::options::AuthMechanism::MongoDbCr,
-            AuthMechanism::ScramSha1 => mongodb::options::AuthMechanism::ScramSha1,
-            AuthMechanism::ScramSha256 => mongodb::options::AuthMechanism::ScramSha256,
-            AuthMechanism::MongoDbX509 => mongodb::options::AuthMechanism::MongoDbX509,
-            AuthMechanism::Gssapi => mongodb::options::AuthMechanism::Gssapi,
-            AuthMechanism::Plain => mongodb::options::AuthMechanism::Plain,
+impl From<AuthMechanism> for mongodb::options::AuthMechanism {
+    fn from(mechanism: AuthMechanism) -> Self {
+        match mechanism {
+            AuthMechanism::MongoDbCr => Self::MongoDbCr,
+            AuthMechanism::ScramSha1 => Self::ScramSha1,
+            AuthMechanism::ScramSha256 => Self::ScramSha256,
+            AuthMechanism::MongoDbX509 => Self::MongoDbX509,
+            AuthMechanism::Gssapi => Self::Gssapi,
+            AuthMechanism::Plain => Self::Plain,
             AuthMechanism::MongoDbAws => {
                 cfg_if! {
                     if #[cfg(feature = "mongodb/aws-auth")] {
-                        mongodb::options::AuthMechanism::MongoDbAws
+                        Self::MongoDbAws
                     } else {
                         panic!("mongodb/aws-auth feature flag not enabled")
                     }

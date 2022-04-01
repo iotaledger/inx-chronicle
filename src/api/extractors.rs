@@ -51,7 +51,7 @@ impl<B: Send> FromRequest<B> for Pagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(pagination) = Query::<Pagination>::from_request(req)
             .await
-            .map_err(|e| ListenerError::QueryError(e))?;
+            .map_err(ListenerError::QueryError)?;
         Ok(pagination)
     }
 }
@@ -70,7 +70,7 @@ impl<B: Send> FromRequest<B> for MessagesQuery {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(MessagesQuery { mut index, mut tag }) = Query::<MessagesQuery>::from_request(req)
             .await
-            .map_err(|e| ListenerError::QueryError(e))?;
+            .map_err(ListenerError::QueryError)?;
         if index.is_some() || tag.is_some() {
             let query = req.uri().query().unwrap_or_default();
             let query = serde_urlencoded::from_str::<HashMap<String, String>>(query)
@@ -123,7 +123,7 @@ impl<B: Send> FromRequest<B> for TimeRange {
             end_timestamp,
         }) = Query::<TimeRangeQuery>::from_request(req)
             .await
-            .map_err(|e| ListenerError::QueryError(e))?;
+            .map_err(ListenerError::QueryError)?;
         let time_range = TimeRange {
             start_timestamp: start_timestamp
                 .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
@@ -134,7 +134,7 @@ impl<B: Send> FromRequest<B> for TimeRange {
                 .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
                 .transpose()
                 .map_err(|e| ListenerError::BadParse(e.into()))?
-                .unwrap_or_else(|| OffsetDateTime::now_utc()),
+                .unwrap_or_else(OffsetDateTime::now_utc),
         };
         if time_range.end_timestamp < time_range.start_timestamp {
             return Err(ListenerError::BadTimeRange);
@@ -173,7 +173,7 @@ impl<B: Send> FromRequest<B> for OutputsQuery {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<OutputsQuery>::from_request(req)
             .await
-            .map_err(|e| ListenerError::QueryError(e))?;
+            .map_err(ListenerError::QueryError)?;
         Ok(query)
     }
 }
@@ -197,21 +197,15 @@ impl<B: Send> FromRequest<B> for Included {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(included) = Query::<Included>::from_request(req)
             .await
-            .map_err(|e| ListenerError::QueryError(e))?;
+            .map_err(ListenerError::QueryError)?;
         Ok(included)
     }
 }
 
-#[derive(Copy, Clone, Deserialize)]
+#[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Expanded {
     pub expanded: bool,
-}
-
-impl Default for Expanded {
-    fn default() -> Self {
-        Self { expanded: false }
-    }
 }
 
 #[async_trait]
@@ -221,7 +215,7 @@ impl<B: Send> FromRequest<B> for Expanded {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(expanded) = Query::<Expanded>::from_request(req)
             .await
-            .map_err(|e| ListenerError::QueryError(e))?;
+            .map_err(ListenerError::QueryError)?;
         Ok(expanded)
     }
 }

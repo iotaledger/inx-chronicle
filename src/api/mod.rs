@@ -266,8 +266,8 @@ where
                 RESPONSE_TIME_COLLECTOR
                     .with_label_values(&[&format!("{} {}", this.method, this.uri)])
                     .observe(ms);
-                match res.as_ref() {
-                    Ok(res) => match res.status().as_u16() {
+                if let Ok(res) = res.as_ref() {
+                    match res.status().as_u16() {
                         500..=599 => RESPONSE_CODE_COLLECTOR
                             .with_label_values(&[res.status().as_str(), "500"])
                             .inc(),
@@ -284,10 +284,9 @@ where
                             .with_label_values(&[res.status().as_str(), "100"])
                             .inc(),
                         _ => (),
-                    },
-                    Err(_) => (),
+                    }
                 }
-                return Poll::Ready(res);
+                Poll::Ready(res)
             }
             p => p,
         }

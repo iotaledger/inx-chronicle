@@ -77,14 +77,14 @@ impl Message {
 impl std::convert::TryFrom<crate::cpt2::types::dtos::MessageDto> for Message {
     type Error = anyhow::Error;
     fn try_from(dto: crate::cpt2::types::dtos::MessageDto) -> Result<Self, Self::Error> {
-        Ok(Self::Chrysalis(bee_message_cpt2::Message::try_from(&dto)?.into()))
+        Ok(Self::Chrysalis(bee_message_cpt2::Message::try_from(&dto)?))
     }
 }
 
 impl std::convert::TryFrom<crate::stardust::MessageDto> for Message {
     type Error = anyhow::Error;
     fn try_from(dto: crate::stardust::MessageDto) -> Result<Self, Self::Error> {
-        Ok(Self::Stardust(bee_message_stardust::Message::try_from(&dto)?.into()))
+        Ok(Self::Stardust(bee_message_stardust::Message::try_from(&dto)?))
     }
 }
 

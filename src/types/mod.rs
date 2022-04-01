@@ -48,12 +48,12 @@ impl From<crate::cpt2::types::dtos::LedgerInclusionStateDto> for LedgerInclusion
     }
 }
 
-impl Into<crate::cpt2::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn into(self) -> crate::cpt2::types::dtos::LedgerInclusionStateDto {
-        match self {
-            Self::Conflicting => crate::cpt2::types::dtos::LedgerInclusionStateDto::Conflicting,
-            Self::Included => crate::cpt2::types::dtos::LedgerInclusionStateDto::Included,
-            Self::NoTransaction => crate::cpt2::types::dtos::LedgerInclusionStateDto::NoTransaction,
+impl From<LedgerInclusionState> for crate::cpt2::types::dtos::LedgerInclusionStateDto {
+    fn from(v: LedgerInclusionState) -> Self {
+        match v {
+            LedgerInclusionState::Conflicting => Self::Conflicting,
+            LedgerInclusionState::Included => Self::Included,
+            LedgerInclusionState::NoTransaction => Self::NoTransaction,
         }
     }
 }
@@ -68,12 +68,12 @@ impl From<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclu
     }
 }
 
-impl Into<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn into(self) -> crate::stardust::types::dtos::LedgerInclusionStateDto {
-        match self {
-            Self::Conflicting => crate::stardust::types::dtos::LedgerInclusionStateDto::Conflicting,
-            Self::Included => crate::stardust::types::dtos::LedgerInclusionStateDto::Included,
-            Self::NoTransaction => crate::stardust::types::dtos::LedgerInclusionStateDto::NoTransaction,
+impl From<LedgerInclusionState> for crate::stardust::types::dtos::LedgerInclusionStateDto {
+    fn from(v: LedgerInclusionState) -> Self {
+        match v {
+            LedgerInclusionState::Conflicting => Self::Conflicting,
+            LedgerInclusionState::Included => Self::Included,
+            LedgerInclusionState::NoTransaction => Self::NoTransaction,
         }
     }
 }

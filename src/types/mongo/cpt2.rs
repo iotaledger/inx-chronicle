@@ -31,11 +31,12 @@ pub fn message_to_bson(message: &Message) -> Bson {
         "parents",
         message.parents().iter().map(|p| p.to_string()).collect::<Vec<_>>(),
     );
-    doc.insert("payload", message.payload().as_ref().map(|p| payload_to_bson(p)));
+    doc.insert("payload", message.payload().as_ref().map(payload_to_bson));
     doc.insert("nonce", message.nonce().to_string());
     Bson::Document(doc)
 }
 
+#[allow(unused)]
 pub fn message_from_bson(bson: Bson) -> anyhow::Result<Message> {
     let doc = bson.to_document()?;
     message_from_doc(doc)
@@ -47,11 +48,11 @@ pub fn message_from_doc(mut doc: Document) -> anyhow::Result<Message> {
         .with_parents(Parents::new(
             doc.take_array("parents")?
                 .into_iter()
-                .map(|p| message_id_from_bson(p))
+                .map(message_id_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         )?)
         .with_nonce_provider(doc.get_str("nonce")?.parse::<u64>()?, 0.0);
-    if let Some(payload) = doc.take("payload").ok().map(|r| payload_from_bson(r)).transpose()? {
+    if let Some(payload) = doc.take("payload").ok().map(payload_from_bson).transpose()? {
         builder = builder.with_payload(payload);
     }
     Ok(builder.finish()?)
@@ -86,13 +87,13 @@ fn transaction_payload_to_bson(payload: &TransactionPayload) -> Bson {
     let mut doc = Document::new();
     doc.insert("kind", TransactionPayload::KIND as i32);
     doc.insert("transaction_id", payload.id().to_string());
-    doc.insert("essence", transaction_essence_to_bson(&payload.essence()));
+    doc.insert("essence", transaction_essence_to_bson(payload.essence()));
     doc.insert(
         "unlock_blocks",
         payload
             .unlock_blocks()
             .iter()
-            .map(|u| unlock_block_to_bson(u))
+            .map(unlock_block_to_bson)
             .collect::<Vec<_>>(),
     );
     Bson::Document(doc)
@@ -105,7 +106,7 @@ fn transaction_payload_from_bson(bson: Bson) -> anyhow::Result<TransactionPayloa
         .with_unlock_blocks(UnlockBlocks::new(
             doc.take_array("unlock_blocks")?
                 .into_iter()
-                .map(|u| unlock_block_from_bson(u))
+                .map(unlock_block_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         )?)
         .finish()?)
@@ -115,7 +116,7 @@ fn milestone_payload_to_bson(payload: &MilestonePayload) -> Bson {
     let mut doc = Document::new();
     doc.insert("kind", MilestonePayload::KIND as i32);
     doc.insert("milestone_id", payload.id().to_string());
-    doc.insert("essence", milestone_essence_to_bson(&payload.essence()));
+    doc.insert("essence", milestone_essence_to_bson(payload.essence()));
     doc.insert(
         "signatures",
         payload.signatures().iter().map(hex::encode).collect::<Vec<_>>(),
@@ -187,7 +188,7 @@ fn receipt_payload_from_bson(bson: Bson) -> anyhow::Result<ReceiptPayload> {
         doc.get_bool("last")?,
         doc.take_array("funds")?
             .into_iter()
-            .map(|f| migrated_funds_entry_from_bson(f))
+            .map(migrated_funds_entry_from_bson)
             .collect::<Result<Vec<_>, _>>()?,
         payload_from_bson(doc.take("transaction")?)?,
     )?)
@@ -213,15 +214,9 @@ fn transaction_essence_to_bson(essence: &Essence) -> Bson {
     let mut doc = Document::new();
     match essence {
         Essence::Regular(r) => {
-            doc.insert(
-                "inputs",
-                r.inputs().iter().map(|i| input_to_bson(i)).collect::<Vec<_>>(),
-            );
-            doc.insert(
-                "outputs",
-                r.outputs().iter().map(|o| output_to_bson(o)).collect::<Vec<_>>(),
-            );
-            doc.insert("payload", r.payload().as_ref().map(|p| payload_to_bson(p)));
+            doc.insert("inputs", r.inputs().iter().map(input_to_bson).collect::<Vec<_>>());
+            doc.insert("outputs", r.outputs().iter().map(output_to_bson).collect::<Vec<_>>());
+            doc.insert("payload", r.payload().as_ref().map(payload_to_bson));
         }
     }
     Bson::Document(doc)
@@ -233,16 +228,16 @@ fn transaction_essence_from_bson(bson: Bson) -> anyhow::Result<Essence> {
         .with_inputs(
             doc.take_array("inputs")?
                 .into_iter()
-                .map(|i| input_from_bson(i))
+                .map(input_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         )
         .with_outputs(
             doc.take_array("outputs")?
                 .into_iter()
-                .map(|o| output_from_bson(o))
+                .map(output_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         );
-    if let Some(payload) = doc.take("payload").ok().map(|r| payload_from_bson(r)).transpose()? {
+    if let Some(payload) = doc.take("payload").ok().map(payload_from_bson).transpose()? {
         builder = builder.with_payload(payload);
     }
     Ok(builder.finish()?.into())
@@ -266,7 +261,7 @@ fn milestone_essence_to_bson(essence: &MilestonePayloadEssence) -> Bson {
         "public_keys",
         essence.public_keys().iter().map(hex::encode).collect::<Vec<_>>(),
     );
-    doc.insert("receipt", essence.receipt().map(|p| payload_to_bson(p)));
+    doc.insert("receipt", essence.receipt().map(payload_to_bson));
     Bson::Document(doc)
 }
 
@@ -278,7 +273,7 @@ fn milestone_essence_from_bson(bson: Bson) -> anyhow::Result<MilestonePayloadEss
         Parents::new(
             doc.take_array("parents")?
                 .into_iter()
-                .map(|p| message_id_from_bson(p))
+                .map(message_id_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         )?,
         hex::decode(doc.get_str("merkle_proof")?)?.as_slice().try_into()?,
@@ -288,7 +283,7 @@ fn milestone_essence_from_bson(bson: Bson) -> anyhow::Result<MilestonePayloadEss
             .into_iter()
             .map(|p| bytes_from_bson(p).and_then(|v| v.as_slice().try_into().map_err(|e| anyhow!("{}", e))))
             .collect::<Result<Vec<_>, _>>()?,
-        doc.take("receipt").ok().map(|r| payload_from_bson(r)).transpose()?,
+        doc.take("receipt").ok().map(payload_from_bson).transpose()?,
     )?)
 }
 

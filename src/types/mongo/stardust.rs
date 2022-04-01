@@ -92,11 +92,12 @@ pub fn message_to_bson(message: &Message) -> Bson {
         "parents",
         message.parents().iter().map(|p| p.to_string()).collect::<Vec<_>>(),
     );
-    doc.insert("payload", message.payload().map(|p| payload_to_bson(p)));
+    doc.insert("payload", message.payload().map(payload_to_bson));
     doc.insert("nonce", message.nonce().to_string());
     Bson::Document(doc)
 }
 
+#[allow(unused)]
 pub fn message_from_bson(bson: Bson) -> anyhow::Result<Message> {
     let doc = bson.to_document()?;
     message_from_doc(doc)
@@ -106,11 +107,11 @@ pub fn message_from_doc(mut doc: Document) -> anyhow::Result<Message> {
     let mut builder = MessageBuilder::new(Parents::new(
         doc.take_array("parents")?
             .into_iter()
-            .map(|p| message_id_from_bson(p))
+            .map(message_id_from_bson)
             .collect::<Result<Vec<_>, _>>()?,
     )?)
     .with_nonce_provider(doc.get_str("nonce")?.parse::<u64>()?, 0.0);
-    if let Some(payload) = doc.take("payload").ok().map(|r| payload_from_bson(r)).transpose()? {
+    if let Some(payload) = doc.take("payload").ok().map(payload_from_bson).transpose()? {
         builder = builder.with_payload(payload);
     }
     Ok(builder.finish()?)
@@ -145,13 +146,13 @@ fn transaction_payload_to_bson(payload: &TransactionPayload) -> Bson {
     let mut doc = Document::new();
     doc.insert("kind", TransactionPayload::KIND as i32);
     doc.insert("transaction_id", payload.id().to_string());
-    doc.insert("essence", transaction_essence_to_bson(&payload.essence()));
+    doc.insert("essence", transaction_essence_to_bson(payload.essence()));
     doc.insert(
         "unlock_blocks",
         payload
             .unlock_blocks()
             .iter()
-            .map(|u| unlock_block_to_bson(u))
+            .map(unlock_block_to_bson)
             .collect::<Vec<_>>(),
     );
     Bson::Document(doc)
@@ -164,7 +165,7 @@ fn transaction_payload_from_bson(bson: Bson) -> anyhow::Result<TransactionPayloa
         UnlockBlocks::new(
             doc.take_array("unlock_blocks")?
                 .into_iter()
-                .map(|u| unlock_block_from_bson(u))
+                .map(unlock_block_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         )?,
     )?)
@@ -174,7 +175,7 @@ fn milestone_payload_to_bson(payload: &MilestonePayload) -> Bson {
     let mut doc = Document::new();
     doc.insert("kind", MilestonePayload::KIND as i32);
     doc.insert("milestone_id", payload.id().to_string());
-    doc.insert("essence", milestone_essence_to_bson(&payload.essence()));
+    doc.insert("essence", milestone_essence_to_bson(payload.essence()));
     doc.insert(
         "signatures",
         payload
@@ -244,7 +245,7 @@ fn receipt_payload_from_bson(bson: Bson) -> anyhow::Result<ReceiptPayload> {
         doc.get_bool("last")?,
         doc.take_array("funds")?
             .into_iter()
-            .map(|f| migrated_funds_entry_from_bson(f))
+            .map(migrated_funds_entry_from_bson)
             .collect::<Result<Vec<_>, _>>()?,
         treasury_payload_from_bson(doc.take("transaction")?)?,
     )?)
@@ -271,15 +272,9 @@ fn transaction_essence_to_bson(essence: &TransactionEssence) -> Bson {
     match essence {
         TransactionEssence::Regular(r) => {
             doc.insert("network_id", r.network_id() as i64);
-            doc.insert(
-                "inputs",
-                r.inputs().iter().map(|i| input_to_bson(i)).collect::<Vec<_>>(),
-            );
+            doc.insert("inputs", r.inputs().iter().map(input_to_bson).collect::<Vec<_>>());
             doc.insert("inputs_commitment", hex::encode(r.inputs_commitment()));
-            doc.insert(
-                "outputs",
-                r.outputs().iter().map(|o| output_to_bson(o)).collect::<Vec<_>>(),
-            );
+            doc.insert("outputs", r.outputs().iter().map(output_to_bson).collect::<Vec<_>>());
             doc.insert("payload", r.payload().as_ref().map(|p| payload_to_bson(p)));
         }
     }
@@ -295,16 +290,16 @@ fn transaction_essence_from_bson(bson: Bson) -> anyhow::Result<TransactionEssenc
     .with_inputs(
         doc.take_array("inputs")?
             .into_iter()
-            .map(|i| input_from_bson(i))
+            .map(input_from_bson)
             .collect::<Result<Vec<_>, _>>()?,
     )
     .with_outputs(
         doc.take_array("outputs")?
             .into_iter()
-            .map(|o| output_from_bson(o))
+            .map(output_from_bson)
             .collect::<Result<Vec<_>, _>>()?,
     );
-    if let Some(payload) = doc.take("payload").ok().map(|r| payload_from_bson(r)).transpose()? {
+    if let Some(payload) = doc.take("payload").ok().map(payload_from_bson).transpose()? {
         builder = builder.with_payload(payload);
     }
     Ok(builder.finish()?.into())
@@ -324,7 +319,7 @@ fn milestone_essence_to_bson(essence: &MilestoneEssence) -> Bson {
         "next_pow_score_milestone_index",
         essence.next_pow_score_milestone_index() as i32,
     );
-    doc.insert("receipt", essence.receipt().map(|p| payload_to_bson(p)));
+    doc.insert("receipt", essence.receipt().map(payload_to_bson));
     Bson::Document(doc)
 }
 
@@ -336,13 +331,13 @@ fn milestone_essence_from_bson(bson: Bson) -> anyhow::Result<MilestoneEssence> {
         Parents::new(
             doc.take_array("parents")?
                 .into_iter()
-                .map(|p| message_id_from_bson(p))
+                .map(message_id_from_bson)
                 .collect::<Result<Vec<_>, _>>()?,
         )?,
         hex::decode(doc.get_str("merkle_proof")?)?.as_slice().try_into()?,
         doc.get_i64("next_pow_score")? as u32,
         doc.get_i32("next_pow_score_milestone_index")? as u32,
-        doc.take("receipt").ok().map(|r| payload_from_bson(r)).transpose()?,
+        doc.take("receipt").ok().map(payload_from_bson).transpose()?,
     )?)
 }
 
@@ -652,11 +647,6 @@ fn address_from_bson(bson: Bson) -> anyhow::Result<Address> {
         NftAddress::KIND => Address::Nft(NftAddress::from_str(doc.get_str("data")?)?),
         _ => bail!("Invalid address"),
     })
-}
-
-fn bytes_from_bson(bson: Bson) -> anyhow::Result<Vec<u8>> {
-    let hex = bson.as_str().ok_or_else(|| anyhow!("Invalid bytes hex"))?;
-    Ok(hex::decode(hex)?)
 }
 
 fn message_id_from_bson(bson: Bson) -> anyhow::Result<MessageId> {

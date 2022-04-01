@@ -22,25 +22,25 @@ use super::message::{
     MessageRecord,
 };
 
-impl Into<Bson> for &Message {
-    fn into(self) -> Bson {
-        match self {
+impl From<&Message> for Bson {
+    fn from(msg: &Message) -> Self {
+        match msg {
             Message::Chrysalis(m) => cpt2::message_to_bson(m),
             Message::Stardust(m) => stardust::message_to_bson(m),
         }
     }
 }
 
-impl Into<Document> for &MessageRecord {
-    fn into(self) -> Document {
+impl From<&MessageRecord> for Document {
+    fn from(rec: &MessageRecord) -> Self {
         doc! {
-            "message_id": self.message_id.to_string(),
-            "message": Into::<Bson>::into(&self.message),
-            "milestone_index": self.milestone_index,
-            "inclusion_state": self.inclusion_state.map(|i| i as u8 as i32),
-            "conflict_reason": self.conflict_reason.map(|i| i as u8 as i32),
-            "proof": to_bson(&self.proof).unwrap(),
-            "protocol_version": self.protocol_version as i32,
+            "message_id": rec.message_id.to_string(),
+            "message": Into::<Bson>::into(&rec.message),
+            "milestone_index": rec.milestone_index,
+            "inclusion_state": rec.inclusion_state.map(|i| i as u8 as i32),
+            "conflict_reason": rec.conflict_reason.map(|i| i as u8 as i32),
+            "proof": to_bson(&rec.proof).unwrap(),
+            "protocol_version": rec.protocol_version as i32,
         }
     }
 }
@@ -84,7 +84,7 @@ impl TryFrom<Document> for MessageRecord {
                 .ok()
                 .map(|i| (i as u8).try_into())
                 .transpose()?,
-            proof: value.take("proof").ok().map(|p| from_bson(p)).transpose()?,
+            proof: value.take("proof").ok().map(from_bson).transpose()?,
             protocol_version: value.get_i32("protocol_version")? as u8,
         })
     }

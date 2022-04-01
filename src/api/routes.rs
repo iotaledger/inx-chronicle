@@ -229,8 +229,8 @@ async fn message(
         },
         parents: rec.parents().map(|m| m.to_string()).collect(),
         payload: match &rec.message {
-            Message::Chrysalis(m) => m.payload().as_ref().map(|p| serde_json::to_value(p)),
-            Message::Stardust(m) => m.payload().map(|p| serde_json::to_value(p)),
+            Message::Chrysalis(m) => m.payload().as_ref().map(serde_json::to_value),
+            Message::Stardust(m) => m.payload().map(serde_json::to_value),
         }
         .transpose()
         .map_err(|e| ListenerError::Other(e.into()))?,
@@ -283,7 +283,7 @@ async fn message_children(
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .map(|d| MessageRecord::try_from(d))
+        .map(MessageRecord::try_from)
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(ListenerResponse::MessageChildren {
@@ -400,7 +400,7 @@ async fn messages_query(
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .map(|d| MessageRecord::try_from(d))
+        .map(MessageRecord::try_from)
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(ListenerResponse::MessagesForQuery {
@@ -486,9 +486,10 @@ async fn outputs_query(
 ) -> ListenerResult {
     let OutputsQuery {
         address,
-        requires_dust_return,
-        sender,
-        tag,
+
+        requires_dust_return: _,
+        sender: _,
+        tag: _,
         included,
     } = &query;
     let start_milestone = start_milestone(&database, start_timestamp).await?;
@@ -759,8 +760,8 @@ async fn transaction_included_message(
         },
         parents: rec.parents().map(|m| m.to_string()).collect(),
         payload: match &rec.message {
-            Message::Chrysalis(m) => m.payload().as_ref().map(|p| serde_json::to_value(p)),
-            Message::Stardust(m) => m.payload().map(|p| serde_json::to_value(p)),
+            Message::Chrysalis(m) => m.payload().as_ref().map(serde_json::to_value),
+            Message::Stardust(m) => m.payload().map(serde_json::to_value),
         }
         .transpose()
         .map_err(|e| ListenerError::Other(e.into()))?,
@@ -880,6 +881,8 @@ async fn address_analytics(
     })
 }
 
+#[allow(unused)]
+#[allow(unused_variables)]
 async fn transactions_analytics(
     database: Extension<Database>,
     TimeRange {
