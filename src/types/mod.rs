@@ -58,22 +58,22 @@ impl Into<crate::cpt2::types::dtos::LedgerInclusionStateDto> for LedgerInclusion
     }
 }
 
-impl From<crate::shimmer::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn from(value: crate::shimmer::types::dtos::LedgerInclusionStateDto) -> Self {
+impl From<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
+    fn from(value: crate::stardust::types::dtos::LedgerInclusionStateDto) -> Self {
         match value {
-            crate::shimmer::types::dtos::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
-            crate::shimmer::types::dtos::LedgerInclusionStateDto::Included => Self::Included,
-            crate::shimmer::types::dtos::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
+            crate::stardust::types::dtos::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
+            crate::stardust::types::dtos::LedgerInclusionStateDto::Included => Self::Included,
+            crate::stardust::types::dtos::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
         }
     }
 }
 
-impl Into<crate::shimmer::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn into(self) -> crate::shimmer::types::dtos::LedgerInclusionStateDto {
+impl Into<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
+    fn into(self) -> crate::stardust::types::dtos::LedgerInclusionStateDto {
         match self {
-            Self::Conflicting => crate::shimmer::types::dtos::LedgerInclusionStateDto::Conflicting,
-            Self::Included => crate::shimmer::types::dtos::LedgerInclusionStateDto::Included,
-            Self::NoTransaction => crate::shimmer::types::dtos::LedgerInclusionStateDto::NoTransaction,
+            Self::Conflicting => crate::stardust::types::dtos::LedgerInclusionStateDto::Conflicting,
+            Self::Included => crate::stardust::types::dtos::LedgerInclusionStateDto::Included,
+            Self::NoTransaction => crate::stardust::types::dtos::LedgerInclusionStateDto::NoTransaction,
         }
     }
 }

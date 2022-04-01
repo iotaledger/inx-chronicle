@@ -19,7 +19,7 @@ use super::{
     BsonExt,
     DocExt,
 };
-use crate::shimmer::{
+use crate::stardust::{
     address::{
         Address,
         AliasAddress,

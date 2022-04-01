@@ -51,9 +51,9 @@ tower-http = { version = "0.2", features = ["cors", "catch-panic", "trace"], opt
 bee-message-cpt2 = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"] }
 bee-rest-api-cpt2 = { package = "bee-rest-api", version = "0.1", default-features = false }
 
-# Shimmer / Stardust types
-bee-message-shimmer = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde1", "dto"], package = "bee-message" }
-bee-rest-api-shimmer = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, package="bee-rest-api" }
+# Stardust types
+bee-message-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde1", "dto"], package = "bee-message" }
+bee-rest-api-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, package="bee-rest-api" }
 
 [features]
 default = [ "api" ]

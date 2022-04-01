@@ -16,12 +16,12 @@ pub mod cpt2 {
         *,
     };
 }
-pub mod shimmer {
-    pub use bee_message_shimmer::{
+pub mod stardust {
+    pub use bee_message_stardust::{
         self,
         *,
     };
-    pub use bee_rest_api_shimmer::{
+    pub use bee_rest_api_stardust::{
         self,
         *,
     };

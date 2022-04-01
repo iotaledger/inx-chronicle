@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod cpt2;
-mod shimmer;
+mod stardust;
 
 use std::str::FromStr;
 
@@ -26,7 +26,7 @@ impl Into<Bson> for &Message {
     fn into(self) -> Bson {
         match self {
             Message::Chrysalis(m) => cpt2::message_to_bson(m),
-            Message::Shimmer(m) => shimmer::message_to_bson(m),
+            Message::Stardust(m) => stardust::message_to_bson(m),
         }
     }
 }
@@ -60,7 +60,7 @@ impl TryFrom<Document> for Message {
         let protocol_version = value.get_i32("protocol_version")? as u8;
         Ok(match protocol_version {
             0 => Message::Chrysalis(cpt2::message_from_doc(value)?),
-            crate::shimmer::constant::PROTOCOL_VERSION => Message::Shimmer(shimmer::message_from_doc(value)?),
+            crate::stardust::constant::PROTOCOL_VERSION => Message::Stardust(stardust::message_from_doc(value)?),
             _ => anyhow::bail!("Unsupported protocol version: {}", protocol_version),
         })
     }

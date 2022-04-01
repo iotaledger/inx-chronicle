@@ -11,7 +11,6 @@ use std::{
 };
 
 use anyhow::*;
-use bee_message_shimmer::semantic::ConflictReason;
 use derive_more::From;
 use serde::{
     Deserialize,
@@ -19,20 +18,21 @@ use serde::{
 };
 
 use super::LedgerInclusionState;
+use crate::stardust::semantic::ConflictReason;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, From, Hash, Ord, PartialOrd)]
 pub enum MessageId {
     /// Chrysalis compatible message
     Chrysalis(bee_message_cpt2::MessageId),
-    /// Shimmer compatible message
-    Shimmer(bee_message_shimmer::MessageId),
+    /// Stardust compatible message
+    Stardust(bee_message_stardust::MessageId),
 }
 
 impl MessageId {
     pub fn is_null(&self) -> bool {
         match self {
             MessageId::Chrysalis(id) => id == &bee_message_cpt2::MessageId::null(),
-            MessageId::Shimmer(id) => id == &bee_message_shimmer::MessageId::null(),
+            MessageId::Stardust(id) => id == &bee_message_stardust::MessageId::null(),
         }
     }
 }
@@ -41,7 +41,7 @@ impl Display for MessageId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Chrysalis(id) => write!(f, "{}", id),
-            Self::Shimmer(id) => write!(f, "{}", id),
+            Self::Stardust(id) => write!(f, "{}", id),
         }
     }
 }
@@ -50,8 +50,8 @@ impl FromStr for MessageId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee_message_shimmer::MessageId::from_str(s)
-            .map(Self::Shimmer)
+        Ok(bee_message_stardust::MessageId::from_str(s)
+            .map(Self::Stardust)
             .or_else(|_| bee_message_cpt2::MessageId::from_str(s).map(Self::Chrysalis))?)
     }
 }
@@ -61,34 +61,30 @@ impl FromStr for MessageId {
 pub enum Message {
     /// Chrysalis compatible message
     Chrysalis(bee_message_cpt2::Message),
-    /// Shimmer compatible message
-    Shimmer(bee_message_shimmer::Message),
+    /// Stardust compatible message
+    Stardust(bee_message_stardust::Message),
 }
 
 impl Message {
     pub fn protocol_version(&self) -> u8 {
         match self {
             Message::Chrysalis(_) => 0,
-            Message::Shimmer(m) => m.protocol_version(),
+            Message::Stardust(m) => m.protocol_version(),
         }
     }
 }
 
 impl std::convert::TryFrom<crate::cpt2::types::dtos::MessageDto> for Message {
     type Error = anyhow::Error;
-    fn try_from(chrysalis_dto_message: crate::cpt2::types::dtos::MessageDto) -> Result<Self, Self::Error> {
-        Ok(Self::Chrysalis(
-            bee_message_cpt2::Message::try_from(&chrysalis_dto_message)?.into(),
-        ))
+    fn try_from(dto: crate::cpt2::types::dtos::MessageDto) -> Result<Self, Self::Error> {
+        Ok(Self::Chrysalis(bee_message_cpt2::Message::try_from(&dto)?.into()))
     }
 }
 
-impl std::convert::TryFrom<crate::shimmer::MessageDto> for Message {
+impl std::convert::TryFrom<crate::stardust::MessageDto> for Message {
     type Error = anyhow::Error;
-    fn try_from(shimmer_dto_message: crate::shimmer::MessageDto) -> Result<Self, Self::Error> {
-        Ok(Self::Shimmer(
-            bee_message_shimmer::Message::try_from(&shimmer_dto_message)?.into(),
-        ))
+    fn try_from(dto: crate::stardust::MessageDto) -> Result<Self, Self::Error> {
+        Ok(Self::Stardust(bee_message_stardust::Message::try_from(&dto)?.into()))
     }
 }
 
@@ -97,7 +93,7 @@ impl Message {
     pub fn id(&self) -> MessageId {
         match self {
             Self::Chrysalis(msg) => MessageId::Chrysalis(msg.id().0),
-            Self::Shimmer(msg) => MessageId::Shimmer(msg.id()),
+            Self::Stardust(msg) => MessageId::Stardust(msg.id()),
         }
     }
     /// Returns the parents of the message
@@ -106,8 +102,8 @@ impl Message {
             Self::Chrysalis(msg) => {
                 Box::new(msg.parents().iter().map(|p| MessageId::Chrysalis(*p))) as Box<dyn Iterator<Item = MessageId>>
             }
-            Self::Shimmer(msg) => {
-                Box::new(msg.parents().iter().map(|p| MessageId::Shimmer(*p))) as Box<dyn Iterator<Item = MessageId>>
+            Self::Stardust(msg) => {
+                Box::new(msg.parents().iter().map(|p| MessageId::Stardust(*p))) as Box<dyn Iterator<Item = MessageId>>
             }
         }
     }
@@ -119,8 +115,8 @@ impl Message {
                     return true;
                 }
             }
-            Self::Shimmer(msg) => {
-                if let Some(bee_message_shimmer::payload::Payload::Milestone(_)) = msg.payload() {
+            Self::Stardust(msg) => {
+                if let Some(bee_message_stardust::payload::Payload::Milestone(_)) = msg.payload() {
                     return true;
                 }
             }
@@ -183,7 +179,7 @@ impl MessageRecord {
     pub fn nonce(&self) -> u64 {
         match &self.message {
             Message::Chrysalis(m) => m.nonce(),
-            Message::Shimmer(m) => m.nonce(),
+            Message::Stardust(m) => m.nonce(),
         }
     }
 }
@@ -221,8 +217,8 @@ impl PartialEq for MessageRecord {
 }
 impl Eq for MessageRecord {}
 
-impl From<(Message, crate::shimmer::types::responses::MessageMetadataResponse)> for MessageRecord {
-    fn from((message, metadata): (Message, crate::shimmer::types::responses::MessageMetadataResponse)) -> Self {
+impl From<(Message, crate::stardust::types::responses::MessageMetadataResponse)> for MessageRecord {
+    fn from((message, metadata): (Message, crate::stardust::types::responses::MessageMetadataResponse)) -> Self {
         MessageRecord {
             message_id: message.id(),
             protocol_version: message.protocol_version(),

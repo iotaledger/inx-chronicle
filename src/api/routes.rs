@@ -221,16 +221,16 @@ async fn message(
     Ok(ListenerResponse::Message {
         network_id: match &rec.message {
             Message::Chrysalis(m) => Some(m.network_id()),
-            Message::Shimmer(_) => None,
+            Message::Stardust(_) => None,
         },
         protocol_version: match &rec.message {
             Message::Chrysalis(_) => 0,
-            Message::Shimmer(m) => m.protocol_version(),
+            Message::Stardust(m) => m.protocol_version(),
         },
         parents: rec.parents().map(|m| m.to_string()).collect(),
         payload: match &rec.message {
             Message::Chrysalis(m) => m.payload().as_ref().map(|p| serde_json::to_value(p)),
-            Message::Shimmer(m) => m.payload().map(|p| serde_json::to_value(p)),
+            Message::Stardust(m) => m.payload().map(|p| serde_json::to_value(p)),
         }
         .transpose()
         .map_err(|e| ListenerError::Other(e.into()))?,
@@ -700,9 +700,9 @@ async fn transaction_for_message(
                 },
                 _ => unreachable!(),
             },
-            Message::Shimmer(m) => match m.payload() {
-                Some(crate::shimmer::payload::Payload::Transaction(t)) => match t.essence() {
-                    crate::shimmer::payload::transaction::TransactionEssence::Regular(e) => {
+            Message::Stardust(m) => match m.payload() {
+                Some(crate::stardust::payload::Payload::Transaction(t)) => match t.essence() {
+                    crate::stardust::payload::transaction::TransactionEssence::Regular(e) => {
                         e.outputs().iter().map(|o| serde_json::to_value(o).unwrap()).collect()
                     }
                 },
@@ -718,9 +718,9 @@ async fn transaction_for_message(
                 },
                 _ => unreachable!(),
             },
-            Message::Shimmer(m) => match m.payload() {
-                Some(crate::shimmer::payload::Payload::Transaction(t)) => match t.essence() {
-                    crate::shimmer::payload::transaction::TransactionEssence::Regular(e) => {
+            Message::Stardust(m) => match m.payload() {
+                Some(crate::stardust::payload::Payload::Transaction(t)) => match t.essence() {
+                    crate::stardust::payload::transaction::TransactionEssence::Regular(e) => {
                         e.inputs().iter().map(|o| serde_json::to_value(o).unwrap()).collect()
                     }
                 },
@@ -751,16 +751,16 @@ async fn transaction_included_message(
     Ok(ListenerResponse::Message {
         network_id: match &rec.message {
             Message::Chrysalis(m) => Some(m.network_id()),
-            Message::Shimmer(_) => None,
+            Message::Stardust(_) => None,
         },
         protocol_version: match &rec.message {
             Message::Chrysalis(_) => 0,
-            Message::Shimmer(m) => m.protocol_version(),
+            Message::Stardust(m) => m.protocol_version(),
         },
         parents: rec.parents().map(|m| m.to_string()).collect(),
         payload: match &rec.message {
             Message::Chrysalis(m) => m.payload().as_ref().map(|p| serde_json::to_value(p)),
-            Message::Shimmer(m) => m.payload().map(|p| serde_json::to_value(p)),
+            Message::Stardust(m) => m.payload().map(|p| serde_json::to_value(p)),
         }
         .transpose()
         .map_err(|e| ListenerError::Other(e.into()))?,
@@ -787,8 +787,8 @@ async fn milestone(database: Extension<Database>, Path((_ver, index)): Path<(API
                             unreachable!()
                         }
                     }
-                    Message::Shimmer(m) => {
-                        if let Some(crate::shimmer::payload::Payload::Milestone(m)) = m.payload() {
+                    Message::Stardust(m) => {
+                        if let Some(crate::stardust::payload::Payload::Milestone(m)) = m.payload() {
                             m.essence().timestamp()
                         } else {
                             unreachable!()
