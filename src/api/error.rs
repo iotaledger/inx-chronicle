@@ -50,7 +50,6 @@ impl ListenerError {
 
 impl IntoResponse for ListenerError {
     fn into_response(self) -> axum::response::Response {
-        log::error!("{:?}", self);
         let err = ErrorBody::from(self);
         match serde_json::to_string(&err) {
             Ok(json) => axum::response::Response::builder()

@@ -8,12 +8,12 @@ use axum::{
         Extension,
         Path,
     },
+    handler::Handler,
     http::Method,
     routing::*,
     Json,
     Router,
 };
-use chrono::NaiveDateTime;
 use futures::TryStreamExt;
 use mongodb::{
     bson::{
@@ -28,6 +28,7 @@ use prometheus::{
     Encoder,
     TextEncoder,
 };
+use time::OffsetDateTime;
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{
@@ -107,6 +108,7 @@ pub fn routes(database: Database) -> Router {
                         .nest("/analytics", Router::new().route("/addresses", get(address_analytics))),
                 ),
         )
+        .fallback(not_found.into_service())
         .layer(Extension(database))
         .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
@@ -306,11 +308,11 @@ async fn message_children(
     })
 }
 
-async fn start_milestone(database: &Database, start_timestamp: NaiveDateTime) -> anyhow::Result<i32> {
+async fn start_milestone(database: &Database, start_timestamp: OffsetDateTime) -> anyhow::Result<i32> {
     database
         .collection::<Document>("messages")
         .find(
-            doc! {"message.payload.essence.timestamp": { "$gte": DateTime::from_millis(start_timestamp.timestamp_millis()) }},
+            doc! {"message.payload.essence.timestamp": { "$gte": DateTime::from_millis(start_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()
                 .sort(doc! {"milestone_index": 1})
                 .limit(1)
@@ -334,11 +336,11 @@ async fn start_milestone(database: &Database, start_timestamp: NaiveDateTime) ->
         .ok_or_else(|| anyhow::anyhow!("No milestones found in time range"))
 }
 
-async fn end_milestone(database: &Database, end_timestamp: NaiveDateTime) -> anyhow::Result<i32> {
+async fn end_milestone(database: &Database, end_timestamp: OffsetDateTime) -> anyhow::Result<i32> {
     database
         .collection::<Document>("messages")
         .find(
-            doc! {"message.payload.essence.timestamp": { "$lte": DateTime::from_millis(end_timestamp.timestamp_millis()) }},
+            doc! {"message.payload.essence.timestamp": { "$lte": DateTime::from_millis(end_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()
                 .sort(doc! {"milestone_index": -1})
                 .limit(1)
@@ -889,4 +891,8 @@ async fn transactions_analytics(
     let end_milestone = end_milestone(&database, end_timestamp).await?;
 
     todo!()
+}
+
+async fn not_found() -> ListenerError {
+    ListenerError::NotFound
 }

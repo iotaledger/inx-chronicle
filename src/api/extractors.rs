@@ -8,14 +8,14 @@ use axum::extract::{
     FromRequest,
     Query,
 };
-use chrono::{
-    Duration,
-    NaiveDateTime,
-};
 use hex::FromHex;
 use serde::{
     Deserialize,
     Serialize,
+};
+use time::{
+    Duration,
+    OffsetDateTime,
 };
 
 use super::error::ListenerError;
@@ -109,8 +109,8 @@ pub struct TimeRangeQuery {
 
 #[derive(Copy, Clone)]
 pub struct TimeRange {
-    pub start_timestamp: NaiveDateTime,
-    pub end_timestamp: NaiveDateTime,
+    pub start_timestamp: OffsetDateTime,
+    pub end_timestamp: OffsetDateTime,
 }
 
 #[async_trait]
@@ -126,13 +126,17 @@ impl<B: Send> FromRequest<B> for TimeRange {
             .map_err(|e| ListenerError::QueryError(e))?;
         let time_range = TimeRange {
             start_timestamp: start_timestamp
-                .map(|t| NaiveDateTime::from_timestamp(t as i64, 0))
-                .unwrap_or(chrono::Utc::now().naive_utc() - Duration::days(30)),
+                .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
+                .transpose()
+                .map_err(|e| ListenerError::BadParse(e.into()))?
+                .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::days(30)),
             end_timestamp: end_timestamp
-                .map(|t| NaiveDateTime::from_timestamp(t as i64, 0))
-                .unwrap_or(chrono::Utc::now().naive_utc()),
+                .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
+                .transpose()
+                .map_err(|e| ListenerError::BadParse(e.into()))?
+                .unwrap_or_else(|| OffsetDateTime::now_utc()),
         };
-        if end_timestamp < start_timestamp {
+        if time_range.end_timestamp < time_range.start_timestamp {
             return Err(ListenerError::BadTimeRange);
         }
         Ok(time_range)

@@ -23,7 +23,6 @@ actix = "0.13"
 anyhow = "1.0"
 async-trait = "0.1"
 cfg-if = "1.0"
-chrono = "0.4"
 derive_more = "0.99"
 dotenv = "0.15"
 env_logger = "0.9"
@@ -39,6 +38,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_urlencoded = "0.7"
 thiserror = "1.0"
+time = "0.3"
 tokio = "1.0"
 
 # API
