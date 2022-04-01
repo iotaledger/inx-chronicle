@@ -1,0 +1,5 @@
+[mongodb]
+location = "mongodb://localhost:27017"
+
+[inx]
+address = "http://localhost:9029"

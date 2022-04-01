@@ -1,25 +1,25 @@
 [package]
-name = "chronicle-inx"
+name = "chronicle"
 version = "0.1.0"
-authors = [ "IOTA Stiftung" ]
+authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
 readme = "README.md"
 repository = "https://github.com/iotaledger/inx-chronicle"
 license = "Apache-2.0"
-keywords = [ "iota", "storage", "permanode", "node", "inx" ]
+keywords = ["iota", "storage", "permanode", "node", "inx"]
 homepage = "https://www.iota.org"
 
-[lib]
-name = "chronicle"
-path = "src/lib.rs"
-
-[[bin]]
-name = "inx-chronicle"
-path = "src/main.rs"
+[workspace]
+default-members = [".", "bin/inx-chronicle"]
+members = [
+    ".",
+    "bin/inx-chronicle",
+]
 
 [dependencies]
-futures = { version = "0.3.21", default-features = false }
-inx = { git = "https://github.com/iotaledger/inx", version = "0.1.0", default-features = false }
-tokio = { version = "1.17.0", default-features = false, features = ["macros", "rt-multi-thread"] }
-tonic = { verison = "0.6.2", default-features = false }
+inx = { git = "https://github.com/iotaledger/inx", version = "0.2.0", default-features = false }
+log = { version = "0.4", default-features = false }
+mongodb = { version = "2.1", default-features = false, features = ["tokio-runtime"] }
+serde = { version = "1.0", features = ["derive"], default-features = false }
+thiserror = { version = "1.0", default-features = false }
