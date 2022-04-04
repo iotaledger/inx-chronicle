@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![allow(clippy::unnecessary_lazy_evaluations)]
+#![warn(missing_docs)]
+
+//! TODO
 
 #[cfg(feature = "api")]
 pub mod api;
@@ -9,6 +12,7 @@ pub mod config;
 mod types;
 
 pub mod cpt2 {
+    //! Chrysalis pt.2 bee types
     pub use bee_message_cpt2::{
         self,
         *,
@@ -19,6 +23,7 @@ pub mod cpt2 {
     };
 }
 pub mod stardust {
+    //! Stardust bee types
     pub use bee_message_stardust::{
         self,
         *,
