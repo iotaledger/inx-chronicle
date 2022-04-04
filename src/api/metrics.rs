@@ -28,7 +28,7 @@ async fn metrics() -> Result<String, ListenerError> {
         .encode(&prometheus::gather(), &mut buffer)
         .map_err(ListenerError::other)?;
 
-    Ok(String::from_utf8(buffer).map_err(ListenerError::other)?)
+    String::from_utf8(buffer).map_err(ListenerError::other)
 }
 
 pub fn register_metrics() {

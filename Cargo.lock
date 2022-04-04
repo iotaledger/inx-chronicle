@@ -427,6 +427,7 @@ dependencies = [
  "futures",
  "hex",
  "hyper",
+ "indexmap",
  "lazy_static",
  "log",
  "mongodb",
