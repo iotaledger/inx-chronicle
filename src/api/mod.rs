@@ -47,10 +47,6 @@ use prometheus::{
     Registry,
 };
 use routes::routes;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 use tokio::sync::oneshot;
 use tower::{
     Layer,
@@ -60,34 +56,22 @@ use tower::{
 use crate::config::mongo::MongoConfig;
 
 /// The Chronicle API actor
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug)]
 pub struct ChronicleAPI {
-    mongo_config: MongoConfig,
-    #[serde(skip)]
+    client: Client,
     server_handle: Option<oneshot::Sender<()>>,
 }
 
 impl ChronicleAPI {
-    pub fn new(mongo_config: MongoConfig) -> Self {
-        Self {
-            mongo_config,
+    pub fn new(mongo_config: MongoConfig) -> anyhow::Result<Self> {
+        register_metrics();
+        let client_opts: ClientOptions = mongo_config.into();
+        log::info!("Connecting to MongoDB");
+        let client = Client::with_options(client_opts)?;
+        Ok(Self {
+            client,
             server_handle: None,
-        }
-    }
-}
-
-impl PartialEq for ChronicleAPI {
-    fn eq(&self, other: &Self) -> bool {
-        self.mongo_config == other.mongo_config
-    }
-}
-
-impl Clone for ChronicleAPI {
-    fn clone(&self) -> Self {
-        Self {
-            mongo_config: self.mongo_config.clone(),
-            server_handle: None,
-        }
+        })
     }
 }
 
@@ -95,15 +79,7 @@ impl Actor for ChronicleAPI {
     type Context = Context<Self>;
 
     fn started(&mut self, _ctx: &mut Self::Context) {
-        register_metrics();
-        let client_opts: ClientOptions = self.mongo_config.clone().into();
-        log::info!("Connecting to MongoDB");
-        let client = Client::with_options(client_opts)
-            .map_err(|e| {
-                log::error!("Unable to create client from options, error: {}", e);
-            })
-            .unwrap();
-        let db = client.database("permanode");
+        let db = self.client.database("permanode");
         let (sender, receiver) = oneshot::channel();
         log::info!("Starting Axum server");
         tokio::spawn(async {
