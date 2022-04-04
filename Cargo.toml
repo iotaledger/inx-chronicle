@@ -28,12 +28,9 @@ dotenv = "0.15"
 env_logger = "0.9"
 futures = "0.3"
 hex = "0.4"
-lazy_static = "1.4"
 log = "0.4"
 mongodb = "2.1"
-pin-project = "1.0"
 primitive-types = { version = "0.10", default-features = false, features = [ "serde" ] }
-prometheus = "0.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_urlencoded = "0.7"
@@ -47,6 +44,11 @@ hyper = { version = "0.14", optional = true }
 tower = { version = "0.4", optional = true }
 tower-http = { version = "0.2", features = ["cors", "catch-panic", "trace"], optional = true }
 
+# API Metrics
+lazy_static = { version = "1.4", optional = true }
+pin-project = { version = "1.0", optional = true }
+prometheus = { version = "0.13", optional = true }
+
 # Chrysalis pt. 2 types
 bee-message-cpt2 = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"] }
 bee-rest-api-cpt2 = { package = "bee-rest-api", version = "0.1", default-features = false }
@@ -57,4 +59,15 @@ bee-rest-api-stardust = { git = "https://github.com/iotaledger/bee.git", branch 
 
 [features]
 default = [ "api" ]
-api = [ "axum", "hyper", "tower", "tower-http" ]
+api = [ 
+    "axum",
+    "hyper",
+    "tower",
+    "tower-http"
+]
+api-metrics = [ 
+    "api",
+    "lazy_static",
+    "pin-project",
+    "prometheus"
+]

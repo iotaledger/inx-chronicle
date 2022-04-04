@@ -24,10 +24,6 @@ use mongodb::{
     options::FindOptions,
     Database,
 };
-use prometheus::{
-    Encoder,
-    TextEncoder,
-};
 use time::OffsetDateTime;
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -54,8 +50,6 @@ use super::{
         Transfer,
     },
     ListenerError,
-    MetricsLayer,
-    REGISTRY,
 };
 use crate::types::{
     message::{
@@ -73,46 +67,45 @@ use crate::types::{
 type ListenerResult = Result<ListenerResponse, ListenerError>;
 
 pub fn routes(database: Database) -> Router {
+    #[allow(unused_mut)]
+    let mut api_routes = Router::new().route("/info", get(info)).route("/sync", get(sync)).nest(
+        "/:ver",
+        Router::new()
+            .nest(
+                "/messages",
+                Router::new()
+                    .route("/", get(messages_query))
+                    .route("/:message_id", get(message))
+                    .route("/:message_id/metadata", get(message_metadata))
+                    .route("/:message_id/children", get(message_children)),
+            )
+            .nest(
+                "/outputs",
+                Router::new()
+                    .route("/", get(outputs_query))
+                    .route("/:transaction_id/:idx", get(output)),
+            )
+            .nest(
+                "/transactions",
+                Router::new()
+                    .route("/:message_id", get(transaction_for_message))
+                    .route("/history/:address", get(transaction_history))
+                    .route("/included-message/:transaction_id", get(transaction_included_message)),
+            )
+            .route("/milestones/:index", get(milestone))
+            .nest("/analytics", Router::new().route("/addresses", get(address_analytics))),
+    );
+    #[cfg(feature = "api-metrics")]
+    {
+        api_routes = api_routes.nest("/", super::metrics::routes());
+        api_routes = api_routes.layer(super::metrics::MetricsLayer);
+    }
     Router::new()
-        .nest(
-            "/api",
-            Router::new()
-                .route("/info", get(info))
-                .route("/metrics", get(metrics))
-                .route("/sync", get(sync))
-                .nest(
-                    "/:ver",
-                    Router::new()
-                        .nest(
-                            "/messages",
-                            Router::new()
-                                .route("/", get(messages_query))
-                                .route("/:message_id", get(message))
-                                .route("/:message_id/metadata", get(message_metadata))
-                                .route("/:message_id/children", get(message_children)),
-                        )
-                        .nest(
-                            "/outputs",
-                            Router::new()
-                                .route("/", get(outputs_query))
-                                .route("/:transaction_id/:idx", get(output)),
-                        )
-                        .nest(
-                            "/transactions",
-                            Router::new()
-                                .route("/:message_id", get(transaction_for_message))
-                                .route("/history/:address", get(transaction_history))
-                                .route("/included-message/:transaction_id", get(transaction_included_message)),
-                        )
-                        .route("/milestones/:index", get(milestone))
-                        .nest("/analytics", Router::new().route("/addresses", get(address_analytics))),
-                ),
-        )
+        .nest("/api", api_routes)
         .fallback(not_found.into_service())
         .layer(Extension(database))
         .layer(CatchPanicLayer::new())
         .layer(TraceLayer::new_for_http())
-        .layer(MetricsLayer)
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -130,24 +123,6 @@ async fn info() -> ListenerResult {
         version,
         is_healthy,
     })
-}
-
-async fn metrics() -> Result<String, ListenerError> {
-    let encoder = TextEncoder::new();
-    let mut buffer = Vec::new();
-    encoder
-        .encode(&REGISTRY.gather(), &mut buffer)
-        .map_err(|e| ListenerError::Other(e.into()))?;
-
-    let res_custom = String::from_utf8(std::mem::take(&mut buffer)).map_err(|e| ListenerError::Other(e.into()))?;
-
-    encoder
-        .encode(&prometheus::gather(), &mut buffer)
-        .map_err(|e| ListenerError::Other(e.into()))?;
-
-    let res_default = String::from_utf8(buffer).map_err(|e| ListenerError::Other(e.into()))?;
-
-    Ok(format!("{}{}", res_custom, res_default))
 }
 
 async fn sync(database: Extension<Database>) -> Result<Json<SyncData>, ListenerError> {
