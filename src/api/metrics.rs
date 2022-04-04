@@ -155,24 +155,10 @@ where
                     .with_label_values(&[&format!("{} {}", this.method, this.uri)])
                     .observe(ms);
                 if let Ok(res) = res.as_ref() {
-                    match res.status().as_u16() {
-                        500..=599 => RESPONSE_CODE_COLLECTOR
-                            .with_label_values(&[res.status().as_str(), "500"])
-                            .inc(),
-                        400..=499 => RESPONSE_CODE_COLLECTOR
-                            .with_label_values(&[res.status().as_str(), "400"])
-                            .inc(),
-                        300..=399 => RESPONSE_CODE_COLLECTOR
-                            .with_label_values(&[res.status().as_str(), "300"])
-                            .inc(),
-                        200..=299 => RESPONSE_CODE_COLLECTOR
-                            .with_label_values(&[res.status().as_str(), "200"])
-                            .inc(),
-                        100..=199 => RESPONSE_CODE_COLLECTOR
-                            .with_label_values(&[res.status().as_str(), "100"])
-                            .inc(),
-                        _ => (),
-                    }
+                    let status_bucket = ((res.status().as_u16() / 100) * 100).to_string();
+                    RESPONSE_CODE_COLLECTOR
+                        .with_label_values(&[res.status().as_str(), &status_bucket])
+                        .inc()
                 }
                 Poll::Ready(res)
             }
