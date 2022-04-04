@@ -13,7 +13,7 @@ use axum::{
     Extension, Router,
 };
 use futures::stream::StreamExt;
-use inx::{client::InxClient, proto::NoParams};
+use inx::{client::InxClient, proto::{NoParams, ApiRouteRequest}};
 use tokio::sync::RwLock;
 use tonic::transport::Channel;
 
@@ -36,10 +36,10 @@ async fn milestones(client: &mut InxClient<Channel>, lock: Arc<RwLock<i32>>) {
     println!("{:#?}", response);
     let mut stream = response.unwrap().into_inner();
 
-    while let Some(item) = stream.next().await {
-        println!("\trecived: {:#?}", item.unwrap());
+    while let Some(_item) = stream.next().await {
         let mut counter = lock.write().await;
         *counter += 1;
+        println!("Num milestones received: {counter}");
     }
     // stream is droped here and the disconnect info is send to server
 }
@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // build our application with a route
         let app = Router::new()
             // `GET /` goes to `root`
-            .route("/milestones", get(root))
+            .route("/chronicle/milestones", get(root))
             .layer(Extension(c_lock.clone()));
 
         // run our app with hyper
@@ -67,6 +67,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::spawn(async move {
         let mut client = InxClient::connect("http://localhost:9029").await.unwrap();
+
+        let api_req = ApiRouteRequest {
+            route: "chronicle/milestones".to_string(),
+            host: "localhost".to_string(),
+            port: 3000,
+            metrics_port: 0,
+        };
+
+        client.register_api_route(api_req).await.expect("Couldn't register route.");
 
         milestones(&mut client, lock).await;
 

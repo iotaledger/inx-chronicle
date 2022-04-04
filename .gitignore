@@ -1,1 +1,7 @@
 /target
+
+/alphanet
+
+config.json
+peering.json
+profiles.json
