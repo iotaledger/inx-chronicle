@@ -1,10 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{
-    extract::rejection::QueryRejection,
-    response::IntoResponse,
-};
+use axum::{extract::rejection::QueryRejection, response::IntoResponse};
 use hyper::StatusCode;
 use serde::Serialize;
 use thiserror::Error;

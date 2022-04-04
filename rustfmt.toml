@@ -9,4 +9,3 @@ max_width = 120
 normalize_comments = true
 normalize_doc_attributes = true
 wrap_comments = true
-imports_layout = "Vertical"

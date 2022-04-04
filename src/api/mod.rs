@@ -11,19 +11,10 @@ mod metrics;
 mod responses;
 mod routes;
 
-use actix::{
-    Actor,
-    ActorContext,
-    Context,
-    Handler,
-    Message,
-};
+use actix::{Actor, ActorContext, Context, Handler, Message};
 use axum::Server;
 use error::ListenerError;
-use mongodb::{
-    options::ClientOptions,
-    Client,
-};
+use mongodb::{options::ClientOptions, Client};
 use routes::routes;
 use tokio::sync::oneshot;
 

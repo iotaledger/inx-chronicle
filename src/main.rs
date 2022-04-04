@@ -5,19 +5,10 @@
 
 //! TODO
 
-use actix::{
-    Actor,
-    System,
-};
+use actix::{Actor, System};
 use chronicle::{
-    api::{
-        ChronicleAPI,
-        ShutdownAPI,
-    },
-    config::mongo::{
-        Credential,
-        MongoConfig,
-    },
+    api::{ChronicleAPI, ShutdownAPI},
+    config::mongo::{Credential, MongoConfig},
 };
 
 fn main() {

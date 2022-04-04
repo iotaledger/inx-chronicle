@@ -16,26 +16,14 @@ mod types;
 /// Re-exporting the Chrysalis types.
 pub mod cpt2 {
     //! Chrysalis pt.2 bee types
-    pub use bee_message_cpt2::{
-        self,
-        *,
-    };
-    pub use bee_rest_api_cpt2::{
-        self,
-        *,
-    };
+    pub use bee_message_cpt2::{self, *};
+    pub use bee_rest_api_cpt2::{self, *};
 }
 /// Re-exporting the Stardust types.
 pub mod stardust {
     //! Stardust bee types
-    pub use bee_message_stardust::{
-        self,
-        *,
-    };
-    pub use bee_rest_api_stardust::{
-        self,
-        *,
-    };
+    pub use bee_message_stardust::{self, *};
+    pub use bee_rest_api_stardust::{self, *};
 }
 
 #[cfg(test)]

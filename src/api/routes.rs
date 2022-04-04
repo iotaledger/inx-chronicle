@@ -4,63 +4,34 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{
-        Extension,
-        Path,
-    },
+    extract::{Extension, Path},
     handler::Handler,
     http::Method,
     routing::*,
-    Json,
-    Router,
+    Json, Router,
 };
 use futures::TryStreamExt;
 use mongodb::{
-    bson::{
-        doc,
-        DateTime,
-        Document,
-    },
+    bson::{doc, DateTime, Document},
     options::FindOptions,
     Database,
 };
 use time::OffsetDateTime;
 use tower_http::{
     catch_panic::CatchPanicLayer,
-    cors::{
-        Any,
-        CorsLayer,
-    },
+    cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
 
 use super::{
-    extractors::{
-        APIVersion,
-        Expanded,
-        MessagesQuery,
-        OutputsQuery,
-        Pagination,
-        TimeRange,
-    },
-    responses::{
-        ListenerResponse,
-        Record,
-        Transaction,
-        Transfer,
-    },
+    extractors::{APIVersion, Expanded, MessagesQuery, OutputsQuery, Pagination, TimeRange},
+    responses::{ListenerResponse, Record, Transaction, Transfer},
     ListenerError,
 };
 use crate::types::{
-    message::{
-        Message,
-        MessageRecord,
-    },
+    message::{Message, MessageRecord},
     mongo::BsonExt,
-    sync::{
-        SyncData,
-        SyncRecord,
-    },
+    sync::{SyncData, SyncRecord},
     LedgerInclusionState,
 };
 

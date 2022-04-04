@@ -1,39 +1,15 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    task::Poll,
-    time::SystemTime,
-};
+use std::{task::Poll, time::SystemTime};
 
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use futures::Future;
-use hyper::{
-    Method,
-    Request,
-    Response,
-    Uri,
-};
+use hyper::{Method, Request, Response, Uri};
 use lazy_static::lazy_static;
 use pin_project::pin_project;
-use prometheus::{
-    Encoder,
-    Gauge,
-    HistogramOpts,
-    HistogramVec,
-    IntCounter,
-    IntCounterVec,
-    Opts,
-    Registry,
-    TextEncoder,
-};
-use tower::{
-    Layer,
-    Service,
-};
+use prometheus::{Encoder, Gauge, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, Registry, TextEncoder};
+use tower::{Layer, Service};
 
 use super::error::ListenerError;
 

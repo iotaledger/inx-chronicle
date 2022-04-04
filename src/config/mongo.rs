@@ -1,26 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    path::PathBuf,
-    time::Duration,
-};
+use std::{path::PathBuf, time::Duration};
 
 use cfg_if::cfg_if;
 use mongodb::{
     bson::Document,
-    options::{
-        ClientOptions,
-        ReadConcern,
-        ReadPreferenceOptions,
-        ServerApi,
-        WriteConcern,
-    },
+    options::{ClientOptions, ReadConcern, ReadPreferenceOptions, ServerApi, WriteConcern},
 };
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 /// A clone of the [`ClientOptions`] structure from the [`mongodb`] crate
 /// which can be Serialized.

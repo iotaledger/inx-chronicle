@@ -7,20 +7,9 @@ mod stardust;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use mongodb::bson::{
-    doc,
-    document::ValueAccessError,
-    from_bson,
-    to_bson,
-    Bson,
-    Document,
-};
+use mongodb::bson::{doc, document::ValueAccessError, from_bson, to_bson, Bson, Document};
 
-use super::message::{
-    Message,
-    MessageId,
-    MessageRecord,
-};
+use super::message::{Message, MessageId, MessageRecord};
 
 impl From<&Message> for Bson {
     fn from(msg: &Message) -> Self {

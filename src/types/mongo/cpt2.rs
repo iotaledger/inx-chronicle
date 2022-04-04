@@ -3,25 +3,11 @@
 
 use std::str::FromStr;
 
-use anyhow::{
-    anyhow,
-    bail,
-};
-use mongodb::bson::{
-    doc,
-    Bson,
-    DateTime,
-    Document,
-};
+use anyhow::{anyhow, bail};
+use mongodb::bson::{doc, Bson, DateTime, Document};
 
-use super::{
-    BsonExt,
-    DocExt,
-};
-use crate::cpt2::{
-    prelude::*,
-    Message,
-};
+use super::{BsonExt, DocExt};
+use crate::cpt2::{prelude::*, Message};
 
 pub fn message_to_bson(message: &Message) -> Bson {
     let mut doc = Document::new();

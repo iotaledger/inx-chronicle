@@ -4,19 +4,10 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use axum::extract::{
-    FromRequest,
-    Query,
-};
+use axum::extract::{FromRequest, Query};
 use hex::FromHex;
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use time::{
-    Duration,
-    OffsetDateTime,
-};
+use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime};
 
 use super::error::ListenerError;
 

@@ -6,10 +6,7 @@ pub mod mongo;
 pub mod sync;
 
 use anyhow::*;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 /// A message's ledger inclusion state
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]

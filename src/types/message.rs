@@ -3,19 +3,13 @@
 
 use std::{
     fmt::Display,
-    ops::{
-        Deref,
-        DerefMut,
-    },
+    ops::{Deref, DerefMut},
     str::FromStr,
 };
 
 use anyhow::*;
 use derive_more::From;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use super::LedgerInclusionState;
 use crate::stardust::semantic::ConflictReason;

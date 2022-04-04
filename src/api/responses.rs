@@ -5,16 +5,10 @@ use std::ops::Deref;
 
 use axum::response::IntoResponse;
 use derive_more::From;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::extractors::{
-    MessagesQuery,
-    OutputsQuery,
-};
+use super::extractors::{MessagesQuery, OutputsQuery};
 use crate::types::LedgerInclusionState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

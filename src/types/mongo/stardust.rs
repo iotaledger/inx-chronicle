@@ -3,86 +3,32 @@
 
 use std::str::FromStr;
 
-use anyhow::{
-    anyhow,
-    bail,
-};
-use mongodb::bson::{
-    from_bson,
-    to_bson,
-    Bson,
-    DateTime,
-    Document,
-};
+use anyhow::{anyhow, bail};
+use mongodb::bson::{from_bson, to_bson, Bson, DateTime, Document};
 
-use super::{
-    BsonExt,
-    DocExt,
-};
+use super::{BsonExt, DocExt};
 use crate::stardust::{
-    address::{
-        Address,
-        AliasAddress,
-        Ed25519Address,
-        NftAddress,
-    },
-    input::{
-        Input,
-        TreasuryInput,
-        UtxoInput,
-    },
+    address::{Address, AliasAddress, Ed25519Address, NftAddress},
+    input::{Input, TreasuryInput, UtxoInput},
     milestone::MilestoneIndex,
     output::{
-        AliasId,
-        AliasOutput,
-        BasicOutput,
-        FeatureBlocks,
-        FoundryOutput,
-        NativeTokens,
-        NftId,
-        NftOutput,
-        Output,
-        TokenTag,
-        TreasuryOutput,
-        UnlockConditions,
+        AliasId, AliasOutput, BasicOutput, FeatureBlocks, FoundryOutput, NativeTokens, NftId, NftOutput, Output,
+        TokenTag, TreasuryOutput, UnlockConditions,
     },
     parent::Parents,
     payload::{
-        milestone::{
-            MilestoneEssence,
-            MilestoneId,
-            MilestonePayload,
-        },
-        receipt::{
-            MigratedFundsEntry,
-            ReceiptPayload,
-            TailTransactionHash,
-        },
+        milestone::{MilestoneEssence, MilestoneId, MilestonePayload},
+        receipt::{MigratedFundsEntry, ReceiptPayload, TailTransactionHash},
         tagged_data::TaggedDataPayload,
-        transaction::{
-            RegularTransactionEssence,
-            TransactionEssence,
-            TransactionId,
-            TransactionPayload,
-        },
+        transaction::{RegularTransactionEssence, TransactionEssence, TransactionId, TransactionPayload},
         treasury_transaction::TreasuryTransactionPayload,
         Payload,
     },
-    signature::{
-        Ed25519Signature,
-        Signature,
-    },
+    signature::{Ed25519Signature, Signature},
     unlock_block::{
-        AliasUnlockBlock,
-        NftUnlockBlock,
-        ReferenceUnlockBlock,
-        SignatureUnlockBlock,
-        UnlockBlock,
-        UnlockBlocks,
+        AliasUnlockBlock, NftUnlockBlock, ReferenceUnlockBlock, SignatureUnlockBlock, UnlockBlock, UnlockBlocks,
     },
-    Message,
-    MessageBuilder,
-    MessageId,
+    Message, MessageBuilder, MessageId,
 };
 
 pub fn message_to_bson(message: &Message) -> Bson {
