@@ -73,12 +73,15 @@ impl<B: Send> FromRequest<B> for MessagesQuery {
             .map_err(ListenerError::QueryError)?;
         if index.is_some() || tag.is_some() {
             let query = req.uri().query().unwrap_or_default();
-            let query = serde_urlencoded::from_str::<HashMap<String, String>>(query)
-                .map_err(|e| ListenerError::Other(e.into()))?;
-            let utf8 = query.get("utf8").map(|s| s.as_str());
+            let query = serde_urlencoded::from_str::<HashMap<String, String>>(query).map_err(ListenerError::other)?;
+            let utf8 = query
+                .get("utf8")
+                .map(|s| s.parse::<bool>())
+                .transpose()
+                .map_err(ListenerError::bad_parse)?;
 
             if let Some(index) = index.as_mut() {
-                if let Some("true") = utf8 {
+                if let Some(true) = utf8 {
                     *index = hex::encode(&*index);
                 }
                 let index_bytes = Vec::<u8>::from_hex(index).map_err(|_| ListenerError::InvalidHex)?;
@@ -87,7 +90,7 @@ impl<B: Send> FromRequest<B> for MessagesQuery {
                 }
             }
             if let Some(tag) = tag.as_mut() {
-                if let Some("true") = utf8 {
+                if let Some(true) = utf8 {
                     *tag = hex::encode(&*tag);
                 }
                 let tag_bytes = Vec::<u8>::from_hex(tag).map_err(|_| ListenerError::InvalidHex)?;
@@ -128,12 +131,12 @@ impl<B: Send> FromRequest<B> for TimeRange {
             start_timestamp: start_timestamp
                 .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
                 .transpose()
-                .map_err(|e| ListenerError::BadParse(e.into()))?
+                .map_err(ListenerError::bad_parse)?
                 .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::days(30)),
             end_timestamp: end_timestamp
                 .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
                 .transpose()
-                .map_err(|e| ListenerError::BadParse(e.into()))?
+                .map_err(ListenerError::bad_parse)?
                 .unwrap_or_else(OffsetDateTime::now_utc),
         };
         if time_range.end_timestamp < time_range.start_timestamp {

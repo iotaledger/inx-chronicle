@@ -36,15 +36,25 @@ impl ListenerError {
         match self {
             ListenerError::NoResults | ListenerError::NotFound => StatusCode::NOT_FOUND,
             ListenerError::IndexTooLarge
+            | ListenerError::TagTooLarge
             | ListenerError::InvalidHex
+            | ListenerError::BadTimeRange
             | ListenerError::BadParse(_)
             | ListenerError::QueryError(_) => StatusCode::BAD_REQUEST,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
+            ListenerError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
     pub fn code(&self) -> u16 {
         self.status().as_u16()
+    }
+
+    pub fn bad_parse(err: impl Into<anyhow::Error>) -> Self {
+        ListenerError::BadParse(err.into())
+    }
+
+    pub fn other(err: impl Into<anyhow::Error>) -> Self {
+        ListenerError::Other(err.into())
     }
 }
 

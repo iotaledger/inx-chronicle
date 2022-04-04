@@ -208,7 +208,7 @@ async fn message(
             Message::Stardust(m) => m.payload().map(serde_json::to_value),
         }
         .transpose()
-        .map_err(|e| ListenerError::Other(e.into()))?,
+        .map_err(ListenerError::other)?,
         nonce: rec.nonce(),
     })
 }
@@ -738,7 +738,7 @@ async fn transaction_included_message(
             Message::Stardust(m) => m.payload().map(serde_json::to_value),
         }
         .transpose()
-        .map_err(|e| ListenerError::Other(e.into()))?,
+        .map_err(ListenerError::other)?,
         nonce: rec.nonce(),
     })
 }

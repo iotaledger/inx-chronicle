@@ -46,17 +46,13 @@ async fn metrics() -> Result<String, ListenerError> {
     let mut buffer = Vec::new();
     encoder
         .encode(&REGISTRY.gather(), &mut buffer)
-        .map_err(|e| ListenerError::Other(e.into()))?;
-
-    let res_custom = String::from_utf8(std::mem::take(&mut buffer)).map_err(|e| ListenerError::Other(e.into()))?;
+        .map_err(ListenerError::other)?;
 
     encoder
         .encode(&prometheus::gather(), &mut buffer)
-        .map_err(|e| ListenerError::Other(e.into()))?;
+        .map_err(ListenerError::other)?;
 
-    let res_default = String::from_utf8(buffer).map_err(|e| ListenerError::Other(e.into()))?;
-
-    Ok(format!("{}{}", res_custom, res_default))
+    Ok(String::from_utf8(buffer).map_err(ListenerError::other)?)
 }
 
 pub fn register_metrics() {
