@@ -28,12 +28,12 @@ dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
-lazy_static = { version = "1.4", default-features = false }
+lazy_static = { version = "1.4", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.1", default-features = false, features = ["tokio-runtime"] }
-pin-project = { version = "1.0", default-features = false }
+pin-project = { version = "1.0", default-features = false, optional = true }
 primitive-types = { version = "0.10", default-features = false, features = [ "serde" ] }
-prometheus = { version = "0.13", default-features = false }
+prometheus = { version = "0.13", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_json = { version = "1.0", default-features = false }
 serde_urlencoded = { version = "0.7", default-features = false }
@@ -56,5 +56,16 @@ bee-message-stardust = { git = "https://github.com/iotaledger/bee.git", branch =
 bee-rest-api-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, package = "bee-rest-api" }
 
 [features]
-default = ["api"]
-api = ["axum", "hyper", "tower", "tower-http"]
+default = [ "api" ]
+api = [ 
+    "axum",
+    "hyper",
+    "tower",
+    "tower-http"
+]
+api-metrics = [ 
+    "api",
+    "lazy_static",
+    "pin-project",
+    "prometheus"
+]
