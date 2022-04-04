@@ -5,11 +5,15 @@
 
 //! TODO
 
+/// Module containing the API.
 #[cfg(feature = "api")]
 pub mod api;
+/// Module containing the configuration.
 pub mod config;
+
 mod types;
 
+/// Re-exporting the Chrysalis types.
 pub mod cpt2 {
     pub use bee_message_cpt2::{
         self,
@@ -20,6 +24,7 @@ pub mod cpt2 {
         *,
     };
 }
+/// Re-exporting the Stardust types.
 pub mod stardust {
     pub use bee_message_stardust::{
         self,

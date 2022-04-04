@@ -68,6 +68,7 @@ pub struct ChronicleAPI {
 }
 
 impl ChronicleAPI {
+    /// Creates a new instance of the [`ChronicleAPI`].
     pub fn new(mongo_config: MongoConfig) -> Self {
         Self {
             mongo_config,
@@ -125,6 +126,7 @@ impl Actor for ChronicleAPI {
     }
 }
 
+/// The Shutdown message.
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct ShutdownAPI;
@@ -187,12 +189,14 @@ lazy_static! {
             .expect("failed to create metric");
 }
 
+/// Provides a [`Metrics`] service.
 #[derive(Clone, Debug)]
 pub struct Metrics<T> {
     inner: T,
 }
 
 impl<T> Metrics<T> {
+    /// Creates a new [`Metrics`] service.
     pub fn new(inner: T) -> Self {
         Self { inner }
     }
@@ -228,6 +232,7 @@ where
     }
 }
 
+/// A [`MetricsLayer`] to be used with [`axum`].
 #[derive(Copy, Clone, Debug)]
 pub struct MetricsLayer;
 
@@ -239,6 +244,7 @@ impl<S> Layer<S> for MetricsLayer {
     }
 }
 
+/// TODO.
 #[pin_project]
 pub struct MetricsResponseFuture<F> {
     #[pin]
