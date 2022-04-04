@@ -5,6 +5,8 @@
 
 //! TODO
 
+mod types;
+
 #[cfg(test)]
 mod test {
     #[test]

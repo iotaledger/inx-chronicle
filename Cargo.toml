@@ -1,13 +1,13 @@
 [package]
 name = "chronicle-inx"
 version = "0.1.0"
-authors = [ "IOTA Stiftung" ]
+authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)"
 readme = "README.md"
 repository = "https://github.com/iotaledger/inx-chronicle"
 license = "Apache-2.0"
-keywords = [ "iota", "storage", "permanode", "node", "inx" ]
+keywords = ["iota", "storage", "permanode", "node", "inx"]
 homepage = "https://www.iota.org"
 
 [lib]
@@ -19,3 +19,7 @@ name = "inx-chronicle"
 path = "src/main.rs"
 
 [dependencies]
+bee-message-chrysalis = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"] }
+bee-message-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde1", "dto"], package = "bee-message" }
+bee-rest-api-chrysalis = { package = "bee-rest-api", version = "0.1", default-features = false }
+mongodb = { version = "2.1", default-features = false, features = ["tokio-runtime"] }
