@@ -1,7 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(clippy::unnecessary_lazy_evaluations)]
+#![warn(missing_docs)]
+
+//! TODO
 
 #[cfg(feature = "api")]
 pub mod api;
