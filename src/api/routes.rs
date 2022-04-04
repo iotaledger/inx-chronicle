@@ -190,7 +190,8 @@ async fn message(
         database
             .collection::<Document>("messages")
             .find_one(doc! {"message_id": &message_id.to_string()}, None)
-            .await?.ok_or(ListenerError::NoResults)?,
+            .await?
+            .ok_or(ListenerError::NoResults)?,
     )?;
     Ok(ListenerResponse::Message {
         network_id: match &rec.message {
@@ -220,7 +221,8 @@ async fn message_metadata(
         database
             .collection::<Document>("messages")
             .find_one(doc! {"message_id": &message_id.to_string()}, None)
-            .await?.ok_or(ListenerError::NoResults)?,
+            .await?
+            .ok_or(ListenerError::NoResults)?,
     )?;
 
     Ok(ListenerResponse::MessageMetadata {
@@ -657,7 +659,8 @@ async fn transaction_for_message(
         database
             .collection::<Document>("messages")
             .find_one(doc! {"message_id": &message_id}, None)
-            .await?.ok_or(ListenerError::NoResults)?,
+            .await?
+            .ok_or(ListenerError::NoResults)?,
     )?;
 
     Ok(ListenerResponse::Transaction(Transaction {
@@ -716,7 +719,8 @@ async fn transaction_included_message(
                 },
                 None,
             )
-            .await?.ok_or(ListenerError::NoResults)?,
+            .await?
+            .ok_or(ListenerError::NoResults)?,
     )?;
 
     Ok(ListenerResponse::Message {
@@ -743,7 +747,8 @@ async fn milestone(database: Extension<Database>, Path((_ver, index)): Path<(API
     database
         .collection::<Document>("messages")
         .find_one(doc! {"message.payload.essence.index": &index}, None)
-        .await?.ok_or(ListenerError::NoResults)
+        .await?
+        .ok_or(ListenerError::NoResults)
         .and_then(|d| {
             let rec = MessageRecord::try_from(d)?;
             Ok(ListenerResponse::Milestone {
