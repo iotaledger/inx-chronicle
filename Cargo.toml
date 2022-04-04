@@ -28,12 +28,9 @@ dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false }
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
-lazy_static = { version = "1.4", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.1", default-features = false, features = ["tokio-runtime"] }
-pin-project = { version = "1.0", default-features = false, optional = true }
 primitive-types = { version = "0.10", default-features = false, features = [ "serde" ] }
-prometheus = { version = "0.13", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_json = { version = "1.0", default-features = false }
 serde_urlencoded = { version = "0.7", default-features = false }
@@ -47,6 +44,11 @@ hyper = { version = "0.14", default-features = false, features = ["server", "tcp
 tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.2", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
+# Metrics
+lazy_static = { version = "1.4", default-features = false, optional = true }
+pin-project = { version = "1.0", default-features = false, optional = true }
+prometheus = { version = "0.13", default-features = false, optional = true }
+
 # Chrysalis types
 bee-message-cpt2 = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"] }
 bee-rest-api-cpt2 = { package = "bee-rest-api", version = "0.1", default-features = false }
@@ -56,16 +58,16 @@ bee-message-stardust = { git = "https://github.com/iotaledger/bee.git", branch =
 bee-rest-api-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, package = "bee-rest-api" }
 
 [features]
-default = [ "api" ]
+default = ["api"]
 api = [ 
     "axum",
     "hyper",
     "tower",
-    "tower-http"
+    "tower-http",
 ]
 api-metrics = [ 
     "api",
     "lazy_static",
     "pin-project",
-    "prometheus"
+    "prometheus",
 ]
