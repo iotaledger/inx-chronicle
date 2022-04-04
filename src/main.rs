@@ -19,8 +19,8 @@ fn main() {
         MongoConfig::default().with_credential(Credential::default().with_username("root").with_password("pass"));
     let res: anyhow::Result<()> = system.block_on(async {
         let api_addr = ChronicleAPI::new(mongo_config)?.start();
-        tokio::signal::ctrl_c().await.ok();
-        api_addr.send(ShutdownAPI).await.ok();
+        tokio::signal::ctrl_c().await?;
+        api_addr.send(ShutdownAPI).await?;
         Ok(())
     });
     res.unwrap();
