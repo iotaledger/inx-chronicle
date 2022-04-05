@@ -27,6 +27,10 @@ use crate::{
         extractors::{Expanded, Pagination, TimeRange},
         APIResult,
     },
+    stardust::{
+        output::OutputId,
+        payload::transaction::{TransactionId, TransactionPayload},
+    },
     types::{message::stardust::MessageRecord, LedgerInclusionState},
     BsonExt,
 };
@@ -376,8 +380,7 @@ async fn outputs_query(
             .into_iter()
             .map(|record| {
                 let payload = record.get_document("message").unwrap().get_document("payload").unwrap();
-                let transaction_id =
-                    crate::cpt2::prelude::TransactionId::from_str(payload.get_str("transaction_id").unwrap()).unwrap();
+                let transaction_id = TransactionId::from_str(payload.get_str("transaction_id").unwrap()).unwrap();
                 let idx = payload
                     .get_document("essence")
                     .unwrap()
@@ -387,7 +390,7 @@ async fn outputs_query(
                     .unwrap()
                     .as_u16()
                     .unwrap();
-                let output_id = crate::cpt2::prelude::OutputId::new(transaction_id, idx).unwrap();
+                let output_id = OutputId::new(transaction_id, idx).unwrap();
                 if expanded {
                     let inclusion_state = record
                         .get_i32("inclusion_state")
@@ -613,7 +616,7 @@ async fn address_analytics(
                 doc! { "$match": {
                     "inclusion_state": LedgerInclusionState::Included as u8 as i32,
                     "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                    "message.payload.kind": crate::cpt2::payload::transaction::TransactionPayload::KIND as i32,
+                    "message.payload.kind": TransactionPayload::KIND as i32,
                 } },
                 doc! { "$unwind": { "path": "$message.payload.essence.inputs", "includeArrayIndex": "message.payload.essence.inputs.idx" } },
                 doc! { "$lookup": {
