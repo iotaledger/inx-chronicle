@@ -12,7 +12,7 @@ pub struct SyncRecord {
     pub synced: bool,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncData {
     /// The completed(synced and logged) milestones data
     pub completed: Vec<Range<u32>>,

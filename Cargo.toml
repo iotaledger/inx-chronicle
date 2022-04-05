@@ -19,24 +19,28 @@ name = "inx-chronicle"
 path = "src/main.rs"
 
 [dependencies]
+
+# Required
 actix = { version = "0.13", default-features = false, features = ["macros"] }
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
-async-trait = { version = "0.1", default-features = false }
 cfg-if = { version = "1.0", default-features = false }
-derive_more = { version = "0.99", default-features = false }
 dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
-futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
 indexmap = { version = "1.8", default-features = false, features = ["std"] }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.1", default-features = false, features = ["tokio-runtime"] }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
-serde_urlencoded = { version = "0.7", default-features = false }
 thiserror = { version = "1.0", default-features = false }
-time = { version = "0.3", default-features = false }
+time = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1.0", default-features = false }
+
+# Optional
+async-trait = { version = "0.1", default-features = false, optional = true }
+derive_more = { version = "0.99", default-features = false, optional = true }
+futures = { version = "0.3", default-features = false, optional = true }
+serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 
 # API
 axum = { version = "0.5", default-features = false, features = ["http1", "json", "query"], optional = true }
@@ -50,17 +54,24 @@ pin-project = { version = "1.0", default-features = false, optional = true }
 prometheus = { version = "0.13", default-features = false, optional = true }
 
 # Chrysalis types
-bee-message-cpt2 = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"] }
-bee-rest-api-cpt2 = { package = "bee-rest-api", version = "0.1", default-features = false }
+bee-message-cpt2 = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"], optional = true }
+bee-rest-api-cpt2 = { package = "bee-rest-api", version = "0.1", default-features = false, optional = true }
 
 # Stardust types
-bee-message-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde1", "dto"], package = "bee-message" }
-bee-rest-api-stardust = { git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, package = "bee-rest-api" }
+bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
+bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
+
+# Temporarily patch Stardust types until release
+[patch.crates-io]
+bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
+bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
 
 [features]
 default = ["api"]
 api = [ 
+    "async-trait",
     "axum",
+    "futures",
     "hyper",
     "tower",
     "tower-http",
@@ -70,4 +81,24 @@ api-metrics = [
     "lazy_static",
     "pin-project",
     "prometheus",
+]
+api-v1 = [
+    "api",
+    "chrysalis",
+    "derive_more/from",
+    "serde_urlencoded",
+]
+api-v2 = [
+    "api",
+    "stardust",
+    "derive_more/from",
+    "serde_urlencoded",
+]
+chrysalis = [
+    "bee-message-cpt2",
+    "bee-rest-api-cpt2",
+]
+stardust = [
+    "bee-message-stardust",
+    "bee-rest-api-stardust",
 ]

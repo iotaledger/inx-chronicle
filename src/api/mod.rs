@@ -4,21 +4,42 @@
 //! Contains routes that can be used to access data stored by Chronicle
 //! as well as the health of the application, metrics, and analytics.
 
-mod error;
 mod extractors;
 #[cfg(feature = "api-metrics")]
 mod metrics;
+#[cfg(feature = "api-v1")]
+mod v1;
+
+#[cfg(feature = "api-v2")]
+mod v2;
+
+mod error;
 mod responses;
 mod routes;
 
 use actix::{Actor, ActorContext, Context, Handler, Message};
 use axum::Server;
-use error::ListenerError;
 use mongodb::{options::ClientOptions, Client};
 use routes::routes;
+use serde::Deserialize;
 use tokio::sync::oneshot;
 
+use self::error::APIError;
 use crate::config::mongo::MongoConfig;
+
+/// The result of a request to the api
+pub type APIResult<T> = Result<T, APIError>;
+
+/// API version enumeration
+#[derive(Copy, Clone, Deserialize)]
+pub enum APIVersion {
+    /// Chrysalis API version 1
+    #[serde(rename = "v1")]
+    V1,
+    /// Stardust API version 2
+    #[serde(rename = "v2")]
+    V2,
+}
 
 /// The Chronicle API actor
 #[derive(Debug)]

@@ -4,32 +4,69 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, bail};
-use mongodb::bson::{from_bson, to_bson, Bson, DateTime, Document};
+use mongodb::bson::{doc, from_bson, to_bson, Bson, DateTime, Document};
 
-use super::{BsonExt, DocExt};
-use crate::stardust::{
-    address::{Address, AliasAddress, Ed25519Address, NftAddress},
-    input::{Input, TreasuryInput, UtxoInput},
-    milestone::MilestoneIndex,
-    output::{
-        AliasId, AliasOutput, BasicOutput, FeatureBlocks, FoundryOutput, NativeTokens, NftId, NftOutput, Output,
-        TokenTag, TreasuryOutput, UnlockConditions,
+use crate::{
+    stardust::{
+        address::{Address, AliasAddress, Ed25519Address, NftAddress},
+        input::{Input, TreasuryInput, UtxoInput},
+        milestone::MilestoneIndex,
+        output::{
+            AliasId, AliasOutput, BasicOutput, FeatureBlocks, FoundryOutput, NativeTokens, NftId, NftOutput, Output,
+            TokenTag, TreasuryOutput, UnlockConditions,
+        },
+        parent::Parents,
+        payload::{
+            milestone::{MilestoneEssence, MilestoneId, MilestonePayload},
+            receipt::{MigratedFundsEntry, ReceiptPayload, TailTransactionHash},
+            tagged_data::TaggedDataPayload,
+            transaction::{RegularTransactionEssence, TransactionEssence, TransactionId, TransactionPayload},
+            treasury_transaction::TreasuryTransactionPayload,
+            Payload,
+        },
+        signature::{Ed25519Signature, Signature},
+        unlock_block::{
+            AliasUnlockBlock, NftUnlockBlock, ReferenceUnlockBlock, SignatureUnlockBlock, UnlockBlock, UnlockBlocks,
+        },
+        Message, MessageBuilder, MessageId,
     },
-    parent::Parents,
-    payload::{
-        milestone::{MilestoneEssence, MilestoneId, MilestonePayload},
-        receipt::{MigratedFundsEntry, ReceiptPayload, TailTransactionHash},
-        tagged_data::TaggedDataPayload,
-        transaction::{RegularTransactionEssence, TransactionEssence, TransactionId, TransactionPayload},
-        treasury_transaction::TreasuryTransactionPayload,
-        Payload,
-    },
-    signature::{Ed25519Signature, Signature},
-    unlock_block::{
-        AliasUnlockBlock, NftUnlockBlock, ReferenceUnlockBlock, SignatureUnlockBlock, UnlockBlock, UnlockBlocks,
-    },
-    Message, MessageBuilder, MessageId,
+    types::message::stardust::MessageRecord,
+    BsonExt, DocExt,
 };
+
+impl From<&MessageRecord> for Document {
+    fn from(rec: &MessageRecord) -> Self {
+        doc! {
+            "message_id": rec.message_id.to_string(),
+            "message": message_to_bson(&rec.message),
+            "milestone_index": rec.milestone_index,
+            "inclusion_state": rec.inclusion_state.map(|i| i as u8 as i32),
+            "conflict_reason": rec.conflict_reason.map(|i| i as u8 as i32),
+        }
+    }
+}
+
+impl TryFrom<Document> for MessageRecord {
+    type Error = anyhow::Error;
+
+    fn try_from(mut value: Document) -> Result<Self, Self::Error> {
+        Ok(Self {
+            message_id: MessageId::from_str(value.get_str("message_id")?)?,
+            message: message_from_bson(value.take("message")?)?,
+            milestone_index: value.get_i32("milestone_index").ok().map(|i| i as u32),
+            inclusion_state: value
+                .get_i32("inclusion_state")
+                .ok()
+                .map(|i| (i as u8).try_into())
+                .transpose()?,
+            conflict_reason: value
+                .get_i32("conflict_reason")
+                .ok()
+                .map(|i| (i as u8).try_into())
+                .transpose()?,
+        })
+    }
+}
 
 pub fn message_to_bson(message: &Message) -> Bson {
     let mut doc = Document::new();

@@ -7,7 +7,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ListenerError {
+pub enum APIError {
     #[error("No results returned!")]
     NoResults,
     #[error("Provided index is too large! (Max 64 bytes)")]
@@ -28,17 +28,17 @@ pub enum ListenerError {
     Other(#[from] anyhow::Error),
 }
 
-impl ListenerError {
+impl APIError {
     pub fn status(&self) -> StatusCode {
         match self {
-            ListenerError::NoResults | ListenerError::NotFound => StatusCode::NOT_FOUND,
-            ListenerError::IndexTooLarge
-            | ListenerError::TagTooLarge
-            | ListenerError::InvalidHex
-            | ListenerError::BadTimeRange
-            | ListenerError::BadParse(_)
-            | ListenerError::QueryError(_) => StatusCode::BAD_REQUEST,
-            ListenerError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            APIError::NoResults | APIError::NotFound => StatusCode::NOT_FOUND,
+            APIError::IndexTooLarge
+            | APIError::TagTooLarge
+            | APIError::InvalidHex
+            | APIError::BadTimeRange
+            | APIError::BadParse(_)
+            | APIError::QueryError(_) => StatusCode::BAD_REQUEST,
+            APIError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -47,20 +47,39 @@ impl ListenerError {
     }
 
     pub fn bad_parse(err: impl Into<anyhow::Error>) -> Self {
-        ListenerError::BadParse(err.into())
+        APIError::BadParse(err.into())
     }
 
     pub fn other(err: impl Into<anyhow::Error>) -> Self {
-        ListenerError::Other(err.into())
+        APIError::Other(err.into())
     }
 }
 
-impl IntoResponse for ListenerError {
+impl IntoResponse for APIError {
     fn into_response(self) -> axum::response::Response {
-        let err = ErrorBody::from(self);
-        match serde_json::to_string(&err) {
+        ErrorBody::from(self).into_response()
+    }
+}
+
+impl From<mongodb::error::Error> for APIError {
+    fn from(e: mongodb::error::Error) -> Self {
+        Self::Other(e.into())
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ErrorBody {
+    #[serde(skip_serializing)]
+    status: StatusCode,
+    code: u16,
+    message: String,
+}
+
+impl IntoResponse for ErrorBody {
+    fn into_response(self) -> axum::response::Response {
+        match serde_json::to_string(&self) {
             Ok(json) => axum::response::Response::builder()
-                .status(err.status)
+                .status(self.status)
                 .header(hyper::header::CONTENT_TYPE, "application/json")
                 .body(axum::body::boxed(axum::body::Full::from(json)))
                 .unwrap(),
@@ -72,22 +91,8 @@ impl IntoResponse for ListenerError {
     }
 }
 
-impl From<mongodb::error::Error> for ListenerError {
-    fn from(e: mongodb::error::Error) -> Self {
-        Self::Other(e.into())
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ErrorBody {
-    #[serde(skip_serializing)]
-    status: StatusCode,
-    code: u16,
-    message: String,
-}
-
-impl From<ListenerError> for ErrorBody {
-    fn from(err: ListenerError) -> Self {
+impl From<APIError> for ErrorBody {
+    fn from(err: APIError) -> Self {
         Self {
             status: err.status(),
             code: err.code(),

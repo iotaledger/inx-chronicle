@@ -35,6 +35,7 @@ impl TryFrom<u8> for LedgerInclusionState {
     }
 }
 
+#[cfg(feature = "chrysalis")]
 impl From<crate::cpt2::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
     fn from(value: crate::cpt2::types::dtos::LedgerInclusionStateDto) -> Self {
         match value {
@@ -45,6 +46,7 @@ impl From<crate::cpt2::types::dtos::LedgerInclusionStateDto> for LedgerInclusion
     }
 }
 
+#[cfg(feature = "chrysalis")]
 impl From<LedgerInclusionState> for crate::cpt2::types::dtos::LedgerInclusionStateDto {
     fn from(v: LedgerInclusionState) -> Self {
         match v {
@@ -55,6 +57,7 @@ impl From<LedgerInclusionState> for crate::cpt2::types::dtos::LedgerInclusionSta
     }
 }
 
+#[cfg(feature = "stardust")]
 impl From<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
     fn from(value: crate::stardust::types::dtos::LedgerInclusionStateDto) -> Self {
         match value {
@@ -65,6 +68,7 @@ impl From<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclu
     }
 }
 
+#[cfg(feature = "stardust")]
 impl From<LedgerInclusionState> for crate::stardust::types::dtos::LedgerInclusionStateDto {
     fn from(v: LedgerInclusionState) -> Self {
         match v {

@@ -6,8 +6,41 @@ use std::str::FromStr;
 use anyhow::{anyhow, bail};
 use mongodb::bson::{doc, Bson, DateTime, Document};
 
-use super::{BsonExt, DocExt};
-use crate::cpt2::{prelude::*, Message};
+use crate::{
+    cpt2::{prelude::*, Message},
+    types::message::cpt2::MessageRecord,
+    BsonExt, DocExt,
+};
+
+impl From<&MessageRecord> for Document {
+    fn from(rec: &MessageRecord) -> Self {
+        doc! {
+            "message_id": rec.message_id.to_string(),
+            "message": message_to_bson(&rec.message),
+            "milestone_index": rec.milestone_index,
+            "inclusion_state": rec.inclusion_state.map(|i| i as u8 as i32),
+            "conflict_reason": rec.conflict_reason.map(|i| i as u8 as i32),
+        }
+    }
+}
+
+impl TryFrom<Document> for MessageRecord {
+    type Error = anyhow::Error;
+
+    fn try_from(mut value: Document) -> Result<Self, Self::Error> {
+        Ok(Self {
+            message_id: MessageId::from_str(value.get_str("message_id")?)?,
+            message: message_from_bson(value.take("message")?)?,
+            milestone_index: value.get_i32("milestone_index").ok().map(|i| i as u32),
+            inclusion_state: value
+                .get_i32("inclusion_state")
+                .ok()
+                .map(|i| (i as u8).try_into())
+                .transpose()?,
+            conflict_reason: value.get_i32("conflict_reason").ok().map(|i| i as u8),
+        })
+    }
+}
 
 pub fn message_to_bson(message: &Message) -> Bson {
     let mut doc = Document::new();

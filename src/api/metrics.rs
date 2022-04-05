@@ -11,24 +11,24 @@ use pin_project::pin_project;
 use prometheus::{Encoder, Gauge, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, Registry, TextEncoder};
 use tower::{Layer, Service};
 
-use super::error::ListenerError;
+use super::error::APIError;
 
 pub fn routes() -> Router {
     Router::new().route("/metrics", get(metrics))
 }
 
-async fn metrics() -> Result<String, ListenerError> {
+async fn metrics() -> Result<String, APIError> {
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();
     encoder
         .encode(&REGISTRY.gather(), &mut buffer)
-        .map_err(ListenerError::other)?;
+        .map_err(APIError::other)?;
 
     encoder
         .encode(&prometheus::gather(), &mut buffer)
-        .map_err(ListenerError::other)?;
+        .map_err(APIError::other)?;
 
-    String::from_utf8(buffer).map_err(ListenerError::other)
+    String::from_utf8(buffer).map_err(APIError::other)
 }
 
 pub fn register_metrics() {
