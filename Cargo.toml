@@ -1,13 +1,13 @@
 [package]
 name = "chronicle-inx"
 version = "0.1.0"
-authors = [ "IOTA Stiftung" ]
+authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
 readme = "README.md"
 repository = "https://github.com/iotaledger/inx-chronicle"
 license = "Apache-2.0"
-keywords = [ "iota", "storage", "permanode", "node", "inx" ]
+keywords = ["iota", "storage", "permanode", "node", "inx"]
 homepage = "https://www.iota.org"
 
 [lib]
@@ -19,8 +19,15 @@ name = "inx-chronicle"
 path = "src/main.rs"
 
 [dependencies]
+actix = { version = "0.13", default-features = false, features = ["macros"] }
+async-trait = { version = "0.1", default-features = false }
 axum = { version = "0.5.0", default-features = false, features = [ "json", "headers" ] }
+dotenv = { version = "0.15", default-features = false }
+env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3.21", default-features = false }
 inx = { git = "https://github.com/iotaledger/inx", version = "0.1.0", default-features = false }
+log = { version = "0.4", default-features = false }
+mongodb = { version = "2.1.0", default-features = false, features = ["tokio-runtime"] }
+thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.17.0", default-features = false, features = [ "macros", "rt-multi-thread" ] }
 tonic = { verison = "0.6.2", default-features = false }

@@ -1,7 +1,9 @@
 /target
 
-/alphanet
+.env
 
+# Hornet files
+/alphanet
 config.json
 peering.json
 profiles.json
