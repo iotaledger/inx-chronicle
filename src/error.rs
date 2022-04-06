@@ -10,6 +10,5 @@ pub enum Error {
     // #[error("INX error: {0}")]
     // InxError(#[from] inx::proto::inx_client::Error),
     #[error("graceful shutdown failed")]
-    ShutdownFailed
-    
+    ShutdownFailed,
 }
