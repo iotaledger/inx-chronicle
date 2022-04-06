@@ -173,14 +173,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tokio::spawn(async move {
                     latest_milestone(&mut inx_client, c2).await;
                 });
+
+                tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
             }
             Err(_) => {
                 error!("Could not connect to INX.");
-                // How to shutdown from here.
             }
         }
-
-        tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
+        
         inx_worker_addr.send(ShutdownMessage).await.unwrap();
         Ok(())
     });
