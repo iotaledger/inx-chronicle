@@ -778,7 +778,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/grtlr/inx?branch=bump-rust-deps#b28f6223b4ac77f849f6c5daffd4237364413ab6"
+source = "git+https://github.com/iotaledger/inx#aa4431f2d3d4883170219c82309642a5aad36261"
 dependencies = [
  "prost",
  "tonic",
