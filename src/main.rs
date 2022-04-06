@@ -1,25 +1,28 @@
-// Copyright 2021 IOTA Stiftung
+// Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
 #![warn(missing_docs)]
 
 //! TODO
 
-use actix::{
-    Actor, ActorContext, ActorFutureExt, AsyncContext, Context, Handler, Message, StreamHandler, System, WrapFuture,
-};
+use std::time::Duration;
+
+use anyhow::anyhow;
+use async_trait::async_trait;
+use backstage::prelude::*;
 use chronicle::{db, error::Error};
+use futures::{FutureExt, StreamExt};
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
     Status,
 };
-use log::{debug, error, info};
+use log::{debug, info};
 use mongodb::{
     bson,
     bson::{doc, Document},
     options::{ClientOptions, Credential},
-    Client,
+    Client, Database,
 };
 
 async fn connect_database() -> Result<mongodb::Database, Error> {
@@ -36,153 +39,252 @@ async fn connect_database() -> Result<mongodb::Database, Error> {
     Ok(client.database(db::DB_NAME))
 }
 
-/// A worker that writes messages from [`inx`] to the database.
-pub struct INXListener {
-    db: mongodb::Database,
-}
+#[derive(Debug)]
+/// Supervisor actor
+pub struct Launcher;
 
-impl INXListener {
-    fn new(db: mongodb::Database) -> Self {
-        Self { db }
+#[async_trait]
+impl Actor for Launcher {
+    const PATH: &'static str = "launcher";
+
+    type Data = ();
+
+    type Context = UnsupervisedContext<Self>;
+
+    async fn init(&mut self, cx: &mut Self::Context) -> Result<Self::Data, ActorError>
+    where
+        Self: 'static + Sized + Send + Sync,
+    {
+        let mut retries = 3;
+        loop {
+            let res = cx.spawn_actor(INXListener).await;
+            if res.is_err() {
+                if retries > 0 {
+                    retries -= 1;
+                } else {
+                    Err(anyhow::anyhow!("Failed to spawn INXListener"))?;
+                }
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 }
 
-impl Actor for INXListener {
-    type Context = Context<Self>;
+#[async_trait]
+impl HandleEvent<StatusChange<INXListener>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut Self::Context,
+        _event: StatusChange<INXListener>,
+        _data: &mut Self::Data,
+    ) -> Result<(), ActorError> {
+        Ok(())
+    }
+}
 
-    fn started(&mut self, ctx: &mut Self::Context) {
-        info!("INXListener started.");
-        let fut = Box::pin(
-            async move {
-                info!("Connecting to INX...");
-                match InxClient::connect("http://localhost:9029").await {
-                    Ok(mut inx_client) => {
-                        info!("Connected to INX.");
-                        let response = inx_client.read_node_status(NoParams {}).await;
-                        info!("Node status: {:#?}", response.unwrap().into_inner());
-                        let response = inx_client.listen_to_messages(MessageFilter {}).await;
-                        info!("Subscribed to `ListenToMessages`.");
-                        let message_stream = response.unwrap().into_inner();
-
-                        let response = inx_client.listen_to_latest_milestone(NoParams {}).await;
-                        info!("Subscribed to `ListenToLatestMilestone`.");
-                        let milestone_stream = response.unwrap().into_inner();
-
-                        Ok((message_stream, milestone_stream))
-                    }
-                    Err(e) => {
-                        error!("Could not connect to INX: {}", e);
-                        Err(e)
-                    }
+#[async_trait]
+impl HandleEvent<Report<INXListener>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut Self::Context,
+        mut event: Report<INXListener>,
+        _data: &mut Self::Data,
+    ) -> Result<(), ActorError> {
+        match event.as_mut() {
+            Err(e) => {
+                log::error!("{:?}", e.error);
+                match e.error.request.as_mut() {
+                    Some(req) => match req {
+                        ActorRequest::Restart(d) => match d.take() {
+                            Some(d) => {
+                                let handle = cx.handle().clone();
+                                tokio::spawn(async move {
+                                    tokio::time::sleep(d).await;
+                                    handle.send(event).ok();
+                                });
+                            }
+                            None => {
+                                cx.spawn_actor(INXListener).await?;
+                            }
+                        },
+                        _ => (),
+                    },
+                    None => (),
                 }
             }
-            .into_actor(self)
-            .map(|streams, _, ctx| match streams {
-                Ok((message_stream, milestone_stream)) => {
-                    <Self as StreamHandler<Result<inx::proto::Message, _>>>::add_stream(message_stream, ctx);
-                    <Self as StreamHandler<Result<inx::proto::Milestone, _>>>::add_stream(milestone_stream, ctx);
-                }
-                Err(_) => {
-                    ctx.terminate();
-                }
-            }),
-        );
-        ctx.wait(fut);
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!("INXListener stopped.");
+            Ok(_) => (),
+        }
+        Ok(())
     }
 }
 
-impl StreamHandler<Result<inx::proto::Message, Status>> for INXListener {
-    fn handle(&mut self, inx_msg: Result<inx::proto::Message, Status>, ctx: &mut Self::Context) {
-        if let Ok(inx_msg) = inx_msg {
-            let message_id = inx_msg.message_id.unwrap();
-            debug!("Received message from INX: {:?}", message_id);
-            let db = self.db.clone();
-            let fut = Box::pin(async move {
+/// A worker that writes messages from [`inx`] to the database.
+#[derive(Debug)]
+pub struct INXListener;
+
+#[async_trait]
+impl Actor for INXListener {
+    const PATH: &'static str = "inx_listener";
+
+    type Data = Res<Database>;
+
+    type Context = SupervisedContext<Self, Launcher, Act<Launcher>>;
+
+    async fn init(&mut self, cx: &mut Self::Context) -> Result<Self::Data, ActorError>
+    where
+        Self: 'static + Sized + Send + Sync,
+    {
+        info!("Connecting to INX...");
+        match InxClient::connect("http://localhost:9029").await {
+            Ok(mut inx_client) => {
+                info!("Connected to INX.");
+                let response = inx_client.read_node_status(NoParams {}).await.map_err(|e| anyhow!(e))?;
+                info!("Node status: {:#?}", response.into_inner());
+                let mut message_stream = inx_client
+                    .listen_to_messages(MessageFilter {})
+                    .await
+                    .map_err(|e| anyhow!(e))?
+                    .into_inner();
+                info!("Subscribed to `ListenToMessages`.");
+
+                let handle = cx.handle().clone();
+                cx.spawn_task(move |_| {
+                    async move {
+                        while let Some(msg) = message_stream.next().await {
+                            handle.send(msg)?;
+                        }
+                        Ok(())
+                    }
+                    .boxed()
+                })
+                .await;
+
+                let mut milestone_stream = inx_client
+                    .listen_to_latest_milestone(NoParams {})
+                    .await
+                    .map_err(|e| anyhow!(e))?
+                    .into_inner();
+                info!("Subscribed to `ListenToLatestMilestone`.");
+
+                let handle = cx.handle().clone();
+                cx.spawn_task(move |_| {
+                    async move {
+                        while let Some(msg) = milestone_stream.next().await {
+                            handle.send(msg)?;
+                        }
+                        Ok(())
+                    }
+                    .boxed()
+                })
+                .await;
+            }
+            Err(e) => {
+                return Err(ActorError {
+                    source: anyhow!("Could not connect to INX: {}", e),
+                    request: ActorRequest::Restart(Some(Duration::from_secs(3))).into(),
+                });
+            }
+        }
+        Ok(cx.link_data::<Res<Database>>().await?)
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Result<inx::proto::Message, Status>> for INXListener {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut Self::Context,
+        inx_msg: Result<inx::proto::Message, Status>,
+        db: &mut Self::Data,
+    ) -> Result<(), ActorError> {
+        match inx_msg {
+            Ok(inx_msg) => {
+                let message_id = inx_msg.message_id.ok_or_else(|| anyhow!("No message id"))?;
+                debug!("Received message from INX: {:?}", message_id);
                 // TODO: Get rid of unwraps
                 let message_id = &message_id.id;
-                let message = &inx_msg.message.unwrap().data;
+                let message = &inx_msg.message.ok_or_else(|| anyhow!("No message bytes"))?.data;
 
-                db.collection::<Document>(db::collections::stardust::raw::MESSAGES)
-                .insert_one(
-                    doc! {
-                        "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
-                        "raw_message": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message.clone()},
-                    },
-                    None,
-                )
-                .await
-                .unwrap();
-            });
-
-            let actor_fut = fut.into_actor(self);
-            ctx.wait(actor_fut);
+                db.0.collection::<Document>(db::collections::stardust::raw::MESSAGES)
+                    .insert_one(
+                        doc! {
+                            "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
+                            "raw_message": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message.clone()},
+                        },
+                        None,
+                    )
+                    .await.map_err(|e| anyhow!(e))?;
+                Ok(())
+            }
+            Err(e) => Err(ActorError {
+                source: anyhow!(e),
+                request: ActorRequest::Restart(Some(Duration::from_secs(3))).into(),
+            }),
         }
     }
 }
 
-impl StreamHandler<Result<inx::proto::Milestone, Status>> for INXListener {
-    fn handle(&mut self, inx_milestone: Result<inx::proto::Milestone, Status>, ctx: &mut Self::Context) {
-        if let Ok(inx_milestone) = inx_milestone {
-            info!("Received milestone from INX: {:?}", inx_milestone.milestone_index);
-            let db = self.db.clone();
-            let fut = Box::pin(async move {
+#[async_trait]
+impl HandleEvent<Result<inx::proto::Milestone, Status>> for INXListener {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut Self::Context,
+        inx_milestone: Result<inx::proto::Milestone, Status>,
+        db: &mut Self::Data,
+    ) -> Result<(), ActorError> {
+        match inx_milestone {
+            Ok(inx_milestone) => {
+                info!("Received milestone from INX: {:?}", inx_milestone.milestone_index);
                 // TODO: Get rid of unwraps
                 let milestone_index = inx_milestone.milestone_index;
                 let milestone_timestamp = inx_milestone.milestone_timestamp;
-                let message_id = &inx_milestone.message_id.unwrap().id;
+                let message_id = &inx_milestone.message_id.ok_or_else(|| anyhow!("No message id"))?.id;
 
-                db.collection::<Document>(db::collections::stardust::MILESTONES)
+                db.0.collection::<Document>(db::collections::stardust::MILESTONES)
                 .insert_one(
                     doc! {
-                        "milestone_index": bson::to_bson(&milestone_index).unwrap(),
-                        "milestone_timestamp": bson::to_bson(&milestone_timestamp).unwrap(),
+                        "milestone_index": bson::to_bson(&milestone_index).map_err(|e| anyhow!(e))?,
+                        "milestone_timestamp": bson::to_bson(&milestone_timestamp).map_err(|e| anyhow!(e))?,
                         "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
                     },
                     None,
                 )
-                .await
-                .unwrap();
-            });
-
-            let actor_fut = fut.into_actor(self);
-            ctx.wait(actor_fut);
+                .await.map_err(|e| anyhow!(e))?;
+                Ok(())
+            }
+            Err(e) => Err(ActorError {
+                source: anyhow!(e),
+                request: ActorRequest::Restart(Some(Duration::from_secs(3))).into(),
+            }),
         }
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
-struct ShutdownMessage;
-
-impl Handler<ShutdownMessage> for INXListener {
-    type Result = ();
-
-    fn handle(&mut self, _msg: ShutdownMessage, ctx: &mut Self::Context) -> Self::Result {
-        ctx.stop();
-    }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv()?;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv::dotenv().ok();
     env_logger::init();
+    std::panic::set_hook(Box::new(|info| {
+        log::error!("{}", info);
+    }));
 
-    let system = System::new();
+    RuntimeScope::launch(|scope| {
+        async move {
+            let db = connect_database().await?;
 
-    let result: Result<(), Error> = system.block_on(async {
-        let db = connect_database().await?;
+            scope.add_resource(db).await;
 
-        let inx_listener_addr = INXListener::new(db).start();
+            let launcher_handle = scope.spawn_actor_unsupervised(Launcher).await?;
 
-        tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
-
-        inx_listener_addr.send(ShutdownMessage).await.unwrap();
-        Ok(())
-    });
-    result?;
+            tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
+            launcher_handle.shutdown().await;
+            Ok(())
+        }
+        .boxed()
+    })
+    .await?;
 
     Ok(())
 }
