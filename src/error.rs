@@ -13,5 +13,5 @@ pub enum Error {
     #[error("graceful shutdown failed")]
     ShutdownFailed,
     #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error)
+    IoError(#[from] std::io::Error),
 }

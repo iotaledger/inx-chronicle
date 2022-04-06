@@ -8,7 +8,11 @@
 use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
 use chronicle::{db, error::Error};
 use futures::StreamExt;
-use inx::{client::InxClient, proto::MessageFilter, proto::NoParams, Channel};
+use inx::{
+    client::InxClient,
+    proto::{MessageFilter, NoParams},
+    Channel,
+};
 use log::{debug, error, info};
 use mongodb::{
     bson,
@@ -180,7 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 error!("Could not connect to INX.");
             }
         }
-        
+
         inx_worker_addr.send(ShutdownMessage).await.unwrap();
         Ok(())
     });
