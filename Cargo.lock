@@ -244,6 +244,7 @@ dependencies = [
  "inx",
  "log",
  "mongodb",
+ "serde",
  "thiserror",
  "tokio",
 ]

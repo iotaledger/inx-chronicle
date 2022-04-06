@@ -8,7 +8,7 @@
 use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
 use chronicle::{db, error::Error};
 use futures::StreamExt;
-use inx::{client::InxClient, proto::MessageFilter, Channel};
+use inx::{client::InxClient, proto::MessageFilter, proto::NoParams, Channel};
 use log::{debug, info};
 use mongodb::{bson,
     bson::{doc, Document},
@@ -25,6 +25,19 @@ async fn messages(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
         debug!("INX received message.");
         if let Ok(msg) = item {
             writer.send(InxMessage(msg)).await.unwrap();
+        }
+    }
+}
+
+async fn latest_milestone(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
+    let response = client.listen_to_latest_milestone(NoParams {}).await;
+    info!("Subscribed to `ListenToMessages`.");
+    let mut stream = response.unwrap().into_inner();
+
+    while let Some(item) = stream.next().await {
+        debug!("INX received message.");
+        if let Ok(milestone) = item {
+            writer.send(InxMilestone(milestone)).await.unwrap();
         }
     }
 }
@@ -73,11 +86,44 @@ impl Handler<InxMessage> for WriterWorker {
             let message_id = &inx_msg.0.message_id.unwrap().id;
             let message = &inx_msg.0.message.unwrap().data;
 
-            db.collection::<Document>(db::collections::STARDUST_MESSAGES_RAW_BYTES)
+            db.collection::<Document>(db::collections::stardust::raw::MESSAGES)
                 .insert_one(
                     doc! {
                         "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
                         "raw_message": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message.clone()},
+                    },
+                    None,
+                )
+                .await
+                .unwrap();
+        });
+
+        let actor_fut = fut.into_actor(self);
+        ctx.wait(actor_fut);
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+struct InxMilestone(inx::proto::Milestone);
+
+impl Handler<InxMilestone> for WriterWorker {
+    type Result = (); // TODO return error
+
+    fn handle(&mut self, inx_milestone: InxMilestone, ctx: &mut Self::Context) -> Self::Result {
+        let db = self.db.clone();
+        let fut = Box::pin(async move {
+            // TODO: Get rid of unwraps
+            let milestone_index = inx_milestone.0.milestone_index;
+            let milestone_timestamp = inx_milestone.0.milestone_timestamp;
+            let message_id = &inx_milestone.0.message_id.unwrap().id;
+
+            db.collection::<Document>(db::collections::stardust::MILESTONES)
+                .insert_one(
+                    doc! {
+                        "milestone_index": bson::to_bson(&milestone_index).unwrap(),
+                        "milestone_timestamp": bson::to_bson(&milestone_timestamp).unwrap(),
+                        "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
                     },
                     None,
                 )
@@ -115,8 +161,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let c = inx_worker_addr.clone();
 
         tokio::spawn(async {
-            let mut inx_client = InxClient::connect("http://localhost:9029").await.unwrap();
-            messages(&mut inx_client, c).await;
+            let mut inx_client = InxClient::connect("http://localhost:9029").await.unwrap(); // TODO send shutdown to other actors
+            messages(&mut inx_client, c.clone()).await;
+            latest_milestone(&mut inx_client, c).await;
         });
 
         tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
