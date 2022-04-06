@@ -30,4 +30,4 @@ log = { version = "0.4", default-features = false }
 mongodb = { version = "2.1.0", default-features = false, features = ["tokio-runtime"] }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.17.0", default-features = false, features = [ "macros", "rt-multi-thread" ] }
-tonic = { verison = "0.6.2", default-features = false }
+tonic = { version = "0.6.2", default-features = false }

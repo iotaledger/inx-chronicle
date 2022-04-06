@@ -246,7 +246,7 @@ dependencies = [
  "mongodb",
  "thiserror",
  "tokio",
- "tonic",
+ "tonic 0.6.2",
 ]
 
 [[package]]
@@ -782,7 +782,7 @@ version = "0.1.0"
 source = "git+https://github.com/iotaledger/inx#6a63e38bb430163f3fba695718725ee0b6a8d3c8"
 dependencies = [
  "prost",
- "tonic",
+ "tonic 0.5.2",
  "tonic-build",
 ]
 
@@ -1743,6 +1743,28 @@ dependencies = [
  "tower-service",
  "tracing",
  "tracing-futures",
+]
+
+[[package]]
+name = "tonic"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff08f4649d10a70ffa3522ca559031285d8e421d727ac85c60825761818f5d0a"
+dependencies = [
+ "async-stream",
+ "base64",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "percent-encoding",
+ "pin-project",
+ "tokio-stream",
+ "tokio-util 0.6.9",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
