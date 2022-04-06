@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 
 use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
-use chronicle::error::Error;
+use chronicle::{db, error::Error};
 use futures::stream::StreamExt;
 use inx::{client::InxClient, proto::MessageFilter};
 use log::{debug, info};
@@ -14,9 +14,6 @@ use mongodb::{
     Client,
 };
 use tonic::transport::Channel;
-
-const DB_NAME: &str = "chronicle-test";
-const STARDUST_MESSAGES: &str = "stardust_messages";
 
 async fn messages(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
     let response = client.listen_to_messages(MessageFilter {}).await;
@@ -29,14 +26,13 @@ async fn messages(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
             writer.send(InxMessage(msg)).await.unwrap();
         }
     }
-    // stream is droped here and the disconnect info is send to server
 }
 
 async fn connect_database<S: AsRef<str>>(location: S) -> Result<mongodb::Database, Error> {
     let mut client_options = ClientOptions::parse(location).await?;
     client_options.app_name = Some("Chronicle".to_string());
     let client = Client::with_options(client_options)?;
-    Ok(client.database(DB_NAME))
+    Ok(client.database(db::DB_NAME))
 }
 
 pub struct WriterWorker {
@@ -75,7 +71,7 @@ impl Handler<InxMessage> for WriterWorker {
             let message_id_str = String::from_utf8_lossy(&inx_msg.0.message_id.unwrap().id).into_owned();
             let message_str = String::from_utf8_lossy(&inx_msg.0.message.unwrap().data).into_owned();
 
-            db.collection::<Document>(STARDUST_MESSAGES)
+            db.collection::<Document>(db::collections::STARDUST_MESSAGES)
                 .insert_one(
                     doc! {
                         "message_id": message_id_str, "raw_message": message_str
