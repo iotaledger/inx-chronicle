@@ -12,4 +12,6 @@ pub enum Error {
     // InxError(#[from] inx::proto::inx_client::Error),
     #[error("graceful shutdown failed")]
     ShutdownFailed,
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error)
 }

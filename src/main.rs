@@ -155,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let system = System::new();
 
-    let _: Result<(), Error> = system.block_on(async {
+    let result: Result<(), Error> = system.block_on(async {
         let db = connect_database("mongodb://localhost:27017").await?;
 
         let inx_worker_addr = WriterWorker::new(db).start();
@@ -185,5 +185,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     });
 
+    result?;
     Ok(())
 }
