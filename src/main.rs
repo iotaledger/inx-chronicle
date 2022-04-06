@@ -3,6 +3,8 @@
 
 #![warn(missing_docs)]
 
+//! TODO
+
 use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
 use chronicle::{db, error::Error};
 use futures::stream::StreamExt;
@@ -35,6 +37,7 @@ async fn connect_database<S: AsRef<str>>(location: S) -> Result<mongodb::Databas
     Ok(client.database(db::DB_NAME))
 }
 
+/// A worker that writes messages from [`inx`] to the database.
 pub struct WriterWorker {
     db: mongodb::Database,
 }
