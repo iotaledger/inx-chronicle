@@ -14,17 +14,24 @@ use inx::{
     proto::{MessageFilter, NoParams},
     Status,
 };
-use log::{error, info};
+use log::{debug, error, info};
 use mongodb::{
     bson,
     bson::{doc, Document},
-    options::ClientOptions,
+    options::{ClientOptions, Credential},
     Client,
 };
 
-async fn connect_database<S: AsRef<str>>(location: S) -> Result<mongodb::Database, Error> {
-    let mut client_options = ClientOptions::parse(location).await?;
-    client_options.app_name = Some("Chronicle".to_string());
+async fn connect_database() -> Result<mongodb::Database, Error> {
+    let client_options = ClientOptions::builder()
+        .credential(
+            Credential::builder()
+                .username("root".to_string())
+                .password("pass".to_string())
+                .build(),
+        )
+        .app_name("Chronicle".to_string())
+        .build();
     let client = Client::with_options(client_options)?;
     Ok(client.database(db::DB_NAME))
 }
@@ -44,11 +51,15 @@ impl Actor for INXListener {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        info!("WriterWorker started.");
+        info!("INXListener started.");
         let fut = Box::pin(
             async move {
+                info!("Connecting to INX...");
                 match InxClient::connect("http://localhost:9029").await {
                     Ok(mut inx_client) => {
+                        info!("Connected to INX.");
+                        let response = inx_client.read_node_status(NoParams {}).await;
+                        info!("Node status: {:#?}", response.unwrap().into_inner());
                         let response = inx_client.listen_to_messages(MessageFilter {}).await;
                         info!("Subscribed to `ListenToMessages`.");
                         let message_stream = response.unwrap().into_inner();
@@ -60,7 +71,7 @@ impl Actor for INXListener {
                         Ok((message_stream, milestone_stream))
                     }
                     Err(e) => {
-                        error!("Could not connect to INX.");
+                        error!("Could not connect to INX: {}", e);
                         Err(e)
                     }
                 }
@@ -80,17 +91,19 @@ impl Actor for INXListener {
     }
 
     fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!("WriterWorker stopped.");
+        info!("INXListener stopped.");
     }
 }
 
 impl StreamHandler<Result<inx::proto::Message, Status>> for INXListener {
     fn handle(&mut self, inx_msg: Result<inx::proto::Message, Status>, ctx: &mut Self::Context) {
         if let Ok(inx_msg) = inx_msg {
+            let message_id = inx_msg.message_id.unwrap();
+            debug!("Received message from INX: {:?}", message_id);
             let db = self.db.clone();
             let fut = Box::pin(async move {
                 // TODO: Get rid of unwraps
-                let message_id = &inx_msg.message_id.unwrap().id;
+                let message_id = &message_id.id;
                 let message = &inx_msg.message.unwrap().data;
 
                 db.collection::<Document>(db::collections::stardust::raw::MESSAGES)
@@ -114,6 +127,7 @@ impl StreamHandler<Result<inx::proto::Message, Status>> for INXListener {
 impl StreamHandler<Result<inx::proto::Milestone, Status>> for INXListener {
     fn handle(&mut self, inx_milestone: Result<inx::proto::Milestone, Status>, ctx: &mut Self::Context) {
         if let Ok(inx_milestone) = inx_milestone {
+            info!("Received milestone from INX: {:?}", inx_milestone.milestone_index);
             let db = self.db.clone();
             let fut = Box::pin(async move {
                 // TODO: Get rid of unwraps
@@ -159,7 +173,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let system = System::new();
 
     let result: Result<(), Error> = system.block_on(async {
-        let db = connect_database("mongodb://localhost:27017").await?;
+        let db = connect_database().await?;
 
         let inx_listener_addr = INXListener::new(db).start();
 
