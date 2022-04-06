@@ -4,23 +4,23 @@ about: Create a report to help us improve
 labels: c-bug
 ---
 
-## Bug description
+### Bug description
 
 <!-- Briefly describe the bug. -->
 
-## Rust version
+### Rust version
 
 <!-- Which version of Rust are you running? -->
 
 - Rust version:
 
-## Chronicle version
+### Chronicle version
 
 <!-- Which version of Chronicle are you using? -->
 
 - Chronicle version (version number, commit, or branch): 
 
-## Hardware specification
+### Hardware specification
 
 <!-- What hardware are you using? -->
 
@@ -29,7 +29,7 @@ labels: c-bug
 - Cores:
 - Device:
 
-## Steps to reproduce the bug
+### Steps to reproduce the bug
 
 <!-- Explain how the maintainer can reproduce the bug. -->
 
@@ -37,15 +37,15 @@ labels: c-bug
 2. 
 3. 
 
-## Expected behaviour
+### Expected behaviour
 
 <!-- Describe what you expect to happen. -->
 
-## Actual behaviour
+### Actual behaviour
 
 <!-- Describe what actually happens. -->
 
-## Errors
+### Errors
 
 <!-- Paste any errors that you see, including logs, errors, or screenshots. -->
 
