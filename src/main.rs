@@ -154,7 +154,7 @@ impl Handler<ShutdownMessage> for WriterWorker {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv()?;
+    let _ = dotenv::dotenv();
     env_logger::init();
 
     let system = System::new();
