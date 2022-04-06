@@ -10,7 +10,8 @@ use chronicle::{db, error::Error};
 use futures::StreamExt;
 use inx::{client::InxClient, proto::MessageFilter, proto::NoParams, Channel};
 use log::{debug, info};
-use mongodb::{bson,
+use mongodb::{
+    bson,
     bson::{doc, Document},
     options::ClientOptions,
     Client,
@@ -31,11 +32,11 @@ async fn messages(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
 
 async fn latest_milestone(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
     let response = client.listen_to_latest_milestone(NoParams {}).await;
-    info!("Subscribed to `ListenToMessages`.");
+    info!("Subscribed to `ListenToLatestMilestone`.");
     let mut stream = response.unwrap().into_inner();
 
     while let Some(item) = stream.next().await {
-        debug!("INX received message.");
+        debug!("INX received latest milestone.");
         if let Ok(milestone) = item {
             writer.send(InxMilestone(milestone)).await.unwrap();
         }
@@ -158,12 +159,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let db = connect_database("mongodb://localhost:27017").await?;
 
         let inx_worker_addr = WriterWorker::new(db).start();
-        let c = inx_worker_addr.clone();
+        let c1 = inx_worker_addr.clone();
+        let c2 = inx_worker_addr.clone();
 
-        tokio::spawn(async {
-            let mut inx_client = InxClient::connect("http://localhost:9029").await.unwrap(); // TODO send shutdown to other actors
-            messages(&mut inx_client, c.clone()).await;
-            latest_milestone(&mut inx_client, c).await;
+        let mut inx_client = InxClient::connect("http://localhost:9029").await.unwrap(); // TODO send shutdown to other actors
+        let mut inx_c = inx_client.clone();
+
+        tokio::spawn(async move {
+            messages(&mut inx_c, c1).await;
+        });
+
+        tokio::spawn(async move {
+            latest_milestone(&mut inx_client, c2).await;
         });
 
         tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
