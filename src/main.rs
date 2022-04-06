@@ -5,43 +5,22 @@
 
 //! TODO
 
-use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
+use actix::{
+    Actor, ActorContext, ActorFutureExt, AsyncContext, Context, Handler, Message, StreamHandler, System, WrapFuture,
+};
 use chronicle::{db, error::Error};
-use futures::StreamExt;
-use inx::{client::InxClient, proto::MessageFilter, proto::NoParams, Channel};
-use log::{debug, error, info};
+use inx::{
+    client::InxClient,
+    proto::{MessageFilter, NoParams},
+    Status,
+};
+use log::{error, info};
 use mongodb::{
     bson,
     bson::{doc, Document},
     options::ClientOptions,
     Client,
 };
-
-async fn messages(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
-    let response = client.listen_to_messages(MessageFilter {}).await;
-    info!("Subscribed to `ListenToMessages`.");
-    let mut stream = response.unwrap().into_inner();
-
-    while let Some(item) = stream.next().await {
-        debug!("INX received message.");
-        if let Ok(msg) = item {
-            writer.send(InxMessage(msg)).await.unwrap();
-        }
-    }
-}
-
-async fn latest_milestone(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
-    let response = client.listen_to_latest_milestone(NoParams {}).await;
-    info!("Subscribed to `ListenToLatestMilestone`.");
-    let mut stream = response.unwrap().into_inner();
-
-    while let Some(item) = stream.next().await {
-        debug!("INX received latest milestone.");
-        if let Ok(milestone) = item {
-            writer.send(InxMilestone(milestone)).await.unwrap();
-        }
-    }
-}
 
 async fn connect_database<S: AsRef<str>>(location: S) -> Result<mongodb::Database, Error> {
     let mut client_options = ClientOptions::parse(location).await?;
@@ -51,21 +30,53 @@ async fn connect_database<S: AsRef<str>>(location: S) -> Result<mongodb::Databas
 }
 
 /// A worker that writes messages from [`inx`] to the database.
-pub struct WriterWorker {
+pub struct INXListener {
     db: mongodb::Database,
 }
 
-impl WriterWorker {
+impl INXListener {
     fn new(db: mongodb::Database) -> Self {
         Self { db }
     }
 }
 
-impl Actor for WriterWorker {
+impl Actor for INXListener {
     type Context = Context<Self>;
 
-    fn started(&mut self, _ctx: &mut Self::Context) {
+    fn started(&mut self, ctx: &mut Self::Context) {
         info!("WriterWorker started.");
+        let fut = Box::pin(
+            async move {
+                match InxClient::connect("http://localhost:9029").await {
+                    Ok(mut inx_client) => {
+                        let response = inx_client.listen_to_messages(MessageFilter {}).await;
+                        info!("Subscribed to `ListenToMessages`.");
+                        let message_stream = response.unwrap().into_inner();
+
+                        let response = inx_client.listen_to_latest_milestone(NoParams {}).await;
+                        info!("Subscribed to `ListenToLatestMilestone`.");
+                        let milestone_stream = response.unwrap().into_inner();
+
+                        Ok((message_stream, milestone_stream))
+                    }
+                    Err(e) => {
+                        error!("Could not connect to INX.");
+                        Err(e)
+                    }
+                }
+            }
+            .into_actor(self)
+            .map(|streams, _, ctx| match streams {
+                Ok((message_stream, milestone_stream)) => {
+                    <Self as StreamHandler<Result<inx::proto::Message, _>>>::add_stream(message_stream, ctx);
+                    <Self as StreamHandler<Result<inx::proto::Milestone, _>>>::add_stream(milestone_stream, ctx);
+                }
+                Err(_) => {
+                    ctx.terminate();
+                }
+            }),
+        );
+        ctx.wait(fut);
     }
 
     fn stopped(&mut self, _ctx: &mut Self::Context) {
@@ -73,21 +84,16 @@ impl Actor for WriterWorker {
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
-struct InxMessage(inx::proto::Message);
+impl StreamHandler<Result<inx::proto::Message, Status>> for INXListener {
+    fn handle(&mut self, inx_msg: Result<inx::proto::Message, Status>, ctx: &mut Self::Context) {
+        if let Ok(inx_msg) = inx_msg {
+            let db = self.db.clone();
+            let fut = Box::pin(async move {
+                // TODO: Get rid of unwraps
+                let message_id = &inx_msg.message_id.unwrap().id;
+                let message = &inx_msg.message.unwrap().data;
 
-impl Handler<InxMessage> for WriterWorker {
-    type Result = ();
-
-    fn handle(&mut self, inx_msg: InxMessage, ctx: &mut Self::Context) -> Self::Result {
-        let db = self.db.clone();
-        let fut = Box::pin(async move {
-            // TODO: Get rid of unwraps
-            let message_id = &inx_msg.0.message_id.unwrap().id;
-            let message = &inx_msg.0.message.unwrap().data;
-
-            db.collection::<Document>(db::collections::stardust::raw::MESSAGES)
+                db.collection::<Document>(db::collections::stardust::raw::MESSAGES)
                 .insert_one(
                     doc! {
                         "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
@@ -97,29 +103,25 @@ impl Handler<InxMessage> for WriterWorker {
                 )
                 .await
                 .unwrap();
-        });
+            });
 
-        let actor_fut = fut.into_actor(self);
-        ctx.wait(actor_fut);
+            let actor_fut = fut.into_actor(self);
+            ctx.wait(actor_fut);
+        }
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
-struct InxMilestone(inx::proto::Milestone);
+impl StreamHandler<Result<inx::proto::Milestone, Status>> for INXListener {
+    fn handle(&mut self, inx_milestone: Result<inx::proto::Milestone, Status>, ctx: &mut Self::Context) {
+        if let Ok(inx_milestone) = inx_milestone {
+            let db = self.db.clone();
+            let fut = Box::pin(async move {
+                // TODO: Get rid of unwraps
+                let milestone_index = inx_milestone.milestone_index;
+                let milestone_timestamp = inx_milestone.milestone_timestamp;
+                let message_id = &inx_milestone.message_id.unwrap().id;
 
-impl Handler<InxMilestone> for WriterWorker {
-    type Result = (); // TODO return error
-
-    fn handle(&mut self, inx_milestone: InxMilestone, ctx: &mut Self::Context) -> Self::Result {
-        let db = self.db.clone();
-        let fut = Box::pin(async move {
-            // TODO: Get rid of unwraps
-            let milestone_index = inx_milestone.0.milestone_index;
-            let milestone_timestamp = inx_milestone.0.milestone_timestamp;
-            let message_id = &inx_milestone.0.message_id.unwrap().id;
-
-            db.collection::<Document>(db::collections::stardust::MILESTONES)
+                db.collection::<Document>(db::collections::stardust::MILESTONES)
                 .insert_one(
                     doc! {
                         "milestone_index": bson::to_bson(&milestone_index).unwrap(),
@@ -130,10 +132,11 @@ impl Handler<InxMilestone> for WriterWorker {
                 )
                 .await
                 .unwrap();
-        });
+            });
 
-        let actor_fut = fut.into_actor(self);
-        ctx.wait(actor_fut);
+            let actor_fut = fut.into_actor(self);
+            ctx.wait(actor_fut);
+        }
     }
 }
 
@@ -141,7 +144,7 @@ impl Handler<InxMilestone> for WriterWorker {
 #[rtype(result = "()")]
 struct ShutdownMessage;
 
-impl Handler<ShutdownMessage> for WriterWorker {
+impl Handler<ShutdownMessage> for INXListener {
     type Result = ();
 
     fn handle(&mut self, _msg: ShutdownMessage, ctx: &mut Self::Context) -> Self::Result {
@@ -155,35 +158,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let system = System::new();
 
-    let _: Result<(), Error> = system.block_on(async {
+    let result: Result<(), Error> = system.block_on(async {
         let db = connect_database("mongodb://localhost:27017").await?;
 
-        let inx_worker_addr = WriterWorker::new(db).start();
-        let c1 = inx_worker_addr.clone();
-        let c2 = inx_worker_addr.clone();
+        let inx_listener_addr = INXListener::new(db).start();
 
-        match InxClient::connect("http://localhost:9029").await {
-            Ok(mut inx_client) => {
-                let mut inx_c = inx_client.clone();
+        tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
 
-                tokio::spawn(async move {
-                    messages(&mut inx_c, c1).await;
-                });
-
-                tokio::spawn(async move {
-                    latest_milestone(&mut inx_client, c2).await;
-                });
-
-                tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
-            }
-            Err(_) => {
-                error!("Could not connect to INX.");
-            }
-        }
-        
-        inx_worker_addr.send(ShutdownMessage).await.unwrap();
+        inx_listener_addr.send(ShutdownMessage).await.unwrap();
         Ok(())
     });
+    result?;
 
     Ok(())
 }
