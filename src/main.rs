@@ -7,15 +7,14 @@
 
 use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
 use chronicle::{db, error::Error};
-use futures::stream::StreamExt;
-use inx::{client::InxClient, proto::MessageFilter};
+use futures::StreamExt;
+use inx::{client::InxClient, proto::MessageFilter, Channel};
 use log::{debug, info};
-use mongodb::{
+use mongodb::{bson,
     bson::{doc, Document},
     options::ClientOptions,
     Client,
 };
-use tonic::transport::Channel;
 
 async fn messages(client: &mut InxClient<Channel>, writer: Addr<WriterWorker>) {
     let response = client.listen_to_messages(MessageFilter {}).await;
@@ -71,13 +70,14 @@ impl Handler<InxMessage> for WriterWorker {
         let db = self.db.clone();
         let fut = Box::pin(async move {
             // TODO: Get rid of unwraps
-            let message_id_str = String::from_utf8_lossy(&inx_msg.0.message_id.unwrap().id).into_owned();
-            let message_str = String::from_utf8_lossy(&inx_msg.0.message.unwrap().data).into_owned();
+            let message_id = &inx_msg.0.message_id.unwrap().id;
+            let message = &inx_msg.0.message.unwrap().data;
 
-            db.collection::<Document>(db::collections::STARDUST_MESSAGES)
+            db.collection::<Document>(db::collections::STARDUST_MESSAGES_RAW_BYTES)
                 .insert_one(
                     doc! {
-                        "message_id": message_id_str, "raw_message": message_str
+                        "message_id": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message_id.clone()},
+                        "raw_message": bson::Binary{subtype: bson::spec::BinarySubtype::Generic, bytes: message.clone()},
                     },
                     None,
                 )

@@ -7,5 +7,5 @@ pub const DB_NAME: &str = "chronicle-test";
 #[allow(missing_docs)]
 /// Names of the collections in the MongoDB database.
 pub mod collections {
-    pub const STARDUST_MESSAGES: &str = "stardust-messages";
+    pub const STARDUST_MESSAGES_RAW_BYTES: &str = "stardust_messages_raw_bytes";
 }
