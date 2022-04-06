@@ -9,7 +9,7 @@ use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, 
 use chronicle::{db, error::Error};
 use futures::StreamExt;
 use inx::{client::InxClient, proto::MessageFilter, proto::NoParams, Channel};
-use log::{debug, info};
+use log::{debug, error, info};
 use mongodb::{
     bson,
     bson::{doc, Document},
@@ -162,16 +162,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let c1 = inx_worker_addr.clone();
         let c2 = inx_worker_addr.clone();
 
-        let mut inx_client = InxClient::connect("http://localhost:9029").await.unwrap(); // TODO send shutdown to other actors
-        let mut inx_c = inx_client.clone();
+        match InxClient::connect("http://localhost:9029").await {
+            Ok(mut inx_client) => {
+                let mut inx_c = inx_client.clone();
 
-        tokio::spawn(async move {
-            messages(&mut inx_c, c1).await;
-        });
+                tokio::spawn(async move {
+                    messages(&mut inx_c, c1).await;
+                });
 
-        tokio::spawn(async move {
-            latest_milestone(&mut inx_client, c2).await;
-        });
+                tokio::spawn(async move {
+                    latest_milestone(&mut inx_client, c2).await;
+                });
+            }
+            Err(_) => {
+                error!("Could not connect to INX.");
+                // How to shutdown from here.
+            }
+        }
 
         tokio::signal::ctrl_c().await.map_err(|_| Error::ShutdownFailed)?;
         inx_worker_addr.send(ShutdownMessage).await.unwrap();
