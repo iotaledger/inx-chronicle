@@ -1,6 +1,6 @@
 version: '3'
 services:
-  wait_for_inx:
+  wait_for_inx: # Not needed anymore if chronicle retries the connection.
     image: dadarek/wait-for-dependencies
     depends_on:
       - hornet
