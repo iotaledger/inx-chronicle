@@ -3,6 +3,8 @@
 
 /// The names of the collections in the MongoDB database.
 mod collections;
+mod error;
+pub use error::MongoDbError;
 
 use inx::proto::{Message, Milestone};
 use mongodb::{
@@ -51,7 +53,7 @@ impl MongoConfig {
 
     /// Constructs a [`MongoDatabase`] by consuming the [`MongoConfig`].
     pub async fn build(self) -> Result<MongoDatabase, Error> {
-        let mut client_options = ClientOptions::parse(self.location).await?;
+        let mut client_options = ClientOptions::parse(self.location).await.map_err(MongoDbError::InvalidClientOptions)?;
 
         client_options.app_name = Some("Chronicle".to_string());
 
@@ -60,7 +62,7 @@ impl MongoConfig {
             client_options.credential = Some(credential);
         }
 
-        let client = Client::with_options(client_options)?;
+        let client = Client::with_options(client_options).map_err(MongoDbError::InvalidClientOptions)?;
         let db = client.database(DB_NAME);
         Ok(MongoDatabase { db })
     }
@@ -87,7 +89,7 @@ impl MongoDatabase {
                 },
                 None,
             )
-            .await?;
+            .await.map_err(MongoDbError::InsertError)?;
 
         Ok(())
     }
@@ -108,7 +110,7 @@ impl MongoDatabase {
                 },
                 None,
             )
-            .await?;
+            .await.map_err(MongoDbError::InsertError)?;
 
         Ok(())
     }

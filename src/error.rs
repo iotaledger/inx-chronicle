@@ -3,11 +3,15 @@
 
 use thiserror::Error;
 
+use crate::{inx::InxError, db::MongoDbError};
+
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("database error: {0}")]
-    DatabaseError(#[from] mongodb::error::Error),
+    DatabaseError(#[from] MongoDbError),
+    #[error("INX error: {0}")]
+    Error(#[from] InxError),
     // #[error("INX error: {0}")]
     // InxError(#[from] inx::proto::inx_client::Error),
     #[error("graceful shutdown failed")]
