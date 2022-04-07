@@ -1,0 +1,45 @@
+version: '3'
+services:
+  wait_for_inx: # Not needed anymore if chronicle retries the connection.
+    image: dadarek/wait-for-dependencies
+    depends_on:
+      - hornet
+    command: hornet:9029
+
+  inx-chronicle:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: on-failure
+    depends_on:
+      - wait_for_inx
+    # command:
+    #   - "--inx.address=hornet:9029"
+    #   - "--indexer.bindAddress=inx-indexer:9091"
+    #   - "--prometheus.bindAddress=inx-indexer:9312"
+
+  hornet:
+    image: gohornet/hornet:2.0.0-alpha6
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    stop_grace_period: 5m
+    ports:
+      - "15600:15600/tcp"
+      - "14626:14626/udp"
+      - "14265:14265/tcp"
+      - "8081:8081/tcp"
+      - "8091:8091/tcp"
+      - "9311:9311/tcp"
+    cap_drop:
+      - ALL
+    volumes:
+      - ../config.json:/app/config.json:ro
+      - ../peering.json:/app/peering.json
+      - ../profiles.json:/app/profiles.json:ro
+      - ../alphanet:/app/alphanet
+    command:
+      - "-c"
+      - "config.json"
+      - "--inx.bindAddress=hornet:9029"
