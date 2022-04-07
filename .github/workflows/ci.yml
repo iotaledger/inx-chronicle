@@ -16,6 +16,7 @@ jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
+    # Unfortunately, we can do this right now because `indexmap` does not seem to follow semver.
     # env:
     #   RUSTFLAGS: -D warnings -D missing-docs
     strategy:
