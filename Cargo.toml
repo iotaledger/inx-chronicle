@@ -7,7 +7,7 @@ description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
 readme = "README.md"
 repository = "https://github.com/iotaledger/inx-chronicle"
 license = "Apache-2.0"
-keywords = ["iota", "storage", "permanode", "node", "inx"]
+keywords = ["iota", "storage", "permanode", "chronicle", "inx"]
 homepage = "https://www.iota.org"
 
 [workspace]
