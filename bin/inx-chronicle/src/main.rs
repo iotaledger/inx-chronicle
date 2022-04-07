@@ -23,10 +23,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (db, inx_client) = if let Some(config_path) = cli_args.config {
         let config = config::Config::from_file(config_path)?;
-        (config.mongodb.build().await?, config.inx.build().await?)
+        (config.mongodb.into_db().await?, config.inx.into_client().await?)
     } else {
         (
-            MongoConfig::new("mongodb://localhost:27017".into()).build().await?,
+            MongoConfig::new("mongodb://localhost:27017".into()).into_db().await?,
             InxClient::connect("http://localhost:9029").await?,
         )
     };

@@ -49,7 +49,7 @@ impl MongoConfig {
     }
 
     /// Constructs a [`MongoDatabase`] by consuming the [`MongoConfig`].
-    pub async fn build(self) -> Result<MongoDatabase, MongoDbError> {
+    pub async fn into_db(self) -> Result<MongoDatabase, MongoDbError> {
         let mut client_options = ClientOptions::parse(self.location).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
