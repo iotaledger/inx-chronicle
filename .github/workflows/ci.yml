@@ -16,8 +16,8 @@ jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
-    env:
-      RUSTFLAGS: -D warnings -D missing-docs
+    # env:
+    #   RUSTFLAGS: -D warnings -D missing-docs
     strategy:
       matrix:
         rust: [stable, beta]
