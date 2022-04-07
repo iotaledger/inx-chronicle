@@ -1,52 +1,65 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::MongoDatabase;
+use async_trait::async_trait;
+use chronicle::{
+    db::{MongoDatabase, MongoDbError},
+    runtime::{
+        actor::{context::ActorContext, envelope::HandleEvent, Actor},
+        error::RuntimeError,
+    },
+};
 use log::debug;
-use tokio::sync::mpsc;
+use thiserror::Error;
 
-use crate::listener::InxEvent;
-
-pub struct Broker {
-    db: MongoDatabase,
-    receiver: mpsc::UnboundedReceiver<InxEvent>,
+#[derive(Debug, Error)]
+pub enum BrokerError {
+    #[error(transparent)]
+    RuntimeError(#[from] RuntimeError),
+    #[error(transparent)]
+    MongoDbError(#[from] MongoDbError),
 }
 
-impl Broker {
-    pub fn register(db: MongoDatabase) -> BrokerAddr {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let mut broker = Broker { receiver, db };
-        tokio::spawn(async move { broker.run().await });
-        BrokerAddr { sender }
-    }
+#[derive(Debug)]
+pub struct Broker;
 
-    pub(crate) async fn handle_event(&mut self, event: InxEvent) {
-        match event {
-            InxEvent::Message(message) => {
-                debug!("Received Message Event");
-                self.db.insert_message_raw(message).await.unwrap()
-            }
-            InxEvent::LatestMilestone(milestone) => {
-                debug!("Received Milestone Event");
-                self.db.insert_milestone(milestone).await.unwrap()
-            }
-        }
-    }
+#[async_trait]
+impl Actor for Broker {
+    type Data = MongoDatabase;
+    type Error = BrokerError;
 
-    pub(crate) async fn run(&mut self) {
-        while let Some(event) = self.receiver.recv().await {
-            self.handle_event(event).await;
-        }
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
+    where
+        Self: 'static + Sized + Send + Sync,
+    {
+        Ok(cx.link_resource().await?)
     }
 }
 
-#[derive(Clone)]
-pub struct BrokerAddr {
-    sender: mpsc::UnboundedSender<InxEvent>,
+#[async_trait]
+impl HandleEvent<inx::proto::Message> for Broker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        message: inx::proto::Message,
+        db: &mut Self::Data,
+    ) -> Result<(), Self::Error> {
+        debug!("Received Message Event");
+        db.insert_message_raw(message).await?;
+        Ok(())
+    }
 }
 
-impl BrokerAddr {
-    pub fn send(&self, event: InxEvent) {
-        self.sender.send(event).unwrap()
+#[async_trait]
+impl HandleEvent<inx::proto::Milestone> for Broker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        milestone: inx::proto::Milestone,
+        db: &mut Self::Data,
+    ) -> Result<(), Self::Error> {
+        debug!("Received Milestone Event");
+        db.insert_milestone(milestone).await?;
+        Ok(())
     }
 }
