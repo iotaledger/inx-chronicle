@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod error;
+
 use inx::{client::InxClient, Channel};
 use serde::{Deserialize, Serialize};
 
