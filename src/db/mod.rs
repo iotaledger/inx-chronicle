@@ -37,25 +37,28 @@ impl MongoConfig {
     }
 
     /// Sets the username.
-    pub fn with_username(mut self, username: String) -> Self {
-        self.username = Some(username);
+    pub fn with_username<S: Into<String>>(mut self, username: S) -> Self {
+        self.username = Some(username.into());
         self
     }
 
     /// Sets the password.
-    pub fn with_password(mut self, password: String) -> Self {
-        self.password = Some(password);
+    pub fn with_password<S: Into<String>>(mut self, password: S) -> Self {
+        self.password = Some(password.into());
         self
     }
 
     /// Constructs a [`MongoDatabase`] by consuming the [`MongoConfig`].
-    pub async fn build(self) -> Result<MongoDatabase, MongoDbError> {
-        let mut client_options = ClientOptions::parse(self.location).await?;
+    pub async fn build(&self) -> Result<MongoDatabase, MongoDbError> {
+        let mut client_options = ClientOptions::parse(&self.location).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
 
-        if let (Some(username), Some(password)) = (self.username, self.password) {
-            let credential = Credential::builder().username(username).password(password).build();
+        if let (Some(username), Some(password)) = (&self.username, &self.password) {
+            let credential = Credential::builder()
+                .username(username.clone())
+                .password(password.clone())
+                .build();
             client_options.credential = Some(credential);
         }
 

@@ -22,8 +22,8 @@ impl InxConfig {
     }
 
     /// Constructs an [`InxClient`] by consuming the [`InxConfig`].
-    pub async fn build(self) -> Result<InxClient<Channel>, InxError> {
-        InxClient::connect(self.address)
+    pub async fn build(&self) -> Result<InxClient<Channel>, InxError> {
+        InxClient::connect(self.address.clone())
             .await
             .map_err(|_| InxError::TransportFailed)
     }
