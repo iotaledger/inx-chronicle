@@ -7,7 +7,5 @@
 
 /// Module that contains the database types and constans.
 pub mod db;
-/// Module that contains the error type.
-pub mod error;
 /// Module that contains INX bindings and configuration.
 pub mod inx;

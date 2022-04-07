@@ -14,8 +14,6 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::error::Error;
-
 /// Name of the MongoDB database.
 pub const DB_NAME: &str = "chronicle-test";
 
@@ -51,10 +49,8 @@ impl MongoConfig {
     }
 
     /// Constructs a [`MongoDatabase`] by consuming the [`MongoConfig`].
-    pub async fn build(self) -> Result<MongoDatabase, Error> {
-        let mut client_options = ClientOptions::parse(self.location)
-            .await
-            .map_err(MongoDbError::InvalidClientOptions)?;
+    pub async fn build(self) -> Result<MongoDatabase, MongoDbError> {
+        let mut client_options = ClientOptions::parse(self.location).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
 
@@ -63,7 +59,7 @@ impl MongoConfig {
             client_options.credential = Some(credential);
         }
 
-        let client = Client::with_options(client_options).map_err(MongoDbError::InvalidClientOptions)?;
+        let client = Client::with_options(client_options)?;
         let db = client.database(DB_NAME);
         Ok(MongoDatabase { db })
     }
@@ -77,7 +73,7 @@ pub struct MongoDatabase {
 
 impl MongoDatabase {
     /// Inserts the raw bytes of a [`Message`].
-    pub async fn insert_message_raw(&self, message: Message) -> Result<(), Error> {
+    pub async fn insert_message_raw(&self, message: Message) -> Result<(), MongoDbError> {
         let message_id = &message.message_id.unwrap().id;
         let message = &message.message.unwrap().data;
 
@@ -90,14 +86,13 @@ impl MongoDatabase {
                 },
                 None,
             )
-            .await
-            .map_err(MongoDbError::InsertError)?;
+            .await?;
 
         Ok(())
     }
 
     /// Inserts a [`Milestone`].
-    pub async fn insert_milestone(&self, milestone: Milestone) -> Result<(), Error> {
+    pub async fn insert_milestone(&self, milestone: Milestone) -> Result<(), MongoDbError> {
         let milestone_index = milestone.milestone_index;
         let milestone_timestamp = milestone.milestone_timestamp;
         let message_id = &milestone.message_id.unwrap().id;
@@ -112,8 +107,7 @@ impl MongoDatabase {
                 },
                 None,
             )
-            .await
-            .map_err(MongoDbError::InsertError)?;
+            .await?;
 
         Ok(())
     }

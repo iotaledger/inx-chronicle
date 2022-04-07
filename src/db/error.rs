@@ -6,8 +6,6 @@ use thiserror::Error;
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub enum MongoDbError {
-    #[error("invalid client options: {0}")]
-    InvalidClientOptions(mongodb::error::Error),
-    #[error("insert failed: {0}")]
-    InsertError(mongodb::error::Error),
+    #[error("database error: {0}")]
+    DatabaseError(#[from] mongodb::error::Error),
 }
