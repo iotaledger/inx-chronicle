@@ -16,7 +16,7 @@ pub struct InxConfig {
 }
 
 impl InxConfig {
-    /// Creates a new [`InxConfig`]. The `address` is the address of the nodes INX interface.
+    /// Creates a new [`InxConfig`]. The `address` is the address of the node's INX interface.
     pub fn new(address: String) -> Self {
         Self { address }
     }

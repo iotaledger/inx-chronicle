@@ -5,7 +5,7 @@
 
 //! TODO
 
-/// Module that contains the database types and constans.
+/// Module that contains the database types and constants.
 pub mod db;
 /// Module that contains INX bindings and configuration.
 pub mod inx;
