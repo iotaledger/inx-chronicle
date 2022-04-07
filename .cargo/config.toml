@@ -6,7 +6,7 @@ ci-doc = "doc --all-features --no-deps --document-private-items"
 ci-fmt = "fmt --all -- --check"
 ci-test = "test --all-targets --all-features --release"
 ci-toml = "sort --grouped --check"
-ci-udeps = "hack --all udeps --all-targets --all-features --backend=depinfo"
+ci-udeps = "udeps --all-targets --all-features --backend=depinfo"
 
 fix-clippy = "clippy --all-targets --all-features --fix"
 fix-fmt = "fmt --all"
