@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-use crate::{inx::InxError, db::MongoDbError};
+use crate::{db::MongoDbError, inx::InxError};
 
 #[allow(missing_docs)]
 #[derive(Error, Debug)]

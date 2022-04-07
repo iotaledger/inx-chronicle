@@ -9,5 +9,5 @@ pub enum MongoDbError {
     #[error("invalid client options: {0}")]
     InvalidClientOptions(mongodb::error::Error),
     #[error("insert failed: {0}")]
-    InsertError(mongodb::error::Error)
+    InsertError(mongodb::error::Error),
 }
