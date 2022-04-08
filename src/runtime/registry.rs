@@ -73,6 +73,7 @@ impl Scope {
         shutdown_handle: Option<ShutdownHandle>,
         abort_handle: Option<AbortHandle>,
     ) -> Self {
+        log::trace!("Adding child to {:x}", self.id.as_fields().0);
         let id = Uuid::new_v4();
         let parent = self.clone();
         let child = Scope {
@@ -90,6 +91,7 @@ impl Scope {
             valid: Arc::new(AtomicBool::new(true)),
         };
         self.children.write().await.insert(id, child.clone());
+        log::trace!("Added child to {:x}", self.id.as_fields().0);
         child
     }
 
@@ -111,9 +113,11 @@ impl Scope {
     }
 
     pub(crate) async fn drop(&self) {
+        log::trace!("Dropping scope {:x}", self.id.as_fields().0);
         if let Some(parent) = self.parent.as_ref() {
             parent.children.write().await.remove(&self.id);
         }
+        log::trace!("Dropped scope {:x}", self.id.as_fields().0);
     }
 
     pub(crate) async fn add_data(&self, data_type: TypeId, data: Box<dyn CloneAny + Send + Sync>) {
@@ -121,7 +125,9 @@ impl Scope {
             log::warn!("Tried to add data to invalid scope {:x}", self.id.as_fields().0);
             return;
         }
-        self.data.write().await.created.insert(data_type, data);
+        let mut scope_data = self.data.write().await;
+        scope_data.created.insert(data_type, data);
+        drop(scope_data);
         self.propagate_data(data_type, self).await;
     }
 
@@ -148,18 +154,26 @@ impl Scope {
 
     #[async_recursion]
     async fn propagate_data(&self, data_type: TypeId, creator_scope: &Scope) {
-        log::debug!("Propagating data to {:x}", self.id.as_fields().0);
-        if let Some(dep) = self.data.write().await.dependencies.remove(&data_type) {
+        log::trace!("Propagating data to {:x}", self.id.as_fields().0);
+        let mut scope_data = self.data.write().await;
+        if let Some(dep) = scope_data.dependencies.remove(&data_type) {
+            drop(scope_data);
             let data = creator_scope.data.read().await.created.get(&data_type).unwrap().clone();
             dep.get_signal().signal(data).await;
 
             if let Dependency::Linked(_) = dep {
-                self.data.write().await.dependencies.insert(data_type, dep);
+                let mut scope_data = self.data.write().await;
+                scope_data.dependencies.insert(data_type, dep);
+                drop(scope_data);
             }
+        } else {
+            drop(scope_data);
         }
-        for child_scope in self.children.read().await.values() {
+        let children = self.children().await;
+        for child_scope in children {
             child_scope.propagate_data(data_type, creator_scope).await;
         }
+        log::trace!("Propagated data to {:x}", self.id.as_fields().0);
     }
 
     /// Get some arbitrary data from the given scope
@@ -170,8 +184,11 @@ impl Scope {
         }
         let mut curr = Some(self);
         while let Some(scope) = curr {
-            match scope.data.read().await.created.get(&data_type) {
-                Some(data) => return Some(DepReady(data.clone())),
+            let scope_data = scope.data.read().await;
+            let res = scope_data.created.get(&data_type).cloned();
+            drop(scope_data);
+            match res {
+                Some(data) => return Some(DepReady(data)),
                 None => curr = scope.parent.as_ref(),
             }
         }
@@ -227,30 +244,30 @@ impl Scope {
     }
 
     pub(crate) async fn shutdown(&self) {
-        log::debug!("Shutting down scope {:x}", self.id.as_fields().0);
+        log::trace!("Shutting down scope {:x}", self.id.as_fields().0);
         self.valid.store(false, Ordering::Relaxed);
         let data = self.data.write().await.dependencies.drain().collect::<Vec<_>>();
         for (_, dep) in data {
             dep.into_signal().cancel()
         }
-        log::debug!("Drained deps for scope {:x}", self.id.as_fields().0);
         if let Some(handle) = self.shutdown_handle.as_ref() {
             handle.shutdown();
-            log::debug!("Used shutdown handle for scope {:x}", self.id.as_fields().0);
         } else if let Some(abort) = self.abort_handle.as_ref() {
             abort.abort();
-            log::debug!("Used abort handle for scope {:x}", self.id.as_fields().0);
         }
+        log::trace!("Shut down scope {:x}", self.id.as_fields().0);
     }
 
     /// Abort the tasks in this scope.
     #[async_recursion]
     pub(crate) async fn abort(&self) {
-        log::debug!("Aborting scope {:x}", self.id.as_fields().0);
-        for (_, dep) in self.data.write().await.dependencies.drain() {
+        log::trace!("Aborting scope {:x}", self.id.as_fields().0);
+        let data = self.data.write().await.dependencies.drain().collect::<Vec<_>>();
+        for (_, dep) in data {
             dep.into_signal().cancel()
         }
-        for child_scope in self.children.read().await.values() {
+        let children = self.children().await;
+        for child_scope in children {
             child_scope.abort().await;
         }
         if let Some(handle) = self.shutdown_handle.as_ref() {
@@ -259,6 +276,7 @@ impl Scope {
         if let Some(abort) = self.abort_handle.as_ref() {
             abort.abort();
         }
+        log::trace!("Aborted scope {:x}", self.id.as_fields().0);
     }
 }
 

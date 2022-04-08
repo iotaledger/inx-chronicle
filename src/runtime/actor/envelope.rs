@@ -22,30 +22,28 @@ pub trait HandleEvent<E: Send + Debug>: Actor + Sized {
 /// A dynamic event that can be sent to an actor which implements `HandleEvent` for it
 pub trait DynEvent<A: Actor>: Debug {
     #[allow(missing_docs)]
-    fn handle<'c, 'a>(
+    fn handle<'a>(
         self: Box<Self>,
-        cx: &'c mut ActorContext<A>,
-        act: &'c mut A,
-        data: &'c mut A::Data,
+        cx: &'a mut ActorContext<A>,
+        act: &'a mut A,
+        data: &'a mut A::Data,
     ) -> Pin<Box<dyn core::future::Future<Output = Result<(), A::Error>> + Send + 'a>>
     where
-        Self: 'a,
-        'c: 'a;
+        Self: 'a;
 }
 
 impl<A, E: Send + Debug> DynEvent<A> for E
 where
     A: HandleEvent<E>,
 {
-    fn handle<'c, 'a>(
+    fn handle<'a>(
         self: Box<Self>,
-        cx: &'c mut ActorContext<A>,
-        act: &'c mut A,
-        data: &'c mut A::Data,
+        cx: &'a mut ActorContext<A>,
+        act: &'a mut A,
+        data: &'a mut A::Data,
     ) -> Pin<Box<dyn core::future::Future<Output = Result<(), A::Error>> + Send + 'a>>
     where
         Self: 'a,
-        'c: 'a,
     {
         act.handle_event(cx, *self, data)
     }

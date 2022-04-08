@@ -250,7 +250,7 @@ impl RuntimeScope {
                         Ok(_) => Ok(()),
                         Err(e) => {
                             log::error!(
-                                "{} exited with error: {:?}",
+                                "{} exited with error: {}",
                                 format!("Task {:x}", child_scope.id().as_fields().0),
                                 e
                             );
@@ -317,7 +317,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::error!("{} exited with error: {:?}", actor.name(), e);
+                            log::error!("{} exited with error: {}", actor.name(), e);
                             let e = Arc::new(Box::new(e) as Box<dyn Error + Send + Sync>);
                             supervisor_handle.send(ErrorReport::new(actor, ActorError::Result(e.clone())))?;
                             Err(RuntimeError::ActorError(e))
@@ -383,7 +383,7 @@ impl RuntimeScope {
                     Ok(res) => match res {
                         Ok(_) => Ok(()),
                         Err(e) => {
-                            log::error!("{} exited with error: {:?}", actor.name(), e);
+                            log::error!("{} exited with error: {}", actor.name(), e);
                             Err(RuntimeError::ActorError(Arc::new(
                                 Box::new(e) as Box<dyn Error + Send + Sync>
                             )))
