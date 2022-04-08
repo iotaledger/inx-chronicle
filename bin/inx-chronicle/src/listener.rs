@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! The [`InxListener`] subscribes to events from INX and forwards them as an [`InxEvent`] via a Tokio unbounded
+//! The [`InxListener`] subscribes to events from INX and forwards them via a Tokio unbounded
 //! channel.
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
