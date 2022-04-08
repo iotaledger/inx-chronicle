@@ -42,10 +42,7 @@ impl Actor for Launcher {
     type Data = ();
     type Error = LauncherError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
         cx.spawn_actor_supervised(Broker).await;
         cx.spawn_actor_supervised(InxListener).await;
         Ok(())
