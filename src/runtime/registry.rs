@@ -14,7 +14,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use anymap::any::{CloneAny, UncheckedAnyExt};
+use anymap::{CloneAny, Downcast};
 use async_recursion::async_recursion;
 use futures::{future::AbortHandle, task::AtomicWaker, Future};
 use tokio::sync::RwLock;
@@ -332,10 +332,11 @@ impl<T: 'static + Clone + Send + Sync> From<DepStatus<T>> for Option<T> {
             DepStatus::Ready(t) => Some(t),
             DepStatus::Waiting(h) => {
                 if h.flag.set.load(Ordering::Relaxed) {
-                    h.flag.val.try_read().ok().and_then(|lock| {
-                        lock.clone()
-                            .map(|d| *unsafe { d.clone_to_any_send_sync().downcast_unchecked() })
-                    })
+                    h.flag
+                        .val
+                        .try_read()
+                        .ok()
+                        .and_then(|lock| lock.clone().map(|d| *unsafe { d.clone().downcast_unchecked() }))
                 } else {
                     None
                 }

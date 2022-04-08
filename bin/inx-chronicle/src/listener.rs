@@ -28,11 +28,11 @@ use crate::{broker::Broker, config::Config};
 #[derive(Debug, Error)]
 pub enum INXListenerError {
     #[error(transparent)]
-    INXError(#[from] InxError),
+    Inx(#[from] InxError),
     #[error(transparent)]
-    ReadError(#[from] Status),
+    Read(#[from] Status),
     #[error(transparent)]
-    RuntimeError(#[from] RuntimeError),
+    Runtime(#[from] RuntimeError),
 }
 
 #[derive(Debug)]
@@ -141,6 +141,12 @@ pub struct InxStreamListener<I> {
 impl<I> InxStreamListener<I> {
     pub fn new() -> Self {
         Self { _item: PhantomData }
+    }
+}
+
+impl<I> Default for InxStreamListener<I> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
