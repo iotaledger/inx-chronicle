@@ -107,9 +107,6 @@ impl HandleEvent<Report<InxListener>> for Launcher {
 async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
-    std::panic::set_hook(Box::new(|info| {
-        log::error!("{}", info);
-    }));
 
     if let Err(e) = Runtime::launch(startup).await {
         log::error!("{}", e);
