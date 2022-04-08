@@ -11,9 +11,10 @@ mod listener;
 use std::{error::Error, sync::Arc};
 
 use async_trait::async_trait;
-use broker::Broker;
+use broker::{Broker, BrokerError};
 use chronicle::{
     db::MongoConfig,
+    inx::InxError,
     runtime::{
         actor::{context::ActorContext, envelope::HandleEvent, error::ActorError, report::Report, Actor},
         error::RuntimeError,
@@ -22,7 +23,8 @@ use chronicle::{
     },
 };
 use clap::Parser;
-use listener::InxListener;
+use listener::{INXListenerError, InxListener};
+use mongodb::error::ErrorKind;
 use thiserror::Error;
 
 use self::cli::CliArgs;
@@ -64,10 +66,23 @@ impl HandleEvent<Report<Broker>> for Launcher {
                 handle.shutdown().await;
             }
             Err(e) => match e.error {
-                ActorError::Result(_) | ActorError::Panic => {
-                    cx.spawn_actor_supervised(Broker).await;
-                }
-                ActorError::Aborted => {
+                ActorError::Result(e) => match e.downcast_ref::<BrokerError>().unwrap() {
+                    BrokerError::RuntimeError(_) => {
+                        handle.shutdown().await;
+                    }
+                    BrokerError::MongoDbError(e) => match e {
+                        chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
+                            // Only a few possible errors we could potentially recover from
+                            ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                                cx.spawn_actor_supervised(Broker).await;
+                            }
+                            _ => {
+                                handle.shutdown().await;
+                            }
+                        },
+                    },
+                },
+                ActorError::Panic | ActorError::Aborted => {
                     handle.shutdown().await;
                 }
             },
@@ -91,10 +106,20 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                 handle.shutdown().await;
             }
             Err(e) => match e.error {
-                ActorError::Result(_) | ActorError::Panic => {
-                    cx.spawn_actor_supervised(InxListener).await;
-                }
-                ActorError::Aborted => {
+                ActorError::Result(e) => match e.downcast_ref::<INXListenerError>().unwrap() {
+                    INXListenerError::INXError(e) => match e {
+                        InxError::TransportFailed => {
+                            cx.spawn_actor_supervised(InxListener).await;
+                        }
+                    },
+                    INXListenerError::ReadError(_) => {
+                        handle.shutdown().await;
+                    }
+                    INXListenerError::RuntimeError(_) => {
+                        handle.shutdown().await;
+                    }
+                },
+                ActorError::Panic | ActorError::Aborted => {
                     handle.shutdown().await;
                 }
             },
@@ -127,7 +152,10 @@ async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + 
 
     let launcher_handle = scope.spawn_actor(Launcher).await;
 
-    tokio::signal::ctrl_c().await?;
-    launcher_handle.shutdown().await;
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        launcher_handle.shutdown().await;
+    });
+
     Ok(())
 }
