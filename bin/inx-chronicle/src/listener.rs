@@ -18,7 +18,7 @@ use chronicle::{
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
-    Status,
+    Channel, Status,
 };
 use log::info;
 use thiserror::Error;
@@ -40,7 +40,7 @@ pub struct InxListener;
 
 #[async_trait]
 impl Actor for InxListener {
-    type Data = ();
+    type Data = InxClient<Channel>;
     type Error = INXListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
@@ -63,26 +63,25 @@ impl Actor for InxListener {
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
 
-        cx.spawn_actor_supervised(InxStreamListener::<inx::proto::Message>::new().with_stream(message_stream))
-            .await;
-        cx.spawn_actor_supervised(InxStreamListener::<inx::proto::Milestone>::new().with_stream(milestone_stream))
-            .await;
-        Ok(())
+        cx.spawn_actor_supervised::<InxStreamListener<inx::proto::Message>, _>(
+            InxStreamListener::new().with_stream(message_stream),
+        )
+        .await;
+        cx.spawn_actor_supervised::<InxStreamListener<inx::proto::Milestone>, _>(
+            InxStreamListener::new().with_stream(milestone_stream),
+        )
+        .await;
+        Ok(inx_client)
     }
 }
 
 #[async_trait]
-impl<I> HandleEvent<Report<InxStreamListener<I>>> for InxListener
-where
-    I: Debug + Send + Sync + 'static,
-    Broker: HandleEvent<I>,
-    InxStreamListener<I>: Actor,
-{
+impl HandleEvent<Report<InxStreamListener<inx::proto::Message>>> for InxListener {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<InxStreamListener<I>>,
-        _data: &mut Self::Data,
+        event: Report<InxStreamListener<inx::proto::Message>>,
+        inx_client: &mut Self::Data,
     ) -> Result<(), Self::Error> {
         // TODO: Figure out why `cx.shutdown()` is not working.
         let handle = cx.handle();
@@ -92,7 +91,42 @@ where
             }
             Err(e) => match e.error {
                 ActorError::Result(_) | ActorError::Panic => {
-                    cx.spawn_actor_supervised(InxStreamListener::<I>::new()).await;
+                    let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
+                    cx.spawn_actor_supervised::<InxStreamListener<inx::proto::Message>, _>(
+                        InxStreamListener::new().with_stream(message_stream),
+                    )
+                    .await;
+                }
+                ActorError::Aborted => {
+                    handle.shutdown().await;
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<InxStreamListener<inx::proto::Milestone>>> for InxListener {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<InxStreamListener<inx::proto::Milestone>>,
+        inx_client: &mut Self::Data,
+    ) -> Result<(), Self::Error> {
+        // TODO: Figure out why `cx.shutdown()` is not working.
+        let handle = cx.handle();
+        match event {
+            Ok(_) => {
+                handle.shutdown().await;
+            }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
+                    cx.spawn_actor_supervised::<InxStreamListener<inx::proto::Milestone>, _>(
+                        InxStreamListener::new().with_stream(milestone_stream),
+                    )
+                    .await;
                 }
                 ActorError::Aborted => {
                     handle.shutdown().await;

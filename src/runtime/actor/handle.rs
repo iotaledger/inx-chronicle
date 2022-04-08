@@ -71,7 +71,7 @@ impl<A: Actor> Addr<A> {
     }
 }
 
-impl<A: 'static + Actor> Clone for Addr<A> {
+impl<A: Actor> Clone for Addr<A> {
     fn clone(&self) -> Self {
         Self {
             scope: self.scope.clone(),
