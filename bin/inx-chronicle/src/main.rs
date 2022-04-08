@@ -107,15 +107,15 @@ impl HandleEvent<Report<InxListener>> for Launcher {
             }
             Err(e) => match e.error {
                 ActorError::Result(e) => match e.downcast_ref::<INXListenerError>().unwrap() {
-                    INXListenerError::INXError(e) => match e {
+                    INXListenerError::Inx(e) => match e {
                         InxError::TransportFailed => {
                             cx.spawn_actor_supervised(InxListener).await;
                         }
                     },
-                    INXListenerError::ReadError(_) => {
+                    INXListenerError::Read(_) => {
                         handle.shutdown().await;
                     }
-                    INXListenerError::RuntimeError(_) => {
+                    INXListenerError::Runtime(_) => {
                         handle.shutdown().await;
                     }
                 },
