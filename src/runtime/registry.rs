@@ -106,14 +106,6 @@ impl Scope {
         self.parent.as_ref()
     }
 
-    pub(crate) async fn siblings(&self) -> Vec<Scope> {
-        if let Some(parent) = self.parent.as_ref() {
-            parent.children.read().await.values().cloned().collect()
-        } else {
-            vec![]
-        }
-    }
-
     pub(crate) async fn children(&self) -> Vec<Scope> {
         self.children.read().await.values().cloned().collect()
     }
@@ -227,7 +219,7 @@ impl Scope {
                 v.insert(Dependency::Linked(flag.clone()));
                 drop(scope_data);
                 if let Some(DepReady(t)) = status {
-                    flag.signal(t.into()).await;
+                    flag.signal(t).await;
                 }
                 RawDepStatus::Waiting(flag)
             }
@@ -241,10 +233,13 @@ impl Scope {
         for (_, dep) in data {
             dep.into_signal().cancel()
         }
+        log::debug!("Drained deps for scope {:x}", self.id.as_fields().0);
         if let Some(handle) = self.shutdown_handle.as_ref() {
             handle.shutdown();
+            log::debug!("Used shutdown handle for scope {:x}", self.id.as_fields().0);
         } else if let Some(abort) = self.abort_handle.as_ref() {
             abort.abort();
+            log::debug!("Used abort handle for scope {:x}", self.id.as_fields().0);
         }
     }
 
@@ -313,9 +308,9 @@ pub enum DepStatus<T> {
     Waiting(DepHandle<T>),
 }
 
-impl<T: 'static + Clone + Send + Sync> Into<Option<T>> for DepStatus<T> {
-    fn into(self) -> Option<T> {
-        match self {
+impl<T: 'static + Clone + Send + Sync> From<DepStatus<T>> for Option<T> {
+    fn from(status: DepStatus<T>) -> Self {
+        match status {
             DepStatus::Ready(t) => Some(t),
             DepStatus::Waiting(h) => {
                 if h.flag.set.load(Ordering::Relaxed) {
@@ -437,7 +432,7 @@ impl<T: 'static + Clone> Future for DepHandle<T> {
             return match self.flag.val.try_read() {
                 Ok(lock) => Poll::Ready(
                     lock.clone()
-                        .ok_or_else(|| RuntimeError::CanceledDepNotification)
+                        .ok_or(RuntimeError::CanceledDepNotification)
                         .map(|d| *unsafe { d.downcast_unchecked::<T>() }),
                 ),
                 Err(_) => Poll::Pending,
@@ -452,7 +447,7 @@ impl<T: 'static + Clone> Future for DepHandle<T> {
             match self.flag.val.try_read() {
                 Ok(lock) => Poll::Ready(
                     lock.clone()
-                        .ok_or_else(|| RuntimeError::CanceledDepNotification)
+                        .ok_or(RuntimeError::CanceledDepNotification)
                         .map(|d| *unsafe { d.downcast_unchecked::<T>() }),
                 ),
                 Err(_) => Poll::Pending,

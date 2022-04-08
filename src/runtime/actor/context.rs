@@ -6,27 +6,28 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use futures::Stream;
 
 use super::{
     envelope::{Envelope, HandleEvent},
-    handle::Act,
+    handle::Addr,
     report::Report,
     Actor,
 };
-use crate::runtime::{error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream};
+use crate::runtime::{config::SpawnConfig, scope::RuntimeScope, shutdown::ShutdownStream};
 
+/// The context that an actor can use to interact with the runtime
 pub struct ActorContext<A: Actor> {
     pub(crate) scope: RuntimeScope,
-    pub(crate) handle: Act<A>,
-    pub(crate) receiver: ShutdownStream<UnboundedReceiverStream<Envelope<A>>>,
+    pub(crate) handle: Addr<A>,
+    pub(crate) receiver: ShutdownStream<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>>,
 }
 
 impl<A: Actor> ActorContext<A> {
     pub(crate) fn new(
         scope: RuntimeScope,
-        handle: Act<A>,
-        receiver: ShutdownStream<UnboundedReceiverStream<Envelope<A>>>,
+        handle: Addr<A>,
+        receiver: ShutdownStream<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>>,
     ) -> Self {
         Self {
             handle,
@@ -36,22 +37,23 @@ impl<A: Actor> ActorContext<A> {
     }
 
     /// Spawn a new supervised child actor
-    pub async fn spawn_actor_supervised<OtherA>(&mut self, actor: OtherA) -> Result<Act<OtherA>, RuntimeError>
+    pub async fn spawn_actor_supervised<OtherA, Cfg>(&mut self, actor: Cfg) -> Addr<OtherA>
     where
         OtherA: 'static + Actor + Debug + Send + Sync,
         A: 'static + Send + HandleEvent<Report<OtherA>>,
+        Cfg: Into<SpawnConfig<OtherA>>,
     {
         let handle = self.handle().clone();
         self.scope.spawn_actor_supervised(actor, handle).await
     }
 
     /// Get this actors's handle
-    pub fn handle(&self) -> &Act<A> {
+    pub fn handle(&self) -> &Addr<A> {
         &self.handle
     }
 
     /// Get the inbox
-    pub fn inbox(&mut self) -> &mut ShutdownStream<UnboundedReceiverStream<Envelope<A>>> {
+    pub fn inbox(&mut self) -> &mut ShutdownStream<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>> {
         &mut self.receiver
     }
 

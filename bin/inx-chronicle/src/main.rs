@@ -15,7 +15,7 @@ use broker::Broker;
 use chronicle::{
     db::MongoConfig,
     runtime::{
-        actor::{context::ActorContext, envelope::HandleEvent, report::Report, Actor},
+        actor::{context::ActorContext, envelope::HandleEvent, error::ActorError, report::Report, Actor},
         error::RuntimeError,
         scope::RuntimeScope,
         Runtime,
@@ -29,10 +29,6 @@ use self::cli::CliArgs;
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
-    #[error("Broker failed to restart")]
-    BrokerRetryError(RuntimeError),
-    #[error("Listener failed to start")]
-    ListenerRetryError(RuntimeError),
     #[error(transparent)]
     RuntimeError(#[from] RuntimeError),
 }
@@ -50,8 +46,8 @@ impl Actor for Launcher {
     where
         Self: 'static + Sized + Send + Sync,
     {
-        cx.spawn_actor_supervised(Broker).await?;
-        cx.spawn_actor_supervised(InxListener).await?;
+        cx.spawn_actor_supervised(Broker).await;
+        cx.spawn_actor_supervised(InxListener).await;
         Ok(())
     }
 }
@@ -64,22 +60,22 @@ impl HandleEvent<Report<Broker>> for Launcher {
         event: Report<Broker>,
         _data: &mut Self::Data,
     ) -> Result<(), Self::Error> {
-        log::error!("Broker exited: {:?}", event);
-        let mut retries = 3;
-        loop {
-            match cx.spawn_actor_supervised(Broker).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    retries -= 1;
-                    if retries == 0 {
-                        return Err(LauncherError::BrokerRetryError(e));
-                    }
-                }
+        // TODO: Figure out why `cx.shutdown()` is not working.
+        let handle = cx.handle();
+        match event {
+            Ok(_) => {
+                handle.shutdown().await;
             }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    cx.spawn_actor_supervised(Broker).await;
+                }
+                ActorError::Aborted => {
+                    handle.shutdown().await;
+                }
+            },
         }
+        Ok(())
     }
 }
 
@@ -91,22 +87,22 @@ impl HandleEvent<Report<InxListener>> for Launcher {
         event: Report<InxListener>,
         _data: &mut Self::Data,
     ) -> Result<(), Self::Error> {
-        log::error!("INX listener exited: {:?}", event);
-        let mut retries = 3;
-        loop {
-            match cx.spawn_actor_supervised(InxListener).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    retries -= 1;
-                    if retries == 0 {
-                        return Err(LauncherError::ListenerRetryError(e));
-                    }
-                }
+        // TODO: Figure out why `cx.shutdown()` is not working.
+        let handle = cx.handle();
+        match event {
+            Ok(_) => {
+                handle.shutdown().await;
             }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    cx.spawn_actor_supervised(InxListener).await;
+                }
+                ActorError::Aborted => {
+                    handle.shutdown().await;
+                }
+            },
         }
+        Ok(())
     }
 }
 
@@ -131,15 +127,11 @@ async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + 
         scope.add_resource(Arc::new(config)).await;
         scope.add_resource(db).await;
     } else {
-        let db = MongoConfig::new("mongodb://localhost:27017".into())
-            .with_username("root")
-            .with_password("pass")
-            .build()
-            .await?;
+        let db = MongoConfig::new("mongodb://localhost:27017".into()).build().await?;
         scope.add_resource(db).await;
     }
 
-    let launcher_handle = scope.spawn_actor(Launcher).await?;
+    let launcher_handle = scope.spawn_actor(Launcher).await;
 
     tokio::signal::ctrl_c().await?;
     launcher_handle.shutdown().await;
