@@ -5,6 +5,7 @@ use std::{error::Error, sync::Arc};
 
 use thiserror::Error;
 
+#[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub enum ActorError {
     #[error("Actor error: {0:?}")]

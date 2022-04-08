@@ -10,15 +10,15 @@ use async_trait::async_trait;
 use chronicle::{
     inx::InxError,
     runtime::{
-        actor::{context::ActorContext, envelope::HandleEvent, handle::Act, report::Report, Actor},
+        actor::{context::ActorContext, envelope::HandleEvent, error::ActorError, handle::Addr, report::Report, Actor},
+        config::ConfigureActor,
         error::RuntimeError,
     },
 };
-use futures::StreamExt;
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
-    Channel, Status,
+    Status,
 };
 use log::info;
 use thiserror::Error;
@@ -60,12 +60,13 @@ impl Actor for InxListener {
         let response = inx_client.read_node_status(NoParams {}).await?;
         info!("Node status: {:#?}", response.into_inner());
 
-        cx.add_resource(inx_client).await;
+        let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
+        let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
 
-        cx.spawn_actor_supervised(InxStreamListener::<inx::proto::Message>::new())
-            .await?;
-        cx.spawn_actor_supervised(InxStreamListener::<inx::proto::Milestone>::new())
-            .await?;
+        cx.spawn_actor_supervised(InxStreamListener::<inx::proto::Message>::new().with_stream(message_stream))
+            .await;
+        cx.spawn_actor_supervised(InxStreamListener::<inx::proto::Milestone>::new().with_stream(milestone_stream))
+            .await;
         Ok(())
     }
 }
@@ -83,22 +84,22 @@ where
         event: Report<InxStreamListener<I>>,
         _data: &mut Self::Data,
     ) -> Result<(), Self::Error> {
-        log::error!("Stream listener exited: {:?}", event);
-        let mut retries = 3;
-        loop {
-            match cx.spawn_actor_supervised(InxStreamListener::<I>::new()).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    retries -= 1;
-                    if retries == 0 {
-                        return Err(INXListenerError::RuntimeError(e));
-                    }
-                }
+        // TODO: Figure out why `cx.shutdown()` is not working.
+        let handle = cx.handle();
+        match event {
+            Ok(_) => {
+                handle.shutdown().await;
             }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    cx.spawn_actor_supervised(InxStreamListener::<I>::new()).await;
+                }
+                ActorError::Aborted => {
+                    handle.shutdown().await;
+                }
+            },
         }
+        Ok(())
     }
 }
 
@@ -113,59 +114,36 @@ impl<I> InxStreamListener<I> {
 }
 
 #[async_trait]
-impl Actor for InxStreamListener<inx::proto::Message> {
-    type Data = (InxClient<Channel>, Act<Broker>);
+impl<E> Actor for InxStreamListener<E>
+where
+    Broker: HandleEvent<E>,
+    E: 'static + Send + Sync + Debug,
+{
+    type Data = Addr<Broker>;
     type Error = INXListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
     where
         Self: 'static + Sized + Send + Sync,
     {
-        Ok((cx.link_resource().await?, cx.link_resource().await?))
-    }
-
-    async fn run(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        (inx_client, broker_handle): &mut Self::Data,
-    ) -> Result<(), Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
-        let mut stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-        info!("Subscribed to `ListenToMessages`.");
-        while let Some(msg) = stream.next().await {
-            broker_handle.send(msg?).map_err(RuntimeError::SendError)?;
-        }
-        Ok(())
+        Ok(cx.link_resource().await?)
     }
 }
 
 #[async_trait]
-impl Actor for InxStreamListener<inx::proto::Milestone> {
-    type Data = (InxClient<Channel>, Act<Broker>);
-    type Error = INXListenerError;
-
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
-        Ok((cx.link_resource().await?, cx.link_resource().await?))
-    }
-
-    async fn run(
+impl<E> HandleEvent<Result<E, Status>> for InxStreamListener<E>
+where
+    Self: Actor<Data = Addr<Broker>, Error = INXListenerError>,
+    Broker: HandleEvent<E>,
+    E: 'static + Send + Sync + Debug,
+{
+    async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        (inx_client, broker_handle): &mut Self::Data,
-    ) -> Result<(), Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
-        let mut stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
-        info!("Subscribed to `ListenToLatestMilestone`.");
-        while let Some(msg) = stream.next().await {
-            broker_handle.send(msg?).map_err(RuntimeError::SendError)?;
-        }
+        event: Result<E, Status>,
+        broker_handle: &mut Self::Data,
+    ) -> Result<(), Self::Error> {
+        broker_handle.send(event?).map_err(RuntimeError::SendError)?;
         Ok(())
     }
 }

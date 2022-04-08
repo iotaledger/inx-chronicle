@@ -3,6 +3,7 @@
 
 use super::{error::ActorError, Actor};
 
+/// An actor exit report
 pub type Report<A> = Result<A, ErrorReport<A>>;
 
 /// A report that an actor finished running with an error

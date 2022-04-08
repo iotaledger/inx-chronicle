@@ -203,7 +203,6 @@ dependencies = [
  "dotenv",
  "env_logger",
  "futures",
- "indexmap",
  "inx",
  "log",
  "mongodb",

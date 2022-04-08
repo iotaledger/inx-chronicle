@@ -8,10 +8,11 @@ use futures::{
     Future, FutureExt,
 };
 use tokio::task::JoinHandle;
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 use super::{
-    actor::{context::ActorContext, envelope::HandleEvent, handle::Act, report::Report, Actor},
+    actor::{context::ActorContext, envelope::HandleEvent, handle::Addr, report::Report, Actor},
+    config::SpawnConfig,
     error::RuntimeError,
     registry::{DepStatus, Scope, ScopeId, ROOT_SCOPE},
     shutdown::ShutdownHandle,
@@ -105,11 +106,11 @@ impl ScopeView {
 
     /// Get an actor's event handle, if it exists in this scope.
     /// Note: This will only return a handle if the actor exists outside of a pool.
-    pub async fn actor<A>(&self) -> Option<Act<A>>
+    pub async fn actor<A>(&self) -> Option<Addr<A>>
     where
         A: 'static + Actor,
     {
-        self.get_data_opt::<Act<A>>()
+        self.get_data_opt::<Addr<A>>()
             .await
             .and_then(|handle| (!handle.is_closed()).then(|| handle))
     }
@@ -268,43 +269,35 @@ impl RuntimeScope {
     }
 
     /// Spawn a new actor with a supervisor handle
-    pub async fn spawn_actor_supervised<A, Sup>(
-        &mut self,
-        mut actor: A,
-        supervisor_handle: Act<Sup>,
-    ) -> Result<Act<A>, RuntimeError>
+    pub async fn spawn_actor_supervised<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_handle: Addr<Sup>) -> Addr<A>
     where
         A: 'static + Actor + Debug + Send + Sync,
         Sup: 'static + HandleEvent<Report<A>>,
+        Cfg: Into<SpawnConfig<A>>,
     {
-        if let Some(handle) = self.actor::<A>().await {
-            if handle.scope_id() == self.id() {
-                let name = actor.name();
-                return Err(RuntimeError::DuplicateActor(
-                    format!(
-                        "Attempted to add a duplicate actor ({}) to scope {:x}",
-                        name,
-                        self.id().as_fields().0,
-                    ),
-                    self.id(),
-                ));
-            }
-        }
+        let SpawnConfig { mut actor, stream } = actor.into();
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
-        let (receiver, shutdown_handle) = ShutdownStream::new(UnboundedReceiverStream::new(receiver));
+        let receiver = UnboundedReceiverStream::new(receiver);
+        let (receiver, shutdown_handle) = if let Some(stream) = stream {
+            let receiver = receiver.merge(stream);
+            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
+            (receiver, shutdown_handle)
+        } else {
+            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
+            (receiver, shutdown_handle)
+        };
         let scope = self.child(Some(shutdown_handle), Some(abort_handle)).await;
-        let handle = Act::new(scope.scope.clone(), sender);
+        let handle = Addr::new(scope.scope.clone(), sender);
         let mut cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
         self.add_data(handle.clone()).await;
-        let res = AssertUnwindSafe(actor.init(&mut cx)).catch_unwind().await;
-        let mut data = Self::handle_init_res::<A>(res, &mut cx).await?;
         let child_task = tokio::spawn(async move {
             let res = Abortable::new(
                 AssertUnwindSafe(async {
+                    let mut data = actor.init(&mut cx).await?;
                     // Call handle events until shutdown
-                    let mut res = actor.start(&mut cx, &mut data).await;
+                    let mut res = actor.run(&mut cx, &mut data).await;
                     if let Err(e) = actor.shutdown(&mut cx, &mut data).await {
                         res = Err(e);
                     }
@@ -342,42 +335,38 @@ impl RuntimeScope {
             }
         });
         self.join_handles.push(child_task);
-        Ok(handle)
+        handle
     }
 
     /// Spawn a new actor with no supervisor
-    pub async fn spawn_actor<A>(&mut self, mut actor: A) -> Result<Act<A>, RuntimeError>
+    pub async fn spawn_actor<A, Cfg>(&mut self, actor: Cfg) -> Addr<A>
     where
         A: 'static + Actor + Send + Sync,
+        Cfg: Into<SpawnConfig<A>>,
     {
-        if let Some(handle) = self.actor::<A>().await {
-            if handle.scope_id() == self.id() {
-                let name = actor.name();
-                return Err(RuntimeError::DuplicateActor(
-                    format!(
-                        "Attempted to add a duplicate actor ({}) to scope {:x}",
-                        name,
-                        self.id().as_fields().0,
-                    ),
-                    self.id(),
-                ));
-            }
-        }
+        let SpawnConfig { mut actor, stream } = actor.into();
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
-        let (receiver, shutdown_handle) = ShutdownStream::new(UnboundedReceiverStream::new(receiver));
+        let receiver = UnboundedReceiverStream::new(receiver);
+        let (receiver, shutdown_handle) = if let Some(stream) = stream {
+            let receiver = receiver.merge(stream);
+            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
+            (receiver, shutdown_handle)
+        } else {
+            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
+            (receiver, shutdown_handle)
+        };
         let scope = self.child(Some(shutdown_handle), Some(abort_handle)).await;
-        let handle = Act::new(scope.scope.clone(), sender);
+        let handle = Addr::new(scope.scope.clone(), sender);
         let mut cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
         self.add_data(handle.clone()).await;
-        let res = AssertUnwindSafe(actor.init(&mut cx)).catch_unwind().await;
-        let mut data = Self::handle_init_res::<A>(res, &mut cx).await?;
         let child_task = tokio::spawn(async move {
             let res = Abortable::new(
                 AssertUnwindSafe(async {
+                    let mut data = actor.init(&mut cx).await?;
                     // Call handle events until shutdown
-                    let mut res = actor.start(&mut cx, &mut data).await;
+                    let mut res = actor.run(&mut cx, &mut data).await;
                     if let Err(e) = actor.shutdown(&mut cx, &mut data).await {
                         res = Err(e);
                     }
@@ -408,32 +397,6 @@ impl RuntimeScope {
             }
         });
         self.join_handles.push(child_task);
-        Ok(handle)
-    }
-
-    pub(crate) async fn handle_init_res<A>(
-        res: std::thread::Result<Result<A::Data, A::Error>>,
-        cx: &mut ActorContext<A>,
-    ) -> Result<A::Data, RuntimeError>
-    where
-        A: 'static + Actor,
-    {
-        match res {
-            Ok(res) => match res {
-                Ok(d) => Ok(d),
-                Err(e) => {
-                    cx.abort().await;
-                    cx.join().await;
-                    return Err(RuntimeError::ActorError(Arc::new(
-                        Box::new(e) as Box<dyn Error + Send + Sync>
-                    )));
-                }
-            },
-            Err(e) => {
-                cx.abort().await;
-                cx.join().await;
-                std::panic::resume_unwind(e);
-            }
-        }
+        handle
     }
 }

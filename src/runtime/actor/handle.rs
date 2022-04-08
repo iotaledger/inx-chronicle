@@ -15,6 +15,7 @@ use crate::runtime::{registry::ScopeId, scope::ScopeView};
 #[error("Error sending message to actor: {0}")]
 pub struct SendError(String);
 
+#[allow(missing_docs)]
 impl SendError {
     pub fn new<S: Into<String>>(msg: S) -> Self {
         Self(msg.into())
@@ -29,12 +30,12 @@ impl<S: Into<String>> From<S> for SendError {
 
 /// An actor handle, used to send events
 #[derive(Debug)]
-pub struct Act<A: Actor> {
+pub struct Addr<A: Actor> {
     pub(crate) scope: ScopeView,
     pub(crate) sender: UnboundedSender<Envelope<A>>,
 }
 
-impl<A: Actor> Act<A> {
+impl<A: Actor> Addr<A> {
     pub(crate) fn new(scope: ScopeView, sender: UnboundedSender<Envelope<A>>) -> Self {
         Self { scope, sender }
     }
@@ -54,6 +55,7 @@ impl<A: Actor> Act<A> {
         self.scope.id()
     }
 
+    /// Send a message to the actor
     pub fn send<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), SendError>
     where
         Self: Sized,
@@ -63,12 +65,13 @@ impl<A: Actor> Act<A> {
             .map_err(|_| "Failed to send event".into())
     }
 
+    /// Returns whether the actor's event channel is closed
     pub fn is_closed(&self) -> bool {
         self.sender.is_closed()
     }
 }
 
-impl<A: 'static + Actor> Clone for Act<A> {
+impl<A: 'static + Actor> Clone for Addr<A> {
     fn clone(&self) -> Self {
         Self {
             scope: self.scope.clone(),
