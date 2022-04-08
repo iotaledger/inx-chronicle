@@ -1,7 +1,7 @@
 [mongodb]
 location = "mongodb://localhost:27017"
 username = "root"
-password = "root"
+password = "pass"
 
 [inx]
 address = "http://116.203.35.39:9029"

@@ -28,10 +28,7 @@ impl Actor for Broker {
     type Data = MongoDatabase;
     type Error = BrokerError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
         Ok(cx.link_resource().await?)
     }
 }

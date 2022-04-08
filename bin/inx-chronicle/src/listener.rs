@@ -43,10 +43,7 @@ impl Actor for InxListener {
     type Data = InxClient<Channel>;
     type Error = INXListenerError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
         info!("Connecting to INX...");
         let mut inx_client = if let Some(config) = cx.resource::<Arc<Config>>().await {
             config.inx.build().await
@@ -156,10 +153,7 @@ where
     type Data = Addr<Broker>;
     type Error = INXListenerError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error>
-    where
-        Self: 'static + Sized + Send + Sync,
-    {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
         Ok(cx.link_resource().await?)
     }
 }

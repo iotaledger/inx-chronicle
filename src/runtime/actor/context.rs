@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{
+    any::Any,
     fmt::Debug,
     ops::{Deref, DerefMut},
+    panic::AssertUnwindSafe,
 };
 
-use futures::Stream;
+use futures::{
+    future::{AbortRegistration, Abortable, Aborted},
+    FutureExt, Stream,
+};
 
 use super::{
     envelope::{Envelope, HandleEvent},
@@ -60,6 +65,30 @@ impl<A: Actor> ActorContext<A> {
     /// Shutdown the actor
     pub async fn shutdown(&self) {
         self.handle().shutdown().await;
+    }
+
+    pub(crate) async fn start(
+        &mut self,
+        actor: &mut A,
+        abort_reg: AbortRegistration,
+    ) -> Result<Result<Result<(), A::Error>, Box<dyn Any + Send>>, Aborted> {
+        let res = Abortable::new(
+            AssertUnwindSafe(async {
+                let mut data = actor.init(self).await?;
+                // Call handle events until shutdown
+                let mut res = actor.run(self, &mut data).await;
+                if let Err(e) = actor.shutdown(self, &mut data).await {
+                    res = Err(e);
+                }
+                res
+            })
+            .catch_unwind(),
+            abort_reg,
+        )
+        .await;
+        self.scope.abort().await;
+        self.scope.join().await;
+        res
     }
 }
 
