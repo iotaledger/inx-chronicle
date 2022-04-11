@@ -684,7 +684,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/inx#ac3f3ce78c856964d315f8d08a0605e49a40cb95"
+source = "git+https://github.com/iotaledger/inx#c7009c177b5bb428036deb1e4b30174cd67ea54d"
 dependencies = [
  "prost",
  "tonic",
