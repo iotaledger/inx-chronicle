@@ -70,6 +70,7 @@ impl<A: Actor> ActorContext<A> {
     pub(crate) async fn start(
         &mut self,
         actor: &mut A,
+        actor_data: &mut Option<A::Data>,
         abort_reg: AbortRegistration,
     ) -> Result<Result<Result<(), A::Error>, Box<dyn Any + Send>>, Aborted> {
         let res = Abortable::new(
@@ -80,6 +81,7 @@ impl<A: Actor> ActorContext<A> {
                 if let Err(e) = actor.shutdown(self, &mut data).await {
                     res = Err(e);
                 }
+                actor_data.replace(data);
                 res
             })
             .catch_unwind(),

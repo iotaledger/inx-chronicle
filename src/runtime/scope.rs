@@ -11,10 +11,16 @@ use tokio::task::JoinHandle;
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 use super::{
-    actor::{context::ActorContext, envelope::HandleEvent, handle::Addr, report::Report, Actor},
+    actor::{
+        context::ActorContext,
+        envelope::HandleEvent,
+        handle::Addr,
+        report::{Report, SuccessReport},
+        Actor,
+    },
     config::SpawnConfig,
     error::RuntimeError,
-    registry::{DepStatus, Scope, ScopeId, ROOT_SCOPE},
+    registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::ShutdownHandle,
 };
 use crate::runtime::{
@@ -60,29 +66,6 @@ impl ScopeView {
         self.0.children().await.into_iter().map(ScopeView).collect()
     }
 
-    pub(crate) async fn add_data<T: 'static + Send + Sync + Clone>(&self, data: T) {
-        log::debug!(
-            "Adding {} to scope {:x}",
-            std::any::type_name::<T>(),
-            self.0.id.as_fields().0
-        );
-        self.0.add_data(std::any::TypeId::of::<T>(), Box::new(data)).await
-    }
-
-    pub(crate) async fn get_data_opt<T: 'static + Send + Sync + Clone>(&self) -> Option<T> {
-        self.0
-            .get_data(std::any::TypeId::of::<T>())
-            .await
-            .map(|res| res.with_type::<T>())
-    }
-
-    /// Query the registry for a dependency. This will return immediately whether or not it exists.
-    pub async fn query_resource<T: 'static + Clone + Send + Sync>(&self) -> Result<T, RuntimeError> {
-        self.get_data_opt()
-            .await
-            .ok_or_else(|| RuntimeError::MissingDependency(std::any::type_name::<Self>().to_string()))
-    }
-
     /// Get the root scope
     pub fn root(&self) -> ScopeView {
         self.find_by_id(ROOT_SCOPE).unwrap()
@@ -102,32 +85,6 @@ impl ScopeView {
     /// shutdown handles instead.
     pub(crate) async fn abort(&self) {
         self.0.abort().await;
-    }
-
-    /// Get an actor's event handle, if it exists in this scope.
-    /// Note: This will only return a handle if the actor exists outside of a pool.
-    pub async fn actor<A>(&self) -> Option<Addr<A>>
-    where
-        A: 'static + Actor,
-    {
-        self.get_data_opt::<Addr<A>>()
-            .await
-            .and_then(|handle| (!handle.is_closed()).then(|| handle))
-    }
-
-    /// Get a shared resource if it exists in this runtime's scope
-    pub async fn resource<R: 'static + Send + Sync + Clone>(&self) -> Option<R> {
-        self.get_data_opt::<R>().await
-    }
-
-    /// Add a shared resource
-    pub async fn add_resource<R: 'static + Send + Sync + Clone>(&self, resource: R) {
-        self.add_data(resource).await;
-    }
-
-    /// Add a global, shared resource and get a reference to it
-    pub async fn add_global_resource<R: 'static + Send + Sync + Clone>(&self, resource: R) {
-        self.root().add_data(resource).await;
     }
 }
 
@@ -186,49 +143,6 @@ impl RuntimeScope {
             handle.await.ok();
         }
         self.0.drop().await;
-    }
-
-    pub(crate) async fn depend_on<T: 'static + Send + Sync + Clone>(&self) -> Result<DepStatus<T>, RuntimeError> {
-        self.0
-            .depend_on(std::any::TypeId::of::<T>())
-            .await
-            .map(|res| res.with_type::<T>())
-    }
-
-    pub(crate) async fn get_data<T: 'static + Send + Sync + Clone>(&self) -> Result<DepStatus<T>, RuntimeError> {
-        self.0
-            .get_data_promise(std::any::TypeId::of::<T>())
-            .await
-            .map(|res| res.with_type::<T>())
-    }
-
-    /// Request a dependency and wait for it to be available.
-    pub async fn request_resource<T: 'static + Clone + Send + Sync>(&self) -> Result<T, RuntimeError> {
-        self.get_data().await?.get().await
-    }
-
-    /// Request a dependency and wait for it to be added, forming a link between this scope and
-    /// the requested data. If the data is removed from this scope, it will be shut down.
-    pub async fn link_resource<T: 'static + Clone + Send + Sync>(&self) -> Result<T, RuntimeError> {
-        log::debug!(
-            "Linking resource {} in scope {:x}",
-            std::any::type_name::<T>(),
-            self.id().as_fields().0
-        );
-        self.depend_on().await?.get().await
-    }
-
-    /// Remove data from this scope
-    pub async fn remove_data<T: 'static + Send + Sync + Clone>(&self) -> Option<T> {
-        log::debug!(
-            "Removing {} from scope {:x}",
-            std::any::type_name::<T>(),
-            self.0.id.as_fields().0
-        );
-        self.0
-            .remove_data(std::any::TypeId::of::<T>())
-            .await
-            .map(|res| res.with_type::<T>())
     }
 
     /// Spawn a new, plain task
@@ -291,7 +205,6 @@ impl RuntimeScope {
         let handle = Addr::new(scope.scope.clone(), sender);
         let cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
-        self.add_data(handle.clone()).await;
         (handle, cx, abort_reg)
     }
 
@@ -305,28 +218,29 @@ impl RuntimeScope {
         let SpawnConfig { mut actor, stream } = actor.into();
         let (handle, mut cx, abort_reg) = self.common_spawn(&actor, stream).await;
         let child_task = tokio::spawn(async move {
-            let res = cx.start(&mut actor, abort_reg).await;
+            let mut data = None;
+            let res = cx.start(&mut actor, &mut data, abort_reg).await;
             match res {
                 Ok(res) => match res {
                     Ok(res) => match res {
                         Ok(_) => {
-                            supervisor_handle.send(Ok(actor))?;
+                            supervisor_handle.send(SuccessReport::new(actor, data))?;
                             Ok(())
                         }
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
                             let e = Arc::new(Box::new(e) as Box<dyn Error + Send + Sync>);
-                            supervisor_handle.send(ErrorReport::new(actor, ActorError::Result(e.clone())))?;
+                            supervisor_handle.send(ErrorReport::new(actor, data, ActorError::Result(e.clone())))?;
                             Err(RuntimeError::ActorError(e))
                         }
                     },
                     Err(e) => {
-                        supervisor_handle.send(ErrorReport::new(actor, ActorError::Panic))?;
+                        supervisor_handle.send(ErrorReport::new(actor, data, ActorError::Panic))?;
                         std::panic::resume_unwind(e);
                     }
                 },
                 Err(_) => {
-                    supervisor_handle.send(ErrorReport::new(actor, ActorError::Aborted))?;
+                    supervisor_handle.send(ErrorReport::new(actor, data, ActorError::Aborted))?;
                     Err(RuntimeError::AbortedScope(cx.scope.id()))
                 }
             }
@@ -344,7 +258,8 @@ impl RuntimeScope {
         let SpawnConfig { mut actor, stream } = actor.into();
         let (handle, mut cx, abort_reg) = self.common_spawn(&actor, stream).await;
         let child_task = tokio::spawn(async move {
-            let res = cx.start(&mut actor, abort_reg).await;
+            let mut data = None;
+            let res = cx.start(&mut actor, &mut data, abort_reg).await;
             match res {
                 Ok(res) => match res {
                     Ok(res) => match res {
