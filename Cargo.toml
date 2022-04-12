@@ -30,4 +30,3 @@ serde = { version = "1.0", features = ["derive"], default-features = false }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.17.0", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 toml = { version = "0.5.8", default-features = false }
-bson = "2.1.0"

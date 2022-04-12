@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bson::{ser::Error, Array, Bson, Document};
+use mongodb::bson::{ser::Error, Array, Bson, Document, Serializer as BsonSerializer};
 use serde::{
     ser::{
         SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -15,7 +15,7 @@ pub fn to_bson<T: ?Sized>(value: &T) -> Result<Bson, Error>
 where
     T: Serialize,
 {
-    let ser = BsonSerializer(bson::Serializer::new());
+    let ser = Serializer(BsonSerializer::new());
     value.serialize(ser)
 }
 
@@ -45,12 +45,12 @@ impl Into<u64> for U64 {
 }
 
 #[repr(transparent)]
-struct BsonSerializer(bson::Serializer);
+struct Serializer(BsonSerializer);
 
-impl serde::Serializer for BsonSerializer {
-    type Ok = <bson::Serializer as serde::Serializer>::Ok;
+impl serde::Serializer for Serializer {
+    type Ok = <BsonSerializer as serde::Serializer>::Ok;
 
-    type Error = <bson::Serializer as serde::Serializer>::Error;
+    type Error = <BsonSerializer as serde::Serializer>::Error;
 
     type SerializeSeq = ArraySerializer;
 
@@ -188,7 +188,7 @@ impl serde::Serializer for BsonSerializer {
     where
         T: Serialize,
     {
-        let mut newtype_variant = bson::Document::new();
+        let mut newtype_variant = Document::new();
         newtype_variant.insert(variant, to_bson(value)?);
         Ok(newtype_variant.into())
     }
@@ -196,7 +196,7 @@ impl serde::Serializer for BsonSerializer {
     #[inline]
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         Ok(ArraySerializer {
-            inner: bson::Array::with_capacity(len.unwrap_or(0)),
+            inner: Array::with_capacity(len.unwrap_or(0)),
         })
     }
 
@@ -407,6 +407,8 @@ impl SerializeStructVariant for StructVariantSerializer {
 
 #[cfg(test)]
 mod tests {
+    use mongodb::bson::bson;
+
     use super::{to_bson, U64};
 
     const V1: u64 = 0xfedcba9876543210;
@@ -454,7 +456,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            bson::bson!({ "bar": { "A": to_bson(&U64::from(V1)).unwrap() }, "baz" : to_bson(&U64::from(V2)).unwrap()}),
+            bson!({ "bar": { "A": to_bson(&U64::from(V1)).unwrap() }, "baz" : to_bson(&U64::from(V2)).unwrap()}),
             bson
         );
     }
