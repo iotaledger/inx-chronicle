@@ -261,7 +261,7 @@ impl serde::Serializer for Serializer {
 }
 
 struct ArraySerializer {
-    inner: Vec<Bson>,
+    inner: Array,
 }
 
 impl SerializeSeq for ArraySerializer {
