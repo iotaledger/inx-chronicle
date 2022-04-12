@@ -1,10 +1,17 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use serde::Serialize;
+use bson::{ser::Error, Array, Bson, Document};
+use serde::{
+    ser::{
+        SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
+        SerializeTupleVariant,
+    },
+    Serialize,
+};
 
 /// FIXME: docs
-pub fn to_bson<T: ?Sized>(value: &T) -> Result<bson::Bson, bson::ser::Error>
+pub fn to_bson<T: ?Sized>(value: &T) -> Result<Bson, Error>
 where
     T: Serialize,
 {
@@ -29,6 +36,7 @@ impl From<u64> for U64 {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<u64> for U64 {
     fn into(self) -> u64 {
         // Using `as` is fine here because `From<u64>` guarantees that `lo` is non-negative.
@@ -44,19 +52,19 @@ impl serde::Serializer for BsonSerializer {
 
     type Error = <bson::Serializer as serde::Serializer>::Error;
 
-    type SerializeSeq = <bson::Serializer as serde::Serializer>::SerializeSeq;
+    type SerializeSeq = ArraySerializer;
 
-    type SerializeTuple = <bson::Serializer as serde::Serializer>::SerializeTuple;
+    type SerializeTuple = TupleSerializer;
 
-    type SerializeTupleStruct = <bson::Serializer as serde::Serializer>::SerializeTupleStruct;
+    type SerializeTupleStruct = TupleStructSerializer;
 
-    type SerializeTupleVariant = <bson::Serializer as serde::Serializer>::SerializeTupleVariant;
+    type SerializeTupleVariant = TupleVariantSerializer;
 
-    type SerializeMap = <bson::Serializer as serde::Serializer>::SerializeMap;
+    type SerializeMap = MapSerializer;
 
-    type SerializeStruct = <bson::Serializer as serde::Serializer>::SerializeStruct;
+    type SerializeStruct = StructSerializer;
 
-    type SerializeStructVariant = <bson::Serializer as serde::Serializer>::SerializeStructVariant;
+    type SerializeStructVariant = StructVariantSerializer;
 
     #[inline]
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
@@ -162,72 +170,238 @@ impl serde::Serializer for BsonSerializer {
     }
 
     #[inline]
-    fn serialize_newtype_struct<T: ?Sized>(self, name: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        self.0.serialize_newtype_struct(name, value)
+        value.serialize(self)
     }
 
     #[inline]
     fn serialize_newtype_variant<T: ?Sized>(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        self.0.serialize_newtype_variant(name, variant_index, variant, value)
+        let mut newtype_variant = bson::Document::new();
+        newtype_variant.insert(variant, to_bson(value)?);
+        Ok(newtype_variant.into())
     }
 
     #[inline]
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        self.0.serialize_seq(len)
+        Ok(ArraySerializer {
+            inner: bson::Array::with_capacity(len.unwrap_or(0)),
+        })
     }
 
     #[inline]
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        self.0.serialize_tuple(len)
+        Ok(TupleSerializer {
+            inner: Array::with_capacity(len),
+        })
     }
 
     #[inline]
-    fn serialize_tuple_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        self.0.serialize_tuple_struct(name, len)
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        Ok(TupleStructSerializer {
+            inner: Array::with_capacity(len),
+        })
     }
 
     #[inline]
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        self.0.serialize_tuple_variant(name, variant_index, variant, len)
+        Ok(TupleVariantSerializer {
+            inner: Array::with_capacity(len),
+            name: variant,
+        })
     }
 
     #[inline]
-    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        self.0.serialize_map(len)
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Ok(MapSerializer {
+            inner: Document::new(),
+            next_key: None,
+        })
     }
 
     #[inline]
-    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct, Self::Error> {
-        self.0.serialize_struct(name, len)
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct, Self::Error> {
+        Ok(StructSerializer { inner: Document::new() })
     }
 
     #[inline]
     fn serialize_struct_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
-        len: usize,
+        _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        self.0.serialize_struct_variant(name, variant_index, variant, len)
+        Ok(StructVariantSerializer {
+            name: variant,
+            inner: Document::new(),
+        })
+    }
+}
+
+struct ArraySerializer {
+    inner: Vec<Bson>,
+}
+
+impl SerializeSeq for ArraySerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        self.inner.push(to_bson(value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Bson::Array(self.inner))
+    }
+}
+
+struct TupleSerializer {
+    inner: Array,
+}
+
+impl SerializeTuple for TupleSerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        self.inner.push(to_bson(value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Bson::Array(self.inner))
+    }
+}
+
+struct TupleStructSerializer {
+    inner: Array,
+}
+
+impl SerializeTupleStruct for TupleStructSerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        self.inner.push(to_bson(value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Bson::Array(self.inner))
+    }
+}
+
+struct TupleVariantSerializer {
+    inner: Array,
+    name: &'static str,
+}
+
+impl SerializeTupleVariant for TupleVariantSerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        self.inner.push(to_bson(value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        let mut tuple_variant = Document::new();
+        tuple_variant.insert(self.name, self.inner);
+        Ok(tuple_variant.into())
+    }
+}
+
+struct MapSerializer {
+    inner: Document,
+    next_key: Option<String>,
+}
+
+impl SerializeMap for MapSerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<(), Self::Error> {
+        self.next_key = match to_bson(&key)? {
+            Bson::String(s) => Some(s),
+            other => return Err(Error::InvalidDocumentKey(other)),
+        };
+        Ok(())
+    }
+
+    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        let key = self.next_key.take().unwrap_or_default();
+        self.inner.insert(key, to_bson(&value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Bson::from(self.inner))
+    }
+}
+
+struct StructSerializer {
+    inner: Document,
+}
+
+impl SerializeStruct for StructSerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error> {
+        self.inner.insert(key, to_bson(value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Bson::from(self.inner))
+    }
+}
+
+struct StructVariantSerializer {
+    inner: Document,
+    name: &'static str,
+}
+
+impl SerializeStructVariant for StructVariantSerializer {
+    type Ok = Bson;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error> {
+        self.inner.insert(key, to_bson(value)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        let var = Bson::from(self.inner);
+
+        let mut struct_variant = Document::new();
+        struct_variant.insert(self.name, var);
+
+        Ok(Bson::Document(struct_variant))
     }
 }
 
