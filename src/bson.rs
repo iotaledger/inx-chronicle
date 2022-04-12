@@ -10,7 +10,7 @@ use serde::{
     Serialize,
 };
 
-/// FIXME: docs
+/// Converts a value into a [`Bson`] using custom serialization to avoid data loss.
 pub fn to_bson<T: ?Sized>(value: &T) -> Result<Bson, Error>
 where
     T: Serialize,
