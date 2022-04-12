@@ -121,7 +121,7 @@ impl Scope {
     }
 
     pub(crate) async fn add_data(&self, data_type: TypeId, data: Box<dyn CloneAny + Send + Sync>) {
-        if !self.valid.load(Ordering::Relaxed) {
+        if !self.valid.load(Ordering::Acquire) {
             log::warn!("Tried to add data to invalid scope {:x}", self.id.as_fields().0);
             return;
         }
@@ -132,7 +132,7 @@ impl Scope {
     }
 
     pub(crate) async fn remove_data(&self, data_type: TypeId) -> Option<DepReady> {
-        if !self.valid.load(Ordering::Relaxed) {
+        if !self.valid.load(Ordering::Acquire) {
             log::warn!("Tried to remove data from invalid scope {:x}", self.id.as_fields().0);
             return None;
         }
@@ -178,7 +178,7 @@ impl Scope {
 
     /// Get some arbitrary data from the given scope
     pub(crate) async fn get_data(&self, data_type: TypeId) -> Option<DepReady> {
-        if !self.valid.load(Ordering::Relaxed) {
+        if !self.valid.load(Ordering::Acquire) {
             log::warn!("Tried to get data from invalid scope {:x}", self.id.as_fields().0);
             return None;
         }
@@ -197,7 +197,7 @@ impl Scope {
 
     /// Get some arbitrary data from the given scope or a signal to await its creation
     pub(crate) async fn get_data_promise(&self, data_type: TypeId) -> Result<RawDepStatus, RuntimeError> {
-        if !self.valid.load(Ordering::Relaxed) {
+        if !self.valid.load(Ordering::Acquire) {
             return Err(RuntimeError::InvalidScope);
         }
         let data = self.get_data(data_type).await;
@@ -221,7 +221,7 @@ impl Scope {
     }
 
     pub(crate) async fn depend_on(&self, data_type: TypeId) -> Result<RawDepStatus, RuntimeError> {
-        if !self.valid.load(Ordering::Relaxed) {
+        if !self.valid.load(Ordering::Acquire) {
             return Err(RuntimeError::InvalidScope);
         }
         let status = self.get_data(data_type).await;
@@ -245,7 +245,7 @@ impl Scope {
 
     pub(crate) async fn shutdown(&self) {
         log::trace!("Shutting down scope {:x}", self.id.as_fields().0);
-        self.valid.store(false, Ordering::Relaxed);
+        self.valid.store(false, Ordering::Release);
         let data = self.data.write().await.dependencies.drain().collect::<Vec<_>>();
         for (_, dep) in data {
             dep.into_signal().cancel()
@@ -331,7 +331,7 @@ impl<T: 'static + Clone + Send + Sync> From<DepStatus<T>> for Option<T> {
         match status {
             DepStatus::Ready(t) => Some(t),
             DepStatus::Waiting(h) => {
-                if h.flag.set.load(Ordering::Relaxed) {
+                if h.flag.set.load(Ordering::Acquire) {
                     h.flag
                         .val
                         .try_read()
@@ -402,12 +402,12 @@ pub(crate) struct DepFlag {
 impl DepFlag {
     pub(crate) async fn signal(&self, val: Box<dyn CloneAny + Send + Sync>) {
         *self.val.write().await = Some(val);
-        self.set.store(true, Ordering::Relaxed);
+        self.set.store(true, Ordering::Release);
         self.waker.wake();
     }
 
     pub(crate) fn cancel(&self) {
-        self.set.store(true, Ordering::Relaxed);
+        self.set.store(true, Ordering::Release);
         self.waker.wake();
     }
 }
@@ -447,7 +447,7 @@ impl<T: 'static + Clone> Future for DepHandle<T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // quick check to avoid registration if already done.
-        if self.flag.set.load(Ordering::Relaxed) {
+        if self.flag.set.load(Ordering::Acquire) {
             return match self.flag.val.try_read() {
                 Ok(lock) => Poll::Ready(
                     lock.clone()
@@ -462,7 +462,7 @@ impl<T: 'static + Clone> Future for DepHandle<T> {
 
         // Need to check condition **after** `register` to avoid a race
         // condition that would result in lost notifications.
-        if self.flag.set.load(Ordering::Relaxed) {
+        if self.flag.set.load(Ordering::Acquire) {
             match self.flag.val.try_read() {
                 Ok(lock) => Poll::Ready(
                     lock.clone()
