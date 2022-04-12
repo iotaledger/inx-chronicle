@@ -146,7 +146,7 @@ impl serde::Serializer for Serializer {
     where
         T: Serialize,
     {
-        self.0.serialize_some(value)
+        value.serialize(self)
     }
 
     #[inline]
