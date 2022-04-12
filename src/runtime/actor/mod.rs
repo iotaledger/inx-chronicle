@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::error::Error;
+use std::{error::Error, fmt::Debug};
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -23,7 +23,7 @@ pub mod report;
 #[async_trait]
 pub trait Actor: Send + Sync + Sized {
     /// Custom data that is passed to all actor methods
-    type Data: Send + Sync;
+    type Data: Debug + Send + Sync;
     /// Custom error type that is returned by all actor methods
     type Error: Error + Send + Sync;
 

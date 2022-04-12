@@ -19,7 +19,7 @@ pub const DB_NAME: &str = "chronicle-test";
 
 /// A builder to establish a connection to the database.
 #[must_use]
-#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct MongoConfig {
     location: String,
     username: Option<String>,
@@ -28,9 +28,9 @@ pub struct MongoConfig {
 
 impl MongoConfig {
     /// Creates a new [`MongoConfig`]. The `location` is the address of the MongoDB instance.
-    pub fn new(location: String) -> Self {
+    pub fn new<S: Into<String>>(location: S) -> Self {
         Self {
-            location,
+            location: location.into(),
             username: None,
             password: None,
         }

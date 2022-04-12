@@ -8,22 +8,30 @@ mod cli;
 mod config;
 mod listener;
 
-use std::{error::Error, sync::Arc};
+use std::error::Error;
 
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
 use chronicle::{
-    db::MongoConfig,
-    inx::InxError,
+    db::{MongoConfig, MongoDbError},
+    inx::{InxConfig, InxError},
     runtime::{
-        actor::{context::ActorContext, envelope::HandleEvent, error::ActorError, report::Report, Actor},
+        actor::{
+            context::ActorContext,
+            envelope::HandleEvent,
+            error::ActorError,
+            handle::{Addr, SendError},
+            report::Report,
+            Actor,
+        },
         error::RuntimeError,
         scope::RuntimeScope,
         Runtime,
     },
 };
 use clap::Parser;
-use listener::{INXListenerError, InxListener};
+use config::Config;
+use listener::{InxListener, InxListenerError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -32,7 +40,13 @@ use self::cli::CliArgs;
 #[derive(Debug, Error)]
 pub enum LauncherError {
     #[error(transparent)]
-    RuntimeError(#[from] RuntimeError),
+    Send(#[from] SendError),
+    #[error(transparent)]
+    Config(#[from] config::ConfigError),
+    #[error(transparent)]
+    MongoDb(#[from] MongoDbError),
+    #[error(transparent)]
+    Runtime(#[from] RuntimeError),
 }
 
 #[derive(Debug)]
@@ -41,13 +55,23 @@ pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type Data = ();
+    type Data = (Config, Addr<Broker>);
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
-        cx.spawn_actor_supervised(Broker).await;
-        cx.spawn_actor_supervised(InxListener).await;
-        Ok(())
+        let cli_args = CliArgs::parse();
+        let config = match cli_args.config {
+            Some(path) => config::Config::from_file(path)?,
+            None => Config {
+                mongodb: MongoConfig::new("mongodb://localhost:27017"),
+                inx: InxConfig::new("http://localhost:9029"),
+            },
+        };
+        let db = config.mongodb.clone().build().await?;
+        let broker_handle = cx.spawn_actor_supervised(Broker::new(db)).await;
+        cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_handle.clone()))
+            .await;
+        Ok((config, broker_handle))
     }
 }
 
@@ -57,7 +81,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<Broker>,
-        _data: &mut Self::Data,
+        (config, broker_handle): &mut Self::Data,
     ) -> Result<(), Self::Error> {
         // TODO: Figure out why `cx.shutdown()` is not working.
         let handle = cx.handle();
@@ -74,7 +98,9 @@ impl HandleEvent<Report<Broker>> for Launcher {
                         chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
                             // Only a few possible errors we could potentially recover from
                             ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                                cx.spawn_actor_supervised(Broker).await;
+                                let db = config.mongodb.clone().build().await?;
+                                let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
+                                *broker_handle = handle;
                             }
                             _ => {
                                 handle.shutdown().await;
@@ -97,26 +123,37 @@ impl HandleEvent<Report<InxListener>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxListener>,
-        _data: &mut Self::Data,
+        (config, broker_handle): &mut Self::Data,
     ) -> Result<(), Self::Error> {
         // TODO: Figure out why `cx.shutdown()` is not working.
         let handle = cx.handle();
-        match event {
+        match &event {
             Ok(_) => {
                 handle.shutdown().await;
             }
-            Err(e) => match e.error {
-                ActorError::Result(e) => match e.downcast_ref::<INXListenerError>().unwrap() {
-                    INXListenerError::Inx(e) => match e {
+            Err(e) => match &e.error {
+                ActorError::Result(e) => match e.downcast_ref::<InxListenerError>().unwrap() {
+                    InxListenerError::Inx(e) => match e {
                         InxError::TransportFailed => {
-                            cx.spawn_actor_supervised(InxListener).await;
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_handle.clone()))
+                                .await;
                         }
                     },
-                    INXListenerError::Read(_) => {
+                    InxListenerError::Read(_) => {
                         handle.shutdown().await;
                     }
-                    INXListenerError::Runtime(_) => {
+                    InxListenerError::Runtime(_) => {
                         handle.shutdown().await;
+                    }
+                    InxListenerError::MissingBroker => {
+                        // If the handle is still closed, push this to the back of the event queue.
+                        // Hopefully when it is processed again the handle will have been recreated.
+                        if broker_handle.is_closed() {
+                            handle.send(event)?;
+                        } else {
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_handle.clone()))
+                                .await;
+                        }
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -139,17 +176,6 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let cli_args = CliArgs::parse();
-    if let Some(config_path) = cli_args.config {
-        let config = config::Config::from_file(config_path)?;
-        let db = config.mongodb.build().await?;
-        scope.add_resource(Arc::new(config)).await;
-        scope.add_resource(db).await;
-    } else {
-        let db = MongoConfig::new("mongodb://localhost:27017".into()).build().await?;
-        scope.add_resource(db).await;
-    }
-
     let launcher_handle = scope.spawn_actor(Launcher).await;
 
     tokio::spawn(async move {

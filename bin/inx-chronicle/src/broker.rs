@@ -21,15 +21,23 @@ pub enum BrokerError {
 }
 
 #[derive(Debug)]
-pub struct Broker;
+pub struct Broker {
+    db: MongoDatabase,
+}
+
+impl Broker {
+    pub fn new(db: MongoDatabase) -> Self {
+        Self { db }
+    }
+}
 
 #[async_trait]
 impl Actor for Broker {
-    type Data = MongoDatabase;
+    type Data = ();
     type Error = BrokerError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
-        Ok(cx.link_resource().await?)
+    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
+        Ok(())
     }
 }
 
@@ -39,10 +47,10 @@ impl HandleEvent<inx::proto::Message> for Broker {
         &mut self,
         _cx: &mut ActorContext<Self>,
         message: inx::proto::Message,
-        db: &mut Self::Data,
+        _data: &mut Self::Data,
     ) -> Result<(), Self::Error> {
         debug!("Received Message Event");
-        db.insert_message_raw(message).await?;
+        self.db.insert_message_raw(message).await?;
         Ok(())
     }
 }
@@ -53,10 +61,10 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         &mut self,
         _cx: &mut ActorContext<Self>,
         milestone: inx::proto::Milestone,
-        db: &mut Self::Data,
+        _data: &mut Self::Data,
     ) -> Result<(), Self::Error> {
         debug!("Received Milestone Event");
-        db.insert_milestone(milestone).await?;
+        self.db.insert_milestone(milestone).await?;
         Ok(())
     }
 }

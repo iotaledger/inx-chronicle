@@ -16,7 +16,7 @@ pub enum ConfigError {
 }
 
 /// Configuration of Chronicle.
-#[derive(PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub mongodb: MongoConfig,
     pub inx: InxConfig,
