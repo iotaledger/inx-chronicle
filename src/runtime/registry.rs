@@ -331,7 +331,7 @@ impl<T: 'static + Clone + Send + Sync> From<DepStatus<T>> for Option<T> {
         match status {
             DepStatus::Ready(t) => Some(t),
             DepStatus::Waiting(h) => {
-                if h.flag.set.load(Ordering::Acquire) {
+                if h.flag.set.load(Ordering::SeqCst) {
                     h.flag
                         .val
                         .try_read()
@@ -402,12 +402,12 @@ pub(crate) struct DepFlag {
 impl DepFlag {
     pub(crate) async fn signal(&self, val: Box<dyn CloneAny + Send + Sync>) {
         *self.val.write().await = Some(val);
-        self.set.store(true, Ordering::Release);
+        self.set.store(true, Ordering::SeqCst);
         self.waker.wake();
     }
 
     pub(crate) fn cancel(&self) {
-        self.set.store(true, Ordering::Release);
+        self.set.store(true, Ordering::SeqCst);
         self.waker.wake();
     }
 }
@@ -447,7 +447,7 @@ impl<T: 'static + Clone> Future for DepHandle<T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // quick check to avoid registration if already done.
-        if self.flag.set.load(Ordering::Acquire) {
+        if self.flag.set.load(Ordering::SeqCst) {
             return match self.flag.val.try_read() {
                 Ok(lock) => Poll::Ready(
                     lock.clone()
@@ -462,7 +462,7 @@ impl<T: 'static + Clone> Future for DepHandle<T> {
 
         // Need to check condition **after** `register` to avoid a race
         // condition that would result in lost notifications.
-        if self.flag.set.load(Ordering::Acquire) {
+        if self.flag.set.load(Ordering::SeqCst) {
             match self.flag.val.try_read() {
                 Ok(lock) => Poll::Ready(
                     lock.clone()
