@@ -438,7 +438,7 @@ mod tests {
         #[derive(serde::Serialize)]
         struct Foo {
             bar: Bar,
-            baz: Baz,
+            baz: Option<Baz>,
         }
 
         #[derive(serde::Serialize)]
@@ -451,7 +451,7 @@ mod tests {
 
         let bson = super::to_bson(&Foo {
             bar: Bar::A(V1),
-            baz: Baz(V2),
+            baz: Some(Baz(V2)),
         })
         .unwrap();
 
