@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::MongoDatabase;
+use chronicle::db::{model::stardust, MongoDatabase};
 use log::debug;
 use tokio::sync::mpsc;
 
@@ -24,11 +24,17 @@ impl Broker {
         match event {
             InxEvent::Message(message) => {
                 debug!("Received Message Event");
-                self.db.insert_message_raw(message).await.unwrap()
+                self.db
+                    .insert_one::<stardust::Message>(message.try_into().unwrap())
+                    .await
+                    .unwrap()
             }
             InxEvent::LatestMilestone(milestone) => {
                 debug!("Received Milestone Event");
-                self.db.insert_milestone(milestone).await.unwrap()
+                self.db
+                    .insert_one::<stardust::Milestone>(milestone.try_into().unwrap())
+                    .await
+                    .unwrap()
             }
         }
     }
