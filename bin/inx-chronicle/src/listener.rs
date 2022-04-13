@@ -1,75 +1,197 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! The [`InxListener`] subscribes to events from INX and forwards them as an [`InxEvent`] via a Tokio unbounded
+//! The [`InxListener`] subscribes to events from INX and forwards them via a Tokio unbounded
 //! channel.
 
-use futures::StreamExt;
+use std::{fmt::Debug, marker::PhantomData};
+
+use async_trait::async_trait;
+use chronicle::{
+    inx::{InxConfig, InxError},
+    runtime::{
+        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
+        config::ConfigureActor,
+        error::RuntimeError,
+    },
+};
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
-    Channel,
+    Channel, Status,
 };
 use log::info;
-use tokio::task::JoinHandle;
+use thiserror::Error;
 
-use crate::broker::BrokerAddr;
+use crate::broker::Broker;
 
-#[derive(Debug)]
-pub enum InxEvent {
-    Message(inx::proto::Message),
-    LatestMilestone(inx::proto::Milestone),
+type MessageStream = InxStreamListener<inx::proto::Message>;
+type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
+
+#[derive(Debug, Error)]
+pub enum InxListenerError {
+    #[error("The broker actor is not running")]
+    MissingBroker,
+    #[error(transparent)]
+    Inx(#[from] InxError),
+    #[error(transparent)]
+    Read(#[from] Status),
+    #[error(transparent)]
+    Runtime(#[from] RuntimeError),
 }
 
+#[derive(Debug)]
 pub struct InxListener {
-    // TODO: Consider storing `inx_client` to potentially restart some streams.
-    message_handle: JoinHandle<()>,
-    latest_milestone_handle: JoinHandle<()>,
+    config: InxConfig,
+    broker_addr: Addr<Broker>,
 }
 
 impl InxListener {
-    pub fn new(inx_client: InxClient<Channel>, broker_addr: BrokerAddr) -> Self {
-        let message_handle = {
-            let mut inx_client = inx_client.clone();
-            let broker_addr = broker_addr.clone();
-            tokio::spawn(async move { subscribe_messages(&mut inx_client, broker_addr).await })
-        };
+    pub fn new(config: InxConfig, broker_addr: Addr<Broker>) -> Self {
+        Self { config, broker_addr }
+    }
+}
 
-        let latest_milestone_handle = {
-            let mut inx_client = inx_client;
-            tokio::spawn(async move { subscribe_latest_milestone(&mut inx_client, broker_addr).await })
-        };
+#[async_trait]
+impl Actor for InxListener {
+    type State = InxClient<Channel>;
+    type Error = InxListenerError;
 
-        Self {
-            message_handle,
-            latest_milestone_handle,
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        info!("Connecting to INX...");
+        let mut inx_client = self.config.build().await?;
+
+        info!("Connected to INX.");
+        let response = inx_client.read_node_status(NoParams {}).await?;
+        info!("Node status: {:#?}", response.into_inner());
+
+        let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
+        let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
+
+        cx.spawn_actor_supervised::<MessageStream, _>(
+            InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
+        )
+        .await;
+        cx.spawn_actor_supervised::<MilestoneStream, _>(
+            InxStreamListener::new(self.broker_addr.clone())?.with_stream(milestone_stream),
+        )
+        .await;
+        Ok(inx_client)
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<MessageStream>> for InxListener {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<MessageStream>,
+        inx_client: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Ok(_) => {
+                cx.shutdown();
+            }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
+                    cx.spawn_actor_supervised::<MessageStream, _>(
+                        InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
+                    )
+                    .await;
+                }
+                ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<MilestoneStream>> for InxListener {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<MilestoneStream>,
+        inx_client: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Ok(_) => {
+                cx.shutdown();
+            }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
+                    cx.spawn_actor_supervised::<MilestoneStream, _>(
+                        InxStreamListener::new(self.broker_addr.clone())?.with_stream(milestone_stream),
+                    )
+                    .await;
+                }
+                ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+pub struct InxStreamListener<I> {
+    broker_addr: Addr<Broker>,
+    _item: PhantomData<I>,
+}
+
+impl<I> InxStreamListener<I> {
+    pub fn new(broker_addr: Addr<Broker>) -> Result<Self, InxListenerError> {
+        if broker_addr.is_closed() {
+            Err(InxListenerError::MissingBroker)
+        } else {
+            Ok(Self {
+                broker_addr,
+                _item: PhantomData,
+            })
         }
     }
+}
 
-    pub fn shutdown(self) {
-        self.message_handle.abort();
-        self.latest_milestone_handle.abort();
+#[async_trait]
+impl<E> Actor for InxStreamListener<E>
+where
+    Broker: HandleEvent<E>,
+    E: 'static + Send + Sync + Debug,
+{
+    type State = ();
+    type Error = InxListenerError;
+
+    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        Ok(())
     }
 }
 
-async fn subscribe_messages(client: &mut InxClient<Channel>, broker_addr: BrokerAddr) {
-    let response = client.listen_to_messages(MessageFilter {}).await;
-    info!("Subscribed to `ListenToMessages`.");
-    let mut stream = response.unwrap().into_inner();
-
-    while let Some(item) = stream.next().await {
-        let message = item.unwrap();
-        broker_addr.send(InxEvent::Message(message));
+#[async_trait]
+impl<E> HandleEvent<Result<E, Status>> for InxStreamListener<E>
+where
+    Self: Actor<Error = InxListenerError>,
+    Broker: HandleEvent<E>,
+    E: 'static + Send + Sync + Debug,
+{
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        event: Result<E, Status>,
+        _data: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        self.broker_addr.send(event?).map_err(RuntimeError::SendError)?;
+        Ok(())
     }
 }
 
-async fn subscribe_latest_milestone(client: &mut InxClient<Channel>, broker_addr: BrokerAddr) {
-    let response = client.listen_to_latest_milestone(NoParams {}).await;
-    info!("Subscribed to `ListenToLatestMilestone`.");
-    let mut stream = response.unwrap().into_inner();
-
-    while let Some(item) = stream.next().await {
-        let milestone = item.unwrap();
-        broker_addr.send(InxEvent::LatestMilestone(milestone));
+impl<I> Debug for InxStreamListener<I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InxStreamListener")
+            .field("item", &std::any::type_name::<I>())
+            .finish()
     }
 }

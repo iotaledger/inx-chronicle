@@ -1,3 +1,5 @@
 /target
 
 **/.env
+
+/bin/inx-chronicle/config.toml
