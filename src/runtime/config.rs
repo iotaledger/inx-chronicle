@@ -4,14 +4,14 @@
 use futures::{Stream, StreamExt};
 
 use super::actor::{
-    envelope::{DynEvent, Envelope},
+    event::{DynEvent, Envelope, EnvelopeStream},
     Actor,
 };
 
 /// Spawn configuration for an actor
 pub struct SpawnConfig<A> {
     pub(crate) actor: A,
-    pub(crate) stream: Option<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>>,
+    pub(crate) stream: Option<EnvelopeStream<A>>,
 }
 
 impl<A> SpawnConfig<A> {

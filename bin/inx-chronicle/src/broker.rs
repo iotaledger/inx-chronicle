@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::{MongoDatabase, MongoDbError},
     runtime::{
-        actor::{context::ActorContext, envelope::HandleEvent, Actor},
+        actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
     },
 };
@@ -33,10 +33,10 @@ impl Broker {
 
 #[async_trait]
 impl Actor for Broker {
-    type Data = ();
+    type State = ();
     type Error = BrokerError;
 
-    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
+    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
     }
 }
@@ -47,7 +47,7 @@ impl HandleEvent<inx::proto::Message> for Broker {
         &mut self,
         _cx: &mut ActorContext<Self>,
         message: inx::proto::Message,
-        _data: &mut Self::Data,
+        _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
         debug!("Received Message Event");
         self.db.insert_message_raw(message).await?;
@@ -61,7 +61,7 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         &mut self,
         _cx: &mut ActorContext<Self>,
         milestone: inx::proto::Milestone,
-        _data: &mut Self::Data,
+        _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
         debug!("Received Milestone Event");
         self.db.insert_milestone(milestone).await?;

@@ -10,14 +10,14 @@ pub type Report<A> = Result<SuccessReport<A>, ErrorReport<A>>;
 #[derive(Debug)]
 pub struct SuccessReport<A: Actor> {
     /// The actor's state when it finished running
-    pub state: A,
+    pub actor: A,
     /// The actor's data when it finished running
-    pub data: Option<A::Data>,
+    pub internal_state: Option<A::State>,
 }
 
 impl<A: Actor> SuccessReport<A> {
-    pub(crate) fn new(state: A, data: Option<A::Data>) -> Report<A> {
-        Ok(Self { state, data })
+    pub(crate) fn new(actor: A, internal_state: Option<A::State>) -> Report<A> {
+        Ok(Self { actor, internal_state })
     }
 }
 
@@ -25,15 +25,19 @@ impl<A: Actor> SuccessReport<A> {
 #[derive(Debug)]
 pub struct ErrorReport<A: Actor> {
     /// The actor's state when it finished running
-    pub state: A,
+    pub actor: A,
     /// The actor's data when it finished running
-    pub data: Option<A::Data>,
+    pub internal_state: Option<A::State>,
     /// The error that occurred
     pub error: ActorError,
 }
 
 impl<A: Actor> ErrorReport<A> {
-    pub(crate) fn new(state: A, data: Option<A::Data>, error: ActorError) -> Report<A> {
-        Err(Self { state, data, error })
+    pub(crate) fn new(actor: A, internal_state: Option<A::State>, error: ActorError) -> Report<A> {
+        Err(Self {
+            actor,
+            internal_state,
+            error,
+        })
     }
 }

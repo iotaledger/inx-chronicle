@@ -5,7 +5,7 @@ use thiserror::Error;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{
-    envelope::{DynEvent, Envelope},
+    event::{DynEvent, Envelope},
     Actor,
 };
 use crate::runtime::{registry::ScopeId, scope::ScopeView};
@@ -17,7 +17,7 @@ pub struct SendError(String);
 
 #[allow(missing_docs)]
 impl SendError {
-    pub fn new<S: Into<String>>(msg: S) -> Self {
+    pub fn new(msg: impl Into<String>) -> Self {
         Self(msg.into())
     }
 }
@@ -28,7 +28,7 @@ impl<S: Into<String>> From<S> for SendError {
     }
 }
 
-/// An actor handle, used to send events
+/// An actor handle, used to send events.
 #[derive(Debug)]
 pub struct Addr<A: Actor> {
     pub(crate) scope: ScopeView,
