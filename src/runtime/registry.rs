@@ -102,7 +102,7 @@ impl Scope {
         log::trace!("Dropped scope {:x}", self.id.as_fields().0);
     }
 
-    pub(crate) async fn shutdown(&self) {
+    pub(crate) fn shutdown(&self) {
         log::trace!("Shutting down scope {:x}", self.id.as_fields().0);
         self.valid.store(false, Ordering::Release);
         if let Some(handle) = self.shutdown_handle.as_ref() {

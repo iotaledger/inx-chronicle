@@ -90,7 +90,7 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
     ) -> Result<(), Self::Error> {
         match event {
             Ok(_) => {
-                cx.shutdown().await;
+                cx.shutdown();
             }
             Err(e) => match e.error {
                 ActorError::Result(_) | ActorError::Panic => {
@@ -101,7 +101,7 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
                     .await;
                 }
                 ActorError::Aborted => {
-                    cx.shutdown().await;
+                    cx.shutdown();
                 }
             },
         }
@@ -119,7 +119,7 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
     ) -> Result<(), Self::Error> {
         match event {
             Ok(_) => {
-                cx.shutdown().await;
+                cx.shutdown();
             }
             Err(e) => match e.error {
                 ActorError::Result(_) | ActorError::Panic => {
@@ -130,7 +130,7 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                     .await;
                 }
                 ActorError::Aborted => {
-                    cx.shutdown().await;
+                    cx.shutdown();
                 }
             },
         }
