@@ -23,7 +23,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         fs::read_to_string(&path)
             .map_err(ConfigError::FileRead)
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))

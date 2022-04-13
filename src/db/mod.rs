@@ -28,7 +28,7 @@ pub struct MongoConfig {
 
 impl MongoConfig {
     /// Creates a new [`MongoConfig`]. The `location` is the address of the MongoDB instance.
-    pub fn new<S: Into<String>>(location: S) -> Self {
+    pub fn new(location: impl Into<String>) -> Self {
         Self {
             location: location.into(),
             username: None,
@@ -37,13 +37,13 @@ impl MongoConfig {
     }
 
     /// Sets the username.
-    pub fn with_username<S: Into<String>>(mut self, username: S) -> Self {
+    pub fn with_username(mut self, username: impl Into<String>) -> Self {
         self.username = Some(username.into());
         self
     }
 
     /// Sets the password.
-    pub fn with_password<S: Into<String>>(mut self, password: S) -> Self {
+    pub fn with_password(mut self, password: impl Into<String>) -> Self {
         self.password = Some(password.into());
         self
     }

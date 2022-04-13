@@ -4,4 +4,4 @@ username = "root"
 password = "root"
 
 [inx]
-address = "http://116.203.35.39:9029"
+address = "http://localhost:9029"

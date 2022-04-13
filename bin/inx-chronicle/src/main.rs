@@ -17,10 +17,10 @@ use chronicle::{
     inx::{InxConfig, InxError},
     runtime::{
         actor::{
+            addr::{Addr, SendError},
             context::ActorContext,
-            envelope::HandleEvent,
             error::ActorError,
-            handle::{Addr, SendError},
+            event::HandleEvent,
             report::Report,
             Actor,
         },
@@ -55,10 +55,10 @@ pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type Data = (Config, Addr<Broker>);
+    type State = (Config, Addr<Broker>);
     type Error = LauncherError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::Data, Self::Error> {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let cli_args = CliArgs::parse();
         let config = match cli_args.config {
             Some(path) => config::Config::from_file(path)?,
@@ -68,10 +68,10 @@ impl Actor for Launcher {
             },
         };
         let db = config.mongodb.clone().build().await?;
-        let broker_handle = cx.spawn_actor_supervised(Broker::new(db)).await;
-        cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_handle.clone()))
+        let broker_addr = cx.spawn_actor_supervised(Broker::new(db)).await;
+        cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
             .await;
-        Ok((config, broker_handle))
+        Ok((config, broker_addr))
     }
 }
 
@@ -81,7 +81,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<Broker>,
-        (config, broker_handle): &mut Self::Data,
+        (config, broker_addr): &mut Self::State,
     ) -> Result<(), Self::Error> {
         // TODO: Figure out why `cx.shutdown()` is not working.
         let handle = cx.handle();
@@ -100,7 +100,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
                             ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                                 let db = config.mongodb.clone().build().await?;
                                 let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
-                                *broker_handle = handle;
+                                *broker_addr = handle;
                             }
                             _ => {
                                 handle.shutdown().await;
@@ -123,7 +123,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxListener>,
-        (config, broker_handle): &mut Self::Data,
+        (config, broker_addr): &mut Self::State,
     ) -> Result<(), Self::Error> {
         // TODO: Figure out why `cx.shutdown()` is not working.
         let handle = cx.handle();
@@ -135,7 +135,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                 ActorError::Result(e) => match e.downcast_ref::<InxListenerError>().unwrap() {
                     InxListenerError::Inx(e) => match e {
                         InxError::TransportFailed => {
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_handle.clone()))
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
                         }
                     },
@@ -148,10 +148,10 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                     InxListenerError::MissingBroker => {
                         // If the handle is still closed, push this to the back of the event queue.
                         // Hopefully when it is processed again the handle will have been recreated.
-                        if broker_handle.is_closed() {
+                        if broker_addr.is_closed() {
                             handle.send(event)?;
                         } else {
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_handle.clone()))
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
                         }
                     }
@@ -176,11 +176,11 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_handle = scope.spawn_actor(Launcher).await;
+    let launcher_addr = scope.spawn_actor(Launcher).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
-        launcher_handle.shutdown().await;
+        launcher_addr.shutdown().await;
     });
 
     Ok(())

@@ -5,7 +5,7 @@ use std::{error::Error, sync::Arc};
 
 use thiserror::Error;
 
-use super::{actor::handle::SendError, registry::ScopeId};
+use super::{actor::addr::SendError, registry::ScopeId};
 
 #[allow(missing_docs)]
 #[derive(Error, Debug)]

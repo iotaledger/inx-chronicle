@@ -5,16 +5,16 @@ use std::{error::Error, fmt::Debug, ops::Deref, panic::AssertUnwindSafe, sync::A
 
 use futures::{
     future::{AbortHandle, AbortRegistration, Abortable},
-    Future, FutureExt, Stream,
+    Future, FutureExt,
 };
 use tokio::task::JoinHandle;
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 use super::{
     actor::{
+        addr::Addr,
         context::ActorContext,
-        envelope::HandleEvent,
-        handle::Addr,
+        event::{EnvelopeStream, HandleEvent},
         report::{Report, SuccessReport},
         Actor,
     },
@@ -24,7 +24,7 @@ use super::{
     shutdown::ShutdownHandle,
 };
 use crate::runtime::{
-    actor::{envelope::Envelope, error::ActorError, report::ErrorReport},
+    actor::{error::ActorError, event::Envelope, report::ErrorReport},
     shutdown::ShutdownStream,
 };
 
@@ -185,7 +185,7 @@ impl RuntimeScope {
     async fn common_spawn<A>(
         &mut self,
         actor: &A,
-        stream: Option<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>>,
+        stream: Option<EnvelopeStream<A>>,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration)
     where
         A: 'static + Actor + Send + Sync,
@@ -209,7 +209,7 @@ impl RuntimeScope {
     }
 
     /// Spawn a new actor with a supervisor handle
-    pub async fn spawn_actor_supervised<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_handle: Addr<Sup>) -> Addr<A>
+    pub async fn spawn_actor_supervised<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_addr: Addr<Sup>) -> Addr<A>
     where
         A: 'static + Actor + Debug + Send + Sync,
         Sup: 'static + HandleEvent<Report<A>>,
@@ -224,23 +224,23 @@ impl RuntimeScope {
                 Ok(res) => match res {
                     Ok(res) => match res {
                         Ok(_) => {
-                            supervisor_handle.send(SuccessReport::new(actor, data))?;
+                            supervisor_addr.send(SuccessReport::new(actor, data))?;
                             Ok(())
                         }
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
                             let e = Arc::new(Box::new(e) as Box<dyn Error + Send + Sync>);
-                            supervisor_handle.send(ErrorReport::new(actor, data, ActorError::Result(e.clone())))?;
+                            supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Result(e.clone())))?;
                             Err(RuntimeError::ActorError(e))
                         }
                     },
                     Err(e) => {
-                        supervisor_handle.send(ErrorReport::new(actor, data, ActorError::Panic))?;
+                        supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Panic))?;
                         std::panic::resume_unwind(e);
                     }
                 },
                 Err(_) => {
-                    supervisor_handle.send(ErrorReport::new(actor, data, ActorError::Aborted))?;
+                    supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Aborted))?;
                     Err(RuntimeError::AbortedScope(cx.scope.id()))
                 }
             }

@@ -10,30 +10,28 @@ use std::{
 
 use futures::{
     future::{AbortRegistration, Abortable, Aborted},
-    FutureExt, Stream,
+    FutureExt,
 };
 
 use super::{
-    envelope::{Envelope, HandleEvent},
-    handle::Addr,
+    addr::Addr,
+    event::{EnvelopeStream, HandleEvent},
     report::Report,
     Actor,
 };
 use crate::runtime::{config::SpawnConfig, scope::RuntimeScope, shutdown::ShutdownStream};
 
+type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
+
 /// The context that an actor can use to interact with the runtime
 pub struct ActorContext<A: Actor> {
     pub(crate) scope: RuntimeScope,
     pub(crate) handle: Addr<A>,
-    pub(crate) receiver: ShutdownStream<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>>,
+    pub(crate) receiver: Receiver<A>,
 }
 
 impl<A: Actor> ActorContext<A> {
-    pub(crate) fn new(
-        scope: RuntimeScope,
-        handle: Addr<A>,
-        receiver: ShutdownStream<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>>,
-    ) -> Self {
+    pub(crate) fn new(scope: RuntimeScope, handle: Addr<A>, receiver: Receiver<A>) -> Self {
         Self {
             handle,
             scope,
@@ -58,7 +56,7 @@ impl<A: Actor> ActorContext<A> {
     }
 
     /// Get the inbox
-    pub fn inbox(&mut self) -> &mut ShutdownStream<Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>> {
+    pub fn inbox(&mut self) -> &mut Receiver<A> {
         &mut self.receiver
     }
 
@@ -70,7 +68,7 @@ impl<A: Actor> ActorContext<A> {
     pub(crate) async fn start(
         &mut self,
         actor: &mut A,
-        actor_data: &mut Option<A::Data>,
+        actor_data: &mut Option<A::State>,
         abort_reg: AbortRegistration,
     ) -> Result<Result<Result<(), A::Error>, Box<dyn Any + Send>>, Aborted> {
         let res = Abortable::new(
