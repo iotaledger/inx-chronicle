@@ -8,14 +8,14 @@ use super::actor::{
     Actor,
 };
 
-/// Spawn configuration for an actor
+/// Spawn configuration for an actor.
 pub struct SpawnConfig<A> {
     pub(crate) actor: A,
     pub(crate) stream: Option<EnvelopeStream<A>>,
 }
 
 impl<A> SpawnConfig<A> {
-    /// Create a new spawn configuration
+    /// Creates a new spawn configuration.
     pub fn new(actor: A) -> Self {
         Self { actor, stream: None }
     }
@@ -28,7 +28,7 @@ impl<A> From<A> for SpawnConfig<A> {
 }
 
 impl<A> SpawnConfig<A> {
-    /// Use a custom stream in addition to the event stream
+    /// Merges a custom stream in addition to the event stream.
     pub fn with_stream<S, E>(self, stream: S) -> Self
     where
         A: Actor,
@@ -42,9 +42,9 @@ impl<A> SpawnConfig<A> {
     }
 }
 
-/// Helper methods for spawning actors
+/// Helper methods for spawning actors.
 pub trait ConfigureActor: Actor {
-    /// Use a custom stream in addition to the event stream
+    /// Merges acustom stream in addition to the event stream.
     fn with_stream<S, E>(self, stream: S) -> SpawnConfig<Self>
     where
         S: 'static + Stream<Item = E> + Unpin + Send,

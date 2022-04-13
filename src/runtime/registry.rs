@@ -20,17 +20,17 @@ use super::shutdown::ShutdownHandle;
 /// An alias type indicating that this is a scope id
 pub type ScopeId = Uuid;
 
-/// The root scope id, which is always a zeroed uuid
+/// The root scope id, which is always a zeroed uuid.
 pub const ROOT_SCOPE: Uuid = Uuid::nil();
 
-/// A scope, which marks data as usable for a given task
+/// A scope, which marks data as usable for a given task.
 #[derive(Clone, Debug)]
 pub struct Scope {
     pub(crate) inner: Arc<ScopeInner>,
     valid: Arc<AtomicBool>,
 }
 
-/// Shared scope information
+/// Shared scope information.
 #[derive(Debug)]
 pub struct ScopeInner {
     pub(crate) id: ScopeId,
@@ -77,7 +77,7 @@ impl Scope {
         child
     }
 
-    /// Find a scope by id
+    /// Finds a scope by id.
     pub(crate) fn find(&self, id: ScopeId) -> Option<&Scope> {
         if id == self.id {
             Some(self)
@@ -113,7 +113,7 @@ impl Scope {
         log::trace!("Shut down scope {:x}", self.id.as_fields().0);
     }
 
-    /// Abort the tasks in this scope.
+    /// Aborts the tasks in this scope.
     #[async_recursion]
     pub(crate) async fn abort(&self) {
         log::trace!("Aborting scope {:x}", self.id.as_fields().0);

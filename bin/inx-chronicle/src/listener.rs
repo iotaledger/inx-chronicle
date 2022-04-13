@@ -88,11 +88,9 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
         event: Report<MessageStream>,
         inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // TODO: Figure out why `cx.shutdown()` is not working.
-        let handle = cx.handle();
         match event {
             Ok(_) => {
-                handle.shutdown().await;
+                cx.shutdown().await;
             }
             Err(e) => match e.error {
                 ActorError::Result(_) | ActorError::Panic => {
@@ -103,7 +101,7 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
                     .await;
                 }
                 ActorError::Aborted => {
-                    handle.shutdown().await;
+                    cx.shutdown().await;
                 }
             },
         }
@@ -119,11 +117,9 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
         event: Report<MilestoneStream>,
         inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // TODO: Figure out why `cx.shutdown()` is not working.
-        let handle = cx.handle();
         match event {
             Ok(_) => {
-                handle.shutdown().await;
+                cx.shutdown().await;
             }
             Err(e) => match e.error {
                 ActorError::Result(_) | ActorError::Panic => {
@@ -134,7 +130,7 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                     .await;
                 }
                 ActorError::Aborted => {
-                    handle.shutdown().await;
+                    cx.shutdown().await;
                 }
             },
         }

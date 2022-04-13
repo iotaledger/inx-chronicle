@@ -8,26 +8,26 @@ use futures::StreamExt;
 
 use self::context::ActorContext;
 
-/// Module containing the actor address handle
+/// Module containing the actor address handle.
 pub mod addr;
-/// Module containing the actor context
+/// Module containing the actor context.
 pub mod context;
-/// Module containing actor error types
+/// Module containing actor error types.
 pub mod error;
-/// Module containing event types
+/// Module containing event types.
 pub mod event;
-/// Module containing actor exit report types
+/// Module containing actor exit report types.
 pub mod report;
 
-/// The actor trait, which defines a task that is managed by the runtime
+/// The actor trait, which defines a task that is managed by the runtime.
 #[async_trait]
 pub trait Actor: Send + Sync + Sized {
-    /// Custom data that is passed to all actor methods
+    /// Custom data that is passed to all actor methods.
     type State: Debug + Send + Sync;
-    /// Custom error type that is returned by all actor methods
+    /// Custom error type that is returned by all actor methods.
     type Error: Error + Send + Sync;
 
-    /// Set this actor's name, primarily for debugging purposes
+    /// Set this actor's name, primarily for debugging purposes.
     fn name(&self) -> Cow<'static, str> {
         std::any::type_name::<Self>().into()
     }

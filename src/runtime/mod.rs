@@ -12,12 +12,12 @@ use self::{error::RuntimeError, scope::RuntimeScope};
 
 /// Module containing the Actor trait and associated types.
 pub mod actor;
-/// Module containing runtime spawn configurations
+/// Module containing runtime spawn configurations.
 pub mod config;
-/// Module containing runtime errors
+/// Module containing runtime errors.
 pub mod error;
 mod registry;
-/// Module containing runtime scope types
+/// Module containing runtime scope types.
 pub mod scope;
 mod shutdown;
 
@@ -37,11 +37,11 @@ where
     }
 }
 
-/// Starting point for the runtime
+/// Starting point for the runtime.
 pub struct Runtime;
 
 impl Runtime {
-    /// Launch a new root runtime scope
+    /// Launches a new root runtime scope.
     pub async fn launch<F>(f: F) -> Result<(), RuntimeError>
     where
         for<'a> F: AsyncFn<'a, Result<(), Box<dyn Error + Send + Sync>>>,

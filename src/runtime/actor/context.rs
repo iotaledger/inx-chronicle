@@ -14,8 +14,8 @@ use futures::{
 };
 
 use super::{
-    addr::Addr,
-    event::{EnvelopeStream, HandleEvent},
+    addr::{Addr, SendError},
+    event::{DynEvent, EnvelopeStream, HandleEvent},
     report::Report,
     Actor,
 };
@@ -23,7 +23,7 @@ use crate::runtime::{config::SpawnConfig, scope::RuntimeScope, shutdown::Shutdow
 
 type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
 
-/// The context that an actor can use to interact with the runtime
+/// The context that an actor can use to interact with the runtime.
 pub struct ActorContext<A: Actor> {
     pub(crate) scope: RuntimeScope,
     pub(crate) handle: Addr<A>,
@@ -39,7 +39,7 @@ impl<A: Actor> ActorContext<A> {
         }
     }
 
-    /// Spawn a new supervised child actor
+    /// Spawn a new supervised child actor.
     pub async fn spawn_actor_supervised<OtherA, Cfg>(&mut self, actor: Cfg) -> Addr<OtherA>
     where
         OtherA: 'static + Actor + Debug + Send + Sync,
@@ -50,17 +50,22 @@ impl<A: Actor> ActorContext<A> {
         self.scope.spawn_actor_supervised(actor, handle).await
     }
 
-    /// Get this actors's handle
+    /// Get this actors's handle.
     pub fn handle(&self) -> &Addr<A> {
         &self.handle
     }
 
-    /// Get the inbox
+    /// Get the inbox.
     pub fn inbox(&mut self) -> &mut Receiver<A> {
         &mut self.receiver
     }
 
-    /// Shutdown the actor
+    /// Delay the processing of an event by re-sending it to self.
+    pub fn delay<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), SendError> {
+        self.handle().send(event)
+    }
+
+    /// Shutdown the actor.
     pub async fn shutdown(&self) {
         self.handle().shutdown().await;
     }
@@ -91,6 +96,10 @@ impl<A: Actor> ActorContext<A> {
         res
     }
 }
+
+// Unsafe: This is only OK because of our limited access pattern. Users cannot
+// actually use a reference to the receiver stream across await points.
+unsafe impl<A: Actor> Sync for ActorContext<A> {}
 
 impl<A: Actor> Deref for ActorContext<A> {
     type Target = RuntimeScope;
