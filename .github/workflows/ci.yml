@@ -147,3 +147,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: ci-doc
+
+  all-ci:
+      # This dummy job depends on all the mandatory checks. It succeeds if and only if CI is
+      # considered successful.
+      needs: [build-and-test, format, clippy, udeps, docs]
+      runs-on: ubuntu-latest
+      steps:
+      - run: echo Success
