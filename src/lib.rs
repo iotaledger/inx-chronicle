@@ -5,6 +5,8 @@
 
 //! TODO
 
+/// Module that contains utilities to serialize values to BSON.
+pub mod bson;
 /// Module that contains the database types and constants.
 pub mod db;
 /// Module that contains INX bindings and configuration.
