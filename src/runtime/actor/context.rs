@@ -66,8 +66,8 @@ impl<A: Actor> ActorContext<A> {
     }
 
     /// Shutdown the actor.
-    pub async fn shutdown(&self) {
-        self.handle().shutdown().await;
+    pub fn shutdown(&self) {
+        self.handle().shutdown();
     }
 
     pub(crate) async fn start(
@@ -96,10 +96,6 @@ impl<A: Actor> ActorContext<A> {
         res
     }
 }
-
-// Unsafe: This is only OK because of our limited access pattern. Users cannot
-// actually use a reference to the receiver stream across await points.
-unsafe impl<A: Actor> Sync for ActorContext<A> {}
 
 impl<A: Actor> Deref for ActorContext<A> {
     type Target = RuntimeScope;

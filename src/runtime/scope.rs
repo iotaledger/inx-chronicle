@@ -77,8 +77,8 @@ impl ScopeView {
     }
 
     /// Shuts down the scope.
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
+    pub fn shutdown(&self) {
+        self.0.shutdown();
     }
 
     /// Aborts the tasks in this runtime's scope. This will shutdown tasks that have
