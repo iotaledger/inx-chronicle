@@ -8,7 +8,7 @@ use futures::StreamExt;
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
-    Channel,
+    tonic::Channel,
 };
 use log::info;
 use tokio::task::JoinHandle;
@@ -17,8 +17,8 @@ use crate::broker::BrokerAddr;
 
 #[derive(Debug)]
 pub enum InxEvent {
-    Message(inx::proto::Message),
-    LatestMilestone(inx::proto::Milestone),
+    Message{message: inx::Message, raw: Vec<u8>},
+    Milestone(inx::Milestone),
 }
 
 pub struct InxListener {
@@ -58,8 +58,9 @@ async fn subscribe_messages(client: &mut InxClient<Channel>, broker_addr: Broker
     let mut stream = response.unwrap().into_inner();
 
     while let Some(item) = stream.next().await {
-        let message = item.unwrap();
-        broker_addr.send(InxEvent::Message(message));
+        let proto_message = item.unwrap();
+        let raw = proto_message.message.clone().unwrap().data;
+        broker_addr.send(InxEvent::Message{message: proto_message.try_into().unwrap(), raw});
     }
 }
 
@@ -70,6 +71,6 @@ async fn subscribe_latest_milestone(client: &mut InxClient<Channel>, broker_addr
 
     while let Some(item) = stream.next().await {
         let milestone = item.unwrap();
-        broker_addr.send(InxEvent::LatestMilestone(milestone));
+        broker_addr.send(InxEvent::Milestone(milestone.try_into().unwrap()));
     }
 }

@@ -1,13 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use serde::Serialize;
-
-// TODO: Add Chrysalis types analogously.
-
 #[cfg(feature = "stardust")]
-/// Model for Stardust types.
 pub mod stardust;
+
+use serde::Serialize;
 
 // TODO: Add `serde::Deserialize` constraint.
 /// Represents types that can be stored in the database.

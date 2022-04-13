@@ -132,7 +132,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-message"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#04952b1c3925899fc1ad5568eb341ebf058754ca"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#4bba4416512e6882734c8bc2706cf8a96d34ebb7"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -157,7 +157,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#04952b1c3925899fc1ad5568eb341ebf058754ca"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#4bba4416512e6882734c8bc2706cf8a96d34ebb7"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -276,7 +276,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chronicle"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "bee-message",
  "clap",
@@ -286,7 +286,6 @@ dependencies = [
  "inx",
  "log",
  "mongodb",
- "packable",
  "serde",
  "thiserror",
  "tokio",
@@ -905,8 +904,10 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/inx#cce120942fb2ec68bf9cb5b96738a8e86578dfe7"
+source = "git+https://github.com/grtlr/inx?branch=types#54cba79f2f1f427a65f53fbc1999f9697d921924"
 dependencies = [
+ "bee-message",
+ "packable",
  "prost",
  "tonic",
  "tonic-build",

@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -19,16 +19,15 @@ name = "inx-chronicle"
 path = "bin/inx-chronicle/src/main.rs"
 
 [dependencies]
-bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee", branch = "shimmer-develop", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
+bee-message-stardust = { package = "bee-message", version = "0.2", git = "https://github.com/iotaledger/bee", branch = "shimmer-develop", default-features = false, features = ["std", "serde1", "dto"], optional = true }
 
 clap = { version = "3.1.8", default-features = false, features = ["derive", "std"] }
 dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3.21", default-features = false }
-inx = { git = "https://github.com/iotaledger/inx", version = "0.2.0", default-features = false }
+inx = { git = "https://github.com/grtlr/inx", branch = "types", version = "0.2.0", default-features = false, features = ["types"] }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.1", default-features = false, features = ["tokio-runtime"] }
-packable = { version = "0.2.1", default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.17.0", default-features = false, features = ["macros", "rt-multi-thread", "signal"] }

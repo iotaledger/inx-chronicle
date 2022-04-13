@@ -3,7 +3,7 @@
 
 mod error;
 
-use inx::{client::InxClient, Channel};
+use inx::{client::InxClient, tonic::Channel};
 use serde::{Deserialize, Serialize};
 
 pub use self::error::InxError;
