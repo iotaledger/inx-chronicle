@@ -40,22 +40,22 @@ impl<A: Actor> Addr<A> {
         Self { scope, sender }
     }
 
-    /// Shut down the actor with this handle. Use with care!
+    /// Shuts down the actor. Use with care!
     pub async fn shutdown(&self) {
         self.scope.shutdown().await;
     }
 
-    /// Abort the actor with this handle. Use with care!
+    /// Aborts the actor. Use with care!
     pub async fn abort(&self) {
         self.scope.abort().await;
     }
 
-    /// Get the scope id of the actor this handle represents
+    /// Gets the scope id of the actor this handle represents.
     pub fn scope_id(&self) -> ScopeId {
         self.scope.id()
     }
 
-    /// Send a message to the actor
+    /// Sends a message to the actor
     pub fn send<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), SendError>
     where
         Self: Sized,
@@ -65,7 +65,7 @@ impl<A: Actor> Addr<A> {
             .map_err(|_| "Failed to send event".into())
     }
 
-    /// Returns whether the actor's event channel is closed
+    /// Returns whether the actor's event channel is closed.
     pub fn is_closed(&self) -> bool {
         self.sender.is_closed()
     }

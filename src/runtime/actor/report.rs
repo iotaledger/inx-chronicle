@@ -9,9 +9,9 @@ pub type Report<A> = Result<SuccessReport<A>, ErrorReport<A>>;
 /// A report that an actor finished running with an error
 #[derive(Debug)]
 pub struct SuccessReport<A: Actor> {
-    /// The actor's state when it finished running
+    /// The actor's external state when it finished running
     pub actor: A,
-    /// The actor's data when it finished running
+    /// The actor's internal state when it finished running
     pub internal_state: Option<A::State>,
 }
 
@@ -21,12 +21,12 @@ impl<A: Actor> SuccessReport<A> {
     }
 }
 
-/// A report that an actor finished running with an error
+/// A report that an actor finished running with an error.
 #[derive(Debug)]
 pub struct ErrorReport<A: Actor> {
-    /// The actor's state when it finished running
+    /// The actor's external state when it finished running.
     pub actor: A,
-    /// The actor's data when it finished running
+    /// The actor's internal state when it finished running
     pub internal_state: Option<A::State>,
     /// The error that occurred
     pub error: ActorError,

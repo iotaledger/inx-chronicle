@@ -30,14 +30,14 @@ impl ShutdownFlag {
     }
 }
 
-/// A handle which can be invoked to shutdown an actor
+/// A handle which can be invoked to shutdown an actor.
 #[derive(Clone, Default, Debug)]
 pub struct ShutdownHandle {
     flag: Arc<ShutdownFlag>,
 }
 
 impl ShutdownHandle {
-    /// Notify the listener of this handle that it should shut down
+    /// Notifies the listener of this handle that it should shut down.
     pub fn shutdown(&self) {
         self.flag.signal()
     }
@@ -47,7 +47,7 @@ impl Future for ShutdownHandle {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-        // quick check to avoid registration if already done.
+        // Quick check to avoid registration if already done.
         if self.flag.set.load(Ordering::SeqCst) {
             return Poll::Ready(());
         }

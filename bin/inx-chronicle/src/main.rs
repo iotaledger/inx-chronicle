@@ -83,16 +83,14 @@ impl HandleEvent<Report<Broker>> for Launcher {
         event: Report<Broker>,
         (config, broker_addr): &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // TODO: Figure out why `cx.shutdown()` is not working.
-        let handle = cx.handle();
         match event {
             Ok(_) => {
-                handle.shutdown().await;
+                cx.shutdown().await;
             }
             Err(e) => match e.error {
                 ActorError::Result(e) => match e.downcast_ref::<BrokerError>().unwrap() {
                     BrokerError::RuntimeError(_) => {
-                        handle.shutdown().await;
+                        cx.shutdown().await;
                     }
                     BrokerError::MongoDbError(e) => match e {
                         chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
@@ -103,13 +101,13 @@ impl HandleEvent<Report<Broker>> for Launcher {
                                 *broker_addr = handle;
                             }
                             _ => {
-                                handle.shutdown().await;
+                                cx.shutdown().await;
                             }
                         },
                     },
                 },
                 ActorError::Panic | ActorError::Aborted => {
-                    handle.shutdown().await;
+                    cx.shutdown().await;
                 }
             },
         }
@@ -125,11 +123,9 @@ impl HandleEvent<Report<InxListener>> for Launcher {
         event: Report<InxListener>,
         (config, broker_addr): &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // TODO: Figure out why `cx.shutdown()` is not working.
-        let handle = cx.handle();
         match &event {
             Ok(_) => {
-                handle.shutdown().await;
+                cx.shutdown().await;
             }
             Err(e) => match &e.error {
                 ActorError::Result(e) => match e.downcast_ref::<InxListenerError>().unwrap() {
@@ -140,16 +136,16 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                         }
                     },
                     InxListenerError::Read(_) => {
-                        handle.shutdown().await;
+                        cx.shutdown().await;
                     }
                     InxListenerError::Runtime(_) => {
-                        handle.shutdown().await;
+                        cx.shutdown().await;
                     }
                     InxListenerError::MissingBroker => {
                         // If the handle is still closed, push this to the back of the event queue.
                         // Hopefully when it is processed again the handle will have been recreated.
                         if broker_addr.is_closed() {
-                            handle.send(event)?;
+                            cx.handle().send(event)?;
                         } else {
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
@@ -157,7 +153,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
-                    handle.shutdown().await;
+                    cx.shutdown().await;
                 }
             },
         }

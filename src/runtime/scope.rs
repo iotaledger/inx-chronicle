@@ -28,7 +28,7 @@ use crate::runtime::{
     shutdown::ShutdownStream,
 };
 
-/// A view into a particular scope which provides the user-facing API
+/// A view into a particular scope which provides the user-facing API.
 #[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct ScopeView(pub(crate) Scope);
@@ -42,17 +42,17 @@ impl Deref for RuntimeScope {
 }
 
 impl ScopeView {
-    /// Get the scope id
+    /// Gets the scope id.
     pub fn id(&self) -> ScopeId {
         self.0.id
     }
 
-    /// Get the parent scope, if one exists
+    /// Gets the parent scope, if one exists.
     pub fn parent(&self) -> Option<ScopeView> {
         self.0.parent().cloned().map(ScopeView)
     }
 
-    /// Get this scope's siblings
+    /// Gets this scope's siblings.
     pub async fn siblings(&self) -> Vec<ScopeView> {
         if let Some(parent) = self.0.parent() {
             parent.children().await.into_iter().map(ScopeView).collect()
@@ -61,27 +61,27 @@ impl ScopeView {
         }
     }
 
-    /// Get this scope's children
+    /// Gets this scope's children.
     pub async fn children(&self) -> Vec<ScopeView> {
         self.0.children().await.into_iter().map(ScopeView).collect()
     }
 
-    /// Get the root scope
+    /// Gets the root scope.
     pub fn root(&self) -> ScopeView {
         self.find_by_id(ROOT_SCOPE).unwrap()
     }
 
-    /// Find a scope by id
+    /// Finds a scope by id.
     pub fn find_by_id(&self, scope_id: ScopeId) -> Option<ScopeView> {
         self.0.find(scope_id).cloned().map(ScopeView)
     }
 
-    /// Shut down the scope
+    /// Shuts down the scope.
     pub async fn shutdown(&self) {
         self.0.shutdown().await;
     }
 
-    /// Abort the tasks in this runtime's scope. This will shutdown tasks that have
+    /// Aborts the tasks in this runtime's scope. This will shutdown tasks that have
     /// shutdown handles instead.
     pub(crate) async fn abort(&self) {
         self.0.abort().await;
@@ -116,7 +116,7 @@ impl RuntimeScope {
         }
     }
 
-    /// Create a new scope within this one
+    /// Creates a new scope within this one.
     pub async fn scope<S, F, O>(&self, f: S) -> Result<O, RuntimeError>
     where
         O: Send + Sync,
@@ -136,7 +136,7 @@ impl RuntimeScope {
         }
     }
 
-    /// Await the tasks in this runtime's scope
+    /// Awaits the tasks in this runtime's scope.
     pub(crate) async fn join(&mut self) {
         log::debug!("Joining scope {:x}", self.0.id.as_fields().0);
         for handle in self.join_handles.drain(..) {
@@ -145,7 +145,7 @@ impl RuntimeScope {
         self.0.drop().await;
     }
 
-    /// Spawn a new, plain task
+    /// Spawns a new, plain task.
     pub async fn spawn_task<T, F>(&mut self, f: T) -> AbortHandle
     where
         T: Send + FnOnce(&mut RuntimeScope) -> F,
@@ -208,7 +208,7 @@ impl RuntimeScope {
         (handle, cx, abort_reg)
     }
 
-    /// Spawn a new actor with a supervisor handle
+    /// Spawns a new actor with a supervisor handle.
     pub async fn spawn_actor_supervised<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_addr: Addr<Sup>) -> Addr<A>
     where
         A: 'static + Actor + Debug + Send + Sync,
@@ -249,7 +249,7 @@ impl RuntimeScope {
         handle
     }
 
-    /// Spawn a new actor with no supervisor
+    /// Spawns a new actor with no supervisor.
     pub async fn spawn_actor<A, Cfg>(&mut self, actor: Cfg) -> Addr<A>
     where
         A: 'static + Actor + Send + Sync,
