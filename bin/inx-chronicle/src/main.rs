@@ -32,6 +32,7 @@ use chronicle::{
 use clap::Parser;
 use config::Config;
 use listener::{InxListener, InxListenerError};
+use log::error;
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -133,6 +134,10 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                         InxError::TransportFailed => {
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
+                        }
+                        // TODO: Improve error handling
+                        _ => {
+                            error!("{e}")
                         }
                     },
                     InxListenerError::Read(_) => {

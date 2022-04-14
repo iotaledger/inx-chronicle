@@ -72,8 +72,20 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
         debug!("Received Milestone Event");
-        let inx::Milestone {message_id, milestone_id, milestone_index, milestone_timestamp} = milestone.try_into().unwrap();
-        self.db.insert_one(db::model::stardust::Milestone{message_id, milestone_id, milestone_index, milestone_timestamp}).await?;
+        let inx::Milestone {
+            message_id,
+            milestone_id,
+            milestone_index,
+            milestone_timestamp,
+        } = milestone.try_into().unwrap();
+        self.db
+            .insert_one(db::model::stardust::Milestone {
+                message_id,
+                milestone_id,
+                milestone_index,
+                milestone_timestamp,
+            })
+            .await?;
         Ok(())
     }
 }
