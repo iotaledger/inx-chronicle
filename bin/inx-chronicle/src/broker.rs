@@ -7,7 +7,7 @@ use chronicle::{
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
-    },
+    }, inx::InxError,
 };
 use log::debug;
 use thiserror::Error;
@@ -51,15 +51,21 @@ impl HandleEvent<inx::proto::Message> for Broker {
     ) -> Result<(), Self::Error> {
         debug!("Received Message Event");
         let raw = message.message.clone().unwrap().data;
-        let inx::Message { message_id, message } = message.try_into().unwrap();
-        self.db
+        // TODO Remove clone
+        match message.clone().try_into() {
+            Ok(inx::Message { message_id, message }) => Ok(
+                self.db
             .insert_one(db::model::stardust::Message {
                 message_id,
                 message,
                 raw,
             })
-            .await?;
-        Ok(())
+            .await?),
+            Err(e) => {
+                log::error!("Could not read message: {:?}", e);
+                Ok(()) // We ignore errors like this for now
+            }
+        }
     }
 }
 
@@ -72,20 +78,24 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
         debug!("Received Milestone Event");
-        let inx::Milestone {
-            message_id,
-            milestone_id,
-            milestone_index,
-            milestone_timestamp,
-        } = milestone.try_into().unwrap();
-        self.db
+        match milestone.clone().try_into() {
+            Ok(inx::Milestone {
+                message_id,
+                milestone_id,
+                milestone_index,
+                milestone_timestamp,
+            }) => Ok(self.db
             .insert_one(db::model::stardust::Milestone {
                 message_id,
                 milestone_id,
                 milestone_index,
                 milestone_timestamp,
             })
-            .await?;
-        Ok(())
+            .await?),
+            Err(e) => {
+                log::error!("Could not read milestone: {:?}", e);
+                Ok(()) // We ignore errors like this for now
+            }
+        }
     }
 }

@@ -49,21 +49,14 @@ struct Serializer(BsonSerializer);
 
 impl serde::Serializer for Serializer {
     type Ok = <BsonSerializer as serde::Serializer>::Ok;
-
     type Error = <BsonSerializer as serde::Serializer>::Error;
 
     type SerializeSeq = ArraySerializer;
-
     type SerializeTuple = TupleSerializer;
-
     type SerializeTupleStruct = TupleStructSerializer;
-
     type SerializeTupleVariant = TupleVariantSerializer;
-
     type SerializeMap = MapSerializer;
-
     type SerializeStruct = StructSerializer;
-
     type SerializeStructVariant = StructVariantSerializer;
 
     #[inline]
