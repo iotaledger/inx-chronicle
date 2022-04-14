@@ -1,25 +1,21 @@
 queue_rules:
   - name: default
     conditions:
-      - check-success=all-ci
-      - check-success=check-toml
-      - check-success=audit
+      - status-success=all-ci
+      - status-neutral-success-toml
+      - status-neutral-success=audit
       - label=automerge
       - base=main
-      - "#changes-requested-reviews-by=0"
-      - "#approved-reviews-by>=2"
       - "#review-threads-unresolved=0"
 
 pull_request_rules:
   - name: automatic merge when CI passes on main
     conditions:
-      - check-success=all-ci
-      - check-success=check-toml
-      - check-success=audit
+      - status-success=all-ci
+      - status-neutral-success-toml
+      - status-neutral-success=audit
       - label=automerge
       - base=main
-      - "#changes-requested-reviews-by=0"
-      - "#approved-reviews-by>=2"
       - "#review-threads-unresolved=0"
     actions:
       queue:
