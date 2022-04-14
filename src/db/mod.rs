@@ -81,8 +81,7 @@ impl MongoDatabase {
     /// Inserts a record of a [`Model`] into the database.
     pub async fn insert_one<M: Model>(&self, model: M) -> Result<(), MongoDbError> {
         let bson = crate::bson::to_bson(&model).unwrap();
-        let doc = bson.as_document().unwrap();
-        self.db.collection::<Document>(M::COLLECTION).insert_one(doc, None).await?;
+        self.db.collection::<mongodb::bson::Bson>(M::COLLECTION).insert_one(bson, None).await?;
         Ok(())
     }
 }
