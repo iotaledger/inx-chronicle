@@ -1,9 +1,6 @@
 queue_rules:
   - name: default
     conditions:
-      - status-success=all-ci
-      - status-neutral-success-toml
-      - status-neutral-success=audit
       - label=automerge
       - base=main
       - "#review-threads-unresolved=0"
@@ -11,9 +8,6 @@ queue_rules:
 pull_request_rules:
   - name: automatic merge when CI passes on main
     conditions:
-      - status-success=all-ci
-      - status-neutral-success-toml
-      - status-neutral-success=audit
       - label=automerge
       - base=main
       - "#review-threads-unresolved=0"
