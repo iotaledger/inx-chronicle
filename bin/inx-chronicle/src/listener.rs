@@ -8,7 +8,7 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use async_trait::async_trait;
 use chronicle::{
-    inx::{InxConfig, InxError},
+    inx::{config::InxConfig, InxError},
     runtime::{
         actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
         config::ConfigureActor,

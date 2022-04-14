@@ -7,7 +7,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
 pub struct CliArgs {
-    /// Location of the configuration file
-    #[clap(short, long)]
-    pub config: Option<String>,
+    /// Location of the configuration file.
+    #[clap(short = 'c', long = "config")]
+    pub config_path: Option<String>,
 }

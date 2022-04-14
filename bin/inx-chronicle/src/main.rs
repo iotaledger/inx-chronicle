@@ -13,8 +13,8 @@ use std::error::Error;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
 use chronicle::{
-    db::{MongoConfig, MongoDbError},
-    inx::{InxConfig, InxError},
+    db::MongoDbError,
+    inx::InxError,
     runtime::{
         actor::{
             addr::{Addr, SendError},
@@ -60,12 +60,9 @@ impl Actor for Launcher {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let cli_args = CliArgs::parse();
-        let config = match cli_args.config {
+        let config = match cli_args.config_path {
             Some(path) => config::Config::from_file(path)?,
-            None => Config {
-                mongodb: MongoConfig::new("mongodb://localhost:27017"),
-                inx: InxConfig::new("http://localhost:9029"),
-            },
+            None => Config::default(),
         };
         let db = config.mongodb.clone().build().await?;
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db)).await;

@@ -3,7 +3,7 @@
 
 use std::{fs, path::Path};
 
-use chronicle::{db::MongoConfig, inx::InxConfig};
+use chronicle::{db::config::MongoConfig, inx::config::InxConfig};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -16,7 +16,7 @@ pub enum ConfigError {
 }
 
 /// Configuration of Chronicle.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub mongodb: MongoConfig,
     pub inx: InxConfig,
