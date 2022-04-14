@@ -9,7 +9,6 @@ use chronicle::{
         error::RuntimeError,
     },
 };
-use log::debug;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -49,23 +48,22 @@ impl HandleEvent<inx::proto::Message> for Broker {
         message: inx::proto::Message,
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        debug!("Received Message Event");
-        let raw = message.message.clone().unwrap().data;
-        // TODO Remove clone
-        match message.clone().try_into() {
-            Ok(inx::Message { message_id, message }) => Ok(self
-                .db
-                .insert_one(db::model::stardust::Message {
-                    message_id,
-                    message,
-                    raw,
-                })
-                .await?),
-            Err(e) => {
-                log::error!("Could not read message: {:?}", e);
-                Ok(()) // We ignore errors like this for now
+        log::trace!("Received Message Event");
+        match message.try_into() {
+            Ok((inx::Message { message_id, message }, raw)) => {
+                self.db
+                    .insert_one(db::model::stardust::Message {
+                        message_id,
+                        message,
+                        raw,
+                    })
+                    .await?
             }
-        }
+            Err(e) => {
+                log::warn!("Could not read message: {:?}", e);
+            }
+        };
+        Ok(())
     }
 }
 
@@ -77,26 +75,27 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         milestone: inx::proto::Milestone,
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        debug!("Received Milestone Event");
-        match milestone.clone().try_into() {
+        log::trace!("Received Milestone Event");
+        match milestone.try_into() {
             Ok(inx::Milestone {
                 message_id,
                 milestone_id,
                 milestone_index,
                 milestone_timestamp,
-            }) => Ok(self
-                .db
-                .insert_one(db::model::stardust::Milestone {
-                    message_id,
-                    milestone_id,
-                    milestone_index,
-                    milestone_timestamp,
-                })
-                .await?),
-            Err(e) => {
-                log::error!("Could not read milestone: {:?}", e);
-                Ok(()) // We ignore errors like this for now
+            }) => {
+                self.db
+                    .insert_one(db::model::stardust::Milestone {
+                        message_id,
+                        milestone_id,
+                        milestone_index,
+                        milestone_timestamp,
+                    })
+                    .await?
             }
-        }
+            Err(e) => {
+                log::warn!("Could not read milestone: {:?}", e);
+            }
+        };
+        Ok(())
     }
 }

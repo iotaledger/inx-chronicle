@@ -12,7 +12,8 @@ pub use self::error::InxError;
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct InxConfig {
-    address: String,
+    /// The bind address of node's INX interface.
+    pub address: String,
 }
 
 impl InxConfig {

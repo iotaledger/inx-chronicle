@@ -77,7 +77,7 @@ pub struct MongoDatabase {
 impl MongoDatabase {
     /// Inserts a record of a [`Model`] into the database.
     pub async fn insert_one<M: Model>(&self, model: M) -> Result<(), MongoDbError> {
-        let bson = crate::bson::to_bson(&model).unwrap();
+        let bson = crate::bson::to_bson(&model)?;
         self.db
             .collection::<mongodb::bson::Bson>(M::COLLECTION)
             .insert_one(bson, None)

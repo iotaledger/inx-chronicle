@@ -68,6 +68,7 @@ impl ScopeView {
 
     /// Gets the root scope.
     pub fn root(&self) -> ScopeView {
+        // Panic: There is always a root scope by definition.
         self.find_by_id(ROOT_SCOPE).unwrap()
     }
 

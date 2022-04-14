@@ -32,7 +32,6 @@ use chronicle::{
 use clap::Parser;
 use config::Config;
 use listener::{InxListener, InxListenerError};
-use log::error;
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -105,6 +104,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
                                 cx.shutdown();
                             }
                         },
+                        other => log::warn!("Unhandled MongoDB error: {other}"),
                     },
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -135,10 +135,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
                         }
-                        // TODO: Improve error handling
-                        _ => {
-                            error!("{e}")
-                        }
+                        other => log::warn!("Unhandled INX error: {other}"),
                     },
                     InxListenerError::Read(_) => {
                         cx.shutdown();
