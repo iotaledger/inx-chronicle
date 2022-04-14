@@ -52,8 +52,8 @@ impl serde::Serializer for Serializer {
     type Error = <BsonSerializer as serde::Serializer>::Error;
 
     type SerializeSeq = ArraySerializer;
-    type SerializeTuple = TupleSerializer;
-    type SerializeTupleStruct = TupleStructSerializer;
+    type SerializeTuple = ArraySerializer;
+    type SerializeTupleStruct = ArraySerializer;
     type SerializeTupleVariant = TupleVariantSerializer;
     type SerializeMap = MapSerializer;
     type SerializeStruct = StructSerializer;
@@ -195,7 +195,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        Ok(TupleSerializer {
+        Ok(ArraySerializer {
             inner: Array::with_capacity(len),
         })
     }
@@ -206,7 +206,7 @@ impl serde::Serializer for Serializer {
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        Ok(TupleStructSerializer {
+        Ok(ArraySerializer {
             inner: Array::with_capacity(len),
         })
     }
@@ -271,11 +271,7 @@ impl SerializeSeq for ArraySerializer {
     }
 }
 
-struct TupleSerializer {
-    inner: Array,
-}
-
-impl SerializeTuple for TupleSerializer {
+impl SerializeTuple for ArraySerializer {
     type Ok = Bson;
     type Error = Error;
 
@@ -289,11 +285,7 @@ impl SerializeTuple for TupleSerializer {
     }
 }
 
-struct TupleStructSerializer {
-    inner: Array,
-}
-
-impl SerializeTupleStruct for TupleStructSerializer {
+impl SerializeTupleStruct for ArraySerializer {
     type Ok = Bson;
     type Error = Error;
 
