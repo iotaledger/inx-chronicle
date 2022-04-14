@@ -68,7 +68,6 @@ impl Actor for InxListener {
         }
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
-        // TODO Refactor
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
