@@ -11,3 +11,6 @@ pub mod bson;
 pub mod db;
 /// Module that contains INX bindings and configuration.
 pub mod inx;
+
+/// Module that contains the actor runtime.
+pub mod runtime;
