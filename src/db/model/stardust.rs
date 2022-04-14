@@ -27,7 +27,7 @@ pub struct Milestone {
     /// The milestone index.
     pub milestone_index: u32,
     /// The timestamp of the milestone.
-    pub milestone_timestamp: u32,
+    pub milestone_timestamp: mongodb::bson::DateTime,
     /// The [`MessageId`](stardust::MessageId) of the milestone.
     pub message_id: stardust::MessageId,
     /// The [`MilestoneId`](stardust::payload::milestone::MilestoneId) of the milestone.

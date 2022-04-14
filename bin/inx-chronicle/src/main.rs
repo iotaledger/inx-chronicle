@@ -104,7 +104,10 @@ impl HandleEvent<Report<Broker>> for Launcher {
                                 cx.shutdown();
                             }
                         },
-                        other => log::warn!("Unhandled MongoDB error: {other}"),
+                        other => {
+                            log::warn!("Unhandled MongoDB error: {other}");
+                            cx.shutdown();
+                        }
                     },
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -135,7 +138,10 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
                         }
-                        other => log::warn!("Unhandled INX error: {other}"),
+                        other => {
+                            log::warn!("Unhandled INX error: {other}");
+                            cx.shutdown();
+                        }
                     },
                     InxListenerError::Read(_) => {
                         cx.shutdown();

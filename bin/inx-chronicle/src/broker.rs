@@ -10,6 +10,9 @@ use chronicle::{
     },
 };
 use thiserror::Error;
+use mongodb::bson;
+
+const MILLISECONDS_PER_SECOND: i64 = 1000;
 
 #[derive(Debug, Error)]
 pub enum BrokerError {
@@ -88,7 +91,7 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
                         message_id,
                         milestone_id,
                         milestone_index,
-                        milestone_timestamp,
+                        milestone_timestamp: bson::DateTime::from_millis(milestone_timestamp as i64 * MILLISECONDS_PER_SECOND )
                     })
                     .await?
             }
