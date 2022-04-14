@@ -8,6 +8,7 @@ queue_rules:
       - base=main
       - "#changes-requested-reviews-by=0"
       - "#approved-reviews-by>=2"
+      - "approved-reviews-by=grtlr"
       - "#review-threads-unresolved=0"
 
 pull_request_rules:
@@ -20,6 +21,7 @@ pull_request_rules:
       - base=main
       - "#changes-requested-reviews-by=0"
       - "#approved-reviews-by>=2"
+      - "approved-reviews-by=grtlr"
       - "#review-threads-unresolved=0"
     actions:
       queue:
