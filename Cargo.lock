@@ -919,6 +919,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
+source = "git+https://github.com/grtlr/inx?branch=types#1ccbcdeed5934f7d7d9b735ccb883607b3c91d23"
 dependencies = [
  "bee-message",
  "packable",
