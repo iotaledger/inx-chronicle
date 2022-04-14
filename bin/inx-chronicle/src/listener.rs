@@ -18,18 +18,12 @@ use chronicle::{
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
-    tonic::{Status, Channel}
+    tonic::{Channel, Status},
 };
 use log::info;
 use thiserror::Error;
 
 use crate::broker::Broker;
-
-#[derive(Debug)]
-pub enum InxEvent {
-    Message{message: inx::Message, raw: Vec<u8>},
-    Milestone(inx::Milestone),
-}
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
 type MilestoneStream = InxStreamListener<inx::proto::Milestone>;

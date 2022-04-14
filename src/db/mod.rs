@@ -6,9 +6,6 @@ mod error;
 /// The models of the data stored in the database.
 pub mod model;
 
-use std::borrow::Borrow;
-use mongodb::bson::{doc, Document};
-
 use mongodb::{
     options::{ClientOptions, Credential},
     Client,
@@ -81,7 +78,10 @@ impl MongoDatabase {
     /// Inserts a record of a [`Model`] into the database.
     pub async fn insert_one<M: Model>(&self, model: M) -> Result<(), MongoDbError> {
         let bson = crate::bson::to_bson(&model).unwrap();
-        self.db.collection::<mongodb::bson::Bson>(M::COLLECTION).insert_one(bson, None).await?;
+        self.db
+            .collection::<mongodb::bson::Bson>(M::COLLECTION)
+            .insert_one(bson, None)
+            .await?;
         Ok(())
     }
 }

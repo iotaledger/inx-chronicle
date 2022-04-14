@@ -1,15 +1,19 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::Model;
 use bee_message_stardust as stardust;
 use serde::{Deserialize, Serialize};
+
+use super::Model;
 
 /// Model for the [`Message`].
 #[derive(Serialize, Deserialize)]
 pub struct Message {
+    /// The [`MessageId`](stardust::MessageId) of the message.
     pub message_id: stardust::MessageId,
+    /// The actual rich representation of the [`Message`](stardust::Message).
     pub message: stardust::Message,
+    /// The raw bytes of the message.
     pub raw: Vec<u8>,
 }
 

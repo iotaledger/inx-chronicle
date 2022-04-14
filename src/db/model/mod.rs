@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[cfg(feature = "stardust")]
+/// Models for Stardust layouts.
 pub mod stardust;
 
 use serde::Serialize;

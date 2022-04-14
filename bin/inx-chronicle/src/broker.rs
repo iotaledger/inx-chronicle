@@ -7,7 +7,7 @@ use chronicle::{
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
-    }, inx::InxError,
+    },
 };
 use log::debug;
 use thiserror::Error;
@@ -53,14 +53,14 @@ impl HandleEvent<inx::proto::Message> for Broker {
         let raw = message.message.clone().unwrap().data;
         // TODO Remove clone
         match message.clone().try_into() {
-            Ok(inx::Message { message_id, message }) => Ok(
-                self.db
-            .insert_one(db::model::stardust::Message {
-                message_id,
-                message,
-                raw,
-            })
-            .await?),
+            Ok(inx::Message { message_id, message }) => Ok(self
+                .db
+                .insert_one(db::model::stardust::Message {
+                    message_id,
+                    message,
+                    raw,
+                })
+                .await?),
             Err(e) => {
                 log::error!("Could not read message: {:?}", e);
                 Ok(()) // We ignore errors like this for now
@@ -84,14 +84,15 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
                 milestone_id,
                 milestone_index,
                 milestone_timestamp,
-            }) => Ok(self.db
-            .insert_one(db::model::stardust::Milestone {
-                message_id,
-                milestone_id,
-                milestone_index,
-                milestone_timestamp,
-            })
-            .await?),
+            }) => Ok(self
+                .db
+                .insert_one(db::model::stardust::Milestone {
+                    message_id,
+                    milestone_id,
+                    milestone_index,
+                    milestone_timestamp,
+                })
+                .await?),
             Err(e) => {
                 log::error!("Could not read milestone: {:?}", e);
                 Ok(()) // We ignore errors like this for now
