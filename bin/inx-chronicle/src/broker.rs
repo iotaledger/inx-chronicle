@@ -3,7 +3,7 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{MongoDatabase, MongoDbError},
+    db::{model::stardust, MongoDatabase, MongoDbError},
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -49,8 +49,14 @@ impl HandleEvent<inx::proto::Message> for Broker {
         message: inx::proto::Message,
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        debug!("Received Message Event");
-        self.db.insert_message_raw(message).await?;
+        log::trace!("Received Message Event");
+        // TODO: How do we handle chrysalis vs stardust messages?
+        match stardust::message::MessageRecord::try_from(message) {
+            Ok(rec) => self.db.upsert_one(rec).await?,
+            Err(e) => {
+                log::error!("Could not read message: {:?}", e);
+            }
+        };
         Ok(())
     }
 }
@@ -64,7 +70,13 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
         debug!("Received Milestone Event");
-        self.db.insert_milestone(milestone).await?;
+        // TODO: How do we handle chrysalis vs stardust milestones?
+        match stardust::milestone::MilestoneRecord::try_from(milestone) {
+            Ok(rec) => self.db.upsert_one(rec).await?,
+            Err(e) => {
+                log::error!("Could not read milestone: {:?}", e);
+            }
+        };
         Ok(())
     }
 }
