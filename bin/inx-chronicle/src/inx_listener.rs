@@ -18,7 +18,7 @@ use chronicle::{
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
-    Channel, Status,
+    tonic::{Channel, Status},
 };
 use log::info;
 use thiserror::Error;
