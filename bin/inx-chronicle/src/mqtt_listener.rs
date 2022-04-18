@@ -10,7 +10,10 @@ use async_trait::async_trait;
 use bee_common_chrysalis::packable::Packable;
 use bee_message_chrysalis::Message;
 use chronicle::{
-    db::model::{chrysalis::{message::MessageRecord, milestone::MilestoneRecord}, ConversionError},
+    db::model::{
+        chrysalis::{message::MessageRecord, milestone::MilestoneRecord},
+        ConversionError,
+    },
     mqtt::{MqttConfig, MqttError},
     runtime::{
         actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
