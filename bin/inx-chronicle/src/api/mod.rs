@@ -89,7 +89,7 @@ impl Actor for API {
         Ok(())
     }
 
-    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _data: &mut Self::State) -> Result<(), Self::Error> {
+    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
         if let Some((join_handle, shutdown_handle)) = self.server_handle.take() {
             log::info!("Stopping Axum server");

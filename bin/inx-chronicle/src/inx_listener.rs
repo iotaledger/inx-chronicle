@@ -66,16 +66,17 @@ impl Actor for InxListener {
         info!("Node status: {:#?}", response.into_inner());
 
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-        let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
-
         cx.spawn_actor_supervised::<MessageStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
         )
         .await;
+
+        let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
         cx.spawn_actor_supervised::<MilestoneStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(milestone_stream),
         )
         .await;
+
         Ok(inx_client)
     }
 }
@@ -93,14 +94,14 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
                 cx.shutdown();
             }
             Err(e) => match e.error {
-                ActorError::Result(_) | ActorError::Panic => {
+                ActorError::Result(_) => {
                     let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
                     cx.spawn_actor_supervised::<MessageStream, _>(
                         InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
                     )
                     .await;
                 }
-                ActorError::Aborted => {
+                ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
                 }
             },
@@ -122,14 +123,14 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                 cx.shutdown();
             }
             Err(e) => match e.error {
-                ActorError::Result(_) | ActorError::Panic => {
+                ActorError::Result(_) => {
                     let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
                     cx.spawn_actor_supervised::<MilestoneStream, _>(
                         InxStreamListener::new(self.broker_addr.clone())?.with_stream(milestone_stream),
                     )
                     .await;
                 }
-                ActorError::Aborted => {
+                ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
                 }
             },
@@ -181,7 +182,7 @@ where
         &mut self,
         _cx: &mut ActorContext<Self>,
         event: Result<E, Status>,
-        _data: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         self.broker_addr.send(event?).map_err(RuntimeError::SendError)?;
         Ok(())

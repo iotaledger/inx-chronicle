@@ -3,7 +3,11 @@
 
 use std::{fs, path::Path};
 
-use chronicle::{db::MongoConfig, inx::InxConfig};
+use chronicle::db::MongoConfig;
+#[cfg(feature = "stardust")]
+use chronicle::inx::InxConfig;
+#[cfg(feature = "chrysalis")]
+use chronicle::mqtt::MqttConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -19,7 +23,10 @@ pub enum ConfigError {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub mongodb: MongoConfig,
+    #[cfg(feature = "stardust")]
     pub inx: InxConfig,
+    #[cfg(feature = "chrysalis")]
+    pub mqtt: MqttConfig,
 }
 
 impl Config {

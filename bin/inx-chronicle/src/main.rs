@@ -9,16 +9,23 @@ pub mod api;
 mod broker;
 mod cli;
 mod config;
-mod listener;
+#[cfg(feature = "stardust")]
+mod inx_listener;
+#[cfg(feature = "chrysalis")]
+mod mqtt_listener;
 
 use std::error::Error;
 
+#[cfg(feature = "api")]
 use api::API;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
+#[cfg(feature = "stardust")]
+use chronicle::inx::{InxConfig, InxError};
+#[cfg(feature = "chrysalis")]
+use chronicle::mqtt::{MqttConfig, MqttError};
 use chronicle::{
     db::{MongoConfig, MongoDbError},
-    inx::{InxConfig, InxError},
     runtime::{
         actor::{
             addr::{Addr, SendError},
@@ -35,8 +42,11 @@ use chronicle::{
 };
 use clap::Parser;
 use config::{Config, ConfigError};
-use listener::{InxListener, InxListenerError};
+#[cfg(feature = "stardust")]
+use inx_listener::{InxListener, InxListenerError};
 use mongodb::error::ErrorKind;
+#[cfg(feature = "chrysalis")]
+use mqtt_listener::{MqttListener, MqttListenerError};
 use thiserror::Error;
 
 use self::cli::CliArgs;
@@ -45,6 +55,9 @@ use self::cli::CliArgs;
 pub enum LauncherError {
     #[error(transparent)]
     Send(#[from] SendError),
+    #[cfg(feature = "chrysalis")]
+    #[error(transparent)]
+    Mqtt(#[from] MqttError),
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
@@ -67,20 +80,28 @@ impl Actor for Launcher {
         let config = match cli_args.config {
             Some(path) => config::Config::from_file(path)?,
             None => {
-                if let Some(path) = std::env::var("CONFIG_PATH").ok() {
+                if let Ok(path) = std::env::var("CONFIG_PATH") {
                     config::Config::from_file(path)?
                 } else {
                     Config {
                         mongodb: MongoConfig::new("mongodb://localhost:27017"),
+                        #[cfg(feature = "stardust")]
                         inx: InxConfig::new("http://localhost:9029"),
+                        #[cfg(feature = "chrysalis")]
+                        mqtt: MqttConfig::new("localhost", 1883, 1000),
                     }
                 }
             }
         };
         let db = config.mongodb.clone().build().await?;
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
+        #[cfg(feature = "stardust")]
         cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
             .await;
+        #[cfg(feature = "chrysalis")]
+        cx.spawn_actor_supervised(MqttListener::new(config.mqtt.clone(), broker_addr.clone()))
+            .await;
+        #[cfg(feature = "api")]
         cx.spawn_actor_supervised(API::new(db)).await;
         Ok((config, broker_addr))
     }
@@ -130,6 +151,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
     }
 }
 
+#[cfg(feature = "stardust")]
 #[async_trait]
 impl HandleEvent<Report<InxListener>> for Launcher {
     async fn handle_event(
@@ -182,6 +204,54 @@ impl HandleEvent<Report<InxListener>> for Launcher {
     }
 }
 
+#[cfg(feature = "chrysalis")]
+#[async_trait]
+impl HandleEvent<Report<MqttListener>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<MqttListener>,
+        (config, broker_addr): &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match &event {
+            Ok(_) => {
+                cx.shutdown();
+            }
+            Err(e) => match &e.error {
+                ActorError::Result(e) => match e.downcast_ref::<<MqttListener as Actor>::Error>().unwrap() {
+                    MqttListenerError::MqttConnection(c) => match c {
+                        rumqttc::ConnectionError::Network(_) | rumqttc::ConnectionError::Timeout(_) => {
+                            cx.spawn_actor_supervised(MqttListener::new(config.mqtt.clone(), broker_addr.clone()))
+                                .await;
+                        }
+                        _ => {
+                            cx.shutdown();
+                        }
+                    },
+                    MqttListenerError::MissingBroker => {
+                        // If the handle is still closed, push this to the back of the event queue.
+                        // Hopefully when it is processed again the handle will have been recreated.
+                        if broker_addr.is_closed() {
+                            cx.handle().send(event)?;
+                        } else {
+                            cx.spawn_actor_supervised(MqttListener::new(config.mqtt.clone(), broker_addr.clone()))
+                                .await;
+                        }
+                    }
+                    _ => {
+                        cx.shutdown();
+                    }
+                },
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "api")]
 #[async_trait]
 impl HandleEvent<Report<API>> for Launcher {
     async fn handle_event(

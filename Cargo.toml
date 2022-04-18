@@ -54,10 +54,11 @@ lazy_static = { version = "1.4", default-features = false, optional = true }
 prometheus = { version = "0.13", default-features = false, optional = true }
 
 # Chrysalis types
+async-stream = { version = "0.3", default-features = false, optional = true }
+bee-common-chrysalis = { package = "bee-common", version = "0.5", default-features = false, optional = true }
 bee-message-chrysalis = { package = "bee-message", version = "0.1", default-features = false, features = ["serde"], optional = true }
 bee-rest-api-chrysalis = { package = "bee-rest-api", version = "0.1", default-features = false, optional = true }
-bee-common-chrysalis = { package = "bee-common", version = "0.5", default-features = false, optional = true }
-bincode = { version = "1.3", default-features = false }
+rumqttc = { version = "0.11", default-features = false, features = ["url"], optional = true }
 
 # Stardust types
 bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
@@ -93,9 +94,11 @@ api-v2 = [
     "stardust",
 ]
 chrysalis = [
+    "async-stream",
+    "bee-common-chrysalis",
     "bee-message-chrysalis",
     "bee-rest-api-chrysalis",
-    "bee-common-chrysalis",
+    "rumqttc",
 ]
 stardust = [
     "bee-message-stardust",

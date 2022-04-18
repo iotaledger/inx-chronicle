@@ -1,14 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::io::Cursor;
-
-use bee_common_chrysalis::packable::Packable;
-use bee_message_chrysalis::{Message, MessageId, MESSAGE_ID_LENGTH};
+use bee_message_chrysalis::{Message, MessageId};
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{inclusion_state::LedgerInclusionState, InxConversionError, Model};
+use crate::db::model::{inclusion_state::LedgerInclusionState, Model};
 /// Chronicle Message record
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -67,26 +64,4 @@ impl Model for MessageRecord {
     fn key(&self) -> mongodb::bson::Document {
         doc! { "message_id": self.message_id.to_string() }
     }
-}
-
-impl TryFrom<inx::proto::Message> for MessageRecord {
-    type Error = InxConversionError;
-
-    fn try_from(value: inx::proto::Message) -> Result<Self, Self::Error> {
-        let message_id = message_id_from_inx(value.message_id.ok_or(InxConversionError::MissingField("message_id"))?)?;
-        let raw_message = value.message.ok_or(InxConversionError::MissingField("message"))?.data;
-        Ok(Self::new(
-            message_id,
-            bincode::deserialize(&raw_message).map_err(|e| InxConversionError::PackableError(Box::new(e)))?,
-            // Message::unpack(&mut Cursor::new(raw_message.clone()))
-            //    .map_err(|e| InxConversionError::PackableError(Box::new(e)))?,
-            raw_message,
-        ))
-    }
-}
-
-pub(crate) fn message_id_from_inx(value: inx::proto::MessageId) -> Result<MessageId, InxConversionError> {
-    Ok(MessageId::from(
-        <[u8; MESSAGE_ID_LENGTH]>::try_from(value.id).map_err(|_| InxConversionError::InvalidBufferLength)?,
-    ))
 }

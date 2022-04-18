@@ -1,14 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_chrysalis::{payload::milestone::MilestoneId, prelude::MILESTONE_ID_LENGTH, MessageId};
+use std::str::FromStr;
+
+use bee_message_chrysalis::MessageId;
 use mongodb::bson::{doc, DateTime};
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{chrysalis::message::message_id_from_inx, InxConversionError, Model};
+use crate::db::model::{ConversionError, Model};
 
 /// A milestone's metadata.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MilestoneRecord {
     /// The milestone index.
     pub milestone_index: u32,
@@ -16,8 +18,6 @@ pub struct MilestoneRecord {
     pub milestone_timestamp: DateTime,
     /// The [`MessageId`] of the milestone.
     pub message_id: MessageId,
-    /// The [`MilestoneId`] of the milestone.
-    pub milestone_id: MilestoneId,
 }
 
 impl Model for MilestoneRecord {
@@ -28,25 +28,36 @@ impl Model for MilestoneRecord {
     }
 }
 
-impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
-    type Error = InxConversionError;
+impl TryFrom<serde_json::Value> for MilestoneRecord {
+    type Error = ConversionError;
 
-    fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        log::warn!("milestone json: {}", value);
+        let milestone = value
+            .get("milestone")
+            .ok_or(ConversionError::MissingField("milestone"))?;
         Ok(Self {
-            milestone_index: value.milestone_index,
-            milestone_timestamp: DateTime::from_millis(value.milestone_timestamp as i64 * 1000),
-            message_id: message_id_from_inx(value.message_id.ok_or(InxConversionError::MissingField("message_id"))?)?,
-            milestone_id: milestone_id_from_inx(
-                value
-                    .milestone_id
-                    .ok_or(InxConversionError::MissingField("milestone_id"))?,
-            )?,
+            milestone_index: value
+                .get("index")
+                .ok_or(ConversionError::MissingField("index"))?
+                .as_u64()
+                .ok_or(ConversionError::InvalidField("index"))? as u32,
+            milestone_timestamp: DateTime::from_millis(
+                milestone
+                    .get("timestamp")
+                    .ok_or(ConversionError::MissingField("timestamp"))?
+                    .as_u64()
+                    .ok_or(ConversionError::InvalidField("timestamp"))? as i64
+                    * 1000,
+            ),
+            message_id: MessageId::from_str(
+                milestone
+                    .get("message_id")
+                    .ok_or(ConversionError::MissingField("message_id"))?
+                    .as_str()
+                    .ok_or(ConversionError::InvalidField("message_id"))?,
+            )
+            .unwrap(),
         })
     }
-}
-
-pub(crate) fn milestone_id_from_inx(value: inx::proto::MilestoneId) -> Result<MilestoneId, InxConversionError> {
-    Ok(MilestoneId::from(
-        <[u8; MILESTONE_ID_LENGTH]>::try_from(value.id).map_err(|_| InxConversionError::InvalidBufferLength)?,
-    ))
 }

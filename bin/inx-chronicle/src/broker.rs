@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
+#[cfg(feature = "chrysalis")]
+use chronicle::db::model::chrysalis;
+#[cfg(feature = "stardust")]
+use chronicle::db::model::stardust;
 use chronicle::{
-    db::{model::stardust, MongoDatabase, MongoDbError},
+    db::{MongoDatabase, MongoDbError},
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -41,16 +45,16 @@ impl Actor for Broker {
     }
 }
 
+#[cfg(feature = "stardust")]
 #[async_trait]
 impl HandleEvent<inx::proto::Message> for Broker {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
         message: inx::proto::Message,
-        _data: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Received Message Event");
-        // TODO: How do we handle chrysalis vs stardust messages?
+        debug!("Received Stardust Message Event");
         match stardust::message::MessageRecord::try_from(message) {
             Ok(rec) => self.db.upsert_one(rec).await?,
             Err(e) => {
@@ -61,22 +65,52 @@ impl HandleEvent<inx::proto::Message> for Broker {
     }
 }
 
+#[cfg(feature = "stardust")]
 #[async_trait]
 impl HandleEvent<inx::proto::Milestone> for Broker {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
         milestone: inx::proto::Milestone,
-        _data: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        debug!("Received Milestone Event");
-        // TODO: How do we handle chrysalis vs stardust milestones?
+        debug!("Received Stardust Milestone Event");
         match stardust::milestone::MilestoneRecord::try_from(milestone) {
             Ok(rec) => self.db.upsert_one(rec).await?,
             Err(e) => {
                 log::error!("Could not read milestone: {:?}", e);
             }
         };
+        Ok(())
+    }
+}
+
+#[cfg(feature = "chrysalis")]
+#[async_trait]
+impl HandleEvent<chrysalis::message::MessageRecord> for Broker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        message: chrysalis::message::MessageRecord,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        debug!("Received Chrysalis Message Event");
+        self.db.upsert_one(message).await?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "chrysalis")]
+#[async_trait]
+impl HandleEvent<chrysalis::milestone::MilestoneRecord> for Broker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        milestone: chrysalis::milestone::MilestoneRecord,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        debug!("Received Chrysalis Milestone Event");
+        self.db.upsert_one(milestone).await?;
         Ok(())
     }
 }
