@@ -75,7 +75,7 @@ impl Packer for FilePacker {
 ///
 /// ```ignore
 /// archived_milestones ::= first_index last_index (milestone)*
-/// milestone := milestone_index messages_len (message_id message)*
+/// milestone := messages_len (message_id message)*
 /// ```
 /// where:
 ///
@@ -108,9 +108,6 @@ where
 
     while milestone_index <= last_index {
         let milestone_iter = f(milestone_index)?;
-
-        // Write the current index
-        milestone_index.pack(&mut file)?;
 
         // FIXME: unwrap
         // The position where the total length of the messages will be written. We store it as a
@@ -192,11 +189,9 @@ impl Archive {
                 let mut file = IoUnpacker::new(&mut self.file);
 
                 // FIXME: unwrap
-                let _ = MilestoneIndex::unpack::<_, true>(&mut file).unwrap();
-                // FIXME: unwrap
                 let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
 
-                self.first_index = milestone_index;
+                self.first_index = MilestoneIndex(*self.first_index + 1);
 
                 // FIXME: unwrap
                 self.file.seek(SeekFrom::Current(len.try_into().unwrap())).unwrap();
@@ -225,11 +220,10 @@ impl Archive {
         let mut file = IoUnpacker::new(&mut self.file);
 
         // FIXME: unwrap
-        let milestone_index = MilestoneIndex::unpack::<_, true>(&mut file).unwrap();
-        // FIXME: unwrap
         let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
 
-        self.first_index = milestone_index;
+        let milestone_index = self.first_index;
+        self.first_index = MilestoneIndex(*self.first_index + 1);
 
         Some(Ok((
             milestone_index,
