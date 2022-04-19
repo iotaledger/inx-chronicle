@@ -16,7 +16,7 @@ pub trait HandleEvent<E: Send + Debug>: Actor + Sized {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: E,
-        data: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error>;
 }
 
@@ -27,7 +27,7 @@ pub trait DynEvent<A: Actor>: Debug {
         self: Box<Self>,
         cx: &'a mut ActorContext<A>,
         actor: &'a mut A,
-        data: &'a mut A::State,
+        state: &'a mut A::State,
     ) -> Pin<Box<dyn core::future::Future<Output = Result<(), A::Error>> + Send + 'a>>
     where
         Self: 'a;
@@ -41,12 +41,12 @@ where
         self: Box<Self>,
         cx: &'a mut ActorContext<A>,
         actor: &'a mut A,
-        data: &'a mut A::State,
+        state: &'a mut A::State,
     ) -> Pin<Box<dyn core::future::Future<Output = Result<(), A::Error>> + Send + 'a>>
     where
         Self: 'a,
     {
-        actor.handle_event(cx, *self, data)
+        actor.handle_event(cx, *self, state)
     }
 }
 
