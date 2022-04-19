@@ -7,6 +7,8 @@
 mod extractors;
 #[cfg(feature = "api-metrics")]
 mod metrics;
+#[cfg(feature = "api-v1")]
+mod v1;
 
 #[cfg(feature = "api-v2")]
 mod v2;
@@ -33,6 +35,9 @@ pub type APIResult<T> = Result<T, APIError>;
 /// API version enumeration
 #[derive(Copy, Clone, Deserialize)]
 pub enum APIVersion {
+    /// Chrysalis API version 1
+    #[serde(rename = "v1")]
+    V1,
     /// Stardust API version 2
     #[serde(rename = "v2")]
     V2,

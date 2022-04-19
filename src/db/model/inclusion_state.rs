@@ -36,6 +36,28 @@ impl TryFrom<u8> for LedgerInclusionState {
     }
 }
 
+#[cfg(feature = "chrysalis")]
+impl From<crate::chrysalis::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
+    fn from(value: crate::chrysalis::types::dtos::LedgerInclusionStateDto) -> Self {
+        match value {
+            crate::chrysalis::types::dtos::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
+            crate::chrysalis::types::dtos::LedgerInclusionStateDto::Included => Self::Included,
+            crate::chrysalis::types::dtos::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
+        }
+    }
+}
+
+#[cfg(feature = "chrysalis")]
+impl From<LedgerInclusionState> for crate::chrysalis::types::dtos::LedgerInclusionStateDto {
+    fn from(v: LedgerInclusionState) -> Self {
+        match v {
+            LedgerInclusionState::Conflicting => Self::Conflicting,
+            LedgerInclusionState::Included => Self::Included,
+            LedgerInclusionState::NoTransaction => Self::NoTransaction,
+        }
+    }
+}
+
 #[cfg(feature = "stardust")]
 impl From<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
     fn from(value: crate::stardust::types::dtos::LedgerInclusionStateDto) -> Self {

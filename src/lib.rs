@@ -14,6 +14,15 @@ pub mod db;
 pub mod inx;
 /// Module that contains the actor runtime.
 pub mod runtime;
+
+/// Module re-exporting Chrysalis types.
+#[cfg(feature = "chrysalis")]
+pub mod chrysalis {
+    //! Chrysalis pt.2 bee types
+    pub use bee_message_chrysalis::{self, *};
+    pub use bee_rest_api_chrysalis::{self, *};
+}
+
 /// Module re-exporting Stardust types.
 #[cfg(feature = "stardust")]
 pub mod stardust {

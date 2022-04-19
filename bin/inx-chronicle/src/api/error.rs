@@ -87,6 +87,8 @@ impl_from_error!(mongodb::error::Error);
 impl_from_error!(ValueAccessError);
 impl_from_error!(DocError);
 impl_from_error!(UnexpectedLedgerInclusionState);
+#[cfg(feature = "chrysalis")]
+impl_from_error!(chronicle::chrysalis::Error);
 #[cfg(feature = "stardust")]
 impl_from_error!(chronicle::stardust::Error);
 

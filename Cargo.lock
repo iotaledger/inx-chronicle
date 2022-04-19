@@ -149,14 +149,57 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
+name = "bee-common"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "967d987fbd588c72178d80b1cbd53e9c9a62771993dd280d568d8bbb811d44c2"
+dependencies = [
+ "autocfg",
+ "fern",
+ "log",
+ "serde",
+ "thiserror",
+ "time 0.3.9",
+]
+
+[[package]]
+name = "bee-ledger"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c32c6038cf3aa7997ad1e3463443d98f1cf84ae6620d1a1ded9894e021d8b84"
+dependencies = [
+ "bee-common",
+ "bee-message 0.1.6",
+ "thiserror",
+]
+
+[[package]]
 name = "bee-ledger"
 version = "0.7.0"
 source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e9ef4d6725a9b63756107618c60b75cf1aca56d1"
 dependencies = [
- "bee-message",
+ "bee-message 0.2.0",
  "packable",
  "thiserror",
  "time-helper",
+]
+
+[[package]]
+name = "bee-message"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e611e476d403e86d0a0ce74bd204b96aaefad2ab402972deca850b00eaad81c"
+dependencies = [
+ "bech32",
+ "bee-common",
+ "bee-pow 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bee-ternary",
+ "bytemuck",
+ "digest 0.9.0",
+ "hex",
+ "iota-crypto",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -165,7 +208,7 @@ version = "0.2.0"
 source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e9ef4d6725a9b63756107618c60b75cf1aca56d1"
 dependencies = [
  "bech32",
- "bee-pow",
+ "bee-pow 0.2.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
  "bee-ternary",
  "bitflags",
  "bytemuck",
@@ -187,6 +230,17 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f1665dbc6b6d802c4aedea8220093df165f69c193e5c1c66bd5c4bfec37bf6f"
+dependencies = [
+ "bee-ternary",
+ "iota-crypto",
+ "thiserror",
+]
+
+[[package]]
+name = "bee-pow"
+version = "0.2.0"
 source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e9ef4d6725a9b63756107618c60b75cf1aca56d1"
 dependencies = [
  "bee-ternary",
@@ -196,12 +250,26 @@ dependencies = [
 
 [[package]]
 name = "bee-rest-api"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f9afa75c1deba0a7271e7038f6301dfcde6fcc6c165ef34807bb5edf4011acf"
+dependencies = [
+ "bee-ledger 0.6.1",
+ "bee-message 0.1.6",
+ "hex",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "bee-rest-api"
 version = "0.2.2"
 source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e9ef4d6725a9b63756107618c60b75cf1aca56d1"
 dependencies = [
- "bee-ledger",
- "bee-message",
- "bee-pow",
+ "bee-ledger 0.7.0",
+ "bee-message 0.2.0",
+ "bee-pow 0.2.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
  "multiaddr",
  "packable",
  "prefix-hex",
@@ -343,8 +411,10 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "axum",
- "bee-message",
- "bee-rest-api",
+ "bee-message 0.1.6",
+ "bee-message 0.2.0",
+ "bee-rest-api 0.1.7",
+ "bee-rest-api 0.2.2",
  "clap",
  "derive_more",
  "dotenv",
@@ -427,6 +497,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8ad8cef104ac57b68b89df3208164d228503abbdce70f6880ffa3d970e7443a"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "colored"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4ffc801dacf156c5854b9df4f425a626539c3a6ef7893cc0c5084a23f0b6c59"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
 ]
 
 [[package]]
@@ -616,6 +697,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3fcf0cee53519c866c09b5de1f6c56ff9d647101f81c1964fa632e148896cdf"
 dependencies = [
  "instant",
+]
+
+[[package]]
+name = "fern"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bdd7b0849075e79ee9a1836df22c717d1eba30451796fdc631b04565dd11e2a"
+dependencies = [
+ "colored",
+ "log",
 ]
 
 [[package]]
@@ -1004,7 +1095,7 @@ name = "inx"
 version = "0.2.0"
 source = "git+https://github.com/iotaledger/inx#ffc33b55140eb50b89f770c334d4e1f76c0f9f4f"
 dependencies = [
- "bee-message",
+ "bee-message 0.2.0",
  "packable",
  "prost",
  "tonic",
@@ -1110,6 +1201,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if",
+ "serde",
 ]
 
 [[package]]

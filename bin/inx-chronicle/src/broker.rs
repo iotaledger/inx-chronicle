@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
+#[cfg(feature = "chrysalis")]
+use chronicle::db::model::chrysalis;
 #[cfg(feature = "stardust")]
 use chronicle::db::model::stardust;
 use chronicle::{

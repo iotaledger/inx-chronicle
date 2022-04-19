@@ -3,6 +3,10 @@
 
 use mongodb::bson::Document;
 use serde::{de::DeserializeOwned, Serialize};
+
+#[cfg(feature = "chrysalis")]
+/// Module containing Chrysalis data models.
+pub mod chrysalis;
 /// Module containing the ledger inclusion state model.
 pub mod inclusion_state;
 #[cfg(feature = "stardust")]

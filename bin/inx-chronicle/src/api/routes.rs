@@ -21,6 +21,11 @@ pub fn routes(db: MongoDatabase) -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
 
+    #[cfg(feature = "api-v1")]
+    {
+        router = router.nest("/v1", crate::api::v1::routes())
+    }
+
     #[cfg(feature = "api-v2")]
     {
         router = router.nest("/v2", crate::api::v2::routes())
