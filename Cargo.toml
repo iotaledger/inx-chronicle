@@ -19,18 +19,69 @@ name = "inx-chronicle"
 path = "bin/inx-chronicle/src/main.rs"
 
 [dependencies]
+
+# Required
 async-recursion = { version = "1.0", default-features = false }
 async-trait = { version = "0.1", default-features = false }
 clap = { version = "3.1", default-features = false, features = [ "derive", "std" ] }
+derive_more = { version = "0.99", default-features = false }
 dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3", default-features = false }
-inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false }
+hex = { version = "0.4", default-features = false }
+inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false, features = ["types"] }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 serde = { version = "1.0", features = ["derive"], default-features = false }
+serde_json = { version = "1.0", default-features = false, features = ["std"] }
 thiserror = { version = "1.0", default-features = false }
+time = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1.17", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
+tonic = { version = "0.7", default-features = false }
 uuid = { version = "0.8", default-features = false }
+
+# API
+axum = { version = "0.5", default-features = false, features = ["http1", "json", "query"], optional = true }
+hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
+serde_urlencoded = { version = "0.7", default-features = false, optional = true }
+tower = { version = "0.4", default-features = false, optional = true }
+tower-http = { version = "0.2", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
+
+# Metrics
+lazy_static = { version = "1.4", default-features = false, optional = true }
+prometheus = { version = "0.13", default-features = false, optional = true }
+
+# Stardust types
+bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
+bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
+
+# Temporarily patch Stardust types until release
+[patch.crates-io]
+bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
+bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
+
+[features]
+default = ["api-v2", "api-metrics"]
+api = [ 
+    "axum",
+    "derive_more/from",
+    "hyper",
+    "serde_urlencoded",
+    "tower",
+    "tower-http",
+]
+api-metrics = [ 
+    "api",
+    "lazy_static",
+    "prometheus",
+]
+api-v2 = [
+    "api",
+    "stardust",
+]
+stardust = [
+    "bee-message-stardust",
+    "bee-rest-api-stardust",
+]
