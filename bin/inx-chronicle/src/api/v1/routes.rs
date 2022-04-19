@@ -66,7 +66,7 @@ pub fn routes() -> Router {
 async fn message(database: Extension<Database>, Path(message_id): Path<String>) -> APIResult<MessageResponse> {
     let mut rec = database
         .collection::<Document>("chrysalis_messages")
-        .find_one(doc! {"message_id": &message_id.to_string()}, None)
+        .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(APIError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -85,7 +85,7 @@ async fn message(database: Extension<Database>, Path(message_id): Path<String>) 
 async fn message_raw(database: Extension<Database>, Path(message_id): Path<String>) -> APIResult<Vec<u8>> {
     let mut rec = database
         .collection::<Document>("chrysalis_messages")
-        .find_one(doc! {"message_id": &message_id.to_string()}, None)
+        .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(APIError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -98,7 +98,7 @@ async fn message_metadata(
 ) -> APIResult<MessageMetadataResponse> {
     let mut rec = database
         .collection::<Document>("chrysalis_messages")
-        .find_one(doc! {"message_id": &message_id.to_string()}, None)
+        .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(APIError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -132,7 +132,7 @@ async fn message_children(
     let messages = database
         .collection::<Document>("chrysalis_messages")
         .find(
-            doc! {"message.parents": &message_id.to_string()},
+            doc! {"message.parents": &message_id},
             FindOptions::builder()
                 .skip((page_size * page) as u64)
                 .sort(doc! {"milestone_index": -1})
@@ -144,7 +144,7 @@ async fn message_children(
         .await?;
 
     Ok(MessageChildrenResponse {
-        message_id: message_id.to_string(),
+        message_id,
         max_results: page_size,
         count: messages.len(),
         children_message_ids: messages

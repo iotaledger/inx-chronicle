@@ -10,11 +10,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::error::APIError;
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MessagesQuery {
     pub index: Option<String>,
     pub included: bool,
+}
+
+impl Default for MessagesQuery {
+    fn default() -> Self {
+        Self {
+            index: None,
+            included: true,
+        }
+    }
 }
 
 #[async_trait]

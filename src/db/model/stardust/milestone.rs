@@ -1,11 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::{payload::milestone::MilestoneId, MessageId};
+use bee_message_stardust::payload::milestone::MilestoneId;
 use mongodb::bson::{doc, DateTime};
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{stardust::message::message_id_from_inx, InxConversionError, Model};
+use crate::db::model::Model;
 
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
@@ -14,8 +14,6 @@ pub struct MilestoneRecord {
     pub milestone_index: u32,
     /// The timestamp of the milestone.
     pub milestone_timestamp: DateTime,
-    /// The [`MessageId`] of the milestone.
-    pub message_id: MessageId,
     /// The [`MilestoneId`] of the milestone.
     pub milestone_id: MilestoneId,
 }
@@ -29,24 +27,14 @@ impl Model for MilestoneRecord {
 }
 
 impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
-    type Error = InxConversionError;
+    type Error = inx::Error;
 
     fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
+        let milestone = inx::Milestone::try_from(value)?;
         Ok(Self {
-            milestone_index: value.milestone_index,
-            milestone_timestamp: DateTime::from_millis(value.milestone_timestamp as i64 * 1000),
-            message_id: message_id_from_inx(value.message_id.ok_or(InxConversionError::MissingField("message_id"))?)?,
-            milestone_id: milestone_id_from_inx(
-                value
-                    .milestone_id
-                    .ok_or(InxConversionError::MissingField("milestone_id"))?,
-            )?,
+            milestone_index: milestone.milestone_info.milestone_index,
+            milestone_timestamp: DateTime::from_millis(milestone.milestone_info.milestone_timestamp as i64 * 1000),
+            milestone_id: milestone.milestone_info.milestone_id,
         })
     }
-}
-
-pub(crate) fn milestone_id_from_inx(value: inx::proto::MilestoneId) -> Result<MilestoneId, InxConversionError> {
-    Ok(MilestoneId::from(
-        <[u8; MilestoneId::LENGTH]>::try_from(value.id).map_err(|_| InxConversionError::InvalidBufferLength)?,
-    ))
 }

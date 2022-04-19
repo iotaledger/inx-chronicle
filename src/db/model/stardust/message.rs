@@ -3,10 +3,9 @@
 
 use bee_message_stardust::{semantic::ConflictReason, Message, MessageId};
 use mongodb::bson::doc;
-use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{inclusion_state::LedgerInclusionState, InxConversionError, Model};
+use crate::db::model::{inclusion_state::LedgerInclusionState, Model};
 /// Chronicle Message record
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -22,9 +21,9 @@ pub struct MessageRecord {
 #[allow(unused)]
 impl MessageRecord {
     /// Create new message record
-    pub fn new(message_id: MessageId, message: Message, raw: Vec<u8>) -> Self {
+    pub fn new(message: Message, raw: Vec<u8>) -> Self {
         Self {
-            message_id,
+            message_id: message.id(),
             message,
             raw,
             milestone_index: None,
@@ -67,21 +66,10 @@ impl Model for MessageRecord {
 }
 
 impl TryFrom<inx::proto::Message> for MessageRecord {
-    type Error = InxConversionError;
+    type Error = inx::Error;
 
     fn try_from(value: inx::proto::Message) -> Result<Self, Self::Error> {
-        let message_id = message_id_from_inx(value.message_id.ok_or(InxConversionError::MissingField("message_id"))?)?;
-        let raw_message = value.message.ok_or(InxConversionError::MissingField("message"))?.data;
-        Ok(Self::new(
-            message_id,
-            Message::unpack_verified(&raw_message).map_err(|e| InxConversionError::PackableError(Box::new(e)))?,
-            raw_message,
-        ))
+        let (message, raw_message) = value.try_into()?;
+        Ok(Self::new(message.message, raw_message))
     }
-}
-
-pub(crate) fn message_id_from_inx(value: inx::proto::MessageId) -> Result<MessageId, InxConversionError> {
-    Ok(MessageId::from(
-        <[u8; MessageId::LENGTH]>::try_from(value.id).map_err(|_| InxConversionError::InvalidBufferLength)?,
-    ))
 }

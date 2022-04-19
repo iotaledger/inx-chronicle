@@ -29,7 +29,7 @@ dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
-inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false }
+inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false, features = ["types"] }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 serde = { version = "1.0", features = ["derive"], default-features = false }
@@ -60,7 +60,6 @@ bee-rest-api-chrysalis = { package = "bee-rest-api", version = "0.1", default-fe
 # Stardust types
 bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
-packable = { version = "0.2", default-features = false, optional = true }
 
 # Temporarily patch Stardust types until release
 [patch.crates-io]
@@ -97,5 +96,4 @@ chrysalis = [
 stardust = [
     "bee-message-stardust",
     "bee-rest-api-stardust",
-    "packable",
 ]
