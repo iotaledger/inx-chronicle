@@ -10,8 +10,35 @@ use std::{
 use bee_message::{milestone::MilestoneIndex, Message, MessageId};
 use packable::{
     packer::{IoPacker, Packer},
+    unpacker::{IoUnpacker, Unpacker},
     Packable,
 };
+
+/// An unpacker backed by a `File` that tracks the position of the file cursor.
+struct FileUnpacker<'a> {
+    inner: IoUnpacker<&'a mut File>,
+    pos: usize,
+}
+
+impl<'a> FileUnpacker<'a> {
+    fn new(inner: IoUnpacker<&'a mut File>, pos: usize) -> Self {
+        Self { inner, pos }
+    }
+}
+
+impl<'a> Unpacker for FileUnpacker<'a> {
+    type Error = <IoUnpacker<&'a mut File> as Unpacker>::Error;
+
+    #[inline]
+    fn unpack_bytes<B: AsMut<[u8]>>(&mut self, mut bytes: B) -> Result<(), Self::Error> {
+        let bytes = bytes.as_mut();
+        self.pos -= bytes.len();
+
+        self.inner.unpack_bytes(bytes)?;
+
+        Ok(())
+    }
+}
 
 /// A packer backed by a `File` that tracks the position of the file cursor.
 struct FilePacker {
@@ -126,4 +153,110 @@ where
     }
 
     Ok(())
+}
+
+/// FIXME: docs
+pub struct Archive {
+    file: File,
+    first_index: MilestoneIndex,
+    last_index: MilestoneIndex,
+}
+
+impl Archive {
+    /// FIXME: docs
+    pub fn open<P: AsRef<Path>>(path: &P) -> Result<Self, io::Error> {
+        let mut file = File::open(path)?;
+
+        let mut unpacker = IoUnpacker::new(&mut file);
+        // FIXME: unwrap
+        let first_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).unwrap();
+        // FIXME: unwrap
+        let last_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).unwrap();
+
+        Ok(Self {
+            file,
+            first_index,
+            last_index,
+        })
+    }
+
+    /// FIXME: docs
+    pub fn read_milestone(
+        &mut self,
+        milestone_index: MilestoneIndex,
+    ) -> Option<Result<impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_, io::Error>> {
+        if milestone_index < self.first_index || milestone_index > self.last_index {
+            None
+        } else {
+            while milestone_index > self.first_index {
+                let mut file = IoUnpacker::new(&mut self.file);
+
+                // FIXME: unwrap
+                let _ = MilestoneIndex::unpack::<_, true>(&mut file).unwrap();
+                // FIXME: unwrap
+                let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
+
+                self.first_index = milestone_index;
+
+                // FIXME: unwrap
+                self.file.seek(SeekFrom::Current(len.try_into().unwrap())).unwrap();
+            }
+
+            Some(self.read_next_milestone().unwrap().map(|(_, iter)| iter))
+        }
+    }
+
+    /// FIXME: docs
+    pub fn read_next_milestone(
+        &mut self,
+    ) -> Option<
+        Result<
+            (
+                MilestoneIndex,
+                impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_,
+            ),
+            io::Error,
+        >,
+    > {
+        if self.first_index > self.last_index {
+            return None;
+        }
+
+        let mut file = IoUnpacker::new(&mut self.file);
+
+        // FIXME: unwrap
+        let milestone_index = MilestoneIndex::unpack::<_, true>(&mut file).unwrap();
+        // FIXME: unwrap
+        let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
+
+        self.first_index = milestone_index;
+
+        Some(Ok((
+            milestone_index,
+            ArchivedMilestoneIter {
+                file: FileUnpacker::new(file, len),
+            },
+        )))
+    }
+}
+
+struct ArchivedMilestoneIter<'a> {
+    file: FileUnpacker<'a>,
+}
+
+impl<'a> Iterator for ArchivedMilestoneIter<'a> {
+    type Item = Result<(MessageId, Message), io::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.file.pos == 0 {
+            return None;
+        }
+
+        // FIXME: unwrap
+        let message_id = MessageId::unpack::<_, true>(&mut self.file).unwrap();
+        // FIXME: unwrap
+        let message = Message::unpack::<_, true>(&mut self.file).unwrap();
+
+        Some(Ok((message_id, message)))
+    }
 }
