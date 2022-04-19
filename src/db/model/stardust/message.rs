@@ -6,7 +6,7 @@ use mongodb::bson::doc;
 use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{inclusion_state::LedgerInclusionState, ConversionError, Model};
+use crate::db::model::{inclusion_state::LedgerInclusionState, InxConversionError, Model};
 /// Chronicle Message record
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -67,21 +67,21 @@ impl Model for MessageRecord {
 }
 
 impl TryFrom<inx::proto::Message> for MessageRecord {
-    type Error = ConversionError;
+    type Error = InxConversionError;
 
     fn try_from(value: inx::proto::Message) -> Result<Self, Self::Error> {
-        let message_id = message_id_from_inx(value.message_id.ok_or(ConversionError::MissingField("message_id"))?)?;
-        let raw_message = value.message.ok_or(ConversionError::MissingField("message"))?.data;
+        let message_id = message_id_from_inx(value.message_id.ok_or(InxConversionError::MissingField("message_id"))?)?;
+        let raw_message = value.message.ok_or(InxConversionError::MissingField("message"))?.data;
         Ok(Self::new(
             message_id,
-            Message::unpack_verified(&raw_message).map_err(|e| ConversionError::PackableError(Box::new(e)))?,
+            Message::unpack_verified(&raw_message).map_err(|e| InxConversionError::PackableError(Box::new(e)))?,
             raw_message,
         ))
     }
 }
 
-pub(crate) fn message_id_from_inx(value: inx::proto::MessageId) -> Result<MessageId, ConversionError> {
+pub(crate) fn message_id_from_inx(value: inx::proto::MessageId) -> Result<MessageId, InxConversionError> {
     Ok(MessageId::from(
-        <[u8; MessageId::LENGTH]>::try_from(value.id).map_err(|_| ConversionError::InvalidBufferLength)?,
+        <[u8; MessageId::LENGTH]>::try_from(value.id).map_err(|_| InxConversionError::InvalidBufferLength)?,
     ))
 }

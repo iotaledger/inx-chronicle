@@ -12,9 +12,6 @@ pub mod db;
 #[cfg(feature = "stardust")]
 /// Module that contains INX bindings and configuration.
 pub mod inx;
-#[cfg(feature = "chrysalis")]
-/// Module that contains MQTT bindings and configuration.
-pub mod mqtt;
 /// Module that contains the actor runtime.
 pub mod runtime;
 

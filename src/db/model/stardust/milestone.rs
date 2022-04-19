@@ -5,7 +5,7 @@ use bee_message_stardust::{payload::milestone::MilestoneId, MessageId};
 use mongodb::bson::{doc, DateTime};
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::{stardust::message::message_id_from_inx, ConversionError, Model};
+use crate::db::model::{stardust::message::message_id_from_inx, InxConversionError, Model};
 
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
@@ -29,24 +29,24 @@ impl Model for MilestoneRecord {
 }
 
 impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
-    type Error = ConversionError;
+    type Error = InxConversionError;
 
     fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
         Ok(Self {
             milestone_index: value.milestone_index,
             milestone_timestamp: DateTime::from_millis(value.milestone_timestamp as i64 * 1000),
-            message_id: message_id_from_inx(value.message_id.ok_or(ConversionError::MissingField("message_id"))?)?,
+            message_id: message_id_from_inx(value.message_id.ok_or(InxConversionError::MissingField("message_id"))?)?,
             milestone_id: milestone_id_from_inx(
                 value
                     .milestone_id
-                    .ok_or(ConversionError::MissingField("milestone_id"))?,
+                    .ok_or(InxConversionError::MissingField("milestone_id"))?,
             )?,
         })
     }
 }
 
-pub(crate) fn milestone_id_from_inx(value: inx::proto::MilestoneId) -> Result<MilestoneId, ConversionError> {
+pub(crate) fn milestone_id_from_inx(value: inx::proto::MilestoneId) -> Result<MilestoneId, InxConversionError> {
     Ok(MilestoneId::from(
-        <[u8; MilestoneId::LENGTH]>::try_from(value.id).map_err(|_| ConversionError::InvalidBufferLength)?,
+        <[u8; MilestoneId::LENGTH]>::try_from(value.id).map_err(|_| InxConversionError::InvalidBufferLength)?,
     ))
 }

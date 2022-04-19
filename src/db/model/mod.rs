@@ -30,7 +30,7 @@ pub trait Model: Serialize + DeserializeOwned {
 /// Represents errors that happened during conversion from INX proto types to model types.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-pub enum ConversionError {
+pub enum InxConversionError {
     #[error("Missing field {0}")]
     MissingField(&'static str),
     #[error("Invalid field {0}")]
