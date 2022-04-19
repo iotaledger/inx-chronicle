@@ -143,7 +143,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-message"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#4bba4416512e6882734c8bc2706cf8a96d34ebb7"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#e9ef4d6725a9b63756107618c60b75cf1aca56d1"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -168,7 +168,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#4bba4416512e6882734c8bc2706cf8a96d34ebb7"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#e9ef4d6725a9b63756107618c60b75cf1aca56d1"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -919,7 +919,6 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/inx#e38727e31efad02a5cd56beed37297ee0159dc23"
 dependencies = [
  "bee-message",
  "packable",

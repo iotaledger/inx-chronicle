@@ -11,4 +11,7 @@ use serde::{Serialize, de::DeserializeOwned};
 pub trait Model: Serialize + DeserializeOwned {
     /// The name of the collection in the MongoDB database.
     const COLLECTION: &'static str;
+
+    /// The type behind the MongoDB `_id` field.
+    type Id: Serialize;
 }

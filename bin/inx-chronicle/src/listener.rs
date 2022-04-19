@@ -25,6 +25,7 @@ use thiserror::Error;
 use crate::broker::Broker;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
+type MetadataStream = InxStreamListener<inx::proto::MessageMetadata>;
 type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
@@ -58,7 +59,7 @@ impl Actor for InxListener {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::debug!("Connecting to INX...");
-        let mut inx_client = self.config.build().await?;
+        let mut inx_client: InxClient<Channel> = self.config.build().await?;
 
         log::info!("Connected to INX at bind address `{}`.", self.config.address);
         let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
@@ -71,6 +72,12 @@ impl Actor for InxListener {
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
+        )
+        .await;
+
+        let solid_message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
+        cx.spawn_actor_supervised::<MessageStream, _>(
+            InxStreamListener::new(self.broker_addr.clone())?.with_stream(solid_message_stream),
         )
         .await;
 
@@ -100,6 +107,35 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
                 ActorError::Result(_) | ActorError::Panic => {
                     let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
                     cx.spawn_actor_supervised::<MessageStream, _>(
+                        InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
+                    )
+                    .await;
+                }
+                ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<MetadataStream>> for InxListener {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<MetadataStream>,
+        inx_client: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Ok(_) => {
+                cx.shutdown();
+            }
+            Err(e) => match e.error {
+                ActorError::Result(_) | ActorError::Panic => {
+                    let message_stream = inx_client.listen_to_solid_messages(MessageFilter {}).await?.into_inner();
+                    cx.spawn_actor_supervised::<MetadataStream, _>(
                         InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
                     )
                     .await;

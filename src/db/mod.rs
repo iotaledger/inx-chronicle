@@ -7,8 +7,8 @@ mod error;
 pub mod model;
 
 use mongodb::{
-    options::{ClientOptions, Credential},
-    Client,
+    options::{ClientOptions, Credential, UpdateOptions},
+    Client, bson::doc,
 };
 use serde::{Deserialize, Serialize};
 
@@ -82,6 +82,16 @@ impl MongoDatabase {
             .collection::<mongodb::bson::Bson>(M::COLLECTION)
             .insert_one(bson, None)
             .await?;
+        Ok(())
+    }
+
+    /// Updates a record of a message in the database.
+    pub async fn update_metadata<M: Model>(&self, message_id: M::Id, metadata: model::stardust::Metadata) -> Result<(), MongoDbError> {     
+        let query = doc!{ "_id": crate::bson::to_bson(&message_id)? };
+        let update = doc!{ "metadata": crate::bson::to_bson(&metadata)? };
+
+        self.db.collection::<mongodb::bson::Bson>(M::COLLECTION)
+            .update_one(query, update, UpdateOptions::builder().upsert(true).build()).await?;
         Ok(())
     }
 }
