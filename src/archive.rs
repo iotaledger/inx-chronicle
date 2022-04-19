@@ -43,6 +43,19 @@ impl Packer for FilePacker {
 }
 
 /// Archives milestones into a file.
+///
+/// The format is the following:
+///
+/// ```ignore
+/// archived_milestones ::= first_index last_index (milestone)*
+/// milestone := milestone_index messages_len (message_id message)*
+/// ```
+/// where:
+///
+/// - `first_index` is the earliest milestone index.
+/// - `last_index` is the latest milestone index.
+/// - `messages_len` is the length in bytes of all the message ID and message pairs in the current
+/// milestone.
 pub fn archive_milestones<P, E, I, F>(
     path: &P,
     first_index: MilestoneIndex,
