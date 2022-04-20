@@ -9,7 +9,6 @@
 pub mod bson;
 /// Module that contains the database types and constants.
 pub mod db;
-#[cfg(feature = "stardust")]
 /// Module that contains INX bindings and configuration.
 pub mod inx;
 /// Module that contains the actor runtime.
