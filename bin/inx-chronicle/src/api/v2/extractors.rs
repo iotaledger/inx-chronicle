@@ -35,7 +35,7 @@ impl<B: Send> FromRequest<B> for MessagesQuery {
             .await
             .map_err(ApiError::QueryError)?;
         let query = req.uri().query().unwrap_or_default();
-        let query = serde_urlencoded::from_str::<HashMap<String, String>>(query).map_err(ApiError::other)?;
+        let query = serde_urlencoded::from_str::<HashMap<String, String>>(query)?;
         let utf8 = query
             .get("utf8")
             .map(|s| s.parse::<bool>())

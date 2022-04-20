@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, str::ParseBoolError};
+use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
 use chronicle::{bson::DocError, db::model::inclusion_state::UnexpectedLedgerInclusionState};
@@ -12,27 +12,45 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
+pub enum InternalApiError {
+    #[error(transparent)]
+    Hyper(#[from] hyper::Error),
+    #[error(transparent)]
+    MongoDb(#[from] mongodb::error::Error),
+    #[error(transparent)]
+    ValueAccess(#[from] ValueAccessError),
+    #[error(transparent)]
+    Doc(#[from] DocError),
+    #[error(transparent)]
+    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
+    #[cfg(feature = "stardust")]
+    #[error(transparent)]
+    Stardust(#[from] chronicle::stardust::Error),
+    #[error(transparent)]
+    UrlEncoding(#[from] serde_urlencoded::de::Error),
+}
+
+#[derive(Error, Debug)]
+#[allow(missing_docs)]
 pub enum ApiError {
-    #[error("No results returned!")]
+    #[error("No results returned")]
     NoResults,
-    #[error("Provided index is too large! (Max 64 bytes)")]
+    #[error("Provided index is too large (Max 64 bytes)")]
     IndexTooLarge,
-    #[error("Provided tag is too large! (Max 64 bytes)")]
+    #[error("Provided tag is too large (Max 64 bytes)")]
     TagTooLarge,
-    #[error("Invalid hexidecimal encoding!")]
+    #[error("Invalid hexidecimal encoding")]
     InvalidHex,
-    #[error("No endpoint found!")]
+    #[error("No endpoint found")]
     NotFound,
     #[error(transparent)]
     BadParse(ParseError),
     #[error(transparent)]
     QueryError(QueryRejection),
-    #[error("Invalid time range!")]
+    #[error("Invalid time range")]
     BadTimeRange,
-    #[error(transparent)]
-    ServerError(#[from] hyper::Error),
-    #[error(transparent)]
-    Other(#[from] Box<dyn Error + Send + Sync>),
+    #[error("Internal server error")]
+    Internal(InternalApiError),
 }
 
 impl ApiError {
@@ -46,7 +64,7 @@ impl ApiError {
             | ApiError::BadTimeRange
             | ApiError::BadParse(_)
             | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
-            ApiError::ServerError(_) | ApiError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -59,10 +77,11 @@ impl ApiError {
     pub fn bad_parse(err: impl Into<ParseError>) -> Self {
         ApiError::BadParse(err.into())
     }
+}
 
-    /// Creates a new ApiError from any error not accounted for.
-    pub fn other(err: impl Error + Send + Sync + 'static) -> Self {
-        ApiError::Other(Box::new(err))
+impl<T: Into<InternalApiError>> From<T> for ApiError {
+    fn from(err: T) -> Self {
+        ApiError::Internal(err.into())
     }
 }
 
@@ -71,24 +90,6 @@ impl IntoResponse for ApiError {
         ErrorBody::from(self).into_response()
     }
 }
-
-macro_rules! impl_from_error {
-    ($($t:ty),*) => {
-        $(
-            impl From<$t> for ApiError {
-                fn from(err: $t) -> Self {
-                    Self::other(err)
-                }
-            }
-        )*
-    };
-}
-impl_from_error!(mongodb::error::Error);
-impl_from_error!(ValueAccessError);
-impl_from_error!(DocError);
-impl_from_error!(UnexpectedLedgerInclusionState);
-#[cfg(feature = "stardust")]
-impl_from_error!(chronicle::stardust::Error);
 
 #[derive(Error, Debug)]
 pub enum ParseError {
