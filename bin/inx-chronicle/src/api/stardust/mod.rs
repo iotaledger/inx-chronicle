@@ -46,7 +46,7 @@ pub fn routes() -> Router {
 
 pub(crate) async fn start_milestone(database: &MongoDatabase, start_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
-        .collection::<MilestoneRecord>()
+        .doc_collection::<MilestoneRecord>()
         .find(
             doc! {"milestone_timestamp": { "$gte": DateTime::from_millis(start_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()
@@ -64,7 +64,7 @@ pub(crate) async fn start_milestone(database: &MongoDatabase, start_timestamp: O
 
 pub(crate) async fn end_milestone(database: &MongoDatabase, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
-        .collection::<MilestoneRecord>()
+        .doc_collection::<MilestoneRecord>()
         .find(
             doc! {"milestone_timestamp": { "$lte": DateTime::from_millis(end_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()

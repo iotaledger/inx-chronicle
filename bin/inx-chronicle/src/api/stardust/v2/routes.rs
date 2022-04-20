@@ -52,7 +52,7 @@ pub fn routes() -> Router {
 
 async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
     let mut rec = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -71,7 +71,7 @@ async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<Stri
 
 async fn message_raw(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
     let mut rec = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -84,7 +84,7 @@ async fn message_metadata(
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
     let mut rec = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -138,7 +138,7 @@ async fn message_children(
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
     let messages = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find(
             doc! {"message.parents": &message_id},
             FindOptions::builder()
@@ -181,7 +181,7 @@ async fn output(
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
     let mut output = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .aggregate(
             vec![
                 doc! { "$match": { "message.payload.transaction_id": &transaction_id.to_string() } },
@@ -195,7 +195,7 @@ async fn output(
         .await?.ok_or(ApiError::NoResults)?;
 
     let spending_transaction = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find_one(
             doc! {
                 "inclusion_state": LedgerInclusionState::Included as u8 as i32,
@@ -223,7 +223,7 @@ async fn transaction_for_message(
     Path(message_id): Path<String>,
 ) -> ApiResult<TransactionResponse> {
     let mut rec = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -242,7 +242,7 @@ async fn transaction_included_message(
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
     let mut rec = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find_one(
             doc! {
                 "inclusion_state": LedgerInclusionState::Included as u8 as i32,
@@ -268,7 +268,7 @@ async fn transaction_included_message(
 
 async fn milestone(database: Extension<MongoDatabase>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
     database
-        .collection::<MilestoneRecord>()
+        .doc_collection::<MilestoneRecord>()
         .find_one(doc! {"milestone_index": &index}, None)
         .await?
         .ok_or(ApiError::NoResults)
@@ -292,7 +292,7 @@ async fn address_analytics(
     let end_milestone = end_milestone(&database, end_timestamp).await?;
 
     let res = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .aggregate(
             vec![
                 doc! { "$match": {

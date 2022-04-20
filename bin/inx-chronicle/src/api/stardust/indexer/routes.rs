@@ -52,7 +52,7 @@ async fn messages_query(
     }
 
     let messages = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .find(
             query_doc,
             FindOptions::builder()
@@ -140,7 +140,7 @@ async fn outputs_query(
     }
 
     let outputs = database
-        .collection::<MessageRecord>()
+        .doc_collection::<MessageRecord>()
         .aggregate(query_doc, None)
         .await?
         .try_collect::<Vec<_>>()

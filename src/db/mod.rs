@@ -91,7 +91,12 @@ impl MongoDatabase {
     }
 
     /// Gets a model type's collection.
-    pub fn collection<M: Model>(&self) -> Collection<Document> {
+    pub fn collection<M: Model>(&self) -> Collection<M> {
+        self.db.collection(M::COLLECTION)
+    }
+
+    /// Gets a model type's collection.
+    pub fn doc_collection<M: Model>(&self) -> Collection<Document> {
         self.db.collection(M::COLLECTION)
     }
 }
