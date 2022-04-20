@@ -73,18 +73,18 @@ impl<A: Actor> ActorContext<A> {
     pub(crate) async fn start(
         &mut self,
         actor: &mut A,
-        actor_data: &mut Option<A::State>,
+        actor_state: &mut Option<A::State>,
         abort_reg: AbortRegistration,
     ) -> Result<Result<Result<(), A::Error>, Box<dyn Any + Send>>, Aborted> {
         let res = Abortable::new(
             AssertUnwindSafe(async {
-                let mut data = actor.init(self).await?;
+                let mut state = actor.init(self).await?;
                 // Call handle events until shutdown
-                let mut res = actor.run(self, &mut data).await;
-                if let Err(e) = actor.shutdown(self, &mut data).await {
+                let mut res = actor.run(self, &mut state).await;
+                if let Err(e) = actor.shutdown(self, &mut state).await {
                     res = Err(e);
                 }
-                actor_data.replace(data);
+                actor_state.replace(state);
                 res
             })
             .catch_unwind(),
