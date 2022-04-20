@@ -36,17 +36,17 @@ pub trait Actor: Send + Sync + Sized {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error>;
 
     /// Run the actor event loop
-    async fn run(&mut self, cx: &mut ActorContext<Self>, data: &mut Self::State) -> Result<(), Self::Error> {
+    async fn run(&mut self, cx: &mut ActorContext<Self>, state: &mut Self::State) -> Result<(), Self::Error> {
         while let Some(evt) = cx.inbox().next().await {
             // Handle the event
-            evt.handle(cx, self, data).await?;
+            evt.handle(cx, self, state).await?;
         }
         log::debug!("{} exited event loop ({})", self.name(), cx.id());
         Ok(())
     }
 
     /// Handle any processing that needs to happen on shutdown
-    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _data: &mut Self::State) -> Result<(), Self::Error> {
+    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
         Ok(())
     }

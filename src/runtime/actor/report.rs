@@ -29,11 +29,11 @@ pub struct ErrorReport<A: Actor> {
     /// The actor's internal state when it finished running
     pub internal_state: Option<A::State>,
     /// The error that occurred
-    pub error: ActorError,
+    pub error: ActorError<A>,
 }
 
 impl<A: Actor> ErrorReport<A> {
-    pub(crate) fn new(actor: A, internal_state: Option<A::State>, error: ActorError) -> Report<A> {
+    pub(crate) fn new(actor: A, internal_state: Option<A::State>, error: ActorError<A>) -> Report<A> {
         Err(Self {
             actor,
             internal_state,

@@ -12,7 +12,7 @@ mod config;
 #[cfg(feature = "stardust")]
 mod inx_listener;
 
-use std::error::Error;
+use std::{error::Error, ops::Deref};
 
 #[cfg(feature = "api")]
 use api::ApiWorker;
@@ -106,7 +106,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
                 cx.shutdown();
             }
             Err(e) => match e.error {
-                ActorError::Result(e) => match e.downcast_ref::<<Broker as Actor>::Error>().unwrap() {
+                ActorError::Result(e) => match e.deref() {
                     BrokerError::RuntimeError(_) => {
                         cx.shutdown();
                     }
@@ -151,7 +151,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                 cx.shutdown();
             }
             Err(e) => match &e.error {
-                ActorError::Result(e) => match e.downcast_ref::<<InxListener as Actor>::Error>().unwrap() {
+                ActorError::Result(e) => match e.deref() {
                     InxListenerError::Inx(e) => match e {
                         // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                         InxError::TransportFailed(e) => match e.to_string().as_ref() {

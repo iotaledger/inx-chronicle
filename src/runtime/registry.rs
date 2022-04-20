@@ -121,12 +121,7 @@ impl Scope {
         for child_scope in children {
             child_scope.abort().await;
         }
-        if let Some(handle) = self.shutdown_handle.as_ref() {
-            handle.shutdown();
-        }
-        if let Some(abort) = self.abort_handle.as_ref() {
-            abort.abort();
-        }
+        self.shutdown();
         log::trace!("Aborted scope {:x}", self.id.as_fields().0);
     }
 }
