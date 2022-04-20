@@ -141,13 +141,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
+name = "bee-ledger"
+version = "0.7.0"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
+dependencies = [
+ "bee-message",
+ "packable",
+ "thiserror",
+ "time-helper",
+]
+
+[[package]]
 name = "bee-message"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#4bba4416512e6882734c8bc2706cf8a96d34ebb7"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
 dependencies = [
  "bech32",
  "bee-pow",
- "bee-ternary",
+ "bee-ternary 0.6.0",
  "bitflags",
  "bytemuck",
  "derive_more",
@@ -160,17 +171,62 @@ dependencies = [
  "prefix-hex",
  "primitive-types",
  "serde",
+ "serde-big-array",
  "thiserror",
 ]
 
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#4bba4416512e6882734c8bc2706cf8a96d34ebb7"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
 dependencies = [
- "bee-ternary",
+ "bee-ternary 0.5.2",
  "iota-crypto",
  "thiserror",
+]
+
+[[package]]
+name = "bee-runtime"
+version = "0.1.1-alpha"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
+dependencies = [
+ "async-trait",
+ "bee-storage",
+ "dashmap",
+ "futures",
+ "log",
+]
+
+[[package]]
+name = "bee-storage"
+version = "0.9.0"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
+dependencies = [
+ "packable",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "bee-tangle"
+version = "0.3.0"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
+dependencies = [
+ "async-trait",
+ "bee-message",
+ "bee-runtime",
+ "bee-storage",
+ "bitflags",
+ "futures",
+ "hashbrown 0.12.0",
+ "log",
+ "packable",
+ "rand",
+ "ref-cast",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -181,7 +237,31 @@ checksum = "8e8479555c8e9bf3cad36daf16e6a2f77771774e977276a08df4d8ac5f1dda66"
 dependencies = [
  "autocfg",
  "num-traits",
+]
+
+[[package]]
+name = "bee-ternary"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0b9489a68e42231e9f4f1443c765d3f80433a52101510ab413e6a9cd2240d21"
+dependencies = [
+ "autocfg",
+ "num-traits",
  "serde",
+]
+
+[[package]]
+name = "bee-test"
+version = "0.1.0"
+source = "git+https://github.com/iotaledger/bee?branch=shimmer-develop#fbee1651e9939b6e113020ebd614ec38134c11ee"
+dependencies = [
+ "bee-ledger",
+ "bee-message",
+ "bee-tangle",
+ "bee-ternary 0.6.0",
+ "bytemuck",
+ "primitive-types",
+ "rand",
 ]
 
 [[package]]
@@ -299,6 +379,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "bee-message",
+ "bee-test",
  "clap",
  "dotenv",
  "env_logger",
@@ -324,7 +405,7 @@ dependencies = [
  "libc",
  "num-integer",
  "num-traits",
- "time",
+ "time 0.1.43",
  "winapi",
 ]
 
@@ -454,6 +535,16 @@ dependencies = [
  "darling_core",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "dashmap"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
 ]
 
 [[package]]
@@ -678,6 +769,7 @@ version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b7abd5d659d9b90c8cba917f6ec750a74e2dc23902ef9cd4cc8c8b22e6036a"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -959,7 +1051,7 @@ version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c98a3248cde6b42cb479a52089fe4fc20d12de51b8edd923294cd5240ec89b0"
 dependencies = [
- "bee-ternary",
+ "bee-ternary 0.5.2",
  "blake2",
  "digest 0.9.0",
  "ed25519-zebra",
@@ -1052,6 +1144,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if",
+ "serde",
 ]
 
 [[package]]
@@ -1217,6 +1310,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_threads"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aba1801fb138d8e85e11d0fc70baf4fe1cdfffda7c6cd34a854905df588e5ed0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1246,9 +1348,9 @@ checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
 
 [[package]]
 name = "packable"
-version = "0.2.1"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20cec85c48c3327e1255919f61f5d132a7e54408f3ed39e1801414c456786d6e"
+checksum = "e7dc9526643ad02793553407dbbea8924e467e48670c5e04eddd5051435a2b4c"
 dependencies = [
  "autocfg",
  "packable-derive",
@@ -1258,9 +1360,9 @@ dependencies = [
 
 [[package]]
 name = "packable-derive"
-version = "0.2.1"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5a8ea15d7e52c248d0f90fd5d420bcfe08b0ad15ff2b9a1b4b1b9eb81a15c63"
+checksum = "1a920d9686d0f165c5749e60d7ff1dfbfd470feabdd311d3c52f5e471dac8432"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
@@ -1582,6 +1684,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ref-cast"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300f2a835d808734ee295d45007adacb9ebb29dd3ae2424acfa17930cae541da"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c38e3aecd2b21cb3959637b883bb3714bc7e43f0268b9a29d3743ee3e55cdd2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "regex"
 version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1726,6 +1848,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-big-array"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -1969,6 +2100,26 @@ checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "time"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2702e08a7a860f005826c6815dcac101b19b5eb330c27fe4a5928fec1d20ddd"
+dependencies = [
+ "itoa",
+ "libc",
+ "num_threads",
+]
+
+[[package]]
+name = "time-helper"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17c30f0091717eeeff0b556d830302d5563de8b72fd49127aa5899a06a369808"
+dependencies = [
+ "time 0.3.9",
 ]
 
 [[package]]
@@ -2345,7 +2496,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cfcd319456c4d6ea10087ed423473267e1a071f3bc0aa89f80d60997843c6f0"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.6",
 ]
 
 [[package]]

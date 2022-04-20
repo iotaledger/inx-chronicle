@@ -9,65 +9,10 @@ use std::{
 
 use bee_message::{milestone::MilestoneIndex, Message, MessageId};
 use packable::{
-    packer::{IoPacker, Packer},
-    unpacker::{IoUnpacker, Unpacker},
+    packer::{CounterPacker, IoPacker},
+    unpacker::{CounterUnpacker, IoUnpacker},
     Packable,
 };
-
-/// An unpacker backed by a `File` that tracks the position of the file cursor.
-struct FileUnpacker<'a> {
-    inner: IoUnpacker<&'a mut File>,
-    pos: usize,
-}
-
-impl<'a> FileUnpacker<'a> {
-    fn new(inner: IoUnpacker<&'a mut File>, pos: usize) -> Self {
-        Self { inner, pos }
-    }
-}
-
-impl<'a> Unpacker for FileUnpacker<'a> {
-    type Error = <IoUnpacker<&'a mut File> as Unpacker>::Error;
-
-    #[inline]
-    fn unpack_bytes<B: AsMut<[u8]>>(&mut self, mut bytes: B) -> Result<(), Self::Error> {
-        let bytes = bytes.as_mut();
-        self.pos -= bytes.len();
-
-        self.inner.unpack_bytes(bytes)?;
-
-        Ok(())
-    }
-}
-
-/// A packer backed by a `File` that tracks the position of the file cursor.
-struct FilePacker {
-    inner: IoPacker<File>,
-    pos: usize,
-}
-
-impl FilePacker {
-    fn create<P: AsRef<Path>>(path: &P) -> Result<Self, io::Error> {
-        Ok(Self {
-            inner: IoPacker::new(File::create(path)?),
-            pos: 0,
-        })
-    }
-}
-
-impl Packer for FilePacker {
-    type Error = <IoPacker<File> as Packer>::Error;
-
-    #[inline]
-    fn pack_bytes<B: AsRef<[u8]>>(&mut self, bytes: B) -> Result<(), Self::Error> {
-        let bytes = bytes.as_ref();
-        self.pos += bytes.len();
-
-        self.inner.pack_bytes(bytes)?;
-
-        Ok(())
-    }
-}
 
 /// Archives milestones into a file.
 ///
@@ -84,7 +29,7 @@ impl Packer for FilePacker {
 /// - `messages_len` is the length in bytes of all the message ID and message pairs in the current
 /// milestone.
 pub fn archive_milestones<P, E, I, F>(
-    path: &P,
+    path: P,
     first_index: MilestoneIndex,
     last_index: MilestoneIndex,
     f: F,
@@ -95,7 +40,7 @@ where
     I: Iterator<Item = Result<(MessageId, Message), E>>,
     F: Fn(MilestoneIndex) -> Result<I, E>,
 {
-    let mut file = FilePacker::create(path)?;
+    let mut file = CounterPacker::new(IoPacker::new(File::create(path)?));
 
     // Write the first index
     first_index.pack(&mut file)?;
@@ -112,14 +57,14 @@ where
         // FIXME: unwrap
         // The position where the total length of the messages will be written. We store it as a
         // `u64` because that is what `SeekFrom` uses.
-        let pos = u64::try_from(file.pos).unwrap();
+        let pos = u64::try_from(file.counter()).unwrap();
 
         // Instead of computing the length of all the messages, we will write a zero and backpatch
         // it later.
         0u64.pack(&mut file)?;
 
         // The position before writing the messages.
-        let start_pos = file.pos;
+        let start_pos = file.counter();
 
         for res in milestone_iter {
             let (message_id, message) = res?;
@@ -133,14 +78,14 @@ where
         // FIXME: unwrap
         // The length of all the messages in this milestone. We store it as a `u64` because we will
         // use `Write::write_all` instead of `Packable::pack` to backpatch the value.
-        let len = u64::try_from(file.pos - start_pos).unwrap();
+        let len = u64::try_from(file.counter() - start_pos).unwrap();
 
         backpatches.push((pos, len));
 
         milestone_index = MilestoneIndex(*milestone_index + 1);
     }
 
-    let mut file = file.inner.into_inner();
+    let mut file = file.into_inner().into_inner();
 
     for (pos, len) in backpatches {
         // Jump to the position.
@@ -161,7 +106,7 @@ pub struct Archive {
 
 impl Archive {
     /// FIXME: docs
-    pub fn open<P: AsRef<Path>>(path: &P) -> Result<Self, io::Error> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         let mut file = File::open(path)?;
 
         let mut unpacker = IoUnpacker::new(&mut file);
@@ -191,7 +136,7 @@ impl Archive {
                 // FIXME: unwrap
                 let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
 
-                self.first_index = MilestoneIndex(*self.first_index + 1);
+                self.first_index = self.first_index + 1;
 
                 // FIXME: unwrap
                 self.file.seek(SeekFrom::Current(len.try_into().unwrap())).unwrap();
@@ -223,26 +168,28 @@ impl Archive {
         let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
 
         let milestone_index = self.first_index;
-        self.first_index = MilestoneIndex(*self.first_index + 1);
+        self.first_index = self.first_index + 1;
 
         Some(Ok((
             milestone_index,
             ArchivedMilestoneIter {
-                file: FileUnpacker::new(file, len),
+                file: CounterUnpacker::new(file),
+                len,
             },
         )))
     }
 }
 
 struct ArchivedMilestoneIter<'a> {
-    file: FileUnpacker<'a>,
+    file: CounterUnpacker<IoUnpacker<&'a mut File>>,
+    len: usize,
 }
 
 impl<'a> Iterator for ArchivedMilestoneIter<'a> {
     type Item = Result<(MessageId, Message), io::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.file.pos == 0 {
+        if self.file.counter() == self.len {
             return None;
         }
 

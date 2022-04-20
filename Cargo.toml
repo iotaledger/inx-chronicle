@@ -21,6 +21,7 @@ path = "bin/inx-chronicle/src/main.rs"
 [dependencies]
 async-recursion = { version = "1.0", default-features = false }
 async-trait = { version = "0.1", default-features = false }
+bee-message = { git = "https://github.com/iotaledger/bee", branch = "shimmer-develop", version  = "0.2.0", default-features = false, features = [ "serde", "std" ] }
 clap = { version = "3.1", default-features = false, features = [ "derive", "std" ] }
 dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
@@ -28,11 +29,13 @@ futures = { version = "0.3", default-features = false }
 inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
+packable = { version = "0.3.1", default-features = false, features = [ "io" ] }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.17", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
 uuid = { version = "1.0", default-features = false, features = ["v4"] }
-packable = { version = "0.2.1", default-features = false, features = [ "io" ] }
-bee-message = { git = "https://github.com/iotaledger/bee", branch = "shimmer-develop", version  = "0.2.0", default-features = false, features = [ "serde", "std" ] }
+
+[dev-dependencies]
+bee-test = { git = "https://github.com/iotaledger/bee", branch = "shimmer-develop", version  = "0.1.0", default-features = false }
