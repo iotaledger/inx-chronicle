@@ -49,10 +49,6 @@ serde_urlencoded = { version = "0.7", default-features = false, optional = true 
 tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.2", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
-# Metrics
-lazy_static = { version = "1.4", default-features = false, optional = true }
-prometheus = { version = "0.13", default-features = false, optional = true }
-
 # Stardust types
 bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
@@ -63,7 +59,7 @@ bee-message-stardust = { package = "bee-message", git = "https://github.com/iota
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
 
 [features]
-default = ["api-v2", "api-metrics"]
+default = ["api-v2"]
 api = [ 
     "axum",
     "derive_more/from",
@@ -71,11 +67,6 @@ api = [
     "serde_urlencoded",
     "tower",
     "tower-http",
-]
-api-metrics = [ 
-    "api",
-    "lazy_static",
-    "prometheus",
 ]
 api-v2 = [
     "api",

@@ -26,12 +26,6 @@ pub fn routes(db: MongoDatabase) -> Router {
         router = router.nest("/v2", crate::api::v2::routes())
     }
 
-    #[cfg(feature = "api-metrics")]
-    {
-        router = router.merge(crate::api::metrics::routes());
-        router = router.layer(crate::api::metrics::MetricsLayer);
-    }
-
     Router::new()
         .nest("/api", router)
         .fallback(not_found.into_service())
