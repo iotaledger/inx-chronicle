@@ -1,15 +1,17 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 use thiserror::Error;
 
+use super::Actor;
+
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
-pub enum ActorError {
+pub enum ActorError<A: Actor> {
     #[error("Actor error: {0:?}")]
-    Result(Arc<Box<dyn Error + Send + Sync>>),
+    Result(Arc<A::Error>),
     #[error("Actor panicked")]
     Panic,
     #[error("Actor aborted")]
