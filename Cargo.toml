@@ -59,7 +59,12 @@ bee-message-stardust = { package = "bee-message", git = "https://github.com/iota
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
 
 [features]
-default = ["api-v2"]
+default = [
+    "api-explorer", 
+    "api-indexer", 
+    "api-node", 
+    "stardust",
+]
 api = [ 
     "axum",
     "derive_more/from",
@@ -68,9 +73,14 @@ api = [
     "tower",
     "tower-http",
 ]
-api-v2 = [
+api-explorer = [
     "api",
-    "stardust",
+]
+api-indexer = [
+    "api",
+]
+api-node = [
+    "api",
 ]
 stardust = [
     "bee-message-stardust",

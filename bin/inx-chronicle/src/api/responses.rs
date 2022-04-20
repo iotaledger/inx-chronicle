@@ -4,8 +4,24 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::db::model::sync::SyncData;
+use chronicle::db::model::{inclusion_state::LedgerInclusionState, sync::SyncData};
+use derive_more::From;
 use serde::{Deserialize, Serialize};
+
+macro_rules! impl_success_response {
+    ($($type:ty),*) => {
+        $(
+            impl IntoResponse for $type {
+                fn into_response(self) -> axum::response::Response {
+                    SuccessBody::from(self).into_response()
+                }
+            }
+        )*
+    };
+}
+
+pub(crate) use impl_success_response;
+use serde_json::Value;
 
 /// Response of `GET /api/<api_version>/info`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -29,6 +45,51 @@ impl IntoResponse for SyncDataResponse {
     fn into_response(self) -> axum::response::Response {
         SuccessBody::from(self).into_response()
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, From)]
+#[serde(untagged)]
+pub enum Expansion {
+    Simple(String),
+    Expanded(Record),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Record {
+    pub id: String,
+    #[serde(rename = "inclusionState")]
+    pub inclusion_state: Option<LedgerInclusionState>,
+    #[serde(rename = "milestoneIndex")]
+    pub milestone_index: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Transfer {
+    #[serde(rename = "transactionId")]
+    pub transaction_id: String,
+    #[serde(rename = "outputIndex")]
+    pub output_index: u16,
+    #[serde(rename = "isSpending")]
+    pub is_spending: bool,
+    #[serde(rename = "inclusionState")]
+    pub inclusion_state: Option<LedgerInclusionState>,
+    #[serde(rename = "messageId")]
+    pub message_id: String,
+    pub amount: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MaybeSpentOutput {
+    pub output: Value,
+    #[serde(rename = "spendingMessageId")]
+    pub spending_message_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Unlock {
+    #[serde(rename = "messageId")]
+    pub message_id: String,
+    pub block: Value,
 }
 
 /// A success wrapper for API responses.

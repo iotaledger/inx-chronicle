@@ -3,24 +3,13 @@
 
 use axum::response::IntoResponse;
 use chronicle::db::model::inclusion_state::LedgerInclusionState;
-use derive_more::From;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::extractors::{MessagesQuery, OutputsQuery};
-use crate::api::responses::SuccessBody;
-
-macro_rules! impl_success_response {
-    ($($type:ty),*) => {
-        $(
-            impl IntoResponse for $type {
-                fn into_response(self) -> axum::response::Response {
-                    SuccessBody::from(self).into_response()
-                }
-            }
-        )*
-    };
-}
+use crate::api::{
+    impl_success_response,
+    responses::{Expansion, SuccessBody},
+};
 
 /// Response of `GET /api/v2/messages/<message_id>`
 /// and `GET /api/v2/transactions/<transaction_id>/included-message`.
@@ -75,32 +64,6 @@ pub struct MessageChildrenResponse {
 
 impl_success_response!(MessageChildrenResponse);
 
-/// Response of `GET /api/v2/messages`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MessagesForQueryResponse {
-    pub query: MessagesQuery,
-    #[serde(rename = "maxResults")]
-    pub max_results: usize,
-    pub count: usize,
-    #[serde(rename = "messageIds")]
-    pub message_ids: Vec<Expansion>,
-}
-
-impl_success_response!(MessagesForQueryResponse);
-
-/// Response of `GET /api/v2/addresses/<address>/outputs`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputsForQueryResponse {
-    pub query: OutputsQuery,
-    #[serde(rename = "maxResults")]
-    pub max_results: usize,
-    pub count: usize,
-    #[serde(rename = "outputIds")]
-    pub output_ids: Vec<Expansion>,
-}
-
-impl_success_response!(OutputsForQueryResponse);
-
 /// Response of `GET /api/v2/outputs/<output_id>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputResponse {
@@ -142,14 +105,6 @@ pub struct TransactionsResponse {
 
 impl_success_response!(TransactionsResponse);
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionHistoryResponse {
-    pub address: String,
-    pub transactions: Vec<Transfer>,
-}
-
-impl_success_response!(TransactionHistoryResponse);
-
 /// Response of `GET /api/v2/milestone/<index>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MilestoneResponse {
@@ -174,48 +129,3 @@ pub struct AddressAnalyticsResponse {
 }
 
 impl_success_response!(AddressAnalyticsResponse);
-
-#[derive(Clone, Debug, Serialize, Deserialize, From)]
-#[serde(untagged)]
-pub enum Expansion {
-    Simple(String),
-    Expanded(Record),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Transfer {
-    #[serde(rename = "transactionId")]
-    pub transaction_id: String,
-    #[serde(rename = "outputIndex")]
-    pub output_index: u16,
-    #[serde(rename = "isSpending")]
-    pub is_spending: bool,
-    #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
-    pub amount: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Record {
-    pub id: String,
-    #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<u32>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MaybeSpentOutput {
-    pub output: Value,
-    #[serde(rename = "spendingMessageId")]
-    pub spending_message_id: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Unlock {
-    #[serde(rename = "messageId")]
-    pub message_id: String,
-    pub block: Value,
-}

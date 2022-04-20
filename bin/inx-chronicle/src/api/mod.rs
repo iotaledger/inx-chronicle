@@ -6,10 +6,11 @@
 
 mod extractors;
 
-#[cfg(feature = "api-v2")]
-mod v2;
+#[cfg(feature = "stardust")]
+pub(crate) mod stardust;
 
 mod error;
+#[macro_use]
 mod responses;
 mod routes;
 
@@ -19,11 +20,12 @@ use chronicle::{
     db::MongoDatabase,
     runtime::actor::{context::ActorContext, Actor},
 };
+pub use error::ApiError;
+pub(crate) use responses::impl_success_response;
+pub use responses::SuccessBody;
 use routes::routes;
 use serde::Deserialize;
 use tokio::{sync::oneshot, task::JoinHandle};
-
-pub use self::error::ApiError;
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;

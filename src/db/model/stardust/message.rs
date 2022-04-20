@@ -23,7 +23,6 @@ pub struct MessageRecord {
     pub conflict_reason: Option<ConflictReason>,
 }
 
-#[allow(unused)]
 impl MessageRecord {
     /// Creates a new message record.
     pub fn new(message: Message, raw: Vec<u8>) -> Self {

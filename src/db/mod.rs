@@ -9,7 +9,7 @@ pub use error::MongoDbError;
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, Credential, UpdateOptions},
-    Client,
+    Client, Collection,
 };
 use serde::{Deserialize, Serialize};
 
@@ -88,5 +88,10 @@ impl MongoDatabase {
             )
             .await?;
         Ok(())
+    }
+
+    /// Gets a model type's collection.
+    pub fn collection<M: Model>(&self) -> Collection<Document> {
+        self.db.collection(M::COLLECTION)
     }
 }
