@@ -1,13 +1,17 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+/// Module containing utility extension traits for BSON.
+pub mod ext;
+
+pub use ext::*;
 use mongodb::bson::{ser::Error, Array, Bson, Document, Serializer as BsonSerializer};
 use serde::{
     ser::{
         SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
         SerializeTupleVariant,
     },
-    Serialize,
+    Deserialize, Serialize,
 };
 
 /// Converts a value into a [`Bson`] using custom serialization to avoid data loss.
@@ -19,8 +23,18 @@ where
     value.serialize(ser)
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
-struct U64 {
+/// Converts a value into a [`Bson`] using custom serialization to avoid data loss.
+pub fn to_document<T: ?Sized>(value: &T) -> Result<Document, Error>
+where
+    T: Serialize,
+{
+    let ser = Serializer(BsonSerializer::new());
+    value.serialize(ser).map(|bson| bson.to_document().unwrap())
+}
+
+/// Compatability type for u64 reprentation in BSON.
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct U64 {
     hi: u8,
     lo: i64,
 }
@@ -36,11 +50,10 @@ impl From<u64> for U64 {
     }
 }
 
-#[allow(clippy::from_over_into)]
-impl Into<u64> for U64 {
-    fn into(self) -> u64 {
+impl From<U64> for u64 {
+    fn from(v: U64) -> Self {
         // Using `as` is fine here because `From<u64>` guarantees that `lo` is non-negative.
-        (u64::from(self.hi) << 56) | (self.lo as u64)
+        (u64::from(v.hi) << 56) | (v.lo as u64)
     }
 }
 
