@@ -97,6 +97,7 @@ pub enum ParseError {
     TimeRange(#[from] time::error::ComponentRange),
     #[error(transparent)]
     Bool(#[from] ParseBoolError),
+    #[cfg(feature = "stardust")]
     #[error(transparent)]
     StardustId(#[from] chronicle::stardust::Error),
 }
