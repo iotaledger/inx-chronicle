@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Contains routes that can be used to access data stored by Chronicle
-//! as well as the health of the application and analytics.
+//! as well as the health of the application, metrics, and analytics.
 
 mod extractors;
+#[cfg(feature = "api-metrics")]
+mod metrics;
 
 #[cfg(feature = "api-v2")]
 mod v2;
@@ -47,6 +49,10 @@ impl API {
     /// Create a new Chronicle API actor from a mongo connection config.
     /// Will fail if the config is invalid.
     pub fn new(db: MongoDatabase) -> Self {
+        #[cfg(feature = "api-metrics")]
+        {
+            metrics::register_metrics();
+        }
         Self {
             db,
             server_handle: None,
