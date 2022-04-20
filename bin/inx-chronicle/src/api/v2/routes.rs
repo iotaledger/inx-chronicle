@@ -29,9 +29,9 @@ use super::{
     responses::*,
 };
 use crate::api::{
-    error::APIError,
+    error::ApiError,
     extractors::{Expanded, Pagination, TimeRange},
-    APIResult,
+    ApiResult,
 };
 
 pub fn routes() -> Router {
@@ -62,12 +62,12 @@ pub fn routes() -> Router {
         .nest("/analytics", Router::new().route("/addresses", get(address_analytics)))
 }
 
-async fn message(database: Extension<Database>, Path(message_id): Path<String>) -> APIResult<MessageResponse> {
+async fn message(database: Extension<Database>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
     let mut rec = database
         .collection::<Document>("stardust_messages")
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
-        .ok_or(APIError::NoResults)?;
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     Ok(MessageResponse {
         protocol_version: message.get_as_u8("protocol_version")?,
@@ -81,12 +81,12 @@ async fn message(database: Extension<Database>, Path(message_id): Path<String>) 
     })
 }
 
-async fn message_raw(database: Extension<Database>, Path(message_id): Path<String>) -> APIResult<Vec<u8>> {
+async fn message_raw(database: Extension<Database>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
     let mut rec = database
         .collection::<Document>("stardust_messages")
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
-        .ok_or(APIError::NoResults)?;
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     Ok(message.take_bytes("raw")?)
 }
@@ -94,12 +94,12 @@ async fn message_raw(database: Extension<Database>, Path(message_id): Path<Strin
 async fn message_metadata(
     database: Extension<Database>,
     Path(message_id): Path<String>,
-) -> APIResult<MessageMetadataResponse> {
+) -> ApiResult<MessageMetadataResponse> {
     let mut rec = database
         .collection::<Document>("stardust_messages")
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
-        .ok_or(APIError::NoResults)?;
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     let inclusion_state = rec.get("inclusion_state").map(|b| b.as_u8()).transpose()?;
     let milestone_index = rec.get("milestone_index").map(|b| b.as_u32()).transpose()?;
@@ -127,7 +127,7 @@ async fn message_children(
     Path(message_id): Path<String>,
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
-) -> APIResult<MessageChildrenResponse> {
+) -> ApiResult<MessageChildrenResponse> {
     let messages = database
         .collection::<Document>("stardust_messages")
         .find(
@@ -163,11 +163,11 @@ async fn message_children(
                     Ok(message.get_as_string("message_id")?.into())
                 }
             })
-            .collect::<Result<_, APIError>>()?,
+            .collect::<Result<_, ApiError>>()?,
     })
 }
 
-async fn start_milestone(database: &Database, start_timestamp: OffsetDateTime) -> APIResult<u32> {
+async fn start_milestone(database: &Database, start_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
         .collection::<Document>("stardust_milestones")
         .find(
@@ -182,10 +182,10 @@ async fn start_milestone(database: &Database, start_timestamp: OffsetDateTime) -
         .await?
         .map(|d| d.get_as_u32("milestone_index"))
         .transpose()?
-        .ok_or(APIError::NotFound)
+        .ok_or(ApiError::NotFound)
 }
 
-async fn end_milestone(database: &Database, end_timestamp: OffsetDateTime) -> APIResult<u32> {
+async fn end_milestone(database: &Database, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
         .collection::<Document>("stardust_milestones")
         .find(
@@ -200,7 +200,7 @@ async fn end_milestone(database: &Database, end_timestamp: OffsetDateTime) -> AP
         .await?
         .map(|d| d.get_as_u32("milestone_index"))
         .transpose()?
-        .ok_or(APIError::NotFound)
+        .ok_or(ApiError::NotFound)
 }
 
 async fn messages_query(
@@ -212,7 +212,7 @@ async fn messages_query(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> APIResult<MessagesForQueryResponse> {
+) -> ApiResult<MessagesForQueryResponse> {
     let MessagesQuery { tag, included: _ } = &query;
     let start_milestone = start_milestone(&database, start_timestamp).await?;
     let end_milestone = end_milestone(&database, end_timestamp).await?;
@@ -257,14 +257,14 @@ async fn messages_query(
                     Ok(message.get_as_string("message_id")?.into())
                 }
             })
-            .collect::<Result<_, APIError>>()?,
+            .collect::<Result<_, ApiError>>()?,
     })
 }
 
 async fn output(
     database: Extension<Database>,
     Path((transaction_id, idx)): Path<(String, u16)>,
-) -> APIResult<OutputResponse> {
+) -> ApiResult<OutputResponse> {
     let mut output = database
         .collection::<Document>("stardust_messages")
         .aggregate(
@@ -277,7 +277,7 @@ async fn output(
         )
         .await?
         .try_next()
-        .await?.ok_or(APIError::NoResults)?;
+        .await?.ok_or(ApiError::NoResults)?;
 
     let spending_transaction = database
         .collection::<Document>("stardust_messages")
@@ -312,7 +312,7 @@ async fn outputs_query(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> APIResult<OutputsForQueryResponse> {
+) -> ApiResult<OutputsForQueryResponse> {
     let OutputsQuery {
         address,
         included,
@@ -390,7 +390,7 @@ async fn outputs_query(
                     output_id.to_string().into()
                 })
             })
-            .collect::<Result<_, APIError>>()?,
+            .collect::<Result<_, ApiError>>()?,
     })
 }
 
@@ -402,7 +402,7 @@ async fn transaction_history(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> APIResult<TransactionHistoryResponse> {
+) -> ApiResult<TransactionHistoryResponse> {
     let start_milestone = start_milestone(&database, start_timestamp).await?;
     let end_milestone = end_milestone(&database, end_timestamp).await?;
 
@@ -491,7 +491,7 @@ async fn transaction_history(
                 amount: output.get_as_u64("amount")?,
             })
         })
-        .collect::<Result<_, APIError>>()?;
+        .collect::<Result<_, ApiError>>()?;
 
     Ok(TransactionHistoryResponse { transactions, address })
 }
@@ -499,12 +499,12 @@ async fn transaction_history(
 async fn transaction_for_message(
     database: Extension<Database>,
     Path(message_id): Path<String>,
-) -> APIResult<TransactionResponse> {
+) -> ApiResult<TransactionResponse> {
     let mut rec = database
         .collection::<Document>("stardust_messages")
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
-        .ok_or(APIError::NoResults)?;
+        .ok_or(ApiError::NoResults)?;
     let mut essence = rec.take_path("message.payload.data.essence.data")?.to_document()?;
 
     Ok(TransactionResponse {
@@ -518,7 +518,7 @@ async fn transaction_for_message(
 async fn transaction_included_message(
     database: Extension<Database>,
     Path(transaction_id): Path<String>,
-) -> APIResult<MessageResponse> {
+) -> ApiResult<MessageResponse> {
     let mut rec = database
         .collection::<Document>("stardust_messages")
         .find_one(
@@ -529,7 +529,7 @@ async fn transaction_included_message(
             None,
         )
         .await?
-        .ok_or(APIError::NoResults)?;
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
 
     Ok(MessageResponse {
@@ -544,12 +544,12 @@ async fn transaction_included_message(
     })
 }
 
-async fn milestone(database: Extension<Database>, Path(index): Path<u32>) -> APIResult<MilestoneResponse> {
+async fn milestone(database: Extension<Database>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
     database
         .collection::<Document>("stardust_milestones")
         .find_one(doc! {"milestone_index": &index}, None)
         .await?
-        .ok_or(APIError::NoResults)
+        .ok_or(ApiError::NoResults)
         .and_then(|rec| {
             Ok(MilestoneResponse {
                 milestone_index: index,
@@ -565,7 +565,7 @@ async fn address_analytics(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> APIResult<AddressAnalyticsResponse> {
+) -> ApiResult<AddressAnalyticsResponse> {
     let start_milestone = start_milestone(&database, start_timestamp).await?;
     let end_milestone = end_milestone(&database, end_timestamp).await?;
 
@@ -631,7 +631,7 @@ async fn address_analytics(
             ],
             None,
         )
-        .await?.try_next().await?.ok_or(APIError::NoResults)?;
+        .await?.try_next().await?.ok_or(ApiError::NoResults)?;
 
     Ok(AddressAnalyticsResponse {
         total_addresses: res.get_as_u64("total_addresses")?,

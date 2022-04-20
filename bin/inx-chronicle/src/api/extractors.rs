@@ -6,7 +6,7 @@ use axum::extract::{FromRequest, Query};
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::error::APIError;
+use super::error::ApiError;
 
 #[derive(Copy, Clone, Deserialize)]
 #[serde(default)]
@@ -26,12 +26,12 @@ impl Default for Pagination {
 
 #[async_trait]
 impl<B: Send> FromRequest<B> for Pagination {
-    type Rejection = APIError;
+    type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(pagination) = Query::<Pagination>::from_request(req)
             .await
-            .map_err(APIError::QueryError)?;
+            .map_err(ApiError::QueryError)?;
         Ok(pagination)
     }
 }
@@ -51,7 +51,7 @@ pub struct TimeRange {
 
 #[async_trait]
 impl<B: Send> FromRequest<B> for TimeRange {
-    type Rejection = APIError;
+    type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(TimeRangeQuery {
@@ -59,21 +59,21 @@ impl<B: Send> FromRequest<B> for TimeRange {
             end_timestamp,
         }) = Query::<TimeRangeQuery>::from_request(req)
             .await
-            .map_err(APIError::QueryError)?;
+            .map_err(ApiError::QueryError)?;
         let time_range = TimeRange {
             start_timestamp: start_timestamp
                 .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
                 .transpose()
-                .map_err(APIError::bad_parse)?
+                .map_err(ApiError::bad_parse)?
                 .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::days(30)),
             end_timestamp: end_timestamp
                 .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
                 .transpose()
-                .map_err(APIError::bad_parse)?
+                .map_err(ApiError::bad_parse)?
                 .unwrap_or_else(OffsetDateTime::now_utc),
         };
         if time_range.end_timestamp < time_range.start_timestamp {
-            return Err(APIError::BadTimeRange);
+            return Err(ApiError::BadTimeRange);
         }
         Ok(time_range)
     }
@@ -93,12 +93,12 @@ impl Default for Included {
 
 #[async_trait]
 impl<B: Send> FromRequest<B> for Included {
-    type Rejection = APIError;
+    type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(included) = Query::<Included>::from_request(req)
             .await
-            .map_err(APIError::QueryError)?;
+            .map_err(ApiError::QueryError)?;
         Ok(included)
     }
 }
@@ -111,12 +111,12 @@ pub struct Expanded {
 
 #[async_trait]
 impl<B: Send> FromRequest<B> for Expanded {
-    type Rejection = APIError;
+    type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(expanded) = Query::<Expanded>::from_request(req)
             .await
-            .map_err(APIError::QueryError)?;
+            .map_err(ApiError::QueryError)?;
         Ok(expanded)
     }
 }

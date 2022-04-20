@@ -23,14 +23,14 @@ use routes::routes;
 use serde::Deserialize;
 use tokio::{sync::oneshot, task::JoinHandle};
 
-pub use self::error::APIError;
+pub use self::error::ApiError;
 
 /// The result of a request to the api
-pub type APIResult<T> = Result<T, APIError>;
+pub type ApiResult<T> = Result<T, ApiError>;
 
 /// API version enumeration
 #[derive(Copy, Clone, Deserialize)]
-pub enum APIVersion {
+pub enum ApiVersion {
     /// Stardust API version 2
     #[serde(rename = "v2")]
     V2,
@@ -38,14 +38,13 @@ pub enum APIVersion {
 
 /// The Chronicle API actor
 #[derive(Debug)]
-pub struct API {
+pub struct ApiWorker {
     db: MongoDatabase,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
-impl API {
-    /// Create a new Chronicle API actor from a mongo connection config.
-    /// Will fail if the config is invalid.
+impl ApiWorker {
+    /// Create a new Chronicle API actor from a mongo connection.
     pub fn new(db: MongoDatabase) -> Self {
         Self {
             db,
@@ -55,14 +54,14 @@ impl API {
 }
 
 #[async_trait]
-impl Actor for API {
+impl Actor for ApiWorker {
     type State = ();
 
-    type Error = APIError;
+    type Error = ApiError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
-        log::info!("Starting Axum server");
+        log::info!("Starting API server");
         let db = self.db.clone();
         let api_handle = cx.handle().clone();
         let join_handle = tokio::spawn(async move {
@@ -81,13 +80,12 @@ impl Actor for API {
     async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
         if let Some((join_handle, shutdown_handle)) = self.server_handle.take() {
-            log::info!("Stopping Axum server");
             // Try to shut down axum. It may have already shut down, which is fine.
             shutdown_handle.send(()).ok();
             // Wait to shutdown until the child task is complete.
             join_handle.await.unwrap()?;
         }
-        log::info!("Stopping API");
+        log::info!("Stopping API server");
         Ok(())
     }
 }

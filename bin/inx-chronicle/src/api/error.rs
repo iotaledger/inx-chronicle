@@ -12,7 +12,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
-pub enum APIError {
+pub enum ApiError {
     #[error("No results returned!")]
     NoResults,
     #[error("Provided index is too large! (Max 64 bytes)")]
@@ -35,18 +35,18 @@ pub enum APIError {
     Other(#[from] Box<dyn Error + Send + Sync>),
 }
 
-impl APIError {
+impl ApiError {
     /// Gets the HTTP status code associated with this error.
     pub fn status(&self) -> StatusCode {
         match self {
-            APIError::NoResults | APIError::NotFound => StatusCode::NOT_FOUND,
-            APIError::IndexTooLarge
-            | APIError::TagTooLarge
-            | APIError::InvalidHex
-            | APIError::BadTimeRange
-            | APIError::BadParse(_)
-            | APIError::QueryError(_) => StatusCode::BAD_REQUEST,
-            APIError::ServerError(_) | APIError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
+            ApiError::IndexTooLarge
+            | ApiError::TagTooLarge
+            | ApiError::InvalidHex
+            | ApiError::BadTimeRange
+            | ApiError::BadParse(_)
+            | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
+            ApiError::ServerError(_) | ApiError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -55,18 +55,18 @@ impl APIError {
         self.status().as_u16()
     }
 
-    /// Creates a new APIError from a bad parse.
+    /// Creates a new ApiError from a bad parse.
     pub fn bad_parse(err: impl Into<ParseError>) -> Self {
-        APIError::BadParse(err.into())
+        ApiError::BadParse(err.into())
     }
 
-    /// Creates a new APIError from any error not accounted for.
+    /// Creates a new ApiError from any error not accounted for.
     pub fn other(err: impl Error + Send + Sync + 'static) -> Self {
-        APIError::Other(Box::new(err))
+        ApiError::Other(Box::new(err))
     }
 }
 
-impl IntoResponse for APIError {
+impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
         ErrorBody::from(self).into_response()
     }
@@ -75,7 +75,7 @@ impl IntoResponse for APIError {
 macro_rules! impl_from_error {
     ($($t:ty),*) => {
         $(
-            impl From<$t> for APIError {
+            impl From<$t> for ApiError {
                 fn from(err: $t) -> Self {
                     Self::other(err)
                 }
@@ -122,8 +122,8 @@ impl IntoResponse for ErrorBody {
     }
 }
 
-impl From<APIError> for ErrorBody {
-    fn from(err: APIError) -> Self {
+impl From<ApiError> for ErrorBody {
+    fn from(err: ApiError) -> Self {
         Self {
             status: err.status(),
             code: err.code(),

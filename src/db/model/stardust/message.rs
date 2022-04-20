@@ -6,21 +6,26 @@ use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
 use crate::db::model::{inclusion_state::LedgerInclusionState, Model};
-/// Chronicle Message record
+/// Chronicle Message record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[allow(missing_docs)]
 pub struct MessageRecord {
+    /// The message ID.
     pub message_id: MessageId,
+    /// The message.
     pub message: Message,
+    /// The raw bytes of the message.
     pub raw: Vec<u8>,
+    /// The milestone index referencing the milestone.
     pub milestone_index: Option<u32>,
+    /// The inclusion state of the message.
     pub inclusion_state: Option<LedgerInclusionState>,
+    /// If the ledger inclusion state is conflicting, the reason for the conflict.
     pub conflict_reason: Option<ConflictReason>,
 }
 
 #[allow(unused)]
 impl MessageRecord {
-    /// Create new message record
+    /// Creates a new message record.
     pub fn new(message: Message, raw: Vec<u8>) -> Self {
         Self {
             message_id: message.id(),
@@ -31,27 +36,27 @@ impl MessageRecord {
             conflict_reason: None,
         }
     }
-    /// Return Message id of the message
+    /// Returns Message id of the message.
     pub fn message_id(&self) -> &MessageId {
         &self.message_id
     }
 
-    /// Return the message
+    /// Returns the message.
     pub fn message(&self) -> &Message {
         &self.message
     }
 
-    /// Return referenced milestone index
+    /// Returns referenced milestone index.
     pub fn milestone_index(&self) -> Option<u32> {
         self.milestone_index
     }
 
-    /// Return inclusion_state
+    /// Returns inclusion_state.
     pub fn inclusion_state(&self) -> Option<&LedgerInclusionState> {
         self.inclusion_state.as_ref()
     }
 
-    /// Return conflict_reason
+    /// Returns conflict_reason.
     pub fn conflict_reason(&self) -> Option<&ConflictReason> {
         self.conflict_reason.as_ref()
     }

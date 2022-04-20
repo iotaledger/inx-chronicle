@@ -22,8 +22,8 @@ macro_rules! impl_success_response {
     };
 }
 
-/// Response of GET /api/v2/messages/<message_id>
-/// and GET /api/v2/transactions/<transaction_id>/included-message
+/// Response of `GET /api/v2/messages/<message_id>`
+/// and `GET /api/v2/transactions/<transaction_id>/included-message`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageResponse {
     #[serde(rename = "protocolVersion")]
@@ -36,7 +36,7 @@ pub struct MessageResponse {
 
 impl_success_response!(MessageResponse);
 
-/// Response of GET /api/v2/messages/<message_id>/metadata
+/// Response of `GET /api/v2/messages/<message_id>/metadata`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageMetadataResponse {
     #[serde(rename = "messageId")]
@@ -61,7 +61,7 @@ pub struct MessageMetadataResponse {
 
 impl_success_response!(MessageMetadataResponse);
 
-/// Response of GET /api/v2/messages/<message_id>/children
+/// Response of `GET /api/v2/messages/<message_id>/children`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageChildrenResponse {
     #[serde(rename = "messageId")]
@@ -75,7 +75,7 @@ pub struct MessageChildrenResponse {
 
 impl_success_response!(MessageChildrenResponse);
 
-/// Response of GET /api/v2/messages
+/// Response of `GET /api/v2/messages`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessagesForQueryResponse {
     pub query: MessagesQuery,
@@ -88,7 +88,7 @@ pub struct MessagesForQueryResponse {
 
 impl_success_response!(MessagesForQueryResponse);
 
-/// Response of GET /api/v2/addresses/<address>/outputs
+/// Response of `GET /api/v2/addresses/<address>/outputs`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputsForQueryResponse {
     pub query: OutputsQuery,
@@ -101,7 +101,7 @@ pub struct OutputsForQueryResponse {
 
 impl_success_response!(OutputsForQueryResponse);
 
-/// Response of GET /api/v2/outputs/<output_id>
+/// Response of `GET /api/v2/outputs/<output_id>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputResponse {
     #[serde(rename = "messageId")]
@@ -117,7 +117,7 @@ pub struct OutputResponse {
 
 impl_success_response!(OutputResponse);
 
-/// Response of GET /api/v2/transactions/<message_id>
+/// Response of `GET /api/v2/transactions/<message_id>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionResponse {
     /// The created output's message id
@@ -134,7 +134,7 @@ pub struct TransactionResponse {
 
 impl_success_response!(TransactionResponse);
 
-/// Response of GET /api/v2/transactions/ed25519/<address>
+/// Response of `GET /api/v2/transactions/ed25519/<address>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionsResponse {
     pub transactions: Vec<TransactionResponse>,
@@ -150,7 +150,7 @@ pub struct TransactionHistoryResponse {
 
 impl_success_response!(TransactionHistoryResponse);
 
-/// Response of GET /api/v2/milestone/<index>
+/// Response of `GET /api/v2/milestone/<index>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MilestoneResponse {
     #[serde(rename = "index")]
@@ -162,7 +162,7 @@ pub struct MilestoneResponse {
 
 impl_success_response!(MilestoneResponse);
 
-/// Response of GET /api/v2/analytics/addresses[?start_timestamp=<u32>&end_timestamp=<u32>]
+/// Response of `GET /api/v2/analytics/addresses[?start_timestamp=<u32>&end_timestamp=<u32>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AddressAnalyticsResponse {
     #[serde(rename = "totalAddresses")]

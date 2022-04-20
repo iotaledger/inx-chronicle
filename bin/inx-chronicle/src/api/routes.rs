@@ -15,7 +15,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use super::{error::APIError, responses::*, APIResult};
+use super::{error::ApiError, responses::*, ApiResult};
 
 pub fn routes(db: MongoDatabase) -> Router {
     #[allow(unused_mut)]
@@ -51,7 +51,7 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<Database>) -> APIResult<SyncDataResponse> {
+async fn sync(database: Extension<Database>) -> ApiResult<SyncDataResponse> {
     let mut res = database
         .collection::<SyncRecord>("sync")
         .find(
@@ -86,7 +86,7 @@ async fn sync(database: Extension<Database>) -> APIResult<SyncDataResponse> {
                     .completed
                     .push(sync_record.milestone_index..sync_record.milestone_index),
             }
-        // Otherwise the are synced only
+        // Otherwise they are synced only
         } else {
             match sync_data.synced_but_unlogged.last_mut() {
                 Some(last) => {
@@ -108,6 +108,6 @@ async fn sync(database: Extension<Database>) -> APIResult<SyncDataResponse> {
     Ok(SyncDataResponse(sync_data))
 }
 
-async fn not_found() -> APIError {
-    APIError::NotFound
+async fn not_found() -> ApiError {
+    ApiError::NotFound
 }

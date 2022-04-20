@@ -7,7 +7,7 @@ use axum::response::IntoResponse;
 use chronicle::db::model::sync::SyncData;
 use serde::{Deserialize, Serialize};
 
-/// Response of GET /api/<api_version>/info
+/// Response of `GET /api/<api_version>/info`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InfoResponse {
     pub name: String,
@@ -31,7 +31,7 @@ impl IntoResponse for SyncDataResponse {
     }
 }
 
-/// A success wrapper for API responses
+/// A success wrapper for API responses.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SuccessBody<T> {
     data: T,
@@ -46,7 +46,7 @@ impl<T> Deref for SuccessBody<T> {
 }
 
 impl<T> SuccessBody<T> {
-    /// Create a new SuccessBody from any inner type
+    /// Create a new [`SuccessBody`] from any inner type.
     pub fn new(data: T) -> Self {
         Self { data }
     }
