@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use mongodb::bson::{document::ValueAccessError, from_bson, from_document, Bson, Document};
-use sealed::sealed;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 /// Gets values and upcasts if necessary
 #[allow(missing_docs)]
-#[sealed]
-pub trait BsonExt {
+pub trait BsonExt: private_bson_ext::SealedBsonExt {
     fn as_string(&self) -> Result<String, ValueAccessError>;
 
     fn as_u8(&self) -> Result<u8, ValueAccessError>;
@@ -27,7 +25,6 @@ pub trait BsonExt {
     fn to_document(self) -> Result<Document, ValueAccessError>;
 }
 
-#[sealed]
 impl BsonExt for Bson {
     fn as_string(&self) -> Result<String, ValueAccessError> {
         Ok(match self {
@@ -116,6 +113,13 @@ impl BsonExt for Bson {
     }
 }
 
+mod private_bson_ext {
+    use mongodb::bson::Bson;
+    pub trait SealedBsonExt {}
+
+    impl SealedBsonExt for Bson {}
+}
+
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum DocError {
@@ -130,28 +134,32 @@ pub enum DocError {
 }
 
 #[allow(missing_docs)]
-#[sealed]
-pub trait DocPath {
+pub trait DocPath: private_doc_path::SealedDocPath {
     fn into_segments(self) -> Vec<String>;
 }
 
-#[sealed]
 impl DocPath for &str {
     fn into_segments(self) -> Vec<String> {
         self.split('.').map(|s| s.to_string()).collect()
     }
 }
 
-#[sealed]
 impl<S: AsRef<str>> DocPath for Vec<S> {
     fn into_segments(self) -> Vec<String> {
         self.iter().map(|s| s.as_ref().to_string()).collect()
     }
 }
 
+mod private_doc_path {
+    pub trait SealedDocPath {}
+
+    impl SealedDocPath for &str {}
+
+    impl<S: AsRef<str>> SealedDocPath for Vec<S> {}
+}
+
 #[allow(missing_docs)]
-#[sealed]
-pub trait DocExt {
+pub trait DocExt: private_doc_ext::SealedDocExt {
     fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError>;
 
     fn convert_bson<T: DeserializeOwned, K: AsRef<str>>(&mut self, key: K) -> Result<T, DocError>;
@@ -177,7 +185,6 @@ pub trait DocExt {
     fn get_as_u64(&self, key: impl AsRef<str>) -> Result<u64, DocError>;
 }
 
-#[sealed]
 impl DocExt for Document {
     fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError> {
         let bson = self
@@ -256,4 +263,11 @@ impl DocExt for Document {
             .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
             .as_u64()?)
     }
+}
+
+mod private_doc_ext {
+    use mongodb::bson::Document;
+    pub trait SealedDocExt {}
+
+    impl SealedDocExt for Document {}
 }
