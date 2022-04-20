@@ -210,13 +210,11 @@ mod tests {
 
     #[test]
     fn archive_zero_milestones() {
-        archive_milestones(
+        archive_milestones::<_, _, std::vec::IntoIter<Result<(MessageId, Message), io::Error>>, _>(
             "/tmp/archive",
             MilestoneIndex(1),
             MilestoneIndex(0),
-            |_| -> Result<<Vec<Result<(MessageId, Message), io::Error>> as IntoIterator>::IntoIter, io::Error> {
-                unreachable!()
-            },
+            |_| unreachable!(),
         )
         .unwrap();
 
@@ -273,5 +271,44 @@ mod tests {
         }
 
         assert!(messages.next().is_none())
+    }
+
+    #[test]
+    fn archive_several_milestones_several_messages() {
+        let milestones = (0..10)
+            .map(|_| {
+                (0..100)
+                    .map(|_| {
+                        let msg = rand_message();
+                        (msg.id(), msg)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        archive_milestones("/tmp/archive_three", MilestoneIndex(0), MilestoneIndex(9), |index| {
+            Ok(milestones[*index as usize]
+                .clone()
+                .into_iter()
+                .map(Result::<_, io::Error>::Ok))
+        })
+        .unwrap();
+
+        let mut archive = Archive::open("/tmp/archive_three").unwrap();
+
+        for (expected_index, expected_messages) in (0..10u32).zip(milestones) {
+            println!("{:?}", expected_index);
+            let (milestone_index, mut messages) = archive.read_next_milestone().unwrap().unwrap();
+
+            assert_eq!(expected_index, *milestone_index);
+
+            for (expected_id, expected_message) in expected_messages {
+                assert_eq!(messages.next().unwrap().unwrap(), (expected_id, expected_message));
+            }
+
+            assert!(messages.next().is_none());
+        }
+
+        assert!(archive.read_next_milestone().is_none());
     }
 }
