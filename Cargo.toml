@@ -60,6 +60,7 @@ bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/io
 
 [features]
 default = [
+    "api-analytics",
     "api-explorer", 
     "api-indexer", 
     "api-node", 
@@ -72,6 +73,9 @@ api = [
     "serde_urlencoded",
     "tower",
     "tower-http",
+]
+api-analytics = [
+    "api",
 ]
 api-explorer = [
     "api",

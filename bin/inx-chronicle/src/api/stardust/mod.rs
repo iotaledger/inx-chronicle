@@ -15,6 +15,8 @@ use tokio_stream::StreamExt;
 
 use super::{ApiError, ApiResult};
 
+#[cfg(feature = "api-analytics")]
+pub mod analytics;
 #[cfg(feature = "api-explorer")]
 pub mod explorer;
 #[cfg(feature = "api-indexer")]
@@ -25,6 +27,11 @@ pub mod v2;
 pub fn routes() -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new();
+
+    #[cfg(feature = "api-analytics")]
+    {
+        router = router.nest("/analytics", analytics::routes());
+    }
 
     #[cfg(feature = "api-explorer")]
     {

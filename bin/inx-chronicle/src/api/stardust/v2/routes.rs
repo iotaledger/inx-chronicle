@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use axum::{
     extract::{Extension, Path},
     routing::*,
@@ -15,7 +17,7 @@ use chronicle::{
         },
         MongoDatabase,
     },
-    stardust::payload::transaction::TransactionPayload,
+    stardust::output::OutputId,
 };
 use futures::TryStreamExt;
 use mongodb::{bson::doc, options::FindOptions};
@@ -23,9 +25,8 @@ use mongodb::{bson::doc, options::FindOptions};
 use super::responses::*;
 use crate::api::{
     error::ApiError,
-    extractors::{Expanded, Pagination, TimeRange},
+    extractors::{Expanded, Pagination},
     responses::Record,
-    stardust::{end_milestone, start_milestone},
     ApiResult,
 };
 
@@ -39,7 +40,12 @@ pub fn routes() -> Router {
                 .route("/:message_id/metadata", get(message_metadata))
                 .route("/:message_id/children", get(message_children)),
         )
-        .nest("/outputs", Router::new().route("/:transaction_id/:idx", get(output)))
+        .nest(
+            "/outputs",
+            Router::new()
+                .route("/:output_id", get(output))
+                .route("/:transaction_id/:idx", get(output_by_transaction_id)),
+        )
         .nest(
             "/transactions",
             Router::new()
@@ -47,7 +53,6 @@ pub fn routes() -> Router {
                 .route("/included-message/:transaction_id", get(transaction_included_message)),
         )
         .route("/milestones/:index", get(milestone))
-        .nest("/analytics", Router::new().route("/addresses", get(address_analytics)))
 }
 
 async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
@@ -176,7 +181,16 @@ async fn message_children(
     })
 }
 
-async fn output(
+async fn output(database: Extension<MongoDatabase>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
+    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
+    output_by_transaction_id(
+        database,
+        Path((output_id.transaction_id().to_string(), output_id.index())),
+    )
+    .await
+}
+
+async fn output_by_transaction_id(
     database: Extension<MongoDatabase>,
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
@@ -279,85 +293,4 @@ async fn milestone(database: Extension<MongoDatabase>, Path(index): Path<u32>) -
                 timestamp: rec.get_as_u32("milestone_timestamp")?,
             })
         })
-}
-
-async fn address_analytics(
-    database: Extension<MongoDatabase>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<AddressAnalyticsResponse> {
-    let start_milestone = start_milestone(&database, start_timestamp).await?;
-    let end_milestone = end_milestone(&database, end_timestamp).await?;
-
-    let res = database
-        .doc_collection::<MessageRecord>()
-        .aggregate(
-            vec![
-                doc! { "$match": {
-                    "inclusion_state": LedgerInclusionState::Included as u8 as i32,
-                    "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                    "message.payload.data.kind": TransactionPayload::KIND as i32,
-                } },
-                doc! { "$unwind": { "path": "$message.payload.data.essence.data.inputs", "includeArrayIndex": "message.payload.data.essence.data.inputs.idx" } },
-                doc! { "$lookup": {
-                    "from": "stardust_messages",
-                    "let": { "transaction_id": "$message.payload.data.essence.data.inputs.transaction_id", "index": "$message.payload.data.essence.data.inputs.index" },
-                    "pipeline": [
-                        { "$match": { 
-                            "inclusion_state": LedgerInclusionState::Included as u8 as i32, 
-                            "message.payload.transaction_id": "$$transaction_id",
-                        } },
-                        { "$set": {
-                            "message.payload.data.essence.data.outputs": {
-                                "$arrayElemAt": [
-                                    "$message.payload.data.essence.data.outputs",
-                                    "$$index"
-                                ]
-                            }
-                        } },
-                    ],
-                    "as": "spent_transaction"
-                } },
-                doc! { "$set": { "send_address": "$spent_transaction.message.payload.data.essence.data.outputs.address.data" } },
-                doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
-                doc! { "$set": { "recv_address": "$message.payload.data.essence.data.outputs.address.data" } },
-                doc! { "$facet": {
-                    "total": [
-                        { "$set": { "address": ["$send_address", "$recv_address"] } },
-                        { "$unwind": { "path": "$address" } },
-                        { "$group" : {
-                            "_id": "$address",
-                            "addresses": { "$count": { } }
-                        }},
-                    ],
-                    "recv": [
-                        { "$group" : {
-                            "_id": "$recv_address",
-                            "addresses": { "$count": { } }
-                        }},
-                    ],
-                    "send": [
-                        { "$group" : {
-                            "_id": "$send_address",
-                            "addresses": { "$count": { } }
-                        }},
-                    ],
-                } },
-                doc! { "$project": {
-                    "total_addresses": { "$arrayElemAt": ["$total.addresses", 0] },
-                    "recv_addresses": { "$arrayElemAt": ["$recv.addresses", 0] },
-                    "send_addresses": { "$arrayElemAt": ["$send.addresses", 0] },
-                } },
-            ],
-            None,
-        )
-        .await?.try_next().await?.ok_or(ApiError::NoResults)?;
-
-    Ok(AddressAnalyticsResponse {
-        total_addresses: res.get_as_u64("total_addresses")?,
-        recv_addresses: res.get_as_u64("recv_addresses")?,
-        send_addresses: res.get_as_u64("send_addresses")?,
-    })
 }

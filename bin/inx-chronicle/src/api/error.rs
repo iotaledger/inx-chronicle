@@ -97,6 +97,8 @@ pub enum ParseError {
     TimeRange(#[from] time::error::ComponentRange),
     #[error(transparent)]
     Bool(#[from] ParseBoolError),
+    #[error(transparent)]
+    StardustId(#[from] chronicle::stardust::Error),
 }
 
 #[derive(Clone, Debug, Serialize)]
