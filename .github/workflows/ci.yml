@@ -94,6 +94,25 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: ci-clippy
+  
+  check-toml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --force cargo-sort
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: ci-toml
 
   docs:
     runs-on: ubuntu-latest
@@ -117,7 +136,7 @@ jobs:
   all-ci:
       # This dummy job depends on all the mandatory checks. It succeeds if and only if CI is
       # considered successful.
-      needs: [build-and-test, format, clippy, docs]
+      needs: [build-and-test, format, check-toml, clippy, docs]
       runs-on: ubuntu-latest
       steps:
       - run: echo Success
