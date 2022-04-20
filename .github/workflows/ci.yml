@@ -15,20 +15,12 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
     # Unfortunately, we can do this right now because `indexmap` does not seem to follow semver.
     # env:
     #   RUSTFLAGS: -D warnings -D missing-docs
     strategy:
       matrix:
-        rust: [stable, beta]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        experimental: [false]
-        include:
-            # The following ensures that workflows relying on `nightly` don't break.
-          - rust: nightly
-            os: ubuntu-latest
-            experimental: true
 
     steps:
       - uses: actions/checkout@v2
@@ -44,10 +36,10 @@ jobs:
         run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
         if: contains(matrix.os, 'windows')
 
-      - name: Install ${{ matrix.rust }}
+      - name: Install Rust (stable)
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
 
       - uses: Swatinem/rust-cache@v1
@@ -85,10 +77,6 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
-    continue-on-error: ${{ (matrix.rust != 'stable') }}
-    strategy:
-      matrix:
-        rust: [stable, beta]
 
     steps:
       - uses: actions/checkout@v2
@@ -96,7 +84,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
           components: clippy
 
@@ -106,28 +94,25 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: ci-clippy
-
-  udeps:
+  
+  check-toml:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           override: true
 
-      - uses: Swatinem/rust-cache@v1
-
       - uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --force cargo-udeps
+          args: --force cargo-sort
 
       - uses: actions-rs/cargo@v1
         with:
-          command: ci-udeps
+          command: ci-toml
 
   docs:
     runs-on: ubuntu-latest
@@ -151,7 +136,7 @@ jobs:
   all-ci:
       # This dummy job depends on all the mandatory checks. It succeeds if and only if CI is
       # considered successful.
-      needs: [build-and-test, format, clippy, udeps, docs]
+      needs: [build-and-test, format, check-toml, clippy, docs]
       runs-on: ubuntu-latest
       steps:
       - run: echo Success

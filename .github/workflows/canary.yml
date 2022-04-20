@@ -1,18 +1,16 @@
-name: Check Cargo.toml
+name: Canary
 
 on:
-  push:
-    paths:
-      - "**/Cargo.toml"
-  pull_request:
-    paths:
-      - "**/Cargo.toml"
+  schedule:
+    - cron: '4 20 * * SUN'
 
 jobs:
-  check-toml:
+
+  udeps:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -22,8 +20,8 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --force cargo-sort
+          args: --force cargo-udeps
 
       - uses: actions-rs/cargo@v1
         with:
-          command: ci-toml
+          command: ci-udeps
