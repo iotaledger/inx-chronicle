@@ -95,28 +95,6 @@ jobs:
         with:
           command: ci-clippy
 
-  udeps:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-
-      - uses: Swatinem/rust-cache@v1
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --force cargo-udeps
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: ci-udeps
-
   docs:
     runs-on: ubuntu-latest
     env:
@@ -139,7 +117,7 @@ jobs:
   all-ci:
       # This dummy job depends on all the mandatory checks. It succeeds if and only if CI is
       # considered successful.
-      needs: [build-and-test, format, clippy, udeps, docs]
+      needs: [build-and-test, format, clippy, docs]
       runs-on: ubuntu-latest
       steps:
       - run: echo Success
