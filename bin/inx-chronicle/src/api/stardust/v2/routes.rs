@@ -89,9 +89,7 @@ async fn message_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
-    let inclusion_state = rec.get("inclusion_state").map(|b| b.as_u8()).transpose()?;
-    let milestone_index = rec.get("milestone_index").map(|b| b.as_u32()).transpose()?;
-    let conflict_reason = rec.get("conflict_reason").map(|b| b.as_u8()).transpose()?;
+    let metadata = rec.take_document("metadata").ok();
 
     Ok(MessageMetadataResponse {
         message_id: rec.get_as_string("message_id")?,
@@ -100,13 +98,36 @@ async fn message_metadata(
             .iter()
             .map(|id| id.as_string())
             .collect::<Result<_, _>>()?,
-        is_solid: inclusion_state.is_some(),
-        referenced_by_milestone_index: inclusion_state.and(milestone_index),
-        milestone_index: inclusion_state.and(milestone_index),
-        should_promote: Some(inclusion_state.is_none()),
-        should_reattach: Some(inclusion_state.is_none()),
-        ledger_inclusion_state: inclusion_state.map(TryInto::try_into).transpose()?,
-        conflict_reason,
+        is_solid: metadata
+            .as_ref()
+            .and_then(|d| d.get("is_solid").map(|b| b.as_bool()))
+            .flatten(),
+        referenced_by_milestone_index: metadata
+            .as_ref()
+            .and_then(|d| d.get("referenced_by_milestone_index").map(|b| b.as_u32()))
+            .transpose()?,
+        milestone_index: metadata
+            .as_ref()
+            .and_then(|d| d.get("milestone_index").map(|b| b.as_u32()))
+            .transpose()?,
+        should_promote: metadata
+            .as_ref()
+            .and_then(|d| d.get("should_promote").map(|b| b.as_bool()))
+            .flatten(),
+        should_reattach: metadata
+            .as_ref()
+            .and_then(|d| d.get("should_reattach").map(|b| b.as_bool()))
+            .flatten(),
+        ledger_inclusion_state: metadata
+            .as_ref()
+            .and_then(|d| d.get("inclusion_state").map(|b| b.as_u8()))
+            .transpose()?
+            .map(TryInto::try_into)
+            .transpose()?,
+        conflict_reason: metadata
+            .as_ref()
+            .and_then(|d| d.get("conflict_reason").map(|b| b.as_u8()))
+            .transpose()?,
     })
 }
 

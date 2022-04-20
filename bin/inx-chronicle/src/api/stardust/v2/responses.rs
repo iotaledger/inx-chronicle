@@ -33,7 +33,7 @@ pub struct MessageMetadataResponse {
     #[serde(rename = "parentMessageIds")]
     pub parent_message_ids: Vec<String>,
     #[serde(rename = "isSolid")]
-    pub is_solid: bool,
+    pub is_solid: Option<bool>,
     #[serde(rename = "referencedByMilestoneIndex", skip_serializing_if = "Option::is_none")]
     pub referenced_by_milestone_index: Option<u32>,
     #[serde(rename = "milestoneIndex", skip_serializing_if = "Option::is_none")]

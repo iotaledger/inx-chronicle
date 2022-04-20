@@ -15,12 +15,8 @@ pub struct MessageRecord {
     pub message: Message,
     /// The raw bytes of the message.
     pub raw: Vec<u8>,
-    /// The milestone index referencing the milestone.
-    pub milestone_index: Option<u32>,
-    /// The inclusion state of the message.
-    pub inclusion_state: Option<LedgerInclusionState>,
-    /// If the ledger inclusion state is conflicting, the reason for the conflict.
-    pub conflict_reason: Option<ConflictReason>,
+    /// The message's metadata.
+    pub metadata: Option<MessageMetadata>,
 }
 
 impl MessageRecord {
@@ -30,9 +26,7 @@ impl MessageRecord {
             message_id: message.id(),
             message,
             raw,
-            milestone_index: None,
-            inclusion_state: None,
-            conflict_reason: None,
+            metadata: None,
         }
     }
     /// Returns Message id of the message.
@@ -45,19 +39,9 @@ impl MessageRecord {
         &self.message
     }
 
-    /// Returns referenced milestone index.
-    pub fn milestone_index(&self) -> Option<u32> {
-        self.milestone_index
-    }
-
-    /// Returns inclusion_state.
-    pub fn inclusion_state(&self) -> Option<&LedgerInclusionState> {
-        self.inclusion_state.as_ref()
-    }
-
-    /// Returns conflict_reason.
-    pub fn conflict_reason(&self) -> Option<&ConflictReason> {
-        self.conflict_reason.as_ref()
+    /// Returns the message metadata.
+    pub fn metadata(&self) -> Option<&MessageMetadata> {
+        self.metadata.as_ref()
     }
 }
 
@@ -75,5 +59,82 @@ impl TryFrom<inx::proto::Message> for MessageRecord {
     fn try_from(value: inx::proto::Message) -> Result<Self, Self::Error> {
         let (message, raw_message) = value.try_into()?;
         Ok(Self::new(message.message, raw_message))
+    }
+}
+
+/// Message metadata.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MessageMetadata {
+    /// Status of the solidification process.
+    pub is_solid: bool,
+    /// Indicates that the message should be promoted.
+    pub should_promote: bool,
+    /// Indicates that the message should be reattached.
+    pub should_reattach: bool,
+    /// The milestone index referencing the message.
+    pub referenced_by_milestone_index: u32,
+    /// The corresponding milestone index.
+    pub milestone_index: u32,
+    /// The inclusion state of the message.
+    pub inclusion_state: LedgerInclusionState,
+    /// If the ledger inclusion state is conflicting, the reason for the conflict.
+    pub conflict_reason: Option<ConflictReason>,
+}
+
+impl MessageMetadata {
+    /// Creates a new message metadata.
+    pub fn new(
+        is_solid: bool,
+        should_promote: bool,
+        should_reattach: bool,
+        referenced_by_milestone_index: u32,
+        milestone_index: u32,
+        inclusion_state: LedgerInclusionState,
+        conflict_reason: Option<ConflictReason>,
+    ) -> Self {
+        Self {
+            is_solid,
+            should_promote,
+            should_reattach,
+            referenced_by_milestone_index,
+            milestone_index,
+            inclusion_state,
+            conflict_reason,
+        }
+    }
+
+    /// Returns the solidification status.
+    pub fn is_solid(&self) -> bool {
+        self.is_solid
+    }
+
+    /// Returns should promote indicator.
+    pub fn should_promote(&self) -> bool {
+        self.should_promote
+    }
+
+    /// Returns should reattach indicator.
+    pub fn should_reattach(&self) -> bool {
+        self.should_reattach
+    }
+
+    /// Returns the milestone index referencing the message.
+    pub fn referenced_by_milestone_index(&self) -> u32 {
+        self.referenced_by_milestone_index
+    }
+
+    /// Returns the corresponding milestone index.
+    pub fn milestone_index(&self) -> u32 {
+        self.milestone_index
+    }
+
+    /// Returns the inclusion state of the message.
+    pub fn inclusion_state(&self) -> &LedgerInclusionState {
+        &self.inclusion_state
+    }
+
+    /// Returns the reason for the conflict.
+    pub fn conflict_reason(&self) -> Option<&ConflictReason> {
+        self.conflict_reason.as_ref()
     }
 }
