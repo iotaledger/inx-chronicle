@@ -14,43 +14,43 @@ use thiserror::Error;
 #[allow(missing_docs)]
 pub enum InternalApiError {
     #[error(transparent)]
+    Doc(#[from] DocError),
+    #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
-    #[error(transparent)]
-    ValueAccess(#[from] ValueAccessError),
-    #[error(transparent)]
-    Doc(#[from] DocError),
-    #[error(transparent)]
-    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     Stardust(#[from] chronicle::stardust::Error),
     #[error(transparent)]
+    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
+    #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
+    #[error(transparent)]
+    ValueAccess(#[from] ValueAccessError),
 }
 
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum ApiError {
-    #[error("No results returned")]
-    NoResults,
+    #[error(transparent)]
+    BadParse(ParseError),
+    #[error("Invalid time range")]
+    BadTimeRange,
     #[error("Provided index is too large (Max 64 bytes)")]
     IndexTooLarge,
-    #[error("Provided tag is too large (Max 64 bytes)")]
-    TagTooLarge,
+    #[error("Internal server error")]
+    Internal(InternalApiError),
     #[error("Invalid hexidecimal encoding")]
     InvalidHex,
+    #[error("No results returned")]
+    NoResults,
     #[error("No endpoint found")]
     NotFound,
     #[error(transparent)]
-    BadParse(ParseError),
-    #[error(transparent)]
     QueryError(QueryRejection),
-    #[error("Invalid time range")]
-    BadTimeRange,
-    #[error("Internal server error")]
-    Internal(InternalApiError),
+    #[error("Provided tag is too large (Max 64 bytes)")]
+    TagTooLarge,
 }
 
 impl ApiError {
@@ -94,12 +94,12 @@ impl IntoResponse for ApiError {
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error(transparent)]
-    TimeRange(#[from] time::error::ComponentRange),
-    #[error(transparent)]
     Bool(#[from] ParseBoolError),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     StardustId(#[from] chronicle::stardust::Error),
+    #[error(transparent)]
+    TimeRange(#[from] time::error::ComponentRange),
 }
 
 #[derive(Clone, Debug, Serialize)]

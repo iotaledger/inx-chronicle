@@ -48,13 +48,13 @@ use self::cli::CliArgs;
 #[derive(Debug, Error)]
 pub enum LauncherError {
     #[error(transparent)]
-    Send(#[from] SendError),
-    #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
     MongoDb(#[from] MongoDbError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
+    #[error(transparent)]
+    Send(#[from] SendError),
 }
 
 #[derive(Debug)]

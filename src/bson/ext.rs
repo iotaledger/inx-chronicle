@@ -123,14 +123,14 @@ mod private_bson_ext {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum DocError {
+    #[error(transparent)]
+    Convert(#[from] mongodb::bson::de::Error),
     #[error("Missing key {0}")]
     MissingKey(String),
     #[error("Value for key {0} is null")]
     NullValue(String),
     #[error(transparent)]
     ValueAccess(#[from] ValueAccessError),
-    #[error(transparent)]
-    Convert(#[from] mongodb::bson::de::Error),
 }
 
 #[allow(missing_docs)]

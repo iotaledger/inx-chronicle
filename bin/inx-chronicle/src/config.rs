@@ -11,10 +11,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error("toml deserialization failed: {0}")]
-    TomlDeserialization(toml::de::Error),
     #[error("failed to read file: {0}")]
     FileRead(std::io::Error),
+    #[error("toml deserialization failed: {0}")]
+    TomlDeserialization(toml::de::Error),
 }
 
 /// Configuration of Chronicle.

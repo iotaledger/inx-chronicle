@@ -24,19 +24,10 @@ pub use error::ApiError;
 pub(crate) use responses::impl_success_response;
 pub use responses::SuccessBody;
 use routes::routes;
-use serde::Deserialize;
 use tokio::{sync::oneshot, task::JoinHandle};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
-
-/// API version enumeration
-#[derive(Copy, Clone, Deserialize)]
-pub enum ApiVersion {
-    /// Stardust API version 2
-    #[serde(rename = "v2")]
-    V2,
-}
 
 /// The Chronicle API actor
 #[derive(Debug)]
