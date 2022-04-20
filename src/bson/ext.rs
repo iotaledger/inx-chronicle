@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use mongodb::bson::{document::ValueAccessError, from_bson, from_document, Bson, Document};
+use sealed::sealed;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 /// Gets values and upcasts if necessary
 #[allow(missing_docs)]
+#[sealed]
 pub trait BsonExt {
     fn as_string(&self) -> Result<String, ValueAccessError>;
 
@@ -25,6 +27,7 @@ pub trait BsonExt {
     fn to_document(self) -> Result<Document, ValueAccessError>;
 }
 
+#[sealed]
 impl BsonExt for Bson {
     fn as_string(&self) -> Result<String, ValueAccessError> {
         Ok(match self {
@@ -127,23 +130,27 @@ pub enum DocError {
 }
 
 #[allow(missing_docs)]
+#[sealed]
 pub trait DocPath {
-    fn split(self) -> Vec<String>;
+    fn into_segments(self) -> Vec<String>;
 }
 
+#[sealed]
 impl DocPath for &str {
-    fn split(self) -> Vec<String> {
+    fn into_segments(self) -> Vec<String> {
         self.split('.').map(|s| s.to_string()).collect()
     }
 }
 
+#[sealed]
 impl<S: AsRef<str>> DocPath for Vec<S> {
-    fn split(self) -> Vec<String> {
+    fn into_segments(self) -> Vec<String> {
         self.iter().map(|s| s.as_ref().to_string()).collect()
     }
 }
 
 #[allow(missing_docs)]
+#[sealed]
 pub trait DocExt {
     fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError>;
 
@@ -170,6 +177,7 @@ pub trait DocExt {
     fn get_as_u64(&self, key: impl AsRef<str>) -> Result<u64, DocError>;
 }
 
+#[sealed]
 impl DocExt for Document {
     fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError> {
         let bson = self
@@ -188,6 +196,7 @@ impl DocExt for Document {
     fn take_array(&mut self, key: impl AsRef<str>) -> Result<Vec<Bson>, DocError> {
         Ok(self.take_bson(key)?.to_array()?)
     }
+
     fn take_bytes(&mut self, key: impl AsRef<str>) -> Result<Vec<u8>, DocError> {
         Ok(self.take_bson(key)?.to_bytes()?)
     }
@@ -202,7 +211,7 @@ impl DocExt for Document {
 
     fn take_path(&mut self, path: impl DocPath) -> Result<Bson, DocError> {
         let mut doc = self;
-        let mut path = path.split();
+        let mut path = path.into_segments();
         if path.is_empty() {
             return Err(DocError::MissingKey("".into()));
         }
