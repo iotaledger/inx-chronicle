@@ -201,3 +201,77 @@ impl<'a> Iterator for ArchivedMilestoneIter<'a> {
         Some(Ok((message_id, message)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bee_test::rand::message::rand_message;
+
+    use super::*;
+
+    #[test]
+    fn archive_zero_milestones() {
+        archive_milestones(
+            "/tmp/archive",
+            MilestoneIndex(1),
+            MilestoneIndex(0),
+            |_| -> Result<<Vec<Result<(MessageId, Message), io::Error>> as IntoIterator>::IntoIter, io::Error> {
+                unreachable!()
+            },
+        )
+        .unwrap();
+
+        let mut archive = Archive::open("/tmp/archive").unwrap();
+
+        assert!(archive.read_next_milestone().is_none());
+    }
+
+    #[test]
+    fn archive_one_milestone_one_message() {
+        let msg = rand_message();
+
+        let msgs = vec![(msg.id(), msg.clone())];
+
+        archive_milestones("/tmp/archive_one", MilestoneIndex(0), MilestoneIndex(0), |index| {
+            assert_eq!(index, MilestoneIndex(0));
+
+            Ok(msgs.clone().into_iter().map(Result::<_, io::Error>::Ok))
+        })
+        .unwrap();
+
+        let mut archive = Archive::open("/tmp/archive_one").unwrap();
+
+        let (milestone_index, mut messages) = archive.read_next_milestone().unwrap().unwrap();
+
+        assert_eq!(milestone_index, MilestoneIndex(0));
+        assert_eq!(messages.next().unwrap().unwrap(), (msg.id(), msg));
+    }
+
+    #[test]
+    fn archive_one_milestone_several_messages() {
+        let msgs = (0..100)
+            .map(|_| {
+                let msg = rand_message();
+                (msg.id(), msg)
+            })
+            .collect::<Vec<_>>();
+
+        archive_milestones("/tmp/archive_two", MilestoneIndex(0), MilestoneIndex(0), |index| {
+            assert_eq!(index, MilestoneIndex(0));
+
+            Ok(msgs.clone().into_iter().map(Result::<_, io::Error>::Ok))
+        })
+        .unwrap();
+
+        let mut archive = Archive::open("/tmp/archive_two").unwrap();
+
+        let (milestone_index, mut messages) = archive.read_next_milestone().unwrap().unwrap();
+
+        assert_eq!(milestone_index, MilestoneIndex(0));
+
+        for (id, msg) in msgs {
+            assert_eq!(messages.next().unwrap().unwrap(), (id, msg));
+        }
+
+        assert!(messages.next().is_none())
+    }
+}
