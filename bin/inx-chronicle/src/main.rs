@@ -8,7 +8,7 @@ mod cli;
 mod config;
 mod listener;
 
-use std::error::Error;
+use std::{error::Error, ops::Deref};
 
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
@@ -88,7 +88,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
                 cx.shutdown();
             }
             Err(e) => match e.error {
-                ActorError::Result(e) => match e.downcast_ref::<BrokerError>().unwrap() {
+                ActorError::Result(e) => match e.deref() {
                     BrokerError::RuntimeError(_) => {
                         cx.shutdown();
                     }
@@ -128,7 +128,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                 cx.shutdown();
             }
             Err(e) => match &e.error {
-                ActorError::Result(e) => match e.downcast_ref::<InxListenerError>().unwrap() {
+                ActorError::Result(e) => match e.deref() {
                     InxListenerError::Inx(e) => match e {
                         InxError::TransportFailed => {
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))

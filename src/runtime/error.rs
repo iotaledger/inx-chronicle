@@ -23,7 +23,9 @@ pub enum RuntimeError {
     #[error("Duplicate actor {0} in scope {1:x}")]
     DuplicateActor(String, ScopeId),
     #[error("Actor exited with error: {0}")]
-    ActorError(Arc<Box<dyn Error + Send + Sync>>),
+    ActorError(Arc<dyn Error + Send + Sync>),
+    #[error("Task exited with error: {0}")]
+    TaskError(Box<dyn Error + Send + Sync>),
     #[error(transparent)]
     SendError(#[from] SendError),
 }
