@@ -919,6 +919,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
+source = "git+https://github.com/iotaledger/inx#7d4754039031166141ca121440483e43a229fa5f"
 dependencies = [
  "bee-message",
  "packable",

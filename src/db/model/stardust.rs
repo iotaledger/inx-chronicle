@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use bee_message_stardust as stardust;
+use mongodb::bson;
 use serde::{Deserialize, Serialize};
 
 use super::Model;
+
+const MILLISECONDS_PER_SECOND: i64 = 1000;
 
 #[allow(missing_docs)]
 #[derive(PartialEq, Debug, Serialize, Deserialize)]
@@ -99,8 +102,6 @@ pub struct Milestone {
     pub milestone_index: u32,
     /// The timestamp of the milestone.
     pub milestone_timestamp: mongodb::bson::DateTime,
-    /// The [`MessageId`](stardust::MessageId) of the milestone.
-    pub message_id: stardust::MessageId,
     /// The [`MilestoneId`](stardust::payload::milestone::MilestoneId) of the milestone.
     pub milestone_id: stardust::payload::milestone::MilestoneId,
 }
@@ -109,4 +110,10 @@ impl Model for Milestone {
     const COLLECTION: &'static str = "stardust_milestones";
 
     type Id = u32;
+}
+
+impl From<inx::MilestoneInfo> for Milestone {
+    fn from(value: inx::MilestoneInfo) -> Self {
+        Milestone { milestone_index: value.milestone_index, milestone_timestamp: bson::DateTime::from_millis(value.milestone_timestamp as i64 * MILLISECONDS_PER_SECOND ), milestone_id: value.milestone_id }
+    }
 }

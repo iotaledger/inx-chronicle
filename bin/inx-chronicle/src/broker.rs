@@ -10,9 +10,6 @@ use chronicle::{
     },
 };
 use thiserror::Error;
-use mongodb::{bson::{self},};
-
-const MILLISECONDS_PER_SECOND: i64 = 1000;
 
 #[derive(Debug, Error)]
 pub enum BrokerError {
@@ -91,7 +88,9 @@ impl HandleEvent<inx::proto::MessageMetadata> for Broker {
                     conflict_reason: metadata.conflict_reason.into(),
                     milestone_index: metadata.milestone_index,
                 };
-                self.db.update_metadata::<db::model::stardust::Message>(metadata.message_id, metadata_model).await?;
+                self.db
+                    .update_metadata::<db::model::stardust::Message>(metadata.message_id, metadata_model)
+                    .await?;
             }
             Err(e) => {
                 log::warn!("Could not read metadata: {:?}", e);
@@ -110,25 +109,16 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         _data: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received `Milestone` event");
-        match milestone.try_into() {
-            Ok(inx::Milestone {
-                message_id,
-                milestone_id,
-                milestone_index,
-                milestone_timestamp,
-            }) => {
-                self.db
-                    .insert_one(db::model::stardust::Milestone {
-                        message_id,
-                        milestone_id,
-                        milestone_index,
-                        milestone_timestamp: bson::DateTime::from_millis(milestone_timestamp as i64 * MILLISECONDS_PER_SECOND )
-                    })
-                    .await?
-            }
-            Err(e) => {
-                log::warn!("Could not read milestone: {:?}", e);
-            }
+        match TryInto::<inx::Milestone>::try_into(milestone) {
+            Ok(milestone) => match TryInto::<inx::MilestoneInfo>::try_into(milestone.milestone_info) {
+                Ok(milestone_info) => {
+                    self.db
+                        .insert_one(Into::<db::model::stardust::Milestone>::into(milestone_info))
+                        .await?
+                }
+                Err(e) => log::warn!("Could not read milestone info: {:?}", e),
+            },
+            Err(e) => log::warn!("Could not read milestone: {:?}", e),
         };
         Ok(())
     }
