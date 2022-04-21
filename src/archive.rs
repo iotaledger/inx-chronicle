@@ -241,15 +241,17 @@ mod tests {
 
     #[test]
     fn archive_zero_milestones() {
+        let path = "/tmp/archive_zero_milestones";
+
         archive_milestones::<_, _, std::vec::IntoIter<io::Result<Message>>, _>(
-            "/tmp/archive_zero_milestones",
+            path,
             MilestoneIndex(1),
             MilestoneIndex(0),
             |_| unreachable!(),
         )
         .unwrap();
 
-        let mut archive = Archive::open("/tmp/archive").unwrap();
+        let mut archive = Archive::open(path).unwrap();
 
         assert!(archive.read_next_milestone().unwrap().is_none());
     }
