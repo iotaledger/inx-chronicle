@@ -46,10 +46,8 @@ where
     let mut file = File::create(path)?;
     let mut packer = IoPacker::new(&mut file);
 
-    // Write the first index
-    first_index.pack(&mut packer)?;
-    // Write the last index
-    last_index.pack(&mut packer)?;
+    // Write the first and last milestone indices
+    (first_index, last_index).pack(&mut packer)?;
 
     for milestone_index in *first_index..=*last_index {
         let messages = f(MilestoneIndex(milestone_index))?;
@@ -114,8 +112,8 @@ impl Archive {
 
         let mut unpacker = IoUnpacker::new(&mut file);
 
-        let first_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).map_err(UnpackError::into_unpacker_err)?;
-        let last_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).map_err(UnpackError::into_unpacker_err)?;
+        let (first_index, last_index) = <(MilestoneIndex, MilestoneIndex)>::unpack::<_, true>(&mut unpacker)
+            .map_err(UnpackError::into_unpacker_err)?;
 
         Ok(Self {
             file,
