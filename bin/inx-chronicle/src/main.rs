@@ -19,9 +19,9 @@ use api::ApiWorker;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
 #[cfg(feature = "stardust")]
-use chronicle::inx::{InxConfig, InxError};
 use chronicle::{
-    db::{MongoConfig, MongoDbError},
+    db::MongoDbError,
+    inx::InxError,
     runtime::{
         actor::{
             addr::{Addr, SendError},
@@ -68,20 +68,18 @@ impl Actor for Launcher {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let cli_args = CliArgs::parse();
-        let config = match cli_args.config {
+        let mut config = match &cli_args.config {
             Some(path) => config::Config::from_file(path)?,
             None => {
                 if let Ok(path) = std::env::var("CONFIG_PATH") {
                     config::Config::from_file(path)?
                 } else {
-                    Config {
-                        mongodb: MongoConfig::new("mongodb://localhost:27017"),
-                        #[cfg(feature = "stardust")]
-                        inx: InxConfig::new("http://localhost:9029"),
-                    }
+                    Config::default()
                 }
             }
         };
+        config.apply_cli_args(cli_args);
+
         let db = config.mongodb.clone().build().await?;
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
         #[cfg(feature = "stardust")]

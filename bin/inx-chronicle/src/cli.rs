@@ -7,7 +7,13 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
 pub struct CliArgs {
-    /// Location of the configuration file
+    /// The location of the configuration file.
     #[clap(short, long)]
     pub config: Option<String>,
+    /// The address of the INX interface provided by the node.
+    #[clap(long)]
+    pub inx: Option<String>,
+    /// The address of the MongoDB database.
+    #[clap(long)]
+    pub db: Option<String>,
 }

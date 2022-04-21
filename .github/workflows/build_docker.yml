@@ -1,0 +1,20 @@
+name: Build Docker
+
+on:
+  pull_request:
+    paths:
+      - "docker/Dockerfile"
+      - "docker/docker-compose.yml"
+
+jobs:
+  build:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build Docker image
+        run: docker-compose -f ./docker/docker-compose.hornet.yml build
+
+      - name: Test Docker image
+        run: docker-compose -f ./docker/docker-compose.hornet.yml run inx-chronicle --version | grep -q "inx-chronicle"

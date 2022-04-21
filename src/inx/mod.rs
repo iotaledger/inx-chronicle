@@ -15,6 +15,14 @@ pub struct InxConfig {
     address: String,
 }
 
+impl Default for InxConfig {
+    fn default() -> Self {
+         Self {
+             address: "http://localhost:9029".into(),
+         }
+    }
+}
+
 impl InxConfig {
     /// Creates a new [`InxConfig`]. The `address` is the address of the node's INX interface.
     pub fn new(address: impl Into<String>) -> Self {
