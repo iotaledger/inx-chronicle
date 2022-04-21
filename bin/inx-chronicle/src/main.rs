@@ -3,18 +3,25 @@
 
 //! TODO
 
+/// Module containing the API.
+#[cfg(feature = "api")]
+pub mod api;
 mod broker;
 mod cli;
 mod config;
-mod listener;
+#[cfg(feature = "stardust")]
+mod inx_listener;
 
 use std::{error::Error, ops::Deref};
 
+#[cfg(feature = "api")]
+use api::ApiWorker;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
+#[cfg(feature = "stardust")]
+use chronicle::inx::{InxConfig, InxError};
 use chronicle::{
     db::{MongoConfig, MongoDbError},
-    inx::{InxConfig, InxError},
     runtime::{
         actor::{
             addr::{Addr, SendError},
@@ -30,8 +37,9 @@ use chronicle::{
     },
 };
 use clap::Parser;
-use config::Config;
-use listener::{InxListener, InxListenerError};
+use config::{Config, ConfigError};
+#[cfg(feature = "stardust")]
+use inx_listener::{InxListener, InxListenerError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -40,13 +48,13 @@ use self::cli::CliArgs;
 #[derive(Debug, Error)]
 pub enum LauncherError {
     #[error(transparent)]
-    Send(#[from] SendError),
-    #[error(transparent)]
-    Config(#[from] config::ConfigError),
+    Config(#[from] ConfigError),
     #[error(transparent)]
     MongoDb(#[from] MongoDbError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
+    #[error(transparent)]
+    Send(#[from] SendError),
 }
 
 #[derive(Debug)]
@@ -62,15 +70,25 @@ impl Actor for Launcher {
         let cli_args = CliArgs::parse();
         let config = match cli_args.config {
             Some(path) => config::Config::from_file(path)?,
-            None => Config {
-                mongodb: MongoConfig::new("mongodb://localhost:27017"),
-                inx: InxConfig::new("http://localhost:9029"),
-            },
+            None => {
+                if let Ok(path) = std::env::var("CONFIG_PATH") {
+                    config::Config::from_file(path)?
+                } else {
+                    Config {
+                        mongodb: MongoConfig::new("mongodb://localhost:27017"),
+                        #[cfg(feature = "stardust")]
+                        inx: InxConfig::new("http://localhost:9029"),
+                    }
+                }
+            }
         };
         let db = config.mongodb.clone().build().await?;
-        let broker_addr = cx.spawn_actor_supervised(Broker::new(db)).await;
+        let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
+        #[cfg(feature = "stardust")]
         cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
             .await;
+        #[cfg(feature = "api")]
+        cx.spawn_actor_supervised(ApiWorker::new(db)).await;
         Ok((config, broker_addr))
     }
 }
@@ -104,6 +122,10 @@ impl HandleEvent<Report<Broker>> for Launcher {
                                 cx.shutdown();
                             }
                         },
+                        other => {
+                            log::warn!("Unhandled MongoDB error: {}", other);
+                            cx.shutdown();
+                        }
                     },
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -115,6 +137,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
     }
 }
 
+#[cfg(feature = "stardust")]
 #[async_trait]
 impl HandleEvent<Report<InxListener>> for Launcher {
     async fn handle_event(
@@ -130,10 +153,16 @@ impl HandleEvent<Report<InxListener>> for Launcher {
             Err(e) => match &e.error {
                 ActorError::Result(e) => match e.deref() {
                     InxListenerError::Inx(e) => match e {
-                        InxError::TransportFailed => {
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
-                                .await;
-                        }
+                        // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
+                        InxError::TransportFailed(e) => match e.to_string().as_ref() {
+                            "transport error" => {
+                                cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+                                    .await;
+                            }
+                            _ => {
+                                cx.shutdown();
+                            }
+                        },
                     },
                     InxListenerError::Read(_) => {
                         cx.shutdown();
@@ -152,6 +181,33 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                         }
                     }
                 },
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "api")]
+#[async_trait]
+impl HandleEvent<Report<ApiWorker>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<ApiWorker>,
+        (config, _): &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Ok(_) => {
+                cx.shutdown();
+            }
+            Err(e) => match e.error {
+                ActorError::Result(_) => {
+                    let db = config.mongodb.clone().build().await?;
+                    cx.spawn_actor_supervised(ApiWorker::new(db)).await;
+                }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
                 }

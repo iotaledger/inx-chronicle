@@ -10,10 +10,10 @@ use super::Actor;
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub enum ActorError<A: Actor> {
-    #[error("Actor error: {0:?}")]
-    Result(Arc<A::Error>),
-    #[error("Actor panicked")]
-    Panic,
     #[error("Actor aborted")]
     Aborted,
+    #[error("Actor panicked")]
+    Panic,
+    #[error("Actor error: {0:?}")]
+    Result(Arc<A::Error>),
 }

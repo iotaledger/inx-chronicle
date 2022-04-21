@@ -8,6 +8,6 @@ use thiserror::Error;
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub enum InxError {
-    #[error("tonic transport failed")]
-    TransportFailed, // TODO: Add actual error as a field
+    #[error(transparent)]
+    TransportFailed(#[from] tonic::transport::Error),
 }

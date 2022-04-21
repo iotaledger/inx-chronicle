@@ -123,14 +123,14 @@ mod private_bson_ext {
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum DocError {
+    #[error(transparent)]
+    Convert(#[from] mongodb::bson::de::Error),
     #[error("Missing key {0}")]
     MissingKey(String),
     #[error("Value for key {0} is null")]
     NullValue(String),
     #[error(transparent)]
     ValueAccess(#[from] ValueAccessError),
-    #[error(transparent)]
-    Convert(#[from] mongodb::bson::de::Error),
 }
 
 #[allow(missing_docs)]
@@ -203,7 +203,6 @@ impl DocExt for Document {
     fn take_array(&mut self, key: impl AsRef<str>) -> Result<Vec<Bson>, DocError> {
         Ok(self.take_bson(key)?.to_array()?)
     }
-
     fn take_bytes(&mut self, key: impl AsRef<str>) -> Result<Vec<u8>, DocError> {
         Ok(self.take_bson(key)?.to_bytes()?)
     }
@@ -222,6 +221,7 @@ impl DocExt for Document {
         if path.is_empty() {
             return Err(DocError::MissingKey("".into()));
         }
+        // Unwrap: Totes ok because we just checked that it's not empty.
         let last = path.pop().unwrap();
         for key in path {
             doc = doc.get_document_mut(key)?;

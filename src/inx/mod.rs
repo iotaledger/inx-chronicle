@@ -3,7 +3,7 @@
 
 mod error;
 
-use inx::{client::InxClient, Channel};
+use inx::{client::InxClient, tonic::Channel};
 use serde::{Deserialize, Serialize};
 
 pub use self::error::InxError;
@@ -25,8 +25,6 @@ impl InxConfig {
 
     /// Constructs an [`InxClient`] by consuming the [`InxConfig`].
     pub async fn build(&self) -> Result<InxClient<Channel>, InxError> {
-        InxClient::connect(self.address.clone())
-            .await
-            .map_err(|_| InxError::TransportFailed)
+        Ok(InxClient::connect(self.address.clone()).await?)
     }
 }

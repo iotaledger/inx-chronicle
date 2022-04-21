@@ -3,22 +3,25 @@
 
 use std::{fs, path::Path};
 
-use chronicle::{db::MongoConfig, inx::InxConfig};
+use chronicle::db::MongoConfig;
+#[cfg(feature = "stardust")]
+use chronicle::inx::InxConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error("toml deserialization failed: {0}")]
-    TomlDeserialization(toml::de::Error),
     #[error("failed to read file: {0}")]
     FileRead(std::io::Error),
+    #[error("toml deserialization failed: {0}")]
+    TomlDeserialization(toml::de::Error),
 }
 
 /// Configuration of Chronicle.
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub mongodb: MongoConfig,
+    #[cfg(feature = "stardust")]
     pub inx: InxConfig,
 }
 
