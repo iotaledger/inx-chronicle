@@ -248,6 +248,10 @@ mod tests {
 
         assert_eq!(milestone_index, MilestoneIndex(0));
         assert_eq!(messages.next().unwrap().unwrap(), (msg.id(), msg));
+
+        drop(messages);
+
+        assert!(archive.read_next_milestone().unwrap().is_none());
     }
 
     #[test]
@@ -277,6 +281,10 @@ mod tests {
         }
 
         assert!(messages.next().is_none());
+
+        drop(messages);
+
+        assert!(archive.read_next_milestone().unwrap().is_none());
     }
 
     #[test]
