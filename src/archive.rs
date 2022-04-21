@@ -22,7 +22,7 @@ use std::{
     path::Path,
 };
 
-use bee_message::{milestone::MilestoneIndex, Message, MessageId};
+use bee_message::{milestone::MilestoneIndex, Message};
 use packable::{
     error::UnpackError,
     packer::{CounterPacker, IoPacker},
@@ -40,7 +40,7 @@ pub fn archive_milestones<P, E, I, F>(
 where
     P: AsRef<Path>,
     E: From<io::Error>,
-    I: Iterator<Item = Result<(MessageId, Message), E>>,
+    I: Iterator<Item = Result<Message, E>>,
     F: Fn(MilestoneIndex) -> Result<I, E>,
 {
     let mut file = CounterPacker::new(IoPacker::new(File::create(path)?));
@@ -55,7 +55,7 @@ where
     let mut backpatches = Vec::new();
 
     while milestone_index <= last_index {
-        let milestone_iter = f(milestone_index)?;
+        let messages = f(milestone_index)?;
 
         // The position where the total length of the messages will be written. We store it as a
         // `u64` because that is what `SeekFrom` uses.
@@ -71,13 +71,9 @@ where
         let start_pos = file.counter();
 
         // FIXME: maybe compress?
-        for res in milestone_iter {
-            let (message_id, message) = res?;
-
+        for message in messages {
             // Write each message in this milestone
-            message_id.pack(&mut file)?;
-
-            message.pack(&mut file)?;
+            message?.pack(&mut file)?;
         }
 
         // The length of all the messages in this milestone. We store it as a `u64` because we will
@@ -132,12 +128,7 @@ impl Archive {
     /// messages in the milestone.
     pub fn read_next_milestone(
         &mut self,
-    ) -> io::Result<
-        Option<(
-            MilestoneIndex,
-            impl Iterator<Item = io::Result<(MessageId, Message)>> + '_,
-        )>,
-    > {
+    ) -> io::Result<Option<(MilestoneIndex, impl Iterator<Item = io::Result<Message>> + '_)>> {
         if self.first_index > self.last_index {
             return Ok(None);
         }
@@ -168,7 +159,7 @@ impl Archive {
     pub fn read_milestone(
         &mut self,
         milestone_index: MilestoneIndex,
-    ) -> io::Result<Option<impl Iterator<Item = io::Result<(MessageId, Message)>> + '_>> {
+    ) -> io::Result<Option<impl Iterator<Item = io::Result<Message>> + '_>> {
         if milestone_index < self.first_index || milestone_index > self.last_index {
             Ok(None)
         } else {
@@ -195,23 +186,17 @@ struct ArchivedMilestoneIter<'a> {
 }
 
 impl<'a> Iterator for ArchivedMilestoneIter<'a> {
-    type Item = Result<(MessageId, Message), io::Error>;
+    type Item = io::Result<Message>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.file.counter() == self.len {
             return None;
         }
 
-        Some((|| {
-            let message_id = MessageId::unpack::<_, true>(&mut self.file).map_err(UnpackError::into_unpacker_err)?;
-
-            let message = Message::unpack::<_, true>(&mut self.file).map_err(|e| match e {
-                UnpackError::Packable(e) => io::Error::new(io::ErrorKind::Other, e),
-                UnpackError::Unpacker(e) => e,
-            })?;
-
-            Ok((message_id, message))
-        })())
+        Some(Message::unpack::<_, true>(&mut self.file).map_err(|e| match e {
+            UnpackError::Packable(e) => io::Error::new(io::ErrorKind::Other, e),
+            UnpackError::Unpacker(e) => e,
+        }))
     }
 }
 
@@ -221,16 +206,9 @@ mod tests {
 
     use super::*;
 
-    fn generate_data(start_index: u32, end_index: u32, milestone_len: usize) -> Vec<Vec<(MessageId, Message)>> {
+    fn generate_data(start_index: u32, end_index: u32, milestone_len: usize) -> Vec<Vec<Message>> {
         (start_index..=end_index)
-            .map(|_| {
-                (0..milestone_len)
-                    .map(|_| {
-                        let msg = rand_message();
-                        (msg.id(), msg)
-                    })
-                    .collect()
-            })
+            .map(|_| (0..milestone_len).map(|_| rand_message()).collect())
             .collect()
     }
 
@@ -263,7 +241,7 @@ mod tests {
 
     #[test]
     fn archive_zero_milestones() {
-        archive_milestones::<_, _, std::vec::IntoIter<Result<(MessageId, Message), io::Error>>, _>(
+        archive_milestones::<_, _, std::vec::IntoIter<io::Result<Message>>, _>(
             "/tmp/archive",
             MilestoneIndex(1),
             MilestoneIndex(0),
