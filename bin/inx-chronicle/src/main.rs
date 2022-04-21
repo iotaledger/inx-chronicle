@@ -12,7 +12,7 @@ mod config;
 #[cfg(feature = "stardust")]
 mod inx_listener;
 
-use std::{error::Error, ops::Deref};
+use std::{error::Error, ops::Deref, time::Duration};
 
 #[cfg(feature = "api")]
 use api::ApiWorker;
@@ -59,7 +59,9 @@ pub enum LauncherError {
 
 #[derive(Debug)]
 /// Supervisor actor
-pub struct Launcher;
+pub struct Launcher {
+    inx_connection_retry_interval: Duration,
+}
 
 #[async_trait]
 impl Actor for Launcher {
@@ -162,6 +164,15 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                             }
                         },
                     },
+                    InxListenerError::InxConnection(e) => match e {
+                        InxError::TransportFailed => {
+                            let wait_interval = self.inx_connection_retry_interval;
+                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                            tokio::time::sleep(wait_interval).await;
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+                                .await;
+                        }
+                    },
                     InxListenerError::Read(_) => {
                         cx.shutdown();
                     }
@@ -230,7 +241,11 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_addr = scope.spawn_actor(Launcher).await;
+    let launcher = Launcher {
+        inx_connection_retry_interval: std::time::Duration::from_secs(5),
+    };
+
+    let launcher_addr = scope.spawn_actor(launcher).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();

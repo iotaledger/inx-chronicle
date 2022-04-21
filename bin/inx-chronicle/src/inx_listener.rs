@@ -32,7 +32,9 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxListenerError {
     #[error(transparent)]
     Inx(#[from] InxError),
-    #[error("The broker actor is not running")]
+    #[error("failed to establish connection: {0}")]
+    InxConnection(InxError),
+    #[error("the broker actor is not running")]
     MissingBroker,
     #[error(transparent)]
     Read(#[from] Status),
@@ -59,7 +61,7 @@ impl Actor for InxListener {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         info!("Connecting to INX...");
-        let mut inx_client = self.config.build().await?;
+        let mut inx_client = self.config.build().await.map_err(Self::Error::InxConnection)?;
 
         info!("Connected to INX.");
         let response = inx_client.read_node_status(NoParams {}).await?;

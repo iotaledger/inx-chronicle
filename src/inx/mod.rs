@@ -17,9 +17,9 @@ pub struct InxConfig {
 
 impl Default for InxConfig {
     fn default() -> Self {
-         Self {
-             address: "http://localhost:9029".into(),
-         }
+        Self {
+            address: "http://localhost:9029".into(),
+        }
     }
 }
 

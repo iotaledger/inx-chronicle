@@ -29,11 +29,11 @@ pub struct MongoConfig {
 
 impl Default for MongoConfig {
     fn default() -> Self {
-         Self {
-             location: "mongodb://localhost:27017".into(),
-             username: None,
-             password: None,
-         }
+        Self {
+            location: "mongodb://localhost:27017".into(),
+            username: None,
+            password: None,
+        }
     }
 }
 
