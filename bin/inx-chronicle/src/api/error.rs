@@ -21,7 +21,7 @@ pub enum InternalApiError {
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
-    #[cfg(feature = "api-metrics")]
+    #[cfg(feature = "metrics")]
     #[error(transparent)]
     Prometheus(#[from] prometheus::Error),
     #[cfg(feature = "stardust")]

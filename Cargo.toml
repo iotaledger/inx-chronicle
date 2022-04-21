@@ -67,8 +67,8 @@ default = [
     "api-analytics",
     "api-explorer", 
     "api-indexer",
-    "api-metrics",
     "api-node", 
+    "metrics",
     "stardust",
 ]
 api = [ 
@@ -88,13 +88,12 @@ api-explorer = [
 api-indexer = [
     "api",
 ]
-api-metrics = [ 
-    "api",
-    "lazy_static",
-    "prometheus",
-]
 api-node = [
     "api",
+]
+metrics = [
+    "lazy_static",
+    "prometheus",
 ]
 stardust = [
     "bee-message-stardust",

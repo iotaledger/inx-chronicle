@@ -5,7 +5,7 @@
 //! as well as the health of the application, metrics, and analytics.
 
 mod extractors;
-#[cfg(feature = "api-metrics")]
+#[cfg(feature = "metrics")]
 mod metrics;
 
 #[cfg(feature = "stardust")]

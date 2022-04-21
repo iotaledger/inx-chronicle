@@ -6,11 +6,46 @@ use std::{pin::Pin, task::Poll, time::SystemTime};
 use axum::{routing::get, Router};
 use futures::Future;
 use hyper::{Method, Request, Response, Uri};
-use lazy_static::lazy_static;
-use prometheus::{Encoder, Gauge, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, Registry, TextEncoder};
+use prometheus::{Encoder, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, TextEncoder};
 use tower::{Layer, Service};
 
 use super::error::ApiError;
+use crate::REGISTRY;
+
+#[derive(Clone, Debug)]
+pub struct ApiMetrics {
+    /// Incoming request counter
+    pub incoming_requests: IntCounter,
+    /// Response code collector
+    pub response_code_counter: IntCounterVec,
+    /// Response time collector
+    pub response_time_collector: HistogramVec,
+}
+
+impl ApiMetrics {
+    pub fn new() -> Self {
+        // Panic: If any of this fails, there's not much we can do. The app should close, so panicking is ok.
+        let res = Self {
+            incoming_requests: IntCounter::new("incoming_requests", "Incoming Requests").unwrap(),
+            response_code_counter: IntCounterVec::new(
+                Opts::new("response_code", "Response Codes"),
+                &["statuscode", "type"],
+            )
+            .unwrap(),
+            response_time_collector: HistogramVec::new(
+                HistogramOpts::new("response_time", "Response Times"),
+                &["endpoint"],
+            )
+            .unwrap(),
+        };
+        REGISTRY.register(Box::new(res.incoming_requests.clone())).unwrap();
+        REGISTRY.register(Box::new(res.response_code_counter.clone())).unwrap();
+        REGISTRY
+            .register(Box::new(res.response_time_collector.clone()))
+            .unwrap();
+        res
+    }
+}
 
 pub fn routes() -> Router {
     Router::new().route("/metrics", get(metrics))
@@ -24,50 +59,6 @@ async fn metrics() -> Result<String, ApiError> {
     encoder.encode(&prometheus::gather(), &mut buffer)?;
 
     Ok(String::from_utf8(buffer)?)
-}
-
-pub fn register_metrics() {
-    REGISTRY
-        .register(Box::new(INCOMING_REQUESTS.clone()))
-        .expect("Could not register collector");
-
-    REGISTRY
-        .register(Box::new(RESPONSE_CODE_COLLECTOR.clone()))
-        .expect("Could not register collector");
-
-    REGISTRY
-        .register(Box::new(RESPONSE_TIME_COLLECTOR.clone()))
-        .expect("Could not register collector");
-
-    REGISTRY
-        .register(Box::new(CONFIRMATION_TIME_COLLECTOR.clone()))
-        .expect("Could not register collector");
-}
-
-lazy_static! {
-    /// Metrics registry
-    pub static ref REGISTRY: Registry = Registry::new();
-
-    /// Incoming request counter
-    pub static ref INCOMING_REQUESTS: IntCounter =
-        IntCounter::new("incoming_requests", "Incoming Requests").expect("failed to create metric");
-
-    /// Response code collector
-    pub static ref RESPONSE_CODE_COLLECTOR: IntCounterVec = IntCounterVec::new(
-        Opts::new("response_code", "Response Codes"),
-        &["statuscode", "type"]
-    )
-    .expect("failed to create metric");
-
-    /// Response time collector
-    pub static ref RESPONSE_TIME_COLLECTOR: HistogramVec =
-        HistogramVec::new(HistogramOpts::new("response_time", "Response Times"), &["endpoint"])
-            .expect("failed to create metric");
-
-    /// Confirmation time collector
-    pub static ref CONFIRMATION_TIME_COLLECTOR: Gauge =
-        Gauge::new("confirmation_time", "Confirmation Times")
-            .expect("failed to create metric");
 }
 
 #[derive(Clone, Debug)]
@@ -99,11 +90,14 @@ where
 
     fn call(&mut self, req: Request<R>) -> Self::Future {
         let start_time = SystemTime::now();
-        INCOMING_REQUESTS.inc();
+        // Unwrap: This extension should always exist if compiled with the `metrics` feature.
+        let metrics = req.extensions().get::<ApiMetrics>().unwrap().clone();
+        metrics.incoming_requests.inc();
         let method = req.method().clone();
         let uri = req.uri().clone();
         MetricsResponseFuture {
             fut: self.inner.call(req),
+            metrics,
             start_time,
             method,
             uri,
@@ -124,6 +118,7 @@ impl<S> Layer<S> for MetricsLayer {
 
 pub struct MetricsResponseFuture<F: Unpin> {
     fut: F,
+    metrics: ApiMetrics,
     start_time: SystemTime,
     method: Method,
     uri: Uri,
@@ -140,14 +135,18 @@ where
         let fut = Pin::new(&mut this.fut);
         match fut.poll(cx) {
             Poll::Ready(res) => {
+                // Unwrap: Shouldn't be an issue with time-traveling, but if there is, we should gracefully catch this
+                // with the panic layer.
                 let duration = this.start_time.elapsed().unwrap();
                 let ms = (duration.as_secs() * 1000 + duration.subsec_millis() as u64) as f64;
-                RESPONSE_TIME_COLLECTOR
+                this.metrics
+                    .response_time_collector
                     .with_label_values(&[&format!("{} {}", this.method, this.uri)])
                     .observe(ms);
                 if let Ok(res) = res.as_ref() {
                     let status_bucket = ((res.status().as_u16() / 100) * 100).to_string();
-                    RESPONSE_CODE_COLLECTOR
+                    this.metrics
+                        .response_code_counter
                         .with_label_values(&[res.status().as_str(), &status_bucket])
                         .inc()
                 }

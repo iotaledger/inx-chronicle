@@ -45,6 +45,11 @@ use thiserror::Error;
 
 use self::cli::CliArgs;
 
+#[cfg(feature = "metrics")]
+lazy_static::lazy_static! {
+    pub static ref REGISTRY: prometheus::Registry = prometheus::Registry::new();
+}
+
 #[derive(Debug, Error)]
 pub enum LauncherError {
     #[error(transparent)]

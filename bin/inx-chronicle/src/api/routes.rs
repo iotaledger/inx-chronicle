@@ -26,10 +26,12 @@ pub fn routes(db: MongoDatabase) -> Router {
         router = router.nest("/", super::stardust::routes())
     }
 
-    #[cfg(feature = "api-metrics")]
+    #[cfg(feature = "metrics")]
     {
-        router = router.merge(crate::api::metrics::routes());
-        router = router.layer(crate::api::metrics::MetricsLayer);
+        router = router
+            .merge(super::metrics::routes())
+            .layer(super::metrics::MetricsLayer)
+            .layer(Extension(super::metrics::ApiMetrics::new()));
     }
 
     Router::new()
