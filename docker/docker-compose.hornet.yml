@@ -10,9 +10,13 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     image: inx-chronicle:dev
+    environment:
+      - RUST_LOG=warn,inx_chronicle=debug
     command:
-      - "--inx hornet:9029"
-      - "--db mongo:27017"
+      - "--inx"
+      - "hornet:9029"
+      - "--db"
+      - "mongodb://mongo:27017"
 
   hornet:
     image: gohornet/hornet:2.0.0-alpha6
