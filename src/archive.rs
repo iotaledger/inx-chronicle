@@ -198,7 +198,17 @@ mod tests {
 
     use super::*;
 
+    struct FileJanitor(&'static str);
+
+    impl Drop for FileJanitor {
+        fn drop(&mut self) {
+            std::fs::remove_file(self.0).unwrap();
+        }
+    }
+
     fn archive_milestones_test(path: &'static str, start_index: u32, end_index: u32, milestone_len: usize) {
+        let janitor = FileJanitor(path);
+
         let expected_milestones = (start_index..=end_index)
             .map(|_| (0..milestone_len).map(|_| rand_message()).collect::<Vec<_>>())
             .collect::<Vec<_>>();
@@ -225,12 +235,14 @@ mod tests {
         }
 
         assert!(archive.read_next_milestone().unwrap().is_none());
+
+        drop(janitor);
     }
 
     #[test]
     fn archive_zero_milestones() {
         archive_milestones::<_, _, std::vec::IntoIter<io::Result<Message>>, _>(
-            "/tmp/archive",
+            "/tmp/archive_zero_milestones",
             MilestoneIndex(1),
             MilestoneIndex(0),
             |_| unreachable!(),
