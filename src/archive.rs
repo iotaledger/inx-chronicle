@@ -17,17 +17,18 @@
 
 use std::{
     fs::File,
-    io::{self, Seek, SeekFrom, Write},
+    io::{self, BufReader, Read, Seek, SeekFrom, Write},
     path::Path,
 };
 
 use bee_message::{milestone::MilestoneIndex, Message};
 use packable::{
     error::UnpackError,
-    packer::{CounterPacker, IoPacker},
+    packer::IoPacker,
     unpacker::{CounterUnpacker, IoUnpacker},
     Packable,
 };
+use zstd::{Decoder, Encoder};
 
 /// Archives an inclusive range of milestones into a file.
 pub fn archive_milestones<P, E, I, F>(
@@ -59,27 +60,33 @@ where
 
         // This is the length of all the messages in this milestone.
         let messages_len = {
-            let mut packer = CounterPacker::new(&mut packer);
+            // Drop the packer so we can use the file directly.
+            drop(packer);
 
-            // FIXME: maybe compress?
+            let start_pos = file.stream_position()?;
+
+            let mut packer = IoPacker::new(Encoder::new(&mut file, 0)?);
+
             for message in messages {
                 // Write each message in this milestone
                 message?.pack(&mut packer)?;
             }
 
-            packer.counter()
+            packer.into_inner().finish()?;
+
+            let end_pos = file.stream_position()?;
+
+            end_pos - start_pos
         };
 
         // Panic: seek requires an `i64` as an argument. If the byte length of the messages in the
         // current milestone does not fit in an `i64` there is not much we can do.
         let offset = i64::try_from(messages_len).unwrap();
         // Panic: This is only an issue in 128-bit platforms.
-        let bytes = u64::try_from(messages_len).unwrap().to_le_bytes();
+        let bytes = messages_len.to_le_bytes();
         // Panic: This value always fits in an `i64`.
         let bytes_len = i64::try_from(bytes.len()).unwrap();
 
-        // Drop the packer so we can use the file directly.
-        drop(packer);
         // Jump back to the position before writing the messages length.
         file.seek(SeekFrom::Current(-(offset + bytes_len)))?;
         // Write the messages length.
@@ -136,10 +143,7 @@ impl Archive {
         Ok(Some((
             milestone_index,
             ArchivedMilestoneIter {
-                file: CounterUnpacker::new(file),
-                // Panic: If this panics, it would mean that the archive has a milestone that
-                // most likely will not fit in memory.
-                len: messages_len.try_into().unwrap(),
+                file: CounterUnpacker::new(IoUnpacker::new(Decoder::new(file.into_inner().take(messages_len))?)),
             },
         )))
     }
@@ -174,22 +178,26 @@ impl Archive {
 }
 
 struct ArchivedMilestoneIter<'a> {
-    file: CounterUnpacker<IoUnpacker<&'a mut File>>,
-    len: usize,
+    file: CounterUnpacker<IoUnpacker<Decoder<'a, BufReader<io::Take<&'a mut File>>>>>,
 }
 
 impl<'a> Iterator for ArchivedMilestoneIter<'a> {
     type Item = io::Result<Message>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.file.counter() == self.len {
-            return None;
+        match Message::unpack::<_, true>(&mut self.file) {
+            Ok(message) => Some(Ok(message)),
+            Err(err) => match err {
+                UnpackError::Packable(err) => Some(Err(io::Error::new(io::ErrorKind::Other, err))),
+                UnpackError::Unpacker(err) => {
+                    if let io::ErrorKind::UnexpectedEof = err.kind() {
+                        None
+                    } else {
+                        Some(Err(err))
+                    }
+                }
+            },
         }
-
-        Some(Message::unpack::<_, true>(&mut self.file).map_err(|e| match e {
-            UnpackError::Packable(e) => io::Error::new(io::ErrorKind::Other, e),
-            UnpackError::Unpacker(e) => e,
-        }))
     }
 }
 
