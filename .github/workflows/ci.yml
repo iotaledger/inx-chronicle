@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    uses: iotaledger/inx-chronicle/.github/workflows/common/build-and-test.yml@main
+    uses: iotaledger/inx-chronicle/.github/workflows/common-build-and-test.yml@main
     with:
       os: '["ubuntu-latest, macos-latest, windows-latest"]'
       rust: '["stable"]'
