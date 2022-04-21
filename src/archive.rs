@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn archive_zero_milestones() {
-        let path = "/tmp/archive_zero_milestones";
+        let path = "archive_zero_milestones";
 
         let janitor = FileJanitor(path);
 
@@ -263,16 +263,16 @@ mod tests {
 
     #[test]
     fn archive_one_milestone_one_message() {
-        archive_milestones_test("/tmp/archive_one_milestone_one_message", 0, 0, 1);
+        archive_milestones_test("archive_one_milestone_one_message", 0, 0, 1);
     }
 
     #[test]
     fn archive_one_milestone_several_messages() {
-        archive_milestones_test("/tmp/archive_one_milestone_several_messages", 0, 0, 100);
+        archive_milestones_test("archive_one_milestone_several_messages", 0, 0, 100);
     }
 
     #[test]
     fn archive_several_milestones_several_messages() {
-        archive_milestones_test("/tmp/archive_several_milestone_several_messages", 0, 10, 100);
+        archive_milestones_test("archive_several_milestone_several_messages", 0, 10, 100);
     }
 }
