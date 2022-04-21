@@ -17,9 +17,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum BrokerError {
     #[error(transparent)]
-    RuntimeError(#[from] RuntimeError),
-    #[error(transparent)]
     MongoDbError(#[from] MongoDbError),
+    #[error(transparent)]
+    RuntimeError(#[from] RuntimeError),
 }
 
 #[derive(Debug)]

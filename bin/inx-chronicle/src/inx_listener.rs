@@ -30,10 +30,10 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
 pub enum InxListenerError {
-    #[error("The broker actor is not running")]
-    MissingBroker,
     #[error(transparent)]
     Inx(#[from] InxError),
+    #[error("The broker actor is not running")]
+    MissingBroker,
     #[error(transparent)]
     Read(#[from] Status),
     #[error(transparent)]

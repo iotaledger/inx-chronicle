@@ -68,6 +68,7 @@ impl ScopeView {
 
     /// Gets the root scope.
     pub fn root(&self) -> ScopeView {
+        // Unwrap: the root scope is guaranteed to exist
         self.find_by_id(ROOT_SCOPE).unwrap()
     }
 
@@ -168,7 +169,7 @@ impl RuntimeScope {
                                 format!("Task {:x}", child_scope.id().as_fields().0),
                                 e
                             );
-                            Err(RuntimeError::ActorError(Arc::new(e)))
+                            Err(RuntimeError::TaskError(e))
                         }
                     },
                     Err(e) => {
@@ -229,7 +230,7 @@ impl RuntimeScope {
                         }
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
-                            let e = Arc::new(Box::new(e) as Box<dyn Error + Send + Sync>);
+                            let e = Arc::new(e);
                             supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Result(e.clone())))?;
                             Err(RuntimeError::ActorError(e))
                         }
@@ -266,9 +267,7 @@ impl RuntimeScope {
                         Ok(_) => Ok(()),
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
-                            Err(RuntimeError::ActorError(Arc::new(
-                                Box::new(e) as Box<dyn Error + Send + Sync>
-                            )))
+                            Err(RuntimeError::ActorError(Arc::new(e)))
                         }
                     },
                     Err(e) => {

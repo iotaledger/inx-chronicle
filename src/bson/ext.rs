@@ -7,7 +7,7 @@ use thiserror::Error;
 
 /// Gets values and upcasts if necessary
 #[allow(missing_docs)]
-pub trait BsonExt {
+pub trait BsonExt: private_bson_ext::SealedBsonExt {
     fn as_string(&self) -> Result<String, ValueAccessError>;
 
     fn as_u8(&self) -> Result<u8, ValueAccessError>;
@@ -113,38 +113,53 @@ impl BsonExt for Bson {
     }
 }
 
+mod private_bson_ext {
+    use mongodb::bson::Bson;
+    pub trait SealedBsonExt {}
+
+    impl SealedBsonExt for Bson {}
+}
+
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum DocError {
+    #[error(transparent)]
+    Convert(#[from] mongodb::bson::de::Error),
     #[error("Missing key {0}")]
     MissingKey(String),
     #[error("Value for key {0} is null")]
     NullValue(String),
     #[error(transparent)]
     ValueAccess(#[from] ValueAccessError),
-    #[error(transparent)]
-    Convert(#[from] mongodb::bson::de::Error),
 }
 
 #[allow(missing_docs)]
-pub trait DocPath {
-    fn split(self) -> Vec<String>;
+pub trait DocPath: private_doc_path::SealedDocPath {
+    fn into_segments(self) -> Vec<String>;
 }
 
 impl DocPath for &str {
-    fn split(self) -> Vec<String> {
+    fn into_segments(self) -> Vec<String> {
         self.split('.').map(|s| s.to_string()).collect()
     }
 }
 
 impl<S: AsRef<str>> DocPath for Vec<S> {
-    fn split(self) -> Vec<String> {
+    fn into_segments(self) -> Vec<String> {
         self.iter().map(|s| s.as_ref().to_string()).collect()
     }
 }
 
+mod private_doc_path {
+    pub trait SealedDocPath {}
+
+    impl SealedDocPath for &str {}
+
+    impl<S: AsRef<str>> SealedDocPath for Vec<S> {}
+}
+
 #[allow(missing_docs)]
-pub trait DocExt {
+pub trait DocExt: private_doc_ext::SealedDocExt {
     fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError>;
 
     fn convert_bson<T: DeserializeOwned, K: AsRef<str>>(&mut self, key: K) -> Result<T, DocError>;
@@ -202,10 +217,11 @@ impl DocExt for Document {
 
     fn take_path(&mut self, path: impl DocPath) -> Result<Bson, DocError> {
         let mut doc = self;
-        let mut path = path.split();
+        let mut path = path.into_segments();
         if path.is_empty() {
             return Err(DocError::MissingKey("".into()));
         }
+        // Unwrap: Totes ok because we just checked that it's not empty.
         let last = path.pop().unwrap();
         for key in path {
             doc = doc.get_document_mut(key)?;
@@ -247,4 +263,11 @@ impl DocExt for Document {
             .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
             .as_u64()?)
     }
+}
+
+mod private_doc_ext {
+    use mongodb::bson::Document;
+    pub trait SealedDocExt {}
+
+    impl SealedDocExt for Document {}
 }

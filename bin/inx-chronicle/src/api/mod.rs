@@ -8,10 +8,11 @@ mod extractors;
 #[cfg(feature = "api-metrics")]
 mod metrics;
 
-#[cfg(feature = "api-v2")]
-mod v2;
+#[cfg(feature = "stardust")]
+pub(crate) mod stardust;
 
 mod error;
+#[macro_use]
 mod responses;
 mod routes;
 
@@ -21,33 +22,24 @@ use chronicle::{
     db::MongoDatabase,
     runtime::actor::{context::ActorContext, Actor},
 };
+pub use error::ApiError;
+pub(crate) use responses::impl_success_response;
+pub use responses::SuccessBody;
 use routes::routes;
-use serde::Deserialize;
 use tokio::{sync::oneshot, task::JoinHandle};
 
-pub use self::error::APIError;
-
 /// The result of a request to the api
-pub type APIResult<T> = Result<T, APIError>;
-
-/// API version enumeration
-#[derive(Copy, Clone, Deserialize)]
-pub enum APIVersion {
-    /// Stardust API version 2
-    #[serde(rename = "v2")]
-    V2,
-}
+pub type ApiResult<T> = Result<T, ApiError>;
 
 /// The Chronicle API actor
 #[derive(Debug)]
-pub struct API {
+pub struct ApiWorker {
     db: MongoDatabase,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
-impl API {
-    /// Create a new Chronicle API actor from a mongo connection config.
-    /// Will fail if the config is invalid.
+impl ApiWorker {
+    /// Create a new Chronicle API actor from a mongo connection.
     pub fn new(db: MongoDatabase) -> Self {
         #[cfg(feature = "api-metrics")]
         {
@@ -61,14 +53,14 @@ impl API {
 }
 
 #[async_trait]
-impl Actor for API {
+impl Actor for ApiWorker {
     type State = ();
 
-    type Error = APIError;
+    type Error = ApiError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
-        log::info!("Starting Axum server");
+        log::info!("Starting API server");
         let db = self.db.clone();
         let api_handle = cx.handle().clone();
         let join_handle = tokio::spawn(async move {
@@ -87,13 +79,13 @@ impl Actor for API {
     async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
         if let Some((join_handle, shutdown_handle)) = self.server_handle.take() {
-            log::info!("Stopping Axum server");
             // Try to shut down axum. It may have already shut down, which is fine.
             shutdown_handle.send(()).ok();
             // Wait to shutdown until the child task is complete.
+            // Unwrap: Failures to join on this handle can safely be propagated as panics via the runtime.
             join_handle.await.unwrap()?;
         }
-        log::info!("Stopping API");
+        log::info!("Stopping API server");
         Ok(())
     }
 }

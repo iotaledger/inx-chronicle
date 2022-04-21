@@ -8,22 +8,22 @@ use chronicle::db::{
 };
 use futures::TryStreamExt;
 use hyper::Method;
-use mongodb::{bson::doc, options::FindOptions, Database};
+use mongodb::{bson::doc, options::FindOptions};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
 
-use super::{error::APIError, responses::*, APIResult};
+use super::{error::ApiError, responses::*, ApiResult};
 
 pub fn routes(db: MongoDatabase) -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
 
-    #[cfg(feature = "api-v2")]
+    #[cfg(feature = "stardust")]
     {
-        router = router.nest("/v2", crate::api::v2::routes())
+        router = router.nest("/", super::stardust::routes())
     }
 
     #[cfg(feature = "api-metrics")]
@@ -57,9 +57,9 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<Database>) -> APIResult<SyncDataResponse> {
+async fn sync(database: Extension<MongoDatabase>) -> ApiResult<SyncDataResponse> {
     let mut res = database
-        .collection::<SyncRecord>("sync")
+        .collection::<SyncRecord>()
         .find(
             doc! { "synced": true },
             FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
@@ -92,7 +92,7 @@ async fn sync(database: Extension<Database>) -> APIResult<SyncDataResponse> {
                     .completed
                     .push(sync_record.milestone_index..sync_record.milestone_index),
             }
-        // Otherwise the are synced only
+        // Otherwise they are synced only
         } else {
             match sync_data.synced_but_unlogged.last_mut() {
                 Some(last) => {
@@ -114,6 +114,6 @@ async fn sync(database: Extension<Database>) -> APIResult<SyncDataResponse> {
     Ok(SyncDataResponse(sync_data))
 }
 
-async fn not_found() -> APIError {
-    APIError::NotFound
+async fn not_found() -> ApiError {
+    ApiError::NotFound
 }

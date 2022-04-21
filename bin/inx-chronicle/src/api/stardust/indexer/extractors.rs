@@ -8,7 +8,7 @@ use axum::extract::{FromRequest, Query};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
 
-use crate::api::error::APIError;
+use crate::api::error::ApiError;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -28,27 +28,27 @@ impl Default for MessagesQuery {
 
 #[async_trait]
 impl<B: Send> FromRequest<B> for MessagesQuery {
-    type Rejection = APIError;
+    type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(MessagesQuery { mut tag, included }) = Query::<MessagesQuery>::from_request(req)
             .await
-            .map_err(APIError::QueryError)?;
+            .map_err(ApiError::QueryError)?;
         let query = req.uri().query().unwrap_or_default();
-        let query = serde_urlencoded::from_str::<HashMap<String, String>>(query).map_err(APIError::other)?;
+        let query = serde_urlencoded::from_str::<HashMap<String, String>>(query)?;
         let utf8 = query
             .get("utf8")
             .map(|s| s.parse::<bool>())
             .transpose()
-            .map_err(APIError::bad_parse)?;
+            .map_err(ApiError::bad_parse)?;
 
         if let Some(tag) = tag.as_mut() {
             if let Some(true) = utf8 {
                 *tag = hex::encode(&*tag);
             }
-            let tag_bytes = Vec::<u8>::from_hex(tag).map_err(|_| APIError::InvalidHex)?;
+            let tag_bytes = Vec::<u8>::from_hex(tag).map_err(|_| ApiError::InvalidHex)?;
             if tag_bytes.len() > 64 {
-                return Err(APIError::TagTooLarge);
+                return Err(ApiError::TagTooLarge);
             }
         }
 
@@ -81,12 +81,12 @@ impl Default for OutputsQuery {
 
 #[async_trait]
 impl<B: Send> FromRequest<B> for OutputsQuery {
-    type Rejection = APIError;
+    type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<OutputsQuery>::from_request(req)
             .await
-            .map_err(APIError::QueryError)?;
+            .map_err(ApiError::QueryError)?;
         Ok(query)
     }
 }

@@ -40,7 +40,7 @@ tokio = { version = "1.17", default-features = false, features = [ "macros", "rt
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
 tonic = { version = "0.7", default-features = false }
-uuid = { version = "0.8", default-features = false }
+uuid = { version = "1.0", default-features = false, features = ["v4"] }
 
 # API
 axum = { version = "0.5", default-features = false, features = ["http1", "json", "query"], optional = true }
@@ -63,7 +63,14 @@ bee-message-stardust = { package = "bee-message", git = "https://github.com/iota
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
 
 [features]
-default = ["api-v2", "api-metrics"]
+default = [
+    "api-analytics",
+    "api-explorer", 
+    "api-indexer",
+    "api-metrics",
+    "api-node", 
+    "stardust",
+]
 api = [ 
     "axum",
     "derive_more/from",
@@ -72,14 +79,22 @@ api = [
     "tower",
     "tower-http",
 ]
+api-analytics = [
+    "api",
+]
+api-explorer = [
+    "api",
+]
+api-indexer = [
+    "api",
+]
 api-metrics = [ 
     "api",
     "lazy_static",
     "prometheus",
 ]
-api-v2 = [
+api-node = [
     "api",
-    "stardust",
 ]
 stardust = [
     "bee-message-stardust",
