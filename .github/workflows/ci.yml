@@ -14,50 +14,10 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: ${{ matrix.os }}
-    # Unfortunately, we can do this right now because `indexmap` does not seem to follow semver.
-    # env:
-    #   RUSTFLAGS: -D warnings -D missing-docs
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install LLVM and Clang (Windows)
-        uses: KyleMayes/install-llvm-action@32c4866ebb71e0949e8833eb49beeebed48532bd
-        if: contains(matrix.os, 'windows')
-        with:
-          version: "11.0"
-          directory: ${{ runner.temp }}/llvm
-
-      - name: Set LIBCLANG_PATH (Windows)
-        run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
-        if: contains(matrix.os, 'windows')
-
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - uses: Swatinem/rust-cache@v1
-
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-build
-
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-test
-
-      - name: Doc Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-doctest
+    uses: iotaledger/inx-chronicle/.github/workflows/common-build-and-test.yml@main
+    with:
+      os: '["ubuntu-latest, macos-latest, windows-latest"]'
+      rust: '["stable"]'
 
   format:
     runs-on: ubuntu-latest

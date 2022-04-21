@@ -1,0 +1,62 @@
+name: Build and test
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+        description: 'Stringified JSON object listing the operating systems.'
+      rust:
+        required: true
+        type: string
+        description: 'Stringified JSON object listing the Rust versions.'
+
+jobs:
+  build-and-test:
+    build-and-test:
+    runs-on: ${{ matrix.os }}
+    # Unfortunately, we can do this right now because `indexmap` does not seem to follow semver.
+    # env:
+    #   RUSTFLAGS: -D warnings -D missing-docs
+    strategy:
+      matrix:
+        os: ${{ fromJson(inputs.os) }}
+        rust: ${{ fromJson(inputs.rust) }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install LLVM and Clang (Windows)
+        uses: KyleMayes/install-llvm-action@32c4866ebb71e0949e8833eb49beeebed48532bd
+        if: contains(matrix.os, 'windows')
+        with:
+          version: "11.0"
+          directory: ${{ runner.temp }}/llvm
+
+      - name: Set LIBCLANG_PATH (Windows)
+        run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
+        if: contains(matrix.os, 'windows')
+
+      - name: Install Rust (${{ matrix.rust }})
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-test
+
+      - name: Doc Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-doctest
