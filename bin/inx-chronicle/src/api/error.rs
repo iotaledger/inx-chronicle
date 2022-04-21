@@ -16,9 +16,14 @@ pub enum InternalApiError {
     #[error(transparent)]
     Doc(#[from] DocError),
     #[error(transparent)]
+    FromUtf8(#[from] std::string::FromUtf8Error),
+    #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
+    #[cfg(feature = "api-metrics")]
+    #[error(transparent)]
+    Prometheus(#[from] prometheus::Error),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     Stardust(#[from] chronicle::stardust::Error),

@@ -10,24 +10,20 @@ use lazy_static::lazy_static;
 use prometheus::{Encoder, Gauge, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, Registry, TextEncoder};
 use tower::{Layer, Service};
 
-use super::error::APIError;
+use super::error::ApiError;
 
 pub fn routes() -> Router {
     Router::new().route("/metrics", get(metrics))
 }
 
-async fn metrics() -> Result<String, APIError> {
+async fn metrics() -> Result<String, ApiError> {
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();
-    encoder
-        .encode(&REGISTRY.gather(), &mut buffer)
-        .map_err(APIError::other)?;
+    encoder.encode(&REGISTRY.gather(), &mut buffer)?;
 
-    encoder
-        .encode(&prometheus::gather(), &mut buffer)
-        .map_err(APIError::other)?;
+    encoder.encode(&prometheus::gather(), &mut buffer)?;
 
-    String::from_utf8(buffer).map_err(APIError::other)
+    Ok(String::from_utf8(buffer)?)
 }
 
 pub fn register_metrics() {
