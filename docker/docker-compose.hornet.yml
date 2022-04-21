@@ -4,6 +4,7 @@ services:
   mongo:
     image: mongo
     restart: always
+    command: --quiet
 
   inx-chronicle:
     build:
@@ -19,7 +20,7 @@ services:
       - "mongodb://mongo:27017"
 
   hornet:
-    image: gohornet/hornet:2.0.0-alpha6
+    image: gohornet/hornet:2.0.0-alpha7
     ulimits:
       nofile:
         soft: 8192
