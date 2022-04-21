@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Types and utilities to archive and recover milestone ranges.
+//!
 //! The format is the following:
 //!
 //! ```ignore
@@ -28,7 +30,7 @@ use packable::{
     Packable,
 };
 
-/// Archives milestones into a file.
+/// Archives an inclusive range of milestones into a file.
 pub fn archive_milestones<P, E, I, F>(
     path: P,
     first_index: MilestoneIndex,
@@ -68,12 +70,13 @@ where
         // The position before writing the messages.
         let start_pos = file.counter();
 
+        // FIXME: maybe compress?
         for res in milestone_iter {
             let (message_id, message) = res?;
 
             // Write each message in this milestone
             message_id.pack(&mut file)?;
-            // FIXME: maybe compress?
+
             message.pack(&mut file)?;
         }
 
@@ -101,7 +104,7 @@ where
     Ok(())
 }
 
-/// FIXME: docs
+/// Type used to sequentially read an archive file containing a range of milestones.
 pub struct Archive {
     file: File,
     first_index: MilestoneIndex,
@@ -109,7 +112,7 @@ pub struct Archive {
 }
 
 impl Archive {
-    /// FIXME: docs
+    /// Opens an already existing archive file.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         let mut file = File::open(path)?;
 
@@ -125,39 +128,15 @@ impl Archive {
         })
     }
 
-    /// FIXME: docs
-    pub fn read_milestone(
-        &mut self,
-        milestone_index: MilestoneIndex,
-    ) -> Result<Option<impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_>, io::Error> {
-        if milestone_index < self.first_index || milestone_index > self.last_index {
-            Ok(None)
-        } else {
-            while milestone_index > self.first_index {
-                let mut file = IoUnpacker::new(&mut self.file);
-
-                let messages_len = u64::unpack::<_, true>(&mut file).map_err(UnpackError::into_unpacker_err)?;
-
-                self.first_index = self.first_index + 1;
-
-                // Panic: If this panics, it would mean that the archive has a milestone that
-                // most likely will not fit in memory.
-                self.file.seek(SeekFrom::Current(messages_len.try_into().unwrap()))?;
-            }
-
-            Ok(self.read_next_milestone()?.map(|(_, iter)| iter))
-        }
-    }
-
-    /// FIXME: docs
+    /// Reads the next milestone available in the archive and returns its index and an [`Iterator`] with the
+    /// messages in the milestone.
     pub fn read_next_milestone(
         &mut self,
-    ) -> Result<
+    ) -> io::Result<
         Option<(
             MilestoneIndex,
-            impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_,
+            impl Iterator<Item = io::Result<(MessageId, Message)>> + '_,
         )>,
-        io::Error,
     > {
         if self.first_index > self.last_index {
             return Ok(None);
@@ -179,6 +158,34 @@ impl Archive {
                 len: messages_len.try_into().unwrap(),
             },
         )))
+    }
+
+    /// Finds a milestone in the archive and and an [`Iterator`] with the messages in the
+    /// milestone.
+    ///
+    /// This function can only read forward, meaning that any milestone that was already read or
+    /// skipped over cannot be found by it.
+    pub fn read_milestone(
+        &mut self,
+        milestone_index: MilestoneIndex,
+    ) -> io::Result<Option<impl Iterator<Item = io::Result<(MessageId, Message)>> + '_>> {
+        if milestone_index < self.first_index || milestone_index > self.last_index {
+            Ok(None)
+        } else {
+            while milestone_index > self.first_index {
+                let mut file = IoUnpacker::new(&mut self.file);
+
+                let messages_len = u64::unpack::<_, true>(&mut file).map_err(UnpackError::into_unpacker_err)?;
+
+                self.first_index = self.first_index + 1;
+
+                // Panic: If this panics, it would mean that the archive has a milestone that
+                // most likely will not fit in memory.
+                self.file.seek(SeekFrom::Current(messages_len.try_into().unwrap()))?;
+            }
+
+            Ok(self.read_next_milestone()?.map(|(_, iter)| iter))
+        }
     }
 }
 

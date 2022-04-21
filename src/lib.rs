@@ -15,5 +15,4 @@ pub mod inx;
 /// Module that contains the actor runtime.
 pub mod runtime;
 
-/// FIXME: docs
 pub mod archive;
