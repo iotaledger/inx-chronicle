@@ -42,58 +42,51 @@ where
     I: Iterator<Item = Result<Message, E>>,
     F: Fn(MilestoneIndex) -> Result<I, E>,
 {
-    let mut file = CounterPacker::new(IoPacker::new(File::create(path)?));
+    let mut file = File::create(path)?;
+    let mut packer = IoPacker::new(&mut file);
 
     // Write the first index
-    first_index.pack(&mut file)?;
+    first_index.pack(&mut packer)?;
     // Write the last index
-    last_index.pack(&mut file)?;
+    last_index.pack(&mut packer)?;
 
-    let mut milestone_index = first_index;
+    for milestone_index in *first_index..=*last_index {
+        let messages = f(MilestoneIndex(milestone_index))?;
 
-    let mut backpatches = Vec::new();
-
-    while milestone_index <= last_index {
-        let messages = f(milestone_index)?;
-
-        // The position where the total length of the messages will be written. We store it as a
-        // `u64` because that is what `SeekFrom` uses.
-        //
-        // Panic: this is only an issue in a platform with 128-bit memory addresses.
-        let pos = u64::try_from(file.counter()).unwrap();
-
-        // Instead of computing the length of all the messages, we will write a zero and backpatch
+        // Instead of computing the length of all the messages, we will write some value and backpatch
         // it later.
-        0u64.pack(&mut file)?;
+        u64::MAX.pack(&mut packer)?;
 
-        // The position before writing the messages.
-        let start_pos = file.counter();
+        // This is the length of all the messages in this milestone.
+        let messages_len = {
+            let mut packer = CounterPacker::new(&mut packer);
 
-        // FIXME: maybe compress?
-        for message in messages {
-            // Write each message in this milestone
-            message?.pack(&mut file)?;
-        }
+            // FIXME: maybe compress?
+            for message in messages {
+                // Write each message in this milestone
+                message?.pack(&mut packer)?;
+            }
 
-        // The length of all the messages in this milestone. We store it as a `u64` because we will
-        // use `Write::write_all` instead of `Packable::pack` to backpatch the value.
-        //
-        // Panic: If this panics, it would mean that the archive has a milestone that
-        // most likely will not fit in memory.
-        let len = u64::try_from(file.counter() - start_pos).unwrap();
+            packer.counter()
+        };
 
-        backpatches.push((pos, len));
+        drop(packer);
 
-        milestone_index = MilestoneIndex(*milestone_index + 1);
-    }
+        // Panic: seek requires an `i64` as an argument. If the byte length of the messages in the
+        // current milestone does not fit in an `i64` there is not much we can do.
+        let offset = i64::try_from(messages_len).unwrap();
+        // Panic: This is only an issue in 128-bit platforms.
+        let bytes = u64::try_from(messages_len).unwrap().to_le_bytes();
+        // Panic: This value always fits in an `i64`.
+        let bytes_len = i64::try_from(bytes.len()).unwrap();
 
-    let mut file = file.into_inner().into_inner();
+        file.seek(SeekFrom::Current(-(offset + bytes_len)))?;
 
-    for (pos, len) in backpatches {
-        // Jump to the position.
-        file.seek(SeekFrom::Start(pos))?;
-        // Overwrite the value.
-        file.write_all(&len.to_le_bytes())?;
+        file.write_all(&bytes)?;
+
+        file.seek(SeekFrom::Current(offset))?;
+
+        packer = IoPacker::new(&mut file);
     }
 
     Ok(())
