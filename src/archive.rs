@@ -22,6 +22,7 @@ use std::{
 
 use bee_message::{milestone::MilestoneIndex, Message, MessageId};
 use packable::{
+    error::UnpackError,
     packer::{CounterPacker, IoPacker},
     unpacker::{CounterUnpacker, IoUnpacker},
     Packable,
@@ -54,9 +55,10 @@ where
     while milestone_index <= last_index {
         let milestone_iter = f(milestone_index)?;
 
-        // FIXME: unwrap
         // The position where the total length of the messages will be written. We store it as a
         // `u64` because that is what `SeekFrom` uses.
+        //
+        // Panic: this is only an issue in a platform with 128-bit memory addresses.
         let pos = u64::try_from(file.counter()).unwrap();
 
         // Instead of computing the length of all the messages, we will write a zero and backpatch
@@ -75,9 +77,11 @@ where
             message.pack(&mut file)?;
         }
 
-        // FIXME: unwrap
         // The length of all the messages in this milestone. We store it as a `u64` because we will
         // use `Write::write_all` instead of `Packable::pack` to backpatch the value.
+        //
+        // Panic: If this panics, it would mean that the archive has a milestone that
+        // most likely will not fit in memory.
         let len = u64::try_from(file.counter() - start_pos).unwrap();
 
         backpatches.push((pos, len));
@@ -110,10 +114,9 @@ impl Archive {
         let mut file = File::open(path)?;
 
         let mut unpacker = IoUnpacker::new(&mut file);
-        // FIXME: unwrap
-        let first_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).unwrap();
-        // FIXME: unwrap
-        let last_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).unwrap();
+
+        let first_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).map_err(UnpackError::into_unpacker_err)?;
+        let last_index = MilestoneIndex::unpack::<_, true>(&mut unpacker).map_err(UnpackError::into_unpacker_err)?;
 
         Ok(Self {
             file,
@@ -126,55 +129,54 @@ impl Archive {
     pub fn read_milestone(
         &mut self,
         milestone_index: MilestoneIndex,
-    ) -> Option<Result<impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_, io::Error>> {
+    ) -> Result<Option<impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_>, io::Error> {
         if milestone_index < self.first_index || milestone_index > self.last_index {
-            None
+            Ok(None)
         } else {
             while milestone_index > self.first_index {
                 let mut file = IoUnpacker::new(&mut self.file);
 
-                // FIXME: unwrap
-                let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
+                let messages_len = u64::unpack::<_, true>(&mut file).map_err(UnpackError::into_unpacker_err)?;
 
                 self.first_index = self.first_index + 1;
 
-                // FIXME: unwrap
-                self.file.seek(SeekFrom::Current(len.try_into().unwrap())).unwrap();
+                // Panic: If this panics, it would mean that the archive has a milestone that
+                // most likely will not fit in memory.
+                self.file.seek(SeekFrom::Current(messages_len.try_into().unwrap()))?;
             }
 
-            Some(self.read_next_milestone().unwrap().map(|(_, iter)| iter))
+            Ok(self.read_next_milestone()?.map(|(_, iter)| iter))
         }
     }
 
     /// FIXME: docs
     pub fn read_next_milestone(
         &mut self,
-    ) -> Option<
-        Result<
-            (
-                MilestoneIndex,
-                impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_,
-            ),
-            io::Error,
-        >,
+    ) -> Result<
+        Option<(
+            MilestoneIndex,
+            impl Iterator<Item = Result<(MessageId, Message), io::Error>> + '_,
+        )>,
+        io::Error,
     > {
         if self.first_index > self.last_index {
-            return None;
+            return Ok(None);
         }
 
         let mut file = IoUnpacker::new(&mut self.file);
 
-        // FIXME: unwrap
-        let len = usize::try_from(u64::unpack::<_, true>(&mut file).unwrap()).unwrap();
+        let messages_len = u64::unpack::<_, true>(&mut file).map_err(UnpackError::into_unpacker_err)?;
 
         let milestone_index = self.first_index;
         self.first_index = self.first_index + 1;
 
-        Some(Ok((
+        Ok(Some((
             milestone_index,
             ArchivedMilestoneIter {
                 file: CounterUnpacker::new(file),
-                len,
+                // Panic: If this panics, it would mean that the archive has a milestone that
+                // most likely will not fit in memory.
+                len: messages_len.try_into().unwrap(),
             },
         )))
     }
@@ -193,12 +195,16 @@ impl<'a> Iterator for ArchivedMilestoneIter<'a> {
             return None;
         }
 
-        // FIXME: unwrap
-        let message_id = MessageId::unpack::<_, true>(&mut self.file).unwrap();
-        // FIXME: unwrap
-        let message = Message::unpack::<_, true>(&mut self.file).unwrap();
+        Some((|| {
+            let message_id = MessageId::unpack::<_, true>(&mut self.file).map_err(UnpackError::into_unpacker_err)?;
 
-        Some(Ok((message_id, message)))
+            let message = Message::unpack::<_, true>(&mut self.file).map_err(|e| match e {
+                UnpackError::Packable(e) => io::Error::new(io::ErrorKind::Other, e),
+                UnpackError::Unpacker(e) => e,
+            })?;
+
+            Ok((message_id, message))
+        })())
     }
 }
 
@@ -220,7 +226,7 @@ mod tests {
 
         let mut archive = Archive::open("/tmp/archive").unwrap();
 
-        assert!(archive.read_next_milestone().is_none());
+        assert!(archive.read_next_milestone().unwrap().is_none());
     }
 
     #[test]
@@ -270,7 +276,7 @@ mod tests {
             assert_eq!(messages.next().unwrap().unwrap(), (id, msg));
         }
 
-        assert!(messages.next().is_none())
+        assert!(messages.next().is_none());
     }
 
     #[test]
@@ -309,6 +315,6 @@ mod tests {
             assert!(messages.next().is_none());
         }
 
-        assert!(archive.read_next_milestone().is_none());
+        assert!(archive.read_next_milestone().unwrap().is_none());
     }
 }
