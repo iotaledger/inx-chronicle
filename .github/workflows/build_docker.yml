@@ -15,6 +15,3 @@ jobs:
 
       - name: Build Docker image
         run: docker-compose -f ./docker/docker-compose.hornet.yml build
-
-      - name: Test Docker image
-        run: docker-compose -f ./docker/docker-compose.hornet.yml exec -T inx-chronicle --version | grep -q "inx-chronicle"
