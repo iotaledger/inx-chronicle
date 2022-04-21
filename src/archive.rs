@@ -7,14 +7,13 @@
 //!
 //! ```ignore
 //! archived_milestones ::= first_index last_index (milestone)*
-//! milestone := messages_len (message_id message)*
+//! milestone := messages_len (message)*
 //! ```
 //! where:
 //!
 //! - `first_index` is the earliest milestone index.
 //! - `last_index` is the latest milestone index.
-//! - `messages_len` is the length in bytes of all the message ID and message pairs in the current
-//! milestone.
+//! - `messages_len` is the length in bytes of all the messages in the current milestone.
 
 use std::{
     fs::File,
