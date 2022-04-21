@@ -243,6 +243,8 @@ mod tests {
     fn archive_zero_milestones() {
         let path = "/tmp/archive_zero_milestones";
 
+        let janitor = FileJanitor(path);
+
         archive_milestones::<_, _, std::vec::IntoIter<io::Result<Message>>, _>(
             path,
             MilestoneIndex(1),
@@ -254,6 +256,8 @@ mod tests {
         let mut archive = Archive::open(path).unwrap();
 
         assert!(archive.read_next_milestone().unwrap().is_none());
+
+        drop(janitor);
     }
 
     #[test]
