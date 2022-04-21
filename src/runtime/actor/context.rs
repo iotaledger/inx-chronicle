@@ -6,6 +6,7 @@ use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
     panic::AssertUnwindSafe,
+    time::Instant,
 };
 
 use futures::{
@@ -15,6 +16,7 @@ use futures::{
 
 use super::{
     addr::{Addr, SendError},
+    delay::Delay,
     event::{DynEvent, EnvelopeStream, HandleEvent},
     report::Report,
     Actor,
@@ -61,8 +63,17 @@ impl<A: Actor> ActorContext<A> {
     }
 
     /// Delay the processing of an event by re-sending it to self.
-    pub fn delay<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), SendError> {
-        self.handle().send(event)
+    /// If a time is specified, the event will be delayed until that time,
+    /// otherwise it will re-process immediately.
+    pub fn delay<E: 'static + DynEvent<A> + Send + Sync>(
+        &self,
+        event: E,
+        until: impl Into<Option<Instant>>,
+    ) -> Result<(), SendError> {
+        match until.into() {
+            Some(until) => self.handle.send(Delay::new(event, until)),
+            None => self.handle.send(event),
+        }
     }
 
     /// Shutdown the actor.

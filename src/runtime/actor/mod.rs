@@ -12,6 +12,8 @@ use self::context::ActorContext;
 pub mod addr;
 /// Module containing the actor context.
 pub mod context;
+/// Module containing a [`Delay`] wrapper, for delaying events.
+pub mod delay;
 /// Module containing actor error types.
 pub mod error;
 /// Module containing event types.
