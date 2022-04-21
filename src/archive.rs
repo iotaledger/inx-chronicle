@@ -206,14 +206,10 @@ mod tests {
 
     use super::*;
 
-    fn generate_data(start_index: u32, end_index: u32, milestone_len: usize) -> Vec<Vec<Message>> {
-        (start_index..=end_index)
-            .map(|_| (0..milestone_len).map(|_| rand_message()).collect())
-            .collect()
-    }
-
     fn archive_milestones_test(path: &'static str, start_index: u32, end_index: u32, milestone_len: usize) {
-        let expected_milestones = generate_data(start_index, end_index, milestone_len);
+        let expected_milestones = (start_index..=end_index)
+            .map(|_| (0..milestone_len).map(|_| rand_message()).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
 
         archive_milestones(path, MilestoneIndex(start_index), MilestoneIndex(end_index), |index| {
             let index = usize::try_from(*index - start_index).unwrap();
