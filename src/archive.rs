@@ -70,8 +70,6 @@ where
             packer.counter()
         };
 
-        drop(packer);
-
         // Panic: seek requires an `i64` as an argument. If the byte length of the messages in the
         // current milestone does not fit in an `i64` there is not much we can do.
         let offset = i64::try_from(messages_len).unwrap();
@@ -80,12 +78,15 @@ where
         // Panic: This value always fits in an `i64`.
         let bytes_len = i64::try_from(bytes.len()).unwrap();
 
+        // Drop the packer so we can use the file directly.
+        drop(packer);
+        // Jump back to the position before writing the messages length.
         file.seek(SeekFrom::Current(-(offset + bytes_len)))?;
-
+        // Write the messages length.
         file.write_all(&bytes)?;
-
+        // Jump forward to the last byte of the messages so we can keep writing more messages.
         file.seek(SeekFrom::Current(offset))?;
-
+        // Create a new packer.
         packer = IoPacker::new(&mut file);
     }
 
