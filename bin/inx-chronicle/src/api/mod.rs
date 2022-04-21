@@ -76,6 +76,7 @@ impl Actor for ApiWorker {
             // Try to shut down axum. It may have already shut down, which is fine.
             shutdown_handle.send(()).ok();
             // Wait to shutdown until the child task is complete.
+            // Unwrap: Failures to join on this handle can safely be propagated as panics via the runtime.
             join_handle.await.unwrap()?;
         }
         log::info!("Stopping API server");

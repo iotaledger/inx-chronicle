@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -33,6 +34,12 @@ impl TryFrom<u8> for LedgerInclusionState {
             2 => Ok(Self::NoTransaction),
             n => Err(UnexpectedLedgerInclusionState(n)),
         }
+    }
+}
+
+impl From<LedgerInclusionState> for Bson {
+    fn from(l: LedgerInclusionState) -> Self {
+        Bson::Int32((l as u8).into())
     }
 }
 

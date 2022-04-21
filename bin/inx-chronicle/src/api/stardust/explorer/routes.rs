@@ -45,7 +45,7 @@ async fn transaction_history(
             // Only outputs for this address
             doc! { "$match": {
                 "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                "inclusion_state": LedgerInclusionState::Included as u8 as i32, 
+                "inclusion_state": LedgerInclusionState::Included, 
                 "message.payload.data.essence.data.outputs.address.data": &address 
             } },
             doc! { "$set": {
@@ -67,7 +67,7 @@ async fn transaction_history(
                 "pipeline": [
                     // Match using the output's index
                     { "$match": { 
-                        "inclusion_state": LedgerInclusionState::Included as u8 as i32, 
+                        "inclusion_state": LedgerInclusionState::Included, 
                         "message.payload.data.essence.data.inputs.transaction_id": "$$transaction_id",
                         "message.payload.data.essence.data.inputs.index": "$$index"
                     } },

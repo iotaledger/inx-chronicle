@@ -113,6 +113,7 @@ pub struct ErrorBody {
 impl IntoResponse for ErrorBody {
     fn into_response(self) -> axum::response::Response {
         match serde_json::to_string(&self) {
+            // Unwrap: Cannot fail as the only failure point is the header (which is valid).
             Ok(json) => axum::response::Response::builder()
                 .status(self.status)
                 .header(hyper::header::CONTENT_TYPE, "application/json")

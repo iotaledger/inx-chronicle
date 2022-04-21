@@ -39,8 +39,8 @@ impl<B: Send> FromRequest<B> for Pagination {
 #[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct TimeRangeQuery {
-    start_timestamp: Option<u64>,
-    end_timestamp: Option<u64>,
+    start_timestamp: Option<i64>,
+    end_timestamp: Option<i64>,
 }
 
 #[derive(Copy, Clone)]
@@ -62,12 +62,12 @@ impl<B: Send> FromRequest<B> for TimeRange {
             .map_err(ApiError::QueryError)?;
         let time_range = TimeRange {
             start_timestamp: start_timestamp
-                .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
+                .map(OffsetDateTime::from_unix_timestamp)
                 .transpose()
                 .map_err(ApiError::bad_parse)?
                 .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::days(30)),
             end_timestamp: end_timestamp
-                .map(|t| OffsetDateTime::from_unix_timestamp(t as i64))
+                .map(OffsetDateTime::from_unix_timestamp)
                 .transpose()
                 .map_err(ApiError::bad_parse)?
                 .unwrap_or_else(OffsetDateTime::now_utc),

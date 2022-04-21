@@ -39,7 +39,7 @@ async fn address_analytics(
         .aggregate(
             vec![
                 doc! { "$match": {
-                    "inclusion_state": LedgerInclusionState::Included as u8 as i32,
+                    "inclusion_state": LedgerInclusionState::Included,
                     "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                     "message.payload.data.kind": TransactionPayload::KIND as i32,
                 } },
@@ -49,7 +49,7 @@ async fn address_analytics(
                     "let": { "transaction_id": "$message.payload.data.essence.data.inputs.transaction_id", "index": "$message.payload.data.essence.data.inputs.index" },
                     "pipeline": [
                         { "$match": { 
-                            "inclusion_state": LedgerInclusionState::Included as u8 as i32, 
+                            "inclusion_state": LedgerInclusionState::Included, 
                             "message.payload.transaction_id": "$$transaction_id",
                         } },
                         { "$set": {

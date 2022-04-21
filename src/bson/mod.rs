@@ -29,7 +29,10 @@ where
     T: Serialize,
 {
     let ser = Serializer(BsonSerializer::new());
-    value.serialize(ser).map(|bson| bson.to_document().unwrap())
+    Ok(value
+        .serialize(ser)
+        .map(|bson| bson.to_document())?
+        .map_err(|e| <Error as serde::ser::Error>::custom(e.to_string()))?)
 }
 
 /// Compatability type for u64 reprentation in BSON.

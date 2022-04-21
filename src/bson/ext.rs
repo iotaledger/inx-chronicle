@@ -221,6 +221,7 @@ impl DocExt for Document {
         if path.is_empty() {
             return Err(DocError::MissingKey("".into()));
         }
+        // Unwrap: Totes ok because we just checked that it's not empty.
         let last = path.pop().unwrap();
         for key in path {
             doc = doc.get_document_mut(key)?;

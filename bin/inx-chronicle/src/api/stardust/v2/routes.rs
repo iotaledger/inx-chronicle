@@ -212,7 +212,7 @@ async fn output_by_transaction_id(
         .doc_collection::<MessageRecord>()
         .find_one(
             doc! {
-                "inclusion_state": LedgerInclusionState::Included as u8 as i32,
+                "inclusion_state": LedgerInclusionState::Included,
                 "message.payload.data.essence.data.inputs.transaction_id": &transaction_id.to_string(),
                 "message.payload.data.essence.data.inputs.index": idx as i64
             },
@@ -259,7 +259,7 @@ async fn transaction_included_message(
         .doc_collection::<MessageRecord>()
         .find_one(
             doc! {
-                "inclusion_state": LedgerInclusionState::Included as u8 as i32,
+                "inclusion_state": LedgerInclusionState::Included,
                 "message.payload.transaction_id": &transaction_id.to_string(),
             },
             None,

@@ -136,7 +136,7 @@ async fn outputs_query(
     if *included {
         query_doc[0]
             .get_document_mut("$match")?
-            .insert("inclusion_state", LedgerInclusionState::Included as u8 as i32);
+            .insert("inclusion_state", LedgerInclusionState::Included);
     }
 
     let outputs = database
