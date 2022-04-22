@@ -40,6 +40,8 @@ impl InxConfig {
             return Err(InxError::InvalidAddress(self.address.clone()));
         }
 
-        Ok(InxClient::connect(self.address.clone()).await.map_err(InxError::ConnectionError)?)
+        InxClient::connect(self.address.clone())
+            .await
+            .map_err(InxError::ConnectionError)
     }
 }

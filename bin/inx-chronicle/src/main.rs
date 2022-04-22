@@ -159,10 +159,10 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                             tokio::time::sleep(wait_interval).await;
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
-                        },
+                        }
                         InxError::InvalidAddress(_) => {
                             cx.shutdown();
-                        },
+                        }
                         InxError::ParsingAddressFailed(_) => {
                             cx.shutdown();
                         }

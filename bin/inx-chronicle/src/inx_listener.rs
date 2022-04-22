@@ -69,7 +69,7 @@ impl Actor for InxListener {
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
         // TODO: This is not working yet.
-        let route_req = inx::proto::ApiRouteRequest{
+        let route_req = inx::proto::ApiRouteRequest {
             route: "chronicle/".into(),
             host: "inx-chronicle".into(),
             port: 9092,
