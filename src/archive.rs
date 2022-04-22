@@ -30,95 +30,77 @@ use packable::{
 };
 use zstd::{Decoder, Encoder};
 
-/// Archives an inclusive range of milestones into a file.
-pub fn archive_milestones<P, E, I, F>(
-    path: P,
-    first_index: MilestoneIndex,
-    last_index: MilestoneIndex,
-    f: F,
-) -> Result<(), E>
-where
-    P: AsRef<Path>,
-    E: From<io::Error>,
-    I: Iterator<Item = Result<Message, E>>,
-    F: Fn(MilestoneIndex) -> Result<I, E>,
-{
-    let mut file = File::create(path)?;
-    let mut packer = IoPacker::new(&mut file);
-
-    // Write the first and last milestone indices
-    (first_index, last_index).pack(&mut packer)?;
-
-    for milestone_index in *first_index..=*last_index {
-        let messages = f(MilestoneIndex(milestone_index))?;
-
-        // Instead of computing the length of all the messages, we will write some value and backpatch
-        // it later.
-        u64::MAX.pack(&mut packer)?;
-
-        // This is the length of all the messages in this milestone.
-        let messages_len = {
-            // Drop the packer so we can use the file directly.
-            drop(packer);
-
-            let start_pos = file.stream_position()?;
-
-            let mut packer = IoPacker::new(Encoder::new(&mut file, 0)?);
-
-            for message in messages {
-                // Write each message in this milestone
-                message?.pack(&mut packer)?;
-            }
-
-            packer.into_inner().finish()?;
-
-            let end_pos = file.stream_position()?;
-
-            end_pos - start_pos
-        };
-
-        // Panic: seek requires an `i64` as an argument. If the byte length of the messages in the
-        // current milestone does not fit in an `i64` there is not much we can do.
-        let offset = i64::try_from(messages_len).unwrap();
-        // Panic: This is only an issue in 128-bit platforms.
-        let bytes = messages_len.to_le_bytes();
-        // Panic: This value always fits in an `i64`.
-        let bytes_len = i64::try_from(bytes.len()).unwrap();
-
-        // Jump back to the position before writing the messages length.
-        file.seek(SeekFrom::Current(-(offset + bytes_len)))?;
-        // Write the messages length.
-        file.write_all(&bytes)?;
-        // Jump forward to the last byte of the messages so we can keep writing more messages.
-        file.seek(SeekFrom::Current(offset))?;
-        // Create a new packer.
-        packer = IoPacker::new(&mut file);
-    }
-
-    Ok(())
-}
-
 /// Type used to sequentially read an archive file containing a range of milestones.
+#[derive(Debug)]
 pub struct Archive {
     file: File,
-    first_index: MilestoneIndex,
-    last_index: MilestoneIndex,
+    start_index: MilestoneIndex,
+    end_index: MilestoneIndex,
 }
 
 impl Archive {
-    /// Opens an already existing archive file.
-    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
+    /// Creates a new archive file starting at the specified milestone index and overwriting any
+    /// existing file with the same path.
+    ///
+    /// In order for the file to be well-formed it is mandatory to call [`Archive::close`] when
+    /// done writing to the file.
+    pub fn create(path: impl AsRef<Path>, start_index: MilestoneIndex) -> io::Result<Self> {
+        let mut file = File::create(path)?;
+
+        let mut packer = IoPacker::new(&mut file);
+
+        (start_index, u32::MAX).pack(&mut packer)?;
+
+        Ok(Self {
+            file,
+            start_index,
+            end_index: start_index,
+        })
+    }
+
+    /// Writes a milestone into an archive file and returns the index of such milestone if
+    /// successful.
+    pub fn write_milestone(&mut self, messages: Vec<Message>) -> io::Result<MilestoneIndex> {
+        let mut packer = IoPacker::new(Encoder::new(vec![], 0)?);
+
+        for message in messages {
+            message.pack(&mut packer)?;
+        }
+
+        let bytes = packer.into_inner().finish()?;
+        let bytes_len = u64::try_from(bytes.len()).unwrap();
+
+        self.file.write_all(&bytes_len.to_le_bytes())?;
+        self.file.write_all(&bytes)?;
+        self.file.sync_data()?;
+
+        let milestone_index = self.end_index;
+        self.end_index = self.end_index + 1;
+
+        Ok(milestone_index)
+    }
+
+    /// Closes a milestone file.
+    pub fn close(&mut self) -> io::Result<()> {
+        self.file.rewind()?;
+        (self.start_index, self.end_index).pack(&mut IoPacker::new(&mut self.file))?;
+
+        Ok(())
+    }
+
+    /// Opens an already existing archive file in read mode.
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
         let mut file = File::open(path)?;
 
         let mut unpacker = IoUnpacker::new(&mut file);
 
-        let (first_index, last_index) = <(MilestoneIndex, MilestoneIndex)>::unpack::<_, true>(&mut unpacker)
+        let (start_index, end_index) = <(MilestoneIndex, MilestoneIndex)>::unpack::<_, true>(&mut unpacker)
             .map_err(UnpackError::into_unpacker_err)?;
 
         Ok(Self {
             file,
-            first_index,
-            last_index,
+            start_index,
+            end_index,
         })
     }
 
@@ -127,7 +109,7 @@ impl Archive {
     pub fn read_next_milestone(
         &mut self,
     ) -> io::Result<Option<(MilestoneIndex, impl Iterator<Item = io::Result<Message>> + '_)>> {
-        if self.first_index > self.last_index {
+        if self.start_index >= self.end_index {
             return Ok(None);
         }
 
@@ -135,8 +117,8 @@ impl Archive {
 
         let messages_len = u64::unpack::<_, true>(&mut file).map_err(UnpackError::into_unpacker_err)?;
 
-        let milestone_index = self.first_index;
-        self.first_index = self.first_index + 1;
+        let milestone_index = self.start_index;
+        self.start_index = self.start_index + 1;
 
         Ok(Some((
             milestone_index,
@@ -155,15 +137,15 @@ impl Archive {
         &mut self,
         milestone_index: MilestoneIndex,
     ) -> io::Result<Option<impl Iterator<Item = io::Result<Message>> + '_>> {
-        if milestone_index < self.first_index || milestone_index > self.last_index {
+        if milestone_index < self.start_index || milestone_index >= self.end_index {
             Ok(None)
         } else {
-            while milestone_index > self.first_index {
+            while milestone_index > self.start_index {
                 let mut file = IoUnpacker::new(&mut self.file);
 
                 let messages_len = u64::unpack::<_, true>(&mut file).map_err(UnpackError::into_unpacker_err)?;
 
-                self.first_index = self.first_index + 1;
+                self.start_index = self.start_index + 1;
 
                 // Panic: If this panics, it would mean that the archive has a milestone that
                 // most likely will not fit in memory.
@@ -209,27 +191,28 @@ mod tests {
 
     impl Drop for FileJanitor {
         fn drop(&mut self) {
-            std::fs::remove_file(self.0).unwrap();
+            std::fs::remove_file(self.0).ok();
         }
     }
 
     fn archive_milestones_test(path: &'static str, start_index: u32, end_index: u32, milestone_len: usize) {
         let janitor = FileJanitor(path);
 
-        let expected_milestones = (start_index..=end_index)
+        let expected_milestones = (start_index..end_index)
             .map(|_| (0..milestone_len).map(|_| rand_message()).collect::<Vec<_>>())
             .collect::<Vec<_>>();
 
-        archive_milestones(path, MilestoneIndex(start_index), MilestoneIndex(end_index), |index| {
-            let index = usize::try_from(*index - start_index).unwrap();
+        let mut archive = Archive::create(path, MilestoneIndex(start_index)).unwrap();
 
-            io::Result::Ok(expected_milestones[index].clone().into_iter().map(Ok))
-        })
-        .unwrap();
+        for expected_messages in &expected_milestones {
+            archive.write_milestone(expected_messages.clone()).unwrap();
+        }
+
+        archive.close().unwrap();
 
         let mut archive = Archive::open(path).unwrap();
 
-        for (expected_index, expected_messages) in (start_index..=end_index).zip(expected_milestones) {
+        for (expected_index, expected_messages) in (start_index..end_index).zip(expected_milestones) {
             let (milestone_index, mut messages) = archive.read_next_milestone().unwrap().unwrap();
 
             assert_eq!(MilestoneIndex(expected_index), milestone_index);
@@ -252,13 +235,7 @@ mod tests {
 
         let janitor = FileJanitor(path);
 
-        archive_milestones::<_, _, std::vec::IntoIter<io::Result<Message>>, _>(
-            path,
-            MilestoneIndex(1),
-            MilestoneIndex(0),
-            |_| unreachable!(),
-        )
-        .unwrap();
+        Archive::create(path, MilestoneIndex(0)).unwrap().close().unwrap();
 
         let mut archive = Archive::open(path).unwrap();
 
@@ -269,16 +246,42 @@ mod tests {
 
     #[test]
     fn archive_one_milestone_one_message() {
-        archive_milestones_test("archive_one_milestone_one_message", 0, 0, 1);
+        archive_milestones_test("archive_one_milestone_one_message", 0, 1, 1);
     }
 
     #[test]
     fn archive_one_milestone_several_messages() {
-        archive_milestones_test("archive_one_milestone_several_messages", 0, 0, 100);
+        archive_milestones_test("archive_one_milestone_several_messages", 0, 1, 100);
     }
 
     #[test]
     fn archive_several_milestones_several_messages() {
         archive_milestones_test("archive_several_milestone_several_messages", 0, 10, 100);
+    }
+
+    #[test]
+    fn archive_incomplete_milestone() {
+        let path = "archive_incomplete_milestone";
+
+        let janitor = FileJanitor(path);
+
+        let expected_messages = (0..100).map(|_| rand_message()).collect::<Vec<_>>();
+
+        let mut archive = Archive::create(path, MilestoneIndex(0)).unwrap();
+
+        archive.write_milestone(expected_messages.clone()).unwrap();
+
+        let mut archive = Archive::open(path).unwrap();
+
+        assert_eq!(0, *archive.start_index);
+        assert_eq!(u32::MAX, *archive.end_index);
+
+        let (_, mut messages) = archive.read_next_milestone().unwrap().unwrap();
+
+        for expected_message in expected_messages {
+            assert_eq!(messages.next().unwrap().unwrap(), expected_message);
+        }
+
+        drop(janitor);
     }
 }
