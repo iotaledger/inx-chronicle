@@ -222,6 +222,10 @@ async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
 
+    std::panic::set_hook(Box::new(|p| {
+        log::error!("{}", p);
+    }));
+
     if let Err(e) = Runtime::launch(startup).await {
         log::error!("{}", e);
     }
