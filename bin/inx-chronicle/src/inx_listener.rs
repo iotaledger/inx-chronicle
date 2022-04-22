@@ -20,7 +20,6 @@ use inx::{
     proto::{MessageFilter, NoParams},
     tonic::{Channel, Status},
 };
-use log::info;
 use thiserror::Error;
 
 use crate::broker::Broker;
@@ -32,8 +31,6 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxListenerError {
     #[error(transparent)]
     Inx(#[from] InxError),
-    #[error("failed to establish connection: {0}")]
-    InxConnection(InxError),
     #[error("the broker actor is not running")]
     MissingBroker,
     #[error(transparent)]
@@ -60,12 +57,12 @@ impl Actor for InxListener {
     type Error = InxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        info!("Connecting to INX...");
-        let mut inx_client = self.config.build().await.map_err(Self::Error::InxConnection)?;
+        log::info!("Connecting to INX at bind address `{}`.", self.config.address);
+        let mut inx_client = self.config.build().await?;
 
-        info!("Connected to INX.");
+        log::info!("Connected to INX at bind address `{}`.", self.config.address);
         let response = inx_client.read_node_status(NoParams {}).await?;
-        info!("Node status: {:#?}", response.into_inner());
+        log::info!("Node status: {:#?}", response.into_inner());
 
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(

@@ -153,6 +153,19 @@ impl HandleEvent<Report<InxListener>> for Launcher {
             Err(e) => match &e.error {
                 ActorError::Result(e) => match e.deref() {
                     InxListenerError::Inx(e) => match e {
+                        InxError::ConnectionError(_) => {
+                            let wait_interval = self.inx_connection_retry_interval;
+                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                            tokio::time::sleep(wait_interval).await;
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+                                .await;
+                        },
+                        InxError::InvalidAddress(_) => {
+                            cx.shutdown();
+                        },
+                        InxError::ParsingAddressFailed(_) => {
+                            cx.shutdown();
+                        }
                         // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                         InxError::TransportFailed(e) => match e.to_string().as_ref() {
                             "transport error" => {
@@ -163,15 +176,6 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                                 cx.shutdown();
                             }
                         },
-                    },
-                    InxListenerError::InxConnection(e) => match e {
-                        InxError::TransportFailed(_) => {
-                            let wait_interval = self.inx_connection_retry_interval;
-                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                            tokio::time::sleep(wait_interval).await;
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
-                                .await;
-                        }
                     },
                     InxListenerError::Read(_) => {
                         cx.shutdown();

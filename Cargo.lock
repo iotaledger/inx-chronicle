@@ -366,6 +366,7 @@ dependencies = [
  "tonic",
  "tower",
  "tower-http",
+ "url",
  "uuid 1.0.0",
 ]
 

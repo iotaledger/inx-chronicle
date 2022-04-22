@@ -16,9 +16,8 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef as builder
-COPY --from=planner /inx-chronicle/recipe.json recipe.json
-
 RUN apt-get update && apt-get install -y protobuf-compiler
+COPY --from=planner /inx-chronicle/recipe.json recipe.json
 
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .

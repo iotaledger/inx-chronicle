@@ -4,7 +4,7 @@ services:
   mongo:
     image: mongo
     restart: always
-    command: --quiet
+    command: --quiet --logpath /dev/null
 
   inx-chronicle:
     build:
@@ -15,7 +15,7 @@ services:
       - RUST_LOG=warn,inx_chronicle=debug
     command:
       - "--inx"
-      - "hornet:9029"
+      - "http://hornet:9029"
       - "--db"
       - "mongodb://mongo:27017"
 
@@ -38,4 +38,6 @@ services:
     volumes:
       - ./alphanet:/app/alphanet
     command:
+      - "-c"
+      - "config.json"
       - "--inx.bindAddress=hornet:9029"
