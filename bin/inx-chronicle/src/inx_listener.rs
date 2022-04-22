@@ -61,8 +61,12 @@ impl Actor for InxListener {
         let mut inx_client = self.config.build().await?;
 
         log::info!("Connected to INX at bind address `{}`.", self.config.address);
-        let response = inx_client.read_node_status(NoParams {}).await?;
-        log::info!("Node status: {:#?}", response.into_inner());
+        let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
+
+        if !node_status.is_healthy {
+            log::warn!("Node is unhealthy.");
+        }
+        log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(

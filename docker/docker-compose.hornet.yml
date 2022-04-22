@@ -13,6 +13,7 @@ services:
     image: inx-chronicle:dev
     environment:
       - RUST_LOG=warn,inx_chronicle=debug
+    tty: true
     command:
       - "--inx"
       - "http://hornet:9029"

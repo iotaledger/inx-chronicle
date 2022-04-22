@@ -11,7 +11,6 @@ use chronicle::{
         error::RuntimeError,
     },
 };
-use log::debug;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -52,11 +51,11 @@ impl HandleEvent<inx::proto::Message> for Broker {
         message: inx::proto::Message,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        debug!("Received Stardust Message Event");
+        log::trace!("Received Stardust Message Event");
         match stardust::message::MessageRecord::try_from(message) {
             Ok(rec) => self.db.upsert_one(rec).await?,
             Err(e) => {
-                log::error!("Could not read message: {:?}", e);
+                log::warn!("Could not read message: {:?}", e);
             }
         };
         Ok(())
@@ -72,11 +71,11 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         milestone: inx::proto::Milestone,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        debug!("Received Stardust Milestone Event");
+        log::trace!("Received Stardust Milestone Event");
         match stardust::milestone::MilestoneRecord::try_from(milestone) {
             Ok(rec) => self.db.upsert_one(rec).await?,
             Err(e) => {
-                log::error!("Could not read milestone: {:?}", e);
+                log::warn!("Could not read milestone: {:?}", e);
             }
         };
         Ok(())
