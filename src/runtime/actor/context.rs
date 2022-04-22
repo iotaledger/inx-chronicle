@@ -6,7 +6,7 @@ use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
     panic::AssertUnwindSafe,
-    time::Instant,
+    time::Duration,
 };
 
 use futures::{
@@ -16,9 +16,9 @@ use futures::{
 
 use super::{
     addr::{Addr, SendError},
-    delay::Delay,
     event::{DynEvent, EnvelopeStream, HandleEvent},
     report::Report,
+    util::DelayedEvent,
     Actor,
 };
 use crate::runtime::{config::SpawnConfig, scope::RuntimeScope, shutdown::ShutdownStream};
@@ -68,10 +68,13 @@ impl<A: Actor> ActorContext<A> {
     pub fn delay<E: 'static + DynEvent<A> + Send + Sync>(
         &self,
         event: E,
-        until: impl Into<Option<Instant>>,
-    ) -> Result<(), SendError> {
-        match until.into() {
-            Some(until) => self.handle.send(Delay::new(event, until)),
+        delay: impl Into<Option<Duration>>,
+    ) -> Result<(), SendError>
+    where
+        A: 'static,
+    {
+        match delay.into() {
+            Some(delay) => self.handle.send(DelayedEvent::new(event, delay)),
             None => self.handle.send(event),
         }
     }

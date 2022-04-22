@@ -12,14 +12,14 @@ use self::context::ActorContext;
 pub mod addr;
 /// Module containing the actor context.
 pub mod context;
-/// Module containing a [`Delay`](delay::Delay) wrapper, for delaying events.
-pub mod delay;
 /// Module containing actor error types.
 pub mod error;
 /// Module containing event types.
 pub mod event;
 /// Module containing actor exit report types.
 pub mod report;
+/// Module containing utilities.
+pub mod util;
 
 /// The actor trait, which defines a task that is managed by the runtime.
 #[async_trait]
