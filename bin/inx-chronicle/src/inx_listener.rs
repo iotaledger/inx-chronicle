@@ -68,6 +68,15 @@ impl Actor for InxListener {
         }
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
+        // TODO: This is not working yet.
+        let route_req = inx::proto::ApiRouteRequest{
+            route: "chronicle/".into(),
+            host: "inx-chronicle".into(),
+            port: 9092,
+            metrics_port: 0, // TODO add prometheus port here
+        };
+        inx_client.register_api_route(route_req).await?;
+
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),

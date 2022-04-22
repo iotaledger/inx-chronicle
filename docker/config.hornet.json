@@ -1,0 +1,202 @@
+{
+  "restAPI": {
+    "bindAddress": "0.0.0.0:14265",
+    "jwtAuth": {
+      "salt": "HORNET"
+    },
+    "publicRoutes": [
+      "/health",
+      "/api/v2/info",
+      "/api/v2/tips",
+      "/api/v2/messages*",
+      "/api/v2/transactions*",
+      "/api/v2/milestones*",
+      "/api/v2/outputs*",
+      "/api/v2/addresses*",
+      "/api/v2/treasury",
+      "/api/v2/receipts*",
+      "/api/plugins/chronicle/*",
+      "/api/plugins/debug/v1/*",
+      "/api/plugins/indexer/v1/*",
+      "/api/plugins/mqtt/v1",
+      "/api/plugins/participation/v1/events*",
+      "/api/plugins/participation/v1/outputs*",
+      "/api/plugins/participation/v1/addresses*"
+    ],
+    "protectedRoutes": [
+      "/api/v2/*",
+      "/api/plugins/*"
+    ],
+    "powEnabled": true,
+    "powWorkerCount": 1,
+    "limits": {
+      "bodyLength": "1M",
+      "maxResults": 1000
+    }
+  },
+  "dashboard": {
+    "bindAddress": "localhost:8081",
+    "dev": false,
+    "auth": {
+      "sessionTimeout": "72h",
+      "username": "admin",
+      "passwordHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "passwordSalt": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "db": {
+    "engine": "rocksdb",
+    "path": "alphanet/database",
+    "autoRevalidation": false
+  },
+  "snapshots": {
+    "depth": 50,
+    "interval": 200,
+    "fullPath": "alphanet/snapshots/full_snapshot.bin",
+    "deltaPath": "alphanet/snapshots/delta_snapshot.bin",
+    "deltaSizeThresholdPercentage": 50.0,
+
+    "downloadURLs": [
+      {
+        "full": "https://files.alphanet.iotaledger.net/snapshots/latest-full_snapshot.bin",
+        "delta": "https://files.alphanet.iotaledger.net/snapshots/latest-delta_snapshot.bin"
+      }
+    ]
+  },
+  "pruning": {
+    "milestones": {
+      "enabled": false,
+      "maxMilestonesToKeep": 60480
+    },
+    "size": {
+      "enabled": true,
+      "targetSize": "30GB",
+      "thresholdPercentage": 10.0,
+      "cooldownTime": "5m"
+    },
+    "pruneReceipts": false
+  },
+  "protocol": {
+    "networkID": "alphanet-2",
+    "bech32HRP": "rms",
+    "minPoWScore": 1000.0,
+    "vByteCost": 500,
+    "vByteFactorData": 1,
+    "vByteFactorKey": 10,
+    "milestonePublicKeyCount": 3,
+    "publicKeyRanges": [
+      {
+        "key": "d9922819a39e94ddf3907f4b9c8df93f39f026244fcb609205b9a879022599f2",
+        "start": 0,
+        "end": 0
+      },
+      {
+        "key": "d85e5b1590d898d1e0cdebb2e3b5337c8b76270142663d78811683ba47c17c98",
+        "start": 0,
+        "end": 0
+      },
+      {
+        "key": "f9d9656a60049083eef61487632187b351294c1fa23d118060d813db6d03e8b6",
+        "start": 0,
+        "end": 0
+      },
+      {
+        "key": "3df80964cc83921e08c1fa0a4f5fc05810a634da45461b2b315fcbfd62f7cab7",
+        "start": 0,
+        "end": 0
+      },
+      {
+        "key": "8e222ae7e2adcfb87a2984a19aad52b1979ed1472c3cb17239a73ef1d344c35a",
+        "start": 0,
+        "end": 0
+      }
+    ]
+  },
+  "node": {
+    "alias": "HORNET alphanet node",
+    "profile": "auto",
+    "disablePlugins": [],
+    "enablePlugins": [
+      "Autopeering",
+      "Debug",
+      "Participation",
+      "Prometheus",
+      "Spammer",
+      "INX"
+    ]
+  },
+  "p2p": {
+    "bindMultiAddresses": [
+      "/ip4/0.0.0.0/tcp/15600",
+      "/ip6/::/tcp/15600"
+    ],
+    "connectionManager": {
+      "highWatermark": 10,
+      "lowWatermark": 5
+    },
+    "gossip": {
+      "unknownPeersLimit": 4,
+      "streamReadTimeout": "1m0s",
+      "streamWriteTimeout": "10s"
+    },
+    "db": {
+      "path": "alphanet/p2pstore"
+    },
+    "reconnectInterval": "30s",
+    "autopeering": {
+      "bindAddress": "0.0.0.0:14626",
+      "entryNodes": [
+        "/dns/entry-hornet-0.h.alphanet.iotaledger.net/udp/14626/autopeering/Bv8UUxy81fqpttowiFiBsNT6mnGMFoFNjk79iG1f9nEr",
+        "/dns/entry-hornet-1.h.alphanet.iotaledger.net/udp/14626/autopeering/CbYtFzRQtqeNQJQFYRZk1WewxfKCmqXCHZ16od1d23PX"
+      ],
+      "entryNodesPreferIPv6": false,
+      "runAsEntryNode": false
+    }
+  },
+  "logger": {
+    "level": "info",
+    "disableCaller": true,
+    "encoding": "console",
+    "outputPaths": [
+      "stdout"
+    ]
+  },
+  "warpsync": {
+    "advancementRange": 150
+  },
+  "spammer": {
+    "message": "We are all made of stardust.",
+    "tag": "HORNET Spammer",
+    "tagSemiLazy": "HORNET Spammer Semi-Lazy",
+    "cpuMaxUsage": 0.8,
+    "mpsRateLimit": 0.0,
+    "workers": 0,
+    "autostart": false
+  },
+  "profiling": {
+    "bindAddress": "localhost:6060"
+  },
+  "prometheus": {
+    "bindAddress": "localhost:9311",
+    "fileServiceDiscovery": {
+      "enabled": false,
+      "path": "target.json",
+      "target": "localhost:9311"
+    },
+    "databaseMetrics": true,
+    "nodeMetrics": true,
+    "gossipMetrics": true,
+    "cachesMetrics": true,
+    "restAPIMetrics": true,
+    "inxMetrics": true,
+    "migrationMetrics": true,
+    "coordinatorMetrics": true,
+    "debugMetrics": false,
+    "goMetrics": false,
+    "processMetrics": false,
+    "promhttpMetrics": false
+  },
+  "debug": {
+    "whiteFlagParentsSolidTimeout": "2s"
+  }
+}

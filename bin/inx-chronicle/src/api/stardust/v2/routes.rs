@@ -44,7 +44,8 @@ pub fn routes() -> Router {
             "/outputs",
             Router::new()
                 .route("/:output_id", get(output))
-                .route("/:transaction_id/:idx", get(output_by_transaction_id)),
+                // TODO: For some reason, this route prevents the API from working.
+                //.route("/:transaction_id/:idx", get(output_by_transaction_id)),
         )
         .nest(
             "/transactions",
