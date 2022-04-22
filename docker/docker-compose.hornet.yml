@@ -11,6 +11,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     image: inx-chronicle:dev
+    ports:
+      - "9092:9092/tcp"
     environment:
       - RUST_LOG=warn,inx_chronicle=debug
     tty: true
