@@ -153,12 +153,9 @@ async fn outputs_query(
         output_ids: outputs
             .into_iter()
             .map(|mut rec| {
-                let mut payload = rec.take_path("message.payload.data")?.to_document()?;
+                let mut payload = rec.take_document("message.payload.data")?;
                 let transaction_id = TransactionId::from_str(payload.get_str("transaction_id")?)?;
-                let idx = payload
-                    .take_path("essence.data.outputs")?
-                    .to_document()?
-                    .get_as_u16("idx")?;
+                let idx = payload.take_document("essence.data.outputs")?.get_as_u16("idx")?;
                 let output_id = OutputId::new(transaction_id, idx)?;
                 Ok(if expanded {
                     let inclusion_state = rec

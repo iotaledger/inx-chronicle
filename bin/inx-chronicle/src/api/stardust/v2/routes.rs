@@ -20,7 +20,10 @@ use chronicle::{
     stardust::output::OutputId,
 };
 use futures::TryStreamExt;
-use mongodb::{bson::doc, options::FindOptions};
+use mongodb::{
+    bson::{doc, from_document},
+    options::FindOptions,
+};
 
 use super::responses::*;
 use crate::api::{
@@ -70,7 +73,7 @@ async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<Stri
             .map(|m| m.as_string())
             .collect::<Result<_, _>>()?,
         payload: message.take_bson("payload").ok().map(Into::into),
-        nonce: message.convert_document::<U64, _>("nonce")?.into(),
+        nonce: from_document::<U64>(message.take_document("nonce")?)?.into(),
     })
 }
 
@@ -228,7 +231,7 @@ async fn output_by_transaction_id(
             .map(|mut d| d.take_bson("message"))
             .transpose()?
             .map(Into::into),
-        output: output.take_path("message.payload.data.essence.data.outputs")?.into(),
+        output: output.take_bson("message.payload.data.essence.data.outputs")?.into(),
     })
 }
 
@@ -241,7 +244,7 @@ async fn transaction_for_message(
         .find_one(doc! {"message_id": &message_id}, None)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut essence = rec.take_path("message.payload.data.essence.data")?.to_document()?;
+    let mut essence = rec.take_document("message.payload.data.essence.data")?;
 
     Ok(TransactionResponse {
         message_id,
@@ -276,7 +279,7 @@ async fn transaction_included_message(
             .map(|m| m.as_string())
             .collect::<Result<_, _>>()?,
         payload: message.take_bson("payload").ok().map(Into::into),
-        nonce: message.convert_document::<U64, _>("nonce")?.into(),
+        nonce: from_document::<U64>(message.take_document("nonce")?)?.into(),
     })
 }
 

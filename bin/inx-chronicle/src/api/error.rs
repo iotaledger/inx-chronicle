@@ -14,6 +14,8 @@ use thiserror::Error;
 #[allow(missing_docs)]
 pub enum InternalApiError {
     #[error(transparent)]
+    BsonDeserialize(#[from] mongodb::bson::de::Error),
+    #[error(transparent)]
     Doc(#[from] DocError),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),

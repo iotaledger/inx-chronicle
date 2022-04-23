@@ -6,11 +6,14 @@
 /// Module containing the API.
 #[cfg(feature = "api")]
 pub mod api;
+mod archiver;
 mod broker;
 mod cli;
+mod collector;
 mod config;
 #[cfg(feature = "stardust")]
 mod inx_listener;
+mod solidifier;
 
 use std::{error::Error, ops::Deref};
 
