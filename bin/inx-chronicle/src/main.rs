@@ -177,7 +177,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                         // If the handle is still closed, push this to the back of the event queue.
                         // Hopefully when it is processed again the handle will have been recreated.
                         if broker_addr.is_closed() {
-                            cx.handle().send(event)?;
+                            cx.delay(event, None)?;
                         } else {
                             cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
@@ -224,6 +224,10 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
 async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
+
+    std::panic::set_hook(Box::new(|p| {
+        log::error!("{}", p);
+    }));
 
     if let Err(e) = Runtime::launch(startup).await {
         log::error!("{}", e);
