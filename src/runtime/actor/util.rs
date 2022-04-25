@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use super::{
     context::ActorContext,
     event::{DynEvent, HandleEvent},
+    report::Report,
     Actor,
 };
 
@@ -44,6 +45,36 @@ where
             tokio::time::sleep(event.delay).await;
             handle.send(event.event).unwrap();
         });
+        Ok(())
+    }
+}
+
+/// An event which will spawn a supervised actor
+#[derive(Debug)]
+pub struct SpawnActor<A: Actor> {
+    actor: A,
+}
+
+impl<A: Actor> SpawnActor<A> {
+    /// Creates a new [`SpawnActor`] event.
+    pub fn new(actor: A) -> Self {
+        Self { actor }
+    }
+}
+
+#[async_trait]
+impl<T, A> HandleEvent<SpawnActor<A>> for T
+where
+    T: 'static + Actor + HandleEvent<Report<A>>,
+    A: 'static + Actor + Debug + Send + Sync,
+{
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: SpawnActor<A>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        cx.spawn_actor_supervised(event.actor).await;
         Ok(())
     }
 }

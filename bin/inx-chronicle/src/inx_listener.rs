@@ -187,7 +187,7 @@ where
         event: Result<E, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        self.broker_addr.send(event?).map_err(RuntimeError::SendError)?;
+        self.broker_addr.send(event?)?;
         Ok(())
     }
 }
