@@ -53,7 +53,8 @@ impl MilestoneState {
 pub struct Collector {
     db: MongoDatabase,
     archiver_addr: Addr<Archiver>,
-    requester_addr: Addr<InxRequester>,
+    #[cfg(feature = "stardust")]
+    inx_requester_addr: Addr<InxRequester>,
     solidifier_count: usize,
     milestones: HashMap<u32, MilestoneState>,
 }
@@ -62,13 +63,14 @@ impl Collector {
     pub fn new(
         db: MongoDatabase,
         archiver_addr: Addr<Archiver>,
-        requester_addr: Addr<InxRequester>,
+        #[cfg(feature = "stardust")] inx_requester_addr: Addr<InxRequester>,
         solidifier_count: usize,
     ) -> Self {
         Self {
             db,
             archiver_addr,
-            requester_addr,
+            #[cfg(feature = "stardust")]
+            inx_requester_addr,
             solidifier_count,
             milestones: HashMap::new(),
         }
@@ -89,7 +91,8 @@ impl Actor for Collector {
                     i,
                     self.db.clone(),
                     self.archiver_addr.clone(),
-                    self.requester_addr.clone(),
+                    #[cfg(feature = "stardust")]
+                    self.inx_requester_addr.clone(),
                 ))
                 .await,
             );

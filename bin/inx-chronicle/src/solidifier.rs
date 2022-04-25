@@ -32,7 +32,8 @@ pub struct Solidifier {
     pub id: usize,
     db: MongoDatabase,
     archiver_addr: Addr<Archiver>,
-    requester_addr: Addr<InxRequester>,
+    #[cfg(feature = "stardust")]
+    inx_requester_addr: Addr<InxRequester>,
 }
 
 impl Solidifier {
@@ -40,13 +41,14 @@ impl Solidifier {
         id: usize,
         db: MongoDatabase,
         archiver_addr: Addr<Archiver>,
-        requester_addr: Addr<InxRequester>,
+        #[cfg(feature = "stardust")] inx_requester_addr: Addr<InxRequester>,
     ) -> Self {
         Self {
             id,
             db,
             archiver_addr,
-            requester_addr,
+            #[cfg(feature = "stardust")]
+            inx_requester_addr,
         }
     }
 }
@@ -80,18 +82,18 @@ mod stardust {
         async fn handle_event(
             &mut self,
             cx: &mut ActorContext<Self>,
-            mut state: MilestoneState,
+            mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
-            while let Some(message_id) = state.process_queue.front() {
-                match state.parents.remove(message_id) {
+            while let Some(message_id) = ms_state.process_queue.front() {
+                match ms_state.parents.remove(message_id) {
                     // The collector received this message
                     Some(parents) => {
                         // Done with this one
-                        state.process_queue.pop_front();
+                        ms_state.process_queue.pop_front();
                         // Add the parents to be processed
-                        state.process_queue.extend(parents);
+                        ms_state.process_queue.extend(parents);
                     }
                     // The collector never received this message
                     None => {
@@ -107,15 +109,15 @@ mod stardust {
                                     Some(ms_index) => {
                                         // We may have reached a different milestone, in which case there is nothing to
                                         // do for this message
-                                        if state.milestone_index == ms_index {
+                                        if ms_state.milestone_index == ms_index {
                                             let parents = message_doc
                                                 .take_array("message.parents")?
                                                 .iter()
                                                 .map(|b| b.as_string())
                                                 .collect::<Result<Vec<String>, _>>()?;
-                                            state.process_queue.extend(parents);
+                                            ms_state.process_queue.extend(parents);
                                         }
-                                        state.process_queue.pop_front();
+                                        ms_state.process_queue.pop_front();
                                     }
                                     // If the message has not been referenced, we can't proceed
                                     None => {
@@ -127,25 +129,25 @@ mod stardust {
                             // Otherwise, send a message to the requester
                             None => {
                                 // Check if we already requested this message
-                                if !state.requested.contains(message_id) {
+                                if !ms_state.requested.contains(message_id) {
                                     // Channel to let us know if the requester was able to get the message
                                     let (sender, receiver) = oneshot::channel::<bool>();
-                                    self.requester_addr
+                                    self.inx_requester_addr
                                         .send((MessageId::from_str(message_id).unwrap(), sender))
                                         .map_err(RuntimeError::SendError)?;
                                     match receiver.await {
                                         // The message was found, and sent to the broker
                                         // so delay processing this milestone
                                         Ok(true) => {
-                                            state.requested.insert(message_id.clone());
-                                            cx.delay(state, None).map_err(RuntimeError::SendError)?;
+                                            ms_state.requested.insert(message_id.clone());
+                                            cx.delay(ms_state, None).map_err(RuntimeError::SendError)?;
                                             return Ok(());
                                         }
                                         _ => {
                                             // Can't complete the milestone, so skip sending to the archiver
                                             log::error!(
                                                 "Could not complete milestone {}: message not found: {}",
-                                                state.milestone_index,
+                                                ms_state.milestone_index,
                                                 message_id
                                             );
                                             return Ok(());
@@ -153,7 +155,7 @@ mod stardust {
                                     }
                                 } else {
                                     // Wait longer for the message to be inserted
-                                    cx.delay(state, None).map_err(RuntimeError::SendError)?;
+                                    cx.delay(ms_state, None).map_err(RuntimeError::SendError)?;
                                     return Ok(());
                                 }
                             }
@@ -164,7 +166,7 @@ mod stardust {
             // If we finished all the parents, that means we have a complete milestone
             // so we should send it to the archiver now
             self.archiver_addr
-                .send(MilestoneIndex(state.milestone_index))
+                .send(MilestoneIndex(ms_state.milestone_index))
                 .map_err(RuntimeError::SendError)?;
             Ok(())
         }
