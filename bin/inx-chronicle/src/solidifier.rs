@@ -13,7 +13,7 @@ use chronicle::{
 use mongodb::bson::{doc, document::ValueAccessError};
 use thiserror::Error;
 
-use crate::archiver::Archiver;
+use crate::{archiver::Archiver, inx_requester::InxRequester};
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
@@ -32,11 +32,22 @@ pub struct Solidifier {
     pub id: usize,
     db: MongoDatabase,
     archiver_addr: Addr<Archiver>,
+    requester_addr: Addr<InxRequester>,
 }
 
 impl Solidifier {
-    pub fn new(id: usize, db: MongoDatabase, archiver_addr: Addr<Archiver>) -> Self {
-        Self { id, db, archiver_addr }
+    pub fn new(
+        id: usize,
+        db: MongoDatabase,
+        archiver_addr: Addr<Archiver>,
+        requester_addr: Addr<InxRequester>,
+    ) -> Self {
+        Self {
+            id,
+            db,
+            archiver_addr,
+            requester_addr,
+        }
     }
 }
 
@@ -52,8 +63,13 @@ impl Actor for Solidifier {
 
 #[cfg(feature = "stardust")]
 mod stardust {
-    use bee_message_stardust::milestone::MilestoneIndex;
-    use chronicle::db::model::stardust::message::MessageRecord;
+    use std::str::FromStr;
+
+    use chronicle::{
+        db::model::stardust::message::MessageRecord,
+        stardust::{milestone::MilestoneIndex, MessageId},
+    };
+    use tokio::sync::oneshot;
 
     use super::*;
     use crate::collector::MilestoneState;
@@ -63,13 +79,13 @@ mod stardust {
     impl HandleEvent<MilestoneState> for Solidifier {
         async fn handle_event(
             &mut self,
-            _cx: &mut ActorContext<Self>,
+            cx: &mut ActorContext<Self>,
             mut state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             while let Some(message_id) = state.process_queue.front() {
-                match state.parents.remove(message_id).flatten() {
+                match state.parents.remove(message_id) {
                     // The collector received this message
                     Some(parents) => {
                         // Done with this one
@@ -110,12 +126,36 @@ mod stardust {
                             }
                             // Otherwise, send a message to the requester
                             None => {
-                                // Send request with a oneshot channel<bool>
-                                // Await the channel
-                                // If the channel returns true, delay the event
-                                // otherwise, we can't complete the milestone, so clear out the data
-                                // and throw an error or something
-                                todo!("Send a message to the requester")
+                                // Check if we already requested this message
+                                if !state.requested.contains(message_id) {
+                                    // Channel to let us know if the requester was able to get the message
+                                    let (sender, receiver) = oneshot::channel::<bool>();
+                                    self.requester_addr
+                                        .send((MessageId::from_str(message_id).unwrap(), sender))
+                                        .map_err(RuntimeError::SendError)?;
+                                    match receiver.await {
+                                        // The message was found, and sent to the broker
+                                        // so delay processing this milestone
+                                        Ok(true) => {
+                                            state.requested.insert(message_id.clone());
+                                            cx.delay(state, None).map_err(RuntimeError::SendError)?;
+                                            return Ok(());
+                                        }
+                                        _ => {
+                                            // Can't complete the milestone, so skip sending to the archiver
+                                            log::error!(
+                                                "Could not complete milestone {}: message not found: {}",
+                                                state.milestone_index,
+                                                message_id
+                                            );
+                                            return Ok(());
+                                        }
+                                    }
+                                } else {
+                                    // Wait longer for the message to be inserted
+                                    cx.delay(state, None).map_err(RuntimeError::SendError)?;
+                                    return Ok(());
+                                }
                             }
                         }
                     }

@@ -50,7 +50,7 @@ tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.2", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
 # Stardust types
-bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
+bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
 
 # Temporarily patch Stardust types until release

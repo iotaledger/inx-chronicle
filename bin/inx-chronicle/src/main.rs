@@ -13,6 +13,8 @@ mod collector;
 mod config;
 #[cfg(feature = "stardust")]
 mod inx_listener;
+#[cfg(feature = "stardust")]
+mod inx_requester;
 mod solidifier;
 
 use std::{error::Error, ops::Deref};

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -15,7 +15,7 @@ use chronicle::{
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
-use crate::{archiver::Archiver, solidifier::Solidifier};
+use crate::{archiver::Archiver, inx_requester::InxRequester, solidifier::Solidifier};
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
@@ -34,8 +34,9 @@ pub enum CollectorError {
 #[derive(Debug)]
 pub struct MilestoneState {
     pub milestone_index: u32,
-    pub parents: HashMap<String, Option<Vec<String>>>,
+    pub parents: HashMap<String, Vec<String>>,
     pub process_queue: VecDeque<String>,
+    pub requested: HashSet<String>,
 }
 
 impl MilestoneState {
@@ -44,6 +45,7 @@ impl MilestoneState {
             milestone_index,
             parents: HashMap::new(),
             process_queue: VecDeque::new(),
+            requested: HashSet::new(),
         }
     }
 }
@@ -51,19 +53,24 @@ impl MilestoneState {
 pub struct Collector {
     db: MongoDatabase,
     archiver_addr: Addr<Archiver>,
+    requester_addr: Addr<InxRequester>,
     solidifier_count: usize,
     milestones: HashMap<u32, MilestoneState>,
-    parents: HashMap<String, Vec<String>>,
 }
 
 impl Collector {
-    pub fn new(db: MongoDatabase, archiver_addr: Addr<Archiver>, solidifier_count: usize) -> Self {
+    pub fn new(
+        db: MongoDatabase,
+        archiver_addr: Addr<Archiver>,
+        requester_addr: Addr<InxRequester>,
+        solidifier_count: usize,
+    ) -> Self {
         Self {
             db,
             archiver_addr,
+            requester_addr,
             solidifier_count,
             milestones: HashMap::new(),
-            parents: HashMap::new(),
         }
     }
 }
@@ -78,8 +85,13 @@ impl Actor for Collector {
         for i in 0..self.solidifier_count.max(1) {
             solidifiers.insert(
                 i,
-                cx.spawn_actor_supervised(Solidifier::new(i, self.db.clone(), self.archiver_addr.clone()))
-                    .await,
+                cx.spawn_actor_supervised(Solidifier::new(
+                    i,
+                    self.db.clone(),
+                    self.archiver_addr.clone(),
+                    self.requester_addr.clone(),
+                ))
+                .await,
             );
         }
         Ok(solidifiers)
@@ -123,15 +135,11 @@ mod stardust {
 
     #[derive(Debug)]
     pub enum CollectorEvent {
-        /// A message with its parents
-        Message {
-            message_id: MessageId,
-            parents: Vec<MessageId>,
-        },
         /// An indicator that a message was referenced by a milestone
         MessageReferenced {
             milestone_index: MilestoneIndex,
             message_id: MessageId,
+            parents: Vec<MessageId>,
         },
         /// A milestone
         Milestone {
@@ -150,33 +158,17 @@ mod stardust {
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match event {
-                CollectorEvent::Message { message_id, parents } => {
-                    self.parents.insert(
-                        message_id.to_string(),
-                        parents.iter().map(|id| id.to_string()).collect(),
-                    );
-                }
                 CollectorEvent::MessageReferenced {
                     milestone_index,
                     message_id,
-                } => match self.parents.remove(&message_id.to_string()) {
-                    Some(parents) => {
-                        self.milestones
-                            .entry(milestone_index.0)
-                            .or_insert_with(|| MilestoneState::new(milestone_index.0))
-                            .parents
-                            .insert(message_id.to_string(), Some(parents));
-                    }
-                    None => {
-                        // We got a message referenced but no message
-                        // so we can just let the solidifier eventually request it
-                        self.milestones
-                            .entry(milestone_index.0)
-                            .or_insert_with(|| MilestoneState::new(milestone_index.0))
-                            .parents
-                            .insert(message_id.to_string(), None);
-                    }
-                },
+                    parents,
+                } => {
+                    self.milestones
+                        .entry(milestone_index.0)
+                        .or_insert_with(|| MilestoneState::new(milestone_index.0))
+                        .parents
+                        .insert(message_id.to_string(), parents.iter().map(|p| p.to_string()).collect());
+                }
                 CollectorEvent::Milestone {
                     milestone_index,
                     message_id,
