@@ -47,7 +47,7 @@ axum = { version = "0.5", default-features = false, features = ["http1", "json",
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
-tower-http = { version = "0.2", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
+tower-http = { version = "0.3", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
 # Stardust types
 bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde1", "dto"], optional = true }
