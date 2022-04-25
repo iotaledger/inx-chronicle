@@ -12,15 +12,18 @@ mod cli;
 mod collector;
 mod config;
 #[cfg(feature = "stardust")]
-mod inx_listener;
-#[cfg(feature = "stardust")]
-mod inx_requester;
-mod solidifier;
+mod inx;
 
-use std::{error::Error, ops::Deref};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    error::Error,
+    ops::Deref,
+};
 
 #[cfg(feature = "api")]
 use api::ApiWorker;
+use archiver::Archiver;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
 #[cfg(feature = "stardust")]
@@ -29,7 +32,7 @@ use chronicle::{
     db::{MongoConfig, MongoDbError},
     runtime::{
         actor::{
-            addr::{Addr, SendError},
+            addr::{Addr, OptionalAddr, SendError},
             context::ActorContext,
             error::ActorError,
             event::HandleEvent,
@@ -42,13 +45,48 @@ use chronicle::{
     },
 };
 use clap::Parser;
+use collector::{Collector, CollectorError};
 use config::{Config, ConfigError};
-#[cfg(feature = "stardust")]
-use inx_listener::{InxListener, InxListenerError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use self::cli::CliArgs;
+#[cfg(feature = "stardust")]
+use self::inx::{InxListenerError, InxWorker};
+
+lazy_static::lazy_static! {
+    /// This is here because it's nice to have a central registry, but also because
+    /// of circular dependencies.
+    static ref ADDRESS_REGISTRY: AddressMap = Default::default();
+}
+
+#[derive(Debug, Default)]
+pub struct AddressMap {
+    map: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+}
+
+impl AddressMap {
+    pub async fn insert<T>(&self, addr: Addr<T>)
+    where
+        T: Actor + Send + Sync + 'static,
+    {
+        self.map.write().await.insert(TypeId::of::<T>(), Box::new(addr));
+    }
+
+    pub async fn get<T>(&self) -> OptionalAddr<T>
+    where
+        T: Actor + Send + Sync + 'static,
+    {
+        self.map
+            .read()
+            .await
+            .get(&TypeId::of::<T>())
+            .and_then(|addr| addr.downcast_ref())
+            .and_then(|addr: &Addr<T>| (!addr.is_closed()).then(|| addr.clone()))
+            .into()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -68,7 +106,7 @@ pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type State = (Config, Addr<Broker>);
+    type State = Config;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -88,13 +126,27 @@ impl Actor for Launcher {
             }
         };
         let db = config.mongodb.clone().build().await?;
-        let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
-        #[cfg(feature = "stardust")]
-        cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+        ADDRESS_REGISTRY.insert(cx.spawn_actor_supervised(Archiver).await).await;
+        ADDRESS_REGISTRY
+            .insert(cx.spawn_actor_supervised(Collector::new(db.clone(), 1)).await)
             .await;
+        ADDRESS_REGISTRY
+            .insert(cx.spawn_actor_supervised(Broker::new(db.clone())).await)
+            .await;
+
+        #[cfg(feature = "stardust")]
+        {
+            ADDRESS_REGISTRY
+                .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
+                .await;
+        }
+
         #[cfg(feature = "api")]
-        cx.spawn_actor_supervised(ApiWorker::new(db)).await;
-        Ok((config, broker_addr))
+        ADDRESS_REGISTRY
+            .insert(cx.spawn_actor_supervised(ApiWorker::new(db)).await)
+            .await;
+
+        Ok(config)
     }
 }
 
@@ -104,13 +156,13 @@ impl HandleEvent<Report<Broker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<Broker>,
-        (config, broker_addr): &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match e.error {
+            Report::Error(e) => match e.error {
                 ActorError::Result(e) => match e.deref() {
                     BrokerError::RuntimeError(_) => {
                         cx.shutdown();
@@ -120,8 +172,9 @@ impl HandleEvent<Report<Broker>> for Launcher {
                             // Only a few possible errors we could potentially recover from
                             ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                                 let db = config.mongodb.clone().build().await?;
-                                let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
-                                *broker_addr = handle;
+                                ADDRESS_REGISTRY
+                                    .insert(cx.spawn_actor_supervised(Broker::new(db)).await)
+                                    .await;
                             }
                             _ => {
                                 cx.shutdown();
@@ -142,48 +195,49 @@ impl HandleEvent<Report<Broker>> for Launcher {
     }
 }
 
-#[cfg(feature = "stardust")]
 #[async_trait]
-impl HandleEvent<Report<InxListener>> for Launcher {
+impl HandleEvent<Report<Collector>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<InxListener>,
-        (config, broker_addr): &mut Self::State,
+        event: Report<Collector>,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        match &event {
-            Ok(_) => {
+        match event {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match &e.error {
+            Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e.deref() {
-                    InxListenerError::Inx(e) => match e {
-                        // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                        InxError::TransportFailed(e) => match e.to_string().as_ref() {
-                            "transport error" => {
-                                cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+                    CollectorError::ArchiverMissing => {
+                        if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
+                            cx.delay(<Report<Collector>>::Error(report), None)?;
+                        } else {
+                            ADDRESS_REGISTRY
+                                .insert(cx.spawn_actor_supervised(report.actor).await)
+                                .await;
+                        }
+                    }
+                    CollectorError::MongoDb(e) => match e {
+                        chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
+                            // Only a few possible errors we could potentially recover from
+                            ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                                let db = config.mongodb.clone().build().await?;
+                                ADDRESS_REGISTRY
+                                    .insert(cx.spawn_actor_supervised(Collector::new(db, 1)).await)
                                     .await;
                             }
                             _ => {
                                 cx.shutdown();
                             }
                         },
-                    },
-                    InxListenerError::Read(_) => {
-                        cx.shutdown();
-                    }
-                    InxListenerError::Runtime(_) => {
-                        cx.shutdown();
-                    }
-                    InxListenerError::MissingBroker => {
-                        // If the handle is still closed, push this to the back of the event queue.
-                        // Hopefully when it is processed again the handle will have been recreated.
-                        if broker_addr.is_closed() {
-                            cx.delay(event, None)?;
-                        } else {
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
-                                .await;
+                        other => {
+                            log::warn!("Unhandled MongoDB error: {}", other);
+                            cx.shutdown();
                         }
+                    },
+                    _ => {
+                        cx.shutdown();
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -195,6 +249,93 @@ impl HandleEvent<Report<InxListener>> for Launcher {
     }
 }
 
+#[async_trait]
+impl HandleEvent<Report<Archiver>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<Archiver>,
+        _config: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(report) => match &report.error {
+                ActorError::Result(e) => match e.deref() {
+                    // TODO
+                    _ => {
+                        cx.shutdown();
+                    }
+                },
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "stardust")]
+mod stardust {
+    use super::*;
+
+    #[async_trait]
+    impl HandleEvent<Report<InxWorker>> for Launcher {
+        async fn handle_event(
+            &mut self,
+            cx: &mut ActorContext<Self>,
+            event: Report<InxWorker>,
+            config: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            match &event {
+                Report::Success(_) => {
+                    cx.shutdown();
+                }
+                Report::Error(e) => match &e.error {
+                    ActorError::Result(e) => match e.deref() {
+                        InxListenerError::Inx(e) => match e {
+                            // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
+                            InxError::TransportFailed(e) => match e.to_string().as_ref() {
+                                "transport error" => {
+                                    ADDRESS_REGISTRY
+                                        .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
+                                        .await;
+                                }
+                                _ => {
+                                    cx.shutdown();
+                                }
+                            },
+                        },
+                        InxListenerError::Read(_) => {
+                            cx.shutdown();
+                        }
+                        InxListenerError::Runtime(_) => {
+                            cx.shutdown();
+                        }
+                        InxListenerError::MissingBroker => {
+                            // If the handle is still closed, push this to the back of the event queue.
+                            // Hopefully when it is processed again the handle will have been recreated.
+                            if ADDRESS_REGISTRY.get::<Broker>().await.is_none() {
+                                cx.delay(event, None)?;
+                            } else {
+                                ADDRESS_REGISTRY
+                                    .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
+                                    .await;
+                            }
+                        }
+                    },
+                    ActorError::Panic | ActorError::Aborted => {
+                        cx.shutdown();
+                    }
+                },
+            }
+            Ok(())
+        }
+    }
+}
+
 #[cfg(feature = "api")]
 #[async_trait]
 impl HandleEvent<Report<ApiWorker>> for Launcher {
@@ -202,16 +343,18 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<ApiWorker>,
-        (config, _): &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match e.error {
+            Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let db = config.mongodb.clone().build().await?;
-                    cx.spawn_actor_supervised(ApiWorker::new(db)).await;
+                    ADDRESS_REGISTRY
+                        .insert(cx.spawn_actor_supervised(ApiWorker::new(db)).await)
+                        .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();

@@ -1,15 +1,19 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload::milestone::MilestoneId;
 use mongodb::bson::{doc, DateTime};
 use serde::{Deserialize, Serialize};
 
-use crate::db::model::Model;
+use crate::{
+    db::model::Model,
+    stardust::{payload::milestone::MilestoneId, Message, MessageId},
+};
 
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
 pub struct MilestoneRecord {
+    /// The milestone message's ID.
+    pub message_id: MessageId,
     /// The milestone index.
     pub milestone_index: u32,
     /// The timestamp of the milestone.
@@ -31,7 +35,11 @@ impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
 
     fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
         let milestone = inx::Milestone::try_from(value)?;
+        let message = Message::try_from(inx::proto::RawMessage {
+            data: milestone.milestone,
+        })?;
         Ok(Self {
+            message_id: message.id(),
             milestone_index: milestone.milestone_info.milestone_index,
             milestone_timestamp: DateTime::from_millis(milestone.milestone_info.milestone_timestamp as i64 * 1000),
             milestone_id: milestone.milestone_info.milestone_id,

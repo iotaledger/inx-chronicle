@@ -16,8 +16,9 @@ impl Actor for Archiver {
     type State = ();
     type Error = ArchiverError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        todo!()
+    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        // TODO
+        Ok(())
     }
 }
 
@@ -28,16 +29,16 @@ mod stardust {
     use super::*;
 
     #[async_trait]
-    impl HandleEvent<MilestoneIndex> for Archiver {
+    impl HandleEvent<(MilestoneIndex, Vec<Vec<u8>>)> for Archiver {
         async fn handle_event(
             &mut self,
-            cx: &mut ActorContext<Self>,
-            event: MilestoneIndex,
-            state: &mut Self::State,
+            _cx: &mut ActorContext<Self>,
+            (milestone_index, _messages): (MilestoneIndex, Vec<Vec<u8>>),
+            _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            // The archiver's job is to retrieve all the messages of a milestone from the database
-            // then archive them in order
-            todo!()
+            log::info!("Archiving milestone {}", milestone_index);
+            // TODO
+            Ok(())
         }
     }
 }

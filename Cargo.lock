@@ -117,7 +117,7 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tower",
- "tower-http",
+ "tower-http 0.2.5",
  "tower-layer",
  "tower-service",
 ]
@@ -151,7 +151,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-ledger"
 version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3325dfe069f8b28734651d22331a0abc904e7d6"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3588a58ec007dce975bed979426f7d03cc34aa7"
 dependencies = [
  "bee-message",
  "packable",
@@ -162,7 +162,7 @@ dependencies = [
 [[package]]
 name = "bee-message"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3325dfe069f8b28734651d22331a0abc904e7d6"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3588a58ec007dce975bed979426f7d03cc34aa7"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -187,7 +187,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3325dfe069f8b28734651d22331a0abc904e7d6"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3588a58ec007dce975bed979426f7d03cc34aa7"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -197,7 +197,7 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3325dfe069f8b28734651d22331a0abc904e7d6"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#b3588a58ec007dce975bed979426f7d03cc34aa7"
 dependencies = [
  "bee-ledger",
  "bee-message",
@@ -353,8 +353,11 @@ dependencies = [
  "hex",
  "hyper",
  "inx",
+ "lazy_static",
  "log",
+ "lru",
  "mongodb",
+ "packable",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -365,7 +368,7 @@ dependencies = [
  "toml",
  "tonic",
  "tower",
- "tower-http",
+ "tower-http 0.3.0",
  "uuid 1.0.0",
 ]
 
@@ -1109,6 +1112,12 @@ checksum = "6389c490849ff5bc16be905ae24bc913a9c8892e19b2341dbc175e14c341c2b8"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "lru"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32613e41de4c47ab04970c348ca7ae7382cf116625755af070b008a15516a889"
 
 [[package]]
 name = "lru-cache"
@@ -2133,9 +2142,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.5.1"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c1c1d5a42b6245520c249549ec267180beaffcc0615401ac8e31853d4b6d8d2"
+checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -2311,6 +2320,24 @@ dependencies = [
  "http-range-header",
  "pin-project-lite",
  "tower",
+ "tower-layer",
+ "tower-service",
+]
+
+[[package]]
+name = "tower-http"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79dd37121c38240c4b4fe6520332406218bbf876f2f690fe9e406020189366fd"
+dependencies = [
+ "bitflags",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-range-header",
+ "pin-project-lite",
  "tower-layer",
  "tower-service",
  "tracing",

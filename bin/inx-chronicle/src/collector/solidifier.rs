@@ -6,14 +6,14 @@ use chronicle::{
     bson::{BsonExt, DocError, DocExt},
     db::MongoDatabase,
     runtime::{
-        actor::{addr::Addr, context::ActorContext, event::HandleEvent, Actor},
+        actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
     },
 };
 use mongodb::bson::{doc, document::ValueAccessError};
 use thiserror::Error;
 
-use crate::{archiver::Archiver, inx_requester::InxRequester};
+use crate::archiver::Archiver;
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
@@ -31,25 +31,11 @@ pub enum SolidifierError {
 pub struct Solidifier {
     pub id: usize,
     db: MongoDatabase,
-    archiver_addr: Addr<Archiver>,
-    #[cfg(feature = "stardust")]
-    inx_requester_addr: Addr<InxRequester>,
 }
 
 impl Solidifier {
-    pub fn new(
-        id: usize,
-        db: MongoDatabase,
-        archiver_addr: Addr<Archiver>,
-        #[cfg(feature = "stardust")] inx_requester_addr: Addr<InxRequester>,
-    ) -> Self {
-        Self {
-            id,
-            db,
-            archiver_addr,
-            #[cfg(feature = "stardust")]
-            inx_requester_addr,
-        }
+    pub fn new(id: usize, db: MongoDatabase) -> Self {
+        Self { id, db }
     }
 }
 
@@ -71,12 +57,11 @@ mod stardust {
         db::model::stardust::message::MessageRecord,
         stardust::{milestone::MilestoneIndex, MessageId},
     };
-    use tokio::sync::oneshot;
+    use packable::PackableExt;
 
     use super::*;
-    use crate::collector::MilestoneState;
+    use crate::{collector::stardust::MilestoneState, inx::InxRequester, ADDRESS_REGISTRY};
 
-    #[cfg(feature = "stardust")]
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
         async fn handle_event(
@@ -87,13 +72,14 @@ mod stardust {
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             while let Some(message_id) = ms_state.process_queue.front() {
-                match ms_state.parents.remove(message_id) {
+                match ms_state.messages.get(message_id) {
                     // The collector received this message
-                    Some(parents) => {
+                    Some(message) => {
+                        ms_state.raw_messages.insert(*message_id, message.pack_to_vec());
                         // Done with this one
                         ms_state.process_queue.pop_front();
                         // Add the parents to be processed
-                        ms_state.process_queue.extend(parents);
+                        ms_state.process_queue.extend(message.parents().into_iter());
                     }
                     // The collector never received this message
                     None => {
@@ -101,7 +87,7 @@ mod stardust {
                         match self
                             .db
                             .doc_collection::<MessageRecord>()
-                            .find_one(doc! {"message_id": message_id}, None)
+                            .find_one(doc! {"message_id": message_id.to_string()}, None)
                             .await?
                         {
                             Some(mut message_doc) => {
@@ -113,8 +99,12 @@ mod stardust {
                                             let parents = message_doc
                                                 .take_array("message.parents")?
                                                 .iter()
-                                                .map(|b| b.as_string())
-                                                .collect::<Result<Vec<String>, _>>()?;
+                                                .map(|b| MessageId::from_str(b.as_str().unwrap()))
+                                                .collect::<Result<Vec<MessageId>, _>>()
+                                                .unwrap();
+                                            ms_state
+                                                .raw_messages
+                                                .insert(*message_id, message_doc.take_bytes("message.raw")?);
                                             ms_state.process_queue.extend(parents);
                                         }
                                         ms_state.process_queue.pop_front();
@@ -128,36 +118,14 @@ mod stardust {
                             }
                             // Otherwise, send a message to the requester
                             None => {
-                                // Check if we already requested this message
-                                if !ms_state.requested.contains(message_id) {
-                                    // Channel to let us know if the requester was able to get the message
-                                    let (sender, receiver) = oneshot::channel::<bool>();
-                                    self.inx_requester_addr
-                                        .send((MessageId::from_str(message_id).unwrap(), sender))
-                                        .map_err(RuntimeError::SendError)?;
-                                    match receiver.await {
-                                        // The message was found, and sent to the broker
-                                        // so delay processing this milestone
-                                        Ok(true) => {
-                                            ms_state.requested.insert(message_id.clone());
-                                            cx.delay(ms_state, None).map_err(RuntimeError::SendError)?;
-                                            return Ok(());
-                                        }
-                                        _ => {
-                                            // Can't complete the milestone, so skip sending to the archiver
-                                            log::error!(
-                                                "Could not complete milestone {}: message not found: {}",
-                                                ms_state.milestone_index,
-                                                message_id
-                                            );
-                                            return Ok(());
-                                        }
-                                    }
-                                } else {
-                                    // Wait longer for the message to be inserted
-                                    cx.delay(ms_state, None).map_err(RuntimeError::SendError)?;
-                                    return Ok(());
-                                }
+                                // Send the state and everything. If the requester finds the message, it will circle
+                                // back.
+                                ADDRESS_REGISTRY
+                                    .get::<InxRequester>()
+                                    .await
+                                    .send((*message_id, cx.handle().clone(), ms_state))
+                                    .map_err(RuntimeError::SendError)?;
+                                return Ok(());
                             }
                         }
                     }
@@ -165,8 +133,13 @@ mod stardust {
             }
             // If we finished all the parents, that means we have a complete milestone
             // so we should send it to the archiver now
-            self.archiver_addr
-                .send(MilestoneIndex(ms_state.milestone_index))
+            ADDRESS_REGISTRY
+                .get::<Archiver>()
+                .await
+                .send((
+                    MilestoneIndex(ms_state.milestone_index),
+                    ms_state.raw_messages.into_values().collect::<Vec<_>>(),
+                ))
                 .map_err(RuntimeError::SendError)?;
             Ok(())
         }

@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::Deref;
+
 use thiserror::Error;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -77,5 +79,37 @@ impl<A: Actor> Clone for Addr<A> {
             scope: self.scope.clone(),
             sender: self.sender.clone(),
         }
+    }
+}
+
+/// An optional address, which allows sending events.
+#[derive(Debug, Clone)]
+pub struct OptionalAddr<A: Actor>(Option<Addr<A>>);
+
+impl<A: Actor> OptionalAddr<A> {
+    /// Sends an event if the address exists. Returns an error if the address is not set.
+    pub fn send<E>(&self, event: E) -> Result<(), SendError>
+    where
+        A: Actor + Send + Sync + 'static,
+        E: 'static + DynEvent<A> + Send + Sync,
+    {
+        self.0
+            .as_ref()
+            .ok_or_else(|| SendError::new(format!("No open address for {}", std::any::type_name::<A>())))?
+            .send(event)
+    }
+}
+
+impl<A: Actor> From<Option<Addr<A>>> for OptionalAddr<A> {
+    fn from(opt_addr: Option<Addr<A>>) -> Self {
+        Self(opt_addr)
+    }
+}
+
+impl<A: Actor> Deref for OptionalAddr<A> {
+    type Target = Option<Addr<A>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

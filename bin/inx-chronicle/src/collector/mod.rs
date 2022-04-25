@@ -1,21 +1,25 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 use async_trait::async_trait;
 use chronicle::{
     bson::DocError,
-    db::MongoDatabase,
+    db::{MongoDatabase, MongoDbError},
     runtime::{
         actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
         error::RuntimeError,
     },
 };
+use lru::LruCache;
 use mongodb::bson::document::ValueAccessError;
+use solidifier::Solidifier;
 use thiserror::Error;
 
-use crate::{archiver::Archiver, inx_requester::InxRequester, solidifier::Solidifier};
+use crate::{archiver::Archiver, ADDRESS_REGISTRY};
+
+pub mod solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
@@ -24,7 +28,7 @@ pub enum CollectorError {
     #[error(transparent)]
     Doc(#[from] DocError),
     #[error(transparent)]
-    MongoDb(#[from] mongodb::error::Error),
+    MongoDb(#[from] MongoDbError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
     #[error(transparent)]
@@ -32,47 +36,24 @@ pub enum CollectorError {
 }
 
 #[derive(Debug)]
-pub struct MilestoneState {
-    pub milestone_index: u32,
-    pub parents: HashMap<String, Vec<String>>,
-    pub process_queue: VecDeque<String>,
-    pub requested: HashSet<String>,
-}
-
-impl MilestoneState {
-    pub fn new(milestone_index: u32) -> Self {
-        Self {
-            milestone_index,
-            parents: HashMap::new(),
-            process_queue: VecDeque::new(),
-            requested: HashSet::new(),
-        }
-    }
-}
-
 pub struct Collector {
     db: MongoDatabase,
-    archiver_addr: Addr<Archiver>,
-    #[cfg(feature = "stardust")]
-    inx_requester_addr: Addr<InxRequester>,
     solidifier_count: usize,
-    milestones: HashMap<u32, MilestoneState>,
+    #[cfg(feature = "stardust")]
+    stardust_messages: LruCache<chronicle::stardust::MessageId, chronicle::stardust::Message>,
+    #[cfg(feature = "stardust")]
+    stardust_milestones: HashMap<u32, stardust::MilestoneState>,
 }
 
 impl Collector {
-    pub fn new(
-        db: MongoDatabase,
-        archiver_addr: Addr<Archiver>,
-        #[cfg(feature = "stardust")] inx_requester_addr: Addr<InxRequester>,
-        solidifier_count: usize,
-    ) -> Self {
+    pub fn new(db: MongoDatabase, solidifier_count: usize) -> Self {
         Self {
             db,
-            archiver_addr,
-            #[cfg(feature = "stardust")]
-            inx_requester_addr,
             solidifier_count,
-            milestones: HashMap::new(),
+            #[cfg(feature = "stardust")]
+            stardust_milestones: HashMap::new(),
+            #[cfg(feature = "stardust")]
+            stardust_messages: LruCache::new(1000),
         }
     }
 }
@@ -85,17 +66,7 @@ impl Actor for Collector {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let mut solidifiers = HashMap::new();
         for i in 0..self.solidifier_count.max(1) {
-            solidifiers.insert(
-                i,
-                cx.spawn_actor_supervised(Solidifier::new(
-                    i,
-                    self.db.clone(),
-                    self.archiver_addr.clone(),
-                    #[cfg(feature = "stardust")]
-                    self.inx_requester_addr.clone(),
-                ))
-                .await,
-            );
+            solidifiers.insert(i, cx.spawn_actor_supervised(Solidifier::new(i, self.db.clone())).await);
         }
         Ok(solidifiers)
     }
@@ -110,12 +81,12 @@ impl HandleEvent<Report<Solidifier>> for Collector {
         solidifiers: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match e.error {
+            Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    if self.archiver_addr.is_closed() {
+                    if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
                         return Err(CollectorError::ArchiverMissing);
                     } else {
                         solidifiers.insert(e.actor.id, cx.spawn_actor_supervised(e.actor).await);
@@ -131,18 +102,39 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 }
 
 #[cfg(feature = "stardust")]
-mod stardust {
-    use chronicle::stardust::{milestone::MilestoneIndex, MessageId};
+pub mod stardust {
+    use std::collections::BTreeMap;
+
+    use chronicle::stardust::{milestone::MilestoneIndex, Message, MessageId};
 
     use super::*;
 
     #[derive(Debug)]
+    pub struct MilestoneState {
+        pub milestone_index: u32,
+        pub process_queue: VecDeque<MessageId>,
+        pub messages: HashMap<MessageId, Message>,
+        pub raw_messages: BTreeMap<MessageId, Vec<u8>>,
+    }
+
+    impl MilestoneState {
+        pub fn new(milestone_index: u32) -> Self {
+            Self {
+                milestone_index,
+                process_queue: VecDeque::new(),
+                messages: HashMap::new(),
+                raw_messages: BTreeMap::new(),
+            }
+        }
+    }
+
+    #[derive(Debug)]
     pub enum CollectorEvent {
+        Message(Message),
         /// An indicator that a message was referenced by a milestone
         MessageReferenced {
             milestone_index: MilestoneIndex,
             message_id: MessageId,
-            parents: Vec<MessageId>,
         },
         /// A milestone
         Milestone {
@@ -151,26 +143,30 @@ mod stardust {
         },
     }
 
-    #[cfg(feature = "stardust")]
     #[async_trait]
     impl HandleEvent<CollectorEvent> for Collector {
         async fn handle_event(
             &mut self,
-            cx: &mut ActorContext<Self>,
+            _cx: &mut ActorContext<Self>,
             event: CollectorEvent,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match event {
+                CollectorEvent::Message(message) => {
+                    self.stardust_messages.put(message.id(), message);
+                }
                 CollectorEvent::MessageReferenced {
                     milestone_index,
                     message_id,
-                    parents,
                 } => {
-                    self.milestones
+                    let ms_state = self
+                        .stardust_milestones
                         .entry(milestone_index.0)
-                        .or_insert_with(|| MilestoneState::new(milestone_index.0))
-                        .parents
-                        .insert(message_id.to_string(), parents.iter().map(|p| p.to_string()).collect());
+                        .or_insert_with(|| MilestoneState::new(milestone_index.0));
+
+                    if let Some(message) = self.stardust_messages.pop(&message_id) {
+                        ms_state.messages.insert(message_id, message);
+                    }
                 }
                 CollectorEvent::Milestone {
                     milestone_index,
@@ -178,10 +174,10 @@ mod stardust {
                 } => {
                     // Get or create the milestone state
                     let mut state = self
-                        .milestones
+                        .stardust_milestones
                         .remove(&milestone_index.0)
                         .unwrap_or_else(|| MilestoneState::new(milestone_index.0));
-                    state.process_queue.push_back(message_id.to_string());
+                    state.process_queue.push_back(message_id);
                     solidifiers
                         // Divide solidifiers fairly by milestone
                         .get(&(milestone_index.0 as usize % self.solidifier_count))

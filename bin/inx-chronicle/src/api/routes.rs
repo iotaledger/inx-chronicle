@@ -37,7 +37,7 @@ pub fn routes(db: MongoDatabase) -> Router {
                 .allow_origin(Any)
                 .allow_methods(vec![Method::GET, Method::OPTIONS])
                 .allow_headers(Any)
-                .allow_credentials(true),
+                .allow_credentials(false),
         )
 }
 

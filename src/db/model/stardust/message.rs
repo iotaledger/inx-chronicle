@@ -62,6 +62,22 @@ impl TryFrom<inx::proto::Message> for MessageRecord {
     }
 }
 
+impl TryFrom<(inx::proto::RawMessage, inx::proto::MessageMetadata)> for MessageRecord {
+    type Error = inx::Error;
+
+    fn try_from(
+        (raw_message, metadata): (inx::proto::RawMessage, inx::proto::MessageMetadata),
+    ) -> Result<Self, Self::Error> {
+        let message = Message::try_from(raw_message.clone())?;
+        Ok(Self {
+            message_id: message.id(),
+            message,
+            raw: raw_message.data,
+            metadata: Some(inx::MessageMetadata::try_from(metadata)?.into()),
+        })
+    }
+}
+
 /// Message metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageMetadata {
@@ -136,5 +152,34 @@ impl MessageMetadata {
     /// Returns the reason for the conflict.
     pub fn conflict_reason(&self) -> Option<&ConflictReason> {
         self.conflict_reason.as_ref()
+    }
+}
+
+impl From<inx::MessageMetadata> for MessageMetadata {
+    fn from(metadata: inx::MessageMetadata) -> Self {
+        Self {
+            is_solid: metadata.is_solid,
+            should_promote: metadata.should_promote,
+            should_reattach: metadata.should_reattach,
+            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
+            milestone_index: metadata.milestone_index,
+            inclusion_state: match metadata.ledger_inclusion_state {
+                inx::LedgerInclusionState::Included => LedgerInclusionState::Included,
+                inx::LedgerInclusionState::NoTransaction => LedgerInclusionState::NoTransaction,
+                inx::LedgerInclusionState::Conflicting => LedgerInclusionState::Conflicting,
+            },
+            conflict_reason: match metadata.conflict_reason {
+                inx::ConflictReason::None => None,
+                inx::ConflictReason::InputAlreadySpent => Some(ConflictReason::InputUtxoAlreadySpent),
+                inx::ConflictReason::InputAlreadySpentInThisMilestone => {
+                    Some(ConflictReason::InputUtxoAlreadySpentInThisMilestone)
+                }
+                inx::ConflictReason::InputNotFound => Some(ConflictReason::InputUtxoNotFound),
+                inx::ConflictReason::InputOutputSumMismatch => todo!(),
+                inx::ConflictReason::InvalidSignature => Some(ConflictReason::InvalidSignature),
+                inx::ConflictReason::InvalidNetworkId => todo!(),
+                inx::ConflictReason::SemanticValidationFailed => Some(ConflictReason::SemanticValidationFailed),
+            },
+        }
     }
 }
