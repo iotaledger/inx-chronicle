@@ -60,7 +60,7 @@ impl Actor for InxListener {
         log::info!("Connecting to INX at bind address `{}`.", self.config.address);
         let mut inx_client = self.config.build().await?;
 
-        log::info!("Connected to INX.", self.config.address);
+        log::info!("Connected to INX.");
         let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
 
         if !node_status.is_healthy {
