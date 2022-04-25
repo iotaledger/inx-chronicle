@@ -1,0 +1,48 @@
+version: '3'
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    command: --quiet --logpath /dev/null
+
+  inx-chronicle:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: inx-chronicle:dev
+    # Remove this entry if you don't want to directly expose the API.
+    ports:
+      - "9092:9092/tcp"
+    environment:
+      - RUST_LOG=warn,inx_chronicle=debug
+    tty: true
+    command:
+      - "--inx"
+      - "http://hornet:9029"
+      - "--db"
+      - "mongodb://mongo:27017"
+
+  hornet:
+    image: gohornet/hornet:2.0.0-alpha7
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    stop_grace_period: 5m
+    ports:
+      - "15600:15600/tcp"
+      - "14626:14626/udp"
+      - "14265:14265/tcp" # REST API
+      - "8081:8081/tcp"
+      - "8091:8091/tcp"
+      - "9311:9311/tcp"
+    cap_drop:
+      - ALL
+    volumes:
+      - ./alphanet:/app/alphanet
+      - ./config.hornet.json:/app/config.json:ro
+    command:
+      - "-c"
+      - "config.json"
+      - "--inx.bindAddress=hornet:9029"

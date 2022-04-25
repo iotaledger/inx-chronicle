@@ -12,16 +12,16 @@ mod config;
 #[cfg(feature = "stardust")]
 mod inx_listener;
 
-use std::{error::Error, ops::Deref};
+use std::{error::Error, ops::Deref, time::Duration};
 
 #[cfg(feature = "api")]
 use api::ApiWorker;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
 #[cfg(feature = "stardust")]
-use chronicle::inx::{InxConfig, InxError};
 use chronicle::{
-    db::{MongoConfig, MongoDbError},
+    db::MongoDbError,
+    inx::InxError,
     runtime::{
         actor::{
             addr::{Addr, SendError},
@@ -59,7 +59,9 @@ pub enum LauncherError {
 
 #[derive(Debug)]
 /// Supervisor actor
-pub struct Launcher;
+pub struct Launcher {
+    inx_connection_retry_interval: Duration,
+}
 
 #[async_trait]
 impl Actor for Launcher {
@@ -68,20 +70,18 @@ impl Actor for Launcher {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let cli_args = CliArgs::parse();
-        let config = match cli_args.config {
+        let mut config = match &cli_args.config {
             Some(path) => config::Config::from_file(path)?,
             None => {
                 if let Ok(path) = std::env::var("CONFIG_PATH") {
                     config::Config::from_file(path)?
                 } else {
-                    Config {
-                        mongodb: MongoConfig::new("mongodb://localhost:27017"),
-                        #[cfg(feature = "stardust")]
-                        inx: InxConfig::new("http://localhost:9029"),
-                    }
+                    Config::default()
                 }
             }
         };
+        config.apply_cli_args(cli_args);
+
         let db = config.mongodb.clone().build().await?;
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
         #[cfg(feature = "stardust")]
@@ -153,6 +153,19 @@ impl HandleEvent<Report<InxListener>> for Launcher {
             Err(e) => match &e.error {
                 ActorError::Result(e) => match e.deref() {
                     InxListenerError::Inx(e) => match e {
+                        InxError::ConnectionError(_) => {
+                            let wait_interval = self.inx_connection_retry_interval;
+                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                            tokio::time::sleep(wait_interval).await;
+                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+                                .await;
+                        }
+                        InxError::InvalidAddress(_) => {
+                            cx.shutdown();
+                        }
+                        InxError::ParsingAddressFailed(_) => {
+                            cx.shutdown();
+                        }
                         // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                         InxError::TransportFailed(e) => match e.to_string().as_ref() {
                             "transport error" => {
@@ -232,7 +245,11 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_addr = scope.spawn_actor(Launcher).await;
+    let launcher = Launcher {
+        inx_connection_retry_interval: std::time::Duration::from_secs(5),
+    };
+
+    let launcher_addr = scope.spawn_actor(launcher).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();

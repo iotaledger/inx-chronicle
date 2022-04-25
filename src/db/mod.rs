@@ -27,6 +27,16 @@ pub struct MongoConfig {
     password: Option<String>,
 }
 
+impl Default for MongoConfig {
+    fn default() -> Self {
+        Self {
+            location: "mongodb://localhost:27017".into(),
+            username: None,
+            password: None,
+        }
+    }
+}
+
 impl MongoConfig {
     /// Creates a new [`MongoConfig`]. The `location` is the address of the MongoDB instance.
     pub fn new(location: impl Into<String>) -> Self {
