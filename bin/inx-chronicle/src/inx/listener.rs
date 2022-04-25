@@ -7,9 +7,11 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use async_trait::async_trait;
-use chronicle::runtime::{
-    actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
-    config::ConfigureActor,
+use chronicle::{
+    runtime::{
+        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
+        config::ConfigureActor,
+    },
 };
 use inx::{
     client::InxClient,
@@ -56,6 +58,14 @@ impl Actor for InxListener {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let message_stream = self.inx.listen_to_messages(MessageFilter {}).await?.into_inner();
+
+        // info!("Connecting to INX...");
+        // let mut inx_client = connect(&self.config).await?;
+
+        // info!("Connected to INX.");
+        // let response = inx_client.read_node_status(NoParams {}).await?;
+        // info!("Node status: {:#?}", response.into_inner());
+
         cx.spawn_actor_supervised::<MessageStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
         )
