@@ -58,6 +58,7 @@ bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-fea
 [patch.crates-io]
 bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
+iota-crypto = { git = "https://github.com/iotaledger/crypto.rs.git", version = "0.9.1"}
 
 [features]
 default = [

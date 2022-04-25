@@ -154,6 +154,7 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                 ActorError::Result(e) => match e.deref() {
                     InxListenerError::Inx(e) => match e {
                         InxError::ConnectionError(_) => {
+                            
                             let wait_interval = self.inx_connection_retry_interval;
                             log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
                             tokio::time::sleep(wait_interval).await;

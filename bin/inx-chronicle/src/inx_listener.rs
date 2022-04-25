@@ -60,22 +60,13 @@ impl Actor for InxListener {
         log::info!("Connecting to INX at bind address `{}`.", self.config.address);
         let mut inx_client = self.config.build().await?;
 
-        log::info!("Connected to INX at bind address `{}`.", self.config.address);
+        log::info!("Connected to INX.", self.config.address);
         let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
 
         if !node_status.is_healthy {
             log::warn!("Node is unhealthy.");
         }
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
-
-        // TODO: This is not working yet.
-        let route_req = inx::proto::ApiRouteRequest {
-            route: "chronicle/".into(),
-            host: "inx-chronicle".into(),
-            port: 9092,
-            metrics_port: 0, // TODO add prometheus port here
-        };
-        inx_client.register_api_route(route_req).await?;
 
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(
