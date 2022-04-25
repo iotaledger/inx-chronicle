@@ -4,7 +4,7 @@
 use axum::Router;
 use chronicle::{
     bson::DocExt,
-    db::{model::stardust::milestone::MilestoneRecord, MongoDatabase},
+    db::{model::stardust::milestone::MilestoneRecord, MongoDb},
 };
 use mongodb::{
     bson::{doc, DateTime},
@@ -51,7 +51,7 @@ pub fn routes() -> Router {
     router
 }
 
-pub(crate) async fn start_milestone(database: &MongoDatabase, start_timestamp: OffsetDateTime) -> ApiResult<u32> {
+pub(crate) async fn start_milestone(database: &MongoDb, start_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
         .doc_collection::<MilestoneRecord>()
         .find(
@@ -69,7 +69,7 @@ pub(crate) async fn start_milestone(database: &MongoDatabase, start_timestamp: O
         .ok_or(ApiError::NotFound)
 }
 
-pub(crate) async fn end_milestone(database: &MongoDatabase, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
+pub(crate) async fn end_milestone(database: &MongoDb, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
         .doc_collection::<MilestoneRecord>()
         .find(

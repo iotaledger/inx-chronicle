@@ -5,7 +5,7 @@ use async_trait::async_trait;
 #[cfg(feature = "stardust")]
 use chronicle::db::model::stardust;
 use chronicle::{
-    db::{MongoDatabase, MongoDbError},
+    db::{MongoDb, MongoDbError},
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -23,11 +23,11 @@ pub enum BrokerError {
 
 #[derive(Debug)]
 pub struct Broker {
-    db: MongoDatabase,
+    db: MongoDb,
 }
 
 impl Broker {
-    pub fn new(db: MongoDatabase) -> Self {
+    pub fn new(db: MongoDb) -> Self {
         Self { db }
     }
 }

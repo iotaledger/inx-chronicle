@@ -8,7 +8,7 @@ use chronicle::{
     bson::{BsonExt, DocExt},
     db::{
         model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
-        MongoDatabase,
+        MongoDb,
     },
     stardust::{output::OutputId, payload::transaction::TransactionId},
 };
@@ -33,7 +33,7 @@ pub fn routes() -> Router {
 }
 
 async fn messages_query(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     query: MessagesQuery,
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
@@ -91,7 +91,7 @@ async fn messages_query(
 }
 
 async fn outputs_query(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     query: OutputsQuery,
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,

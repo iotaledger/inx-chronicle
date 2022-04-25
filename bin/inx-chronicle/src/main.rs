@@ -17,7 +17,7 @@ use std::{error::Error, ops::Deref};
 use async_trait::async_trait;
 #[cfg(feature = "stardust")]
 use chronicle::{
-    db::MongoDbError,
+    db::{MongoDb, MongoDbError},
     runtime::{
         actor::{
             addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
@@ -39,7 +39,7 @@ use self::inx::{InxWorker, InxWorkerError};
 use self::{
     broker::{Broker, BrokerError},
     cli::CliArgs,
-    config::{Config, ConfigError},
+    config::{ChronicleConfig, ConfigError},
 };
 
 #[derive(Debug, Error)]
@@ -58,24 +58,24 @@ pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type State = (Config, Addr<Broker>);
+    type State = (ChronicleConfig, Addr<Broker>);
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let cli_args = CliArgs::parse();
         let mut config = match &cli_args.config {
-            Some(path) => config::Config::from_file(path)?,
+            Some(path) => config::ChronicleConfig::from_file(path)?,
             None => {
                 if let Ok(path) = std::env::var("CONFIG_PATH") {
-                    config::Config::from_file(path)?
+                    ChronicleConfig::from_file(path)?
                 } else {
-                    Config::default()
+                    ChronicleConfig::default()
                 }
             }
         };
         config.apply_cli_args(cli_args);
 
-        let db = config.mongodb.clone().build().await?;
+        let db = MongoDb::connect(&config.mongodb).await?;
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
         #[cfg(feature = "inx")]
         cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
@@ -108,7 +108,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
                         chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
                             // Only a few possible errors we could potentially recover from
                             ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                                let db = config.mongodb.clone().build().await?;
+                                let db = MongoDb::connect(&config.mongodb).await?;
                                 let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
                                 *broker_addr = handle;
                             }
@@ -215,7 +215,7 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
             }
             Err(e) => match e.error {
                 ActorError::Result(_) => {
-                    let db = config.mongodb.clone().build().await?;
+                    let db = MongoDb::connect(&config.mongodb).await?;
                     cx.spawn_actor_supervised(ApiWorker::new(db)).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {

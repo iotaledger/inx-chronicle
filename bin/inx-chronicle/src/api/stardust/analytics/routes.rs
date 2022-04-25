@@ -6,7 +6,7 @@ use chronicle::{
     bson::DocExt,
     db::{
         model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
-        MongoDatabase,
+        MongoDb,
     },
     stardust::payload::TransactionPayload,
 };
@@ -25,7 +25,7 @@ pub fn routes() -> Router {
 }
 
 async fn address_analytics(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     TimeRange {
         start_timestamp,
         end_timestamp,

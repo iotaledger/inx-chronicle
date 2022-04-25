@@ -15,7 +15,7 @@ use chronicle::{
             inclusion_state::LedgerInclusionState,
             stardust::{message::MessageRecord, milestone::MilestoneRecord},
         },
-        MongoDatabase,
+        MongoDb,
     },
     stardust::output::OutputId,
 };
@@ -56,7 +56,7 @@ pub fn routes() -> Router {
         .route("/milestones/:index", get(milestone))
 }
 
-async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
+async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
     let mut rec = database
         .doc_collection::<MessageRecord>()
         .find_one(doc! {"message_id": &message_id}, None)
@@ -75,7 +75,7 @@ async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<Stri
     })
 }
 
-async fn message_raw(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
+async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
     let mut rec = database
         .doc_collection::<MessageRecord>()
         .find_one(doc! {"message_id": &message_id}, None)
@@ -86,7 +86,7 @@ async fn message_raw(database: Extension<MongoDatabase>, Path(message_id): Path<
 }
 
 async fn message_metadata(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
     let mut rec = database
@@ -138,7 +138,7 @@ async fn message_metadata(
 }
 
 async fn message_children(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(message_id): Path<String>,
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
@@ -182,7 +182,7 @@ async fn message_children(
     })
 }
 
-async fn output(database: Extension<MongoDatabase>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
+async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     output_by_transaction_id(
         database,
@@ -192,7 +192,7 @@ async fn output(database: Extension<MongoDatabase>, Path(output_id): Path<String
 }
 
 async fn output_by_transaction_id(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
     let mut output = database
@@ -234,7 +234,7 @@ async fn output_by_transaction_id(
 }
 
 async fn transaction_for_message(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<TransactionResponse> {
     let mut rec = database
@@ -253,7 +253,7 @@ async fn transaction_for_message(
 }
 
 async fn transaction_included_message(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
     let mut rec = database
@@ -281,7 +281,7 @@ async fn transaction_included_message(
     })
 }
 
-async fn milestone(database: Extension<MongoDatabase>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
+async fn milestone(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
     database
         .doc_collection::<MilestoneRecord>()
         .find_one(doc! {"milestone_index": &index}, None)
