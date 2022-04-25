@@ -64,7 +64,6 @@ impl MongoDb {
     pub fn doc_collection<M: Model>(&self) -> Collection<Document> {
         self.0.collection(M::COLLECTION)
     }
-
 }
 
 /// The [`MongoDb`] config.
@@ -99,7 +98,6 @@ impl MongoDbConfig {
         self.password = Some(password.into());
         self
     }
-
 }
 
 impl Default for MongoDbConfig {
