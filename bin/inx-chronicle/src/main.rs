@@ -13,12 +13,13 @@ mod collector;
 mod config;
 #[cfg(feature = "stardust")]
 mod inx;
+mod util;
 
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
     error::Error,
-    ops::Deref,
+    fmt::Debug,
     time::Duration,
 };
 
@@ -51,10 +52,11 @@ use config::{Config, ConfigError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 use tokio::sync::RwLock;
+use util::SpawnRegistryActor;
 
 use self::cli::CliArgs;
 #[cfg(feature = "stardust")]
-use self::inx::{InxListenerError, InxWorker};
+use self::inx::{InxWorker, InxWorkerError};
 
 lazy_static::lazy_static! {
     /// This is here because it's nice to have a central registry, but also because
@@ -164,7 +166,7 @@ impl HandleEvent<Report<Broker>> for Launcher {
                 cx.shutdown();
             }
             Report::Error(e) => match e.error {
-                ActorError::Result(e) => match e.deref() {
+                ActorError::Result(e) => match e {
                     BrokerError::RuntimeError(_) => {
                         cx.shutdown();
                     }
@@ -209,7 +211,7 @@ impl HandleEvent<Report<Collector>> for Launcher {
                 cx.shutdown();
             }
             Report::Error(report) => match &report.error {
-                ActorError::Result(e) => match e.deref() {
+                ActorError::Result(e) => match e {
                     CollectorError::ArchiverMissing => {
                         if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
                             cx.delay(<Report<Collector>>::Error(report), None)?;
@@ -264,7 +266,7 @@ impl HandleEvent<Report<Archiver>> for Launcher {
             }
             Report::Error(report) => match &report.error {
                 #[allow(clippy::match_single_binding)]
-                ActorError::Result(e) => match e.deref() {
+                ActorError::Result(e) => match e {
                     // TODO
                     _ => {
                         cx.shutdown();
@@ -296,15 +298,15 @@ mod stardust {
                     cx.shutdown();
                 }
                 Report::Error(e) => match &e.error {
-                    ActorError::Result(e) => match e.deref() {
-                        InxListenerError::Inx(e) => match e {
+                    ActorError::Result(e) => match e {
+                        InxWorkerError::Inx(e) => match e {
                             InxError::ConnectionError(_) => {
                                 let wait_interval = self.inx_connection_retry_interval;
                                 log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                                tokio::time::sleep(wait_interval).await;
-                                ADDRESS_REGISTRY
-                                    .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
-                                    .await;
+                                cx.delay(
+                                    SpawnRegistryActor::new(InxWorker::new(config.inx.clone())),
+                                    wait_interval,
+                                )?;
                             }
                             InxError::InvalidAddress(_) => {
                                 cx.shutdown();
@@ -324,13 +326,13 @@ mod stardust {
                                 }
                             },
                         },
-                        InxListenerError::Read(_) => {
+                        InxWorkerError::Read(_) => {
                             cx.shutdown();
                         }
-                        InxListenerError::Runtime(_) => {
+                        InxWorkerError::Runtime(_) => {
                             cx.shutdown();
                         }
-                        InxListenerError::MissingBroker => {
+                        InxWorkerError::MissingBroker => {
                             // If the handle is still closed, push this to the back of the event queue.
                             // Hopefully when it is processed again the handle will have been recreated.
                             if ADDRESS_REGISTRY.get::<Broker>().await.is_none() {
@@ -377,6 +379,25 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<A> HandleEvent<SpawnRegistryActor<A>> for Launcher
+where
+    Launcher: HandleEvent<Report<A>>,
+    A: 'static + Actor + Debug + Send + Sync,
+{
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: SpawnRegistryActor<A>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        ADDRESS_REGISTRY
+            .insert(cx.spawn_actor_supervised(event.actor).await)
+            .await;
         Ok(())
     }
 }

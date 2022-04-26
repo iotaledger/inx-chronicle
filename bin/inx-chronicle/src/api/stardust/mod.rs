@@ -66,7 +66,7 @@ pub(crate) async fn start_milestone(database: &MongoDatabase, start_timestamp: O
         .await?
         .map(|d| d.get_as_u32("milestone_index"))
         .transpose()?
-        .ok_or(ApiError::NotFound)
+        .ok_or(ApiError::NoResults)
 }
 
 pub(crate) async fn end_milestone(database: &MongoDatabase, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
@@ -84,5 +84,5 @@ pub(crate) async fn end_milestone(database: &MongoDatabase, end_timestamp: Offse
         .await?
         .map(|d| d.get_as_u32("milestone_index"))
         .transpose()?
-        .ok_or(ApiError::NotFound)
+        .ok_or(ApiError::NoResults)
 }

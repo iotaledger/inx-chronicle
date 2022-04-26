@@ -28,8 +28,8 @@ use crate::api::{
 
 pub fn routes() -> Router {
     Router::new()
-        .nest("/messages", Router::new().route("/", get(messages_query)))
-        .nest("/outputs", Router::new().route("/", get(outputs_query)))
+        .nest("/messages", get(messages_query))
+        .nest("/outputs", get(outputs_query))
 }
 
 async fn messages_query(

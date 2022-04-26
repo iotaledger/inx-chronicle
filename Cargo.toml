@@ -30,6 +30,7 @@ env_logger = { version = "0.9", default-features = false, features = ["termcolor
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
 inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false, features = ["types"] }
+iota-crypto = { version = "0.9", default-features = false, features = [ "blake2b" ] }
 lazy_static = { version = "1.4", default-features = false }
 log = { version = "0.4", default-features = false }
 lru = { version = "0.7", default-features = false }

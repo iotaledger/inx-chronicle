@@ -353,6 +353,7 @@ dependencies = [
  "hex",
  "hyper",
  "inx",
+ "iota-crypto",
  "lazy_static",
  "log",
  "lru",

@@ -106,7 +106,11 @@ mod stardust {
                         Ok(doc) => {
                             self.db
                                 .collection::<MessageRecord>()
-                                .update_one(doc! {"message_id": message_id.to_string()}, doc! { "$set": doc }, None)
+                                .update_one(
+                                    doc! { "message_id": message_id.to_string() },
+                                    doc! { "$set": { "metadata": doc } },
+                                    None,
+                                )
                                 .await
                                 .map_err(MongoDbError::DatabaseError)?;
                             ADDRESS_REGISTRY
@@ -143,7 +147,7 @@ mod stardust {
         async fn handle_event(
             &mut self,
             _cx: &mut ActorContext<Self>,
-            (message, metadata, solidifier, ms_state): (
+            (message, metadata, solidifier, mut ms_state): (
                 inx::proto::RawMessage,
                 inx::proto::MessageMetadata,
                 Addr<Solidifier>,
@@ -155,6 +159,8 @@ mod stardust {
             match MessageRecord::try_from((message, metadata)) {
                 Ok(rec) => {
                     self.db.upsert_one(&rec).await?;
+                    // Add this message to the milestone state
+                    ms_state.messages.insert(rec.message_id, rec.message);
                     // Send this directly to the solidifier that requested it
                     solidifier.send(ms_state).map_err(RuntimeError::SendError)?;
                 }

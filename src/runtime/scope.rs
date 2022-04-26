@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, fmt::Debug, ops::Deref, panic::AssertUnwindSafe, sync::Arc};
+use std::{error::Error, fmt::Debug, ops::Deref, panic::AssertUnwindSafe};
 
 use futures::{
     future::{AbortHandle, AbortRegistration, Abortable},
@@ -230,13 +230,13 @@ impl RuntimeScope {
                         }
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
-                            let e = Arc::new(e);
+                            let err_str = e.to_string();
                             supervisor_addr.send(Report::Error(ErrorReport::new(
                                 actor,
                                 data,
-                                ActorError::Result(e.clone()),
+                                ActorError::Result(e),
                             )))?;
-                            Err(RuntimeError::ActorError(e))
+                            Err(RuntimeError::ActorError(err_str))
                         }
                     },
                     Err(e) => {
@@ -271,7 +271,7 @@ impl RuntimeScope {
                         Ok(_) => Ok(()),
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
-                            Err(RuntimeError::ActorError(Arc::new(e)))
+                            Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },
                     Err(e) => {

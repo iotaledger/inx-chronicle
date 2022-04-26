@@ -1,12 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use crypto::hashes::{blake2b::Blake2b256, Digest};
 use mongodb::bson::{doc, DateTime};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     db::model::Model,
-    stardust::{payload::milestone::MilestoneId, Message, MessageId},
+    stardust::{payload::milestone::MilestoneId, MessageId},
 };
 
 /// A milestone's metadata.
@@ -35,11 +36,8 @@ impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
 
     fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
         let milestone = inx::Milestone::try_from(value)?;
-        let message = Message::try_from(inx::proto::RawMessage {
-            data: milestone.milestone,
-        })?;
         Ok(Self {
-            message_id: message.id(),
+            message_id: MessageId::new(Blake2b256::digest(&milestone.milestone).into()),
             milestone_index: milestone.milestone_info.milestone_index,
             milestone_timestamp: DateTime::from_millis(milestone.milestone_info.milestone_timestamp as i64 * 1000),
             milestone_id: milestone.milestone_info.milestone_id,
