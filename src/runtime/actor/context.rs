@@ -52,7 +52,7 @@ impl<A: Actor> ActorContext<A> {
         self.scope.spawn_actor_supervised(actor, handle).await
     }
 
-    /// Get this actors's handle.
+    /// Get this actor's handle.
     pub fn handle(&self) -> &Addr<A> {
         &self.handle
     }

@@ -4,7 +4,7 @@
 //! The [`InxListener`] subscribes to events from INX and forwards them via a Tokio unbounded
 //! channel.
 
-use std::{fmt::Debug, marker::PhantomData, ops::Deref};
+use std::{fmt::Debug, marker::PhantomData, ops::Deref, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -21,7 +21,6 @@ use inx::{
     proto::{MessageFilter, NoParams},
     tonic::{Channel, Status},
 };
-use log::info;
 use thiserror::Error;
 
 use crate::{
@@ -38,7 +37,7 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxListenerError {
     #[error(transparent)]
     Inx(#[from] InxError),
-    #[error("The broker actor is not running")]
+    #[error("the broker actor is not running")]
     MissingBroker,
     #[error(transparent)]
     Read(#[from] Status),
@@ -63,12 +62,16 @@ impl Actor for InxWorker {
     type Error = InxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        info!("Connecting to INX...");
+        log::info!("Connecting to INX at bind address `{}`.", self.config.address);
         let mut inx_client = self.config.build().await?;
 
-        info!("Connected to INX.");
-        let response = inx_client.read_node_status(NoParams {}).await?;
-        info!("Node status: {:#?}", response.into_inner());
+        log::info!("Connected to INX.");
+        let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
+
+        if !node_status.is_healthy {
+            log::warn!("Node is unhealthy.");
+        }
+        log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_actor_supervised::<MessageStream, _>(InxStreamListener::new().with_stream(message_stream))
@@ -196,6 +199,21 @@ impl HandleEvent<Report<InxRequester>> for InxWorker {
             Report::Error(e) => match &e.error {
                 ActorError::Result(e) => match e.deref() {
                     InxRequesterError::Inx(e) => match e {
+                        InxError::ConnectionError(_) => {
+                            // TODO
+                            let wait_interval = Duration::from_secs(5);
+                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                            tokio::time::sleep(wait_interval).await;
+                            ADDRESS_REGISTRY
+                                .insert(cx.spawn_actor_supervised(InxRequester::new(inx_client.clone())).await)
+                                .await;
+                        }
+                        InxError::InvalidAddress(_) => {
+                            cx.shutdown();
+                        }
+                        InxError::ParsingAddressFailed(_) => {
+                            cx.shutdown();
+                        }
                         // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                         InxError::TransportFailed(e) => match e.to_string().as_ref() {
                             "transport error" => {

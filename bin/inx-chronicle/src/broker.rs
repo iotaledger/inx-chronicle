@@ -9,7 +9,6 @@ use chronicle::{
         error::RuntimeError,
     },
 };
-use log::debug;
 use thiserror::Error;
 
 use crate::collector::Collector;
@@ -72,7 +71,7 @@ mod stardust {
             message: inx::proto::Message,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            debug!("Received Stardust Message Event");
+            log::debug!("Received Stardust Message Event");
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
                     self.db.upsert_one(&rec).await?;
@@ -98,7 +97,7 @@ mod stardust {
             message: inx::proto::MessageMetadata,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            debug!("Received Stardust Message Referenced Event");
+            log::debug!("Received Stardust Message Referenced Event");
             match inx::MessageMetadata::try_from(message) {
                 Ok(rec) => {
                     let message_id = rec.message_id;
@@ -152,7 +151,7 @@ mod stardust {
             ),
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            debug!("Received Stardust Requested Message and Metadata");
+            log::debug!("Received Stardust Requested Message and Metadata");
             match MessageRecord::try_from((message, metadata)) {
                 Ok(rec) => {
                     self.db.upsert_one(&rec).await?;
@@ -175,7 +174,7 @@ mod stardust {
             milestone: inx::proto::Milestone,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            debug!("Received Stardust Milestone Event");
+            log::debug!("Received Stardust Milestone Event");
             match stardust::milestone::MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
                     self.db.upsert_one(&rec).await?;

@@ -12,7 +12,16 @@ pub use self::error::InxError;
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct InxConfig {
-    address: String,
+    /// The bind address of node's INX interface.
+    pub address: String,
+}
+
+impl Default for InxConfig {
+    fn default() -> Self {
+        Self {
+            address: "http://localhost:9029".into(),
+        }
+    }
 }
 
 impl InxConfig {
@@ -25,6 +34,14 @@ impl InxConfig {
 
     /// Constructs an [`InxClient`] by consuming the [`InxConfig`].
     pub async fn build(&self) -> Result<InxClient<Channel>, InxError> {
-        Ok(InxClient::connect(self.address.clone()).await?)
+        let url = url::Url::parse(&self.address)?;
+
+        if url.scheme() != "http" {
+            return Err(InxError::InvalidAddress(self.address.clone()));
+        }
+
+        InxClient::connect(self.address.clone())
+            .await
+            .map_err(InxError::ConnectionError)
     }
 }

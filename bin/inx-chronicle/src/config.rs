@@ -18,7 +18,7 @@ pub enum ConfigError {
 }
 
 /// Configuration of Chronicle.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub mongodb: MongoConfig,
     #[cfg(feature = "stardust")]
@@ -26,10 +26,22 @@ pub struct Config {
 }
 
 impl Config {
+    /// Reads a configuration file in `.toml` format.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         fs::read_to_string(&path)
             .map_err(ConfigError::FileRead)
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))
+    }
+
+    /// Applies the appropriate command line arguments to the [`Config`].
+    pub fn apply_cli_args(&mut self, args: super::CliArgs) {
+        #[cfg(feature = "stardust")]
+        if let Some(inx) = args.inx {
+            self.inx = InxConfig::new(inx);
+        }
+        if let Some(db) = args.db {
+            self.mongodb = MongoConfig::new(db);
+        }
     }
 }
 
