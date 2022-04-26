@@ -263,6 +263,7 @@ impl HandleEvent<Report<Archiver>> for Launcher {
                 cx.shutdown();
             }
             Report::Error(report) => match &report.error {
+                #[allow(clippy::match_single_binding)]
                 ActorError::Result(e) => match e.deref() {
                     // TODO
                     _ => {

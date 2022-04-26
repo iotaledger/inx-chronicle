@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! The [`InxListener`] subscribes to events from INX and forwards them via a Tokio unbounded
+//! The [`InxWorker`] subscribes to events from INX and forwards them via a Tokio unbounded
 //! channel.
 
 use std::{fmt::Debug, marker::PhantomData, ops::Deref, time::Duration};
@@ -74,18 +74,20 @@ impl Actor for InxWorker {
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
         let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-        cx.spawn_actor_supervised::<MessageStream, _>(InxStreamListener::new().with_stream(message_stream))
+        cx.spawn_actor_supervised::<MessageStream, _>(InxStreamListener::default().with_stream(message_stream))
             .await;
 
         let metadata_stream = inx_client
             .listen_to_solid_messages(MessageFilter {})
             .await?
             .into_inner();
-        cx.spawn_actor_supervised::<MessageMetadataStream, _>(InxStreamListener::new().with_stream(metadata_stream))
-            .await;
+        cx.spawn_actor_supervised::<MessageMetadataStream, _>(
+            InxStreamListener::default().with_stream(metadata_stream),
+        )
+        .await;
 
         let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
-        cx.spawn_actor_supervised::<MilestoneStream, _>(InxStreamListener::new().with_stream(milestone_stream))
+        cx.spawn_actor_supervised::<MilestoneStream, _>(InxStreamListener::default().with_stream(milestone_stream))
             .await;
 
         ADDRESS_REGISTRY
@@ -111,8 +113,10 @@ impl HandleEvent<Report<MessageStream>> for InxWorker {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let message_stream = inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-                    cx.spawn_actor_supervised::<MessageStream, _>(InxStreamListener::new().with_stream(message_stream))
-                        .await;
+                    cx.spawn_actor_supervised::<MessageStream, _>(
+                        InxStreamListener::default().with_stream(message_stream),
+                    )
+                    .await;
                 }
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
@@ -142,7 +146,7 @@ impl HandleEvent<Report<MessageMetadataStream>> for InxWorker {
                         .await?
                         .into_inner();
                     cx.spawn_actor_supervised::<MessageMetadataStream, _>(
-                        InxStreamListener::new().with_stream(message_stream),
+                        InxStreamListener::default().with_stream(message_stream),
                     )
                     .await;
                 }
@@ -171,7 +175,7 @@ impl HandleEvent<Report<MilestoneStream>> for InxWorker {
                 ActorError::Result(_) => {
                     let milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
                     cx.spawn_actor_supervised::<MilestoneStream, _>(
-                        InxStreamListener::new().with_stream(milestone_stream),
+                        InxStreamListener::default().with_stream(milestone_stream),
                     )
                     .await;
                 }
@@ -257,8 +261,8 @@ pub struct InxStreamListener<I> {
     _item: PhantomData<I>,
 }
 
-impl<I> InxStreamListener<I> {
-    pub fn new() -> Self {
+impl<I> Default for InxStreamListener<I> {
+    fn default() -> Self {
         Self { _item: PhantomData }
     }
 }

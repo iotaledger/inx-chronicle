@@ -225,23 +225,27 @@ impl RuntimeScope {
                 Ok(res) => match res {
                     Ok(res) => match res {
                         Ok(_) => {
-                            supervisor_addr.send(SuccessReport::new(actor, data))?;
+                            supervisor_addr.send(Report::Success(SuccessReport::new(actor, data)))?;
                             Ok(())
                         }
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
                             let e = Arc::new(e);
-                            supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Result(e.clone())))?;
+                            supervisor_addr.send(Report::Error(ErrorReport::new(
+                                actor,
+                                data,
+                                ActorError::Result(e.clone()),
+                            )))?;
                             Err(RuntimeError::ActorError(e))
                         }
                     },
                     Err(e) => {
-                        supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Panic))?;
+                        supervisor_addr.send(Report::Error(ErrorReport::new(actor, data, ActorError::Panic)))?;
                         std::panic::resume_unwind(e);
                     }
                 },
                 Err(_) => {
-                    supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Aborted))?;
+                    supervisor_addr.send(Report::Error(ErrorReport::new(actor, data, ActorError::Aborted)))?;
                     Err(RuntimeError::AbortedScope(cx.scope.id()))
                 }
             }

@@ -72,8 +72,8 @@ pub struct SuccessReport<A: Actor> {
 }
 
 impl<A: Actor> SuccessReport<A> {
-    pub(crate) fn new(actor: A, internal_state: Option<A::State>) -> Report<A> {
-        Report::Success(Self { actor, internal_state })
+    pub(crate) fn new(actor: A, internal_state: Option<A::State>) -> Self {
+        Self { actor, internal_state }
     }
 
     /// Gets the actor.
@@ -109,12 +109,12 @@ pub struct ErrorReport<A: Actor> {
 }
 
 impl<A: Actor> ErrorReport<A> {
-    pub(crate) fn new(actor: A, internal_state: Option<A::State>, error: ActorError<A>) -> Report<A> {
-        Report::Error(Self {
+    pub(crate) fn new(actor: A, internal_state: Option<A::State>, error: ActorError<A>) -> Self {
+        Self {
             actor,
             internal_state,
             error,
-        })
+        }
     }
 
     /// Gets the actor.

@@ -79,7 +79,7 @@ mod stardust {
                         // Done with this one
                         ms_state.process_queue.pop_front();
                         // Add the parents to be processed
-                        ms_state.process_queue.extend(message.parents().into_iter());
+                        ms_state.process_queue.extend(message.parents().iter());
                     }
                     // The collector never received this message
                     None => {
