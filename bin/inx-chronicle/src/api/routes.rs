@@ -23,7 +23,7 @@ pub fn routes(db: MongoDatabase) -> Router {
 
     #[cfg(feature = "stardust")]
     {
-        router = router.nest("/", super::stardust::routes())
+        router = router.merge(super::stardust::routes())
     }
 
     Router::new()
