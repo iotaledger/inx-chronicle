@@ -18,19 +18,13 @@ use std::{error::Error, ops::Deref, time::Duration};
 use api::ApiWorker;
 use async_trait::async_trait;
 use broker::{Broker, BrokerError};
+use chronicle::runtime::actor::util::SpawnActor;
 #[cfg(feature = "stardust")]
 use chronicle::{
     db::MongoDbError,
     inx::InxError,
     runtime::{
-        actor::{
-            addr::{Addr, SendError},
-            context::ActorContext,
-            error::ActorError,
-            event::HandleEvent,
-            report::Report,
-            Actor,
-        },
+        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
         error::RuntimeError,
         scope::RuntimeScope,
         Runtime,
@@ -53,8 +47,6 @@ pub enum LauncherError {
     MongoDb(#[from] MongoDbError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
-    #[error(transparent)]
-    Send(#[from] SendError),
 }
 
 #[derive(Debug)]
@@ -156,9 +148,10 @@ impl HandleEvent<Report<InxListener>> for Launcher {
                         InxError::ConnectionError(_) => {
                             let wait_interval = self.inx_connection_retry_interval;
                             log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                            tokio::time::sleep(wait_interval).await;
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
-                                .await;
+                            cx.delay(
+                                SpawnActor::new(InxListener::new(config.inx.clone(), broker_addr.clone())),
+                                wait_interval,
+                            )?;
                         }
                         InxError::InvalidAddress(_) => {
                             cx.shutdown();

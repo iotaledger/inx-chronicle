@@ -8,7 +8,7 @@ use super::{
     event::{DynEvent, Envelope},
     Actor,
 };
-use crate::runtime::{registry::ScopeId, scope::ScopeView};
+use crate::runtime::{error::RuntimeError, registry::ScopeId, scope::ScopeView};
 
 /// Error sending a message to an actor
 #[derive(Error, Debug)]
@@ -56,13 +56,13 @@ impl<A: Actor> Addr<A> {
     }
 
     /// Sends a message to the actor
-    pub fn send<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), SendError>
+    pub fn send<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), RuntimeError>
     where
         Self: Sized,
     {
         self.sender
             .send(Box::new(event))
-            .map_err(|_| "Failed to send event".into())
+            .map_err(|_| RuntimeError::SendError("Failed to send event".into()))
     }
 
     /// Returns whether the actor's event channel is closed.
