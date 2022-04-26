@@ -49,7 +49,7 @@ where
     }
 }
 
-/// An event which will spawn a supervised actor
+/// An event which will spawn a supervised actor.
 #[derive(Debug)]
 pub struct SpawnActor<A: Actor> {
     actor: A,
