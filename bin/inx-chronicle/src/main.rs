@@ -9,35 +9,38 @@ pub mod api;
 mod broker;
 mod cli;
 mod config;
-#[cfg(feature = "stardust")]
-mod inx_listener;
+#[cfg(feature = "inx")]
+mod inx;
 
-use std::{error::Error, ops::Deref, time::Duration};
+use std::{error::Error, ops::Deref};
 
-#[cfg(feature = "api")]
-use api::ApiWorker;
 use async_trait::async_trait;
-use broker::{Broker, BrokerError};
-use chronicle::runtime::actor::util::SpawnActor;
 #[cfg(feature = "stardust")]
 use chronicle::{
     db::MongoDbError,
-    inx::InxError,
     runtime::{
-        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
+        actor::{
+            addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+            Actor,
+        },
         error::RuntimeError,
         scope::RuntimeScope,
         Runtime,
     },
 };
 use clap::Parser;
-use config::{Config, ConfigError};
-#[cfg(feature = "stardust")]
-use inx_listener::{InxListener, InxListenerError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
-use self::cli::CliArgs;
+#[cfg(feature = "api")]
+use self::api::ApiWorker;
+#[cfg(feature = "inx")]
+use self::inx::{InxWorker, InxWorkerError};
+use self::{
+    broker::{Broker, BrokerError},
+    cli::CliArgs,
+    config::{Config, ConfigError},
+};
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -51,9 +54,7 @@ pub enum LauncherError {
 
 #[derive(Debug)]
 /// Supervisor actor
-pub struct Launcher {
-    inx_connection_retry_interval: Duration,
-}
+pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
@@ -76,9 +77,10 @@ impl Actor for Launcher {
 
         let db = config.mongodb.clone().build().await?;
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
-        #[cfg(feature = "stardust")]
-        cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+        #[cfg(feature = "inx")]
+        cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
             .await;
+
         #[cfg(feature = "api")]
         cx.spawn_actor_supervised(ApiWorker::new(db)).await;
         Ok((config, broker_addr))
@@ -129,13 +131,13 @@ impl HandleEvent<Report<Broker>> for Launcher {
     }
 }
 
-#[cfg(feature = "stardust")]
+#[cfg(feature = "inx")]
 #[async_trait]
-impl HandleEvent<Report<InxListener>> for Launcher {
+impl HandleEvent<Report<InxWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<InxListener>,
+        event: Report<InxWorker>,
         (config, broker_addr): &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
@@ -144,47 +146,41 @@ impl HandleEvent<Report<InxListener>> for Launcher {
             }
             Err(e) => match &e.error {
                 ActorError::Result(e) => match e.deref() {
-                    InxListenerError::Inx(e) => match e {
-                        InxError::ConnectionError(_) => {
-                            let wait_interval = self.inx_connection_retry_interval;
-                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                            cx.delay(
-                                SpawnActor::new(InxListener::new(config.inx.clone(), broker_addr.clone())),
-                                wait_interval,
-                            )?;
-                        }
-                        InxError::InvalidAddress(_) => {
-                            cx.shutdown();
-                        }
-                        InxError::ParsingAddressFailed(_) => {
-                            cx.shutdown();
-                        }
-                        // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                        InxError::TransportFailed(e) => match e.to_string().as_ref() {
-                            "transport error" => {
-                                cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
-                                    .await;
-                            }
-                            _ => {
-                                cx.shutdown();
-                            }
-                        },
-                    },
-                    InxListenerError::Read(_) => {
+                    InxWorkerError::ConnectionError(_) => {
+                        let wait_interval = config.inx.connection_retry_interval;
+                        log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                        cx.delay(
+                            SpawnActor::new(InxWorker::new(config.inx.clone(), broker_addr.clone())),
+                            wait_interval,
+                        )?;
+                    }
+                    InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
                     }
-                    InxListenerError::Runtime(_) => {
+                    InxWorkerError::ParsingAddressFailed(_) => {
                         cx.shutdown();
                     }
-                    InxListenerError::MissingBroker => {
-                        // If the handle is still closed, push this to the back of the event queue.
-                        // Hopefully when it is processed again the handle will have been recreated.
-                        if broker_addr.is_closed() {
-                            cx.delay(event, None)?;
-                        } else {
-                            cx.spawn_actor_supervised(InxListener::new(config.inx.clone(), broker_addr.clone()))
+                    // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
+                    InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
+                        "transport error" => {
+                            cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
                                 .await;
                         }
+                        _ => {
+                            cx.shutdown();
+                        }
+                    },
+                    InxWorkerError::Read(_) => {
+                        cx.shutdown();
+                    }
+                    InxWorkerError::Runtime(_) => {
+                        cx.shutdown();
+                    }
+                    InxWorkerError::ListenerError(_) => {
+                        cx.shutdown();
+                    }
+                    InxWorkerError::FailedToAnswerRequest => {
+                        cx.shutdown();
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -238,11 +234,7 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher = Launcher {
-        inx_connection_retry_interval: std::time::Duration::from_secs(5),
-    };
-
-    let launcher_addr = scope.spawn_actor(launcher).await;
+    let launcher_addr = scope.spawn_actor(Launcher).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();

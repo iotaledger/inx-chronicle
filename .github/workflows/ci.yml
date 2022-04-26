@@ -47,10 +47,22 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
-      - name: Build
+      - name: Build with all features
         uses: actions-rs/cargo@v1
         with:
-          command: ci-build
+          command: ci-build-all
+
+      - name: Build with INX only
+        if: contains(matrix.os, 'ubuntu')
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build-inx
+
+      - name: Build with API only
+        if: contains(matrix.os, 'ubuntu')
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build-api
 
       - name: Test
         uses: actions-rs/cargo@v1

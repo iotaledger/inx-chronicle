@@ -363,7 +363,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml",
- "tonic",
  "tower",
  "tower-http",
  "url",
@@ -1001,7 +1000,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/inx#f7b1a29461f9c91cfe1bb49a18786a09bdda3f15"
+source = "git+https://github.com/grtlr/inx?branch=into-proto#7c2fc35ad5962c0ec87bc6021b501ff7d90f4997"
 dependencies = [
  "bee-message",
  "packable",
@@ -1473,9 +1472,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e280fbe77cc62c91527259e9442153f4688736748d24660126286329742b4c6c"
+checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "pin-utils"
@@ -2134,9 +2133,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.5.1"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c1c1d5a42b6245520c249549ec267180beaffcc0615401ac8e31853d4b6d8d2"
+checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 dependencies = [
  "tinyvec_macros",
 ]
