@@ -1000,7 +1000,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/grtlr/inx?branch=into-proto#7c2fc35ad5962c0ec87bc6021b501ff7d90f4997"
+source = "git+https://github.com/iotaledger/inx#2a70fe59cd71970c1dbda92a4162647d2be37ea6"
 dependencies = [
  "bee-message",
  "packable",

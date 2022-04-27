@@ -25,7 +25,6 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
 pub enum InxListenerError {
-    // TODO Do we really need that error?
     #[error("the broker actor is not running")]
     MissingBroker,
     #[error("failed to subscribe to stream: {0}")]

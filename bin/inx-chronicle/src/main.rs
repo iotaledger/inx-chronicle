@@ -179,6 +179,14 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     InxWorkerError::ListenerError(_) => {
                         cx.shutdown();
                     }
+                    InxWorkerError::MissingBroker => {
+                        if broker_addr.is_closed() {
+                            cx.delay(event, None)?;
+                        } else {
+                            cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
+                                .await;
+                        }
+                    }
                     InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
                     }

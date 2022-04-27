@@ -52,14 +52,13 @@ impl Actor for InxWorker {
     }
 }
 
-#[cfg(feature = "inx")]
 #[async_trait]
 impl HandleEvent<Report<InxListener>> for InxWorker {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxListener>,
-        client: &mut Self::State,
+        _: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Ok(_) => {
@@ -74,14 +73,8 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
                         cx.shutdown();
                     }
                     InxListenerError::MissingBroker => {
-                        // If the handle is still closed, push this to the back of the event queue.
-                        // Hopefully when it is processed again the handle will have been recreated.
-                        if self.broker_addr.is_closed() {
-                            cx.delay(event, None)?;
-                        } else {
-                            cx.spawn_actor_supervised(InxListener::new(client.clone(), self.broker_addr.clone()))
-                                .await;
-                        }
+                        // We bubble up the `MissingBroker` broker error.
+                        return Err(Self::Error::MissingBroker);
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {

@@ -50,7 +50,7 @@ tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.2", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
 # INX
-inx = { git = "https://github.com/grtlr/inx", branch = "into-proto", version = "0.2", default-features = false, features = ["types"], optional = true }
+inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false, features = ["types"], optional = true }
 
 # Stardust types
 bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde", "dto"], optional = true }
