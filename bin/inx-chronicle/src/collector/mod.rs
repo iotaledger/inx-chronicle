@@ -17,14 +17,12 @@ use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
 
-use crate::{archiver::Archiver, ADDRESS_REGISTRY};
+use crate::{archiver::Archiver, inx::InxRequester, ADDRESS_REGISTRY};
 
 pub mod solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
-    #[error("The archiver is missing")]
-    ArchiverMissing,
     #[error(transparent)]
     Doc(#[from] DocError),
     #[error(transparent)]
@@ -84,14 +82,27 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(e) => match e.error {
-                ActorError::Result(_) => {
-                    if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
-                        return Err(CollectorError::ArchiverMissing);
-                    } else {
-                        solidifiers.insert(e.actor.id, cx.spawn_actor_supervised(e.actor).await);
+            Report::Error(report) => match &report.error {
+                ActorError::Result(e) => match e {
+                    solidifier::SolidifierError::MissingArchiver => {
+                        if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
+                            cx.delay(<Report<Solidifier>>::Error(report), None)?;
+                        } else {
+                            solidifiers.insert(report.actor.id, cx.spawn_actor_supervised(report.actor).await);
+                        }
                     }
-                }
+                    solidifier::SolidifierError::MissingInxRequester => {
+                        if ADDRESS_REGISTRY.get::<InxRequester>().await.is_none() {
+                            cx.delay(<Report<Solidifier>>::Error(report), None)?;
+                        } else {
+                            solidifiers.insert(report.actor.id, cx.spawn_actor_supervised(report.actor).await);
+                        }
+                    }
+                    // TODO: Maybe map Solidifier errors to Collector errors and return them?
+                    _ => {
+                        cx.shutdown();
+                    }
+                },
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
                 }
@@ -183,8 +194,7 @@ pub mod stardust {
                         .get(&(milestone_index.0 as usize % self.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
-                        .send(state)
-                        .map_err(RuntimeError::SendError)?;
+                        .send(state)?;
                 }
             }
             Ok(())

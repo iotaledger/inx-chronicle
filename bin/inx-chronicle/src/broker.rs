@@ -15,6 +15,8 @@ use crate::collector::Collector;
 
 #[derive(Debug, Error)]
 pub enum BrokerError {
+    #[error("the collector is missing")]
+    MissingCollector,
     #[error(transparent)]
     MongoDbError(#[from] MongoDbError),
     #[error(transparent)]
@@ -79,7 +81,7 @@ mod stardust {
                         .get::<Collector>()
                         .await
                         .send(CollectorEvent::Message(rec.message))
-                        .map_err(RuntimeError::SendError)?;
+                        .map_err(|_| BrokerError::MissingCollector)?;
                 }
                 Err(e) => {
                     log::error!("Could not read message: {:?}", e);
@@ -120,7 +122,7 @@ mod stardust {
                                     milestone_index,
                                     message_id,
                                 })
-                                .map_err(RuntimeError::SendError)?;
+                                .map_err(|_| BrokerError::MissingCollector)?;
                         }
                         Err(e) => {
                             log::error!("Could not read message metadata: {:?}", e);
@@ -162,7 +164,7 @@ mod stardust {
                     // Add this message to the milestone state
                     ms_state.messages.insert(rec.message_id, rec.message);
                     // Send this directly to the solidifier that requested it
-                    solidifier.send(ms_state).map_err(RuntimeError::SendError)?;
+                    solidifier.send(ms_state)?;
                 }
                 Err(e) => {
                     log::error!("Could not read message: {:?}", e);
@@ -191,7 +193,7 @@ mod stardust {
                             milestone_index: MilestoneIndex::from(rec.milestone_index),
                             message_id: rec.message_id,
                         })
-                        .map_err(RuntimeError::SendError)?;
+                        .map_err(|_| BrokerError::MissingCollector)?;
                 }
                 Err(e) => {
                     log::error!("Could not read milestone: {:?}", e);

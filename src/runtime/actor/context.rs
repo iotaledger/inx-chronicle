@@ -15,13 +15,13 @@ use futures::{
 };
 
 use super::{
-    addr::{Addr, SendError},
+    addr::Addr,
     event::{DynEvent, EnvelopeStream, HandleEvent},
     report::Report,
     util::DelayedEvent,
     Actor,
 };
-use crate::runtime::{config::SpawnConfig, scope::RuntimeScope, shutdown::ShutdownStream};
+use crate::runtime::{config::SpawnConfig, error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream};
 
 type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
 
@@ -69,7 +69,7 @@ impl<A: Actor> ActorContext<A> {
         &self,
         event: E,
         delay: impl Into<Option<Duration>>,
-    ) -> Result<(), SendError>
+    ) -> Result<(), RuntimeError>
     where
         A: 'static,
     {

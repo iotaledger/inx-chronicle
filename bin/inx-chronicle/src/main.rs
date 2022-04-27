@@ -34,7 +34,7 @@ use chronicle::{
     inx::InxError,
     runtime::{
         actor::{
-            addr::{Addr, OptionalAddr, SendError},
+            addr::{Addr, OptionalAddr},
             context::ActorContext,
             error::ActorError,
             event::HandleEvent,
@@ -99,8 +99,6 @@ pub enum LauncherError {
     MongoDb(#[from] MongoDbError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
-    #[error(transparent)]
-    Send(#[from] SendError),
 }
 
 #[derive(Debug)]
@@ -165,8 +163,17 @@ impl HandleEvent<Report<Broker>> for Launcher {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(e) => match e.error {
+            Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
+                    BrokerError::MissingCollector => {
+                        if ADDRESS_REGISTRY.get::<Collector>().await.is_none() {
+                            cx.delay(<Report<Broker>>::Error(report), None)?;
+                        } else {
+                            ADDRESS_REGISTRY
+                                .insert(cx.spawn_actor_supervised(report.actor).await)
+                                .await;
+                        }
+                    }
                     BrokerError::RuntimeError(_) => {
                         cx.shutdown();
                     }
@@ -212,15 +219,6 @@ impl HandleEvent<Report<Collector>> for Launcher {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    CollectorError::ArchiverMissing => {
-                        if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
-                            cx.delay(<Report<Collector>>::Error(report), None)?;
-                        } else {
-                            ADDRESS_REGISTRY
-                                .insert(cx.spawn_actor_supervised(report.actor).await)
-                                .await;
-                        }
-                    }
                     CollectorError::MongoDb(e) => match e {
                         chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
                             // Only a few possible errors we could potentially recover from

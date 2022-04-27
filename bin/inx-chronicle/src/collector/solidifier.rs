@@ -19,6 +19,11 @@ use crate::archiver::Archiver;
 pub enum SolidifierError {
     #[error(transparent)]
     Doc(#[from] DocError),
+    #[error("the archiver is missing")]
+    MissingArchiver,
+    #[cfg(feature = "stardust")]
+    #[error("the INX requester is missing")]
+    MissingInxRequester,
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
@@ -124,7 +129,7 @@ mod stardust {
                                     .get::<InxRequester>()
                                     .await
                                     .send((*message_id, cx.handle().clone(), ms_state))
-                                    .map_err(RuntimeError::SendError)?;
+                                    .map_err(|_| SolidifierError::MissingInxRequester)?;
                                 return Ok(());
                             }
                         }
@@ -140,7 +145,7 @@ mod stardust {
                     MilestoneIndex(ms_state.milestone_index),
                     ms_state.raw_messages.into_values().collect::<Vec<_>>(),
                 ))
-                .map_err(RuntimeError::SendError)?;
+                .map_err(|_| SolidifierError::MissingArchiver)?;
             Ok(())
         }
     }

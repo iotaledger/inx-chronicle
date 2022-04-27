@@ -341,7 +341,7 @@ impl HandleEvent<(MessageId, Addr<Solidifier>, MilestoneState)> for InxRequester
                 // If this isn't a message we care about, don't worry, be happy
                 if metadata.milestone_index != ms_state.milestone_index || !metadata.solid {
                     ms_state.process_queue.pop_front();
-                    solidifier.send(ms_state).map_err(RuntimeError::SendError)?;
+                    solidifier.send(ms_state)?;
                 } else {
                     log::warn!("Failed to read message: {:?}", e);
                 }

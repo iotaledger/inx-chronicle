@@ -1,5 +1,25 @@
 # inx-chronicle
 
+## Usage
+
+The easiest way to start Chronicle is by using our supplied Dockerfile.
+
+First you need to setup the correct permissions for the node's database:
+
+```sh
+mkdir docker/alphanet
+
+groupadd -g 65532 nonroot
+useradd -g nonroot -u 65532 nonroot
+chown nonroot:nonroot docker/alphanet/
+```
+
+After that, with Docker installed on your system, you can spin up Chronicle by running the following command from the root of the repository.
+
+```sh
+docker-compose -f docker/docker-compose.hornet.yml up
+```
+
 ## Development
 
 The easiest way to get going is to use a `private_tangle` for now:
