@@ -11,7 +11,6 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     image: inx-chronicle:dev
-    # Remove this entry if you don't want to directly expose the API.
     ports:
       - "9092:9092/tcp"
     environment:
@@ -24,7 +23,7 @@ services:
       - "mongodb://mongo:27017"
 
   hornet:
-    image: gohornet/hornet:2.0.0-alpha7
+    image: gohornet/hornet:2.0.0-alpha8
     ulimits:
       nofile:
         soft: 8192
