@@ -42,6 +42,8 @@ jobs:
           toolchain: stable
           override: true
 
+      - uses: Swatinem/rust-cache@v1
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -86,6 +88,8 @@ jobs:
           override: true
           components: clippy
 
+      - uses: Swatinem/rust-cache@v1
+
       - name: Clippy
         uses: actions-rs/cargo@v1
         with:
@@ -122,6 +126,8 @@ jobs:
             profile: minimal
             toolchain: nightly
             override: true
+
+      - uses: Swatinem/rust-cache@v1
 
       - uses: actions-rs/cargo@v1
         with:
