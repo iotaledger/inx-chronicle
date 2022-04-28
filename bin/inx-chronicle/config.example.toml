@@ -5,3 +5,4 @@ password = "root"
 
 [inx]
 address = "http://localhost:9029"
+connection_retry_interval = "5s"
