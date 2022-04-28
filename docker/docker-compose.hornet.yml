@@ -23,7 +23,7 @@ services:
       - "mongodb://mongo:27017"
 
   hornet:
-    image: gohornet/hornet:2.0.0-alpha8
+    image: gohornet/hornet:2.0.0-alpha9
     ulimits:
       nofile:
         soft: 8192
