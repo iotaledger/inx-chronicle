@@ -56,6 +56,7 @@ impl Actor for InxListener {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let message_stream = self.inx.listen_to_messages(MessageFilter {}).await?.into_inner();
+
         cx.spawn_actor_supervised::<MessageStream, _>(
             InxStreamListener::new(self.broker_addr.clone())?.with_stream(message_stream),
         )

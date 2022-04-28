@@ -4,7 +4,7 @@
 use axum::{handler::Handler, routing::get, Extension, Router};
 use chronicle::db::{
     model::sync::{SyncData, SyncRecord},
-    MongoDatabase,
+    MongoDb,
 };
 use futures::TryStreamExt;
 use hyper::Method;
@@ -17,7 +17,7 @@ use tower_http::{
 
 use super::{error::ApiError, responses::*, ApiResult};
 
-pub fn routes(db: MongoDatabase) -> Router {
+pub fn routes(db: MongoDb) -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
 
@@ -51,7 +51,7 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<MongoDatabase>) -> ApiResult<SyncDataResponse> {
+async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
     let mut res = database
         .collection::<SyncRecord>()
         .find(

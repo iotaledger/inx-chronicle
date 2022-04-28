@@ -6,7 +6,7 @@ use chronicle::{
     bson::{BsonExt, DocExt},
     db::{
         model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
-        MongoDatabase,
+        MongoDb,
     },
 };
 use futures::TryStreamExt;
@@ -28,7 +28,7 @@ pub fn routes() -> Router {
 }
 
 async fn transaction_history(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(address): Path<String>,
     Pagination { page_size, page }: Pagination,
     TimeRange {

@@ -3,7 +3,7 @@
 
 use std::{fs, path::Path};
 
-use chronicle::db::MongoConfig;
+use chronicle::db::MongoDbConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -20,28 +20,27 @@ pub enum ConfigError {
 
 /// Configuration of Chronicle.
 #[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Config {
-    pub mongodb: MongoConfig,
-    #[cfg(feature = "stardust")]
+pub struct ChronicleConfig {
+    pub mongodb: MongoDbConfig,
+    #[cfg(feature = "inx")]
     pub inx: InxConfig,
 }
 
-impl Config {
-    /// Reads a configuration file in `.toml` format.
+impl ChronicleConfig {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         fs::read_to_string(&path)
             .map_err(ConfigError::FileRead)
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))
     }
 
-    /// Applies the appropriate command line arguments to the [`Config`].
+    /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
     pub fn apply_cli_args(&mut self, args: super::CliArgs) {
         #[cfg(feature = "stardust")]
         if let Some(inx) = args.inx {
             self.inx = InxConfig::new(inx);
         }
-        if let Some(db) = args.db {
-            self.mongodb = MongoConfig::new(db);
+        if let Some(connect_url) = args.db {
+            self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
     }
 }
@@ -52,9 +51,9 @@ mod test {
 
     #[test]
     fn config_file_conformity() -> Result<(), ConfigError> {
-        let _ = Config::from_file(concat!(
+        let _ = ChronicleConfig::from_file(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/bin/inx-chronicle/config.example.toml"
+            "/bin/inx-chronicle/config.template.toml"
         ))?;
 
         Ok(())
