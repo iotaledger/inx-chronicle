@@ -33,13 +33,15 @@ pub struct Inx;
 impl Inx {
     /// Creates an [`InxClient`] by connecting to the endpoint specified in `inx_config`.
     async fn connect(inx_config: &InxConfig) -> Result<InxClient<Channel>, InxWorkerError> {
-        let url = url::Url::parse(&inx_config.connect_addr)?;
+        let url = url::Url::parse(&inx_config.connect_url)?;
 
         if url.scheme() != "http" {
-            return Err(InxWorkerError::InvalidAddress(inx_config.connect_addr.clone()));
+            return Err(InxWorkerError::InvalidAddress(inx_config.connect_url.clone()));
         }
 
-        InxClient::connect(inx_config.connect_addr.clone()).await.map_err(InxWorkerError::ConnectionError)
+        InxClient::connect(inx_config.connect_url.clone())
+            .await
+            .map_err(InxWorkerError::ConnectionError)
     }
 }
 
@@ -49,7 +51,7 @@ impl Actor for InxWorker {
     type Error = InxWorkerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        log::info!("Connecting to INX at bind address `{}`.", self.config.connect_addr);
+        log::info!("Connecting to INX at bind address `{}`.", self.config.connect_url);
         let mut inx = Inx::connect(&self.config).await?;
 
         log::info!("Connected to INX.");

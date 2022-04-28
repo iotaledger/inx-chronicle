@@ -12,7 +12,7 @@ pub use super::InxWorkerError;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct InxConfig {
     /// The bind address of node's INX interface.
-    pub connect_addr: String,
+    pub connect_url: String,
     /// The time that has to pass until a new connection attempt is made.
     #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
@@ -21,7 +21,7 @@ pub struct InxConfig {
 impl Default for InxConfig {
     fn default() -> Self {
         Self {
-            connect_addr: "http://localhost:9029".into(),
+            connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
         }
     }
@@ -31,7 +31,7 @@ impl InxConfig {
     /// Creates a new [`InxConfig`]. The `address` is the address of the node's INX interface.
     pub fn new(address: impl Into<String>) -> Self {
         Self {
-            connect_addr: address.into(),
+            connect_url: address.into(),
             ..Default::default()
         }
     }

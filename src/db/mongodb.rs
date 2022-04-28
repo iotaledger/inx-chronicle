@@ -21,7 +21,7 @@ const CONNECT_URL_DEFAULT: &str = "mongodb://localhost:27017";
 pub struct MongoDb(mongodb::Database);
 
 impl MongoDb {
-    /// Constructs a [`MongoDb`] by consuming the builder.
+    /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, MongoDbError> {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
 

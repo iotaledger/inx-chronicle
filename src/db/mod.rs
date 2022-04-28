@@ -4,9 +4,9 @@
 mod error;
 /// Module containing database record models.
 pub mod model;
-pub mod mongo;
+pub mod mongodb;
 
 pub use self::{
     error::MongoDbError,
-    mongo::{MongoDb, MongoDbConfig},
+    mongodb::{MongoDb, MongoDbConfig},
 };
