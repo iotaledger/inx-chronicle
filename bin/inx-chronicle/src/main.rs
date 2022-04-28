@@ -17,7 +17,7 @@ use std::{error::Error, ops::Deref};
 use async_trait::async_trait;
 #[cfg(feature = "stardust")]
 use chronicle::{
-    db::{MongoDb, MongoDbError},
+    db::MongoDb,
     runtime::{
         actor::{
             addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
@@ -47,7 +47,7 @@ pub enum LauncherError {
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
-    MongoDb(#[from] MongoDbError),
+    MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
 }
@@ -76,6 +76,13 @@ impl Actor for Launcher {
         config.apply_cli_args(cli_args);
 
         let db = MongoDb::connect(&config.mongodb).await?;
+
+        if let Some(node_status) = db.status().await? {
+            log::info!("{:?}", node_status);
+        } else {
+            log::info!("No node status has been found in the database, it seems like the database is empty.");
+        };
+
         let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
         #[cfg(feature = "inx")]
         cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
@@ -104,20 +111,14 @@ impl HandleEvent<Report<Broker>> for Launcher {
                     BrokerError::RuntimeError(_) => {
                         cx.shutdown();
                     }
-                    BrokerError::MongoDbError(e) => match e {
-                        chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
-                            // Only a few possible errors we could potentially recover from
-                            ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                                let db = MongoDb::connect(&config.mongodb).await?;
-                                let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
-                                *broker_addr = handle;
-                            }
-                            _ => {
-                                cx.shutdown();
-                            }
-                        },
-                        other => {
-                            log::warn!("Unhandled MongoDB error: {}", other);
+                    BrokerError::MongoDbError(e) => match e.kind.as_ref() {
+                        // Only a few possible errors we could potentially recover from
+                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                            let db = MongoDb::connect(&config.mongodb).await?;
+                            let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
+                            *broker_addr = handle;
+                        }
+                        _ => {
                             cx.shutdown();
                         }
                     },
