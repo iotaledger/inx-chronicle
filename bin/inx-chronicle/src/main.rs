@@ -10,7 +10,7 @@ mod archiver;
 mod cli;
 mod collector;
 mod config;
-#[cfg(feature = "stardust")]
+#[cfg(feature = "inx")]
 mod inx;
 mod util;
 
@@ -19,7 +19,6 @@ use std::{
     collections::HashMap,
     error::Error,
     fmt::Debug,
-    time::Duration,
 };
 
 #[cfg(feature = "api")]
@@ -29,7 +28,6 @@ use async_trait::async_trait;
 #[cfg(feature = "stardust")]
 use chronicle::{
     db::MongoDbError,
-    inx::InxError,
     runtime::{
         actor::{
             addr::{Addr, OptionalAddr},
@@ -53,7 +51,7 @@ use tokio::sync::RwLock;
 use util::SpawnRegistryActor;
 
 use self::cli::CliArgs;
-#[cfg(feature = "stardust")]
+#[cfg(feature = "inx")]
 use self::inx::{InxWorker, InxWorkerError};
 
 lazy_static::lazy_static! {
@@ -101,9 +99,7 @@ pub enum LauncherError {
 
 #[derive(Debug)]
 /// Supervisor actor
-pub struct Launcher {
-    inx_connection_retry_interval: Duration,
-}
+pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
@@ -132,7 +128,7 @@ impl Actor for Launcher {
             .insert(cx.spawn_actor_supervised(Collector::new(db.clone(), 1)).await)
             .await;
 
-        #[cfg(feature = "stardust")]
+        #[cfg(feature = "inx")]
         {
             ADDRESS_REGISTRY
                 .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
@@ -222,7 +218,7 @@ impl HandleEvent<Report<Archiver>> for Launcher {
     }
 }
 
-#[cfg(feature = "stardust")]
+#[cfg(feature = "inx")]
 mod stardust {
     use super::*;
 
@@ -240,32 +236,30 @@ mod stardust {
                 }
                 Report::Error(e) => match &e.error {
                     ActorError::Result(e) => match e {
-                        InxWorkerError::Inx(e) => match e {
-                            InxError::ConnectionError(_) => {
-                                let wait_interval = self.inx_connection_retry_interval;
-                                log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                                cx.delay(
-                                    SpawnRegistryActor::new(InxWorker::new(config.inx.clone())),
-                                    wait_interval,
-                                )?;
+                        InxWorkerError::ConnectionError(_) => {
+                            let wait_interval = config.inx.connection_retry_interval;
+                            log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                            cx.delay(
+                                SpawnRegistryActor::new(InxWorker::new(config.inx.clone())),
+                                wait_interval,
+                            )?;
+                        }
+                        InxWorkerError::InvalidAddress(_) => {
+                            cx.shutdown();
+                        }
+                        InxWorkerError::ParsingAddressFailed(_) => {
+                            cx.shutdown();
+                        }
+                        // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
+                        InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
+                            "transport error" => {
+                                ADDRESS_REGISTRY
+                                    .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
+                                    .await;
                             }
-                            InxError::InvalidAddress(_) => {
+                            _ => {
                                 cx.shutdown();
                             }
-                            InxError::ParsingAddressFailed(_) => {
-                                cx.shutdown();
-                            }
-                            // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                            InxError::TransportFailed(e) => match e.to_string().as_ref() {
-                                "transport error" => {
-                                    ADDRESS_REGISTRY
-                                        .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
-                                        .await;
-                                }
-                                _ => {
-                                    cx.shutdown();
-                                }
-                            },
                         },
                         InxWorkerError::Read(_) => {
                             cx.shutdown();
@@ -273,10 +267,14 @@ mod stardust {
                         InxWorkerError::Runtime(_) => {
                             cx.shutdown();
                         }
+                        InxWorkerError::ListenerError(_) => {
+                            cx.shutdown();
+                        }
                         InxWorkerError::MissingCollector => {
-                            ADDRESS_REGISTRY
-                                .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
-                                .await;
+                            cx.delay(SpawnRegistryActor::new(InxWorker::new(config.inx.clone())), None)?;
+                        }
+                        InxWorkerError::FailedToAnswerRequest => {
+                            cx.shutdown();
                         }
                     },
                     ActorError::Panic | ActorError::Aborted => {
@@ -352,11 +350,7 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher = Launcher {
-        inx_connection_retry_interval: std::time::Duration::from_secs(5),
-    };
-
-    let launcher_addr = scope.spawn_actor(launcher).await;
+    let launcher_addr = scope.spawn_actor(Launcher).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();

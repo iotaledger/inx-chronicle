@@ -66,7 +66,7 @@ mod stardust {
     use super::*;
     use crate::{
         collector::stardust::MilestoneState,
-        inx::{InxRequest, InxRequester},
+        inx::{InxRequest, InxWorker},
         ADDRESS_REGISTRY,
     };
 
@@ -115,7 +115,7 @@ mod stardust {
                                 // Send the state and everything. If the requester finds the message, it will circle
                                 // back.
                                 ADDRESS_REGISTRY
-                                    .get::<InxRequester>()
+                                    .get::<InxWorker>()
                                     .await
                                     .send(InxRequest::get_metadata(*message_id, cx.handle().clone(), ms_state))
                                     .map_err(|_| SolidifierError::MissingInxRequester)?;
@@ -128,7 +128,7 @@ mod stardust {
                         // Send the state and everything. If the requester finds the message, it will circle
                         // back.
                         ADDRESS_REGISTRY
-                            .get::<InxRequester>()
+                            .get::<InxWorker>()
                             .await
                             .send(InxRequest::get_message(*message_id, cx.handle().clone(), ms_state))
                             .map_err(|_| SolidifierError::MissingInxRequester)?;

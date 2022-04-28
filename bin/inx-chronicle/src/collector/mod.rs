@@ -154,7 +154,7 @@ pub mod stardust {
             message: inx::proto::Message,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::debug!("Received Stardust Message Event");
+            log::trace!("Received Stardust Message Event");
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
                     self.db.upsert_one(&rec).await?;
@@ -175,7 +175,7 @@ pub mod stardust {
             metadata: inx::proto::MessageMetadata,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::debug!("Received Stardust Message Referenced Event");
+            log::trace!("Received Stardust Message Referenced Event");
             match inx::MessageMetadata::try_from(metadata) {
                 Ok(rec) => {
                     let message_id = rec.message_id;
@@ -212,7 +212,7 @@ pub mod stardust {
             milestone: inx::proto::Milestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::debug!("Received Stardust Milestone Event");
+            log::trace!("Received Stardust Milestone Event");
             match MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
                     self.db.upsert_one(&rec).await?;
@@ -249,7 +249,7 @@ pub mod stardust {
         ) -> Result<(), Self::Error> {
             match raw {
                 Some(raw) => {
-                    log::debug!("Received Stardust Requested Message and Metadata");
+                    log::trace!("Received Stardust Requested Message and Metadata");
                     match MessageRecord::try_from((raw, metadata)) {
                         Ok(rec) => {
                             self.db.upsert_one(&rec).await?;
@@ -262,7 +262,7 @@ pub mod stardust {
                     };
                 }
                 None => {
-                    log::debug!("Received Stardust Requested Metadata");
+                    log::trace!("Received Stardust Requested Metadata");
                     match inx::MessageMetadata::try_from(metadata) {
                         Ok(rec) => {
                             let message_id = rec.message_id;
