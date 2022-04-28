@@ -71,7 +71,7 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
         milestone: inx::proto::Milestone,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Received Stardust Milestone Event");
+        log::debug!("Received Stardust Milestone Event");
         match stardust::milestone::MilestoneRecord::try_from(milestone) {
             Ok(rec) => self.db.upsert_one(rec).await?,
             Err(e) => {

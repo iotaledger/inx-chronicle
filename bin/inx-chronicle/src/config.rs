@@ -4,10 +4,11 @@
 use std::{fs, path::Path};
 
 use chronicle::db::MongoConfig;
-#[cfg(feature = "stardust")]
-use chronicle::inx::InxConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+#[cfg(feature = "inx")]
+use crate::inx::InxConfig;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {

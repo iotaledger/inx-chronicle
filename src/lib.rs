@@ -9,8 +9,6 @@
 pub mod bson;
 /// Module that contains the database types and constants.
 pub mod db;
-/// Module that contains INX bindings and configuration.
-pub mod inx;
 /// Module that contains the actor runtime.
 pub mod runtime;
 /// Module re-exporting Stardust types.
