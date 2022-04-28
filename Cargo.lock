@@ -1013,7 +1013,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.2.0"
-source = "git+https://github.com/grtlr/inx?branch=milestone-payload-pt2#7b8bae9e49845afbb8a789709b6a0693e115b889"
+source = "git+https://github.com/iotaledger/inx#868c18cc2750317ce90970973c9eb841ef10a9e1"
 dependencies = [
  "bee-message",
  "packable",
