@@ -76,7 +76,7 @@ pub struct MongoDbConfig {
 }
 
 impl MongoDbConfig {
-    /// Creates a new [`MongoConfig`].
+    /// Creates a new [`MongoDbConfig`].
     pub fn new() -> Self {
         Self::default()
     }

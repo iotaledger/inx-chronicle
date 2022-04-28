@@ -33,7 +33,7 @@ impl ChronicleConfig {
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))
     }
 
-    /// Applies the appropriate command line arguments to the [`Config`].
+    /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
     pub fn apply_cli_args(&mut self, args: super::CliArgs) {
         #[cfg(feature = "stardust")]
         if let Some(inx) = args.inx {
