@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::{
+use chronicle::db::{
     bson::{BsonExt, DocExt},
-    db::{
-        model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
-        MongoDb,
-    },
+    model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
+    MongoDb,
 };
 use futures::TryStreamExt;
 use mongodb::bson::doc;

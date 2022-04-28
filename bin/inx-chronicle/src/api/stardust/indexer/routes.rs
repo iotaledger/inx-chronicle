@@ -5,8 +5,8 @@ use std::str::FromStr;
 
 use axum::{routing::get, Extension, Router};
 use chronicle::{
-    bson::{BsonExt, DocExt},
     db::{
+        bson::{BsonExt, DocExt},
         model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
         MongoDb,
     },

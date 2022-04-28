@@ -3,8 +3,8 @@
 
 use axum::{routing::get, Extension, Router};
 use chronicle::{
-    bson::DocExt,
     db::{
+        bson::DocExt,
         model::{inclusion_state::LedgerInclusionState, stardust::message::MessageRecord},
         MongoDb,
     },

@@ -43,7 +43,7 @@ impl MongoDb {
 
     /// Inserts a record of a [`Model`] into the database.
     pub async fn upsert_one<M: Model>(&self, model: M) -> Result<(), MongoDbError> {
-        let doc = crate::bson::to_document(&model)?;
+        let doc = crate::db::bson::to_document(&model)?;
         self.0
             .collection::<Document>(M::COLLECTION)
             .update_one(
