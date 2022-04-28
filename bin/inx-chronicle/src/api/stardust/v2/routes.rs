@@ -169,13 +169,13 @@ async fn output_by_transaction_id(
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
     let mut output = database
-        .outputs_by_transaction_id(transaction_id.clone(), idx)
+        .get_outputs_by_transaction_id(transaction_id.clone(), idx)
         .await?
         .try_next()
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let spending_transaction = database.spending_transaction(transaction_id.clone(), idx).await?;
+    let spending_transaction = database.get_spending_transaction(transaction_id.clone(), idx).await?;
 
     Ok(OutputResponse {
         message_id: output.get_str("message_id")?.to_owned(),

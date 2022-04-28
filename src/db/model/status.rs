@@ -19,7 +19,7 @@ pub struct Status {
 }
 
 impl MongoDb {
-    /// Get the persistet [`Status`] from the database.
+    /// Get the persistent [`Status`] from the database.
     pub async fn status(&self) -> Result<Option<Status>, Error> {
         self.0
             .collection::<Status>(collection::STATUS)

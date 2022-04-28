@@ -65,7 +65,7 @@ impl MongoDb {
     }
 
     /// Find the starting milestone.
-    pub async fn find_starting_milestone(&self, start_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
+    pub async fn find_first_milestone(&self, start_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
         let res = self.0.collection::<Document>(collection::MILESTONE_RECORDS).find(
             doc! {"milestone_timestamp": { "$gte": DateTime::from_millis(start_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()
@@ -83,7 +83,7 @@ impl MongoDb {
     }
 
     /// Find the end milestone.
-    pub async fn find_end_milestone(&self, end_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
+    pub async fn find_last_milestone(&self, end_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
         let res = self
             .0
             .collection::<Document>(collection::MILESTONE_RECORDS)

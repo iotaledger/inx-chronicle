@@ -113,7 +113,7 @@ impl MongoDb {
     }
 
     /// Aggregates the spending transactions
-    pub async fn spending_transaction(&self, transaction_id: String, idx: u16) -> Result<Option<Document>, Error> {
+    pub async fn get_spending_transaction(&self, transaction_id: String, idx: u16) -> Result<Option<Document>, Error> {
         self.0
             .collection::<Document>(collection::MESSAGE_RECORDS)
             .find_one(
@@ -142,7 +142,7 @@ impl MongoDb {
     }
 
     /// Aggregates outputs by transaction ids.
-    pub async fn outputs_by_transaction_id(
+    pub async fn get_outputs_by_transaction_id(
         &self,
         transaction_id: String,
         idx: u16,
@@ -159,7 +159,7 @@ impl MongoDb {
     }
 
     /// Aggregates the transaction history for an address.
-    pub async fn transaction_history(
+    pub async fn get_transaction_history(
         &self,
         address: String,
         page_size: usize,

@@ -38,14 +38,14 @@ pub fn routes() -> Router {
 
 pub(crate) async fn start_milestone(database: &MongoDb, start_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
-        .find_starting_milestone(start_timestamp)
+        .find_first_milestone(start_timestamp)
         .await?
         .ok_or(ApiError::NotFound)
 }
 
 pub(crate) async fn end_milestone(database: &MongoDb, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
-        .find_end_milestone(end_timestamp)
+        .find_last_milestone(end_timestamp)
         .await?
         .ok_or(ApiError::NotFound)
 }
