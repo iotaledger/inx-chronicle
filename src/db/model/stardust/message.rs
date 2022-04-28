@@ -14,6 +14,7 @@ pub struct MessageRecord {
     /// The message.
     pub message: Message,
     /// The raw bytes of the message.
+    #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
     /// The message's metadata.
     pub metadata: Option<MessageMetadata>,
@@ -49,7 +50,7 @@ impl Model for MessageRecord {
     const COLLECTION: &'static str = "stardust_messages";
 
     fn key(&self) -> mongodb::bson::Document {
-        doc! { "message_id": self.message_id.to_string() }
+        doc! { "_id": self.message_id.to_string() }
     }
 }
 

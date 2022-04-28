@@ -2,14 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use chronicle::runtime::actor::{context::ActorContext, event::HandleEvent, Actor};
+use chronicle::{
+    db::{model::sync::SyncRecord, MongoDatabase, MongoDbError},
+    runtime::actor::{context::ActorContext, event::HandleEvent, Actor},
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ArchiverError {}
+pub enum ArchiverError {
+    #[error(transparent)]
+    MongoDb(#[from] MongoDbError),
+}
 
 #[derive(Debug)]
-pub struct Archiver;
+pub struct Archiver {
+    db: MongoDatabase,
+}
+
+impl Archiver {
+    pub fn new(db: MongoDatabase) -> Self {
+        Self { db }
+    }
+}
 
 #[async_trait]
 impl Actor for Archiver {
@@ -22,23 +36,23 @@ impl Actor for Archiver {
     }
 }
 
-#[cfg(feature = "stardust")]
-mod stardust {
-    use chronicle::stardust::milestone::MilestoneIndex;
-
-    use super::*;
-
-    #[async_trait]
-    impl HandleEvent<(MilestoneIndex, Vec<Vec<u8>>)> for Archiver {
-        async fn handle_event(
-            &mut self,
-            _cx: &mut ActorContext<Self>,
-            (milestone_index, _messages): (MilestoneIndex, Vec<Vec<u8>>),
-            _state: &mut Self::State,
-        ) -> Result<(), Self::Error> {
-            log::info!("Archiving milestone {}", milestone_index);
-            // TODO
-            Ok(())
-        }
+#[async_trait]
+impl HandleEvent<(u32, Vec<Vec<u8>>)> for Archiver {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        (milestone_index, _messages): (u32, Vec<Vec<u8>>),
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        log::info!("Archiving milestone {}", milestone_index);
+        // TODO: Actually archive the messages
+        self.db
+            .upsert_one(&SyncRecord {
+                milestone_index,
+                logged: true,
+                synced: true,
+            })
+            .await?;
+        Ok(())
     }
 }

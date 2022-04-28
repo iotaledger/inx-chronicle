@@ -12,7 +12,7 @@ pub(crate) struct SpawnRegistryActor<A: Actor> {
 }
 
 impl<A: Actor> SpawnRegistryActor<A> {
-    /// Creates a new [`SpawnActor`] event.
+    /// Creates a new [`SpawnRegistryActor`] event.
     pub fn new(actor: A) -> Self {
         Self { actor }
     }

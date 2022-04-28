@@ -7,7 +7,6 @@
 #[cfg(feature = "api")]
 pub mod api;
 mod archiver;
-mod broker;
 mod cli;
 mod collector;
 mod config;
@@ -27,7 +26,6 @@ use std::{
 use api::ApiWorker;
 use archiver::Archiver;
 use async_trait::async_trait;
-use broker::{Broker, BrokerError};
 #[cfg(feature = "stardust")]
 use chronicle::{
     db::MongoDbError,
@@ -127,12 +125,11 @@ impl Actor for Launcher {
         config.apply_cli_args(cli_args);
 
         let db = config.mongodb.clone().build().await?;
-        ADDRESS_REGISTRY.insert(cx.spawn_actor_supervised(Archiver).await).await;
         ADDRESS_REGISTRY
-            .insert(cx.spawn_actor_supervised(Collector::new(db.clone(), 1)).await)
+            .insert(cx.spawn_actor_supervised(Archiver::new(db.clone())).await)
             .await;
         ADDRESS_REGISTRY
-            .insert(cx.spawn_actor_supervised(Broker::new(db.clone())).await)
+            .insert(cx.spawn_actor_supervised(Collector::new(db.clone(), 1)).await)
             .await;
 
         #[cfg(feature = "stardust")]
@@ -148,60 +145,6 @@ impl Actor for Launcher {
             .await;
 
         Ok(config)
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Broker>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<Broker>,
-        config: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
-            Report::Error(report) => match &report.error {
-                ActorError::Result(e) => match e {
-                    BrokerError::MissingCollector => {
-                        if ADDRESS_REGISTRY.get::<Collector>().await.is_none() {
-                            cx.delay(<Report<Broker>>::Error(report), None)?;
-                        } else {
-                            ADDRESS_REGISTRY
-                                .insert(cx.spawn_actor_supervised(report.actor).await)
-                                .await;
-                        }
-                    }
-                    BrokerError::RuntimeError(_) => {
-                        cx.shutdown();
-                    }
-                    BrokerError::MongoDbError(e) => match e {
-                        chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
-                            // Only a few possible errors we could potentially recover from
-                            ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                                let db = config.mongodb.clone().build().await?;
-                                ADDRESS_REGISTRY
-                                    .insert(cx.spawn_actor_supervised(Broker::new(db)).await)
-                                    .await;
-                            }
-                            _ => {
-                                cx.shutdown();
-                            }
-                        },
-                        other => {
-                            log::warn!("Unhandled MongoDB error: {}", other);
-                            cx.shutdown();
-                        }
-                    },
-                },
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
-                }
-            },
-        }
-        Ok(())
     }
 }
 
@@ -330,16 +273,10 @@ mod stardust {
                         InxWorkerError::Runtime(_) => {
                             cx.shutdown();
                         }
-                        InxWorkerError::MissingBroker => {
-                            // If the handle is still closed, push this to the back of the event queue.
-                            // Hopefully when it is processed again the handle will have been recreated.
-                            if ADDRESS_REGISTRY.get::<Broker>().await.is_none() {
-                                cx.delay(event, None)?;
-                            } else {
-                                ADDRESS_REGISTRY
-                                    .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
-                                    .await;
-                            }
+                        InxWorkerError::MissingCollector => {
+                            ADDRESS_REGISTRY
+                                .insert(cx.spawn_actor_supervised(InxWorker::new(config.inx.clone())).await)
+                                .await;
                         }
                     },
                     ActorError::Panic | ActorError::Aborted => {

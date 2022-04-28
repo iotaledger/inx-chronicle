@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use chronicle::{
     bson::{BsonExt, DocError, DocExt},
-    db::MongoDatabase,
+    db::{MongoDatabase, MongoDbError},
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -25,7 +25,7 @@ pub enum SolidifierError {
     #[error("the INX requester is missing")]
     MissingInxRequester,
     #[error(transparent)]
-    MongoDb(#[from] mongodb::error::Error),
+    MongoDb(#[from] MongoDbError),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
     #[error(transparent)]
@@ -59,13 +59,16 @@ mod stardust {
     use std::str::FromStr;
 
     use chronicle::{
-        db::model::stardust::message::MessageRecord,
-        stardust::{milestone::MilestoneIndex, MessageId},
+        db::model::{stardust::message::MessageRecord, sync::SyncRecord},
+        stardust::MessageId,
     };
-    use packable::PackableExt;
 
     use super::*;
-    use crate::{collector::stardust::MilestoneState, inx::InxRequester, ADDRESS_REGISTRY};
+    use crate::{
+        collector::stardust::MilestoneState,
+        inx::{InxRequest, InxRequester},
+        ADDRESS_REGISTRY,
+    };
 
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
@@ -77,73 +80,77 @@ mod stardust {
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             while let Some(message_id) = ms_state.process_queue.front() {
-                match ms_state.messages.get(message_id) {
-                    // The collector received this message
-                    Some(message) => {
-                        ms_state.raw_messages.insert(*message_id, message.pack_to_vec());
-                        // Done with this one
-                        ms_state.process_queue.pop_front();
-                        // Add the parents to be processed
-                        ms_state.process_queue.extend(message.parents().iter());
-                    }
-                    // The collector never received this message
-                    None => {
-                        // Try the database first
-                        match self
-                            .db
-                            .doc_collection::<MessageRecord>()
-                            .find_one(doc! {"message_id": message_id.to_string()}, None)
-                            .await?
+                // Try the database first
+                match self
+                    .db
+                    .doc_collection::<MessageRecord>()
+                    .find_one(doc! {"message_id": message_id.to_string()}, None)
+                    .await
+                    .map_err(MongoDbError::DatabaseError)?
+                {
+                    Some(mut message_doc) => {
+                        match message_doc
+                            .take_bson("metadata.referenced_by_milestone_index")
+                            .ok()
+                            .map(|b| b.as_u32())
+                            .transpose()?
                         {
-                            Some(mut message_doc) => {
-                                match message_doc.remove("milestone_index").map(|b| b.as_u32()).transpose()? {
-                                    Some(ms_index) => {
-                                        // We may have reached a different milestone, in which case there is nothing to
-                                        // do for this message
-                                        if ms_state.milestone_index == ms_index {
-                                            let parents = message_doc
-                                                .take_array("message.parents")?
-                                                .iter()
-                                                .map(|b| MessageId::from_str(b.as_str().unwrap()))
-                                                .collect::<Result<Vec<MessageId>, _>>()
-                                                .unwrap();
-                                            ms_state
-                                                .raw_messages
-                                                .insert(*message_id, message_doc.take_bytes("message.raw")?);
-                                            ms_state.process_queue.extend(parents);
-                                        }
-                                        ms_state.process_queue.pop_front();
-                                    }
-                                    // If the message has not been referenced, we can't proceed
-                                    None => {
-                                        // Gotta handle this somehow. Maybe retry later?
-                                        todo!()
-                                    }
+                            Some(ms_index) => {
+                                // We may have reached a different milestone, in which case there is nothing to
+                                // do for this message
+                                if ms_state.milestone_index == ms_index {
+                                    let parents = message_doc
+                                        .take_array("message.parents.inner")?
+                                        .iter()
+                                        .map(|b| MessageId::from_str(b.as_str().unwrap()))
+                                        .collect::<Result<Vec<MessageId>, _>>()
+                                        .unwrap();
+                                    ms_state.messages.insert(*message_id, message_doc.take_bytes("raw")?);
+                                    ms_state.process_queue.extend(parents);
                                 }
+                                ms_state.process_queue.pop_front();
                             }
-                            // Otherwise, send a message to the requester
+                            // If the message has not been referenced, we can't proceed
                             None => {
                                 // Send the state and everything. If the requester finds the message, it will circle
                                 // back.
                                 ADDRESS_REGISTRY
                                     .get::<InxRequester>()
                                     .await
-                                    .send((*message_id, cx.handle().clone(), ms_state))
+                                    .send(InxRequest::get_metadata(*message_id, cx.handle().clone(), ms_state))
                                     .map_err(|_| SolidifierError::MissingInxRequester)?;
                                 return Ok(());
                             }
                         }
                     }
+                    // Otherwise, send a message to the requester
+                    None => {
+                        // Send the state and everything. If the requester finds the message, it will circle
+                        // back.
+                        ADDRESS_REGISTRY
+                            .get::<InxRequester>()
+                            .await
+                            .send(InxRequest::get_message(*message_id, cx.handle().clone(), ms_state))
+                            .map_err(|_| SolidifierError::MissingInxRequester)?;
+                        return Ok(());
+                    }
                 }
             }
             // If we finished all the parents, that means we have a complete milestone
-            // so we should send it to the archiver now
+            // so we should mark it synced and send it to the archiver
+            self.db
+                .upsert_one(&SyncRecord {
+                    milestone_index: ms_state.milestone_index,
+                    logged: false,
+                    synced: true,
+                })
+                .await?;
             ADDRESS_REGISTRY
                 .get::<Archiver>()
                 .await
                 .send((
-                    MilestoneIndex(ms_state.milestone_index),
-                    ms_state.raw_messages.into_values().collect::<Vec<_>>(),
+                    ms_state.milestone_index,
+                    ms_state.messages.into_values().collect::<Vec<_>>(),
                 ))
                 .map_err(|_| SolidifierError::MissingArchiver)?;
             Ok(())

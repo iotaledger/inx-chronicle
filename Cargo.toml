@@ -29,13 +29,12 @@ dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4", default-features = false }
-inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false, features = ["types"] }
-iota-crypto = { version = "0.9", default-features = false, features = [ "blake2b" ] }
+inx = { git = "https://github.com/grtlr/inx", branch = "milestone-payload-pt2", version = "0.2", default-features = false, features = ["types"] }
 lazy_static = { version = "1.4", default-features = false }
 log = { version = "0.4", default-features = false }
-lru = { version = "0.7", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 serde = { version = "1.0", features = ["derive"], default-features = false }
+serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 thiserror = { version = "1.0", default-features = false }
 time = { version = "0.3", default-features = false, features = ["std"] }
@@ -54,14 +53,8 @@ tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.3", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
 # Stardust types
-bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde", "dto"], optional = true }
-bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
-packable = { version = "0.3", default-features = false, optional = true }
-
-# Temporarily patch Stardust types until release
-[patch.crates-io]
-bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
-bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
+bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
+bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 
 [features]
 default = [
@@ -94,5 +87,4 @@ api-node = [
 stardust = [
     "bee-message-stardust",
     "bee-rest-api-stardust",
-    "packable",
 ]

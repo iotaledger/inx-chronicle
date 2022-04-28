@@ -24,9 +24,11 @@ use inx::{
 use thiserror::Error;
 
 use crate::{
-    broker::Broker,
-    collector::{solidifier::Solidifier, stardust::MilestoneState},
-    util::SpawnRegistryActor,
+    collector::{
+        solidifier::Solidifier,
+        stardust::{MilestoneState, RequestedMessage},
+        Collector,
+    },
     ADDRESS_REGISTRY,
 };
 
@@ -38,8 +40,8 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxWorkerError {
     #[error(transparent)]
     Inx(#[from] InxError),
-    #[error("the broker actor is not running")]
-    MissingBroker,
+    #[error("the collector is not running")]
+    MissingCollector,
     #[error(transparent)]
     Read(#[from] Status),
     #[error(transparent)]
@@ -79,7 +81,7 @@ impl Actor for InxWorker {
             .await;
 
         let metadata_stream = inx_client
-            .listen_to_solid_messages(MessageFilter {})
+            .listen_to_referenced_messages(MessageFilter {})
             .await?
             .into_inner();
         cx.spawn_actor_supervised::<MessageMetadataStream, _>(
@@ -143,7 +145,7 @@ impl HandleEvent<Report<MessageMetadataStream>> for InxWorker {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let message_stream = inx_client
-                        .listen_to_solid_messages(MessageFilter {})
+                        .listen_to_referenced_messages(MessageFilter {})
                         .await?
                         .into_inner();
                     cx.spawn_actor_supervised::<MessageMetadataStream, _>(
@@ -214,25 +216,6 @@ impl HandleEvent<Report<InxRequester>> for InxWorker {
     }
 }
 
-#[async_trait]
-impl<A> HandleEvent<SpawnRegistryActor<A>> for InxWorker
-where
-    InxWorker: HandleEvent<Report<A>>,
-    A: 'static + Actor + Debug + Send + Sync,
-{
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: SpawnRegistryActor<A>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        ADDRESS_REGISTRY
-            .insert(cx.spawn_actor_supervised(event.actor).await)
-            .await;
-        Ok(())
-    }
-}
-
 pub struct InxStreamListener<I> {
     _item: PhantomData<I>,
 }
@@ -246,7 +229,7 @@ impl<I> Default for InxStreamListener<I> {
 #[async_trait]
 impl<E> Actor for InxStreamListener<E>
 where
-    Broker: HandleEvent<E>,
+    Collector: HandleEvent<E>,
     E: 'static + Send + Sync + Debug,
 {
     type State = ();
@@ -261,7 +244,7 @@ where
 impl<E> HandleEvent<Result<E, Status>> for InxStreamListener<E>
 where
     Self: Actor<Error = InxWorkerError>,
-    Broker: HandleEvent<E>,
+    Collector: HandleEvent<E>,
     E: 'static + Send + Sync + Debug,
 {
     async fn handle_event(
@@ -271,10 +254,10 @@ where
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         ADDRESS_REGISTRY
-            .get::<Broker>()
+            .get::<Collector>()
             .await
             .send(event?)
-            .map_err(|_| InxWorkerError::MissingBroker)?;
+            .map_err(|_| InxWorkerError::MissingCollector)?;
         Ok(())
     }
 }
@@ -298,6 +281,37 @@ impl InxRequester {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum InxRequestType {
+    Message(MessageId),
+    Metadata(MessageId),
+}
+
+#[derive(Debug)]
+pub struct InxRequest {
+    request_type: InxRequestType,
+    solidifier_addr: Addr<Solidifier>,
+    ms_state: MilestoneState,
+}
+
+impl InxRequest {
+    pub fn get_message(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+        Self {
+            request_type: InxRequestType::Message(message_id),
+            solidifier_addr,
+            ms_state,
+        }
+    }
+
+    pub fn get_metadata(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+        Self {
+            request_type: InxRequestType::Metadata(message_id),
+            solidifier_addr,
+            ms_state,
+        }
+    }
+}
+
 #[async_trait]
 impl Actor for InxRequester {
     type State = ();
@@ -309,45 +323,69 @@ impl Actor for InxRequester {
 }
 
 #[async_trait]
-impl HandleEvent<(MessageId, Addr<Solidifier>, MilestoneState)> for InxRequester {
+impl HandleEvent<InxRequest> for InxRequester {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        (message_id, solidifier, mut ms_state): (MessageId, Addr<Solidifier>, MilestoneState),
+        InxRequest {
+            request_type,
+            solidifier_addr,
+            mut ms_state,
+        }: InxRequest,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        match (
-            self.inx_client
-                .read_message(inx::proto::MessageId {
-                    id: Vec::from(*message_id.deref()),
-                })
-                .await,
-            self.inx_client
-                .read_message_metadata(inx::proto::MessageId {
-                    id: Vec::from(*message_id.deref()),
-                })
-                .await,
-        ) {
-            (Ok(message), Ok(metadata)) => {
-                let (message, metadata) = (message.into_inner(), metadata.into_inner());
-                ADDRESS_REGISTRY
-                    .get::<Broker>()
-                    .await
-                    .send((message, metadata, solidifier, ms_state))
-                    .map_err(|_| InxWorkerError::MissingBroker)?;
-            }
-            (Err(e), Ok(metadata)) => {
-                let metadata = metadata.into_inner();
-                // If this isn't a message we care about, don't worry, be happy
-                if metadata.milestone_index != ms_state.milestone_index || !metadata.solid {
-                    ms_state.process_queue.pop_front();
-                    solidifier.send(ms_state)?;
-                } else {
-                    log::warn!("Failed to read message: {:?}", e);
+        match request_type {
+            InxRequestType::Message(message_id) => {
+                match (
+                    self.inx_client
+                        .read_message(inx::proto::MessageId {
+                            id: Vec::from(*message_id.deref()),
+                        })
+                        .await,
+                    self.inx_client
+                        .read_message_metadata(inx::proto::MessageId {
+                            id: Vec::from(*message_id.deref()),
+                        })
+                        .await,
+                ) {
+                    (Ok(raw), Ok(metadata)) => {
+                        let (raw, metadata) = (raw.into_inner(), metadata.into_inner());
+                        ADDRESS_REGISTRY
+                            .get::<Collector>()
+                            .await
+                            .send(RequestedMessage::new(Some(raw), metadata, solidifier_addr, ms_state))
+                            .map_err(|_| InxWorkerError::MissingCollector)?;
+                    }
+                    (Err(e), Ok(metadata)) => {
+                        let metadata = metadata.into_inner();
+                        // If this isn't a message we care about, don't worry, be happy
+                        if metadata.milestone_index != ms_state.milestone_index || !metadata.solid {
+                            ms_state.process_queue.pop_front();
+                            solidifier_addr.send(ms_state)?;
+                        } else {
+                            log::warn!("Failed to read message: {:?}", e);
+                        }
+                    }
+                    (_, Err(e)) => {
+                        log::warn!("Failed to read metadata: {:?}", e);
+                    }
                 }
             }
-            (_, Err(e)) => {
-                log::warn!("Failed to read metadata: {:?}", e);
+            InxRequestType::Metadata(message_id) => {
+                if let Ok(metadata) = self
+                    .inx_client
+                    .read_message_metadata(inx::proto::MessageId {
+                        id: Vec::from(*message_id.deref()),
+                    })
+                    .await
+                {
+                    let metadata = metadata.into_inner();
+                    ADDRESS_REGISTRY
+                        .get::<Collector>()
+                        .await
+                        .send(RequestedMessage::new(None, metadata, solidifier_addr, ms_state))
+                        .map_err(|_| InxWorkerError::MissingCollector)?;
+                }
             }
         }
 

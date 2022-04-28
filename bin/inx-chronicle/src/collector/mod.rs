@@ -12,12 +12,9 @@ use chronicle::{
         error::RuntimeError,
     },
 };
-use lru::LruCache;
 use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
-
-use crate::{archiver::Archiver, inx::InxRequester, ADDRESS_REGISTRY};
 
 pub mod solidifier;
 
@@ -37,22 +34,11 @@ pub enum CollectorError {
 pub struct Collector {
     db: MongoDatabase,
     solidifier_count: usize,
-    #[cfg(feature = "stardust")]
-    stardust_messages: LruCache<chronicle::stardust::MessageId, chronicle::stardust::Message>,
-    #[cfg(feature = "stardust")]
-    stardust_milestones: HashMap<u32, stardust::MilestoneState>,
 }
 
 impl Collector {
     pub fn new(db: MongoDatabase, solidifier_count: usize) -> Self {
-        Self {
-            db,
-            solidifier_count,
-            #[cfg(feature = "stardust")]
-            stardust_milestones: HashMap::new(),
-            #[cfg(feature = "stardust")]
-            stardust_messages: LruCache::new(1000),
-        }
+        Self { db, solidifier_count }
     }
 }
 
@@ -85,18 +71,10 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
                     solidifier::SolidifierError::MissingArchiver => {
-                        if ADDRESS_REGISTRY.get::<Archiver>().await.is_none() {
-                            cx.delay(<Report<Solidifier>>::Error(report), None)?;
-                        } else {
-                            solidifiers.insert(report.actor.id, cx.spawn_actor_supervised(report.actor).await);
-                        }
+                        solidifiers.insert(report.actor.id, cx.spawn_actor_supervised(report.actor).await);
                     }
                     solidifier::SolidifierError::MissingInxRequester => {
-                        if ADDRESS_REGISTRY.get::<InxRequester>().await.is_none() {
-                            cx.delay(<Report<Solidifier>>::Error(report), None)?;
-                        } else {
-                            solidifiers.insert(report.actor.id, cx.spawn_actor_supervised(report.actor).await);
-                        }
+                        solidifiers.insert(report.actor.id, cx.spawn_actor_supervised(report.actor).await);
                     }
                     // TODO: Maybe map Solidifier errors to Collector errors and return them?
                     _ => {
@@ -116,7 +94,14 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 pub mod stardust {
     use std::collections::BTreeMap;
 
-    use chronicle::stardust::{milestone::MilestoneIndex, Message, MessageId};
+    use chronicle::{
+        db::model::stardust::{
+            message::{MessageMetadata, MessageRecord},
+            milestone::MilestoneRecord,
+        },
+        stardust::MessageId,
+    };
+    use mongodb::bson::{doc, to_document};
 
     use super::*;
 
@@ -124,8 +109,7 @@ pub mod stardust {
     pub struct MilestoneState {
         pub milestone_index: u32,
         pub process_queue: VecDeque<MessageId>,
-        pub messages: HashMap<MessageId, Message>,
-        pub raw_messages: BTreeMap<MessageId, Vec<u8>>,
+        pub messages: BTreeMap<MessageId, Vec<u8>>,
     }
 
     impl MilestoneState {
@@ -133,70 +117,181 @@ pub mod stardust {
             Self {
                 milestone_index,
                 process_queue: VecDeque::new(),
-                messages: HashMap::new(),
-                raw_messages: BTreeMap::new(),
+                messages: BTreeMap::new(),
             }
         }
     }
 
     #[derive(Debug)]
-    pub enum CollectorEvent {
-        Message(Message),
-        /// An indicator that a message was referenced by a milestone
-        MessageReferenced {
-            milestone_index: MilestoneIndex,
-            message_id: MessageId,
-        },
-        /// A milestone
-        Milestone {
-            milestone_index: MilestoneIndex,
-            message_id: MessageId,
-        },
+    pub struct RequestedMessage {
+        raw: Option<inx::proto::RawMessage>,
+        metadata: inx::proto::MessageMetadata,
+        solidifier: Addr<Solidifier>,
+        ms_state: MilestoneState,
+    }
+
+    impl RequestedMessage {
+        pub fn new(
+            raw: Option<inx::proto::RawMessage>,
+            metadata: inx::proto::MessageMetadata,
+            solidifier: Addr<Solidifier>,
+            ms_state: MilestoneState,
+        ) -> Self {
+            Self {
+                raw,
+                metadata,
+                solidifier,
+                ms_state,
+            }
+        }
     }
 
     #[async_trait]
-    impl HandleEvent<CollectorEvent> for Collector {
+    impl HandleEvent<inx::proto::Message> for Collector {
         async fn handle_event(
             &mut self,
             _cx: &mut ActorContext<Self>,
-            event: CollectorEvent,
-            solidifiers: &mut Self::State,
+            message: inx::proto::Message,
+            _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            match event {
-                CollectorEvent::Message(message) => {
-                    self.stardust_messages.put(message.id(), message);
+            log::debug!("Received Stardust Message Event");
+            match MessageRecord::try_from(message) {
+                Ok(rec) => {
+                    self.db.upsert_one(&rec).await?;
                 }
-                CollectorEvent::MessageReferenced {
-                    milestone_index,
-                    message_id,
-                } => {
-                    let ms_state = self
-                        .stardust_milestones
-                        .entry(milestone_index.0)
-                        .or_insert_with(|| MilestoneState::new(milestone_index.0));
+                Err(e) => {
+                    log::error!("Could not read message: {:?}", e);
+                }
+            };
+            Ok(())
+        }
+    }
 
-                    if let Some(message) = self.stardust_messages.pop(&message_id) {
-                        ms_state.messages.insert(message_id, message);
+    #[async_trait]
+    impl HandleEvent<inx::proto::MessageMetadata> for Collector {
+        async fn handle_event(
+            &mut self,
+            _cx: &mut ActorContext<Self>,
+            metadata: inx::proto::MessageMetadata,
+            _solidifiers: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            log::debug!("Received Stardust Message Referenced Event");
+            match inx::MessageMetadata::try_from(metadata) {
+                Ok(rec) => {
+                    let message_id = rec.message_id;
+                    match to_document(&MessageMetadata::from(rec)) {
+                        Ok(doc) => {
+                            self.db
+                                .collection::<MessageRecord>()
+                                .update_one(
+                                    doc! { "message_id": message_id.to_string() },
+                                    doc! { "$set": { "metadata": doc } },
+                                    None,
+                                )
+                                .await
+                                .map_err(MongoDbError::DatabaseError)?;
+                        }
+                        Err(e) => {
+                            log::error!("Could not read message metadata: {:?}", e);
+                        }
                     }
                 }
-                CollectorEvent::Milestone {
-                    milestone_index,
-                    message_id,
-                } => {
+                Err(e) => {
+                    log::error!("Could not read message metadata: {:?}", e);
+                }
+            };
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl HandleEvent<inx::proto::Milestone> for Collector {
+        async fn handle_event(
+            &mut self,
+            _cx: &mut ActorContext<Self>,
+            milestone: inx::proto::Milestone,
+            solidifiers: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            log::debug!("Received Stardust Milestone Event");
+            match MilestoneRecord::try_from(milestone) {
+                Ok(rec) => {
+                    self.db.upsert_one(&rec).await?;
                     // Get or create the milestone state
-                    let mut state = self
-                        .stardust_milestones
-                        .remove(&milestone_index.0)
-                        .unwrap_or_else(|| MilestoneState::new(milestone_index.0));
-                    state.process_queue.push_back(message_id);
+                    let mut state = MilestoneState::new(rec.milestone_index);
+                    state.process_queue.extend(rec.payload.essence().parents().iter());
                     solidifiers
                         // Divide solidifiers fairly by milestone
-                        .get(&(milestone_index.0 as usize % self.solidifier_count))
+                        .get(&(rec.milestone_index as usize % self.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(state)?;
                 }
+                Err(e) => {
+                    log::error!("Could not read milestone: {:?}", e);
+                }
             }
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl HandleEvent<RequestedMessage> for Collector {
+        async fn handle_event(
+            &mut self,
+            _cx: &mut ActorContext<Self>,
+            RequestedMessage {
+                raw,
+                metadata,
+                solidifier,
+                ms_state,
+            }: RequestedMessage,
+            _solidifiers: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            match raw {
+                Some(raw) => {
+                    log::debug!("Received Stardust Requested Message and Metadata");
+                    match MessageRecord::try_from((raw, metadata)) {
+                        Ok(rec) => {
+                            self.db.upsert_one(&rec).await?;
+                            // Send this directly to the solidifier that requested it
+                            solidifier.send(ms_state)?;
+                        }
+                        Err(e) => {
+                            log::error!("Could not read message: {:?}", e);
+                        }
+                    };
+                }
+                None => {
+                    log::debug!("Received Stardust Requested Metadata");
+                    match inx::MessageMetadata::try_from(metadata) {
+                        Ok(rec) => {
+                            let message_id = rec.message_id;
+                            match to_document(&MessageMetadata::from(rec)) {
+                                Ok(doc) => {
+                                    self.db
+                                        .collection::<MessageRecord>()
+                                        .update_one(
+                                            doc! { "message_id": message_id.to_string() },
+                                            doc! { "$set": { "metadata": doc } },
+                                            None,
+                                        )
+                                        .await
+                                        .map_err(MongoDbError::DatabaseError)?;
+                                    // Send this directly to the solidifier that requested it
+                                    solidifier.send(ms_state)?;
+                                }
+                                Err(e) => {
+                                    log::error!("Could not read message metadata: {:?}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Could not read message metadata: {:?}", e);
+                        }
+                    };
+                }
+            }
+
             Ok(())
         }
     }
