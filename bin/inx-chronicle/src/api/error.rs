@@ -4,7 +4,7 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::{bson::DocError, db::model::inclusion_state::UnexpectedLedgerInclusionState};
+use chronicle::db::{bson::DocError, model::inclusion_state::UnexpectedLedgerInclusionState};
 use hyper::StatusCode;
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;

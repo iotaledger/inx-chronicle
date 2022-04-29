@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::Router;
-use chronicle::{
-    bson::DocExt,
-    db::{model::stardust::milestone::MilestoneRecord, MongoDb},
-};
+use chronicle::db::{bson::DocExt, model::stardust::milestone::MilestoneRecord, MongoDb};
 use mongodb::{
     bson::{doc, DateTime},
     options::FindOptions,
