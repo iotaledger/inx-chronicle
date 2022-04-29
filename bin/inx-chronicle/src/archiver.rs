@@ -3,7 +3,7 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::sync::SyncRecord, MongoDatabase, MongoDbError},
+    db::{model::sync::SyncRecord, MongoDb},
     runtime::actor::{context::ActorContext, event::HandleEvent, Actor},
 };
 use thiserror::Error;
@@ -11,16 +11,16 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ArchiverError {
     #[error(transparent)]
-    MongoDb(#[from] MongoDbError),
+    MongoDb(#[from] mongodb::error::Error),
 }
 
 #[derive(Debug)]
 pub struct Archiver {
-    db: MongoDatabase,
+    db: MongoDb,
 }
 
 impl Archiver {
-    pub fn new(db: MongoDatabase) -> Self {
+    pub fn new(db: MongoDb) -> Self {
         Self { db }
     }
 }
@@ -47,7 +47,7 @@ impl HandleEvent<(u32, Vec<Vec<u8>>)> for Archiver {
         log::info!("Archiving milestone {}", milestone_index);
         // TODO: Actually archive the messages
         self.db
-            .upsert_one(&SyncRecord {
+            .upsert_sync_record(&SyncRecord {
                 milestone_index,
                 logged: true,
                 synced: true,

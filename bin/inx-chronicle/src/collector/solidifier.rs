@@ -3,14 +3,16 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    bson::{BsonExt, DocError, DocExt},
-    db::{MongoDatabase, MongoDbError},
+    db::{
+        bson::{BsonExt, DocError, DocExt},
+        MongoDb,
+    },
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
     },
 };
-use mongodb::bson::{doc, document::ValueAccessError};
+use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
 use crate::archiver::Archiver;
@@ -25,7 +27,7 @@ pub enum SolidifierError {
     #[error("the INX requester is missing")]
     MissingInxRequester,
     #[error(transparent)]
-    MongoDb(#[from] MongoDbError),
+    MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
     #[error(transparent)]
@@ -35,11 +37,11 @@ pub enum SolidifierError {
 #[derive(Debug)]
 pub struct Solidifier {
     pub id: usize,
-    db: MongoDatabase,
+    db: MongoDb,
 }
 
 impl Solidifier {
-    pub fn new(id: usize, db: MongoDatabase) -> Self {
+    pub fn new(id: usize, db: MongoDb) -> Self {
         Self { id, db }
     }
 }
@@ -58,10 +60,7 @@ impl Actor for Solidifier {
 mod stardust {
     use std::str::FromStr;
 
-    use chronicle::{
-        db::model::{stardust::message::MessageRecord, sync::SyncRecord},
-        stardust::MessageId,
-    };
+    use chronicle::{db::model::sync::SyncRecord, stardust::MessageId};
 
     use super::*;
     use crate::{
@@ -81,13 +80,7 @@ mod stardust {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             while let Some(message_id) = ms_state.process_queue.front() {
                 // Try the database first
-                match self
-                    .db
-                    .doc_collection::<MessageRecord>()
-                    .find_one(doc! {"message_id": message_id.to_string()}, None)
-                    .await
-                    .map_err(MongoDbError::DatabaseError)?
-                {
+                match self.db.get_message(message_id).await? {
                     Some(mut message_doc) => {
                         match message_doc
                             .take_bson("metadata.referenced_by_milestone_index")
@@ -139,7 +132,7 @@ mod stardust {
             // If we finished all the parents, that means we have a complete milestone
             // so we should mark it synced and send it to the archiver
             self.db
-                .upsert_one(&SyncRecord {
+                .upsert_sync_record(&SyncRecord {
                     milestone_index: ms_state.milestone_index,
                     logged: false,
                     synced: true,

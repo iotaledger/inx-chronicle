@@ -5,8 +5,7 @@ use std::collections::{HashMap, VecDeque};
 
 use async_trait::async_trait;
 use chronicle::{
-    bson::DocError,
-    db::{MongoDatabase, MongoDbError},
+    db::{bson::DocError, MongoDb},
     runtime::{
         actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
         error::RuntimeError,
@@ -23,7 +22,7 @@ pub enum CollectorError {
     #[error(transparent)]
     Doc(#[from] DocError),
     #[error(transparent)]
-    MongoDb(#[from] MongoDbError),
+    MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
     #[error(transparent)]
@@ -32,12 +31,12 @@ pub enum CollectorError {
 
 #[derive(Debug)]
 pub struct Collector {
-    db: MongoDatabase,
+    db: MongoDb,
     solidifier_count: usize,
 }
 
 impl Collector {
-    pub fn new(db: MongoDatabase, solidifier_count: usize) -> Self {
+    pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
         Self { db, solidifier_count }
     }
 }
@@ -101,7 +100,6 @@ pub mod stardust {
         },
         stardust::MessageId,
     };
-    use mongodb::bson::{doc, to_document};
 
     use super::*;
 
@@ -157,7 +155,7 @@ pub mod stardust {
             log::trace!("Received Stardust Message Event");
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
-                    self.db.upsert_one(&rec).await?;
+                    self.db.upsert_message_record(&rec).await?;
                 }
                 Err(e) => {
                     log::error!("Could not read message: {:?}", e);
@@ -179,22 +177,9 @@ pub mod stardust {
             match inx::MessageMetadata::try_from(metadata) {
                 Ok(rec) => {
                     let message_id = rec.message_id;
-                    match to_document(&MessageMetadata::from(rec)) {
-                        Ok(doc) => {
-                            self.db
-                                .collection::<MessageRecord>()
-                                .update_one(
-                                    doc! { "message_id": message_id.to_string() },
-                                    doc! { "$set": { "metadata": doc } },
-                                    None,
-                                )
-                                .await
-                                .map_err(MongoDbError::DatabaseError)?;
-                        }
-                        Err(e) => {
-                            log::error!("Could not read message metadata: {:?}", e);
-                        }
-                    }
+                    self.db
+                        .update_message_metadata(&message_id, &MessageMetadata::from(rec))
+                        .await?;
                 }
                 Err(e) => {
                     log::error!("Could not read message metadata: {:?}", e);
@@ -215,7 +200,7 @@ pub mod stardust {
             log::trace!("Received Stardust Milestone Event");
             match MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
-                    self.db.upsert_one(&rec).await?;
+                    self.db.upsert_milestone_record(&rec).await?;
                     // Get or create the milestone state
                     let mut state = MilestoneState::new(rec.milestone_index);
                     state.process_queue.extend(rec.payload.essence().parents().iter());
@@ -252,7 +237,7 @@ pub mod stardust {
                     log::trace!("Received Stardust Requested Message and Metadata");
                     match MessageRecord::try_from((raw, metadata)) {
                         Ok(rec) => {
-                            self.db.upsert_one(&rec).await?;
+                            self.db.upsert_message_record(&rec).await?;
                             // Send this directly to the solidifier that requested it
                             solidifier.send(ms_state)?;
                         }
@@ -266,24 +251,11 @@ pub mod stardust {
                     match inx::MessageMetadata::try_from(metadata) {
                         Ok(rec) => {
                             let message_id = rec.message_id;
-                            match to_document(&MessageMetadata::from(rec)) {
-                                Ok(doc) => {
-                                    self.db
-                                        .collection::<MessageRecord>()
-                                        .update_one(
-                                            doc! { "message_id": message_id.to_string() },
-                                            doc! { "$set": { "metadata": doc } },
-                                            None,
-                                        )
-                                        .await
-                                        .map_err(MongoDbError::DatabaseError)?;
-                                    // Send this directly to the solidifier that requested it
-                                    solidifier.send(ms_state)?;
-                                }
-                                Err(e) => {
-                                    log::error!("Could not read message metadata: {:?}", e);
-                                }
-                            }
+                            self.db
+                                .update_message_metadata(&message_id, &MessageMetadata::from(rec))
+                                .await?;
+                            // Send this directly to the solidifier that requested it
+                            solidifier.send(ms_state)?;
                         }
                         Err(e) => {
                             log::error!("Could not read message metadata: {:?}", e);

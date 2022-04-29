@@ -4,11 +4,10 @@
 use axum::{handler::Handler, routing::get, Extension, Router};
 use chronicle::db::{
     model::sync::{SyncData, SyncRecord},
-    MongoDatabase,
+    MongoDb,
 };
 use futures::TryStreamExt;
 use hyper::Method;
-use mongodb::{bson::doc, options::FindOptions};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{Any, CorsLayer},
@@ -17,7 +16,7 @@ use tower_http::{
 
 use super::{error::ApiError, responses::*, ApiResult};
 
-pub fn routes(db: MongoDatabase) -> Router {
+pub fn routes(db: MongoDb) -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
 
@@ -51,14 +50,8 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<MongoDatabase>) -> ApiResult<SyncDataResponse> {
-    let mut res = database
-        .collection::<SyncRecord>()
-        .find(
-            doc! { "synced": true },
-            FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
-        )
-        .await?;
+async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
+    let mut res = database.sync_records_sorted().await?;
     let mut sync_data = SyncData::default();
     let mut last_record: Option<SyncRecord> = None;
     while let Some(sync_record) = res.try_next().await? {

@@ -9,21 +9,14 @@ use axum::{
     Router,
 };
 use chronicle::{
-    bson::{BsonExt, DocExt, U64},
     db::{
-        model::{
-            inclusion_state::LedgerInclusionState,
-            stardust::{message::MessageRecord, milestone::MilestoneRecord},
-        },
-        MongoDatabase,
+        bson::{BsonExt, DocExt, U64},
+        MongoDb,
     },
-    stardust::output::OutputId,
+    stardust::{output::OutputId, payload::transaction::TransactionId, MessageId},
 };
 use futures::TryStreamExt;
-use mongodb::{
-    bson::{doc, from_document},
-    options::FindOptions,
-};
+use mongodb::bson::from_document;
 
 use super::responses::*;
 use crate::api::{
@@ -59,10 +52,9 @@ pub fn routes() -> Router {
         .route("/milestones/:index", get(milestone))
 }
 
-async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
+async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
     let mut rec = database
-        .doc_collection::<MessageRecord>()
-        .find_one(doc! {"message_id": &message_id}, None)
+        .get_message(&MessageId::from_str(&message_id)?)
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -78,10 +70,9 @@ async fn message(database: Extension<MongoDatabase>, Path(message_id): Path<Stri
     })
 }
 
-async fn message_raw(database: Extension<MongoDatabase>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
+async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
     let mut rec = database
-        .doc_collection::<MessageRecord>()
-        .find_one(doc! {"message_id": &message_id}, None)
+        .get_message(&MessageId::from_str(&message_id)?)
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -89,12 +80,11 @@ async fn message_raw(database: Extension<MongoDatabase>, Path(message_id): Path<
 }
 
 async fn message_metadata(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
     let mut rec = database
-        .doc_collection::<MessageRecord>()
-        .find_one(doc! {"message_id": &message_id}, None)
+        .get_message(&MessageId::from_str(&message_id)?)
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -141,21 +131,13 @@ async fn message_metadata(
 }
 
 async fn message_children(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(message_id): Path<String>,
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
     let messages = database
-        .doc_collection::<MessageRecord>()
-        .find(
-            doc! {"message.parents": &message_id},
-            FindOptions::builder()
-                .skip((page_size * page) as u64)
-                .sort(doc! {"milestone_index": -1})
-                .limit(page_size as i64)
-                .build(),
-        )
+        .get_message_children(&MessageId::from_str(&message_id)?, page_size, page)
         .await?
         .try_collect::<Vec<_>>()
         .await?;
@@ -185,8 +167,8 @@ async fn message_children(
     })
 }
 
-async fn output(database: Extension<MongoDatabase>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
+async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
+    let output_id = OutputId::from_str(&output_id)?;
     output_by_transaction_id(
         database,
         Path((output_id.transaction_id().to_string(), output_id.index())),
@@ -195,34 +177,18 @@ async fn output(database: Extension<MongoDatabase>, Path(output_id): Path<String
 }
 
 async fn output_by_transaction_id(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
+    let transaction_id = TransactionId::from_str(&transaction_id)?;
     let mut output = database
-        .doc_collection::<MessageRecord>()
-        .aggregate(
-            vec![
-                doc! { "$match": { "message.payload.transaction_id": &transaction_id.to_string() } },
-                doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
-                doc! { "$match": { "message.payload.data.essence.data.outputs.idx": idx as i64 } },
-            ],
-            None,
-        )
+        .get_outputs_by_transaction_id(&transaction_id, idx)
         .await?
         .try_next()
-        .await?.ok_or(ApiError::NoResults)?;
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
-    let spending_transaction = database
-        .doc_collection::<MessageRecord>()
-        .find_one(
-            doc! {
-                "inclusion_state": LedgerInclusionState::Included,
-                "message.payload.data.essence.data.inputs.transaction_id": &transaction_id.to_string(),
-                "message.payload.data.essence.data.inputs.index": idx as i64
-            },
-            None,
-        )
-        .await?;
+    let spending_transaction = database.get_spending_transaction(&transaction_id, idx).await?;
 
     Ok(OutputResponse {
         message_id: output.get_str("message_id")?.to_owned(),
@@ -237,12 +203,11 @@ async fn output_by_transaction_id(
 }
 
 async fn transaction_for_message(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<TransactionResponse> {
     let mut rec = database
-        .doc_collection::<MessageRecord>()
-        .find_one(doc! {"message_id": &message_id}, None)
+        .get_message(&MessageId::from_str(&message_id)?)
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut essence = rec.take_document("message.payload.data.essence.data")?;
@@ -256,18 +221,11 @@ async fn transaction_for_message(
 }
 
 async fn transaction_included_message(
-    database: Extension<MongoDatabase>,
+    database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
     let mut rec = database
-        .doc_collection::<MessageRecord>()
-        .find_one(
-            doc! {
-                "inclusion_state": LedgerInclusionState::Included,
-                "message.payload.transaction_id": &transaction_id.to_string(),
-            },
-            None,
-        )
+        .get_message_for_transaction(&transaction_id)
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
@@ -284,10 +242,9 @@ async fn transaction_included_message(
     })
 }
 
-async fn milestone(database: Extension<MongoDatabase>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
+async fn milestone(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
     database
-        .doc_collection::<MilestoneRecord>()
-        .find_one(doc! {"milestone_index": &index}, None)
+        .get_milestone_record_by_index(index)
         .await?
         .ok_or(ApiError::NoResults)
         .and_then(|rec| {

@@ -17,7 +17,7 @@ mod routes;
 use async_trait::async_trait;
 use axum::Server;
 use chronicle::{
-    db::MongoDatabase,
+    db::MongoDb,
     runtime::actor::{context::ActorContext, Actor},
 };
 pub use error::ApiError;
@@ -32,13 +32,13 @@ pub type ApiResult<T> = Result<T, ApiError>;
 /// The Chronicle API actor
 #[derive(Debug)]
 pub struct ApiWorker {
-    db: MongoDatabase,
+    db: MongoDb,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: MongoDatabase) -> Self {
+    pub fn new(db: MongoDb) -> Self {
         Self {
             db,
             server_handle: None,

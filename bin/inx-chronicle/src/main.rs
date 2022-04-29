@@ -5,7 +5,7 @@
 
 /// Module containing the API.
 #[cfg(feature = "api")]
-pub mod api;
+mod api;
 mod archiver;
 mod cli;
 mod collector;
@@ -27,7 +27,7 @@ use archiver::Archiver;
 use async_trait::async_trait;
 #[cfg(feature = "stardust")]
 use chronicle::{
-    db::MongoDbError,
+    db::MongoDb,
     runtime::{
         actor::{
             addr::{Addr, OptionalAddr},
@@ -44,7 +44,7 @@ use chronicle::{
 };
 use clap::Parser;
 use collector::{Collector, CollectorError};
-use config::{Config, ConfigError};
+use config::{ChronicleConfig, ConfigError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -92,7 +92,7 @@ pub enum LauncherError {
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
-    MongoDb(#[from] MongoDbError),
+    MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
 }
@@ -103,24 +103,31 @@ pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type State = Config;
+    type State = ChronicleConfig;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let cli_args = CliArgs::parse();
         let mut config = match &cli_args.config {
-            Some(path) => config::Config::from_file(path)?,
+            Some(path) => config::ChronicleConfig::from_file(path)?,
             None => {
                 if let Ok(path) = std::env::var("CONFIG_PATH") {
-                    config::Config::from_file(path)?
+                    ChronicleConfig::from_file(path)?
                 } else {
-                    Config::default()
+                    ChronicleConfig::default()
                 }
             }
         };
         config.apply_cli_args(cli_args);
 
-        let db = config.mongodb.clone().build().await?;
+        let db = MongoDb::connect(&config.mongodb).await?;
+
+        if let Some(node_status) = db.status().await? {
+            log::info!("{:?}", node_status);
+        } else {
+            log::info!("No node status has been found in the database, it seems like the database is empty.");
+        };
+
         ADDRESS_REGISTRY
             .insert(cx.spawn_actor_supervised(Archiver::new(db.clone())).await)
             .await;
@@ -158,21 +165,15 @@ impl HandleEvent<Report<Collector>> for Launcher {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    CollectorError::MongoDb(e) => match e {
-                        chronicle::db::MongoDbError::DatabaseError(e) => match e.kind.as_ref() {
-                            // Only a few possible errors we could potentially recover from
-                            ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                                let db = config.mongodb.clone().build().await?;
-                                ADDRESS_REGISTRY
-                                    .insert(cx.spawn_actor_supervised(Collector::new(db, 1)).await)
-                                    .await;
-                            }
-                            _ => {
-                                cx.shutdown();
-                            }
-                        },
-                        other => {
-                            log::warn!("Unhandled MongoDB error: {}", other);
+                    CollectorError::MongoDb(e) => match e.kind.as_ref() {
+                        // Only a few possible errors we could potentially recover from
+                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                            let db = MongoDb::connect(&config.mongodb).await?;
+                            ADDRESS_REGISTRY
+                                .insert(cx.spawn_actor_supervised(Collector::new(db, 1)).await)
+                                .await;
+                        }
+                        _ => {
                             cx.shutdown();
                         }
                     },
@@ -302,7 +303,7 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let db = config.mongodb.clone().build().await?;
+                    let db = MongoDb::connect(&config.mongodb).await?;
                     ADDRESS_REGISTRY
                         .insert(cx.spawn_actor_supervised(ApiWorker::new(db)).await)
                         .await;
