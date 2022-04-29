@@ -52,7 +52,7 @@ pub fn routes() -> Router {
 }
 
 async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
-    let mut rec = database.get_message(message_id).await?.ok_or(ApiError::NoResults)?;
+    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     Ok(MessageResponse {
         protocol_version: message.get_as_u8("protocol_version")?,
@@ -67,7 +67,7 @@ async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -
 }
 
 async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let mut rec = database.get_message(message_id).await?.ok_or(ApiError::NoResults)?;
+    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     Ok(message.take_bytes("raw")?)
 }
@@ -76,7 +76,7 @@ async fn message_metadata(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
-    let mut rec = database.get_message(message_id).await?.ok_or(ApiError::NoResults)?;
+    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     let metadata = rec.take_document("metadata").ok();
 
@@ -127,7 +127,7 @@ async fn message_children(
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
     let messages = database
-        .get_message_children(message_id.clone(), page_size, page)
+        .get_message_children(&message_id, page_size, page)
         .await?
         .try_collect::<Vec<_>>()
         .await?;
@@ -171,13 +171,13 @@ async fn output_by_transaction_id(
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
     let mut output = database
-        .get_outputs_by_transaction_id(transaction_id.clone(), idx)
+        .get_outputs_by_transaction_id(&transaction_id, idx)
         .await?
         .try_next()
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let spending_transaction = database.get_spending_transaction(transaction_id.clone(), idx).await?;
+    let spending_transaction = database.get_spending_transaction(&transaction_id, idx).await?;
 
     Ok(OutputResponse {
         message_id: output.get_str("message_id")?.to_owned(),
@@ -195,10 +195,7 @@ async fn transaction_for_message(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<TransactionResponse> {
-    let mut rec = database
-        .get_message(message_id.clone())
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
     let mut essence = rec.take_path("message.payload.data.essence.data")?.to_document()?;
 
     Ok(TransactionResponse {
@@ -214,7 +211,7 @@ async fn transaction_included_message(
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
     let mut rec = database
-        .get_message_for_transaction(transaction_id)
+        .get_message_for_transaction(&transaction_id)
         .await?
         .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;

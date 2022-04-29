@@ -72,24 +72,24 @@ pub struct MessageMetadata {
 
 impl MongoDb {
     /// Get milestone with index.
-    pub async fn get_message(&self, message_id: String) -> Result<Option<Document>, Error> {
+    pub async fn get_message(&self, message_id: &str) -> Result<Option<Document>, Error> {
         self.0
             .collection::<Document>(collection::MESSAGE_RECORDS)
-            .find_one(doc! {"message_id": &message_id}, None)
+            .find_one(doc! {"message_id": message_id}, None)
             .await
     }
 
     /// Get the children of a message.
     pub async fn get_message_children(
         &self,
-        message_id: String,
+        message_id: &str,
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
         self.0
             .collection::<Document>(collection::MESSAGE_RECORDS)
             .find(
-                doc! {"message.parents": &message_id},
+                doc! {"message.parents": message_id},
                 FindOptions::builder()
                     .skip((page_size * page) as u64)
                     .sort(doc! {"milestone_index": -1})
@@ -113,13 +113,13 @@ impl MongoDb {
     }
 
     /// Aggregates the spending transactions
-    pub async fn get_spending_transaction(&self, transaction_id: String, idx: u16) -> Result<Option<Document>, Error> {
+    pub async fn get_spending_transaction(&self, transaction_id: &str, idx: u16) -> Result<Option<Document>, Error> {
         self.0
             .collection::<Document>(collection::MESSAGE_RECORDS)
             .find_one(
                 doc! {
                     "inclusion_state": LedgerInclusionState::Included,
-                    "message.payload.data.essence.data.inputs.transaction_id": &transaction_id.to_string(),
+                    "message.payload.data.essence.data.inputs.transaction_id": transaction_id,
                     "message.payload.data.essence.data.inputs.index": idx as i64
                 },
                 None,
@@ -128,13 +128,13 @@ impl MongoDb {
     }
 
     /// Finds the message that included a transaction.
-    pub async fn get_message_for_transaction(&self, transaction_id: String) -> Result<Option<Document>, Error> {
+    pub async fn get_message_for_transaction(&self, transaction_id: &str) -> Result<Option<Document>, Error> {
         self.0
             .collection::<Document>(collection::MESSAGE_RECORDS)
             .find_one(
                 doc! {
                     "inclusion_state": LedgerInclusionState::Included,
-                    "message.payload.transaction_id": &transaction_id.to_string(),
+                    "message.payload.transaction_id": transaction_id,
                 },
                 None,
             )
@@ -144,12 +144,12 @@ impl MongoDb {
     /// Aggregates outputs by transaction ids.
     pub async fn get_outputs_by_transaction_id(
         &self,
-        transaction_id: String,
+        transaction_id: &str,
         idx: u16,
     ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
         self.0.collection::<Document>(collection::MESSAGE_RECORDS).aggregate(
             vec![
-                doc! { "$match": { "message.payload.transaction_id": &transaction_id.to_string() } },
+                doc! { "$match": { "message.payload.transaction_id": transaction_id } },
                 doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
                 doc! { "$match": { "message.payload.data.essence.data.outputs.idx": idx as i64 } },
             ],
@@ -161,7 +161,7 @@ impl MongoDb {
     /// Aggregates the transaction history for an address.
     pub async fn get_transaction_history(
         &self,
-        address: String,
+        address: &str,
         page_size: usize,
         page: usize,
         start_milestone: u32,

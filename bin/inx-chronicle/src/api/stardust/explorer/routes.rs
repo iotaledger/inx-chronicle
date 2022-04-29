@@ -37,7 +37,7 @@ async fn transaction_history(
     let end_milestone = end_milestone(&database, end_timestamp).await?;
 
     let records = database
-        .get_transaction_history(address.clone(), page_size, page, start_milestone, end_milestone)
+        .get_transaction_history(&address, page_size, page, start_milestone, end_milestone)
         .await?
         .try_collect::<Vec<_>>()
         .await?;
