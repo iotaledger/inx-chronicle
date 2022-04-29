@@ -9,5 +9,5 @@ mod worker;
 pub use self::{
     config::InxConfig,
     error::InxWorkerError,
-    worker::{InxWorker, MessageRequest},
+    worker::{stardust::InxRequest, InxWorker},
 };

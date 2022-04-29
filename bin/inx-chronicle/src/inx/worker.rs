@@ -4,15 +4,16 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chronicle::runtime::actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor};
+use chronicle::runtime::actor::{
+    addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
+};
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
-use tokio::sync::oneshot;
 
 use super::{
     listener::{InxListener, InxListenerError},
     InxConfig, InxWorkerError,
 };
-use crate::Broker;
+use crate::collector::{solidifier::Solidifier, Collector};
 
 #[derive(Debug)]
 pub struct InxWorker {
@@ -49,19 +50,19 @@ impl Actor for InxWorker {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::info!("Connecting to INX at bind address `{}`.", self.config.connect_url);
-        let mut inx = Inx::connect(&self.config).await?;
+        let mut inx_client = Inx::connect(&self.config).await?;
 
         log::info!("Connected to INX.");
-        let node_status = inx.read_node_status(NoParams {}).await?.into_inner();
+        let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
 
         if !node_status.is_healthy {
             log::warn!("Node is unhealthy.");
         }
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
-        cx.spawn_child(InxListener::new(inx.clone())).await;
+        cx.spawn_child(InxListener::new(inx_client.clone())).await;
 
-        Ok(inx)
+        Ok(inx_client)
     }
 }
 
@@ -71,7 +72,7 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxListener>,
-        _: &mut Self::State,
+        inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Report::Success(_) => {
@@ -85,9 +86,8 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
                     InxListenerError::Runtime(_) => {
                         cx.shutdown();
                     }
-                    InxListenerError::MissingBroker => {
-                        // We bubble up the `MissingBroker` broker error.
-                        return Err(Self::Error::MissingBroker);
+                    InxListenerError::MissingCollector => {
+                        cx.delay(SpawnActor::new(InxListener::new(inx_client.clone())), None)?;
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -100,49 +100,112 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
 }
 
 #[cfg(feature = "stardust")]
-#[derive(Debug)]
-pub struct MessageRequest {
-    message_id: bee_message_stardust::MessageId,
-    answer_to: Option<oneshot::Sender<bool>>,
-}
+pub mod stardust {
+    use chronicle::stardust::MessageId;
 
-#[cfg(feature = "stardust")]
-#[async_trait]
-impl HandleEvent<MessageRequest> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        request: MessageRequest,
-        client: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        let MessageRequest {
-            message_id,
-            answer_to: answer,
-        } = request;
+    use super::*;
+    use crate::collector::stardust::{MilestoneState, RequestedMessage};
 
-        let proto_message_id: inx::proto::MessageId = message_id.into();
-        if let Ok(message_response) = client.read_message(proto_message_id.clone()).await {
-            let raw_message = message_response.into_inner();
+    #[derive(Debug, Copy, Clone)]
+    pub enum InxRequestType {
+        Message(MessageId),
+        Metadata(MessageId),
+    }
 
-            // TODO: Consider own event
-            let proto_message = inx::proto::Message {
-                message_id: Some(proto_message_id),
-                message: Some(raw_message),
-            };
+    #[derive(Debug)]
+    pub struct InxRequest {
+        request_type: InxRequestType,
+        solidifier_addr: Addr<Solidifier>,
+        ms_state: MilestoneState,
+    }
 
-            cx.addr::<Broker>().await.send(proto_message)?;
-
-            if let Some(recipient) = answer {
-                recipient
-                    .send(true)
-                    .map_err(|_| InxWorkerError::FailedToAnswerRequest)?;
+    impl InxRequest {
+        pub fn get_message(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+            Self {
+                request_type: InxRequestType::Message(message_id),
+                solidifier_addr,
+                ms_state,
             }
-        } else if let Some(recipient) = answer {
-            recipient
-                .send(false)
-                .map_err(|_| InxWorkerError::FailedToAnswerRequest)?;
         }
 
-        Ok(())
+        pub fn get_metadata(
+            message_id: MessageId,
+            solidifier_addr: Addr<Solidifier>,
+            ms_state: MilestoneState,
+        ) -> Self {
+            Self {
+                request_type: InxRequestType::Metadata(message_id),
+                solidifier_addr,
+                ms_state,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl HandleEvent<InxRequest> for InxWorker {
+        async fn handle_event(
+            &mut self,
+            cx: &mut ActorContext<Self>,
+            InxRequest {
+                request_type,
+                solidifier_addr,
+                mut ms_state,
+            }: InxRequest,
+            inx_client: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            match request_type {
+                InxRequestType::Message(message_id) => {
+                    match (
+                        inx_client
+                            .read_message(inx::proto::MessageId {
+                                id: Vec::from(*message_id),
+                            })
+                            .await,
+                        inx_client
+                            .read_message_metadata(inx::proto::MessageId {
+                                id: Vec::from(*message_id),
+                            })
+                            .await,
+                    ) {
+                        (Ok(raw), Ok(metadata)) => {
+                            let (raw, metadata) = (raw.into_inner(), metadata.into_inner());
+                            cx.addr::<Collector>()
+                                .await
+                                .send(RequestedMessage::new(Some(raw), metadata, solidifier_addr, ms_state))
+                                .map_err(|_| InxWorkerError::MissingCollector)?;
+                        }
+                        (Err(e), Ok(metadata)) => {
+                            let metadata = metadata.into_inner();
+                            // If this isn't a message we care about, don't worry, be happy
+                            if metadata.milestone_index != ms_state.milestone_index || !metadata.solid {
+                                ms_state.process_queue.pop_front();
+                                solidifier_addr.send(ms_state)?;
+                            } else {
+                                log::warn!("Failed to read message: {:?}", e);
+                            }
+                        }
+                        (_, Err(e)) => {
+                            log::warn!("Failed to read metadata: {:?}", e);
+                        }
+                    }
+                }
+                InxRequestType::Metadata(message_id) => {
+                    if let Ok(metadata) = inx_client
+                        .read_message_metadata(inx::proto::MessageId {
+                            id: Vec::from(*message_id),
+                        })
+                        .await
+                    {
+                        let metadata = metadata.into_inner();
+                        cx.addr::<Collector>()
+                            .await
+                            .send(RequestedMessage::new(None, metadata, solidifier_addr, ms_state))
+                            .map_err(|_| InxWorkerError::MissingCollector)?;
+                    }
+                }
+            }
+
+            Ok(())
+        }
     }
 }

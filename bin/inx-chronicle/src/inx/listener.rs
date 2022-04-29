@@ -18,15 +18,16 @@ use inx::{
 };
 use thiserror::Error;
 
-use crate::broker::Broker;
+use crate::collector::Collector;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
+type MessageMetadataStream = InxStreamListener<inx::proto::MessageMetadata>;
 type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
 pub enum InxListenerError {
-    #[error("the broker actor is not running")]
-    MissingBroker,
+    #[error("the collector is not running")]
+    MissingCollector,
     #[error("failed to subscribe to stream: {0}")]
     SubscriptionFailed(#[from] inx::tonic::Status),
     #[error(transparent)]
@@ -35,13 +36,13 @@ pub enum InxListenerError {
 
 #[derive(Debug)]
 pub struct InxListener {
-    inx: InxClient<Channel>,
+    inx_client: InxClient<Channel>,
 }
 
 impl InxListener {
     // TODO: Should we check for broker actor here too?
-    pub fn new(client: InxClient<Channel>) -> Self {
-        Self { inx: client }
+    pub fn new(inx_client: InxClient<Channel>) -> Self {
+        Self { inx_client }
     }
 }
 
@@ -51,12 +52,23 @@ impl Actor for InxListener {
     type Error = InxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let message_stream = self.inx.listen_to_messages(MessageFilter {}).await?.into_inner();
-
+        let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_child::<MessageStream, _>(InxStreamListener::default().with_stream(message_stream))
             .await;
 
-        let milestone_stream = self.inx.listen_to_latest_milestone(NoParams {}).await?.into_inner();
+        let metadata_stream = self
+            .inx_client
+            .listen_to_referenced_messages(MessageFilter {})
+            .await?
+            .into_inner();
+        cx.spawn_child::<MessageMetadataStream, _>(InxStreamListener::default().with_stream(metadata_stream))
+            .await;
+
+        let milestone_stream = self
+            .inx_client
+            .listen_to_latest_milestone(NoParams {})
+            .await?
+            .into_inner();
         cx.spawn_child::<MilestoneStream, _>(InxStreamListener::default().with_stream(milestone_stream))
             .await;
 
@@ -70,17 +82,50 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<MessageStream>,
-        _: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(report) => match report.error {
+            Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let message_stream = self.inx.listen_to_messages(MessageFilter {}).await?.into_inner();
+                    let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
                     cx.spawn_child::<MessageStream, _>(InxStreamListener::default().with_stream(message_stream))
                         .await;
+                }
+                ActorError::Aborted | ActorError::Panic => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<MessageMetadataStream>> for InxListener {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<MessageMetadataStream>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(_) => {
+                    let message_stream = self
+                        .inx_client
+                        .listen_to_referenced_messages(MessageFilter {})
+                        .await?
+                        .into_inner();
+                    cx.spawn_child::<MessageMetadataStream, _>(
+                        InxStreamListener::default().with_stream(message_stream),
+                    )
+                    .await;
                 }
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
@@ -97,15 +142,19 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<MilestoneStream>,
-        _: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(report) => match report.error {
+            Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let milestone_stream = self.inx.listen_to_latest_milestone(NoParams {}).await?.into_inner();
+                    let milestone_stream = self
+                        .inx_client
+                        .listen_to_latest_milestone(NoParams {})
+                        .await?
+                        .into_inner();
                     cx.spawn_child::<MilestoneStream, _>(InxStreamListener::default().with_stream(milestone_stream))
                         .await;
                 }
@@ -124,16 +173,14 @@ pub struct InxStreamListener<I> {
 
 impl<I> Default for InxStreamListener<I> {
     fn default() -> Self {
-        Self {
-            _item: Default::default(),
-        }
+        Self { _item: PhantomData }
     }
 }
 
 #[async_trait]
 impl<E> Actor for InxStreamListener<E>
 where
-    Broker: HandleEvent<E>,
+    Collector: HandleEvent<E>,
     E: 'static + Send + Sync + Debug,
 {
     type State = ();
@@ -148,7 +195,7 @@ where
 impl<E> HandleEvent<Result<E, Status>> for InxStreamListener<E>
 where
     Self: Actor<Error = InxListenerError>,
-    Broker: HandleEvent<E>,
+    Collector: HandleEvent<E>,
     E: 'static + Send + Sync + Debug,
 {
     async fn handle_event(
@@ -157,7 +204,10 @@ where
         event: Result<E, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        cx.addr::<Broker>().await.send(event?)?;
+        cx.addr::<Collector>()
+            .await
+            .send(event?)
+            .map_err(|_| InxListenerError::MissingCollector)?;
         Ok(())
     }
 }

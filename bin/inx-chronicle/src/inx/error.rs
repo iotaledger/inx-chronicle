@@ -15,8 +15,8 @@ pub enum InxWorkerError {
     InvalidAddress(String),
     #[error(transparent)]
     ListenerError(#[from] InxListenerError),
-    #[error("the broker actor is not running")]
-    MissingBroker,
+    #[error("the collector is not running")]
+    MissingCollector,
     #[error(transparent)]
     ParsingAddressFailed(#[from] url::ParseError),
     #[error(transparent)]

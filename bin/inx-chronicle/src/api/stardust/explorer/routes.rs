@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::db::{
-    bson::{BsonExt, DocExt},
-    model::inclusion_state::LedgerInclusionState,
-    MongoDb,
-};
+use chronicle::db::{bson::DocExt, model::inclusion_state::LedgerInclusionState, MongoDb};
 use futures::TryStreamExt;
 
 use super::responses::TransactionHistoryResponse;
@@ -45,9 +41,9 @@ async fn transaction_history(
     let transactions = records
         .into_iter()
         .map(|mut rec| {
-            let mut payload = rec.take_path("message.payload.data")?.to_document()?;
+            let mut payload = rec.take_document("message.payload.data")?;
             let spending_transaction = rec.take_document("spending_transaction").ok();
-            let output = payload.take_path("essence.data.outputs")?.to_document()?;
+            let output = payload.take_document("essence.data.outputs")?;
             Ok(Transfer {
                 transaction_id: payload.get_as_string("transaction_id")?,
                 output_index: output.get_as_u16("idx")?,

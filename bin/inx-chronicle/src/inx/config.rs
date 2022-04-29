@@ -14,7 +14,7 @@ pub struct InxConfig {
     /// The bind address of node's INX interface.
     pub connect_url: String,
     /// The time that has to pass until a new connection attempt is made.
-    #[serde(with = "humantime_serde")]
+    #[serde(default, with = "humantime_serde")]
     pub connection_retry_interval: Duration,
 }
 

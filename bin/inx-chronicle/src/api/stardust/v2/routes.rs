@@ -13,9 +13,10 @@ use chronicle::{
         bson::{BsonExt, DocExt, U64},
         MongoDb,
     },
-    stardust::output::OutputId,
+    stardust::{output::OutputId, payload::transaction::TransactionId, MessageId},
 };
 use futures::TryStreamExt;
+use mongodb::bson::from_document;
 
 use super::responses::*;
 use crate::api::{
@@ -52,7 +53,10 @@ pub fn routes() -> Router {
 }
 
 async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
-    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
+    let mut rec = database
+        .get_message(&MessageId::from_str(&message_id)?)
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     Ok(MessageResponse {
         protocol_version: message.get_as_u8("protocol_version")?,
@@ -62,12 +66,15 @@ async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -
             .map(|m| m.as_string())
             .collect::<Result<_, _>>()?,
         payload: message.take_bson("payload").ok().map(Into::into),
-        nonce: message.convert_document::<U64, _>("nonce")?.into(),
+        nonce: from_document::<U64>(message.take_document("nonce")?)?.into(),
     })
 }
 
 async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
+    let mut rec = database
+        .get_message(&MessageId::from_str(&message_id)?)
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     Ok(message.take_bytes("raw")?)
 }
@@ -76,7 +83,10 @@ async fn message_metadata(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
-    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
+    let mut rec = database
+        .get_message(&MessageId::from_str(&message_id)?)
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let mut message = rec.take_document("message")?;
     let metadata = rec.take_document("metadata").ok();
 
@@ -127,7 +137,7 @@ async fn message_children(
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
     let messages = database
-        .get_message_children(&message_id, page_size, page)
+        .get_message_children(&MessageId::from_str(&message_id)?, page_size, page)
         .await?
         .try_collect::<Vec<_>>()
         .await?;
@@ -158,7 +168,7 @@ async fn message_children(
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
+    let output_id = OutputId::from_str(&output_id)?;
     output_by_transaction_id(
         database,
         Path((output_id.transaction_id().to_string(), output_id.index())),
@@ -170,6 +180,7 @@ async fn output_by_transaction_id(
     database: Extension<MongoDb>,
     Path((transaction_id, idx)): Path<(String, u16)>,
 ) -> ApiResult<OutputResponse> {
+    let transaction_id = TransactionId::from_str(&transaction_id)?;
     let mut output = database
         .get_outputs_by_transaction_id(&transaction_id, idx)
         .await?
@@ -187,7 +198,7 @@ async fn output_by_transaction_id(
             .map(|mut d| d.take_bson("message"))
             .transpose()?
             .map(Into::into),
-        output: output.take_path("message.payload.data.essence.data.outputs")?.into(),
+        output: output.take_bson("message.payload.data.essence.data.outputs")?.into(),
     })
 }
 
@@ -195,8 +206,11 @@ async fn transaction_for_message(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<TransactionResponse> {
-    let mut rec = database.get_message(&message_id).await?.ok_or(ApiError::NoResults)?;
-    let mut essence = rec.take_path("message.payload.data.essence.data")?.to_document()?;
+    let mut rec = database
+        .get_message(&MessageId::from_str(&message_id)?)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let mut essence = rec.take_document("message.payload.data.essence.data")?;
 
     Ok(TransactionResponse {
         message_id,
@@ -224,7 +238,7 @@ async fn transaction_included_message(
             .map(|m| m.as_string())
             .collect::<Result<_, _>>()?,
         payload: message.take_bson("payload").ok().map(Into::into),
-        nonce: message.convert_document::<U64, _>("nonce")?.into(),
+        nonce: from_document::<U64>(message.take_document("nonce")?)?.into(),
     })
 }
 

@@ -22,7 +22,7 @@ pub fn routes(db: MongoDb) -> Router {
 
     #[cfg(feature = "stardust")]
     {
-        router = router.nest("/", super::stardust::routes())
+        router = router.merge(super::stardust::routes())
     }
 
     Router::new()
@@ -36,7 +36,7 @@ pub fn routes(db: MongoDb) -> Router {
                 .allow_origin(Any)
                 .allow_methods(vec![Method::GET, Method::OPTIONS])
                 .allow_headers(Any)
-                .allow_credentials(true),
+                .allow_credentials(false),
         )
 }
 

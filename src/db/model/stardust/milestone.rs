@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload::milestone::MilestoneId;
+use bee_message_stardust::payload::{milestone::MilestoneId, MilestonePayload};
 use futures::TryStreamExt;
 use mongodb::{
     bson::{doc, DateTime, Document},
@@ -27,6 +27,8 @@ pub struct MilestoneRecord {
     pub milestone_timestamp: DateTime,
     /// The [`MilestoneId`] of the milestone.
     pub milestone_id: MilestoneId,
+    /// The milestone's payload.
+    pub payload: MilestonePayload,
 }
 
 impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
@@ -38,6 +40,7 @@ impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
             milestone_index: milestone.milestone_info.milestone_index,
             milestone_timestamp: DateTime::from_millis(milestone.milestone_info.milestone_timestamp as i64 * 1000),
             milestone_id: milestone.milestone_info.milestone_id,
+            payload: milestone.milestone,
         })
     }
 }
@@ -56,7 +59,7 @@ impl MongoDb {
 
     /// Upserts a [`MilestoneRecord`] to the database.
     pub async fn upsert_milestone_record(&self, milestone_record: &MilestoneRecord) -> Result<UpdateResult, Error> {
-        let doc = bson::to_document(&milestone_record)?;
+        let doc = bson::to_document(milestone_record)?;
         self.0
             .collection::<Document>(collection::MILESTONE_RECORDS)
             .update_one(
