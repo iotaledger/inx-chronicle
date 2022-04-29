@@ -34,7 +34,7 @@ pub trait Actor: Send + Sync + Sized {
         std::any::type_name::<Self>().into()
     }
 
-    /// Start the actor. This should call `run` if the actor should process events.
+    /// Start the actor, and create the internal state.
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error>;
 
     /// Run the actor event loop

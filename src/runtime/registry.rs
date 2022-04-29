@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{
+    any::{Any, TypeId},
     collections::HashMap,
     ops::Deref,
     sync::{
@@ -15,7 +16,13 @@ use futures::future::AbortHandle;
 use tokio::sync::RwLock;
 pub use uuid::Uuid;
 
-use super::shutdown::ShutdownHandle;
+use super::{
+    actor::{
+        addr::{Addr, OptionalAddr},
+        Actor,
+    },
+    shutdown::ShutdownHandle,
+};
 
 /// An alias type indicating that this is a scope id
 pub type ScopeId = Uuid;
@@ -34,6 +41,7 @@ pub struct Scope {
 #[derive(Debug)]
 pub struct ScopeInner {
     pub(crate) id: ScopeId,
+    address_registry: RwLock<AddressRegistry>,
     shutdown_handle: Option<ShutdownHandle>,
     abort_handle: Option<AbortHandle>,
     parent: Option<Scope>,
@@ -45,6 +53,7 @@ impl Scope {
         Scope {
             inner: Arc::new(ScopeInner {
                 id: ROOT_SCOPE,
+                address_registry: Default::default(),
                 shutdown_handle: Default::default(),
                 abort_handle: Some(abort_handle),
                 parent: None,
@@ -65,6 +74,7 @@ impl Scope {
         let child = Scope {
             inner: Arc::new(ScopeInner {
                 id,
+                address_registry: Default::default(),
                 shutdown_handle,
                 abort_handle,
                 parent: Some(parent),
@@ -92,6 +102,23 @@ impl Scope {
 
     pub(crate) async fn children(&self) -> Vec<Scope> {
         self.children.read().await.values().cloned().collect()
+    }
+
+    pub(crate) async fn insert_addr<A: 'static + Actor>(&self, addr: Addr<A>) {
+        self.address_registry.write().await.insert(addr);
+    }
+
+    pub(crate) async fn get_addr<A: 'static + Actor>(&self) -> OptionalAddr<A> {
+        let mut curr_scope = Some(self);
+        while let Some(scope) = curr_scope {
+            let opt_addr = scope.address_registry.read().await.get();
+            if opt_addr.is_none() {
+                curr_scope = scope.parent.as_ref();
+            } else {
+                return opt_addr;
+            }
+        }
+        None.into()
     }
 
     pub(crate) async fn drop(&self) {
@@ -131,5 +158,30 @@ impl Deref for Scope {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct AddressRegistry {
+    map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+}
+
+impl AddressRegistry {
+    pub fn insert<T>(&mut self, addr: Addr<T>)
+    where
+        T: Actor + Send + Sync + 'static,
+    {
+        self.map.insert(TypeId::of::<T>(), Box::new(addr));
+    }
+
+    pub fn get<T>(&self) -> OptionalAddr<T>
+    where
+        T: Actor + Send + Sync + 'static,
+    {
+        self.map
+            .get(&TypeId::of::<T>())
+            .and_then(|addr| addr.downcast_ref())
+            .and_then(|addr: &Addr<T>| (!addr.is_closed()).then(|| addr.clone()))
+            .into()
     }
 }

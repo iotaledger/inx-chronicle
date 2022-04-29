@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::sync::Arc;
-
 use thiserror::Error;
 
 use super::Actor;
@@ -14,6 +12,6 @@ pub enum ActorError<A: Actor> {
     Aborted,
     #[error("Actor panicked")]
     Panic,
-    #[error("Actor error: {0:?}")]
-    Result(Arc<A::Error>),
+    #[error("Actor error: {0}")]
+    Result(A::Error),
 }

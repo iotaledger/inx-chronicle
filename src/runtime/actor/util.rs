@@ -74,7 +74,7 @@ where
         event: SpawnActor<A>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        cx.spawn_actor_supervised(event.actor).await;
+        cx.spawn_child(event.actor).await;
         Ok(())
     }
 }
