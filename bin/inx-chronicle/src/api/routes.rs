@@ -51,7 +51,7 @@ async fn info() -> InfoResponse {
 }
 
 async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
-    let mut res = database.sync_records_sorted().await?;
+    let mut res = database.get_sync_records_sorted().await?;
     let mut sync_data = SyncData::default();
     let mut last_record: Option<SyncRecord> = None;
     while let Some(sync_record) = res.try_next().await? {

@@ -28,12 +28,12 @@ impl MongoDb {
     }
 
     /// Upserts a [`Status`] to the database.
-    pub async fn upsert_status(&self, status: &Status) -> Result<UpdateResult, Error> {
+    pub async fn upsert_status(&self, status: Status) -> Result<UpdateResult, Error> {
         self.0
             .collection::<Status>(collection::STATUS)
             .update_one(
                 doc! {},
-                doc! {"$set": bson::to_document(status)?},
+                doc! {"$set": bson::to_document(&status)?},
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await

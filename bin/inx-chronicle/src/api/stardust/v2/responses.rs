@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::db::model::inclusion_state::LedgerInclusionState;
+use chronicle::{stardust, db::model::inclusion_state::LedgerInclusionState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -74,7 +74,7 @@ pub struct OutputResponse {
     #[serde(rename = "outputIndex")]
     pub output_index: u16,
     #[serde(rename = "spendingTransaction")]
-    pub spending_transaction: Option<Value>,
+    pub spending_transaction: Option<stardust::MessageDto>,
     pub output: Value,
 }
 

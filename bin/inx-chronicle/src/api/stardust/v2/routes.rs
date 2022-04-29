@@ -13,7 +13,7 @@ use chronicle::{
         bson::{BsonExt, DocExt, U64},
         MongoDb,
     },
-    stardust::output::OutputId,
+    stardust::{self, output::OutputId,}
 };
 use futures::TryStreamExt;
 
@@ -184,8 +184,7 @@ async fn output_by_transaction_id(
         transaction_id: transaction_id.to_string(),
         output_index: idx,
         spending_transaction: spending_transaction
-            .map(|mut d| d.take_bson("message"))
-            .transpose()?
+            .map(|d| stardust::MessageDto::from(&d.message))
             .map(Into::into),
         output: output.take_path("message.payload.data.essence.data.outputs")?.into(),
     })

@@ -4,7 +4,12 @@
 use std::ops::Range;
 
 use futures::stream::Stream;
-use mongodb::{bson::doc, error::Error, options::FindOptions};
+use mongodb::{
+    bson::{self, doc},
+    error::Error,
+    options::{FindOptions, UpdateOptions},
+    results::UpdateResult,
+};
 use serde::{Deserialize, Serialize};
 
 use super::collection;
@@ -32,9 +37,22 @@ pub struct SyncData {
     pub gaps: Vec<Range<u32>>,
 }
 
+/// Implementations for [`SyncRecord`].
 impl MongoDb {
-    /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
-    pub async fn sync_records_sorted(&self) -> Result<impl Stream<Item = Result<SyncRecord, Error>>, Error> {
+    /// Upserts a [`SyncRecord`].
+    pub async fn upsert_sync_record(&self, sync_record: SyncRecord) -> Result<UpdateResult, Error> {
+        self.0
+            .collection::<SyncRecord>(collection::SYNC_RECORDS)
+            .update_one(
+                doc! { "milestone_index": sync_record.milestone_index },
+                doc! {"$set": bson::to_document(&sync_record)?},
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await
+    }
+
+    /// Retrieves the [`SyncRecord`]s sorted by [`milestone_index`](SyncRecord::milestone_index).
+    pub async fn get_sync_records_sorted(&self) -> Result<impl Stream<Item = Result<SyncRecord, Error>>, Error> {
         self.0
             .collection::<SyncRecord>(collection::SYNC_RECORDS)
             .find(
