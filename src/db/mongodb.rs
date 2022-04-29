@@ -4,13 +4,12 @@
 //! Holds the `MongoDb` type and its config.
 
 use mongodb::{
-    bson::{doc, Document},
-    options::{ClientOptions, Credential, UpdateOptions},
-    Client, Collection,
+    bson::doc,
+    error::Error,
+    options::{ClientOptions, Credential},
+    Client,
 };
 use serde::{Deserialize, Serialize};
-
-use super::{model::Model, MongoDbError};
 
 /// Name of the MongoDB database.
 pub const DB_NAME: &str = "chronicle-test";
@@ -18,11 +17,11 @@ const CONNECT_URL_DEFAULT: &str = "mongodb://localhost:27017";
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
-pub struct MongoDb(mongodb::Database);
+pub struct MongoDb(pub(crate) mongodb::Database);
 
 impl MongoDb {
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, MongoDbError> {
+    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
@@ -39,30 +38,6 @@ impl MongoDb {
         let db = client.database(DB_NAME);
 
         Ok(MongoDb(db))
-    }
-
-    /// Inserts a record of a [`Model`] into the database.
-    pub async fn upsert_one<M: Model>(&self, model: M) -> Result<(), MongoDbError> {
-        let doc = crate::db::bson::to_document(&model)?;
-        self.0
-            .collection::<Document>(M::COLLECTION)
-            .update_one(
-                model.key(),
-                doc! { "$set": doc },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Gets a model type's collection.
-    pub fn collection<M: Model>(&self) -> Collection<M> {
-        self.0.collection(M::COLLECTION)
-    }
-
-    /// Gets a model type's collection.
-    pub fn doc_collection<M: Model>(&self) -> Collection<Document> {
-        self.0.collection(M::COLLECTION)
     }
 }
 

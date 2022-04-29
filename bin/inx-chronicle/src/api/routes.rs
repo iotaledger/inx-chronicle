@@ -8,7 +8,6 @@ use chronicle::db::{
 };
 use futures::TryStreamExt;
 use hyper::Method;
-use mongodb::{bson::doc, options::FindOptions};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{Any, CorsLayer},
@@ -52,13 +51,7 @@ async fn info() -> InfoResponse {
 }
 
 async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
-    let mut res = database
-        .collection::<SyncRecord>()
-        .find(
-            doc! { "synced": true },
-            FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
-        )
-        .await?;
+    let mut res = database.sync_records_sorted().await?;
     let mut sync_data = SyncData::default();
     let mut last_record: Option<SyncRecord> = None;
     while let Some(sync_record) = res.try_next().await? {

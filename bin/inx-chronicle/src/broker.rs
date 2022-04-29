@@ -5,7 +5,7 @@ use async_trait::async_trait;
 #[cfg(feature = "stardust")]
 use chronicle::db::model::stardust;
 use chronicle::{
-    db::{MongoDb, MongoDbError},
+    db::MongoDb,
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -16,7 +16,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum BrokerError {
     #[error(transparent)]
-    MongoDbError(#[from] MongoDbError),
+    MongoDbError(#[from] mongodb::error::Error),
     #[error(transparent)]
     RuntimeError(#[from] RuntimeError),
 }
@@ -53,7 +53,9 @@ impl HandleEvent<inx::proto::Message> for Broker {
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Message Event");
         match stardust::message::MessageRecord::try_from(message) {
-            Ok(rec) => self.db.upsert_one(rec).await?,
+            Ok(rec) => {
+                self.db.upsert_message_record(&rec).await?;
+            }
             Err(e) => {
                 log::warn!("Could not read message: {:?}", e);
             }
@@ -73,7 +75,9 @@ impl HandleEvent<inx::proto::Milestone> for Broker {
     ) -> Result<(), Self::Error> {
         log::debug!("Received Stardust Milestone Event");
         match stardust::milestone::MilestoneRecord::try_from(milestone) {
-            Ok(rec) => self.db.upsert_one(rec).await?,
+            Ok(rec) => {
+                self.db.upsert_milestone_record(&rec).await?;
+            }
             Err(e) => {
                 log::warn!("Could not read milestone: {:?}", e);
             }

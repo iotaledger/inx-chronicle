@@ -6,4 +6,8 @@ mod error;
 mod listener;
 mod worker;
 
-pub use self::{config::InxConfig, error::InxWorkerError, worker::InxWorker};
+pub use self::{
+    config::InxConfig,
+    error::InxWorkerError,
+    worker::{InxWorker, MessageRequest},
+};
