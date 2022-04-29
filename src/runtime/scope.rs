@@ -14,11 +14,11 @@ use super::{
     actor::{
         addr::{Addr, OptionalAddr},
         context::ActorContext,
-        event::{EnvelopeStream, HandleEvent},
+        event::HandleEvent,
         report::{Report, SuccessReport},
         Actor,
     },
-    config::SpawnConfig,
+    config::{SpawnConfig, SpawnConfigInner},
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::ShutdownHandle,
@@ -155,7 +155,10 @@ impl RuntimeScope {
     async fn common_spawn<A>(
         &mut self,
         actor: &A,
-        stream: Option<EnvelopeStream<A>>,
+        SpawnConfigInner {
+            stream,
+            add_to_registry,
+        }: SpawnConfigInner<A>,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration)
     where
         A: 'static + Actor + Send + Sync,
@@ -173,7 +176,9 @@ impl RuntimeScope {
         };
         let scope = self.child(Some(shutdown_handle), Some(abort_handle)).await;
         let handle = Addr::new(scope.scope.clone(), sender);
-        self.scope.0.insert_addr(handle.clone()).await;
+        if add_to_registry {
+            self.scope.0.insert_addr(handle.clone()).await;
+        }
         let cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
         (handle, cx, abort_reg)
@@ -186,8 +191,8 @@ impl RuntimeScope {
         Sup: 'static + HandleEvent<Report<A>>,
         Cfg: Into<SpawnConfig<A>>,
     {
-        let SpawnConfig { mut actor, stream } = actor.into();
-        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, stream).await;
+        let SpawnConfig { mut actor, config } = actor.into();
+        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
         let child_task = tokio::spawn(async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
@@ -230,8 +235,8 @@ impl RuntimeScope {
         A: 'static + Actor + Send + Sync,
         Cfg: Into<SpawnConfig<A>>,
     {
-        let SpawnConfig { mut actor, stream } = actor.into();
-        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, stream).await;
+        let SpawnConfig { mut actor, config } = actor.into();
+        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
         let child_task = tokio::spawn(async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
