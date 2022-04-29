@@ -53,24 +53,36 @@ impl Actor for InxListener {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-        cx.spawn_child::<MessageStream, _>(InxStreamListener::default().with_stream(message_stream))
-            .await;
+        cx.spawn_child::<MessageStream, _>(
+            InxStreamListener::default()
+                .with_stream(message_stream)
+                .add_to_registry(false),
+        )
+        .await;
 
         let metadata_stream = self
             .inx_client
             .listen_to_referenced_messages(MessageFilter {})
             .await?
             .into_inner();
-        cx.spawn_child::<MessageMetadataStream, _>(InxStreamListener::default().with_stream(metadata_stream))
-            .await;
+        cx.spawn_child::<MessageMetadataStream, _>(
+            InxStreamListener::default()
+                .with_stream(metadata_stream)
+                .add_to_registry(false),
+        )
+        .await;
 
         let milestone_stream = self
             .inx_client
             .listen_to_latest_milestone(NoParams {})
             .await?
             .into_inner();
-        cx.spawn_child::<MilestoneStream, _>(InxStreamListener::default().with_stream(milestone_stream))
-            .await;
+        cx.spawn_child::<MilestoneStream, _>(
+            InxStreamListener::default()
+                .with_stream(milestone_stream)
+                .add_to_registry(false),
+        )
+        .await;
 
         Ok(())
     }
@@ -91,8 +103,12 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-                    cx.spawn_child::<MessageStream, _>(InxStreamListener::default().with_stream(message_stream))
-                        .await;
+                    cx.spawn_child::<MessageStream, _>(
+                        InxStreamListener::default()
+                            .with_stream(message_stream)
+                            .add_to_registry(false),
+                    )
+                    .await;
                 }
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
@@ -123,7 +139,9 @@ impl HandleEvent<Report<MessageMetadataStream>> for InxListener {
                         .await?
                         .into_inner();
                     cx.spawn_child::<MessageMetadataStream, _>(
-                        InxStreamListener::default().with_stream(message_stream),
+                        InxStreamListener::default()
+                            .with_stream(message_stream)
+                            .add_to_registry(false),
                     )
                     .await;
                 }
@@ -155,8 +173,12 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                         .listen_to_latest_milestone(NoParams {})
                         .await?
                         .into_inner();
-                    cx.spawn_child::<MilestoneStream, _>(InxStreamListener::default().with_stream(milestone_stream))
-                        .await;
+                    cx.spawn_child::<MilestoneStream, _>(
+                        InxStreamListener::default()
+                            .with_stream(milestone_stream)
+                            .add_to_registry(false),
+                    )
+                    .await;
                 }
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();

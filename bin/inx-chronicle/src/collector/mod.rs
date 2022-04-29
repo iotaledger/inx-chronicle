@@ -8,6 +8,7 @@ use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{
         actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
+        config::ConfigureActor,
         error::RuntimeError,
     },
 };
@@ -49,7 +50,11 @@ impl Actor for Collector {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let mut solidifiers = HashMap::new();
         for i in 0..self.solidifier_count.max(1) {
-            solidifiers.insert(i, cx.spawn_child(Solidifier::new(i, self.db.clone())).await);
+            solidifiers.insert(
+                i,
+                cx.spawn_child(Solidifier::new(i, self.db.clone()).add_to_registry(false))
+                    .await,
+            );
         }
         Ok(solidifiers)
     }
