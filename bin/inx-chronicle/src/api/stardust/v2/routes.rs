@@ -13,7 +13,7 @@ use chronicle::{
         bson::{BsonExt, DocExt, U64},
         MongoDb,
     },
-    stardust::{self, output::OutputId,}
+    stardust::{self, output::OutputId},
 };
 use futures::TryStreamExt;
 

@@ -113,7 +113,11 @@ impl MongoDb {
     }
 
     /// Aggregates the spending transactions
-    pub async fn get_spending_transaction(&self, transaction_id: &str, idx: u16) -> Result<Option<MessageRecord>, Error> {
+    pub async fn get_spending_transaction(
+        &self,
+        transaction_id: &str,
+        idx: u16,
+    ) -> Result<Option<MessageRecord>, Error> {
         self.0
             .collection::<MessageRecord>(collection::MESSAGE_RECORDS)
             .find_one(
