@@ -11,13 +11,33 @@ use super::actor::{
 /// Spawn configuration for an actor.
 pub struct SpawnConfig<A> {
     pub(crate) actor: A,
-    pub(crate) stream: Option<EnvelopeStream<A>>,
+    pub(crate) config: SpawnConfigInner<A>,
 }
 
 impl<A> SpawnConfig<A> {
     /// Creates a new spawn configuration.
     pub fn new(actor: A) -> Self {
-        Self { actor, stream: None }
+        Self {
+            actor,
+            config: Default::default(),
+        }
+    }
+
+    /// Merges a custom stream in addition to the event stream.
+    pub fn with_stream<S, E>(mut self, stream: S) -> Self
+    where
+        A: Actor,
+        S: 'static + Stream<Item = E> + Unpin + Send,
+        E: 'static + DynEvent<A> + Send + Sync,
+    {
+        self.config.set_stream(stream);
+        self
+    }
+
+    /// Sets whether the actor's address should be added to the registry.
+    pub fn add_to_registry(mut self, add: bool) -> Self {
+        self.config.set_add_to_registry(add);
+        self
     }
 }
 
@@ -27,18 +47,34 @@ impl<A> From<A> for SpawnConfig<A> {
     }
 }
 
-impl<A> SpawnConfig<A> {
+pub(crate) struct SpawnConfigInner<A> {
+    pub(crate) stream: Option<EnvelopeStream<A>>,
+    pub(crate) add_to_registry: bool,
+}
+
+impl<A> Default for SpawnConfigInner<A> {
+    fn default() -> Self {
+        Self {
+            stream: None,
+            add_to_registry: true,
+        }
+    }
+}
+
+impl<A> SpawnConfigInner<A> {
     /// Merges a custom stream in addition to the event stream.
-    pub fn with_stream<S, E>(self, stream: S) -> Self
+    pub fn set_stream<S, E>(&mut self, stream: S)
     where
         A: Actor,
         S: 'static + Stream<Item = E> + Unpin + Send,
         E: 'static + DynEvent<A> + Send + Sync,
     {
-        Self {
-            actor: self.actor,
-            stream: Some(Box::new(stream.map(|e| Box::new(e) as Envelope<A>))),
-        }
+        self.stream = Some(Box::new(stream.map(|e| Box::new(e) as Envelope<A>)));
+    }
+
+    /// Sets whether the actor's address should be added to the registry.
+    pub fn set_add_to_registry(&mut self, add: bool) {
+        self.add_to_registry = add;
     }
 }
 
@@ -51,6 +87,11 @@ pub trait ConfigureActor: Actor {
         E: 'static + DynEvent<Self> + Send + Sync,
     {
         SpawnConfig::<Self>::new(self).with_stream(stream)
+    }
+
+    /// Sets whether the actor's address should be added to the registry.
+    fn add_to_registry(self, add: bool) -> SpawnConfig<Self> {
+        SpawnConfig::<Self>::new(self).add_to_registry(add)
     }
 }
 impl<A: Actor> ConfigureActor for A {}
