@@ -13,7 +13,10 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use super::collection;
-use crate::{bson::DocExt, db::MongoDb};
+use crate::db::{
+    bson::{self, DocExt},
+    MongoDb,
+};
 
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
@@ -53,7 +56,7 @@ impl MongoDb {
 
     /// Upserts a [`MilestoneRecord`] to the database.
     pub async fn upsert_milestone_record(&self, milestone_record: &MilestoneRecord) -> Result<UpdateResult, Error> {
-        let doc = crate::bson::to_document(&milestone_record)?;
+        let doc = bson::to_document(&milestone_record)?;
         self.0
             .collection::<Document>(collection::MILESTONE_RECORDS)
             .update_one(

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{routing::get, Extension, Router};
-use chronicle::{bson::DocExt, db::MongoDb};
+use chronicle::db::{bson::DocExt, MongoDb};
 
 use super::responses::AddressAnalyticsResponse;
 use crate::api::{

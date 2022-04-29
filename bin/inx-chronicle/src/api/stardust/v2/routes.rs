@@ -9,8 +9,10 @@ use axum::{
     Router,
 };
 use chronicle::{
-    bson::{BsonExt, DocExt, U64},
-    db::MongoDb,
+    db::{
+        bson::{BsonExt, DocExt, U64},
+        MongoDb,
+    },
     stardust::output::OutputId,
 };
 use futures::TryStreamExt;

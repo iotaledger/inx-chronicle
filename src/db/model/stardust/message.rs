@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::collection;
 use crate::{
-    db::{model::inclusion_state::LedgerInclusionState, MongoDb},
+    db::{bson, model::inclusion_state::LedgerInclusionState, MongoDb},
     stardust::payload::TransactionPayload,
 };
 
@@ -101,7 +101,7 @@ impl MongoDb {
 
     /// Upserts a [`MessageRecord`] to the database.
     pub async fn upsert_message_record(&self, message_record: &MessageRecord) -> Result<UpdateResult, Error> {
-        let doc = crate::bson::to_document(&message_record)?;
+        let doc = bson::to_document(&message_record)?;
         self.0
             .collection::<Document>(collection::MILESTONE_RECORDS)
             .update_one(
