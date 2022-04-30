@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Debug, pin::Pin};
+use std::pin::Pin;
 
 use async_trait::async_trait;
 use futures::Stream;
@@ -10,7 +10,7 @@ use super::{context::ActorContext, Actor};
 
 /// Trait that allows handling events sent to an actor.
 #[async_trait]
-pub trait HandleEvent<E: Send + Debug>: Actor + Sized {
+pub trait HandleEvent<E>: Actor {
     #[allow(missing_docs)]
     async fn handle_event(
         &mut self,
@@ -21,7 +21,7 @@ pub trait HandleEvent<E: Send + Debug>: Actor + Sized {
 }
 
 /// A dynamic event that can be sent to an actor which implements `HandleEvent` for it.
-pub trait DynEvent<A: Actor>: Debug {
+pub trait DynEvent<A: Actor>: Send {
     #[allow(missing_docs)]
     fn handle<'a>(
         self: Box<Self>,
@@ -33,9 +33,10 @@ pub trait DynEvent<A: Actor>: Debug {
         Self: 'a;
 }
 
-impl<A, E: Send + Debug> DynEvent<A> for E
+impl<A, E> DynEvent<A> for E
 where
     A: HandleEvent<E>,
+    E: Send,
 {
     fn handle<'a>(
         self: Box<Self>,
@@ -51,6 +52,6 @@ where
 }
 
 /// Convenience type for boxed dynamic events.
-pub type Envelope<A> = Box<dyn DynEvent<A> + Send + Sync>;
+pub type Envelope<A> = Box<dyn DynEvent<A>>;
 /// Convenience type for streams of dynamic events.
 pub type EnvelopeStream<A> = Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>;

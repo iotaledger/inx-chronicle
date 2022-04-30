@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::fmt::Debug;
+
 use futures::{Stream, StreamExt};
 
 use super::actor::{
@@ -9,6 +11,7 @@ use super::actor::{
 };
 
 /// Spawn configuration for an actor.
+#[derive(Debug)]
 pub struct SpawnConfig<A> {
     pub(crate) actor: A,
     pub(crate) config: SpawnConfigInner<A>,
@@ -28,7 +31,7 @@ impl<A> SpawnConfig<A> {
     where
         A: Actor,
         S: 'static + Stream<Item = E> + Unpin + Send,
-        E: 'static + DynEvent<A> + Send + Sync,
+        E: 'static + DynEvent<A>,
     {
         self.config.set_stream(stream);
         self
@@ -52,6 +55,18 @@ pub(crate) struct SpawnConfigInner<A> {
     pub(crate) add_to_registry: bool,
 }
 
+impl<A: Debug> Debug for SpawnConfigInner<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpawnConfigInner")
+            .field(
+                "stream",
+                &self.stream.as_ref().map(|_| std::any::type_name::<EnvelopeStream<A>>()),
+            )
+            .field("add_to_registry", &self.add_to_registry)
+            .finish()
+    }
+}
+
 impl<A> Default for SpawnConfigInner<A> {
     fn default() -> Self {
         Self {
@@ -67,7 +82,7 @@ impl<A> SpawnConfigInner<A> {
     where
         A: Actor,
         S: 'static + Stream<Item = E> + Unpin + Send,
-        E: 'static + DynEvent<A> + Send + Sync,
+        E: 'static + DynEvent<A>,
     {
         self.stream = Some(Box::new(stream.map(|e| Box::new(e) as Envelope<A>)));
     }
@@ -84,7 +99,7 @@ pub trait ConfigureActor: Actor {
     fn with_stream<S, E>(self, stream: S) -> SpawnConfig<Self>
     where
         S: 'static + Stream<Item = E> + Unpin + Send,
-        E: 'static + DynEvent<Self> + Send + Sync,
+        E: 'static + DynEvent<Self>,
     {
         SpawnConfig::<Self>::new(self).with_stream(stream)
     }

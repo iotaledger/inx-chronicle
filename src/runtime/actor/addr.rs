@@ -58,7 +58,7 @@ impl<A: Actor> Addr<A> {
     }
 
     /// Sends a message to the actor
-    pub fn send<E: 'static + DynEvent<A> + Send + Sync>(&self, event: E) -> Result<(), RuntimeError>
+    pub fn send<E: 'static + DynEvent<A>>(&self, event: E) -> Result<(), RuntimeError>
     where
         Self: Sized,
     {
@@ -90,8 +90,8 @@ impl<A: Actor> OptionalAddr<A> {
     /// Sends an event if the address exists. Returns an error if the address is not set.
     pub fn send<E>(&self, event: E) -> Result<(), RuntimeError>
     where
-        A: Actor + Send + Sync + 'static,
-        E: 'static + DynEvent<A> + Send + Sync,
+        A: 'static + Actor,
+        E: 'static + DynEvent<A>,
     {
         self.0
             .as_ref()
