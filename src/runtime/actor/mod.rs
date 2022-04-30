@@ -25,9 +25,9 @@ pub mod util;
 #[async_trait]
 pub trait Actor: Send + Sync + Sized {
     /// Custom data that is passed to all actor methods.
-    type State: Send + Sync;
+    type State: Send;
     /// Custom error type that is returned by all actor methods.
-    type Error: Error + Send + Sync;
+    type Error: Error + Send;
 
     /// Set this actor's name, primarily for debugging purposes.
     fn name(&self) -> Cow<'static, str> {

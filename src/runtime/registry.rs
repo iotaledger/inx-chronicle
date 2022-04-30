@@ -167,21 +167,21 @@ pub struct AddressRegistry {
 }
 
 impl AddressRegistry {
-    pub fn insert<T>(&mut self, addr: Addr<T>)
+    pub fn insert<A>(&mut self, addr: Addr<A>)
     where
-        T: Actor + Send + Sync + 'static,
+        A: 'static + Actor,
     {
-        self.map.insert(TypeId::of::<T>(), Box::new(addr));
+        self.map.insert(TypeId::of::<A>(), Box::new(addr));
     }
 
-    pub fn get<T>(&self) -> OptionalAddr<T>
+    pub fn get<A>(&self) -> OptionalAddr<A>
     where
-        T: Actor + Send + Sync + 'static,
+        A: 'static + Actor,
     {
         self.map
-            .get(&TypeId::of::<T>())
+            .get(&TypeId::of::<A>())
             .and_then(|addr| addr.downcast_ref())
-            .and_then(|addr: &Addr<T>| (!addr.is_closed()).then(|| addr.clone()))
+            .and_then(|addr: &Addr<A>| (!addr.is_closed()).then(|| addr.clone()))
             .into()
     }
 }
