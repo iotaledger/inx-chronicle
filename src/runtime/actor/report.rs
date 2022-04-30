@@ -1,10 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::fmt::Debug;
+
 use super::{error::ActorError, Actor};
 
 /// An actor exit report.
-#[derive(Debug)]
 pub enum Report<A: Actor> {
     /// Actor exited successfully.
     Success(SuccessReport<A>),
@@ -62,8 +63,20 @@ impl<A: Actor> Report<A> {
     }
 }
 
+impl<A: Actor> Debug for Report<A>
+where
+    A: Debug,
+    A::State: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Success(arg0) => f.debug_tuple("Success").field(arg0).finish(),
+            Self::Error(arg0) => f.debug_tuple("Error").field(arg0).finish(),
+        }
+    }
+}
+
 /// A report that an actor finished running with an error
-#[derive(Debug)]
 pub struct SuccessReport<A: Actor> {
     /// The actor's external state when it finished running
     pub actor: A,
@@ -97,8 +110,20 @@ impl<A: Actor> SuccessReport<A> {
     }
 }
 
+impl<A: Actor> Debug for SuccessReport<A>
+where
+    A: Debug,
+    A::State: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SuccessReport")
+            .field("actor", &self.actor)
+            .field("internal_state", &self.internal_state)
+            .finish()
+    }
+}
+
 /// A report that an actor finished running with an error.
-#[derive(Debug)]
 pub struct ErrorReport<A: Actor> {
     /// The actor's external state when it finished running.
     pub actor: A,
@@ -145,5 +170,19 @@ impl<A: Actor> ErrorReport<A> {
     /// Takes the error that occurred.
     pub fn take_error(self) -> ActorError<A> {
         self.error
+    }
+}
+
+impl<A: Actor> Debug for ErrorReport<A>
+where
+    A: Debug,
+    A::State: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ErrorReport")
+            .field("actor", &self.actor)
+            .field("internal_state", &self.internal_state)
+            .field("error", &self.error)
+            .finish()
     }
 }

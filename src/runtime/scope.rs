@@ -161,7 +161,7 @@ impl RuntimeScope {
         }: SpawnConfigInner<A>,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration)
     where
-        A: 'static + Actor + Send + Sync,
+        A: 'static + Actor,
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
@@ -187,7 +187,7 @@ impl RuntimeScope {
     /// Spawns a new actor with a supervisor handle.
     pub async fn spawn_actor<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_addr: Addr<Sup>) -> Addr<A>
     where
-        A: 'static + Actor + Debug + Send + Sync,
+        A: 'static + Actor,
         Sup: 'static + HandleEvent<Report<A>>,
         Cfg: Into<SpawnConfig<A>>,
     {
@@ -232,7 +232,7 @@ impl RuntimeScope {
     /// Spawns a new actor with no supervisor.
     pub async fn spawn_actor_unsupervised<A, Cfg>(&mut self, actor: Cfg) -> Addr<A>
     where
-        A: 'static + Actor + Send + Sync,
+        A: 'static + Actor,
         Cfg: Into<SpawnConfig<A>>,
     {
         let SpawnConfig { mut actor, config } = actor.into();

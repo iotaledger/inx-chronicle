@@ -119,7 +119,8 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
 }
 
 pub struct InxStreamListener<I> {
-    _item: PhantomData<I>,
+    // This funky phantom fn pointer is so that the type impls Send + Sync
+    _item: PhantomData<fn(I) -> I>,
 }
 
 impl<I> Default for InxStreamListener<I> {
@@ -134,7 +135,7 @@ impl<I> Default for InxStreamListener<I> {
 impl<E> Actor for InxStreamListener<E>
 where
     Broker: HandleEvent<E>,
-    E: 'static + Send + Sync + Debug,
+    E: 'static + Send,
 {
     type State = ();
     type Error = InxListenerError;
@@ -149,7 +150,7 @@ impl<E> HandleEvent<Result<E, Status>> for InxStreamListener<E>
 where
     Self: Actor<Error = InxListenerError>,
     Broker: HandleEvent<E>,
-    E: 'static + Send + Sync + Debug,
+    E: 'static + Send,
 {
     async fn handle_event(
         &mut self,
