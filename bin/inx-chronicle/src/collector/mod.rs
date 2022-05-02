@@ -57,7 +57,7 @@ impl Actor for Collector {
         for i in 0..self.solidifier_count {
             solidifiers.insert(
                 i,
-                cx.spawn_child(Solidifier::new(i, self.db.clone()).add_to_registry(false))
+                cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
                     .await,
             );
         }

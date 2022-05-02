@@ -56,7 +56,7 @@ impl Actor for InxListener {
         cx.spawn_child::<MessageStream, _>(
             InxStreamListener::default()
                 .with_stream(message_stream)
-                .add_to_registry(false),
+                .with_registration(false),
         )
         .await;
 
@@ -68,7 +68,7 @@ impl Actor for InxListener {
         cx.spawn_child::<MessageMetadataStream, _>(
             InxStreamListener::default()
                 .with_stream(metadata_stream)
-                .add_to_registry(false),
+                .with_registration(false),
         )
         .await;
 
@@ -80,7 +80,7 @@ impl Actor for InxListener {
         cx.spawn_child::<MilestoneStream, _>(
             InxStreamListener::default()
                 .with_stream(milestone_stream)
-                .add_to_registry(false),
+                .with_registration(false),
         )
         .await;
 
@@ -106,7 +106,7 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
                     cx.spawn_child::<MessageStream, _>(
                         InxStreamListener::default()
                             .with_stream(message_stream)
-                            .add_to_registry(false),
+                            .with_registration(false),
                     )
                     .await;
                 }
@@ -141,7 +141,7 @@ impl HandleEvent<Report<MessageMetadataStream>> for InxListener {
                     cx.spawn_child::<MessageMetadataStream, _>(
                         InxStreamListener::default()
                             .with_stream(message_stream)
-                            .add_to_registry(false),
+                            .with_registration(false),
                     )
                     .await;
                 }
@@ -176,7 +176,7 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                     cx.spawn_child::<MilestoneStream, _>(
                         InxStreamListener::default()
                             .with_stream(milestone_stream)
-                            .add_to_registry(false),
+                            .with_registration(false),
                     )
                     .await;
                 }
