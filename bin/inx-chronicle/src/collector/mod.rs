@@ -37,8 +37,10 @@ pub struct Collector {
 }
 
 impl Collector {
+    const MAX_SOLIDIFIERS: usize = 100;
+
     pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
-        Self { db, solidifier_count }
+        Self { db, solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS) }
     }
 }
 
@@ -49,7 +51,7 @@ impl Actor for Collector {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let mut solidifiers = HashMap::new();
-        for i in 0..self.solidifier_count.max(1) {
+        for i in 0..self.solidifier_count {
             solidifiers.insert(
                 i,
                 cx.spawn_child(Solidifier::new(i, self.db.clone()).add_to_registry(false))

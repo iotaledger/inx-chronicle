@@ -12,7 +12,6 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use super::collection;
 use crate::db::{
     bson::{self, DocExt},
     MongoDb,
@@ -29,6 +28,11 @@ pub struct MilestoneRecord {
     pub milestone_id: MilestoneId,
     /// The milestone's payload.
     pub payload: MilestonePayload,
+}
+
+impl MilestoneRecord {
+    /// The stardust milestone collection name.
+    pub const COLLECTION: &'static str = "stardust_milestones";
 }
 
 impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
@@ -50,7 +54,7 @@ impl MongoDb {
     pub async fn get_milestone_record_by_index(&self, index: u32) -> Result<Option<Document>, Error> {
         let res = self
             .0
-            .collection::<Document>(collection::MILESTONE_RECORDS)
+            .collection::<Document>(MilestoneRecord::COLLECTION)
             .find_one(doc! {"milestone_index": index}, None)
             .await;
 
@@ -61,7 +65,7 @@ impl MongoDb {
     pub async fn upsert_milestone_record(&self, milestone_record: &MilestoneRecord) -> Result<UpdateResult, Error> {
         let doc = bson::to_document(milestone_record)?;
         self.0
-            .collection::<Document>(collection::MILESTONE_RECORDS)
+            .collection::<Document>(MilestoneRecord::COLLECTION)
             .update_one(
                 doc! { "milestone_index": milestone_record.milestone_index },
                 doc! { "$set": doc },
@@ -72,7 +76,7 @@ impl MongoDb {
 
     /// Find the starting milestone.
     pub async fn find_first_milestone(&self, start_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
-        let res = self.0.collection::<Document>(collection::MILESTONE_RECORDS).find(
+        let res = self.0.collection::<Document>(MilestoneRecord::COLLECTION).find(
             doc! {"milestone_timestamp": { "$gte": DateTime::from_millis(start_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()
                 .sort(doc! {"milestone_index": 1u32})
@@ -92,7 +96,7 @@ impl MongoDb {
     pub async fn find_last_milestone(&self, end_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
         let res = self
             .0
-            .collection::<Document>(collection::MILESTONE_RECORDS)
+            .collection::<Document>(MilestoneRecord::COLLECTION)
             .find(
                 doc! {"milestone_timestamp": { "$lte": DateTime::from_millis(end_timestamp.unix_timestamp() * 1000) }},
                 FindOptions::builder()

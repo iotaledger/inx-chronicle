@@ -10,7 +10,6 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::collection;
 use crate::{
     db::{bson, model::inclusion_state::LedgerInclusionState, MongoDb},
     stardust::{
@@ -35,6 +34,9 @@ pub struct MessageRecord {
 }
 
 impl MessageRecord {
+    /// The stardust messages collection name.
+    pub const COLLECTION: &'static str = "stardust_messages";
+
     /// Creates a new message record.
     pub fn new(message: Message, raw: Vec<u8>) -> Self {
         Self {
@@ -94,7 +96,7 @@ impl MongoDb {
     /// Get milestone with index.
     pub async fn get_message(&self, message_id: &MessageId) -> Result<Option<Document>, Error> {
         self.0
-            .collection::<Document>(collection::MESSAGE_RECORDS)
+            .collection::<Document>(MessageRecord::COLLECTION)
             .find_one(doc! {"message_id": message_id.to_string()}, None)
             .await
     }
@@ -107,7 +109,7 @@ impl MongoDb {
         page: usize,
     ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
         self.0
-            .collection::<Document>(collection::MESSAGE_RECORDS)
+            .collection::<Document>(MessageRecord::COLLECTION)
             .find(
                 doc! {"message.parents": message_id.to_string()},
                 FindOptions::builder()
@@ -123,7 +125,7 @@ impl MongoDb {
     pub async fn upsert_message_record(&self, message_record: &MessageRecord) -> Result<UpdateResult, Error> {
         let doc = bson::to_document(message_record)?;
         self.0
-            .collection::<Document>(collection::MESSAGE_RECORDS)
+            .collection::<Document>(MessageRecord::COLLECTION)
             .update_one(
                 doc! { "_id": message_record.message_id.to_string() },
                 doc! { "$set": doc },
@@ -139,7 +141,7 @@ impl MongoDb {
         metadata: &MessageMetadata,
     ) -> Result<UpdateResult, Error> {
         self.0
-            .collection::<Document>(collection::MESSAGE_RECORDS)
+            .collection::<Document>(MessageRecord::COLLECTION)
             .update_one(
                 doc! { "message_id": message_id.to_string() },
                 doc! { "$set": { "metadata": bson::to_document(metadata)? } },
@@ -155,7 +157,7 @@ impl MongoDb {
         idx: u16,
     ) -> Result<Option<Document>, Error> {
         self.0
-            .collection::<Document>(collection::MESSAGE_RECORDS)
+            .collection::<Document>(MessageRecord::COLLECTION)
             .find_one(
                 doc! {
                     "inclusion_state": LedgerInclusionState::Included,
@@ -170,7 +172,7 @@ impl MongoDb {
     /// Finds the message that included a transaction.
     pub async fn get_message_for_transaction(&self, transaction_id: &str) -> Result<Option<Document>, Error> {
         self.0
-            .collection::<Document>(collection::MESSAGE_RECORDS)
+            .collection::<Document>(MessageRecord::COLLECTION)
             .find_one(
                 doc! {
                     "inclusion_state": LedgerInclusionState::Included,
@@ -187,7 +189,7 @@ impl MongoDb {
         transaction_id: &TransactionId,
         idx: u16,
     ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
-        self.0.collection::<Document>(collection::MESSAGE_RECORDS).aggregate(
+        self.0.collection::<Document>(MessageRecord::COLLECTION).aggregate(
             vec![
                 doc! { "$match": { "message.payload.transaction_id": transaction_id.to_string() } },
                 doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
@@ -208,7 +210,7 @@ impl MongoDb {
         end_milestone: u32,
     ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
         self.0
-        .collection::<MessageRecord>(collection::MESSAGE_RECORDS)
+        .collection::<MessageRecord>(MessageRecord::COLLECTION)
         .aggregate(vec![
             // Only outputs for this address
             doc! { "$match": {
@@ -281,7 +283,7 @@ impl MongoDb {
         start_milestone: u32,
         end_milestone: u32,
     ) -> Result<Option<Document>, Error> {
-        self.0.collection::<Document>(collection::MESSAGE_RECORDS)
+        self.0.collection::<Document>(MessageRecord::COLLECTION)
         .aggregate(
             vec![
                 doc! { "$match": {

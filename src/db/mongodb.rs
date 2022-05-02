@@ -11,15 +11,14 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Name of the MongoDB database.
-pub const DB_NAME: &str = "chronicle-test";
-const CONNECT_URL_DEFAULT: &str = "mongodb://localhost:27017";
-
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
 pub struct MongoDb(pub(crate) mongodb::Database);
 
 impl MongoDb {
+    const NAME: &'static str = "chronicle-test";
+    const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
+
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
@@ -35,7 +34,7 @@ impl MongoDb {
         }
 
         let client = Client::with_options(client_options)?;
-        let db = client.database(DB_NAME);
+        let db = client.database(Self::NAME);
 
         Ok(MongoDb(db))
     }
@@ -78,7 +77,7 @@ impl MongoDbConfig {
 impl Default for MongoDbConfig {
     fn default() -> Self {
         Self {
-            connect_url: CONNECT_URL_DEFAULT.to_string(),
+            connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
         }
