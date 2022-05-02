@@ -40,7 +40,10 @@ impl Collector {
     const MAX_SOLIDIFIERS: usize = 100;
 
     pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
-        Self { db, solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS) }
+        Self {
+            db,
+            solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS),
+        }
     }
 }
 
