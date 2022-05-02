@@ -7,6 +7,8 @@
 
 /// Module that contains the database types and constants.
 pub mod db;
+/// Module containing data transfer objects of the Bee types.
+pub mod dto;
 /// Module that contains the actor runtime.
 pub mod runtime;
 /// Module re-exporting Stardust types.
