@@ -38,8 +38,8 @@ impl<A> SpawnConfig<A> {
     }
 
     /// Sets whether the actor's address should be added to the registry.
-    pub fn add_to_registry(mut self, add: bool) -> Self {
-        self.config.set_add_to_registry(add);
+    pub fn with_registration(mut self, enable: bool) -> Self {
+        self.config.set_add_to_registry(enable);
         self
     }
 }
@@ -105,8 +105,8 @@ pub trait ConfigureActor: Actor {
     }
 
     /// Sets whether the actor's address should be added to the registry.
-    fn add_to_registry(self, add: bool) -> SpawnConfig<Self> {
-        SpawnConfig::<Self>::new(self).add_to_registry(add)
+    fn with_registration(self, enable: bool) -> SpawnConfig<Self> {
+        SpawnConfig::<Self>::new(self).with_registration(enable)
     }
 }
 impl<A: Actor> ConfigureActor for A {}

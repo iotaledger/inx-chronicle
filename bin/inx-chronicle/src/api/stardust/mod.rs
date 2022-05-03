@@ -40,12 +40,12 @@ pub(crate) async fn start_milestone(database: &MongoDb, start_timestamp: OffsetD
     database
         .find_first_milestone(start_timestamp)
         .await?
-        .ok_or(ApiError::NotFound)
+        .ok_or(ApiError::NoResults)
 }
 
 pub(crate) async fn end_milestone(database: &MongoDb, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
     database
         .find_last_milestone(end_timestamp)
         .await?
-        .ok_or(ApiError::NotFound)
+        .ok_or(ApiError::NoResults)
 }

@@ -12,7 +12,7 @@ use crate::api::{
 };
 
 pub fn routes() -> Router {
-    Router::new().nest("/analytics", Router::new().route("/addresses", get(address_analytics)))
+    Router::new().route("/addresses", get(address_analytics))
 }
 
 async fn address_analytics(
