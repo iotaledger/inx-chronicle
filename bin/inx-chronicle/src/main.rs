@@ -89,7 +89,6 @@ impl Actor for Launcher {
 
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db)).await;
-
         Ok(config)
     }
 }
