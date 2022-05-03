@@ -1,12 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt::Debug, ops::Deref};
+use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chronicle::runtime::actor::{
-    addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor,
-};
+use chronicle::runtime::actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor};
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
 use tokio::sync::oneshot;
 
@@ -19,12 +17,11 @@ use crate::Broker;
 #[derive(Debug)]
 pub struct InxWorker {
     config: InxConfig,
-    broker_addr: Addr<Broker>,
 }
 
 impl InxWorker {
-    pub fn new(config: InxConfig, broker_addr: Addr<Broker>) -> Self {
-        Self { config, broker_addr }
+    pub fn new(config: InxConfig) -> Self {
+        Self { config }
     }
 }
 
@@ -62,8 +59,7 @@ impl Actor for InxWorker {
         }
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
-        cx.spawn_actor_supervised(InxListener::new(inx.clone(), self.broker_addr.clone()))
-            .await;
+        cx.spawn_child(InxListener::new(inx.clone())).await;
 
         Ok(inx)
     }
@@ -78,11 +74,11 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match &e.error {
-                ActorError::Result(e) => match e.deref() {
+            Report::Error(report) => match &report.error {
+                ActorError::Result(e) => match e {
                     InxListenerError::SubscriptionFailed(_) => {
                         cx.shutdown();
                     }
@@ -115,7 +111,7 @@ pub struct MessageRequest {
 impl HandleEvent<MessageRequest> for InxWorker {
     async fn handle_event(
         &mut self,
-        _cx: &mut ActorContext<Self>,
+        cx: &mut ActorContext<Self>,
         request: MessageRequest,
         client: &mut Self::State,
     ) -> Result<(), Self::Error> {
@@ -134,7 +130,7 @@ impl HandleEvent<MessageRequest> for InxWorker {
                 message: Some(raw_message),
             };
 
-            self.broker_addr.send(proto_message)?;
+            cx.addr::<Broker>().await.send(proto_message)?;
 
             if let Some(recipient) = answer {
                 recipient
