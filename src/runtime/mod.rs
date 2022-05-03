@@ -60,3 +60,16 @@ impl Runtime {
         }
     }
 }
+
+/// Spawn a tokio task. The provided name will be used to configure the task if console tracing is enabled.
+pub fn spawn_task<F>(name: impl AsRef<str>, task: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: 'static + Future + Send,
+    F::Output: 'static + Send,
+{
+    log::trace!("Spawning task {}", name.as_ref());
+    #[cfg(all(tokio_unstable, feature = "console"))]
+    return tokio::task::Builder::new().name(name.as_ref()).spawn(task);
+    #[cfg(not(all(tokio_unstable, feature = "console")))]
+    return tokio::spawn(task);
+}

@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "chronicle"
 version = "0.0.1-alpha.1"
@@ -58,6 +60,13 @@ inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-feat
 bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 
+# Tokio Console
+console-subscriber = { version = "0.1", default-features = false, optional = true }
+
+[profile.console]
+inherits = "release"
+rustflags = ["--cfg", "tokio_unstable"]
+
 [features]
 default = [
     "api-analytics",
@@ -82,6 +91,13 @@ api-explorer = [
 ]
 api-node = [
     "api",
+]
+# To use this feature, you must also enable the unstable cfg like so:
+# > RUSTFLAGS="--cfg tokio_unstable" cargo build --features console
+# > cargo build --profile console --features console
+console = [
+    "dep:console-subscriber",
+    "tokio/tracing",
 ]
 inx = [
     "dep:inx",
