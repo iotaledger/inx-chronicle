@@ -77,9 +77,9 @@ impl Actor for ApiWorker {
                         self.config
                             .allow_origins
                             .clone()
-                            .map(|o| AllowOrigin::try_from(o))
+                            .map(AllowOrigin::try_from)
                             .transpose()?
-                            .unwrap_or(AllowOrigin::any()),
+                            .unwrap_or_else(AllowOrigin::any),
                     )
                     .allow_methods(vec![Method::GET, Method::OPTIONS])
                     .allow_headers(Any)
