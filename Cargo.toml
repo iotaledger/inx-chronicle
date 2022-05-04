@@ -1,5 +1,3 @@
-cargo-features = ["profile-rustflags"]
-
 [package]
 name = "chronicle"
 version = "0.0.1-alpha.1"
@@ -63,10 +61,6 @@ bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/io
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
-[profile.console]
-inherits = "release"
-rustflags = ["--cfg", "tokio_unstable"]
-
 [features]
 default = [
     "api-analytics",
@@ -92,9 +86,6 @@ api-explorer = [
 api-node = [
     "api",
 ]
-# To use this feature, you must also enable the unstable cfg like so:
-# > RUSTFLAGS="--cfg tokio_unstable" cargo build --features console
-# > cargo build --profile console --features console
 console = [
     "dep:console-subscriber",
     "tokio/tracing",
