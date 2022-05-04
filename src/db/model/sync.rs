@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use futures::stream::Stream;
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, Document},
     error::Error,
     options::{FindOptions, UpdateOptions},
     results::UpdateResult,
@@ -42,6 +42,17 @@ pub struct SyncData {
 }
 
 impl MongoDb {
+    /// Get milestone with index.
+    pub async fn get_sync_record_by_index(&self, index: u32) -> Result<Option<Document>, Error> {
+        let res = self
+            .0
+            .collection::<Document>(SyncRecord::COLLECTION)
+            .find_one(doc! {"milestone_index": index}, None)
+            .await;
+
+        Ok(res.unwrap()) // Fix the `DocErr` type
+    }
+
     /// Upserts a [`SyncRecord`] to the database.
     pub async fn upsert_sync_record(&self, record: &SyncRecord) -> Result<UpdateResult, Error> {
         self.0

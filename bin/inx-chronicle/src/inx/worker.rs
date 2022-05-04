@@ -4,25 +4,33 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chronicle::runtime::actor::{
-    addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
+use chronicle::{
+    db::MongoDb,
+    runtime::actor::{
+        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        Actor,
+    },
 };
-use inx::{client::InxClient, proto::NoParams, tonic::Channel};
+use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
 
 use super::{
     listener::{InxListener, InxListenerError},
     InxConfig, InxWorkerError,
 };
-use crate::collector::{solidifier::Solidifier, Collector};
+use crate::{
+    collector::{solidifier::Solidifier, Collector},
+    syncer::Syncer,
+};
 
 #[derive(Debug)]
 pub struct InxWorker {
     config: InxConfig,
+    db: MongoDb,
 }
 
 impl InxWorker {
-    pub fn new(config: InxConfig) -> Self {
-        Self { config }
+    pub fn new(config: InxConfig, db: MongoDb) -> Self {
+        Self { config, db }
     }
 }
 
@@ -53,7 +61,12 @@ impl Actor for InxWorker {
         let mut inx_client = Inx::connect(&self.config).await?;
 
         log::info!("Connected to INX.");
-        let node_status = inx_client.read_node_status(NoParams {}).await?.into_inner();
+        let node_status: NodeStatus = inx_client
+            .read_node_status(NoParams {})
+            .await?
+            .into_inner()
+            .try_into()
+            .unwrap();
 
         if !node_status.is_healthy {
             log::warn!("Node is unhealthy.");
@@ -61,6 +74,11 @@ impl Actor for InxWorker {
         log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
         cx.spawn_child(InxListener::new(inx_client.clone())).await;
+
+        // Start syncing from the pruning index onwards.
+        let start_index = node_status.pruning_index + 1;
+        cx.spawn_actor_unsupervised(Syncer::new(self.db.clone(), start_index))
+            .await;
 
         Ok(inx_client)
     }
@@ -203,6 +221,34 @@ pub mod stardust {
                             .map_err(|_| InxWorkerError::MissingCollector)?;
                     }
                 }
+            }
+
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl HandleEvent<crate::syncer::MilestoneIndex> for InxWorker {
+        async fn handle_event(
+            &mut self,
+            cx: &mut ActorContext<Self>,
+            index: crate::syncer::MilestoneIndex,
+            inx_client: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            if let Ok(milestone) = inx_client
+                .read_milestone(inx::proto::MilestoneRequest {
+                    milestone_index: index,
+                    milestone_id: None,
+                })
+                .await
+            {
+                // TODO: unwrap
+                let milestone: inx::proto::Milestone = milestone.into_inner().try_into().unwrap();
+
+                // Instruct the collector to collect this milestone.
+                cx.addr::<Collector>().await.send(milestone)?;
+            } else {
+                log::error!("No milestone response for {index}");
             }
 
             Ok(())
