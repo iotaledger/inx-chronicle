@@ -24,6 +24,15 @@ impl Default for ApiConfig {
     }
 }
 
+/// Convenience type that allows specifying either a single value or a list of values
+/// in the configuration file.
+///
+/// ## Examples
+/// ```toml
+/// [api]
+/// allow_origins = "origin"
+/// allow_origins = ["origin1", "origin2"]
+/// ```
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, From)]
 #[serde(untagged)]
 pub enum SingleOrMultiple<T> {
