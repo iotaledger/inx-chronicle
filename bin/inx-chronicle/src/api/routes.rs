@@ -7,16 +7,10 @@ use chronicle::db::{
     MongoDb,
 };
 use futures::TryStreamExt;
-use hyper::Method;
-use tower_http::{
-    catch_panic::CatchPanicLayer,
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
 
 use super::{error::ApiError, responses::*, ApiResult};
 
-pub fn routes(db: MongoDb) -> Router {
+pub fn routes() -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
 
@@ -25,19 +19,7 @@ pub fn routes(db: MongoDb) -> Router {
         router = router.merge(super::stardust::routes())
     }
 
-    Router::new()
-        .nest("/api", router)
-        .fallback(not_found.into_service())
-        .layer(Extension(db))
-        .layer(CatchPanicLayer::new())
-        .layer(TraceLayer::new_for_http())
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(vec![Method::GET, Method::OPTIONS])
-                .allow_headers(Any)
-                .allow_credentials(false),
-        )
+    Router::new().nest("/api", router).fallback(not_found.into_service())
 }
 
 async fn info() -> InfoResponse {
