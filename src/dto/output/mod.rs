@@ -15,8 +15,14 @@ mod treasury;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
-    alias::AliasOutput, basic::BasicOutput, feature_block::FeatureBlock, foundry::FoundryOutput,
-    native_token::NativeToken, nft::NftOutput, treasury::TreasuryOutput, unlock_condition::UnlockCondition,
+    alias::AliasOutput,
+    basic::BasicOutput,
+    feature_block::FeatureBlock,
+    foundry::FoundryOutput,
+    native_token::{NativeToken, TokenScheme, TokenTag},
+    nft::NftOutput,
+    treasury::TreasuryOutput,
+    unlock_condition::UnlockCondition,
 };
 use crate::dto;
 

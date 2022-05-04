@@ -3,6 +3,7 @@
 
 #![allow(missing_docs)]
 
+mod error;
 mod input;
 mod message;
 mod output;

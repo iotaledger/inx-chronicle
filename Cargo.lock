@@ -177,7 +177,7 @@ dependencies = [
  "iterator-sorted",
  "packable",
  "prefix-hex",
- "primitive-types",
+ "primitive-types 0.10.1",
  "serde",
  "serde-big-array",
  "serde_json",
@@ -205,7 +205,7 @@ dependencies = [
  "multiaddr",
  "packable",
  "prefix-hex",
- "primitive-types",
+ "primitive-types 0.10.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -356,6 +356,7 @@ dependencies = [
  "inx",
  "log",
  "mongodb",
+ "primitive-types 0.11.1",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -1370,7 +1371,7 @@ checksum = "e7dc9526643ad02793553407dbbea8924e467e48670c5e04eddd5051435a2b4c"
 dependencies = [
  "autocfg",
  "packable-derive",
- "primitive-types",
+ "primitive-types 0.10.1",
  "serde",
 ]
 
@@ -1506,7 +1507,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f120947380f07a50dd8d9985d3591f6632d688b8060321c3783aac91fa902c7"
 dependencies = [
  "hex",
- "primitive-types",
+ "primitive-types 0.10.1",
  "uint",
 ]
 
@@ -1529,6 +1530,16 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-serde",
+ "uint",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e28720988bff275df1f51b171e1b2a18c30d194c4d2b61defdacecd625a5d94a"
+dependencies = [
+ "fixed-hash",
  "uint",
 ]
 
