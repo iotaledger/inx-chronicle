@@ -88,7 +88,7 @@ impl Actor for Launcher {
         cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
         #[cfg(feature = "api")]
-        cx.spawn_child(ApiWorker::new(db)).await;
+        cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
         Ok(config)
     }
 }
@@ -235,7 +235,7 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(ApiWorker::new(db)).await;
+                    cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();

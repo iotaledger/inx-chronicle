@@ -7,6 +7,8 @@ use chronicle::db::MongoDbConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "api")]
+use crate::api::ApiConfig;
 #[cfg(feature = "inx")]
 use crate::inx::InxConfig;
 
@@ -24,6 +26,8 @@ pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
     #[cfg(feature = "inx")]
     pub inx: InxConfig,
+    #[cfg(feature = "api")]
+    pub api: ApiConfig,
 }
 
 impl ChronicleConfig {

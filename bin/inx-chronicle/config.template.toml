@@ -6,3 +6,7 @@ password = "root"
 [inx]
 connect_url = "http://localhost:9029"
 connection_retry_interval = "5s"
+
+[api]
+port = 9092
+allow_origins = ["0.0.0.0"]
