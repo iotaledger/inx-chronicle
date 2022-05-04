@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use chronicle::runtime::{
     actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
     config::ConfigureActor,
+    error::RuntimeError,
 };
 use inx::{
     client::InxClient,
@@ -28,10 +29,12 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxListenerError {
     #[error("the collector is not running")]
     MissingCollector,
+    // #[error("the syncer is not running")]
+    // MissingSyncer,
     #[error("failed to subscribe to stream: {0}")]
     SubscriptionFailed(#[from] inx::tonic::Status),
     #[error(transparent)]
-    Runtime(#[from] crate::RuntimeError),
+    Runtime(#[from] RuntimeError),
 }
 
 #[derive(Debug)]
@@ -52,6 +55,7 @@ impl Actor for InxListener {
     type Error = InxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        // Listen to messages.
         let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
         cx.spawn_child::<MessageStream, _>(
             InxStreamListener::default()
@@ -60,6 +64,7 @@ impl Actor for InxListener {
         )
         .await;
 
+        // Listen to metadata.
         let metadata_stream = self
             .inx_client
             .listen_to_referenced_messages(MessageFilter {})
@@ -72,6 +77,7 @@ impl Actor for InxListener {
         )
         .await;
 
+        // Listen to milestones.
         let milestone_stream = self
             .inx_client
             .listen_to_latest_milestone(NoParams {})

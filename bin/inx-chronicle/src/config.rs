@@ -34,7 +34,7 @@ impl ChronicleConfig {
     }
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
-    pub fn apply_cli_args(&mut self, args: super::CliArgs) {
+    pub fn apply_cli_args(&mut self, args: super::cli::CliArgs) {
         #[cfg(feature = "stardust")]
         if let Some(inx) = args.inx {
             self.inx = InxConfig::new(inx);

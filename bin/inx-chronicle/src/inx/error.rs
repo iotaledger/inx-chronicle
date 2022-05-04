@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use chronicle::runtime::error::RuntimeError;
 use thiserror::Error;
 
 use super::listener::InxListenerError;
@@ -22,7 +23,7 @@ pub enum InxWorkerError {
     #[error(transparent)]
     Read(#[from] inx::tonic::Status),
     #[error(transparent)]
-    Runtime(#[from] crate::RuntimeError),
+    Runtime(#[from] RuntimeError),
     #[error(transparent)]
     TransportFailed(#[from] inx::tonic::Error),
 }
