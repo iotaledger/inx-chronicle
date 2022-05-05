@@ -80,6 +80,7 @@ impl Actor for InxWorker {
         let end_index = node_status.ledger_index + 1;
         cx.spawn_child::<Syncer, _>(Syncer::new(self.db.clone(), start_index, end_index).with_batch_size(10))
             .await;
+        cx.addr::<Syncer>().await.send(())?;
 
         Ok(inx_client)
     }
