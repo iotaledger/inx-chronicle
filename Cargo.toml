@@ -91,9 +91,3 @@ stardust = [
     "dep:bee-message-stardust",
     "dep:bee-rest-api-stardust",
 ]
-
-[profile.release]
-debug = true
-
-[profile.production]
-inherits = "release"
