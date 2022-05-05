@@ -79,10 +79,9 @@ impl HandleEvent<()> for Syncer {
         if *current_index < self.start_index || *current_index > self.end_index {
             Ok(())
         } else {
-            let start_index = *current_index + 1;
-            log::info!("Syncing range [{}..]", start_index);
+            log::info!("Syncing range [{}..]", *current_index);
 
-            let mut index = start_index;
+            let mut index = *current_index;
             'next_milestone: loop {
                 let synced_ms = self.db.get_sync_record_by_index(index).await;
                 match synced_ms {
@@ -105,11 +104,11 @@ impl HandleEvent<()> for Syncer {
                     },
                     Err(e) => log::error!("{:?}", e),
                 }
+                index += 1;
+
                 if self.batch.len() == self.batch_size {
                     break 'next_milestone;
                 }
-
-                index += 1;
             }
             *current_index = index;
             Ok(())
