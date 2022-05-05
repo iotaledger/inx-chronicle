@@ -35,6 +35,7 @@ log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 primitive-types = { version = "0.11", default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
+serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 thiserror = { version = "1.0", default-features = false }
 time = { version = "0.3", default-features = false, features = ["std"] }
@@ -55,13 +56,8 @@ tower-http = { version = "0.3", default-features = false, features = ["cors", "c
 inx = { git = "https://github.com/iotaledger/inx", version = "0.2", default-features = false, features = ["types"], optional = true }
 
 # Stardust types
-bee-message-stardust = { package = "bee-message", version = "0.2", default-features = false, features = ["std", "serde", "dto"], optional = true }
-bee-rest-api-stardust = { package = "bee-rest-api", version = "0.2", default-features = false, optional = true }
-
-# Temporarily patch Stardust types until release
-[patch.crates-io]
-bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
-bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop" }
+bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
+bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 
 [features]
 default = [

@@ -3,7 +3,6 @@
 
 use std::{
     any::Any,
-    fmt::Debug,
     ops::{Deref, DerefMut},
     panic::AssertUnwindSafe,
     time::Duration,
@@ -42,14 +41,14 @@ impl<A: Actor> ActorContext<A> {
     }
 
     /// Spawn a new supervised child actor.
-    pub async fn spawn_actor_supervised<OtherA, Cfg>(&mut self, actor: Cfg) -> Addr<OtherA>
+    pub async fn spawn_child<OtherA, Cfg>(&mut self, actor: Cfg) -> Addr<OtherA>
     where
-        OtherA: 'static + Actor + Debug + Send + Sync,
-        A: 'static + Send + HandleEvent<Report<OtherA>>,
+        OtherA: 'static + Actor,
+        A: 'static + HandleEvent<Report<OtherA>>,
         Cfg: Into<SpawnConfig<OtherA>>,
     {
         let handle = self.handle().clone();
-        self.scope.spawn_actor_supervised(actor, handle).await
+        self.scope.spawn_actor(actor, handle).await
     }
 
     /// Get this actor's handle.
@@ -65,7 +64,7 @@ impl<A: Actor> ActorContext<A> {
     /// Delay the processing of an event by re-sending it to self.
     /// If a time is specified, the event will be delayed until that time,
     /// otherwise it will re-process immediately.
-    pub fn delay<E: 'static + DynEvent<A> + Send + Sync>(
+    pub fn delay<E: 'static + DynEvent<A>>(
         &self,
         event: E,
         delay: impl Into<Option<Duration>>,

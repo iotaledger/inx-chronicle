@@ -1,24 +1,24 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, fmt::Debug, ops::Deref, panic::AssertUnwindSafe, sync::Arc};
+use std::{error::Error, fmt::Debug, ops::Deref};
 
 use futures::{
     future::{AbortHandle, AbortRegistration, Abortable},
-    Future, FutureExt,
+    Future,
 };
 use tokio::task::JoinHandle;
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 use super::{
     actor::{
-        addr::Addr,
+        addr::{Addr, OptionalAddr},
         context::ActorContext,
-        event::{EnvelopeStream, HandleEvent},
+        event::HandleEvent,
         report::{Report, SuccessReport},
         Actor,
     },
-    config::SpawnConfig,
+    config::{SpawnConfig, SpawnConfigInner},
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::ShutdownHandle,
@@ -75,6 +75,12 @@ impl ScopeView {
     /// Finds a scope by id.
     pub fn find_by_id(&self, scope_id: ScopeId) -> Option<ScopeView> {
         self.0.find(scope_id).cloned().map(ScopeView)
+    }
+
+    /// Searches for an address for the given actor type
+    /// and returns an optional result.
+    pub async fn addr<A: 'static + Actor>(&self) -> OptionalAddr<A> {
+        self.0.get_addr().await
     }
 
     /// Shuts down the scope.
@@ -146,50 +152,16 @@ impl RuntimeScope {
         self.0.drop().await;
     }
 
-    /// Spawns a new, plain task.
-    pub async fn spawn_task<T, F>(&mut self, f: T) -> AbortHandle
-    where
-        T: Send + FnOnce(&mut RuntimeScope) -> F,
-        F: 'static + Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send,
-    {
-        let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let mut child_scope = self.child(None, Some(abort_handle.clone())).await;
-        let fut = f(&mut child_scope);
-        let child_task = tokio::spawn(async move {
-            let res = Abortable::new(AssertUnwindSafe(fut).catch_unwind(), abort_registration).await;
-            child_scope.abort().await;
-            child_scope.join().await;
-            match res {
-                Ok(res) => match res {
-                    Ok(res) => match res {
-                        Ok(_) => Ok(()),
-                        Err(e) => {
-                            log::error!(
-                                "{} exited with error: {}",
-                                format!("Task {:x}", child_scope.id().as_fields().0),
-                                e
-                            );
-                            Err(RuntimeError::TaskError(e))
-                        }
-                    },
-                    Err(e) => {
-                        std::panic::resume_unwind(e);
-                    }
-                },
-                Err(_) => Err(RuntimeError::AbortedScope(child_scope.id())),
-            }
-        });
-        self.join_handles.push(child_task);
-        abort_handle
-    }
-
     async fn common_spawn<A>(
         &mut self,
         actor: &A,
-        stream: Option<EnvelopeStream<A>>,
+        SpawnConfigInner {
+            stream,
+            add_to_registry,
+        }: SpawnConfigInner<A>,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration)
     where
-        A: 'static + Actor + Send + Sync,
+        A: 'static + Actor,
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
@@ -204,20 +176,23 @@ impl RuntimeScope {
         };
         let scope = self.child(Some(shutdown_handle), Some(abort_handle)).await;
         let handle = Addr::new(scope.scope.clone(), sender);
+        if add_to_registry {
+            self.scope.0.insert_addr(handle.clone()).await;
+        }
         let cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
         (handle, cx, abort_reg)
     }
 
     /// Spawns a new actor with a supervisor handle.
-    pub async fn spawn_actor_supervised<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_addr: Addr<Sup>) -> Addr<A>
+    pub async fn spawn_actor<A, Cfg, Sup>(&mut self, actor: Cfg, supervisor_addr: Addr<Sup>) -> Addr<A>
     where
-        A: 'static + Actor + Debug + Send + Sync,
+        A: 'static + Actor,
         Sup: 'static + HandleEvent<Report<A>>,
         Cfg: Into<SpawnConfig<A>>,
     {
-        let SpawnConfig { mut actor, stream } = actor.into();
-        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, stream).await;
+        let SpawnConfig { mut actor, config } = actor.into();
+        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
         let child_task = tokio::spawn(async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
@@ -225,23 +200,27 @@ impl RuntimeScope {
                 Ok(res) => match res {
                     Ok(res) => match res {
                         Ok(_) => {
-                            supervisor_addr.send(SuccessReport::new(actor, data))?;
+                            supervisor_addr.send(Report::Success(SuccessReport::new(actor, data)))?;
                             Ok(())
                         }
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
-                            let e = Arc::new(e);
-                            supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Result(e.clone())))?;
-                            Err(RuntimeError::ActorError(e))
+                            let err_str = e.to_string();
+                            supervisor_addr.send(Report::Error(ErrorReport::new(
+                                actor,
+                                data,
+                                ActorError::Result(e),
+                            )))?;
+                            Err(RuntimeError::ActorError(err_str))
                         }
                     },
                     Err(e) => {
-                        supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Panic))?;
+                        supervisor_addr.send(Report::Error(ErrorReport::new(actor, data, ActorError::Panic)))?;
                         std::panic::resume_unwind(e);
                     }
                 },
                 Err(_) => {
-                    supervisor_addr.send(ErrorReport::new(actor, data, ActorError::Aborted))?;
+                    supervisor_addr.send(Report::Error(ErrorReport::new(actor, data, ActorError::Aborted)))?;
                     Err(RuntimeError::AbortedScope(cx.scope.id()))
                 }
             }
@@ -251,13 +230,13 @@ impl RuntimeScope {
     }
 
     /// Spawns a new actor with no supervisor.
-    pub async fn spawn_actor<A, Cfg>(&mut self, actor: Cfg) -> Addr<A>
+    pub async fn spawn_actor_unsupervised<A, Cfg>(&mut self, actor: Cfg) -> Addr<A>
     where
-        A: 'static + Actor + Send + Sync,
+        A: 'static + Actor,
         Cfg: Into<SpawnConfig<A>>,
     {
-        let SpawnConfig { mut actor, stream } = actor.into();
-        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, stream).await;
+        let SpawnConfig { mut actor, config } = actor.into();
+        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
         let child_task = tokio::spawn(async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
@@ -267,7 +246,7 @@ impl RuntimeScope {
                         Ok(_) => Ok(()),
                         Err(e) => {
                             log::error!("{} exited with error: {}", actor.name(), e);
-                            Err(RuntimeError::ActorError(Arc::new(e)))
+                            Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },
                     Err(e) => {

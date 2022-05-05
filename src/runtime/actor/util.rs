@@ -11,6 +11,7 @@ use super::{
     report::Report,
     Actor,
 };
+use crate::runtime::config::SpawnConfig;
 
 /// A wrapper that can be used to delay an event until a specified time.
 #[derive(Debug)]
@@ -32,7 +33,7 @@ impl<E> DelayedEvent<E> {
 impl<A, E> HandleEvent<DelayedEvent<E>> for A
 where
     A: 'static + Actor,
-    E: 'static + Send + Sync + Debug + DynEvent<A>,
+    E: 'static + DynEvent<A>,
 {
     async fn handle_event(
         &mut self,
@@ -52,13 +53,13 @@ where
 /// An event which will spawn a supervised actor.
 #[derive(Debug)]
 pub struct SpawnActor<A: Actor> {
-    actor: A,
+    actor: SpawnConfig<A>,
 }
 
 impl<A: Actor> SpawnActor<A> {
     /// Creates a new [`SpawnActor`] event.
-    pub fn new(actor: A) -> Self {
-        Self { actor }
+    pub fn new<Cfg: Into<SpawnConfig<A>>>(actor: Cfg) -> Self {
+        Self { actor: actor.into() }
     }
 }
 
@@ -66,7 +67,7 @@ impl<A: Actor> SpawnActor<A> {
 impl<T, A> HandleEvent<SpawnActor<A>> for T
 where
     T: 'static + Actor + HandleEvent<Report<A>>,
-    A: 'static + Actor + Debug + Send + Sync,
+    A: 'static + Actor,
 {
     async fn handle_event(
         &mut self,
@@ -74,7 +75,7 @@ where
         event: SpawnActor<A>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        cx.spawn_actor_supervised(event.actor).await;
+        cx.spawn_child(event.actor).await;
         Ok(())
     }
 }

@@ -1,8 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::bson::{document::ValueAccessError, from_bson, from_document, Bson, Document};
-use serde::de::DeserializeOwned;
+use mongodb::bson::{document::ValueAccessError, Bson, Document};
 use thiserror::Error;
 
 /// Gets values and upcasts if necessary
@@ -160,62 +159,47 @@ mod private_doc_path {
 
 #[allow(missing_docs)]
 pub trait DocExt: private_doc_ext::SealedDocExt {
-    fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError>;
+    fn get_bson(&self, path: impl DocPath) -> Result<&Bson, DocError>;
 
-    fn convert_bson<T: DeserializeOwned, K: AsRef<str>>(&mut self, key: K) -> Result<T, DocError>;
+    fn take_bson(&mut self, path: impl DocPath) -> Result<Bson, DocError>;
 
-    fn take_array(&mut self, key: impl AsRef<str>) -> Result<Vec<Bson>, DocError>;
+    fn take_array(&mut self, path: impl DocPath) -> Result<Vec<Bson>, DocError>;
 
-    fn take_bytes(&mut self, key: impl AsRef<str>) -> Result<Vec<u8>, DocError>;
+    fn take_bytes(&mut self, path: impl DocPath) -> Result<Vec<u8>, DocError>;
 
-    fn take_document(&mut self, key: impl AsRef<str>) -> Result<Document, DocError>;
+    fn take_document(&mut self, path: impl DocPath) -> Result<Document, DocError>;
 
-    fn convert_document<T: DeserializeOwned, K: AsRef<str>>(&mut self, key: K) -> Result<T, DocError>;
+    fn get_as_string(&self, path: impl DocPath) -> Result<String, DocError>;
 
-    fn take_path(&mut self, path: impl DocPath) -> Result<Bson, DocError>;
+    fn get_as_u8(&self, path: impl DocPath) -> Result<u8, DocError>;
 
-    fn get_as_string(&self, key: impl AsRef<str>) -> Result<String, DocError>;
+    fn get_as_u16(&self, path: impl DocPath) -> Result<u16, DocError>;
 
-    fn get_as_u8(&self, key: impl AsRef<str>) -> Result<u8, DocError>;
+    fn get_as_u32(&self, path: impl DocPath) -> Result<u32, DocError>;
 
-    fn get_as_u16(&self, key: impl AsRef<str>) -> Result<u16, DocError>;
-
-    fn get_as_u32(&self, key: impl AsRef<str>) -> Result<u32, DocError>;
-
-    fn get_as_u64(&self, key: impl AsRef<str>) -> Result<u64, DocError>;
+    fn get_as_u64(&self, path: impl DocPath) -> Result<u64, DocError>;
 }
 
 impl DocExt for Document {
-    fn take_bson(&mut self, key: impl AsRef<str>) -> Result<Bson, DocError> {
-        let bson = self
-            .remove(key.as_ref())
-            .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?;
+    fn get_bson(&self, path: impl DocPath) -> Result<&Bson, DocError> {
+        let mut doc = self;
+        let mut path = path.into_segments();
+        if path.is_empty() {
+            return Err(DocError::MissingKey("".into()));
+        }
+        // Unwrap: Totes ok because we just checked that it's not empty.
+        let last = path.pop().unwrap();
+        for key in path {
+            doc = doc.get_document(key)?;
+        }
+        let bson = self.get(&last).ok_or_else(|| DocError::MissingKey(last.clone()))?;
         match bson {
-            Bson::Null => Err(DocError::NullValue(key.as_ref().into())),
+            Bson::Null => Err(DocError::NullValue(last)),
             _ => Ok(bson),
         }
     }
 
-    fn convert_bson<T: DeserializeOwned, K: AsRef<str>>(&mut self, key: K) -> Result<T, DocError> {
-        Ok(from_bson(self.take_bson(key)?)?)
-    }
-
-    fn take_array(&mut self, key: impl AsRef<str>) -> Result<Vec<Bson>, DocError> {
-        Ok(self.take_bson(key)?.to_array()?)
-    }
-    fn take_bytes(&mut self, key: impl AsRef<str>) -> Result<Vec<u8>, DocError> {
-        Ok(self.take_bson(key)?.to_bytes()?)
-    }
-
-    fn take_document(&mut self, key: impl AsRef<str>) -> Result<Document, DocError> {
-        Ok(self.take_bson(key)?.to_document()?)
-    }
-
-    fn convert_document<T: DeserializeOwned, K: AsRef<str>>(&mut self, key: K) -> Result<T, DocError> {
-        Ok(from_document(self.take_document(key)?)?)
-    }
-
-    fn take_path(&mut self, path: impl DocPath) -> Result<Bson, DocError> {
+    fn take_bson(&mut self, path: impl DocPath) -> Result<Bson, DocError> {
         let mut doc = self;
         let mut path = path.into_segments();
         if path.is_empty() {
@@ -226,42 +210,42 @@ impl DocExt for Document {
         for key in path {
             doc = doc.get_document_mut(key)?;
         }
-        doc.take_bson(last)
+        let bson = doc.remove(&last).ok_or_else(|| DocError::MissingKey(last.clone()))?;
+        match bson {
+            Bson::Null => Err(DocError::NullValue(last)),
+            _ => Ok(bson),
+        }
     }
 
-    fn get_as_string(&self, key: impl AsRef<str>) -> Result<String, DocError> {
-        Ok(self
-            .get(key.as_ref())
-            .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
-            .as_string()?)
+    fn take_array(&mut self, path: impl DocPath) -> Result<Vec<Bson>, DocError> {
+        Ok(self.take_bson(path)?.to_array()?)
+    }
+    fn take_bytes(&mut self, path: impl DocPath) -> Result<Vec<u8>, DocError> {
+        Ok(self.take_bson(path)?.to_bytes()?)
     }
 
-    fn get_as_u8(&self, key: impl AsRef<str>) -> Result<u8, DocError> {
-        Ok(self
-            .get(key.as_ref())
-            .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
-            .as_u8()?)
+    fn take_document(&mut self, path: impl DocPath) -> Result<Document, DocError> {
+        Ok(self.take_bson(path)?.to_document()?)
     }
 
-    fn get_as_u16(&self, key: impl AsRef<str>) -> Result<u16, DocError> {
-        Ok(self
-            .get(key.as_ref())
-            .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
-            .as_u16()?)
+    fn get_as_string(&self, path: impl DocPath) -> Result<String, DocError> {
+        Ok(self.get_bson(path)?.as_string()?)
     }
 
-    fn get_as_u32(&self, key: impl AsRef<str>) -> Result<u32, DocError> {
-        Ok(self
-            .get(key.as_ref())
-            .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
-            .as_u32()?)
+    fn get_as_u8(&self, path: impl DocPath) -> Result<u8, DocError> {
+        Ok(self.get_bson(path)?.as_u8()?)
     }
 
-    fn get_as_u64(&self, key: impl AsRef<str>) -> Result<u64, DocError> {
-        Ok(self
-            .get(key.as_ref())
-            .ok_or_else(|| DocError::MissingKey(key.as_ref().into()))?
-            .as_u64()?)
+    fn get_as_u16(&self, path: impl DocPath) -> Result<u16, DocError> {
+        Ok(self.get_bson(path)?.as_u16()?)
+    }
+
+    fn get_as_u32(&self, path: impl DocPath) -> Result<u32, DocError> {
+        Ok(self.get_bson(path)?.as_u32()?)
+    }
+
+    fn get_as_u64(&self, path: impl DocPath) -> Result<u64, DocError> {
+        Ok(self.get_bson(path)?.as_u64()?)
     }
 }
 

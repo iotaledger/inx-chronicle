@@ -5,7 +5,7 @@ use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
 use chronicle::db::{bson::DocError, model::inclusion_state::UnexpectedLedgerInclusionState};
-use hyper::StatusCode;
+use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
 use thiserror::Error;
@@ -14,7 +14,11 @@ use thiserror::Error;
 #[allow(missing_docs)]
 pub enum InternalApiError {
     #[error(transparent)]
+    BsonDeserialize(#[from] mongodb::bson::de::Error),
+    #[error(transparent)]
     Doc(#[from] DocError),
+    #[error(transparent)]
+    Config(#[from] ConfigError),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
@@ -102,6 +106,11 @@ pub enum ParseError {
     TimeRange(#[from] time::error::ComponentRange),
 }
 
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error(transparent)]
+    InvalidHeader(#[from] InvalidHeaderValue),
+}
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
     #[serde(skip_serializing)]

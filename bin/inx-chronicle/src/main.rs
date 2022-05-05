@@ -5,23 +5,23 @@
 
 /// Module containing the API.
 #[cfg(feature = "api")]
-pub mod api;
-mod broker;
+mod api;
+mod archiver;
 mod cli;
+mod collector;
 mod config;
 #[cfg(feature = "inx")]
 mod inx;
 
-use std::{error::Error, ops::Deref};
+use std::error::Error;
 
+use archiver::Archiver;
 use async_trait::async_trait;
-#[cfg(feature = "stardust")]
 use chronicle::{
     db::MongoDb,
     runtime::{
         actor::{
-            addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
-            Actor,
+            context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
         },
         error::RuntimeError,
         scope::RuntimeScope,
@@ -29,6 +29,9 @@ use chronicle::{
     },
 };
 use clap::Parser;
+use cli::CliArgs;
+use collector::{Collector, CollectorError};
+use config::{ChronicleConfig, ConfigError};
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -36,11 +39,6 @@ use thiserror::Error;
 use self::api::ApiWorker;
 #[cfg(feature = "inx")]
 use self::inx::{InxWorker, InxWorkerError};
-use self::{
-    broker::{Broker, BrokerError},
-    cli::CliArgs,
-    config::{ChronicleConfig, ConfigError},
-};
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -58,7 +56,7 @@ pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type State = (ChronicleConfig, Addr<Broker>);
+    type State = ChronicleConfig;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -83,45 +81,74 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        let broker_addr = cx.spawn_actor_supervised(Broker::new(db.clone())).await;
+        cx.spawn_child(Archiver::new(db.clone())).await;
+        cx.spawn_child(Collector::new(db.clone(), 1)).await;
+
         #[cfg(feature = "inx")]
-        cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
-            .await;
+        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
         #[cfg(feature = "api")]
-        cx.spawn_actor_supervised(ApiWorker::new(db)).await;
-        Ok((config, broker_addr))
+        cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
+        Ok(config)
     }
 }
 
 #[async_trait]
-impl HandleEvent<Report<Broker>> for Launcher {
+impl HandleEvent<Report<Collector>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<Broker>,
-        (config, broker_addr): &mut Self::State,
+        event: Report<Collector>,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match e.error {
-                ActorError::Result(e) => match e.deref() {
-                    BrokerError::RuntimeError(_) => {
-                        cx.shutdown();
-                    }
-                    BrokerError::MongoDbError(e) => match e.kind.as_ref() {
+            Report::Error(report) => match &report.error {
+                ActorError::Result(e) => match e {
+                    CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
-                            let handle = cx.spawn_actor_supervised(Broker::new(db)).await;
-                            *broker_addr = handle;
+                            cx.spawn_child(Collector::new(db, 1)).await;
                         }
                         _ => {
                             cx.shutdown();
                         }
                     },
+                    _ => {
+                        cx.shutdown();
+                    }
+                },
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<Archiver>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<Archiver>,
+        _config: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(report) => match &report.error {
+                #[allow(clippy::match_single_binding)]
+                ActorError::Result(e) => match e {
+                    // TODO
+                    _ => {
+                        cx.shutdown();
+                    }
                 },
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
@@ -139,21 +166,18 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxWorker>,
-        (config, broker_addr): &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match &e.error {
-                ActorError::Result(e) => match e.deref() {
+            Report::Error(e) => match &e.error {
+                ActorError::Result(e) => match e {
                     InxWorkerError::ConnectionError(_) => {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                        cx.delay(
-                            SpawnActor::new(InxWorker::new(config.inx.clone(), broker_addr.clone())),
-                            wait_interval,
-                        )?;
+                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), wait_interval)?;
                     }
                     InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
@@ -164,8 +188,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                     InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
-                                .await;
+                            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
@@ -180,13 +203,8 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     InxWorkerError::ListenerError(_) => {
                         cx.shutdown();
                     }
-                    InxWorkerError::MissingBroker => {
-                        if broker_addr.is_closed() {
-                            cx.delay(event, None)?;
-                        } else {
-                            cx.spawn_actor_supervised(InxWorker::new(config.inx.clone(), broker_addr.clone()))
-                                .await;
-                        }
+                    InxWorkerError::MissingCollector => {
+                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), None)?;
                     }
                     InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
@@ -208,16 +226,16 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<ApiWorker>,
-        (config, _): &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Ok(_) => {
+            Report::Success(_) => {
                 cx.shutdown();
             }
-            Err(e) => match e.error {
+            Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_actor_supervised(ApiWorker::new(db)).await;
+                    cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
@@ -243,7 +261,7 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_addr = scope.spawn_actor(Launcher).await;
+    let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();

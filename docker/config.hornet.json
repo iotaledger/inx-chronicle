@@ -76,7 +76,7 @@
   },
   "protocol": {
     "parameters": {
-      "networkName": "alphanet-4",
+      "networkName": "alphanet-5",
       "bech32HRP": "rms",
       "minPoWScore": 1000.0,
       "vByteCost": 500,
@@ -84,7 +84,7 @@
       "vByteFactorKey": 10,
       "tokenSupply": 2779530283277761
     },
-    "baseToken" : {
+    "baseToken": {
       "name": "Shimmer",
       "tickerSymbol": "SMR",
       "unit": "SMR",
