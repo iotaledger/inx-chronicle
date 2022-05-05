@@ -144,7 +144,7 @@ impl MongoDb {
         self.0
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .update_one(
-                doc! { "message_id": bson::to_bson(message_id)? },
+                doc! { "message.id": bson::to_bson(message_id)? },
                 doc! { "$set": { "metadata": bson::to_document(metadata)? } },
                 None,
             )
