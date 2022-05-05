@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{borrow::Cow, error::Error};
+use std::error::Error;
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -30,7 +30,7 @@ pub trait Actor: Send + Sync + Sized {
     type Error: Error + Send;
 
     /// Set this actor's name, primarily for debugging purposes.
-    fn name(&self) -> Cow<'static, str> {
+    fn name(&self) -> &'static str {
         std::any::type_name::<Self>().into()
     }
 
