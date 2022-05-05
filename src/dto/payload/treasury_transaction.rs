@@ -9,7 +9,7 @@ use super::MilestoneId;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
     input_milestone_id: MilestoneId,
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     output_amount: u64,
 }
 

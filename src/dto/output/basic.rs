@@ -8,7 +8,7 @@ use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BasicOutput {
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub unlock_conditions: Box<[UnlockCondition]>,

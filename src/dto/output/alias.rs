@@ -28,7 +28,7 @@ impl TryFrom<AliasId> for stardust::AliasId {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AliasOutput {
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub alias_id: AliasId,

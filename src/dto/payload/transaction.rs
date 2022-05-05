@@ -62,7 +62,7 @@ impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
 pub enum TransactionEssence {
     #[serde(rename = "regular")]
     Regular {
-        #[serde(with = "crate::dto::display_fromstr")]
+        #[serde(with = "crate::dto::stringify")]
         network_id: u64,
         inputs: Box<[dto::Input]>,
         #[serde(with = "serde_bytes")]

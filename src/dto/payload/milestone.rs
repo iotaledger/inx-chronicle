@@ -181,7 +181,7 @@ pub struct MigratedFundsEntry {
     #[serde(with = "serde_bytes")]
     tail_transaction_hash: Box<[u8]>,
     address: Address,
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     amount: u64,
 }
 

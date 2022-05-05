@@ -36,7 +36,7 @@ pub struct Message {
     pub protocol_version: u8,
     pub parents: Box<[MessageId]>,
     pub payload: Option<Payload>,
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     pub nonce: u64,
 }
 

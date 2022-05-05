@@ -15,7 +15,7 @@ pub enum UnlockCondition {
     #[serde(rename = "storage_deposit_return")]
     StorageDepositReturn {
         return_address: Address,
-        #[serde(with = "crate::dto::display_fromstr")]
+        #[serde(with = "crate::dto::stringify")]
         amount: u64,
     },
     #[serde(rename = "timelock")]

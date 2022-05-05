@@ -8,10 +8,10 @@ use super::{FeatureBlock, NativeToken, OutputAmount, TokenScheme, TokenTag, Unlo
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FoundryOutput {
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     amount: OutputAmount,
     native_tokens: Box<[NativeToken]>,
-    #[serde(with = "crate::dto::display_fromstr")]
+    #[serde(with = "crate::dto::stringify")]
     serial_number: u32,
     token_tag: TokenTag,
     token_scheme: TokenScheme,

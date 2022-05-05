@@ -14,7 +14,7 @@ mod unlock_block;
 
 pub use self::{address::*, input::*, message::*, output::*, payload::*, signature::*, unlock_block::*};
 
-pub mod display_fromstr {
+pub mod stringify {
     use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
     use serde::{de::Visitor, Deserializer, Serializer};
