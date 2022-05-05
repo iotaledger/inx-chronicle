@@ -10,6 +10,7 @@ mod cli;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod collector;
 mod config;
+mod metrics;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
 
@@ -25,6 +26,7 @@ use cli::CliArgs;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 use collector::{Collector, CollectorError};
 use config::{ChronicleConfig, ConfigError};
+use metrics::MetricsWorker;
 use thiserror::Error;
 
 #[cfg(feature = "api")]
@@ -82,6 +84,9 @@ impl Actor for Launcher {
 
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
+
+        cx.spawn_child(MetricsWorker::default()).await;
+
         Ok(config)
     }
 }
@@ -214,6 +219,21 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<MetricsWorker>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        _event: Report<MetricsWorker>,
+        _config: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        // FIXME: what to do here?
+        cx.shutdown();
+
         Ok(())
     }
 }
