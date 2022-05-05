@@ -3,10 +3,7 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        bson::{BsonExt, DocError, DocExt},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -19,8 +16,6 @@ use crate::archiver::Archiver;
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
-    #[error(transparent)]
-    Doc(#[from] DocError),
     #[error("the archiver is missing")]
     MissingArchiver,
     #[cfg(feature = "stardust")]
@@ -58,9 +53,8 @@ impl Actor for Solidifier {
 
 #[cfg(feature = "stardust")]
 mod stardust {
-    use std::str::FromStr;
 
-    use chronicle::{db::model::sync::SyncRecord, stardust::MessageId};
+    use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
     use crate::{
@@ -80,24 +74,17 @@ mod stardust {
             while let Some(message_id) = ms_state.process_queue.front() {
                 // Try the database first
                 match self.db.get_message(message_id).await? {
-                    Some(mut message_doc) => {
-                        match message_doc
-                            .take_bson("metadata.referenced_by_milestone_index")
-                            .ok()
-                            .map(|b| b.as_u32())
-                            .transpose()?
+                    Some(message_rec) => {
+                        match message_rec
+                            .metadata
+                            .map(|metadata| metadata.referenced_by_milestone_index)
                         {
                             Some(ms_index) => {
                                 // We may have reached a different milestone, in which case there is nothing to
                                 // do for this message
                                 if ms_state.milestone_index == ms_index {
-                                    let parents = message_doc
-                                        .take_array("message.parents.inner")?
-                                        .iter()
-                                        .map(|b| MessageId::from_str(b.as_str().unwrap()))
-                                        .collect::<Result<Vec<MessageId>, _>>()
-                                        .unwrap();
-                                    ms_state.messages.insert(*message_id, message_doc.take_bytes("raw")?);
+                                    let parents = Vec::from(message_rec.message.parents);
+                                    ms_state.messages.insert(message_id.clone(), message_rec.raw);
                                     ms_state.process_queue.extend(parents);
                                 }
                                 ms_state.process_queue.pop_front();
@@ -108,7 +95,11 @@ mod stardust {
                                 // back.
                                 cx.addr::<InxWorker>()
                                     .await
-                                    .send(InxRequest::get_metadata(*message_id, cx.handle().clone(), ms_state))
+                                    .send(InxRequest::get_metadata(
+                                        message_id.clone(),
+                                        cx.handle().clone(),
+                                        ms_state,
+                                    ))
                                     .map_err(|_| SolidifierError::MissingInxRequester)?;
                                 return Ok(());
                             }
@@ -120,7 +111,11 @@ mod stardust {
                         // back.
                         cx.addr::<InxWorker>()
                             .await
-                            .send(InxRequest::get_message(*message_id, cx.handle().clone(), ms_state))
+                            .send(InxRequest::get_message(
+                                message_id.clone(),
+                                cx.handle().clone(),
+                                ms_state,
+                            ))
                             .map_err(|_| SolidifierError::MissingInxRequester)?;
                         return Ok(());
                     }

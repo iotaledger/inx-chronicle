@@ -4,21 +4,22 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
+    #[serde(with = "crate::dto::display_fromstr")]
     amount: u64,
 }
 
-impl From<stardust::TreasuryOutput> for TreasuryOutput {
-    fn from(value: stardust::TreasuryOutput) -> Self {
+impl From<&stardust::TreasuryOutput> for TreasuryOutput {
+    fn from(value: &stardust::TreasuryOutput) -> Self {
         Self { amount: value.amount() }
     }
 }
 
 impl TryFrom<TreasuryOutput> for stardust::TreasuryOutput {
-    type Error = bee_message_stardust::Error;
+    type Error = crate::dto::error::Error;
 
     fn try_from(value: TreasuryOutput) -> Result<Self, Self::Error> {
-        Self::new(value.amount)
+        Ok(Self::new(value.amount)?)
     }
 }

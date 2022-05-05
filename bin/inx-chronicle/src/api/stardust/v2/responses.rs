@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::db::model::inclusion_state::LedgerInclusionState;
+use chronicle::{db::model::inclusion_state::LedgerInclusionState, dto};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::api::{
     impl_success_response,
@@ -19,7 +18,7 @@ pub struct MessageResponse {
     pub protocol_version: u8,
     #[serde(rename = "parentMessageIds")]
     pub parents: Vec<String>,
-    pub payload: Option<Value>,
+    pub payload: Option<dto::Payload>,
     pub nonce: u64,
 }
 
@@ -74,8 +73,8 @@ pub struct OutputResponse {
     #[serde(rename = "outputIndex")]
     pub output_index: u16,
     #[serde(rename = "spendingTransaction")]
-    pub spending_transaction: Option<Value>,
-    pub output: Value,
+    pub spending_transaction: Option<dto::Message>,
+    pub output: dto::Output,
 }
 
 impl_success_response!(OutputResponse);
@@ -90,9 +89,9 @@ pub struct TransactionResponse {
     #[serde(rename = "milestoneIndex")]
     pub milestone_index: Option<u32>,
     /// The output
-    pub outputs: Vec<Value>,
+    pub outputs: Vec<dto::Output>,
     /// The inputs, if they exist
-    pub inputs: Vec<Value>,
+    pub inputs: Vec<dto::Input>,
 }
 
 impl_success_response!(TransactionResponse);
@@ -107,12 +106,9 @@ impl_success_response!(TransactionsResponse);
 
 /// Response of `GET /api/v2/milestone/<index>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct MilestoneResponse {
-    #[serde(rename = "index")]
-    pub milestone_index: u32,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
-    pub timestamp: u32,
+    pub payload: dto::Payload,
 }
 
 impl_success_response!(MilestoneResponse);
