@@ -74,11 +74,44 @@ pub struct OutputResponse {
     #[serde(rename = "outputIndex")]
     pub output_index: u16,
     #[serde(rename = "spendingTransaction")]
-    pub spending_transaction: Option<Value>,
+    pub is_spent: bool,
+    #[serde(rename = "milestoneIndexSpent")]
+    pub milestone_index_spent: Option<u32>,
+    #[serde(rename = "milestoneTimestampSpent")]
+    pub milestone_ts_spent: Option<u32>,
+    #[serde(rename = "milestoneIndexBooked")]
+    pub milestone_index_booked: u32,
+    #[serde(rename = "milestoneTimestampBooked")]
+    pub milestone_ts_booked: u32,
     pub output: Value,
 }
 
 impl_success_response!(OutputResponse);
+
+/// Response of `GET /api/v2/outputs/<output_id>/metadata`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputMetadataResponse {
+    #[serde(rename = "messageId")]
+    pub message_id: String,
+    #[serde(rename = "transactionId")]
+    pub transaction_id: String,
+    #[serde(rename = "outputIndex")]
+    pub output_index: u16,
+    #[serde(rename = "spendingTransaction")]
+    pub is_spent: bool,
+    #[serde(rename = "milestoneIndexSpent")]
+    pub milestone_index_spent: Option<u32>,
+    #[serde(rename = "milestoneTimestampSpent")]
+    pub milestone_ts_spent: Option<u32>,
+    #[serde(rename = "transactionIdSpent")]
+    pub transaction_id_spent: Option<String>,
+    #[serde(rename = "milestoneIndexBooked")]
+    pub milestone_index_booked: u32,
+    #[serde(rename = "milestoneTimestampBooked")]
+    pub milestone_ts_booked: u32,
+}
+
+impl_success_response!(OutputMetadataResponse);
 
 /// Response of `GET /api/v2/transactions/<message_id>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -107,12 +140,9 @@ impl_success_response!(TransactionsResponse);
 
 /// Response of `GET /api/v2/milestone/<index>`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct MilestoneResponse {
-    #[serde(rename = "index")]
-    pub milestone_index: u32,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
-    pub timestamp: u32,
+    pub payload: Value,
 }
 
 impl_success_response!(MilestoneResponse);

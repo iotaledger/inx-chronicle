@@ -184,11 +184,7 @@ impl MongoDb {
     }
 
     /// Aggregates outputs by transaction ids.
-    pub async fn get_outputs_by_transaction_id(
-        &self,
-        transaction_id: &TransactionId,
-        idx: u16,
-    ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+    pub async fn get_output(&self, transaction_id: &TransactionId, idx: u16) -> Result<Option<Document>, Error> {
         self.0.collection::<Document>(MessageRecord::COLLECTION).aggregate(
             vec![
                 doc! { "$match": { "message.payload.transaction_id": transaction_id.to_string() } },
@@ -197,6 +193,8 @@ impl MongoDb {
             ],
             None,
         )
+        .await?
+        .try_next()
         .await
     }
 
