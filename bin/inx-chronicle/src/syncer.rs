@@ -15,8 +15,8 @@ use mongodb::bson;
 
 use crate::inx::InxWorker;
 
-const MIN_BATCH_SIZE: u32 = 1;
-const MAX_BATCH_SIZE: u32 = 50;
+const MIN_BATCH_SIZE: usize = 1;
+const MAX_BATCH_SIZE: usize = 50;
 
 pub(crate) type MilestoneIndex = u32;
 
@@ -34,7 +34,7 @@ pub(crate) struct Syncer {
     // the index we stop syncing.
     end_index: u32,
     // the batch of simultaneous synced milestones.
-    batch_size: u32,
+    batch_size: usize,
     // the requested milestone indexes.
     batch: HashSet<u32>,
 }
@@ -50,7 +50,7 @@ impl Syncer {
         }
     }
 
-    pub(crate) fn with_batch_size(mut self, value: u32) -> Self {
+    pub(crate) fn with_batch_size(mut self, value: usize) -> Self {
         self.batch_size = value.max(MIN_BATCH_SIZE).min(MAX_BATCH_SIZE);
         self
     }
@@ -74,16 +74,15 @@ impl HandleEvent<()> for Syncer {
         _: (),
         current_index: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        debug_assert!(self.batch.is_empty());
+
         if *current_index < self.start_index || *current_index > self.end_index {
             Ok(())
         } else {
             let start_index = *current_index + 1;
-            let stop_index = start_index + self.batch_size;
-
-            log::info!("Syncing range [{}:{}]", start_index, stop_index);
+            log::info!("Syncing range [{}..]", start_index);
 
             let mut index = start_index;
-            let mut num_requested = 0;
             'next_milestone: loop {
                 let synced_ms = self.db.get_sync_record_by_index(index).await;
                 match synced_ms {
@@ -93,7 +92,7 @@ impl HandleEvent<()> for Syncer {
                             if !sync_record.synced {
                                 log::info!("Requesting old milestone {}.", index);
                                 cx.addr::<InxWorker>().await.send(index)?;
-                                num_requested += 1;
+                                self.batch.insert(index);
                             } else {
                                 log::info!("{index} already synced.");
                             }
@@ -101,12 +100,12 @@ impl HandleEvent<()> for Syncer {
                         None => {
                             log::info!("Syncing {}.", index);
                             cx.addr::<InxWorker>().await.send(index)?;
-                            num_requested += 1;
+                            self.batch.insert(index);
                         }
                     },
                     Err(e) => log::error!("{:?}", e),
                 }
-                if num_requested == self.batch_size {
+                if self.batch.len() == self.batch_size {
                     break 'next_milestone;
                 }
 
