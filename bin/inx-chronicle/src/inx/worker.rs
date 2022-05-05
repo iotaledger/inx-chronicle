@@ -75,9 +75,10 @@ impl Actor for InxWorker {
 
         cx.spawn_child(InxListener::new(inx_client.clone())).await;
 
-        // Start syncing from the pruning index onwards.
+        // Start syncing from the pruning index until the current ledger index of the node.
         let start_index = node_status.pruning_index + 1;
-        cx.spawn_actor_unsupervised(Syncer::new(self.db.clone(), start_index))
+        let end_index = node_status.ledger_index + 1;
+        cx.spawn_child::<Syncer, _>(Syncer::new(self.db.clone(), start_index, end_index).with_batch_size(10))
             .await;
 
         Ok(inx_client)
@@ -113,6 +114,19 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<Syncer>> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        _exit: Report<Syncer>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        log::info!("Syncer finished.");
         Ok(())
     }
 }

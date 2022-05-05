@@ -12,8 +12,12 @@ use chronicle::{
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
+use crate::syncer::Syncer;
+
 #[derive(Debug, Error)]
 pub enum SolidifierError {
+    #[error("the syncer is missing")]
+    MissingSyncer,
     #[cfg(feature = "stardust")]
     #[error("the INX requester is missing")]
     MissingInxRequester,
@@ -141,6 +145,12 @@ mod stardust {
                     synced: true,
                 })
                 .await?;
+
+            cx.addr::<Syncer>()
+                .await
+                .send(ms_state.milestone_index)
+                .map_err(|_| SolidifierError::MissingSyncer)?;
+
             Ok(())
         }
     }
