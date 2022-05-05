@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::semantic::ConflictReason;
 use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc, Document},
@@ -11,10 +10,7 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{model::inclusion_state::LedgerInclusionState, MongoDb},
-    dto,
-};
+use crate::{db::MongoDb, dto};
 
 /// Chronicle Message record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -80,9 +76,9 @@ pub struct MessageMetadata {
     /// The corresponding milestone index.
     pub milestone_index: u32,
     /// The inclusion state of the message.
-    pub inclusion_state: LedgerInclusionState,
+    pub inclusion_state: dto::LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
-    pub conflict_reason: Option<ConflictReason>,
+    pub conflict_reason: Option<dto::ConflictReason>,
 }
 
 /// A result received when querying for a single output.
@@ -161,7 +157,7 @@ impl MongoDb {
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "inclusion_state": dto::LedgerInclusionState::Included,
                     "message.payload.essence.inputs.transaction_id": bson::to_bson(transaction_id)?,
                     "message.payload.essence.inputs.index": bson::to_bson(&idx)?
                 },
@@ -179,7 +175,7 @@ impl MongoDb {
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "inclusion_state": dto::LedgerInclusionState::Included,
                     "message.payload.transaction_id": bson::to_bson(transaction_id)?,
                 },
                 None,
@@ -220,7 +216,7 @@ impl MongoDb {
             // Only outputs for this address
             doc! { "$match": {
                 "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                "inclusion_state": LedgerInclusionState::Included, 
+                "inclusion_state": dto::LedgerInclusionState::Included, 
                 "message.payload.essence.outputs.address": bson::to_bson(&address)?
             } },
             doc! { "$set": {
@@ -242,7 +238,7 @@ impl MongoDb {
                 "pipeline": [
                     // Match using the output's index
                     { "$match": { 
-                        "inclusion_state": LedgerInclusionState::Included, 
+                        "inclusion_state": dto::LedgerInclusionState::Included, 
                         "message.payload.essence.inputs.transaction_id": "$$transaction_id",
                         "message.payload.essence.inputs.index": "$$index"
                     } },
@@ -292,7 +288,7 @@ impl MongoDb {
         .aggregate(
             vec![
                 doc! { "$match": {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "inclusion_state": dto::LedgerInclusionState::Included,
                     "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                     "message.payload.kind": "transaction",
                 } },
@@ -302,7 +298,7 @@ impl MongoDb {
                     "let": { "transaction_id": "$message.payload.essence.inputs.transaction_id", "index": "$message.payload.essence.inputs.index" },
                     "pipeline": [
                         { "$match": { 
-                            "inclusion_state": LedgerInclusionState::Included, 
+                            "inclusion_state": dto::LedgerInclusionState::Included, 
                             "message.payload.transaction_id": "$$transaction_id",
                         } },
                         { "$set": {
@@ -362,27 +358,31 @@ impl From<inx::MessageMetadata> for MessageMetadata {
             referenced_by_milestone_index: metadata.referenced_by_milestone_index,
             milestone_index: metadata.milestone_index,
             inclusion_state: match metadata.ledger_inclusion_state {
-                inx::LedgerInclusionState::Included => LedgerInclusionState::Included,
-                inx::LedgerInclusionState::NoTransaction => LedgerInclusionState::NoTransaction,
-                inx::LedgerInclusionState::Conflicting => LedgerInclusionState::Conflicting,
+                inx::LedgerInclusionState::Included => dto::LedgerInclusionState::Included,
+                inx::LedgerInclusionState::NoTransaction => dto::LedgerInclusionState::NoTransaction,
+                inx::LedgerInclusionState::Conflicting => dto::LedgerInclusionState::Conflicting,
             },
             conflict_reason: match metadata.conflict_reason {
                 inx::ConflictReason::None => None,
-                inx::ConflictReason::InputAlreadySpent => Some(ConflictReason::InputUtxoAlreadySpent),
+                inx::ConflictReason::InputAlreadySpent => Some(dto::ConflictReason::InputUtxoAlreadySpent),
                 inx::ConflictReason::InputAlreadySpentInThisMilestone => {
-                    Some(ConflictReason::InputUtxoAlreadySpentInThisMilestone)
+                    Some(dto::ConflictReason::InputUtxoAlreadySpentInThisMilestone)
                 }
-                inx::ConflictReason::InputNotFound => Some(ConflictReason::InputUtxoNotFound),
-                inx::ConflictReason::InputOutputSumMismatch => Some(ConflictReason::CreatedConsumedAmountMismatch),
-                inx::ConflictReason::InvalidSignature => Some(ConflictReason::InvalidSignature),
-                inx::ConflictReason::TimelockNotExpired => Some(ConflictReason::TimelockNotExpired),
-                inx::ConflictReason::InvalidNativeTokens => Some(ConflictReason::InvalidNativeTokens),
-                inx::ConflictReason::ReturnAmountNotFulfilled => Some(ConflictReason::StorageDepositReturnUnfulfilled),
-                inx::ConflictReason::InvalidInputUnlock => Some(ConflictReason::InvalidUnlockBlock),
-                inx::ConflictReason::InvalidInputsCommitment => Some(ConflictReason::InputsCommitmentsMismatch),
-                inx::ConflictReason::InvalidSender => Some(ConflictReason::UnverifiedSender),
-                inx::ConflictReason::InvalidChainStateTransition => Some(ConflictReason::InvalidChainStateTransition),
-                inx::ConflictReason::SemanticValidationFailed => Some(ConflictReason::SemanticValidationFailed),
+                inx::ConflictReason::InputNotFound => Some(dto::ConflictReason::InputUtxoNotFound),
+                inx::ConflictReason::InputOutputSumMismatch => Some(dto::ConflictReason::CreatedConsumedAmountMismatch),
+                inx::ConflictReason::InvalidSignature => Some(dto::ConflictReason::InvalidSignature),
+                inx::ConflictReason::TimelockNotExpired => Some(dto::ConflictReason::TimelockNotExpired),
+                inx::ConflictReason::InvalidNativeTokens => Some(dto::ConflictReason::InvalidNativeTokens),
+                inx::ConflictReason::ReturnAmountNotFulfilled => {
+                    Some(dto::ConflictReason::StorageDepositReturnUnfulfilled)
+                }
+                inx::ConflictReason::InvalidInputUnlock => Some(dto::ConflictReason::InvalidUnlockBlock),
+                inx::ConflictReason::InvalidInputsCommitment => Some(dto::ConflictReason::InputsCommitmentsMismatch),
+                inx::ConflictReason::InvalidSender => Some(dto::ConflictReason::UnverifiedSender),
+                inx::ConflictReason::InvalidChainStateTransition => {
+                    Some(dto::ConflictReason::InvalidChainStateTransition)
+                }
+                inx::ConflictReason::SemanticValidationFailed => Some(dto::ConflictReason::SemanticValidationFailed),
             },
         }
     }

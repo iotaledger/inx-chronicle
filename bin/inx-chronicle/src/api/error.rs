@@ -4,7 +4,7 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::db::{bson::DocError, model::inclusion_state::UnexpectedLedgerInclusionState};
+use chronicle::{db::bson::DocError, dto};
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -27,7 +27,7 @@ pub enum InternalApiError {
     #[error(transparent)]
     Stardust(#[from] chronicle::stardust::Error),
     #[error(transparent)]
-    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
+    UnexpectedLedgerInclusionState(#[from] dto::UnexpectedLedgerInclusionState),
     #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]

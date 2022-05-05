@@ -3,7 +3,7 @@
 
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
-    db::{bson::DocExt, model::inclusion_state::LedgerInclusionState, MongoDb},
+    db::{bson::DocExt, MongoDb},
     dto,
 };
 use futures::TryStreamExt;
@@ -55,7 +55,7 @@ async fn transaction_history(
                 inclusion_state: rec
                     .get_as_u8("inclusion_state")
                     .ok()
-                    .map(LedgerInclusionState::try_from)
+                    .map(dto::LedgerInclusionState::try_from)
                     .transpose()?,
                 message_id: rec.get_as_string("message_id")?,
                 amount: output.get_as_u64("amount")?,

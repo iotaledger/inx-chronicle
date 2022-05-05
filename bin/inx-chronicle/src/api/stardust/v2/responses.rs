@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::{db::model::inclusion_state::LedgerInclusionState, dto};
+use chronicle::dto;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{
@@ -38,7 +38,7 @@ pub struct MessageMetadataResponse {
     #[serde(rename = "milestoneIndex", skip_serializing_if = "Option::is_none")]
     pub milestone_index: Option<u32>,
     #[serde(rename = "ledgerInclusionState", skip_serializing_if = "Option::is_none")]
-    pub ledger_inclusion_state: Option<LedgerInclusionState>,
+    pub ledger_inclusion_state: Option<dto::LedgerInclusionState>,
     #[serde(rename = "conflictReason", skip_serializing_if = "Option::is_none")]
     pub conflict_reason: Option<u8>,
     #[serde(rename = "shouldPromote", skip_serializing_if = "Option::is_none")]
