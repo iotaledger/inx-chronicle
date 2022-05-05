@@ -60,7 +60,7 @@ impl Actor for ApiWorker {
         log::info!("Starting API server");
         let db = self.db.clone();
         let api_handle = cx.handle().clone();
-        let join_handle = spawn_task("Axum Server", async move {
+        let join_handle = spawn_task("Axum server", async move {
             let res = Server::bind(&([0, 0, 0, 0], 9092).into())
                 .serve(routes(db).into_make_service())
                 .with_graceful_shutdown(shutdown_signal(receiver))

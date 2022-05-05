@@ -194,7 +194,6 @@ impl RuntimeScope {
     {
         let SpawnConfig { mut actor, config } = actor.into();
         let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
-
         let child_task = spawn_task(actor.name(), async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
@@ -227,7 +226,6 @@ impl RuntimeScope {
                 }
             }
         });
-
         self.join_handles.push(child_task);
         handle
     }

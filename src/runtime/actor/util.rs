@@ -42,7 +42,7 @@ where
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         let handle = cx.handle().clone();
-        spawn_task("Delay Event Sleeper", async move {
+        spawn_task("delay event sleeper", async move {
             tokio::time::sleep(event.delay).await;
             handle.send(event.event).unwrap();
         });
