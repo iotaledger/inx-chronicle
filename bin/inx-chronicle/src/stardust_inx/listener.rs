@@ -25,7 +25,7 @@ type MessageMetadataStream = InxStreamListener<inx::proto::MessageMetadata>;
 type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
-pub enum InxListenerError {
+pub enum StardustInxListenerError {
     #[error("the collector is not running")]
     MissingCollector,
     #[error("failed to subscribe to stream: {0}")]
@@ -49,7 +49,7 @@ impl InxListener {
 #[async_trait]
 impl Actor for InxListener {
     type State = ();
-    type Error = InxListenerError;
+    type Error = StardustInxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
@@ -207,7 +207,7 @@ where
     E: 'static + Send,
 {
     type State = ();
-    type Error = InxListenerError;
+    type Error = StardustInxListenerError;
 
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
@@ -217,7 +217,7 @@ where
 #[async_trait]
 impl<E> HandleEvent<Result<E, Status>> for InxStreamListener<E>
 where
-    Self: Actor<Error = InxListenerError>,
+    Self: Actor<Error = StardustInxListenerError>,
     Collector: HandleEvent<E>,
     E: 'static + Send,
 {
@@ -230,7 +230,7 @@ where
         cx.addr::<Collector>()
             .await
             .send(event?)
-            .map_err(|_| InxListenerError::MissingCollector)?;
+            .map_err(|_| StardustInxListenerError::MissingCollector)?;
         Ok(())
     }
 }

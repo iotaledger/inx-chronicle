@@ -35,6 +35,7 @@ impl MilestoneRecord {
     pub const COLLECTION: &'static str = "stardust_milestones";
 }
 
+#[cfg(feature = "inx")]
 impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
     type Error = inx::Error;
 

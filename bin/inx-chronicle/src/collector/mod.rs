@@ -79,7 +79,8 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    solidifier::SolidifierError::MissingInxRequester => {
+                    #[cfg(all(feature = "stardust", feature = "inx"))]
+                    solidifier::SolidifierError::MissingStardustInxRequester => {
                         solidifiers.insert(report.actor.id, cx.spawn_child(report.actor).await);
                     }
                     // TODO: Maybe map Solidifier errors to Collector errors and return them?
@@ -96,8 +97,8 @@ impl HandleEvent<Report<Solidifier>> for Collector {
     }
 }
 
-#[cfg(feature = "stardust")]
-pub mod stardust {
+#[cfg(all(feature = "stardust", feature = "inx"))]
+pub mod stardust_inx {
     use chronicle::{
         db::model::stardust::{
             message::{MessageMetadata, MessageRecord},

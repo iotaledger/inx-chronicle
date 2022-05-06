@@ -48,6 +48,7 @@ impl MessageRecord {
     }
 }
 
+#[cfg(feature = "inx")]
 impl TryFrom<inx::proto::Message> for MessageRecord {
     type Error = inx::Error;
 
@@ -57,6 +58,7 @@ impl TryFrom<inx::proto::Message> for MessageRecord {
     }
 }
 
+#[cfg(feature = "inx")]
 impl TryFrom<(inx::proto::RawMessage, inx::proto::MessageMetadata)> for MessageRecord {
     type Error = inx::Error;
 
@@ -90,6 +92,36 @@ pub struct MessageMetadata {
     pub inclusion_state: LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
     pub conflict_reason: Option<ConflictReason>,
+}
+
+#[cfg(feature = "inx")]
+impl From<inx::MessageMetadata> for MessageMetadata {
+    fn from(metadata: inx::MessageMetadata) -> Self {
+        Self {
+            is_solid: metadata.is_solid,
+            should_promote: metadata.should_promote,
+            should_reattach: metadata.should_reattach,
+            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
+            milestone_index: metadata.milestone_index,
+            inclusion_state: match metadata.ledger_inclusion_state {
+                inx::LedgerInclusionState::Included => LedgerInclusionState::Included,
+                inx::LedgerInclusionState::NoTransaction => LedgerInclusionState::NoTransaction,
+                inx::LedgerInclusionState::Conflicting => LedgerInclusionState::Conflicting,
+            },
+            conflict_reason: match metadata.conflict_reason {
+                inx::ConflictReason::None => None,
+                inx::ConflictReason::InputAlreadySpent => Some(ConflictReason::InputUtxoAlreadySpent),
+                inx::ConflictReason::InputAlreadySpentInThisMilestone => {
+                    Some(ConflictReason::InputUtxoAlreadySpentInThisMilestone)
+                }
+                inx::ConflictReason::InputNotFound => Some(ConflictReason::InputUtxoNotFound),
+                inx::ConflictReason::InputOutputSumMismatch => todo!(),
+                inx::ConflictReason::InvalidSignature => Some(ConflictReason::InvalidSignature),
+                inx::ConflictReason::InvalidNetworkId => todo!(),
+                inx::ConflictReason::SemanticValidationFailed => Some(ConflictReason::SemanticValidationFailed),
+            },
+        }
+    }
 }
 
 impl MongoDb {
@@ -343,34 +375,5 @@ impl MongoDb {
             None,
         )
         .await?.try_next().await
-    }
-}
-
-impl From<inx::MessageMetadata> for MessageMetadata {
-    fn from(metadata: inx::MessageMetadata) -> Self {
-        Self {
-            is_solid: metadata.is_solid,
-            should_promote: metadata.should_promote,
-            should_reattach: metadata.should_reattach,
-            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
-            milestone_index: metadata.milestone_index,
-            inclusion_state: match metadata.ledger_inclusion_state {
-                inx::LedgerInclusionState::Included => LedgerInclusionState::Included,
-                inx::LedgerInclusionState::NoTransaction => LedgerInclusionState::NoTransaction,
-                inx::LedgerInclusionState::Conflicting => LedgerInclusionState::Conflicting,
-            },
-            conflict_reason: match metadata.conflict_reason {
-                inx::ConflictReason::None => None,
-                inx::ConflictReason::InputAlreadySpent => Some(ConflictReason::InputUtxoAlreadySpent),
-                inx::ConflictReason::InputAlreadySpentInThisMilestone => {
-                    Some(ConflictReason::InputUtxoAlreadySpentInThisMilestone)
-                }
-                inx::ConflictReason::InputNotFound => Some(ConflictReason::InputUtxoNotFound),
-                inx::ConflictReason::InputOutputSumMismatch => todo!(),
-                inx::ConflictReason::InvalidSignature => Some(ConflictReason::InvalidSignature),
-                inx::ConflictReason::InvalidNetworkId => todo!(),
-                inx::ConflictReason::SemanticValidationFailed => Some(ConflictReason::SemanticValidationFailed),
-            },
-        }
     }
 }

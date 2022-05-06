@@ -1,7 +1,7 @@
 [alias]
 ci-build-all = "build --all-targets --all-features --release"
-ci-build-inx = "build --all-targets --features inx --release"
-ci-build-api = "build --all-targets --features api --release"
+ci-build-inx = "build --all-targets --no-default-features --features 'inx, stardust' --release"
+ci-build-api = "build --all-targets --no-default-features --features 'api-node, stardust' --release"
 
 ci-clippy = "clippy --all-targets --all-features -- -D warnings"
 ci-doctest = "test --doc --all-features --release"
