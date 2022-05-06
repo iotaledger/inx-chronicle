@@ -79,9 +79,6 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    solidifier::SolidifierError::MissingArchiver => {
-                        solidifiers.insert(report.actor.id, cx.spawn_child(report.actor).await);
-                    }
                     solidifier::SolidifierError::MissingInxRequester => {
                         solidifiers.insert(report.actor.id, cx.spawn_child(report.actor).await);
                     }
@@ -101,7 +98,7 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
-    use std::collections::{BTreeMap, HashSet};
+    use std::collections::HashSet;
 
     use chronicle::{
         db::model::stardust::{
@@ -117,7 +114,6 @@ pub mod stardust {
     pub struct MilestoneState {
         pub milestone_index: u32,
         pub process_queue: VecDeque<dto::MessageId>,
-        pub messages: BTreeMap<dto::MessageId, Vec<u8>>,
         pub db_cache: HashSet<dto::MessageId>,
     }
 
@@ -126,7 +122,6 @@ pub mod stardust {
             Self {
                 milestone_index,
                 process_queue: VecDeque::new(),
-                messages: BTreeMap::new(),
                 db_cache: HashSet::new(),
             }
         }

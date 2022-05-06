@@ -8,6 +8,7 @@ use axum::{
     routing::*,
     Router,
 };
+use bee_message_stardust::payload::milestone::MilestoneId;
 use chronicle::{
     db::MongoDb,
     dto,
@@ -37,16 +38,18 @@ pub fn routes() -> Router {
             "/outputs",
             Router::new()
                 .route("/:output_id", get(output))
-                // TODO: For some reason, this route prevents the API from working.
-                //.route("/:transaction_id/:idx", get(output_by_transaction_id)),
+                .route("/:output_id/metadata", get(output_metadata)),
         )
         .nest(
             "/transactions",
-            Router::new()
-                .route("/:message_id", get(transaction_for_message))
-                .route("/included-message/:transaction_id", get(transaction_included_message)),
+            Router::new().route("/:transaction_id/included-message", get(transaction_included_message)),
         )
-        .route("/milestones/:index", get(milestone))
+        .nest(
+            "/milestones",
+            Router::new()
+                .route("/:milestone_id", get(milestone))
+                .route("/by-index/:index", get(milestone_by_index)),
+        )
 }
 
 async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
@@ -131,55 +134,98 @@ async fn message_children(
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from_str(&output_id)?;
-    output_by_transaction_id(
-        database,
-        Path((output_id.transaction_id().to_string(), output_id.index())),
-    )
-    .await
-}
-
-async fn output_by_transaction_id(
-    database: Extension<MongoDb>,
-    Path((transaction_id, idx)): Path<(String, u16)>,
-) -> ApiResult<OutputResponse> {
-    let transaction_id_dto = dto::TransactionId::from(TransactionId::from_str(&transaction_id)?);
+    let output_id = dto::OutputId::from(&OutputId::from_str(&output_id)?);
     let output_res = database
-        .get_output_by_transaction_id(&transaction_id_dto, idx)
+        .get_output(&output_id.transaction_id, output_id.index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let spending_transaction = database.get_spending_transaction(&transaction_id_dto, idx).await?;
+    let booked_ms_index = output_res
+        .metadata
+        .map(|d| d.referenced_by_milestone_index)
+        .ok_or(ApiError::NoResults)?;
+    let booked_ms = database
+        .get_milestone_record_by_index(booked_ms_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let spending_transaction = database
+        .get_spending_transaction(&output_id.transaction_id, output_id.index)
+        .await?;
+
+    let spending_ms_index = spending_transaction
+        .as_ref()
+        .and_then(|txn| txn.metadata.as_ref().map(|d| d.referenced_by_milestone_index));
+    let spending_ms = if let Some(ms_index) = spending_ms_index {
+        database.get_milestone_record_by_index(ms_index).await?
+    } else {
+        None
+    };
 
     Ok(OutputResponse {
         message_id: output_res.message_id.to_hex(),
-        transaction_id: transaction_id.to_string(),
-        output_index: idx,
-        spending_transaction: spending_transaction.map(|rec| rec.message),
+        transaction_id: output_id.transaction_id.to_hex(),
+        output_index: output_id.index,
+        is_spent: spending_transaction.is_some(),
+        milestone_index_spent: spending_ms_index,
+        milestone_ts_spent: spending_ms
+            .as_ref()
+            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+        milestone_index_booked: booked_ms_index,
+        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
         output: output_res.output,
     })
 }
 
-async fn transaction_for_message(
+async fn output_metadata(
     database: Extension<MongoDb>,
-    Path(message_id): Path<String>,
-) -> ApiResult<TransactionResponse> {
-    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
-    let rec = database
-        .get_message(&message_id_dto)
+    Path(output_id): Path<String>,
+) -> ApiResult<OutputMetadataResponse> {
+    let output_id = dto::OutputId::from(&OutputId::from_str(&output_id)?);
+    let output_res = database
+        .get_output(&output_id.transaction_id, output_id.index)
         .await?
         .ok_or(ApiError::NoResults)?;
-    if let Some(dto::Payload::Transaction(payload)) = rec.message.payload {
-        let dto::TransactionEssence::Regular { inputs, outputs, .. } = payload.essence;
-        Ok(TransactionResponse {
-            message_id,
-            milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
-            outputs: outputs.into(),
-            inputs: inputs.into(),
-        })
+
+    let booked_ms_index = output_res
+        .metadata
+        .map(|d| d.referenced_by_milestone_index)
+        .ok_or(ApiError::NoResults)?;
+    let booked_ms = database
+        .get_milestone_record_by_index(booked_ms_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let spending_transaction = database
+        .get_spending_transaction(&output_id.transaction_id, output_id.index)
+        .await?;
+
+    let spending_ms_index = spending_transaction
+        .as_ref()
+        .and_then(|txn| txn.metadata.as_ref().map(|d| d.referenced_by_milestone_index));
+    let spending_ms = if let Some(ms_index) = spending_ms_index {
+        database.get_milestone_record_by_index(ms_index).await?
     } else {
-        Err(ApiError::NoResults)
-    }
+        None
+    };
+
+    Ok(OutputMetadataResponse {
+        message_id: output_res.message_id.to_hex(),
+        transaction_id: output_id.transaction_id.to_hex(),
+        output_index: output_id.index,
+        is_spent: spending_transaction.is_some(),
+        milestone_index_spent: spending_ms_index,
+        milestone_ts_spent: spending_ms
+            .as_ref()
+            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+        transaction_id_spent: spending_transaction.as_ref().map(|txn| {
+            if let Some(dto::Payload::Transaction(payload)) = &txn.message.payload {
+                payload.id.to_hex()
+            } else {
+                unreachable!()
+            }
+        }),
+        milestone_index_booked: booked_ms_index,
+        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
+    })
 }
 
 async fn transaction_included_message(
@@ -200,7 +246,18 @@ async fn transaction_included_message(
     })
 }
 
-async fn milestone(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
+async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
+    let milestone_id_dto = dto::MilestoneId::from(MilestoneId::from_str(&milestone_id)?);
+    database
+        .get_milestone_record(&milestone_id_dto)
+        .await?
+        .ok_or(ApiError::NoResults)
+        .map(|rec| MilestoneResponse {
+            payload: dto::Payload::Milestone(Box::new(rec.payload)),
+        })
+}
+
+async fn milestone_by_index(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
     database
         .get_milestone_record_by_index(index)
         .await?

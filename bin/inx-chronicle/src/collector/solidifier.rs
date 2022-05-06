@@ -12,12 +12,8 @@ use chronicle::{
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
-use crate::archiver::Archiver;
-
 #[derive(Debug, Error)]
 pub enum SolidifierError {
-    #[error("the archiver is missing")]
-    MissingArchiver,
     #[cfg(feature = "stardust")]
     #[error("the INX requester is missing")]
     MissingInxRequester,
@@ -93,7 +89,6 @@ mod stardust {
                                     // do for this message
                                     if ms_state.milestone_index == ms_index {
                                         let parents = Vec::from(message_rec.message.parents);
-                                        ms_state.messages.insert(message_id.clone(), message_rec.raw);
                                         ms_state.process_queue.extend(parents);
                                     }
                                     ms_state.process_queue.pop_front();
@@ -134,7 +129,7 @@ mod stardust {
                 }
             }
             // If we finished all the parents, that means we have a complete milestone
-            // so we should mark it synced and send it to the archiver
+            // so we should mark it synced
             self.db
                 .upsert_sync_record(&SyncRecord {
                     milestone_index: ms_state.milestone_index,
@@ -142,13 +137,6 @@ mod stardust {
                     synced: true,
                 })
                 .await?;
-            cx.addr::<Archiver>()
-                .await
-                .send((
-                    ms_state.milestone_index,
-                    ms_state.messages.into_values().collect::<Vec<_>>(),
-                ))
-                .map_err(|_| SolidifierError::MissingArchiver)?;
             Ok(())
         }
     }

@@ -10,6 +10,12 @@ use crate::dto;
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
+impl TransactionId {
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0.as_ref())
+    }
+}
+
 impl From<stardust::TransactionId> for TransactionId {
     fn from(value: stardust::TransactionId) -> Self {
         Self(value.to_vec().into_boxed_slice())

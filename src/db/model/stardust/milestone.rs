@@ -47,14 +47,19 @@ impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
 
 impl MongoDb {
     /// Get milestone with index.
+    pub async fn get_milestone_record(&self, id: &dto::MilestoneId) -> Result<Option<MilestoneRecord>, Error> {
+        self.0
+            .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
+            .find_one(doc! {"milestone_id": bson::to_bson(id)?}, None)
+            .await
+    }
+
+    /// Get milestone with index.
     pub async fn get_milestone_record_by_index(&self, index: u32) -> Result<Option<MilestoneRecord>, Error> {
-        let res = self
-            .0
+        self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .find_one(doc! {"milestone_index": index}, None)
-            .await;
-
-        Ok(res.unwrap()) // Fix the `DocErr` type
+            .await
     }
 
     /// Upserts a [`MilestoneRecord`] to the database.

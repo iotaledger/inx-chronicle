@@ -86,6 +86,8 @@ pub struct MessageMetadata {
 pub struct OutputResult {
     /// The id of the message this output came from.
     pub message_id: dto::MessageId,
+    /// The metadata of the message this output came from.
+    pub metadata: Option<MessageMetadata>,
     /// The output.
     pub output: dto::Output,
 }
@@ -184,7 +186,7 @@ impl MongoDb {
     }
 
     /// Aggregates outputs by transaction ids.
-    pub async fn get_output_by_transaction_id(
+    pub async fn get_output(
         &self,
         transaction_id: &dto::TransactionId,
         idx: u16,
@@ -194,11 +196,15 @@ impl MongoDb {
                 doc! { "$match": { "message.payload.transaction_id": bson::to_bson(transaction_id)? } },
                 doc! { "$unwind": { "path": "$message.payload.essence.outputs", "includeArrayIndex": "message.payload.essence.outputs.idx" } },
                 doc! { "$match": { "message.payload.essence.outputs.idx": bson::to_bson(&idx)? } },
-                doc! { "$project": { "message_id": "$message.id", "output": "$message.payload.essence.outputs" } },
+                doc! { "$project": { "message_id": "$message.id", "metadata": "$metadata", "output": "$message.payload.essence.outputs" } },
             ],
             None,
         )
-        .await?.try_next().await?.map(bson::from_document).transpose()?)
+        .await?
+        .try_next()
+        .await?
+        .map(bson::from_document)
+        .transpose()?)
     }
 
     /// Aggregates the transaction history for an address.
