@@ -85,6 +85,7 @@ api-node = [
 ]
 inx = [
     "dep:inx",
+    "stardust"
 ]
 stardust = [
     "dep:bee-message-stardust",

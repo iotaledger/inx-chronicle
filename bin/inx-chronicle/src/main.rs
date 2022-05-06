@@ -7,6 +7,7 @@
 #[cfg(feature = "api")]
 mod api;
 mod cli;
+#[cfg(feature = "inx")]
 mod collector;
 mod config;
 #[cfg(feature = "inx")]
@@ -18,25 +19,26 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{
-        actor::{
-            context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
-        },
+        actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
         error::RuntimeError,
         scope::RuntimeScope,
         Runtime,
     },
 };
 use clap::Parser;
-use cli::CliArgs;
-use collector::{Collector, CollectorError};
-use config::{ChronicleConfig, ConfigError};
-use mongodb::error::ErrorKind;
 use thiserror::Error;
 
 #[cfg(feature = "api")]
 use self::api::ApiWorker;
+use self::{
+    cli::CliArgs,
+    config::{ChronicleConfig, ConfigError},
+};
 #[cfg(feature = "inx")]
-use self::inx::{InxWorker, InxWorkerError};
+use self::{
+    collector::{Collector, CollectorError},
+    inx::{InxWorker, InxWorkerError},
+};
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -79,10 +81,11 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        cx.spawn_child(Collector::new(db.clone(), 1)).await;
-
         #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+        {
+            cx.spawn_child(Collector::new(db.clone(), 1)).await;
+            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+        }
 
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
@@ -90,6 +93,7 @@ impl Actor for Launcher {
     }
 }
 
+#[cfg(feature = "inx")]
 #[async_trait]
 impl HandleEvent<Report<Collector>> for Launcher {
     async fn handle_event(
@@ -106,7 +110,8 @@ impl HandleEvent<Report<Collector>> for Launcher {
                 ActorError::Result(e) => match e {
                     CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
-                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                        mongodb::error::ErrorKind::Io(_)
+                        | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
                             cx.spawn_child(Collector::new(db, 1)).await;
                         }
@@ -136,6 +141,8 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
         event: Report<InxWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        use chronicle::runtime::actor::util::SpawnActor;
+
         match &event {
             Report::Success(_) => {
                 cx.shutdown();

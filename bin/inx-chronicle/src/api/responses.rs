@@ -8,6 +8,7 @@ use chronicle::db::model::{inclusion_state::LedgerInclusionState, sync::SyncData
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
+#[allow(unused)]
 macro_rules! impl_success_response {
     ($($type:ty),*) => {
         $(

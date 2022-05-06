@@ -12,11 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     db::{bson, model::inclusion_state::LedgerInclusionState, MongoDb},
-    stardust::{
-        payload::{transaction::TransactionId, TransactionPayload},
-        semantic::ConflictReason,
-        Message, MessageId,
-    },
+    stardust::{payload::transaction::TransactionId, semantic::ConflictReason, Message, MessageId},
 };
 
 /// Chronicle Message record.
@@ -281,6 +277,8 @@ impl MongoDb {
         start_milestone: u32,
         end_milestone: u32,
     ) -> Result<Option<Document>, Error> {
+        use crate::stardust::payload::TransactionPayload;
+
         self.0.collection::<Document>(MessageRecord::COLLECTION)
         .aggregate(
             vec![

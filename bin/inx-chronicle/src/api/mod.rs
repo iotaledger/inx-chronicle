@@ -4,15 +4,14 @@
 //! Contains routes that can be used to access data stored by Chronicle
 //! as well as the health of the application and analytics.
 
-mod extractors;
-
 #[cfg(feature = "stardust")]
 pub(crate) mod stardust;
 
+mod config;
 mod error;
+mod extractors;
 #[macro_use]
 mod responses;
-mod config;
 mod routes;
 
 use async_trait::async_trait;
@@ -24,6 +23,7 @@ use chronicle::{
 pub use config::ApiConfig;
 pub use error::ApiError;
 use hyper::Method;
+#[allow(unused_imports)]
 pub(crate) use responses::impl_success_response;
 pub use responses::SuccessBody;
 use routes::routes;
