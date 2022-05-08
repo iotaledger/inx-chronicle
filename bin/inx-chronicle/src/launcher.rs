@@ -71,7 +71,7 @@ impl Actor for Launcher {
         cx.spawn_child(Collector::new(db.clone(), 1)).await;
 
         #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(config.inx.clone(), db.clone())).await;
+        cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
 
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
@@ -137,7 +137,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
                         cx.delay(
-                            SpawnActor::new(InxWorker::new(config.inx.clone(), db.clone())),
+                            SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())),
                             wait_interval,
                         )?;
                     }
@@ -150,7 +150,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                     InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(InxWorker::new(config.inx.clone(), db.clone())).await;
+                            cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
@@ -166,7 +166,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                         cx.shutdown();
                     }
                     InxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone(), db.clone())), None)?;
+                        cx.delay(SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())), None)?;
                     }
                     InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();

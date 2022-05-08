@@ -29,7 +29,7 @@ pub struct InxWorker {
 }
 
 impl InxWorker {
-    pub fn new(config: InxConfig, db: MongoDb) -> Self {
+    pub fn new(db: MongoDb, config: InxConfig) -> Self {
         Self { config, db }
     }
 }
