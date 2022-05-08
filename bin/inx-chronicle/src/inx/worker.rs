@@ -78,8 +78,8 @@ impl Actor for InxWorker {
         // Start syncing from the pruning index until the current ledger index of the node.
         let start_index = node_status.pruning_index + 1;
         let end_index = node_status.ledger_index + 1;
-        cx.spawn_child::<Syncer, _>(Syncer::new(self.db.clone(), start_index, end_index).with_batch_size(1))
-            .await;
+        // cx.spawn_child::<Syncer, _>(Syncer::new(self.db.clone(), start_index, end_index).with_batch_size(1))
+        //     .await;
 
         Ok(inx_client)
     }

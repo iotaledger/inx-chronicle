@@ -12,6 +12,8 @@ use chronicle::{
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
+use std::time::Instant;
+
 #[derive(Debug, Error)]
 pub enum SolidifierError {
     #[error("the syncer is missing")]
@@ -68,6 +70,7 @@ mod stardust {
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
+            let now = Instant::now();
             while let Some(message_id) = ms_state.process_queue.front() {
                 // First check if we already processed this message in this run
                 if ms_state.visited.contains(message_id) {
@@ -133,6 +136,7 @@ mod stardust {
                     }
                 }
             }
+            let elapsed = now.elapsed();
 
             // If we finished all the parents, that means we have a complete milestone
             // so we should mark it synced
@@ -143,6 +147,8 @@ mod stardust {
                     synced: true,
                 })
                 .await?;
+
+            log::info!("Milestone {} synced in {}s.", ms_state.milestone_index, elapsed.as_secs_f32());
 
             Ok(())
         }
