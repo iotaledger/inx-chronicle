@@ -1,17 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{time::Duration, ops::Range};
+use std::{ops::Range, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::sync::SyncRecord, MongoDb},
+    db::MongoDb,
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
     },
 };
-use mongodb::bson;
 use serde::{Deserialize, Serialize};
 
 use crate::inx::{InxRequest, InxWorker};
@@ -42,32 +41,9 @@ impl Syncer {
         Self { db, config }
     }
 
-    async fn collect_unsolid_milestones(&self, start_index: u32, end_index: u32) -> Result<Vec<u32>, SyncerError> {
-        debug_assert!(end_index >= start_index);
-        log::info!("Searching for unsolid milestones in [{}:{}]...", start_index, end_index);
-
-        let mut unsolid_milestones = Vec::with_capacity((end_index - start_index) as usize);
-
-        for index in start_index..end_index {
-            let sync_record = self.db.get_sync_record_by_index(index).await?;
-            if match sync_record {
-                Some(doc) => {
-                    let sync_record: SyncRecord = bson::from_document(doc).map_err(SyncerError::Bson)?;
-                    !sync_record.synced
-                }
-                None => true,
-            } {
-                unsolid_milestones.push(index);
-
-                if unsolid_milestones.len() % 1000 == 0 {
-                    log::debug!("Found {} unsolid milestones.", unsolid_milestones.len());
-                }
-            }
-        }
-
-        log::info!("{} unsynced milestones detected.", unsolid_milestones.len());
-
-        Ok(unsolid_milestones)
+    async fn is_unsolid(&self, index: u32) -> Result<bool, SyncerError> {
+        let sync_record = self.db.get_sync_record_by_index(index).await?;
+        Ok(sync_record.map_or(true, |rec| !rec.synced))
     }
 }
 
@@ -91,15 +67,14 @@ impl HandleEvent<Range<u32>> for Syncer {
         range: Range<u32>,
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        let unsolid_milestones = self.collect_unsolid_milestones(range.start, range.end).await?;
+        for index in range {
+            if self.is_unsolid(index).await? {
+                log::info!("Requesting unsolid milestone {}.", index);
+                cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
 
-        // let mut num_requested = 0;
-        for index in unsolid_milestones.into_iter() {
-            log::info!("Requesting milestone {}.", index);
-            cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
-
-            // Cooldown a bit before issuing the next request.
-            tokio::time::sleep(self.config.cooldown).await;
+                // Cooldown a bit before issuing the next request.
+                tokio::time::sleep(self.config.cooldown).await;
+            }
         }
 
         Ok(())

@@ -233,8 +233,8 @@ impl HandleEvent<NodeStatus> for Launcher {
         status: NodeStatus,
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        let start_index = status.pruning_index.into();
-        let end_index = status.ledger_index.into();
+        let start_index = status.pruning_index + 1;
+        let end_index = status.ledger_index + 1;
         cx.addr::<Syncer>().await.send(start_index..end_index)?;
         Ok(())
     }

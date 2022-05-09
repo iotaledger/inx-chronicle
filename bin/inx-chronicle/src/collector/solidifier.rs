@@ -108,11 +108,7 @@ mod stardust {
                                     // back.
                                     cx.addr::<InxWorker>()
                                         .await
-                                        .send(InxRequest::metadata(
-                                            message_id.clone(),
-                                            cx.handle().clone(),
-                                            ms_state,
-                                        ))
+                                        .send(InxRequest::metadata(message_id.clone(), cx.handle().clone(), ms_state))
                                         .map_err(|_| SolidifierError::MissingInxRequester)?;
                                     return Ok(());
                                 }
@@ -125,11 +121,7 @@ mod stardust {
                             // back.
                             cx.addr::<InxWorker>()
                                 .await
-                                .send(InxRequest::message(
-                                    message_id.clone(),
-                                    cx.handle().clone(),
-                                    ms_state,
-                                ))
+                                .send(InxRequest::message(message_id.clone(), cx.handle().clone(), ms_state))
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
                             return Ok(());
                         }
