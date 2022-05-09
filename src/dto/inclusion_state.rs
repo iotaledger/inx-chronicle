@@ -10,7 +10,7 @@ use thiserror::Error;
 #[allow(missing_docs)]
 pub struct UnexpectedLedgerInclusionState(u8);
 
-/// A message's ledger inclusion state
+/// A message's ledger inclusion state.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum LedgerInclusionState {

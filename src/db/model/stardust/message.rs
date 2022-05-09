@@ -3,29 +3,20 @@
 
 use futures::{Stream, TryStreamExt};
 use mongodb::{
-    bson::{doc, Document},
+    bson::{self, doc, Document},
     error::Error,
     options::{FindOptions, UpdateOptions},
     results::UpdateResult,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::{bson, model::inclusion_state::LedgerInclusionState, MongoDb},
-    stardust::{
-        payload::{transaction::TransactionId, TransactionPayload},
-        semantic::ConflictReason,
-        Message, MessageId,
-    },
-};
+use crate::{db::MongoDb, dto};
 
 /// Chronicle Message record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageRecord {
-    /// The message ID.
-    pub message_id: MessageId,
     /// The message.
-    pub message: Message,
+    pub message: dto::Message,
     /// The raw bytes of the message.
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
@@ -38,9 +29,8 @@ impl MessageRecord {
     pub const COLLECTION: &'static str = "stardust_messages";
 
     /// Creates a new message record.
-    pub fn new(message: Message, raw: Vec<u8>) -> Self {
+    pub fn new(message: dto::Message, raw: Vec<u8>) -> Self {
         Self {
-            message_id: message.id(),
             message,
             raw,
             metadata: None,
@@ -53,7 +43,7 @@ impl TryFrom<inx::proto::Message> for MessageRecord {
 
     fn try_from(value: inx::proto::Message) -> Result<Self, Self::Error> {
         let (message, raw_message) = value.try_into()?;
-        Ok(Self::new(message.message, raw_message))
+        Ok(Self::new(message.message.into(), raw_message))
     }
 }
 
@@ -63,10 +53,9 @@ impl TryFrom<(inx::proto::RawMessage, inx::proto::MessageMetadata)> for MessageR
     fn try_from(
         (raw_message, metadata): (inx::proto::RawMessage, inx::proto::MessageMetadata),
     ) -> Result<Self, Self::Error> {
-        let message = Message::try_from(raw_message.clone())?;
+        let message = bee_message_stardust::Message::try_from(raw_message.clone())?;
         Ok(Self {
-            message_id: message.id(),
-            message,
+            message: message.into(),
             raw: raw_message.data,
             metadata: Some(inx::MessageMetadata::try_from(metadata)?.into()),
         })
@@ -87,31 +76,42 @@ pub struct MessageMetadata {
     /// The corresponding milestone index.
     pub milestone_index: u32,
     /// The inclusion state of the message.
-    pub inclusion_state: LedgerInclusionState,
+    pub inclusion_state: dto::LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
-    pub conflict_reason: Option<ConflictReason>,
+    pub conflict_reason: Option<dto::ConflictReason>,
+}
+
+/// A result received when querying for a single output.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputResult {
+    /// The id of the message this output came from.
+    pub message_id: dto::MessageId,
+    /// The metadata of the message this output came from.
+    pub metadata: Option<MessageMetadata>,
+    /// The output.
+    pub output: dto::Output,
 }
 
 impl MongoDb {
     /// Get milestone with index.
-    pub async fn get_message(&self, message_id: &MessageId) -> Result<Option<Document>, Error> {
+    pub async fn get_message(&self, message_id: &dto::MessageId) -> Result<Option<MessageRecord>, Error> {
         self.0
-            .collection::<Document>(MessageRecord::COLLECTION)
-            .find_one(doc! {"message_id": message_id.to_string()}, None)
+            .collection::<MessageRecord>(MessageRecord::COLLECTION)
+            .find_one(doc! {"message.id": bson::to_bson(message_id)?}, None)
             .await
     }
 
     /// Get the children of a message.
     pub async fn get_message_children(
         &self,
-        message_id: &MessageId,
+        message_id: &dto::MessageId,
         page_size: usize,
         page: usize,
-    ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<MessageRecord, Error>>, Error> {
         self.0
-            .collection::<Document>(MessageRecord::COLLECTION)
+            .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .find(
-                doc! {"message.parents": message_id.to_string()},
+                doc! {"message.parents": bson::to_bson(message_id)?},
                 FindOptions::builder()
                     .skip((page_size * page) as u64)
                     .sort(doc! {"milestone_index": -1})
@@ -123,12 +123,11 @@ impl MongoDb {
 
     /// Upserts a [`MessageRecord`] to the database.
     pub async fn upsert_message_record(&self, message_record: &MessageRecord) -> Result<UpdateResult, Error> {
-        let doc = bson::to_document(message_record)?;
         self.0
-            .collection::<Document>(MessageRecord::COLLECTION)
+            .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .update_one(
-                doc! { "_id": message_record.message_id.to_string() },
-                doc! { "$set": doc },
+                doc! { "_id": bson::to_bson(&message_record.message.id)? },
+                doc! { "$set": bson::to_document(message_record)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await
@@ -137,13 +136,13 @@ impl MongoDb {
     /// Updates a [`MessageRecord`] with [`MessageMetadata`].
     pub async fn update_message_metadata(
         &self,
-        message_id: &MessageId,
+        message_id: &dto::MessageId,
         metadata: &MessageMetadata,
     ) -> Result<UpdateResult, Error> {
         self.0
-            .collection::<Document>(MessageRecord::COLLECTION)
+            .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .update_one(
-                doc! { "message_id": message_id.to_string() },
+                doc! { "message.id": bson::to_bson(message_id)? },
                 doc! { "$set": { "metadata": bson::to_document(metadata)? } },
                 None,
             )
@@ -153,16 +152,16 @@ impl MongoDb {
     /// Aggregates the spending transactions
     pub async fn get_spending_transaction(
         &self,
-        transaction_id: &TransactionId,
+        transaction_id: &dto::TransactionId,
         idx: u16,
-    ) -> Result<Option<Document>, Error> {
+    ) -> Result<Option<MessageRecord>, Error> {
         self.0
-            .collection::<Document>(MessageRecord::COLLECTION)
+            .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
-                    "message.payload.data.essence.data.inputs.transaction_id": transaction_id.to_string(),
-                    "message.payload.data.essence.data.inputs.index": idx as i64
+                    "inclusion_state": dto::LedgerInclusionState::Included,
+                    "message.payload.essence.inputs.transaction_id": bson::to_bson(transaction_id)?,
+                    "message.payload.essence.inputs.index": bson::to_bson(&idx)?
                 },
                 None,
             )
@@ -170,13 +169,16 @@ impl MongoDb {
     }
 
     /// Finds the message that included a transaction.
-    pub async fn get_message_for_transaction(&self, transaction_id: &str) -> Result<Option<Document>, Error> {
+    pub async fn get_message_for_transaction(
+        &self,
+        transaction_id: &dto::TransactionId,
+    ) -> Result<Option<MessageRecord>, Error> {
         self.0
-            .collection::<Document>(MessageRecord::COLLECTION)
+            .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
-                    "message.payload.transaction_id": transaction_id,
+                    "inclusion_state": dto::LedgerInclusionState::Included,
+                    "message.payload.transaction_id": bson::to_bson(transaction_id)?,
                 },
                 None,
             )
@@ -184,24 +186,31 @@ impl MongoDb {
     }
 
     /// Aggregates outputs by transaction ids.
-    pub async fn get_output(&self, transaction_id: &TransactionId, idx: u16) -> Result<Option<Document>, Error> {
-        self.0.collection::<Document>(MessageRecord::COLLECTION).aggregate(
+    pub async fn get_output(
+        &self,
+        transaction_id: &dto::TransactionId,
+        idx: u16,
+    ) -> Result<Option<OutputResult>, Error> {
+        Ok(self.0.collection::<MessageRecord>(MessageRecord::COLLECTION).aggregate(
             vec![
-                doc! { "$match": { "message.payload.transaction_id": transaction_id.to_string() } },
-                doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
-                doc! { "$match": { "message.payload.data.essence.data.outputs.idx": idx as i64 } },
+                doc! { "$match": { "message.payload.transaction_id": bson::to_bson(transaction_id)? } },
+                doc! { "$unwind": { "path": "$message.payload.essence.outputs", "includeArrayIndex": "message.payload.essence.outputs.idx" } },
+                doc! { "$match": { "message.payload.essence.outputs.idx": bson::to_bson(&idx)? } },
+                doc! { "$project": { "message_id": "$message.id", "metadata": "$metadata", "output": "$message.payload.essence.outputs" } },
             ],
             None,
         )
         .await?
         .try_next()
-        .await
+        .await?
+        .map(bson::from_document)
+        .transpose()?)
     }
 
     /// Aggregates the transaction history for an address.
     pub async fn get_transaction_history(
         &self,
-        address: &str,
+        address: &dto::Address,
         page_size: usize,
         page: usize,
         start_milestone: u32,
@@ -213,36 +222,36 @@ impl MongoDb {
             // Only outputs for this address
             doc! { "$match": {
                 "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                "inclusion_state": LedgerInclusionState::Included, 
-                "message.payload.data.essence.data.outputs.address.data": &address 
+                "inclusion_state": dto::LedgerInclusionState::Included, 
+                "message.payload.essence.outputs.address": bson::to_bson(&address)?
             } },
             doc! { "$set": {
-                "message.payload.data.essence.data.outputs": {
+                "message.payload.essence.outputs": {
                     "$filter": {
-                        "input": "$message.payload.data.essence.data.outputs",
+                        "input": "$message.payload.essence.outputs",
                         "as": "output",
-                        "cond": { "$eq": [ "$$output.address.data", &address ] }
+                        "cond": { "$eq": [ "$$output.address", bson::to_bson(&address)? ] }
                     }
                 }
             } },
             // One result per output
-            doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
+            doc! { "$unwind": { "path": "$message.payload.essence.outputs", "includeArrayIndex": "message.payload.essence.outputs.idx" } },
             // Lookup spending inputs for each output, if they exist
             doc! { "$lookup": {
                 "from": "stardust_messages",
                 // Keep track of the output id
-                "let": { "transaction_id": "$message.payload.transaction_id", "index": "$message.payload.data.essence.data.outputs.idx" },
+                "let": { "transaction_id": "$message.payload.transaction_id", "index": "$message.payload.essence.outputs.idx" },
                 "pipeline": [
                     // Match using the output's index
                     { "$match": { 
-                        "inclusion_state": LedgerInclusionState::Included, 
-                        "message.payload.data.essence.data.inputs.transaction_id": "$$transaction_id",
-                        "message.payload.data.essence.data.inputs.index": "$$index"
+                        "inclusion_state": dto::LedgerInclusionState::Included, 
+                        "message.payload.essence.inputs.transaction_id": "$$transaction_id",
+                        "message.payload.essence.inputs.index": "$$index"
                     } },
                     { "$set": {
-                        "message.payload.data.essence.data.inputs": {
+                        "message.payload.essence.inputs": {
                             "$filter": {
-                                "input": "$message.payload.data.essence.data.inputs",
+                                "input": "$message.payload.essence.inputs",
                                 "as": "input",
                                 "cond": { "$and": {
                                     "$eq": [ "$$input.transaction_id", "$$transaction_id" ],
@@ -252,7 +261,7 @@ impl MongoDb {
                         }
                     } },
                     // One result per spending input
-                    { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
+                    { "$unwind": { "path": "$message.payload.essence.outputs", "includeArrayIndex": "message.payload.essence.outputs.idx" } },
                 ],
                 // Store the result
                 "as": "spending_transaction"
@@ -265,7 +274,7 @@ impl MongoDb {
             doc! { "$set": { 
                 "milestone_index": { "$cond": [ { "$not": [ "$spending_transaction" ] }, "$milestone_index", "$spending_transaction.0.milestone_index" ] } 
             } },
-            doc! { "$sort": { "milestone_index": -1i32 } },
+            doc! { "$sort": { "milestone_index": -1 } },
             doc! { "$skip": (page_size * page) as i64 },
             doc! { "$limit": page_size as i64 },
         ], None)
@@ -281,27 +290,27 @@ impl MongoDb {
         start_milestone: u32,
         end_milestone: u32,
     ) -> Result<Option<Document>, Error> {
-        self.0.collection::<Document>(MessageRecord::COLLECTION)
+        self.0.collection::<MessageRecord>(MessageRecord::COLLECTION)
         .aggregate(
             vec![
                 doc! { "$match": {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "inclusion_state": dto::LedgerInclusionState::Included,
                     "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                    "message.payload.data.kind": TransactionPayload::KIND as i32,
+                    "message.payload.kind": "transaction",
                 } },
-                doc! { "$unwind": { "path": "$message.payload.data.essence.data.inputs", "includeArrayIndex": "message.payload.data.essence.data.inputs.idx" } },
+                doc! { "$unwind": { "path": "$message.payload.essence.inputs", "includeArrayIndex": "message.payload.essence.inputs.idx" } },
                 doc! { "$lookup": {
                     "from": "stardust_messages",
-                    "let": { "transaction_id": "$message.payload.data.essence.data.inputs.transaction_id", "index": "$message.payload.data.essence.data.inputs.index" },
+                    "let": { "transaction_id": "$message.payload.essence.inputs.transaction_id", "index": "$message.payload.essence.inputs.index" },
                     "pipeline": [
                         { "$match": { 
-                            "inclusion_state": LedgerInclusionState::Included, 
+                            "inclusion_state": dto::LedgerInclusionState::Included, 
                             "message.payload.transaction_id": "$$transaction_id",
                         } },
                         { "$set": {
-                            "message.payload.data.essence.data.outputs": {
+                            "message.payload.essence.outputs": {
                                 "$arrayElemAt": [
-                                    "$message.payload.data.essence.data.outputs",
+                                    "$message.payload.essence.outputs",
                                     "$$index"
                                 ]
                             }
@@ -309,9 +318,9 @@ impl MongoDb {
                     ],
                     "as": "spent_transaction"
                 } },
-                doc! { "$set": { "send_address": "$spent_transaction.message.payload.data.essence.data.outputs.address.data" } },
-                doc! { "$unwind": { "path": "$message.payload.data.essence.data.outputs", "includeArrayIndex": "message.payload.data.essence.data.outputs.idx" } },
-                doc! { "$set": { "recv_address": "$message.payload.data.essence.data.outputs.address.data" } },
+                doc! { "$set": { "send_address": "$spent_transaction.message.payload.essence.outputs.address" } },
+                doc! { "$unwind": { "path": "$message.payload.essence.outputs", "includeArrayIndex": "message.payload.essence.outputs.idx" } },
+                doc! { "$set": { "recv_address": "$message.payload.essence.outputs.address" } },
                 doc! { "$facet": {
                     "total": [
                         { "$set": { "address": ["$send_address", "$recv_address"] } },
@@ -335,9 +344,9 @@ impl MongoDb {
                     ],
                 } },
                 doc! { "$project": {
-                    "total_addresses": { "$arrayElemAt": ["$total.addresses", 0u32] },
-                    "recv_addresses": { "$arrayElemAt": ["$recv.addresses", 0u32] },
-                    "send_addresses": { "$arrayElemAt": ["$send.addresses", 0u32] },
+                    "total_addresses": { "$arrayElemAt": ["$total.addresses", 0] },
+                    "recv_addresses": { "$arrayElemAt": ["$recv.addresses", 0] },
+                    "send_addresses": { "$arrayElemAt": ["$send.addresses", 0] },
                 } },
             ],
             None,
@@ -355,21 +364,31 @@ impl From<inx::MessageMetadata> for MessageMetadata {
             referenced_by_milestone_index: metadata.referenced_by_milestone_index,
             milestone_index: metadata.milestone_index,
             inclusion_state: match metadata.ledger_inclusion_state {
-                inx::LedgerInclusionState::Included => LedgerInclusionState::Included,
-                inx::LedgerInclusionState::NoTransaction => LedgerInclusionState::NoTransaction,
-                inx::LedgerInclusionState::Conflicting => LedgerInclusionState::Conflicting,
+                inx::LedgerInclusionState::Included => dto::LedgerInclusionState::Included,
+                inx::LedgerInclusionState::NoTransaction => dto::LedgerInclusionState::NoTransaction,
+                inx::LedgerInclusionState::Conflicting => dto::LedgerInclusionState::Conflicting,
             },
             conflict_reason: match metadata.conflict_reason {
                 inx::ConflictReason::None => None,
-                inx::ConflictReason::InputAlreadySpent => Some(ConflictReason::InputUtxoAlreadySpent),
+                inx::ConflictReason::InputAlreadySpent => Some(dto::ConflictReason::InputUtxoAlreadySpent),
                 inx::ConflictReason::InputAlreadySpentInThisMilestone => {
-                    Some(ConflictReason::InputUtxoAlreadySpentInThisMilestone)
+                    Some(dto::ConflictReason::InputUtxoAlreadySpentInThisMilestone)
                 }
-                inx::ConflictReason::InputNotFound => Some(ConflictReason::InputUtxoNotFound),
-                inx::ConflictReason::InputOutputSumMismatch => todo!(),
-                inx::ConflictReason::InvalidSignature => Some(ConflictReason::InvalidSignature),
-                inx::ConflictReason::InvalidNetworkId => todo!(),
-                inx::ConflictReason::SemanticValidationFailed => Some(ConflictReason::SemanticValidationFailed),
+                inx::ConflictReason::InputNotFound => Some(dto::ConflictReason::InputUtxoNotFound),
+                inx::ConflictReason::InputOutputSumMismatch => Some(dto::ConflictReason::CreatedConsumedAmountMismatch),
+                inx::ConflictReason::InvalidSignature => Some(dto::ConflictReason::InvalidSignature),
+                inx::ConflictReason::TimelockNotExpired => Some(dto::ConflictReason::TimelockNotExpired),
+                inx::ConflictReason::InvalidNativeTokens => Some(dto::ConflictReason::InvalidNativeTokens),
+                inx::ConflictReason::ReturnAmountNotFulfilled => {
+                    Some(dto::ConflictReason::StorageDepositReturnUnfulfilled)
+                }
+                inx::ConflictReason::InvalidInputUnlock => Some(dto::ConflictReason::InvalidUnlockBlock),
+                inx::ConflictReason::InvalidInputsCommitment => Some(dto::ConflictReason::InputsCommitmentsMismatch),
+                inx::ConflictReason::InvalidSender => Some(dto::ConflictReason::UnverifiedSender),
+                inx::ConflictReason::InvalidChainStateTransition => {
+                    Some(dto::ConflictReason::InvalidChainStateTransition)
+                }
+                inx::ConflictReason::SemanticValidationFailed => Some(dto::ConflictReason::SemanticValidationFailed),
             },
         }
     }

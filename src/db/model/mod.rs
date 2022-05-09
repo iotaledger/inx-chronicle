@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-/// Module containing the ledger inclusion state model.
-pub mod inclusion_state;
 /// Module containing information about the network and state of the node.
 pub mod status;
 
