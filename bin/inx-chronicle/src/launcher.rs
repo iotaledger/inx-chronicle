@@ -76,8 +76,7 @@ impl Actor for Launcher {
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
 
-        cx.spawn_child(Syncer::new(db.clone()).with_batch_size(10))
-            .await;
+        cx.spawn_child(Syncer::new(db.clone()).with_batch_size(10)).await;
 
         Ok((config, db))
     }
@@ -139,10 +138,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     InxWorkerError::ConnectionError(_) => {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                        cx.delay(
-                            SpawnActor::new(InxWorker::new(config.inx.clone())),
-                            wait_interval,
-                        )?;
+                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), wait_interval)?;
                     }
                     InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();

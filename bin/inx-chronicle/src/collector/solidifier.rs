@@ -58,7 +58,7 @@ mod stardust {
     use super::*;
     use crate::{
         collector::stardust::MilestoneState,
-        inx::{InxWorker, InxRequest},
+        inx::{InxRequest, InxWorker},
     };
 
     #[async_trait]

@@ -17,9 +17,7 @@ use super::{
     listener::{InxListener, InxListenerError},
     InxConfig, InxWorkerError,
 };
-use crate::{
-    collector::{solidifier::Solidifier, Collector},
-};
+use crate::collector::{solidifier::Solidifier, Collector};
 
 #[derive(Debug)]
 pub struct InxWorker {
@@ -106,7 +104,10 @@ pub mod stardust {
     use chronicle::dto::MessageId;
 
     use super::*;
-    use crate::{collector::stardust::{MilestoneState, RequestedMessage}, launcher::Launcher};
+    use crate::{
+        collector::stardust::{MilestoneState, RequestedMessage},
+        launcher::Launcher,
+    };
 
     #[derive(Debug)]
     pub enum InxRequest {

@@ -159,7 +159,10 @@ pub mod stardust {
             message: inx::proto::Message,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Message Event ({})", hex::encode(message.message_id.as_ref().unwrap().id.as_slice()));
+            log::trace!(
+                "Received Stardust Message Event ({})",
+                hex::encode(message.message_id.as_ref().unwrap().id.as_slice())
+            );
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
                     self.db.upsert_message_record(&rec).await?;

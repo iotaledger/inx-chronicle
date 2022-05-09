@@ -8,13 +8,13 @@ use bee_message_stardust::payload::milestone::MilestoneIndex;
 use chronicle::{
     db::{model::sync::SyncRecord, MongoDb},
     runtime::{
-        actor::{context::ActorContext, Actor, event::HandleEvent},
+        actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
     },
 };
 use mongodb::bson;
 
-use crate::inx::{InxWorker, InxRequest};
+use crate::inx::{InxRequest, InxWorker};
 
 const MIN_BATCH_SIZE: usize = 1;
 const MAX_BATCH_SIZE: usize = 50;
@@ -38,11 +38,7 @@ pub(crate) struct Syncer {
 
 impl Syncer {
     pub(crate) fn new(db: MongoDb) -> Self {
-
-        Self {
-            db,
-            batch_size: 1,
-        }
+        Self { db, batch_size: 1 }
     }
 
     pub(crate) fn with_batch_size(mut self, value: usize) -> Self {
@@ -99,7 +95,6 @@ impl HandleEvent<(MilestoneIndex, MilestoneIndex)> for Syncer {
         (start_index, end_index): (MilestoneIndex, MilestoneIndex),
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
-
         let unsolid_milestones = self.collect_unsolid_milestones(*start_index, *end_index).await?;
 
         let mut num_requested = 0;
