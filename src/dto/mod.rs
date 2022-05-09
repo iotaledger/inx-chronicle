@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(missing_docs)]
+#![allow(missing_docs)] // TODO: Add missing comments
 
 mod address;
 mod conflict_reason;
