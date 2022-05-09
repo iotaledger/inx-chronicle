@@ -55,7 +55,7 @@ pub mod stringify {
         deserializer.deserialize_str(Helper(PhantomData))
     }
 
-    /// Serialize T using [Display]
+    /// Serialize T using [`Display`]
     pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         T: Display,
