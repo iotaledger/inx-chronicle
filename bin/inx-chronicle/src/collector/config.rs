@@ -13,7 +13,7 @@ impl CollectorConfig {
 
     pub fn new(solidifier_count: usize) -> Self {
         Self {
-            solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS),
+            solidifier_count: solidifier_count.clamp(1, Self::MAX_SOLIDIFIERS),
         }
     }
 }
