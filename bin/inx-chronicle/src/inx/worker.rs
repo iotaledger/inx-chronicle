@@ -133,43 +133,30 @@ impl HandleEvent<Report<Syncer>> for InxWorker {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
+    use bee_message_stardust::payload::milestone::MilestoneIndex;
     use chronicle::dto::MessageId;
 
     use super::*;
     use crate::collector::stardust::{MilestoneState, RequestedMessage};
 
-    #[derive(Debug, Clone)]
-    pub enum InxRequestType {
-        Message(MessageId),
-        Metadata(MessageId),
-    }
-
     #[derive(Debug)]
-    pub struct InxRequest {
-        request_type: InxRequestType,
-        solidifier_addr: Addr<Solidifier>,
-        ms_state: MilestoneState,
+    pub enum InxRequest {
+        Message(MessageId, Addr<Solidifier>, MilestoneState),
+        Metadata(MessageId, Addr<Solidifier>, MilestoneState),
+        Milestone(MilestoneIndex),
     }
 
     impl InxRequest {
-        pub fn get_message(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
-            Self {
-                request_type: InxRequestType::Message(message_id),
-                solidifier_addr,
-                ms_state,
-            }
+        pub fn message(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+            Self::Message(message_id, solidifier_addr, ms_state)
         }
 
-        pub fn get_metadata(
-            message_id: MessageId,
-            solidifier_addr: Addr<Solidifier>,
-            ms_state: MilestoneState,
-        ) -> Self {
-            Self {
-                request_type: InxRequestType::Metadata(message_id),
-                solidifier_addr,
-                ms_state,
-            }
+        pub fn metadata(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+            Self::Metadata(message_id, solidifier_addr, ms_state)
+        }
+
+        pub fn milestone(milestone_index: MilestoneIndex) -> Self {
+            Self::Milestone(milestone_index)
         }
     }
 
@@ -178,15 +165,11 @@ pub mod stardust {
         async fn handle_event(
             &mut self,
             cx: &mut ActorContext<Self>,
-            InxRequest {
-                request_type,
-                solidifier_addr,
-                mut ms_state,
-            }: InxRequest,
+            inx_request: InxRequest,
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            match request_type {
-                InxRequestType::Message(message_id) => {
+            match inx_request {
+                InxRequest::Message(message_id, solidifier_addr, mut ms_state) => {
                     match (
                         inx_client
                             .read_message(inx::proto::MessageId {
@@ -221,7 +204,7 @@ pub mod stardust {
                         }
                     }
                 }
-                InxRequestType::Metadata(message_id) => {
+                InxRequest::Metadata(message_id, solidifier_addr, ms_state) => {
                     if let Ok(metadata) = inx_client
                         .read_message_metadata(inx::proto::MessageId {
                             id: message_id.0.into(),
@@ -235,34 +218,24 @@ pub mod stardust {
                             .map_err(|_| InxWorkerError::MissingCollector)?;
                     }
                 }
-            }
+                InxRequest::Milestone(milestone_index) => {
+                    log::trace!("Requesting milestone {}", *milestone_index);
+                    if let Ok(milestone) = inx_client
+                        .read_milestone(inx::proto::MilestoneRequest {
+                            milestone_index: *milestone_index,
+                            milestone_id: None,
+                        })
+                        .await
+                    {
+                        // TODO: unwrap
+                        let milestone: inx::proto::Milestone = milestone.into_inner().try_into().unwrap();
 
-            Ok(())
-        }
-    }
-
-    #[async_trait]
-    impl HandleEvent<crate::syncer::MilestoneIndex> for InxWorker {
-        async fn handle_event(
-            &mut self,
-            cx: &mut ActorContext<Self>,
-            index: crate::syncer::MilestoneIndex,
-            inx_client: &mut Self::State,
-        ) -> Result<(), Self::Error> {
-            if let Ok(milestone) = inx_client
-                .read_milestone(inx::proto::MilestoneRequest {
-                    milestone_index: index,
-                    milestone_id: None,
-                })
-                .await
-            {
-                // TODO: unwrap
-                let milestone: inx::proto::Milestone = milestone.into_inner().try_into().unwrap();
-
-                // Instruct the collector to collect this milestone.
-                cx.addr::<Collector>().await.send(milestone)?;
-            } else {
-                log::error!("No milestone response for {index}");
+                        // Instruct the collector to solidify this milestone.
+                        cx.addr::<Collector>().await.send(milestone)?;
+                    } else {
+                        log::warn!("No milestone response for {}", *milestone_index);
+                    }
+                }
             }
 
             Ok(())

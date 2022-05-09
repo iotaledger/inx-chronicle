@@ -159,7 +159,7 @@ pub mod stardust {
             message: inx::proto::Message,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Message Event");
+            log::trace!("Received Stardust Message Event ({})", hex::encode(message.message_id.as_ref().unwrap().id.as_slice()));
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
                     self.db.upsert_message_record(&rec).await?;
@@ -180,7 +180,10 @@ pub mod stardust {
             metadata: inx::proto::MessageMetadata,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Message Referenced Event");
+            log::trace!(
+                "Received Stardust Message Referenced Event ({})",
+                metadata.milestone_index
+            );
             match inx::MessageMetadata::try_from(metadata) {
                 Ok(rec) => {
                     let message_id = rec.message_id;
@@ -204,7 +207,10 @@ pub mod stardust {
             milestone: inx::proto::Milestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Milestone Event");
+            log::trace!(
+                "Received Stardust Milestone Event ({})",
+                milestone.milestone_info.as_ref().unwrap().milestone_index
+            );
             match MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
                     self.db.upsert_milestone_record(&rec).await?;

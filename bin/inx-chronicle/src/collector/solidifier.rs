@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::time::Instant;
+
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
@@ -11,8 +13,6 @@ use chronicle::{
 };
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
-
-use std::time::Instant;
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
@@ -58,7 +58,7 @@ mod stardust {
     use super::*;
     use crate::{
         collector::stardust::MilestoneState,
-        inx::{InxRequest, InxWorker},
+        inx::{InxWorker, InxRequest},
     };
 
     #[async_trait]
@@ -69,6 +69,8 @@ mod stardust {
             mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
+            log::debug!("Solidifying {}...", ms_state.milestone_index);
+
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             let now = Instant::now();
             while let Some(message_id) = ms_state.process_queue.front() {
@@ -108,7 +110,7 @@ mod stardust {
                                     // back.
                                     cx.addr::<InxWorker>()
                                         .await
-                                        .send(InxRequest::get_metadata(
+                                        .send(InxRequest::metadata(
                                             message_id.clone(),
                                             cx.handle().clone(),
                                             ms_state,
@@ -125,7 +127,7 @@ mod stardust {
                             // back.
                             cx.addr::<InxWorker>()
                                 .await
-                                .send(InxRequest::get_message(
+                                .send(InxRequest::message(
                                     message_id.clone(),
                                     cx.handle().clone(),
                                     ms_state,
@@ -148,7 +150,11 @@ mod stardust {
                 })
                 .await?;
 
-            log::info!("Milestone {} synced in {}s.", ms_state.milestone_index, elapsed.as_secs_f32());
+            log::info!(
+                "Milestone {} synced in {}s.",
+                ms_state.milestone_index,
+                elapsed.as_secs_f32()
+            );
 
             Ok(())
         }

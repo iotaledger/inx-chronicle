@@ -1,28 +1,23 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    collections::{HashMap, HashSet},
-    time::Duration,
-};
+use std::time::Duration;
 
 use async_trait::async_trait;
+use bee_message_stardust::payload::milestone::MilestoneIndex;
 use chronicle::{
     db::{model::sync::SyncRecord, MongoDb},
     runtime::{
-        actor::{addr::Addr, context::ActorContext, event::HandleEvent, Actor, report::Report},
-        config::ConfigureActor,
+        actor::{context::ActorContext, Actor},
         error::RuntimeError,
     },
 };
 use mongodb::bson;
 
-use crate::{collector::solidifier::Solidifier, inx::InxWorker};
+use crate::inx::{InxWorker, InxRequest};
 
 const MIN_BATCH_SIZE: usize = 1;
 const MAX_BATCH_SIZE: usize = 50;
-
-pub(crate) type MilestoneIndex = u32;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SyncerError {
@@ -38,13 +33,13 @@ pub(crate) enum SyncerError {
 pub(crate) struct Syncer {
     db: MongoDb,
     // the index we start syncing from.
-    start_index: MilestoneIndex,
+    start_index: u32,
     // the index we stop syncing.
-    end_index: MilestoneIndex,
+    end_index: u32,
     // the batch of simultaneous synced milestones.
     batch_size: usize,
     // the requested milestone indexes.
-    milestones_to_sync: Vec<MilestoneIndex>,
+    milestones_to_sync: Vec<u32>,
 }
 
 impl Syncer {
@@ -53,10 +48,10 @@ impl Syncer {
 
         Self {
             db,
-            start_index,
-            end_index,
+            start_index: *start_index,
+            end_index: *end_index,
             batch_size: 1,
-            milestones_to_sync: Vec::with_capacity((end_index - start_index) as usize),
+            milestones_to_sync: Vec::with_capacity((*end_index - *start_index) as usize),
         }
     }
 
@@ -66,6 +61,7 @@ impl Syncer {
     }
 
     async fn collect_milestone_gaps(&mut self) -> Result<(), SyncerError> {
+        log::info!("Collecting missing milestones in [{}:{}]...", self.start_index, self.end_index);
         for index in self.start_index..self.end_index {
             let sync_record = self.db.get_sync_record_by_index(index).await?;
             if match sync_record {
@@ -76,6 +72,10 @@ impl Syncer {
                 None => true,
             } {
                 self.milestones_to_sync.push(index);
+
+                if self.milestones_to_sync.len() % 1000 == 0 {
+                    log::debug!("Missing {}", self.milestones_to_sync.len());
+                }
             }
         }
 
@@ -98,7 +98,7 @@ impl Actor for Syncer {
         let mut num_requested = 0;
         for index in self.milestones_to_sync.iter().copied() {
             log::info!("Requesting milestone {}.", index);
-            cx.addr::<InxWorker>().await.send(index)?;
+            cx.addr::<InxWorker>().await.send(InxRequest::Milestone(index.into()))?;
 
             num_requested += 1;
 

@@ -15,17 +15,16 @@ use clap::Parser;
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
+#[cfg(feature = "api")]
+use crate::api::ApiWorker;
+#[cfg(feature = "inx")]
+use crate::inx::{InxWorker, InxWorkerError};
 use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
     syncer::Syncer,
 };
-
-#[cfg(feature = "api")]
-use crate::api::ApiWorker;
-#[cfg(feature = "inx")]
-use crate::inx::{InxWorker, InxWorkerError};
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -68,7 +67,7 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        cx.spawn_child(Collector::new(db.clone(), 1)).await;
+        cx.spawn_child(Collector::new(db.clone(), 10)).await;
 
         #[cfg(feature = "inx")]
         cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
