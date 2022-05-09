@@ -16,8 +16,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
-    #[error("the syncer is missing")]
-    MissingSyncer,
     #[cfg(feature = "stardust")]
     #[error("the INX requester is missing")]
     MissingInxRequester,
