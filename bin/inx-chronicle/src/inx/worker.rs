@@ -101,12 +101,12 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
-    use chronicle::stardust::MessageId;
+    use chronicle::dto::MessageId;
 
     use super::*;
     use crate::collector::stardust::{MilestoneState, RequestedMessage};
 
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Clone)]
     pub enum InxRequestType {
         Message(MessageId),
         Metadata(MessageId),
@@ -158,12 +158,12 @@ pub mod stardust {
                     match (
                         inx_client
                             .read_message(inx::proto::MessageId {
-                                id: Vec::from(*message_id),
+                                id: message_id.0.clone().into(),
                             })
                             .await,
                         inx_client
                             .read_message_metadata(inx::proto::MessageId {
-                                id: Vec::from(*message_id),
+                                id: message_id.0.into(),
                             })
                             .await,
                     ) {
@@ -192,7 +192,7 @@ pub mod stardust {
                 InxRequestType::Metadata(message_id) => {
                     if let Ok(metadata) = inx_client
                         .read_message_metadata(inx::proto::MessageId {
-                            id: Vec::from(*message_id),
+                            id: message_id.0.into(),
                         })
                         .await
                     {

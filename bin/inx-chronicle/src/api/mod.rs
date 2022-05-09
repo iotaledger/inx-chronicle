@@ -12,10 +12,11 @@ pub(crate) mod stardust;
 mod error;
 #[macro_use]
 mod responses;
+mod config;
 mod routes;
 
 use async_trait::async_trait;
-use axum::Server;
+use axum::{Extension, Server};
 use chronicle::{
     db::MongoDb,
     runtime::{
@@ -23,11 +24,18 @@ use chronicle::{
         spawn_task,
     },
 };
+pub use config::ApiConfig;
 pub use error::ApiError;
+use hyper::Method;
 pub(crate) use responses::impl_success_response;
 pub use responses::SuccessBody;
 use routes::routes;
 use tokio::{sync::oneshot, task::JoinHandle};
+use tower_http::{
+    catch_panic::CatchPanicLayer,
+    cors::{AllowOrigin, Any, CorsLayer},
+    trace::TraceLayer,
+};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -36,14 +44,16 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
+    config: ApiConfig,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: MongoDb) -> Self {
+    pub fn new(db: MongoDb, config: ApiConfig) -> Self {
         Self {
             db,
+            config,
             server_handle: None,
         }
     }
@@ -58,11 +68,29 @@ impl Actor for ApiWorker {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
         log::info!("Starting API server");
-        let db = self.db.clone();
         let api_handle = cx.handle().clone();
+        let port = self.config.port;
+        let routes = routes()
+            .layer(Extension(self.db.clone()))
+            .layer(CatchPanicLayer::new())
+            .layer(TraceLayer::new_for_http())
+            .layer(
+                CorsLayer::new()
+                    .allow_origin(
+                        self.config
+                            .allow_origins
+                            .clone()
+                            .map(AllowOrigin::try_from)
+                            .transpose()?
+                            .unwrap_or_else(AllowOrigin::any),
+                    )
+                    .allow_methods(vec![Method::GET, Method::OPTIONS])
+                    .allow_headers(Any)
+                    .allow_credentials(false),
+            );
         let join_handle = spawn_task("Axum server", async move {
-            let res = Server::bind(&([0, 0, 0, 0], 9092).into())
-                .serve(routes(db).into_make_service())
+            let res = Server::bind(&([0, 0, 0, 0], port).into())
+                .serve(routes.into_make_service())
                 .with_graceful_shutdown(shutdown_signal(receiver))
                 .await;
             // If the Axum server shuts down, we should also shutdown the API actor

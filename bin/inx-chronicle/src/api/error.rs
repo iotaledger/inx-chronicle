@@ -4,8 +4,8 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::db::{bson::DocError, model::inclusion_state::UnexpectedLedgerInclusionState};
-use hyper::StatusCode;
+use chronicle::{db::bson::DocError, dto};
+use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
 use thiserror::Error;
@@ -18,6 +18,8 @@ pub enum InternalApiError {
     #[error(transparent)]
     Doc(#[from] DocError),
     #[error(transparent)]
+    Config(#[from] ConfigError),
+    #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
@@ -25,7 +27,7 @@ pub enum InternalApiError {
     #[error(transparent)]
     Stardust(#[from] chronicle::stardust::Error),
     #[error(transparent)]
-    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
+    UnexpectedLedgerInclusionState(#[from] dto::UnexpectedLedgerInclusionState),
     #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]
@@ -104,6 +106,11 @@ pub enum ParseError {
     TimeRange(#[from] time::error::ComponentRange),
 }
 
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error(transparent)]
+    InvalidHeader(#[from] InvalidHeaderValue),
+}
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
     #[serde(skip_serializing)]

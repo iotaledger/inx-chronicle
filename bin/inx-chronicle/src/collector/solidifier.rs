@@ -3,10 +3,7 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        bson::{BsonExt, DocError, DocExt},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
@@ -15,14 +12,8 @@ use chronicle::{
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
-use crate::archiver::Archiver;
-
 #[derive(Debug, Error)]
 pub enum SolidifierError {
-    #[error(transparent)]
-    Doc(#[from] DocError),
-    #[error("the archiver is missing")]
-    MissingArchiver,
     #[cfg(feature = "stardust")]
     #[error("the INX requester is missing")]
     MissingInxRequester,
@@ -58,9 +49,7 @@ impl Actor for Solidifier {
 
 #[cfg(feature = "stardust")]
 mod stardust {
-    use std::str::FromStr;
-
-    use chronicle::{db::model::sync::SyncRecord, stardust::MessageId};
+    use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
     use crate::{
@@ -78,37 +67,39 @@ mod stardust {
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             while let Some(message_id) = ms_state.process_queue.front() {
-                // Try the database first
+                // Try the database
                 match self.db.get_message(message_id).await? {
-                    Some(mut message_doc) => {
-                        match message_doc
-                            .take_bson("metadata.referenced_by_milestone_index")
-                            .ok()
-                            .map(|b| b.as_u32())
-                            .transpose()?
+                    Some(message_rec) => {
+                        match message_rec
+                            .metadata
+                            .map(|metadata| metadata.referenced_by_milestone_index)
                         {
                             Some(ms_index) => {
+                                log::trace!(
+                                    "Message {} is referenced by milestone {}",
+                                    message_id.to_hex(),
+                                    ms_index
+                                );
                                 // We may have reached a different milestone, in which case there is nothing to
                                 // do for this message
                                 if ms_state.milestone_index == ms_index {
-                                    let parents = message_doc
-                                        .take_array("message.parents.inner")?
-                                        .iter()
-                                        .map(|b| MessageId::from_str(b.as_str().unwrap()))
-                                        .collect::<Result<Vec<MessageId>, _>>()
-                                        .unwrap();
-                                    ms_state.messages.insert(*message_id, message_doc.take_bytes("raw")?);
+                                    let parents = Vec::from(message_rec.message.parents);
                                     ms_state.process_queue.extend(parents);
                                 }
                                 ms_state.process_queue.pop_front();
                             }
                             // If the message has not been referenced, we can't proceed
                             None => {
+                                log::trace!("Requesting metadata for message {}", message_id.to_hex());
                                 // Send the state and everything. If the requester finds the message, it will circle
                                 // back.
                                 cx.addr::<InxWorker>()
                                     .await
-                                    .send(InxRequest::get_metadata(*message_id, cx.handle().clone(), ms_state))
+                                    .send(InxRequest::get_metadata(
+                                        message_id.clone(),
+                                        cx.handle().clone(),
+                                        ms_state,
+                                    ))
                                     .map_err(|_| SolidifierError::MissingInxRequester)?;
                                 return Ok(());
                             }
@@ -116,18 +107,23 @@ mod stardust {
                     }
                     // Otherwise, send a message to the requester
                     None => {
+                        log::trace!("Requesting message {}", message_id.to_hex());
                         // Send the state and everything. If the requester finds the message, it will circle
                         // back.
                         cx.addr::<InxWorker>()
                             .await
-                            .send(InxRequest::get_message(*message_id, cx.handle().clone(), ms_state))
+                            .send(InxRequest::get_message(
+                                message_id.clone(),
+                                cx.handle().clone(),
+                                ms_state,
+                            ))
                             .map_err(|_| SolidifierError::MissingInxRequester)?;
                         return Ok(());
                     }
                 }
             }
             // If we finished all the parents, that means we have a complete milestone
-            // so we should mark it synced and send it to the archiver
+            // so we should mark it synced
             self.db
                 .upsert_sync_record(&SyncRecord {
                     milestone_index: ms_state.milestone_index,
@@ -135,13 +131,6 @@ mod stardust {
                     synced: true,
                 })
                 .await?;
-            cx.addr::<Archiver>()
-                .await
-                .send((
-                    ms_state.milestone_index,
-                    ms_state.messages.into_values().collect::<Vec<_>>(),
-                ))
-                .map_err(|_| SolidifierError::MissingArchiver)?;
             Ok(())
         }
     }

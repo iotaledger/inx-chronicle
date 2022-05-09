@@ -8,15 +8,13 @@ use axum::{
     routing::*,
     Router,
 };
+use bee_message_stardust::payload::milestone::MilestoneId;
 use chronicle::{
-    db::{
-        bson::{BsonExt, DocExt, U64},
-        MongoDb,
-    },
+    db::MongoDb,
+    dto,
     stardust::{output::OutputId, payload::transaction::TransactionId, MessageId},
 };
 use futures::TryStreamExt;
-use mongodb::bson::from_document;
 
 use super::responses::*;
 use crate::api::{
@@ -40,93 +38,63 @@ pub fn routes() -> Router {
             "/outputs",
             Router::new()
                 .route("/:output_id", get(output))
-                // TODO: For some reason, this route prevents the API from working.
-                //.route("/:transaction_id/:idx", get(output_by_transaction_id)),
+                .route("/:output_id/metadata", get(output_metadata)),
         )
         .nest(
             "/transactions",
-            Router::new()
-                .route("/:message_id", get(transaction_for_message))
-                .route("/included-message/:transaction_id", get(transaction_included_message)),
+            Router::new().route("/:transaction_id/included-message", get(transaction_included_message)),
         )
-        .route("/milestones/:index", get(milestone))
+        .nest(
+            "/milestones",
+            Router::new()
+                .route("/:milestone_id", get(milestone))
+                .route("/by-index/:index", get(milestone_by_index)),
+        )
 }
 
 async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
-    let mut rec = database
-        .get_message(&MessageId::from_str(&message_id)?)
+    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let rec = database
+        .get_message(&message_id_dto)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut message = rec.take_document("message")?;
     Ok(MessageResponse {
-        protocol_version: message.get_as_u8("protocol_version")?,
-        parents: message
-            .take_array("parents")?
-            .iter()
-            .map(|m| m.as_string())
-            .collect::<Result<_, _>>()?,
-        payload: message.take_bson("payload").ok().map(Into::into),
-        nonce: from_document::<U64>(message.take_document("nonce")?)?.into(),
+        protocol_version: rec.message.protocol_version,
+        parents: rec.message.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.message.payload,
+        nonce: rec.message.nonce,
     })
 }
 
 async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let mut rec = database
-        .get_message(&MessageId::from_str(&message_id)?)
+    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let rec = database
+        .get_message(&message_id_dto)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut message = rec.take_document("message")?;
-    Ok(message.take_bytes("raw")?)
+    Ok(rec.raw)
 }
 
 async fn message_metadata(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
-    let mut rec = database
-        .get_message(&MessageId::from_str(&message_id)?)
+    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let rec = database
+        .get_message(&message_id_dto)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut message = rec.take_document("message")?;
-    let metadata = rec.take_document("metadata").ok();
 
     Ok(MessageMetadataResponse {
-        message_id: rec.get_as_string("message_id")?,
-        parent_message_ids: message
-            .take_array("parents")?
-            .iter()
-            .map(|id| id.as_string())
-            .collect::<Result<_, _>>()?,
-        is_solid: metadata
-            .as_ref()
-            .and_then(|d| d.get("is_solid").map(|b| b.as_bool()))
-            .flatten(),
-        referenced_by_milestone_index: metadata
-            .as_ref()
-            .and_then(|d| d.get("referenced_by_milestone_index").map(|b| b.as_u32()))
-            .transpose()?,
-        milestone_index: metadata
-            .as_ref()
-            .and_then(|d| d.get("milestone_index").map(|b| b.as_u32()))
-            .transpose()?,
-        should_promote: metadata
-            .as_ref()
-            .and_then(|d| d.get("should_promote").map(|b| b.as_bool()))
-            .flatten(),
-        should_reattach: metadata
-            .as_ref()
-            .and_then(|d| d.get("should_reattach").map(|b| b.as_bool()))
-            .flatten(),
-        ledger_inclusion_state: metadata
-            .as_ref()
-            .and_then(|d| d.get("inclusion_state").map(|b| b.as_u8()))
-            .transpose()?
-            .map(TryInto::try_into)
-            .transpose()?,
-        conflict_reason: metadata
-            .as_ref()
-            .and_then(|d| d.get("conflict_reason").map(|b| b.as_u8()))
-            .transpose()?,
+        message_id: rec.message.id.to_hex(),
+        parent_message_ids: rec.message.parents.iter().map(|id| id.to_hex()).collect(),
+        is_solid: rec.metadata.as_ref().map(|d| d.is_solid),
+        referenced_by_milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
+        milestone_index: rec.metadata.as_ref().map(|d| d.milestone_index),
+        should_promote: rec.metadata.as_ref().map(|d| d.should_promote),
+        should_reattach: rec.metadata.as_ref().map(|d| d.should_reattach),
+        ledger_inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
+        conflict_reason: rec.metadata.as_ref().and_then(|d| d.conflict_reason).map(|c| c as u8),
     })
 }
 
@@ -136,8 +104,9 @@ async fn message_children(
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
+    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
     let messages = database
-        .get_message_children(&MessageId::from_str(&message_id)?, page_size, page)
+        .get_message_children(&message_id_dto, page_size, page)
         .await?
         .try_collect::<Vec<_>>()
         .await?;
@@ -148,75 +117,114 @@ async fn message_children(
         count: messages.len(),
         children_message_ids: messages
             .into_iter()
-            .map(|mut rec| {
-                let message = rec.take_document("message")?;
+            .map(|rec| {
                 if expanded {
-                    let inclusion_state = rec.get("inclusion_state").map(|b| b.as_u8()).transpose()?;
-                    let milestone_index = rec.get("milestone_index").map(|b| b.as_u32()).transpose()?;
-                    Ok(Record {
-                        id: message.get_as_string("message_id")?,
-                        inclusion_state: inclusion_state.map(TryInto::try_into).transpose()?,
-                        milestone_index,
+                    Record {
+                        id: rec.message.id.to_hex(),
+                        inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
+                        milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
                     }
-                    .into())
+                    .into()
                 } else {
-                    Ok(message.get_as_string("message_id")?.into())
+                    rec.message.id.to_hex().into()
                 }
             })
-            .collect::<Result<_, ApiError>>()?,
+            .collect(),
     })
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from_str(&output_id)?;
-    output_by_transaction_id(
-        database,
-        Path((output_id.transaction_id().to_string(), output_id.index())),
-    )
-    .await
-}
-
-async fn output_by_transaction_id(
-    database: Extension<MongoDb>,
-    Path((transaction_id, idx)): Path<(String, u16)>,
-) -> ApiResult<OutputResponse> {
-    let transaction_id = TransactionId::from_str(&transaction_id)?;
-    let mut output = database
-        .get_outputs_by_transaction_id(&transaction_id, idx)
-        .await?
-        .try_next()
+    let output_id = dto::OutputId::from(&OutputId::from_str(&output_id)?);
+    let output_res = database
+        .get_output(&output_id.transaction_id, output_id.index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let spending_transaction = database.get_spending_transaction(&transaction_id, idx).await?;
+    let booked_ms_index = output_res
+        .metadata
+        .map(|d| d.referenced_by_milestone_index)
+        .ok_or(ApiError::NoResults)?;
+    let booked_ms = database
+        .get_milestone_record_by_index(booked_ms_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let spending_transaction = database
+        .get_spending_transaction(&output_id.transaction_id, output_id.index)
+        .await?;
+
+    let spending_ms_index = spending_transaction
+        .as_ref()
+        .and_then(|txn| txn.metadata.as_ref().map(|d| d.referenced_by_milestone_index));
+    let spending_ms = if let Some(ms_index) = spending_ms_index {
+        database.get_milestone_record_by_index(ms_index).await?
+    } else {
+        None
+    };
 
     Ok(OutputResponse {
-        message_id: output.get_str("message_id")?.to_owned(),
-        transaction_id: transaction_id.to_string(),
-        output_index: idx,
-        spending_transaction: spending_transaction
-            .map(|mut d| d.take_bson("message"))
-            .transpose()?
-            .map(Into::into),
-        output: output.take_bson("message.payload.data.essence.data.outputs")?.into(),
+        message_id: output_res.message_id.to_hex(),
+        transaction_id: output_id.transaction_id.to_hex(),
+        output_index: output_id.index,
+        is_spent: spending_transaction.is_some(),
+        milestone_index_spent: spending_ms_index,
+        milestone_ts_spent: spending_ms
+            .as_ref()
+            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+        milestone_index_booked: booked_ms_index,
+        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
+        output: output_res.output,
     })
 }
 
-async fn transaction_for_message(
+async fn output_metadata(
     database: Extension<MongoDb>,
-    Path(message_id): Path<String>,
-) -> ApiResult<TransactionResponse> {
-    let mut rec = database
-        .get_message(&MessageId::from_str(&message_id)?)
+    Path(output_id): Path<String>,
+) -> ApiResult<OutputMetadataResponse> {
+    let output_id = dto::OutputId::from(&OutputId::from_str(&output_id)?);
+    let output_res = database
+        .get_output(&output_id.transaction_id, output_id.index)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut essence = rec.take_document("message.payload.data.essence.data")?;
 
-    Ok(TransactionResponse {
-        message_id,
-        milestone_index: rec.take_bson("milestone_index").ok().map(|b| b.as_u32()).transpose()?,
-        outputs: essence.take_array("outputs")?.into_iter().map(Into::into).collect(),
-        inputs: essence.take_array("inputs")?.into_iter().map(Into::into).collect(),
+    let booked_ms_index = output_res
+        .metadata
+        .map(|d| d.referenced_by_milestone_index)
+        .ok_or(ApiError::NoResults)?;
+    let booked_ms = database
+        .get_milestone_record_by_index(booked_ms_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let spending_transaction = database
+        .get_spending_transaction(&output_id.transaction_id, output_id.index)
+        .await?;
+
+    let spending_ms_index = spending_transaction
+        .as_ref()
+        .and_then(|txn| txn.metadata.as_ref().map(|d| d.referenced_by_milestone_index));
+    let spending_ms = if let Some(ms_index) = spending_ms_index {
+        database.get_milestone_record_by_index(ms_index).await?
+    } else {
+        None
+    };
+
+    Ok(OutputMetadataResponse {
+        message_id: output_res.message_id.to_hex(),
+        transaction_id: output_id.transaction_id.to_hex(),
+        output_index: output_id.index,
+        is_spent: spending_transaction.is_some(),
+        milestone_index_spent: spending_ms_index,
+        milestone_ts_spent: spending_ms
+            .as_ref()
+            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+        transaction_id_spent: spending_transaction.as_ref().map(|txn| {
+            if let Some(dto::Payload::Transaction(payload)) = &txn.message.payload {
+                payload.id.to_hex()
+            } else {
+                unreachable!()
+            }
+        }),
+        milestone_index_booked: booked_ms_index,
+        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
     })
 }
 
@@ -224,34 +232,37 @@ async fn transaction_included_message(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
-    let mut rec = database
-        .get_message_for_transaction(&transaction_id)
+    let transaction_id_dto = dto::TransactionId::from(TransactionId::from_str(&transaction_id)?);
+    let rec = database
+        .get_message_for_transaction(&transaction_id_dto)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut message = rec.take_document("message")?;
 
     Ok(MessageResponse {
-        protocol_version: message.get_as_u8("protocol_version")?,
-        parents: message
-            .take_array("parents")?
-            .iter()
-            .map(|m| m.as_string())
-            .collect::<Result<_, _>>()?,
-        payload: message.take_bson("payload").ok().map(Into::into),
-        nonce: from_document::<U64>(message.take_document("nonce")?)?.into(),
+        protocol_version: rec.message.protocol_version,
+        parents: rec.message.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.message.payload,
+        nonce: rec.message.nonce,
     })
 }
 
-async fn milestone(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
+async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
+    let milestone_id_dto = dto::MilestoneId::from(MilestoneId::from_str(&milestone_id)?);
+    database
+        .get_milestone_record(&milestone_id_dto)
+        .await?
+        .ok_or(ApiError::NoResults)
+        .map(|rec| MilestoneResponse {
+            payload: dto::Payload::Milestone(Box::new(rec.payload)),
+        })
+}
+
+async fn milestone_by_index(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
     database
         .get_milestone_record_by_index(index)
         .await?
         .ok_or(ApiError::NoResults)
-        .and_then(|rec| {
-            Ok(MilestoneResponse {
-                milestone_index: index,
-                message_id: rec.get_as_string("message_id")?,
-                timestamp: rec.get_as_u32("milestone_timestamp")?,
-            })
+        .map(|rec| MilestoneResponse {
+            payload: dto::Payload::Milestone(Box::new(rec.payload)),
         })
 }

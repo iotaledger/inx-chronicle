@@ -6,7 +6,6 @@
 /// Module containing the API.
 #[cfg(feature = "api")]
 mod api;
-mod archiver;
 mod cli;
 mod collector;
 mod config;
@@ -15,7 +14,6 @@ mod inx;
 
 use std::error::Error;
 
-use archiver::Archiver;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
@@ -81,14 +79,13 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        cx.spawn_child(Archiver::new(db.clone())).await;
         cx.spawn_child(Collector::new(db.clone(), 1)).await;
 
         #[cfg(feature = "inx")]
         cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
         #[cfg(feature = "api")]
-        cx.spawn_child(ApiWorker::new(db)).await;
+        cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
         Ok(config)
     }
 }
@@ -117,35 +114,6 @@ impl HandleEvent<Report<Collector>> for Launcher {
                             cx.shutdown();
                         }
                     },
-                    _ => {
-                        cx.shutdown();
-                    }
-                },
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Archiver>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<Archiver>,
-        _config: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
-            Report::Error(report) => match &report.error {
-                #[allow(clippy::match_single_binding)]
-                ActorError::Result(e) => match e {
-                    // TODO
                     _ => {
                         cx.shutdown();
                     }
@@ -235,7 +203,7 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(ApiWorker::new(db)).await;
+                    cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
