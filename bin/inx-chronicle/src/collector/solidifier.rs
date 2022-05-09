@@ -84,6 +84,10 @@ mod stardust {
                                         message_id.to_hex(),
                                         ms_index
                                     );
+
+                                    // We add the current message to the list of visited messages.
+                                    ms_state.visited.insert(message_id.clone());
+                                    
                                     // We may have reached a different milestone, in which case there is nothing to
                                     // do for this message
                                     if ms_state.milestone_index == ms_index {
