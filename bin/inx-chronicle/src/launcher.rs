@@ -19,7 +19,7 @@ use thiserror::Error;
 #[cfg(feature = "api")]
 use crate::api::ApiWorker;
 #[cfg(feature = "inx")]
-use crate::inx::{InxWorker, InxWorkerError};
+use crate::inx::{InxWorker, InxWorkerError, InxRequest};
 use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
@@ -39,7 +39,15 @@ pub enum LauncherError {
 
 #[derive(Debug)]
 /// Supervisor actor
-pub struct Launcher;
+pub struct Launcher {
+    node_status: Option<NodeStatus>
+}
+
+impl Default for Launcher {
+    fn default() -> Self {
+        Self { node_status: None }
+    }
+}
 
 #[async_trait]
 impl Actor for Launcher {
@@ -47,6 +55,7 @@ impl Actor for Launcher {
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        // Get configuration.
         let cli_args = CliArgs::parse();
         let mut config = match &cli_args.config {
             Some(path) => ChronicleConfig::from_file(path)?,
@@ -60,6 +69,7 @@ impl Actor for Launcher {
         };
         config.apply_cli_args(cli_args);
 
+        // Connect to MongoDb instance.
         let db = MongoDb::connect(&config.mongodb).await?;
 
         if let Some(node_status) = db.status().await? {
@@ -68,14 +78,24 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
+        // Start Collector.
         cx.spawn_child(Collector::new(db.clone(), 10)).await;
 
-        #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+        // Start InxWorker.
+        #[cfg(feature = "inx")] 
+        {
+            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
+            // Send a `NodeStatus` request to the `InxWorker`
+            #[cfg(feature = "inx")]
+            cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
+        }
+
+        // Start ApiWorker.
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
 
+        // Start Syncer.
         cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone())).await;
 
         Ok((config, db))
@@ -230,12 +250,21 @@ impl HandleEvent<NodeStatus> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        status: NodeStatus,
+        node_status: NodeStatus,
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        let start_index = status.pruning_index + 1;
-        let end_index = status.ledger_index + 1;
-        cx.addr::<Syncer>().await.send(start_index..end_index)?;
+        // Start syncing from the node's pruning index to it's current ledger index + X.
+        // NOTE: we make sure there's a bit of overlap from which Chronicle started to listen
+        // to the stream of live milestones.
+        if self.node_status.is_none() {
+            let start_index = node_status.pruning_index + 1;
+            let end_index = node_status.ledger_index + 10;
+
+            cx.addr::<Syncer>().await.send(start_index..end_index)?;
+        }
+
+        self.node_status.replace(node_status);
+
         Ok(())
     }
 }

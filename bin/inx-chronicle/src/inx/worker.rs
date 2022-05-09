@@ -48,14 +48,13 @@ impl Actor for InxWorker {
     type State = InxClient<Channel>;
     type Error = InxWorkerError;
 
-    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::info!("Connecting to INX at bind address `{}`.", self.config.connect_url);
         let inx_client = Inx::connect(&self.config).await?;
 
         log::info!("Connected to INX.");
 
-        // TODO: turn this back on!
-        // cx.spawn_child(InxListener::new(inx_client.clone())).await;
+        cx.spawn_child(InxListener::new(inx_client.clone())).await;
 
         Ok(inx_client)
     }
@@ -101,8 +100,7 @@ pub mod stardust {
 
     use super::*;
     use crate::{
-        collector::stardust::{MilestoneState, RequestedMessage},
-        launcher::Launcher,
+        collector::stardust::{MilestoneState, RequestedMessage}, launcher::{Launcher},
     };
 
     #[derive(Debug)]

@@ -52,9 +52,7 @@ impl Actor for Syncer {
     type State = ();
     type Error = SyncerError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        // Send a `NodeStatus` request to the `InxWorker`
-        cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
+    async fn init(&mut self, _: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
     }
 }

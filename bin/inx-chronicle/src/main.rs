@@ -34,7 +34,7 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
+    let launcher_addr = scope.spawn_actor_unsupervised(Launcher::default()).await;
 
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
