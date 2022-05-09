@@ -127,7 +127,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxWorker>,
-        (config, db): &mut Self::State,
+        (config, _): &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Report::Success(_) => {

@@ -100,7 +100,7 @@ impl HandleEvent<(MilestoneIndex, MilestoneIndex)> for Syncer {
         let mut num_requested = 0;
         for index in unsolid_milestones.into_iter() {
             log::info!("Requesting milestone {}.", index);
-            cx.addr::<InxWorker>().await.send(InxRequest::Milestone(index.into()))?;
+            cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
 
             num_requested += 1;
 

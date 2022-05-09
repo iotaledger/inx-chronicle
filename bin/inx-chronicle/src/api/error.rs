@@ -35,7 +35,7 @@ pub enum InternalApiError {
 }
 
 #[derive(Error, Debug)]
-#[allow(missing_docs)]
+#[allow(missing_docs, dead_code)]
 pub enum ApiError {
     #[error(transparent)]
     BadParse(ParseError),

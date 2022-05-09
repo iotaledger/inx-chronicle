@@ -5,7 +5,6 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::MongoDb,
     runtime::actor::{
         addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
         Actor,
@@ -52,7 +51,7 @@ impl Actor for InxWorker {
     type State = InxClient<Channel>;
     type Error = InxWorkerError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::info!("Connecting to INX at bind address `{}`.", self.config.connect_url);
         let inx_client = Inx::connect(&self.config).await?;
 
@@ -214,7 +213,7 @@ pub mod stardust {
                         .await
                     {
                         // TODO: unwrap
-                        let milestone: inx::proto::Milestone = milestone.into_inner().try_into().unwrap();
+                        let milestone: inx::proto::Milestone = milestone.into_inner();
 
                         // Instruct the collector to solidify this milestone.
                         cx.addr::<Collector>().await.send(milestone)?;

@@ -7,6 +7,7 @@ use thiserror::Error;
 use super::listener::InxListenerError;
 
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum InxWorkerError {
     #[error("failed to establish connection: {0}")]
     ConnectionError(inx::tonic::Error),
