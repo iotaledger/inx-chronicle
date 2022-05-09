@@ -151,7 +151,7 @@ mod stardust {
                 .await?;
 
             log::info!(
-                "Milestone {} synced in {}s.",
+                "Milestone {} solidified in {}s.",
                 ms_state.milestone_index,
                 elapsed.as_secs_f32()
             );
