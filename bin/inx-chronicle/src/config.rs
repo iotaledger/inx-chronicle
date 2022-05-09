@@ -11,6 +11,7 @@ use thiserror::Error;
 use crate::api::ApiConfig;
 #[cfg(feature = "inx")]
 use crate::inx::InxConfig;
+use crate::collector::CollectorConfig;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -28,6 +29,7 @@ pub struct ChronicleConfig {
     pub inx: InxConfig,
     #[cfg(feature = "api")]
     pub api: ApiConfig,
+    pub collector: CollectorConfig,
 }
 
 impl ChronicleConfig {
@@ -45,6 +47,9 @@ impl ChronicleConfig {
         }
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
+        }
+        if let Some(solidifier_count) = args.solidifier_count {
+            self.collector = CollectorConfig::new(solidifier_count);
         }
     }
 }
