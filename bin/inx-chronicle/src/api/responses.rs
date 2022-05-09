@@ -13,7 +13,7 @@ macro_rules! impl_success_response {
         $(
             impl IntoResponse for $type {
                 fn into_response(self) -> axum::response::Response {
-                    SuccessBody::from(self).into_response()
+                    crate::api::responses::SuccessBody::from(self).into_response()
                 }
             }
         )*
@@ -32,20 +32,12 @@ pub struct InfoResponse {
     pub is_healthy: bool,
 }
 
-impl IntoResponse for InfoResponse {
-    fn into_response(self) -> axum::response::Response {
-        SuccessBody::from(self).into_response()
-    }
-}
+impl_success_response!(InfoResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyncDataResponse(pub SyncData);
 
-impl IntoResponse for SyncDataResponse {
-    fn into_response(self) -> axum::response::Response {
-        SuccessBody::from(self).into_response()
-    }
-}
+impl_success_response!(SyncDataResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize, From)]
 #[serde(untagged)]
