@@ -6,11 +6,7 @@ use std::collections::{HashMap, VecDeque};
 use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
-    runtime::{
-        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
-        config::ConfigureActor,
-        error::RuntimeError,
-    },
+    runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
 };
 use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
