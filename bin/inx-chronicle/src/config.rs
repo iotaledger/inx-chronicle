@@ -9,9 +9,9 @@ use thiserror::Error;
 
 #[cfg(feature = "api")]
 use crate::api::ApiConfig;
+use crate::collector::CollectorConfig;
 #[cfg(feature = "inx")]
 use crate::inx::InxConfig;
-use crate::collector::CollectorConfig;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
