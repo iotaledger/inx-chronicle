@@ -67,10 +67,6 @@ mod stardust {
         ) -> Result<(), Self::Error> {
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             while let Some(message_id) = ms_state.process_queue.front() {
-                // First check if we already processed this message in this run
-                if ms_state.db_cache.contains(message_id) {
-                    ms_state.process_queue.pop_front();
-                } else {
                     // Try the database
                     match self.db.get_message(message_id).await? {
                         Some(message_rec) => {
@@ -84,7 +80,6 @@ mod stardust {
                                         message_id.to_hex(),
                                         ms_index
                                     );
-                                    ms_state.db_cache.insert(message_id.clone());
                                     // We may have reached a different milestone, in which case there is nothing to
                                     // do for this message
                                     if ms_state.milestone_index == ms_index {
@@ -125,7 +120,7 @@ mod stardust {
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
                             return Ok(());
                         }
-                    }
+                    
                 }
             }
             // If we finished all the parents, that means we have a complete milestone

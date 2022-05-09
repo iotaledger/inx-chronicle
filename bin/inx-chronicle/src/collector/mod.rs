@@ -98,8 +98,6 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
-    use std::collections::HashSet;
-
     use chronicle::{
         db::model::stardust::{
             message::{MessageMetadata, MessageRecord},
@@ -113,8 +111,7 @@ pub mod stardust {
     #[derive(Debug)]
     pub struct MilestoneState {
         pub milestone_index: u32,
-        pub process_queue: VecDeque<dto::MessageId>,
-        pub db_cache: HashSet<dto::MessageId>,
+        pub process_queue: VecDeque<MessageId>,
     }
 
     impl MilestoneState {
@@ -122,7 +119,6 @@ pub mod stardust {
             Self {
                 milestone_index,
                 process_queue: VecDeque::new(),
-                db_cache: HashSet::new(),
             }
         }
     }
