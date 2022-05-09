@@ -111,7 +111,7 @@ pub mod stardust {
     #[derive(Debug)]
     pub struct MilestoneState {
         pub milestone_index: u32,
-        pub process_queue: VecDeque<MessageId>,
+        pub process_queue: VecDeque<dto::MessageId>,
     }
 
     impl MilestoneState {
