@@ -4,17 +4,20 @@
 use std::{convert::Infallible, sync::Arc};
 
 use async_trait::async_trait;
-use bee_metrics::{encoding::SendSyncEncodeMetric, serve_metrics, Registry};
+use bee_metrics::{encoding::SendSyncEncodeMetric, metrics::ProcessMetrics, serve_metrics, Registry};
 use chronicle::runtime::{Actor, ActorContext, HandleEvent};
 use futures::future::FutureExt;
-use tokio::task::JoinHandle;
+use tokio::{
+    task::JoinHandle,
+    time::{sleep, Duration},
+};
 
 #[derive(Default)]
 pub struct MetricsWorker {}
 
 #[async_trait]
 impl Actor for MetricsWorker {
-    type State = (Arc<Registry>, JoinHandle<()>);
+    type State = (Arc<Registry>, JoinHandle<()>, JoinHandle<()>);
 
     type Error = Infallible;
 
@@ -23,16 +26,38 @@ impl Actor for MetricsWorker {
 
         // FIXME: pass address via config.
         let addr = "0.0.0.0:6969".parse().unwrap();
-        let fut = tokio::spawn(serve_metrics(addr, registry.clone()).map(|res| res.unwrap()));
 
-        Ok((registry, fut))
+        let server_fut = tokio::spawn(serve_metrics(addr, registry.clone()).map(|res| res.unwrap()));
+
+        let metrics = ProcessMetrics::new(std::process::id());
+        let (mem_metric, cpu_metric) = metrics.metrics();
+
+        registry.register("memory_usage", "Memory usage", mem_metric);
+        registry.register("cpu_usage", "CPU usage", cpu_metric);
+
+        let process_metrics_fut = {
+            tokio::spawn(async move {
+                loop {
+                    metrics.update().await;
+                    sleep(Duration::from_secs(1)).await;
+                }
+            })
+        };
+
+        Ok((registry, server_fut, process_metrics_fut))
     }
 
-    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, (_, fut): &mut Self::State) -> Result<(), Self::Error> {
+    async fn shutdown(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        (_, server_fut, process_metrics_fut): &mut Self::State,
+    ) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
 
+        process_metrics_fut.abort();
+
         // FIXME: is this good enough to stop the task?
-        fut.abort();
+        server_fut.abort();
 
         Ok(())
     }
@@ -50,7 +75,7 @@ impl<M: 'static + SendSyncEncodeMetric> HandleEvent<RegisterMetric<M>> for Metri
         &mut self,
         _cx: &mut ActorContext<Self>,
         event: RegisterMetric<M>,
-        (registry, _): &mut Self::State,
+        (registry, _, _): &mut Self::State,
     ) -> Result<(), Self::Error> {
         registry.register(event.name, event.help, event.metric);
 
