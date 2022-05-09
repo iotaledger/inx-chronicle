@@ -4,11 +4,8 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chronicle::{
-    runtime::actor::{
-        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
-        Actor,
-    },
+use chronicle::runtime::actor::{
+    addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
 
