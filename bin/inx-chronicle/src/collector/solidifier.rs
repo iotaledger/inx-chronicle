@@ -4,10 +4,7 @@
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{
-        actor::{context::ActorContext, event::HandleEvent, Actor},
-        error::RuntimeError,
-    },
+    runtime::{Actor, ActorContext, HandleEvent, RuntimeError},
 };
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
