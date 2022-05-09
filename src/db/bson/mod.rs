@@ -1,471 +1,257 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-/// Module containing utility extension traits for BSON.
-pub mod ext;
+use mongodb::bson::{document::ValueAccessError, Bson, Document};
+use thiserror::Error;
 
-pub use ext::*;
-use mongodb::bson::{ser::Error, Array, Bson, Document, Serializer as BsonSerializer};
-use serde::{
-    ser::{
-        SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
-        SerializeTupleVariant,
-    },
-    Deserialize, Serialize,
-};
+/// Gets values and upcasts if necessary
+#[allow(missing_docs)]
+pub trait BsonExt: private_bson_ext::SealedBsonExt {
+    fn as_string(&self) -> Result<String, ValueAccessError>;
 
-/// Converts a value into a [`Bson`] using custom serialization to avoid data loss.
-pub fn to_bson<T: ?Sized>(value: &T) -> Result<Bson, Error>
-where
-    T: Serialize,
-{
-    let ser = Serializer(BsonSerializer::new());
-    value.serialize(ser)
+    fn as_u8(&self) -> Result<u8, ValueAccessError>;
+
+    fn as_u16(&self) -> Result<u16, ValueAccessError>;
+
+    fn as_u32(&self) -> Result<u32, ValueAccessError>;
+
+    fn as_u64(&self) -> Result<u64, ValueAccessError>;
+
+    fn to_bytes(self) -> Result<Vec<u8>, ValueAccessError>;
+
+    fn to_array(self) -> Result<Vec<Bson>, ValueAccessError>;
+
+    fn to_document(self) -> Result<Document, ValueAccessError>;
 }
 
-/// Converts a value into a [`Bson`] using custom serialization to avoid data loss.
-pub fn to_document<T: ?Sized>(value: &T) -> Result<Document, Error>
-where
-    T: Serialize,
-{
-    let ser = Serializer(BsonSerializer::new());
-    value
-        .serialize(ser)
-        .map(|bson| bson.to_document())?
-        .map_err(|e| <Error as serde::ser::Error>::custom(e.to_string()))
-}
+impl BsonExt for Bson {
+    fn as_string(&self) -> Result<String, ValueAccessError> {
+        Ok(match self {
+            Bson::Double(i) => i.to_string(),
+            Bson::String(i) => i.to_string(),
+            Bson::Document(i) => i.to_string(),
+            Bson::Boolean(i) => i.to_string(),
+            Bson::Null => "null".to_string(),
+            Bson::RegularExpression(i) => i.to_string(),
+            Bson::JavaScriptCode(i) => i.to_string(),
+            Bson::JavaScriptCodeWithScope(i) => i.to_string(),
+            Bson::Int32(i) => i.to_string(),
+            Bson::Int64(i) => i.to_string(),
+            Bson::Timestamp(i) => i.to_string(),
+            Bson::Binary(i) => i.to_string(),
+            Bson::ObjectId(i) => i.to_string(),
+            Bson::DateTime(i) => i.to_string(),
+            Bson::Symbol(i) => i.to_string(),
+            Bson::Decimal128(i) => i.to_string(),
+            Bson::Undefined => "undefined".to_string(),
+            _ => return Err(ValueAccessError::UnexpectedType),
+        })
+    }
 
-/// Compatability type for u64 reprentation in BSON.
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct U64 {
-    hi: u8,
-    lo: i64,
-}
+    fn as_u8(&self) -> Result<u8, ValueAccessError> {
+        Ok(match self {
+            Bson::Double(i) => *i as u8,
+            Bson::Boolean(i) => *i as u8,
+            Bson::Int32(i) => *i as u8,
+            Bson::Int64(i) => *i as u8,
+            _ => return Err(ValueAccessError::UnexpectedType),
+        })
+    }
 
-impl From<u64> for U64 {
-    fn from(value: u64) -> Self {
-        // Panic: both `unwrap` calls are optimized away due to the fact that the bytes that
-        // could be truncated are actually zero.
-        Self {
-            hi: (value >> 56).try_into().unwrap(),
-            lo: ((value << 8) >> 8).try_into().unwrap(),
+    fn as_u16(&self) -> Result<u16, ValueAccessError> {
+        Ok(match self {
+            Bson::Double(i) => *i as u16,
+            Bson::Boolean(i) => *i as u16,
+            Bson::Int32(i) => *i as u16,
+            Bson::Int64(i) => *i as u16,
+            _ => return Err(ValueAccessError::UnexpectedType),
+        })
+    }
+
+    fn as_u32(&self) -> Result<u32, ValueAccessError> {
+        Ok(match self {
+            Bson::Double(i) => *i as u32,
+            Bson::Boolean(i) => *i as u32,
+            Bson::Int32(i) => *i as u32,
+            Bson::Int64(i) => *i as u32,
+            Bson::Timestamp(i) => i.time,
+            _ => return Err(ValueAccessError::UnexpectedType),
+        })
+    }
+
+    fn as_u64(&self) -> Result<u64, ValueAccessError> {
+        Ok(match self {
+            Bson::Double(i) => *i as u64,
+            Bson::Boolean(i) => *i as u64,
+            Bson::Int32(i) => *i as u64,
+            Bson::Int64(i) => *i as u64,
+            Bson::Timestamp(i) => i.time as u64,
+            _ => return Err(ValueAccessError::UnexpectedType),
+        })
+    }
+
+    fn to_bytes(self) -> Result<Vec<u8>, ValueAccessError> {
+        Ok(match self {
+            Bson::Binary(i) => i.bytes,
+            _ => return Err(ValueAccessError::UnexpectedType),
+        })
+    }
+
+    fn to_array(self) -> Result<Vec<Bson>, ValueAccessError> {
+        match self {
+            Bson::Array(i) => Ok(i),
+            _ => Err(ValueAccessError::UnexpectedType),
+        }
+    }
+
+    fn to_document(self) -> Result<Document, ValueAccessError> {
+        match self {
+            Bson::Document(i) => Ok(i),
+            _ => Err(ValueAccessError::UnexpectedType),
         }
     }
 }
 
-impl From<U64> for u64 {
-    fn from(v: U64) -> Self {
-        // Using `as` is fine here because `From<u64>` guarantees that `lo` is non-negative.
-        (u64::from(v.hi) << 56) | (v.lo as u64)
+mod private_bson_ext {
+    use mongodb::bson::Bson;
+    pub trait SealedBsonExt {}
+
+    impl SealedBsonExt for Bson {}
+}
+
+#[derive(Error, Debug)]
+#[allow(missing_docs)]
+pub enum DocError {
+    #[error(transparent)]
+    Convert(#[from] mongodb::bson::de::Error),
+    #[error("Missing key {0}")]
+    MissingKey(String),
+    #[error("Value for key {0} is null")]
+    NullValue(String),
+    #[error(transparent)]
+    ValueAccess(#[from] ValueAccessError),
+}
+
+#[allow(missing_docs)]
+pub trait DocPath: private_doc_path::SealedDocPath {
+    fn into_segments(self) -> Vec<String>;
+}
+
+impl DocPath for &str {
+    fn into_segments(self) -> Vec<String> {
+        self.split('.').map(|s| s.to_string()).collect()
     }
 }
 
-#[repr(transparent)]
-struct Serializer(BsonSerializer);
-
-impl serde::Serializer for Serializer {
-    type Ok = <BsonSerializer as serde::Serializer>::Ok;
-
-    type Error = <BsonSerializer as serde::Serializer>::Error;
-
-    type SerializeSeq = ArraySerializer;
-
-    type SerializeTuple = ArraySerializer;
-
-    type SerializeTupleStruct = ArraySerializer;
-
-    type SerializeTupleVariant = TupleVariantSerializer;
-
-    type SerializeMap = MapSerializer;
-
-    type SerializeStruct = StructSerializer;
-
-    type SerializeStructVariant = StructVariantSerializer;
-
-    #[inline]
-    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_bool(v)
-    }
-
-    #[inline]
-    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_i8(v)
-    }
-
-    #[inline]
-    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_i16(v)
-    }
-
-    #[inline]
-    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_i32(v)
-    }
-
-    #[inline]
-    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_i64(v)
-    }
-
-    #[inline]
-    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_u8(v)
-    }
-
-    #[inline]
-    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_u16(v)
-    }
-
-    #[inline]
-    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_u32(v)
-    }
-
-    #[inline]
-    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        U64::from(v).serialize(self)
-    }
-
-    #[inline]
-    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_f32(v)
-    }
-
-    #[inline]
-    fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_f64(v)
-    }
-
-    #[inline]
-    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_char(v)
-    }
-
-    #[inline]
-    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_str(v)
-    }
-
-    #[inline]
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_bytes(v)
-    }
-
-    #[inline]
-    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_none()
-    }
-
-    #[inline]
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        value.serialize(self)
-    }
-
-    #[inline]
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_unit()
-    }
-
-    #[inline]
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_unit_struct(name)
-    }
-
-    #[inline]
-    fn serialize_unit_variant(
-        self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
-    ) -> Result<Self::Ok, Self::Error> {
-        self.0.serialize_unit_variant(name, variant_index, variant)
-    }
-
-    #[inline]
-    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        value.serialize(self)
-    }
-
-    #[inline]
-    fn serialize_newtype_variant<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        variant: &'static str,
-        value: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
-        let mut newtype_variant = Document::new();
-        newtype_variant.insert(variant, to_bson(value)?);
-        Ok(newtype_variant.into())
-    }
-
-    #[inline]
-    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Ok(ArraySerializer {
-            inner: Array::with_capacity(len.unwrap_or(0)),
-        })
-    }
-
-    #[inline]
-    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        Ok(ArraySerializer {
-            inner: Array::with_capacity(len),
-        })
-    }
-
-    #[inline]
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        Ok(ArraySerializer {
-            inner: Array::with_capacity(len),
-        })
-    }
-
-    #[inline]
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        variant: &'static str,
-        len: usize,
-    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Ok(TupleVariantSerializer {
-            inner: Array::with_capacity(len),
-            name: variant,
-        })
-    }
-
-    #[inline]
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Ok(MapSerializer {
-            inner: Document::new(),
-            next_key: None,
-        })
-    }
-
-    #[inline]
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct, Self::Error> {
-        Ok(StructSerializer { inner: Document::new() })
-    }
-
-    #[inline]
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        Ok(StructVariantSerializer {
-            name: variant,
-            inner: Document::new(),
-        })
+impl<S: AsRef<str>> DocPath for Vec<S> {
+    fn into_segments(self) -> Vec<String> {
+        self.iter().map(|s| s.as_ref().to_string()).collect()
     }
 }
 
-struct ArraySerializer {
-    inner: Array,
+mod private_doc_path {
+    pub trait SealedDocPath {}
+
+    impl SealedDocPath for &str {}
+
+    impl<S: AsRef<str>> SealedDocPath for Vec<S> {}
 }
 
-impl SerializeSeq for ArraySerializer {
-    type Ok = Bson;
-    type Error = Error;
+#[allow(missing_docs)]
+pub trait DocExt: private_doc_ext::SealedDocExt {
+    fn get_bson(&self, path: impl DocPath) -> Result<&Bson, DocError>;
 
-    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        self.inner.push(to_bson(value)?);
-        Ok(())
-    }
+    fn take_bson(&mut self, path: impl DocPath) -> Result<Bson, DocError>;
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Bson::Array(self.inner))
-    }
+    fn take_array(&mut self, path: impl DocPath) -> Result<Vec<Bson>, DocError>;
+
+    fn take_bytes(&mut self, path: impl DocPath) -> Result<Vec<u8>, DocError>;
+
+    fn take_document(&mut self, path: impl DocPath) -> Result<Document, DocError>;
+
+    fn get_as_string(&self, path: impl DocPath) -> Result<String, DocError>;
+
+    fn get_as_u8(&self, path: impl DocPath) -> Result<u8, DocError>;
+
+    fn get_as_u16(&self, path: impl DocPath) -> Result<u16, DocError>;
+
+    fn get_as_u32(&self, path: impl DocPath) -> Result<u32, DocError>;
+
+    fn get_as_u64(&self, path: impl DocPath) -> Result<u64, DocError>;
 }
 
-impl SerializeTuple for ArraySerializer {
-    type Ok = Bson;
-    type Error = Error;
-
-    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        self.inner.push(to_bson(value)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Bson::Array(self.inner))
-    }
-}
-
-impl SerializeTupleStruct for ArraySerializer {
-    type Ok = Bson;
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        self.inner.push(to_bson(value)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Bson::Array(self.inner))
-    }
-}
-
-struct TupleVariantSerializer {
-    inner: Array,
-    name: &'static str,
-}
-
-impl SerializeTupleVariant for TupleVariantSerializer {
-    type Ok = Bson;
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        self.inner.push(to_bson(value)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        let mut tuple_variant = Document::new();
-        tuple_variant.insert(self.name, self.inner);
-        Ok(tuple_variant.into())
-    }
-}
-
-struct MapSerializer {
-    inner: Document,
-    next_key: Option<String>,
-}
-
-impl SerializeMap for MapSerializer {
-    type Ok = Bson;
-    type Error = Error;
-
-    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<(), Self::Error> {
-        self.next_key = match to_bson(&key)? {
-            Bson::String(s) => Some(s),
-            other => return Err(Error::InvalidDocumentKey(other)),
-        };
-        Ok(())
-    }
-
-    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        let key = self.next_key.take().unwrap_or_default();
-        self.inner.insert(key, to_bson(&value)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Bson::from(self.inner))
-    }
-}
-
-struct StructSerializer {
-    inner: Document,
-}
-
-impl SerializeStruct for StructSerializer {
-    type Ok = Bson;
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error> {
-        self.inner.insert(key, to_bson(value)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Bson::from(self.inner))
-    }
-}
-
-struct StructVariantSerializer {
-    inner: Document,
-    name: &'static str,
-}
-
-impl SerializeStructVariant for StructVariantSerializer {
-    type Ok = Bson;
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error> {
-        self.inner.insert(key, to_bson(value)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        let var = Bson::from(self.inner);
-
-        let mut struct_variant = Document::new();
-        struct_variant.insert(self.name, var);
-
-        Ok(Bson::Document(struct_variant))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use mongodb::bson::bson;
-
-    use super::{to_bson, U64};
-
-    const V1: u64 = 0xfedcba9876543210;
-    const V2: u64 = 0x0123456789abcdef;
-
-    #[test]
-    fn u64_conversion() {
-        assert_eq!(
-            U64::from(V1),
-            U64 {
-                hi: 0xfe,
-                lo: 0xdcba9876543210
-            },
-        );
-
-        assert_eq!(
-            U64::from(V2),
-            U64 {
-                hi: 0x01,
-                lo: 0x23456789abcdef,
-            },
-        );
-    }
-
-    #[test]
-    fn serializer() {
-        #[derive(serde::Serialize)]
-        struct Foo {
-            bar: Bar,
-            baz: Option<Baz>,
+impl DocExt for Document {
+    fn get_bson(&self, path: impl DocPath) -> Result<&Bson, DocError> {
+        let mut doc = self;
+        let mut path = path.into_segments();
+        if path.is_empty() {
+            return Err(DocError::MissingKey("".into()));
         }
-
-        #[derive(serde::Serialize)]
-        enum Bar {
-            A(u64),
+        // Unwrap: Totes ok because we just checked that it's not empty.
+        let last = path.pop().unwrap();
+        for key in path {
+            doc = doc.get_document(key)?;
         }
-
-        #[derive(serde::Serialize)]
-        struct Baz(u64);
-
-        let bson = super::to_bson(&Foo {
-            bar: Bar::A(V1),
-            baz: Some(Baz(V2)),
-        })
-        .unwrap();
-
-        assert_eq!(
-            bson!({ "bar": { "A": to_bson(&U64::from(V1)).unwrap() }, "baz" : to_bson(&U64::from(V2)).unwrap()}),
-            bson
-        );
+        let bson = self.get(&last).ok_or_else(|| DocError::MissingKey(last.clone()))?;
+        match bson {
+            Bson::Null => Err(DocError::NullValue(last)),
+            _ => Ok(bson),
+        }
     }
+
+    fn take_bson(&mut self, path: impl DocPath) -> Result<Bson, DocError> {
+        let mut doc = self;
+        let mut path = path.into_segments();
+        if path.is_empty() {
+            return Err(DocError::MissingKey("".into()));
+        }
+        // Unwrap: Totes ok because we just checked that it's not empty.
+        let last = path.pop().unwrap();
+        for key in path {
+            doc = doc.get_document_mut(key)?;
+        }
+        let bson = doc.remove(&last).ok_or_else(|| DocError::MissingKey(last.clone()))?;
+        match bson {
+            Bson::Null => Err(DocError::NullValue(last)),
+            _ => Ok(bson),
+        }
+    }
+
+    fn take_array(&mut self, path: impl DocPath) -> Result<Vec<Bson>, DocError> {
+        Ok(self.take_bson(path)?.to_array()?)
+    }
+    fn take_bytes(&mut self, path: impl DocPath) -> Result<Vec<u8>, DocError> {
+        Ok(self.take_bson(path)?.to_bytes()?)
+    }
+
+    fn take_document(&mut self, path: impl DocPath) -> Result<Document, DocError> {
+        Ok(self.take_bson(path)?.to_document()?)
+    }
+
+    fn get_as_string(&self, path: impl DocPath) -> Result<String, DocError> {
+        Ok(self.get_bson(path)?.as_string()?)
+    }
+
+    fn get_as_u8(&self, path: impl DocPath) -> Result<u8, DocError> {
+        Ok(self.get_bson(path)?.as_u8()?)
+    }
+
+    fn get_as_u16(&self, path: impl DocPath) -> Result<u16, DocError> {
+        Ok(self.get_bson(path)?.as_u16()?)
+    }
+
+    fn get_as_u32(&self, path: impl DocPath) -> Result<u32, DocError> {
+        Ok(self.get_bson(path)?.as_u32()?)
+    }
+
+    fn get_as_u64(&self, path: impl DocPath) -> Result<u64, DocError> {
+        Ok(self.get_bson(path)?.as_u64()?)
+    }
+}
+
+mod private_doc_ext {
+    use mongodb::bson::Document;
+    pub trait SealedDocExt {}
+
+    impl SealedDocExt for Document {}
 }

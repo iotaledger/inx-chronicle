@@ -5,11 +5,8 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 use chronicle::{
-    runtime::actor::{
-        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
-        Actor,
-    },
-    stardust::MessageId,
+    dto::MessageId,
+    runtime::{Actor, ActorContext, ActorError, Addr, HandleEvent, Report, SpawnActor},
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
 
@@ -108,7 +105,7 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum InxRequestType {
     Message(MessageId),
     Metadata(MessageId),
@@ -156,12 +153,12 @@ impl HandleEvent<InxRequest> for InxWorker {
                 match (
                     inx_client
                         .read_message(inx::proto::MessageId {
-                            id: Vec::from(*message_id),
+                            id: message_id.0.clone().into(),
                         })
                         .await,
                     inx_client
                         .read_message_metadata(inx::proto::MessageId {
-                            id: Vec::from(*message_id),
+                            id: message_id.0.into(),
                         })
                         .await,
                 ) {
@@ -190,7 +187,7 @@ impl HandleEvent<InxRequest> for InxWorker {
             InxRequestType::Metadata(message_id) => {
                 if let Ok(metadata) = inx_client
                     .read_message_metadata(inx::proto::MessageId {
-                        id: Vec::from(*message_id),
+                        id: message_id.0.into(),
                     })
                     .await
                 {
