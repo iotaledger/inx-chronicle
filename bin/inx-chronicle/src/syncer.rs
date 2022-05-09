@@ -8,7 +8,7 @@ use bee_message_stardust::payload::milestone::MilestoneIndex;
 use chronicle::{
     db::{model::sync::SyncRecord, MongoDb},
     runtime::{
-        actor::{context::ActorContext, Actor},
+        actor::{context::ActorContext, Actor, event::HandleEvent},
         error::RuntimeError,
     },
 };
@@ -32,26 +32,16 @@ pub(crate) enum SyncerError {
 // The Syncer goes backwards in time and tries collect as many milestones as possible.
 pub(crate) struct Syncer {
     db: MongoDb,
-    // the index we start syncing from.
-    start_index: u32,
-    // the index we stop syncing.
-    end_index: u32,
     // the batch of simultaneous synced milestones.
     batch_size: usize,
-    // the requested milestone indexes.
-    milestones_to_sync: Vec<u32>,
 }
 
 impl Syncer {
-    pub(crate) fn new(db: MongoDb, start_index: MilestoneIndex, end_index: MilestoneIndex) -> Self {
-        debug_assert!(end_index >= start_index);
+    pub(crate) fn new(db: MongoDb) -> Self {
 
         Self {
             db,
-            start_index: *start_index,
-            end_index: *end_index,
             batch_size: 1,
-            milestones_to_sync: Vec::with_capacity((*end_index - *start_index) as usize),
         }
     }
 
@@ -60,9 +50,13 @@ impl Syncer {
         self
     }
 
-    async fn collect_milestone_gaps(&mut self) -> Result<(), SyncerError> {
-        log::info!("Collecting missing milestones in [{}:{}]...", self.start_index, self.end_index);
-        for index in self.start_index..self.end_index {
+    async fn collect_unsolid_milestones(&self, start_index: u32, end_index: u32) -> Result<Vec<u32>, SyncerError> {
+        debug_assert!(end_index >= start_index);
+        log::info!("Collecting unsolid milestones in [{}:{}]...", start_index, end_index);
+
+        let mut unsolid_milestones = Vec::with_capacity((end_index - start_index) as usize);
+
+        for index in start_index..end_index {
             let sync_record = self.db.get_sync_record_by_index(index).await?;
             if match sync_record {
                 Some(doc) => {
@@ -71,17 +65,17 @@ impl Syncer {
                 }
                 None => true,
             } {
-                self.milestones_to_sync.push(index);
+                unsolid_milestones.push(index);
 
-                if self.milestones_to_sync.len() % 1000 == 0 {
-                    log::debug!("Missing {}", self.milestones_to_sync.len());
+                if unsolid_milestones.len() % 1000 == 0 {
+                    log::debug!("Missing {}", unsolid_milestones.len());
                 }
             }
         }
 
-        log::info!("{} unsynced milestones detected.", self.milestones_to_sync.len());
+        log::info!("{} unsynced milestones detected.", unsolid_milestones.len());
 
-        Ok(())
+        Ok(unsolid_milestones)
     }
 }
 
@@ -91,19 +85,33 @@ impl Actor for Syncer {
     type Error = SyncerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        cx.shutdown();
+        // Send a `NodeStatus` request to the `InxWorker`
+        cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
+        Ok(())
+    }
+}
 
-        self.collect_milestone_gaps().await?;
+#[async_trait]
+impl HandleEvent<(MilestoneIndex, MilestoneIndex)> for Syncer {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        (start_index, end_index): (MilestoneIndex, MilestoneIndex),
+        _: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+
+        let unsolid_milestones = self.collect_unsolid_milestones(*start_index, *end_index).await?;
 
         let mut num_requested = 0;
-        for index in self.milestones_to_sync.iter().copied() {
+        for index in unsolid_milestones.into_iter() {
             log::info!("Requesting milestone {}.", index);
             cx.addr::<InxWorker>().await.send(InxRequest::Milestone(index.into()))?;
 
             num_requested += 1;
 
             if num_requested == self.batch_size {
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                // FIXME: solidifying is super slow atm so we have this high cooldown.
+                tokio::time::sleep(Duration::from_secs(60)).await;
                 num_requested = 0;
             }
         }

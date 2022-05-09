@@ -12,6 +12,7 @@ use chronicle::{
     },
 };
 use clap::Parser;
+use inx::NodeStatus;
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -70,10 +71,13 @@ impl Actor for Launcher {
         cx.spawn_child(Collector::new(db.clone(), 10)).await;
 
         #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
+        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
+
+        cx.spawn_child(Syncer::new(db.clone()).with_batch_size(10))
+            .await;
 
         Ok((config, db))
     }
@@ -136,7 +140,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
                         cx.delay(
-                            SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())),
+                            SpawnActor::new(InxWorker::new(config.inx.clone())),
                             wait_interval,
                         )?;
                     }
@@ -149,7 +153,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                     InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
+                            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
@@ -165,7 +169,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                         cx.shutdown();
                     }
                     InxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())), None)?;
+                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), None)?;
                     }
                     InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
@@ -214,13 +218,28 @@ impl HandleEvent<Report<Syncer>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         report: Report<Syncer>,
-        (config, db): &mut Self::State,
+        (_config, _db): &mut Self::State,
     ) -> Result<(), Self::Error> {
         match report {
             Report::Success(_) => log::info!("Syncer finished."),
             Report::Error(_) => log::error!("Syncer finished with errors."),
         }
         cx.shutdown();
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<NodeStatus> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        status: NodeStatus,
+        _: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        let start_index = status.pruning_index.into();
+        let end_index = status.ledger_index.into();
+        cx.addr::<Syncer>().await.send((start_index, end_index))?;
         Ok(())
     }
 }

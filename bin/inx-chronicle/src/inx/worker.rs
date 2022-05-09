@@ -19,18 +19,16 @@ use super::{
 };
 use crate::{
     collector::{solidifier::Solidifier, Collector},
-    syncer::Syncer,
 };
 
 #[derive(Debug)]
 pub struct InxWorker {
     config: InxConfig,
-    db: MongoDb,
 }
 
 impl InxWorker {
-    pub fn new(db: MongoDb, config: InxConfig) -> Self {
-        Self { config, db }
+    pub fn new(config: InxConfig) -> Self {
+        Self { config }
     }
 }
 
@@ -58,28 +56,12 @@ impl Actor for InxWorker {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::info!("Connecting to INX at bind address `{}`.", self.config.connect_url);
-        let mut inx_client = Inx::connect(&self.config).await?;
+        let inx_client = Inx::connect(&self.config).await?;
 
         log::info!("Connected to INX.");
-        let node_status: NodeStatus = inx_client
-            .read_node_status(NoParams {})
-            .await?
-            .into_inner()
-            .try_into()
-            .unwrap();
 
-        if !node_status.is_healthy {
-            log::warn!("Node is unhealthy.");
-        }
-        log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
-
-        cx.spawn_child(InxListener::new(inx_client.clone())).await;
-
-        // Start syncing from the pruning index until the current ledger index of the node.
-        let start_index = node_status.pruning_index + 1;
-        let end_index = node_status.ledger_index + 1;
-        // cx.spawn_child::<Syncer, _>(Syncer::new(self.db.clone(), start_index, end_index).with_batch_size(1))
-        //     .await;
+        // TODO: turn this back on!
+        // cx.spawn_child(InxListener::new(inx_client.clone())).await;
 
         Ok(inx_client)
     }
@@ -118,29 +100,17 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
     }
 }
 
-#[async_trait]
-impl HandleEvent<Report<Syncer>> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        _exit: Report<Syncer>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        log::info!("Syncer finished.");
-        Ok(())
-    }
-}
-
 #[cfg(feature = "stardust")]
 pub mod stardust {
     use bee_message_stardust::payload::milestone::MilestoneIndex;
     use chronicle::dto::MessageId;
 
     use super::*;
-    use crate::collector::stardust::{MilestoneState, RequestedMessage};
+    use crate::{collector::stardust::{MilestoneState, RequestedMessage}, launcher::Launcher};
 
     #[derive(Debug)]
     pub enum InxRequest {
+        NodeStatus,
         Message(MessageId, Addr<Solidifier>, MilestoneState),
         Metadata(MessageId, Addr<Solidifier>, MilestoneState),
         Milestone(MilestoneIndex),
@@ -169,6 +139,21 @@ pub mod stardust {
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match inx_request {
+                InxRequest::NodeStatus => {
+                    let node_status: NodeStatus = inx_client
+                        .read_node_status(NoParams {})
+                        .await?
+                        .into_inner()
+                        .try_into()
+                        .unwrap();
+
+                    if !node_status.is_healthy {
+                        log::warn!("Node is unhealthy.");
+                    }
+                    log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
+
+                    cx.addr::<Launcher>().await.send(node_status)?;
+                }
                 InxRequest::Message(message_id, solidifier_addr, mut ms_state) => {
                     match (
                         inx_client
