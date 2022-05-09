@@ -10,3 +10,6 @@ connection_retry_interval = "5s"
 [api]
 port = 9092
 allow_origins = ["0.0.0.0"]
+
+[syncer]
+cooldown = "1s"

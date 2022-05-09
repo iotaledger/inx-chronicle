@@ -76,7 +76,7 @@ impl Actor for Launcher {
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
 
-        cx.spawn_child(Syncer::new(db.clone()).with_batch_size(10)).await;
+        cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone())).await;
 
         Ok((config, db))
     }
@@ -235,7 +235,7 @@ impl HandleEvent<NodeStatus> for Launcher {
     ) -> Result<(), Self::Error> {
         let start_index = status.pruning_index.into();
         let end_index = status.ledger_index.into();
-        cx.addr::<Syncer>().await.send((start_index, end_index))?;
+        cx.addr::<Syncer>().await.send(start_index..end_index)?;
         Ok(())
     }
 }
