@@ -42,6 +42,10 @@ impl Actor for Solidifier {
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
     }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        format!("Solidifier {}", self.id).into()
+    }
 }
 
 #[cfg(feature = "stardust")]

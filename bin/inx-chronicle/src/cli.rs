@@ -16,4 +16,7 @@ pub struct CliArgs {
     /// The address of the MongoDB database.
     #[clap(long)]
     pub db: Option<String>,
+    /// The number of solidifier worker tasks to spawn.
+    #[clap(long)]
+    pub solidifier_count: Option<usize>,
 }

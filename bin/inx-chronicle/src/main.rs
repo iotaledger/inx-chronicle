@@ -72,7 +72,8 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        cx.spawn_child(Collector::new(db.clone(), 1)).await;
+        cx.spawn_child(Collector::new(db.clone(), config.collector.clone()))
+            .await;
 
         #[cfg(feature = "inx")]
         cx.spawn_child(InxWorker::new(config.inx.clone())).await;
@@ -101,7 +102,7 @@ impl HandleEvent<Report<Collector>> for Launcher {
                         // Only a few possible errors we could potentially recover from
                         ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
-                            cx.spawn_child(Collector::new(db, 1)).await;
+                            cx.spawn_child(Collector::new(db, config.collector.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
