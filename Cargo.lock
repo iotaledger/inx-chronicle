@@ -176,8 +176,8 @@ dependencies = [
  "iota-crypto",
  "iterator-sorted",
  "packable",
- "prefix-hex",
- "primitive-types",
+ "prefix-hex 0.2.0",
+ "primitive-types 0.10.1",
  "serde",
  "serde-big-array",
  "serde_json",
@@ -204,8 +204,8 @@ dependencies = [
  "bee-pow",
  "multiaddr",
  "packable",
- "prefix-hex",
- "primitive-types",
+ "prefix-hex 0.2.0",
+ "primitive-types 0.10.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -350,13 +350,13 @@ dependencies = [
  "dotenv",
  "env_logger",
  "futures",
- "hex",
  "humantime-serde",
  "hyper",
  "inx",
  "log",
  "mongodb",
- "primitive-types",
+ "prefix-hex 0.4.0",
+ "primitive-types 0.10.1",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -1372,7 +1372,7 @@ checksum = "a47762ff3c7cbf55a5b822ce505b97bbcf1617be780f71c3ee43c272dd4a1867"
 dependencies = [
  "autocfg",
  "packable-derive",
- "primitive-types",
+ "primitive-types 0.10.1",
  "serde",
 ]
 
@@ -1508,7 +1508,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f120947380f07a50dd8d9985d3591f6632d688b8060321c3783aac91fa902c7"
 dependencies = [
  "hex",
- "primitive-types",
+ "primitive-types 0.10.1",
+ "uint",
+]
+
+[[package]]
+name = "prefix-hex"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a85165b6848fe5328066d5cb934dd5c88ff09674db6fcd018df68d9a542b2317"
+dependencies = [
+ "hex",
+ "primitive-types 0.11.1",
  "uint",
 ]
 
@@ -1531,6 +1542,16 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-serde",
+ "uint",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e28720988bff275df1f51b171e1b2a18c30d194c4d2b61defdacecd625a5d94a"
+dependencies = [
+ "fixed-hash",
  "uint",
 ]
 
