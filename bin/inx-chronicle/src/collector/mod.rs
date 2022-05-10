@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{bson::DocError, MongoDb},
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
 };
 pub use config::CollectorConfig;
@@ -18,8 +18,6 @@ pub mod solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
-    #[error(transparent)]
-    Doc(#[from] DocError),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]

@@ -56,21 +56,6 @@ pub struct Record {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Transfer {
-    #[serde(rename = "transactionId")]
-    pub transaction_id: String,
-    #[serde(rename = "outputIndex")]
-    pub output_index: u16,
-    #[serde(rename = "isSpending")]
-    pub is_spending: bool,
-    #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<dto::LedgerInclusionState>,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
-    pub amount: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MaybeSpentOutput {
     pub output: Value,
     #[serde(rename = "spendingMessageId")]

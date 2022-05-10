@@ -1,9 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc, Document},
+    bson::{self, doc},
     error::Error,
     options::{FindOptions, UpdateOptions},
     results::UpdateResult,
@@ -83,17 +83,6 @@ pub struct MessageMetadata {
     pub conflict_reason: Option<dto::ConflictReason>,
 }
 
-/// A result received when querying for a single output.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputResult {
-    /// The id of the message this output came from.
-    pub message_id: dto::MessageId,
-    /// The metadata of the message this output came from.
-    pub metadata: Option<MessageMetadata>,
-    /// The output.
-    pub output: dto::Output,
-}
-
 #[cfg(feature = "inx")]
 impl From<inx::MessageMetadata> for MessageMetadata {
     fn from(metadata: inx::MessageMetadata) -> Self {
@@ -134,6 +123,36 @@ impl From<inx::MessageMetadata> for MessageMetadata {
     }
 }
 
+/// A result received when querying for a single output.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputResult {
+    /// The id of the message this output came from.
+    pub message_id: dto::MessageId,
+    /// The metadata of the message this output came from.
+    pub metadata: Option<MessageMetadata>,
+    /// The output.
+    pub output: dto::Output,
+}
+
+/// A single transaction history result row.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransactionHistoryResult {
+    /// The transaction id.
+    pub transaction_id: dto::TransactionId,
+    /// The index of the output that this transfer represents.
+    pub output_index: u16,
+    /// Whether this is a spent or unspent output.
+    pub is_spent: bool,
+    /// The inclusion state of the output's transaction.
+    pub inclusion_state: Option<dto::LedgerInclusionState>,
+    /// The transaction's message id.
+    pub message_id: dto::MessageId,
+    /// The milestone index that references the transaction.
+    pub milestone_index: Option<u32>,
+    /// The transfer amount.
+    pub amount: u64,
+}
+
 impl MongoDb {
     /// Get milestone with index.
     pub async fn get_message(&self, message_id: &dto::MessageId) -> Result<Option<MessageRecord>, Error> {
@@ -156,7 +175,7 @@ impl MongoDb {
                 doc! {"message.parents": bson::to_bson(message_id)?},
                 FindOptions::builder()
                     .skip((page_size * page) as u64)
-                    .sort(doc! {"milestone_index": -1})
+                    .sort(doc! {"metadata.referenced_by_milestone_index": -1})
                     .limit(page_size as i64)
                     .build(),
             )
@@ -257,7 +276,7 @@ impl MongoDb {
         page: usize,
         start_milestone: u32,
         end_milestone: u32,
-    ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<TransactionHistoryResult, Error>>, Error> {
         self.0
         .collection::<MessageRecord>(MessageRecord::COLLECTION)
         .aggregate(vec![
@@ -265,14 +284,14 @@ impl MongoDb {
             doc! { "$match": {
                 "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                 "inclusion_state": dto::LedgerInclusionState::Included, 
-                "message.payload.essence.outputs.address": bson::to_bson(&address)?
+                "message.payload.essence.outputs.unlock_conditions": bson::to_bson(&address)?
             } },
             doc! { "$set": {
                 "message.payload.essence.outputs": {
                     "$filter": {
                         "input": "$message.payload.essence.outputs",
                         "as": "output",
-                        "cond": { "$eq": [ "$$output.address", bson::to_bson(&address)? ] }
+                        "cond": { "$eq": [ "$$output.unlock_conditions", bson::to_bson(&address)? ] }
                     }
                 }
             } },
@@ -312,16 +331,35 @@ impl MongoDb {
             doc! { "$set": { "spending_transaction": { "$concatArrays": [ "$spending_transaction", [ null ] ] } } },
             // Unwind the outputs into one or two results
             doc! { "$unwind": { "path": "$spending_transaction", "preserveNullAndEmptyArrays": true } },
-            // Replace the milestone index with the spending transaction's milestone index if there is one
-            doc! { "$set": { 
-                "milestone_index": { "$cond": [ { "$not": [ "$spending_transaction" ] }, "$milestone_index", "$spending_transaction.0.milestone_index" ] } 
+            // Project the result
+            doc! { "$project": {
+                "transaction_id": "$message.payload.transaction_id",
+                "output_idx": "$message.payload.essence.outputs.idx",
+                "is_spent": { "$ne": [ "$spending_transaction", null ] },
+                "inclusion_state": "$metadata.inclusion_state",
+                "message_id": "$message.id",
+                "milestone_index": "$metadata.referenced_by_milestone_index",
+                "amount": "$message.payload.essence.outputs.amount",
             } },
-            doc! { "$sort": { "milestone_index": -1 } },
+            doc! { "$sort": { "metadata.referenced_by_milestone_index": -1 } },
             doc! { "$skip": (page_size * page) as i64 },
             doc! { "$limit": page_size as i64 },
         ], None)
         .await
+        .map(|c| c.then(|r| async { Ok(bson::from_document(r?)?) }))
     }
+}
+
+/// Address analytics result.
+#[cfg(feature = "api-analytics")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AddressAnalyticsResult {
+    /// The number of addresses used in the time period.
+    pub total_addresses: u64,
+    /// The number of addresses that received tokens in the time period.
+    pub recv_addresses: u64,
+    /// The number of addresses that sent tokens in the time period.
+    pub send_addresses: u64,
 }
 
 #[cfg(feature = "api-analytics")]
@@ -331,8 +369,8 @@ impl MongoDb {
         &self,
         start_milestone: u32,
         end_milestone: u32,
-    ) -> Result<Option<Document>, Error> {
-        self.0.collection::<MessageRecord>(MessageRecord::COLLECTION)
+    ) -> Result<Option<AddressAnalyticsResult>, Error> {
+        Ok(self.0.collection::<MessageRecord>(MessageRecord::COLLECTION)
         .aggregate(
             vec![
                 doc! { "$match": {
@@ -360,9 +398,9 @@ impl MongoDb {
                     ],
                     "as": "spent_transaction"
                 } },
-                doc! { "$set": { "send_address": "$spent_transaction.message.payload.essence.outputs.address" } },
+                doc! { "$set": { "send_address": "$spent_transaction.message.payload.essence.outputs.unlock_conditions" } },
                 doc! { "$unwind": { "path": "$message.payload.essence.outputs", "includeArrayIndex": "message.payload.essence.outputs.idx" } },
-                doc! { "$set": { "recv_address": "$message.payload.essence.outputs.address" } },
+                doc! { "$set": { "recv_address": "$message.payload.essence.outputs.unlock_conditions" } },
                 doc! { "$facet": {
                     "total": [
                         { "$set": { "address": ["$send_address", "$recv_address"] } },
@@ -393,6 +431,10 @@ impl MongoDb {
             ],
             None,
         )
-        .await?.try_next().await
+        .await?
+        .try_next()
+        .await?
+        .map(bson::from_document)
+        .transpose()?)
     }
 }
