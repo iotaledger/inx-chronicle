@@ -19,12 +19,12 @@ use thiserror::Error;
 #[cfg(feature = "api")]
 use crate::api::ApiWorker;
 #[cfg(feature = "inx")]
-use crate::inx::{InxWorker, InxWorkerError, InxRequest};
+use crate::inx::{InxRequest, InxWorker, InxWorkerError};
 use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
-    syncer::Syncer,
+    syncer::{self, Syncer},
 };
 
 #[derive(Debug, Error)]
@@ -37,16 +37,10 @@ pub enum LauncherError {
     Runtime(#[from] RuntimeError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 /// Supervisor actor
 pub struct Launcher {
-    node_status: Option<NodeStatus>
-}
-
-impl Default for Launcher {
-    fn default() -> Self {
-        Self { node_status: None }
-    }
+    node_status: Option<NodeStatus>,
 }
 
 #[async_trait]
@@ -82,7 +76,7 @@ impl Actor for Launcher {
         cx.spawn_child(Collector::new(db.clone(), 10)).await;
 
         // Start InxWorker.
-        #[cfg(feature = "inx")] 
+        #[cfg(feature = "inx")]
         {
             cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
@@ -260,7 +254,8 @@ impl HandleEvent<NodeStatus> for Launcher {
             let start_index = node_status.pruning_index + 1;
             let end_index = node_status.ledger_index + 10;
 
-            cx.addr::<Syncer>().await.send(start_index..end_index)?;
+            cx.addr::<Syncer>().await.send(syncer::Stop(end_index))?;
+            cx.addr::<Syncer>().await.send(syncer::Next(start_index))?;
         }
 
         self.node_status.replace(node_status);

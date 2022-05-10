@@ -100,7 +100,8 @@ pub mod stardust {
 
     use super::*;
     use crate::{
-        collector::stardust::{MilestoneState, RequestedMessage}, launcher::{Launcher},
+        collector::stardust::{MilestoneState, RequestedMessage},
+        launcher::Launcher,
     };
 
     #[derive(Debug)]

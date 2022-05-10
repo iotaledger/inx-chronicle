@@ -57,6 +57,7 @@ mod stardust {
     use crate::{
         collector::stardust::MilestoneState,
         inx::{InxRequest, InxWorker},
+        syncer::{self, Syncer},
     };
 
     #[async_trait]
@@ -128,7 +129,6 @@ mod stardust {
                     }
                 }
             }
-            let elapsed = now.elapsed();
 
             // If we finished all the parents, that means we have a complete milestone
             // so we should mark it synced
@@ -140,11 +140,19 @@ mod stardust {
                 })
                 .await?;
 
+            let elapsed = now.elapsed();
+
             log::info!(
                 "Milestone {} solidified in {}s.",
                 ms_state.milestone_index,
                 elapsed.as_secs_f32()
             );
+
+            // Note: we sample how long solidification takes to synchronize milestone requests issued by the syncer.
+            // cx.addr::<Syncer>().await.send(syncer::Cooldown(elapsed))?;
+            cx.addr::<Syncer>()
+                .await
+                .send(syncer::Solidified(ms_state.milestone_index))?;
 
             Ok(())
         }

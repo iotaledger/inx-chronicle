@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{ops::Range, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -27,12 +27,12 @@ pub(crate) enum SyncerError {
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncerConfig {
-    #[serde(default, with = "humantime_serde")]
-    pub(crate) cooldown: Duration,
+    pub(crate) max_simultaneous_requests: usize,
 }
 // The Syncer goes backwards in time and tries collect as many milestones as possible.
 pub(crate) struct Syncer {
     db: MongoDb,
+    #[allow(dead_code)]
     config: SyncerConfig,
 }
 
@@ -47,34 +47,95 @@ impl Syncer {
     }
 }
 
+pub(crate) struct Next(pub(crate) u32);
+pub(crate) struct Stop(pub(crate) u32);
+pub(crate) struct Run;
+pub(crate) struct Solidified(pub(crate) u32);
+
+#[derive(Default)]
+pub(crate) struct SyncState {
+    next: u32,
+    stop: u32, // inclusive
+    pending: HashSet<u32>,
+}
+
 #[async_trait]
 impl Actor for Syncer {
-    type State = ();
+    type State = SyncState;
     type Error = SyncerError;
 
     async fn init(&mut self, _: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        Ok(SyncState::default())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Run> for Syncer {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        _: Run,
+        sync_state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        let index = sync_state.next;
+        if sync_state.pending.len() < self.config.max_simultaneous_requests {
+            if self.is_unsolid(index).await? {
+                log::info!("Requesting unsolid milestone {}.", index);
+                cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
+                sync_state.pending.insert(index);
+            }
+            cx.addr::<Syncer>().await.send(Next(index + 1))?;
+        } else {
+            // wait a bit and try again
+            tokio::time::sleep(Duration::from_secs_f32(0.01)).await;
+            cx.addr::<Syncer>().await.send(Next(index))?;
+        }
+
         Ok(())
     }
 }
 
 #[async_trait]
-impl HandleEvent<Range<u32>> for Syncer {
+impl HandleEvent<Next> for Syncer {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        range: Range<u32>,
-        _: &mut Self::State,
+        Next(index): Next,
+        sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        for index in range {
-            if self.is_unsolid(index).await? {
-                log::info!("Requesting unsolid milestone {}.", index);
-                cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
-
-                // Cooldown a bit before issuing the next request.
-                tokio::time::sleep(self.config.cooldown).await;
-            }
+        sync_state.next = index;
+        if sync_state.next <= sync_state.stop {
+            cx.addr::<Syncer>().await.send(Run)?;
         }
+        Ok(())
+    }
+}
 
+#[async_trait]
+impl HandleEvent<Stop> for Syncer {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        Stop(index): Stop,
+        sync_state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        sync_state.stop = index;
+        if sync_state.next != 0 && sync_state.next <= sync_state.stop {
+            cx.addr::<Syncer>().await.send(Run)?;
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Solidified> for Syncer {
+    async fn handle_event(
+        &mut self,
+        _: &mut ActorContext<Self>,
+        Solidified(index): Solidified,
+        sync_state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        sync_state.pending.remove(&index);
         Ok(())
     }
 }

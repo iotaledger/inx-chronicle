@@ -12,4 +12,4 @@ port = 9092
 allow_origins = ["0.0.0.0"]
 
 [syncer]
-cooldown = "1s"
+max_simultaneous_requests = 10
