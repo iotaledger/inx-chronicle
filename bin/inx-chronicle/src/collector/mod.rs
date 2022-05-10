@@ -6,16 +6,14 @@ use std::collections::{HashMap, VecDeque};
 use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
-    runtime::{
-        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
-        config::ConfigureActor,
-        error::RuntimeError,
-    },
+    runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
 };
+pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
 
+mod config;
 pub mod solidifier;
 
 #[derive(Debug, Error)]
@@ -33,17 +31,12 @@ pub enum CollectorError {
 #[derive(Debug)]
 pub struct Collector {
     db: MongoDb,
-    solidifier_count: usize,
+    config: CollectorConfig,
 }
 
 impl Collector {
-    const MAX_SOLIDIFIERS: usize = 100;
-
-    pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
-        Self {
-            db,
-            solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS),
-        }
+    pub fn new(db: MongoDb, config: CollectorConfig) -> Self {
+        Self { db, config }
     }
 }
 
@@ -54,7 +47,7 @@ impl Actor for Collector {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let mut solidifiers = HashMap::new();
-        for i in 0..self.solidifier_count {
+        for i in 0..self.config.solidifier_count {
             solidifiers.insert(
                 i,
                 cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
@@ -98,6 +91,8 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
+    use std::collections::HashSet;
+
     use chronicle::{
         db::model::stardust::{
             message::{MessageMetadata, MessageRecord},
@@ -112,6 +107,7 @@ pub mod stardust {
     pub struct MilestoneState {
         pub milestone_index: u32,
         pub process_queue: VecDeque<dto::MessageId>,
+        pub visited: HashSet<dto::MessageId>,
     }
 
     impl MilestoneState {
@@ -119,6 +115,7 @@ pub mod stardust {
             Self {
                 milestone_index,
                 process_queue: VecDeque::new(),
+                visited: HashSet::new(),
             }
         }
     }
@@ -211,7 +208,7 @@ pub mod stardust {
                         .extend(Vec::from(rec.payload.essence.parents).into_iter());
                     solidifiers
                         // Divide solidifiers fairly by milestone
-                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        .get(&(rec.milestone_index as usize % self.config.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(state)?;

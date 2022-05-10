@@ -14,19 +14,16 @@ use super::{
     actor::{
         addr::{Addr, OptionalAddr},
         context::ActorContext,
-        event::HandleEvent,
-        report::{Report, SuccessReport},
+        error::ActorError,
+        event::{Envelope, HandleEvent},
+        report::{ErrorReport, Report, SuccessReport},
         Actor,
     },
     config::{SpawnConfig, SpawnConfigInner},
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
-    shutdown::ShutdownHandle,
+    shutdown::{ShutdownHandle, ShutdownStream},
     spawn_task,
-};
-use crate::runtime::{
-    actor::{error::ActorError, event::Envelope, report::ErrorReport},
-    shutdown::ShutdownStream,
 };
 
 /// A view into a particular scope which provides the user-facing API.

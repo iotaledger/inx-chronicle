@@ -5,10 +5,7 @@ use axum::response::IntoResponse;
 use chronicle::dto;
 use serde::{Deserialize, Serialize};
 
-use crate::api::{
-    impl_success_response,
-    responses::{Expansion, SuccessBody},
-};
+use crate::api::{impl_success_response, responses::Expansion};
 
 /// Response of `GET /api/v2/messages/<message_id>`
 /// and `GET /api/v2/transactions/<transaction_id>/included-message`.

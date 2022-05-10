@@ -18,12 +18,8 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{
-        actor::{
-            context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
-        },
-        error::RuntimeError,
-        scope::RuntimeScope,
-        spawn_task, Runtime,
+        spawn_task, Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope,
+        SpawnActor,
     },
 };
 use clap::Parser;
@@ -79,7 +75,8 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        cx.spawn_child(Collector::new(db.clone(), 1)).await;
+        cx.spawn_child(Collector::new(db.clone(), config.collector.clone()))
+            .await;
 
         #[cfg(feature = "inx")]
         cx.spawn_child(InxWorker::new(config.inx.clone())).await;
@@ -108,7 +105,7 @@ impl HandleEvent<Report<Collector>> for Launcher {
                         // Only a few possible errors we could potentially recover from
                         ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
-                            cx.spawn_child(Collector::new(db, 1)).await;
+                            cx.spawn_child(Collector::new(db, config.collector.clone())).await;
                         }
                         _ => {
                             cx.shutdown();

@@ -12,7 +12,7 @@ pub struct MessageId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
 impl MessageId {
     pub fn to_hex(&self) -> String {
-        hex::encode(self.0.as_ref())
+        prefix_hex::encode(self.0.as_ref())
     }
 }
 
