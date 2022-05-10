@@ -7,7 +7,7 @@
 #[cfg(feature = "api")]
 mod api;
 mod cli;
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "collector")]
 mod collector;
 mod config;
 
@@ -64,7 +64,7 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        #[cfg(all(feature = "stardust", feature = "inx"))]
+        #[cfg(feature = "collector")]
         cx.spawn_child(collector::Collector::new(db.clone(), config.collector.clone()))
             .await;
 
@@ -74,7 +74,7 @@ impl Actor for Launcher {
     }
 }
 
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "collector")]
 #[async_trait]
 impl HandleEvent<Report<collector::Collector>> for Launcher {
     async fn handle_event(

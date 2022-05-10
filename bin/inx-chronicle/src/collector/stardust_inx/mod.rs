@@ -50,12 +50,6 @@ impl HandleEvent<Report<InxWorker>> for Collector {
                             wait_interval,
                         )?;
                     }
-                    InxWorkerError::InvalidAddress(_) => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::ParsingAddressFailed(_) => {
-                        cx.shutdown();
-                    }
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                     InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
@@ -65,22 +59,18 @@ impl HandleEvent<Report<InxWorker>> for Collector {
                             cx.shutdown();
                         }
                     },
-                    InxWorkerError::Read(_) => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::Runtime(_) => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::ListenerError(_) => {
-                        cx.shutdown();
-                    }
                     InxWorkerError::MissingCollector => {
                         cx.delay(
                             chronicle::runtime::SpawnActor::new(InxWorker::new(self.config.inx.clone())),
                             None,
                         )?;
                     }
-                    InxWorkerError::FailedToAnswerRequest => {
+                    InxWorkerError::ListenerError(_)
+                    | InxWorkerError::Runtime(_)
+                    | InxWorkerError::Read(_)
+                    | InxWorkerError::ParsingAddressFailed(_)
+                    | InxWorkerError::InvalidAddress(_)
+                    | InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
                     }
                 },
