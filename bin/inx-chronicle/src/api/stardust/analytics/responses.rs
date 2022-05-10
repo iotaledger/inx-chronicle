@@ -4,7 +4,7 @@
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
-use crate::api::{impl_success_response, responses::SuccessBody};
+use crate::api::impl_success_response;
 
 /// Response of `GET /api/v2/analytics/addresses[?start_timestamp=<i64>&end_timestamp=<i64>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
