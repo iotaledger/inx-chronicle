@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use axum::{Extension, Server};
 use chronicle::{
     db::MongoDb,
-    runtime::actor::{context::ActorContext, Actor},
+    runtime::{Actor, ActorContext},
 };
 pub use config::ApiConfig;
 pub use error::ApiError;

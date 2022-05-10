@@ -4,7 +4,7 @@
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
-use crate::api::{impl_success_response, responses::Transfer, SuccessBody};
+use crate::api::{impl_success_response, responses::Transfer};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionHistoryResponse {

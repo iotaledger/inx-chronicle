@@ -7,10 +7,7 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use async_trait::async_trait;
-use chronicle::runtime::{
-    actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
-    config::ConfigureActor,
-};
+use chronicle::runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report};
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
