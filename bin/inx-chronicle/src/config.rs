@@ -9,6 +9,7 @@ use thiserror::Error;
 
 #[cfg(feature = "api")]
 use crate::api::ApiConfig;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 use crate::collector::CollectorConfig;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 use crate::stardust_inx::StardustInxConfig;
@@ -29,6 +30,7 @@ pub struct ChronicleConfig {
     pub inx: StardustInxConfig,
     #[cfg(feature = "api")]
     pub api: ApiConfig,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
     pub collector: CollectorConfig,
 }
 
@@ -48,6 +50,7 @@ impl ChronicleConfig {
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
+        #[cfg(all(feature = "stardust", feature = "inx"))]
         if let Some(solidifier_count) = args.solidifier_count {
             self.collector = CollectorConfig::new(solidifier_count);
         }

@@ -12,7 +12,6 @@ use super::responses::TransactionHistoryResponse;
 use crate::api::{
     extractors::{Pagination, TimeRange},
     responses::Transfer,
-    stardust::{end_milestone, start_milestone},
     ApiError, ApiResult,
 };
 
@@ -33,8 +32,14 @@ async fn transaction_history(
     }: TimeRange,
 ) -> ApiResult<TransactionHistoryResponse> {
     let address_dto = dto::Address::from(&chronicle::stardust::address::Address::try_from_bech32(&address)?.1);
-    let start_milestone = start_milestone(&database, start_timestamp).await?;
-    let end_milestone = end_milestone(&database, end_timestamp).await?;
+    let start_milestone = database
+        .find_first_milestone(start_timestamp)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let end_milestone = database
+        .find_last_milestone(end_timestamp)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
     let records = database
         .get_transaction_history(&address_dto, page_size, page, start_milestone, end_milestone)

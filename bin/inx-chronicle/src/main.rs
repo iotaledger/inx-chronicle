@@ -7,6 +7,7 @@
 #[cfg(feature = "api")]
 mod api;
 mod cli;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 mod collector;
 mod config;
 #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -17,13 +18,13 @@ use std::error::Error;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope, SpawnActor},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope},
 };
 use clap::Parser;
 use cli::CliArgs;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 use collector::{Collector, CollectorError};
 use config::{ChronicleConfig, ConfigError};
-use mongodb::error::ErrorKind;
 use thiserror::Error;
 
 #[cfg(feature = "api")]
@@ -72,6 +73,7 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
+        #[cfg(all(feature = "stardust", feature = "inx"))]
         cx.spawn_child(Collector::new(db.clone(), config.collector.clone()))
             .await;
 
@@ -84,6 +86,7 @@ impl Actor for Launcher {
     }
 }
 
+#[cfg(all(feature = "stardust", feature = "inx"))]
 #[async_trait]
 impl HandleEvent<Report<Collector>> for Launcher {
     async fn handle_event(
@@ -100,7 +103,8 @@ impl HandleEvent<Report<Collector>> for Launcher {
                 ActorError::Result(e) => match e {
                     CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
-                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                        mongodb::error::ErrorKind::Io(_)
+                        | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
                             cx.spawn_child(Collector::new(db, config.collector.clone())).await;
                         }
@@ -140,7 +144,7 @@ impl HandleEvent<Report<StardustInxWorker>> for Launcher {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
                         cx.delay(
-                            SpawnActor::new(StardustInxWorker::new(config.inx.clone())),
+                            chronicle::runtime::SpawnActor::new(StardustInxWorker::new(config.inx.clone())),
                             wait_interval,
                         )?;
                     }
@@ -169,7 +173,10 @@ impl HandleEvent<Report<StardustInxWorker>> for Launcher {
                         cx.shutdown();
                     }
                     StardustInxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(StardustInxWorker::new(config.inx.clone())), None)?;
+                        cx.delay(
+                            chronicle::runtime::SpawnActor::new(StardustInxWorker::new(config.inx.clone())),
+                            None,
+                        )?;
                     }
                     StardustInxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
