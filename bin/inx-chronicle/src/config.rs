@@ -9,9 +9,10 @@ use thiserror::Error;
 
 #[cfg(feature = "api")]
 use crate::api::ApiConfig;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 use crate::collector::CollectorConfig;
-#[cfg(feature = "inx")]
-use crate::inx::InxConfig;
+#[cfg(all(feature = "stardust", feature = "inx"))]
+use crate::stardust_inx::StardustInxConfig;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -25,10 +26,11 @@ pub enum ConfigError {
 #[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
-    #[cfg(feature = "inx")]
-    pub inx: InxConfig,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
+    pub inx: StardustInxConfig,
     #[cfg(feature = "api")]
     pub api: ApiConfig,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
     pub collector: CollectorConfig,
 }
 
@@ -41,13 +43,14 @@ impl ChronicleConfig {
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
     pub fn apply_cli_args(&mut self, args: super::CliArgs) {
-        #[cfg(feature = "stardust")]
+        #[cfg(all(feature = "stardust", feature = "inx"))]
         if let Some(inx) = args.inx {
-            self.inx = InxConfig::new(inx);
+            self.inx = StardustInxConfig::new(inx);
         }
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
+        #[cfg(all(feature = "stardust", feature = "inx"))]
         if let Some(solidifier_count) = args.solidifier_count {
             self.collector = CollectorConfig::new(solidifier_count);
         }

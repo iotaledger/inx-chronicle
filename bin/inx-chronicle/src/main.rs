@@ -7,32 +7,30 @@
 #[cfg(feature = "api")]
 mod api;
 mod cli;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 mod collector;
 mod config;
-#[cfg(feature = "inx")]
-mod inx;
+#[cfg(all(feature = "stardust", feature = "inx"))]
+mod stardust_inx;
 
 use std::error::Error;
 
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{
-        spawn_task, Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope,
-        SpawnActor,
-    },
+    runtime::{spawn_task, Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope},
 };
 use clap::Parser;
 use cli::CliArgs;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 use collector::{Collector, CollectorError};
 use config::{ChronicleConfig, ConfigError};
-use mongodb::error::ErrorKind;
 use thiserror::Error;
 
 #[cfg(feature = "api")]
 use self::api::ApiWorker;
-#[cfg(feature = "inx")]
-use self::inx::{InxWorker, InxWorkerError};
+#[cfg(all(feature = "stardust", feature = "inx"))]
+use self::stardust_inx::{StardustInxWorker, StardustInxWorkerError};
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -75,11 +73,12 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
+        #[cfg(all(feature = "stardust", feature = "inx"))]
         cx.spawn_child(Collector::new(db.clone(), config.collector.clone()))
             .await;
 
-        #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        cx.spawn_child(StardustInxWorker::new(config.inx.clone())).await;
 
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
@@ -87,6 +86,7 @@ impl Actor for Launcher {
     }
 }
 
+#[cfg(all(feature = "stardust", feature = "inx"))]
 #[async_trait]
 impl HandleEvent<Report<Collector>> for Launcher {
     async fn handle_event(
@@ -103,7 +103,8 @@ impl HandleEvent<Report<Collector>> for Launcher {
                 ActorError::Result(e) => match e {
                     CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
-                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                        mongodb::error::ErrorKind::Io(_)
+                        | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
                             cx.spawn_child(Collector::new(db, config.collector.clone())).await;
                         }
@@ -124,13 +125,13 @@ impl HandleEvent<Report<Collector>> for Launcher {
     }
 }
 
-#[cfg(feature = "inx")]
+#[cfg(all(feature = "stardust", feature = "inx"))]
 #[async_trait]
-impl HandleEvent<Report<InxWorker>> for Launcher {
+impl HandleEvent<Report<StardustInxWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<InxWorker>,
+        event: Report<StardustInxWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
@@ -139,39 +140,45 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
             }
             Report::Error(e) => match &e.error {
                 ActorError::Result(e) => match e {
-                    InxWorkerError::ConnectionError(_) => {
+                    StardustInxWorkerError::ConnectionError(_) => {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), wait_interval)?;
+                        cx.delay(
+                            chronicle::runtime::SpawnActor::new(StardustInxWorker::new(config.inx.clone())),
+                            wait_interval,
+                        )?;
                     }
-                    InxWorkerError::InvalidAddress(_) => {
+                    StardustInxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
                     }
-                    InxWorkerError::ParsingAddressFailed(_) => {
+                    StardustInxWorkerError::ParsingAddressFailed(_) => {
                         cx.shutdown();
                     }
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                    InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
+                    StardustInxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+                            cx.spawn_child(StardustInxWorker::new(config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
                         }
                     },
-                    InxWorkerError::Read(_) => {
+                    StardustInxWorkerError::Read(_) => {
                         cx.shutdown();
                     }
-                    InxWorkerError::Runtime(_) => {
+                    StardustInxWorkerError::Runtime(_) => {
                         cx.shutdown();
                     }
-                    InxWorkerError::ListenerError(_) => {
+                    StardustInxWorkerError::ListenerError(_) => {
                         cx.shutdown();
                     }
-                    InxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), None)?;
+                    StardustInxWorkerError::MissingCollector => {
+                        cx.delay(
+                            chronicle::runtime::SpawnActor::new(StardustInxWorker::new(config.inx.clone())),
+                            None,
+                        )?;
                     }
-                    InxWorkerError::FailedToAnswerRequest => {
+                    StardustInxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
                     }
                 },

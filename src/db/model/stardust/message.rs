@@ -38,6 +38,7 @@ impl MessageRecord {
     }
 }
 
+#[cfg(feature = "inx")]
 impl TryFrom<inx::proto::Message> for MessageRecord {
     type Error = inx::Error;
 
@@ -47,6 +48,7 @@ impl TryFrom<inx::proto::Message> for MessageRecord {
     }
 }
 
+#[cfg(feature = "inx")]
 impl TryFrom<(inx::proto::RawMessage, inx::proto::MessageMetadata)> for MessageRecord {
     type Error = inx::Error;
 
@@ -90,6 +92,46 @@ pub struct OutputResult {
     pub metadata: Option<MessageMetadata>,
     /// The output.
     pub output: dto::Output,
+}
+
+#[cfg(feature = "inx")]
+impl From<inx::MessageMetadata> for MessageMetadata {
+    fn from(metadata: inx::MessageMetadata) -> Self {
+        Self {
+            is_solid: metadata.is_solid,
+            should_promote: metadata.should_promote,
+            should_reattach: metadata.should_reattach,
+            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
+            milestone_index: metadata.milestone_index,
+            inclusion_state: match metadata.ledger_inclusion_state {
+                inx::LedgerInclusionState::Included => dto::LedgerInclusionState::Included,
+                inx::LedgerInclusionState::NoTransaction => dto::LedgerInclusionState::NoTransaction,
+                inx::LedgerInclusionState::Conflicting => dto::LedgerInclusionState::Conflicting,
+            },
+            conflict_reason: match metadata.conflict_reason {
+                inx::ConflictReason::None => None,
+                inx::ConflictReason::InputAlreadySpent => Some(dto::ConflictReason::InputUtxoAlreadySpent),
+                inx::ConflictReason::InputAlreadySpentInThisMilestone => {
+                    Some(dto::ConflictReason::InputUtxoAlreadySpentInThisMilestone)
+                }
+                inx::ConflictReason::InputNotFound => Some(dto::ConflictReason::InputUtxoNotFound),
+                inx::ConflictReason::InputOutputSumMismatch => Some(dto::ConflictReason::CreatedConsumedAmountMismatch),
+                inx::ConflictReason::InvalidSignature => Some(dto::ConflictReason::InvalidSignature),
+                inx::ConflictReason::TimelockNotExpired => Some(dto::ConflictReason::TimelockNotExpired),
+                inx::ConflictReason::InvalidNativeTokens => Some(dto::ConflictReason::InvalidNativeTokens),
+                inx::ConflictReason::ReturnAmountNotFulfilled => {
+                    Some(dto::ConflictReason::StorageDepositReturnUnfulfilled)
+                }
+                inx::ConflictReason::InvalidInputUnlock => Some(dto::ConflictReason::InvalidUnlockBlock),
+                inx::ConflictReason::InvalidInputsCommitment => Some(dto::ConflictReason::InputsCommitmentsMismatch),
+                inx::ConflictReason::InvalidSender => Some(dto::ConflictReason::UnverifiedSender),
+                inx::ConflictReason::InvalidChainStateTransition => {
+                    Some(dto::ConflictReason::InvalidChainStateTransition)
+                }
+                inx::ConflictReason::SemanticValidationFailed => Some(dto::ConflictReason::SemanticValidationFailed),
+            },
+        }
+    }
 }
 
 impl MongoDb {
@@ -352,44 +394,5 @@ impl MongoDb {
             None,
         )
         .await?.try_next().await
-    }
-}
-
-impl From<inx::MessageMetadata> for MessageMetadata {
-    fn from(metadata: inx::MessageMetadata) -> Self {
-        Self {
-            is_solid: metadata.is_solid,
-            should_promote: metadata.should_promote,
-            should_reattach: metadata.should_reattach,
-            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
-            milestone_index: metadata.milestone_index,
-            inclusion_state: match metadata.ledger_inclusion_state {
-                inx::LedgerInclusionState::Included => dto::LedgerInclusionState::Included,
-                inx::LedgerInclusionState::NoTransaction => dto::LedgerInclusionState::NoTransaction,
-                inx::LedgerInclusionState::Conflicting => dto::LedgerInclusionState::Conflicting,
-            },
-            conflict_reason: match metadata.conflict_reason {
-                inx::ConflictReason::None => None,
-                inx::ConflictReason::InputAlreadySpent => Some(dto::ConflictReason::InputUtxoAlreadySpent),
-                inx::ConflictReason::InputAlreadySpentInThisMilestone => {
-                    Some(dto::ConflictReason::InputUtxoAlreadySpentInThisMilestone)
-                }
-                inx::ConflictReason::InputNotFound => Some(dto::ConflictReason::InputUtxoNotFound),
-                inx::ConflictReason::InputOutputSumMismatch => Some(dto::ConflictReason::CreatedConsumedAmountMismatch),
-                inx::ConflictReason::InvalidSignature => Some(dto::ConflictReason::InvalidSignature),
-                inx::ConflictReason::TimelockNotExpired => Some(dto::ConflictReason::TimelockNotExpired),
-                inx::ConflictReason::InvalidNativeTokens => Some(dto::ConflictReason::InvalidNativeTokens),
-                inx::ConflictReason::ReturnAmountNotFulfilled => {
-                    Some(dto::ConflictReason::StorageDepositReturnUnfulfilled)
-                }
-                inx::ConflictReason::InvalidInputUnlock => Some(dto::ConflictReason::InvalidUnlockBlock),
-                inx::ConflictReason::InvalidInputsCommitment => Some(dto::ConflictReason::InputsCommitmentsMismatch),
-                inx::ConflictReason::InvalidSender => Some(dto::ConflictReason::UnverifiedSender),
-                inx::ConflictReason::InvalidChainStateTransition => {
-                    Some(dto::ConflictReason::InvalidChainStateTransition)
-                }
-                inx::ConflictReason::SemanticValidationFailed => Some(dto::ConflictReason::SemanticValidationFailed),
-            },
-        }
     }
 }

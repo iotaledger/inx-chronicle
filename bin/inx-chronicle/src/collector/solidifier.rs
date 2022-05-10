@@ -11,9 +11,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
-    #[cfg(feature = "stardust")]
-    #[error("the INX requester is missing")]
-    MissingInxRequester,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[error("the stardust INX requester is missing")]
+    MissingStardustInxRequester,
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
@@ -48,14 +48,14 @@ impl Actor for Solidifier {
     }
 }
 
-#[cfg(feature = "stardust")]
-mod stardust {
+#[cfg(all(feature = "stardust", feature = "inx"))]
+mod stardust_inx {
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
     use crate::{
-        collector::stardust::MilestoneState,
-        inx::{InxRequest, InxWorker},
+        collector::stardust_inx::MilestoneState,
+        stardust_inx::{StardustInxRequest, StardustInxWorker},
     };
 
     #[async_trait]
@@ -102,14 +102,14 @@ mod stardust {
                                     log::trace!("Requesting metadata for message {}", message_id.to_hex());
                                     // Send the state and everything. If the requester finds the message, it will circle
                                     // back.
-                                    cx.addr::<InxWorker>()
+                                    cx.addr::<StardustInxWorker>()
                                         .await
-                                        .send(InxRequest::get_metadata(
+                                        .send(StardustInxRequest::get_metadata(
                                             message_id.clone(),
                                             cx.handle().clone(),
                                             ms_state,
                                         ))
-                                        .map_err(|_| SolidifierError::MissingInxRequester)?;
+                                        .map_err(|_| SolidifierError::MissingStardustInxRequester)?;
                                     return Ok(());
                                 }
                             }
@@ -119,14 +119,14 @@ mod stardust {
                             log::trace!("Requesting message {}", message_id.to_hex());
                             // Send the state and everything. If the requester finds the message, it will circle
                             // back.
-                            cx.addr::<InxWorker>()
+                            cx.addr::<StardustInxWorker>()
                                 .await
-                                .send(InxRequest::get_message(
+                                .send(StardustInxRequest::get_message(
                                     message_id.clone(),
                                     cx.handle().clone(),
                                     ms_state,
                                 ))
-                                .map_err(|_| SolidifierError::MissingInxRequester)?;
+                                .map_err(|_| SolidifierError::MissingStardustInxRequester)?;
                             return Ok(());
                         }
                     }

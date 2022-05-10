@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-use super::listener::InxListenerError;
+use super::listener::StardustInxListenerError;
 
 #[derive(Debug, Error)]
 pub enum InxWorkerError {
@@ -14,7 +14,7 @@ pub enum InxWorkerError {
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
     #[error(transparent)]
-    ListenerError(#[from] InxListenerError),
+    ListenerError(#[from] StardustInxListenerError),
     #[error("the collector is not running")]
     MissingCollector,
     #[error(transparent)]
