@@ -23,6 +23,7 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
+    spawn_task,
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -190,7 +191,7 @@ impl RuntimeScope {
     {
         let SpawnConfig { mut actor, config } = actor.into();
         let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
-        let child_task = tokio::spawn(async move {
+        let child_task = spawn_task(actor.name().as_ref(), async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
             match res {
@@ -234,7 +235,7 @@ impl RuntimeScope {
     {
         let SpawnConfig { mut actor, config } = actor.into();
         let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
-        let child_task = tokio::spawn(async move {
+        let child_task = spawn_task(actor.name().as_ref(), async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg).await;
             match res {
