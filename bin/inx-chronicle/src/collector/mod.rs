@@ -57,7 +57,7 @@ impl Actor for Collector {
             );
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
-        cx.spawn_child(stardust_inx::StardustInxWorker::new(self.config.inx.clone()))
+        cx.spawn_child(stardust_inx::InxWorker::new(self.config.inx.clone()))
             .await;
         Ok(solidifiers)
     }

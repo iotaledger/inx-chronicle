@@ -38,20 +38,12 @@ impl ChronicleConfig {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
-        match (args.solidifier_count, args.inx) {
-            (Some(solidifier_count), Some(inx_config)) => {
-                self.collector = crate::collector::CollectorConfig::new(
-                    solidifier_count,
-                    crate::collector::stardust_inx::StardustInxConfig::new(inx_config),
-                );
-            }
-            (Some(solidifier_count), None) => {
-                self.collector.solidifier_count = solidifier_count;
-            }
-            (None, Some(inx_config)) => {
-                self.collector.inx = crate::collector::stardust_inx::StardustInxConfig::new(inx_config);
-            }
-            (None, None) => (),
+        if let Some(solidifier_count) = args.solidifier_count {
+            self.collector.solidifier_count = solidifier_count;
+        }
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        if let Some(inx) = args.inx {
+            self.collector.inx.connect_url = inx;
         }
     }
 }

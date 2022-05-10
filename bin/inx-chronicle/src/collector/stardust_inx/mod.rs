@@ -20,19 +20,20 @@ use chronicle::{
     dto,
     runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
 };
-pub use config::InxConfig as StardustInxConfig;
-pub use error::InxWorkerError as StardustInxWorkerError;
-pub use worker::{InxRequest as StardustInxRequest, InxWorker as StardustInxWorker};
+pub(super) use config::InxConfig;
+use error::InxWorkerError;
+use worker::InxRequest;
+pub(super) use worker::InxWorker;
 
 use super::{solidifier::Solidifier, Collector};
 use crate::collector::solidifier::SolidifierError;
 
 #[async_trait]
-impl HandleEvent<Report<StardustInxWorker>> for Collector {
+impl HandleEvent<Report<InxWorker>> for Collector {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<StardustInxWorker>,
+        event: Report<InxWorker>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
@@ -41,45 +42,45 @@ impl HandleEvent<Report<StardustInxWorker>> for Collector {
             }
             Report::Error(e) => match &e.error {
                 ActorError::Result(e) => match e {
-                    StardustInxWorkerError::ConnectionError(_) => {
+                    InxWorkerError::ConnectionError(_) => {
                         let wait_interval = self.config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
                         cx.delay(
-                            chronicle::runtime::SpawnActor::new(StardustInxWorker::new(self.config.inx.clone())),
+                            chronicle::runtime::SpawnActor::new(InxWorker::new(self.config.inx.clone())),
                             wait_interval,
                         )?;
                     }
-                    StardustInxWorkerError::InvalidAddress(_) => {
+                    InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
                     }
-                    StardustInxWorkerError::ParsingAddressFailed(_) => {
+                    InxWorkerError::ParsingAddressFailed(_) => {
                         cx.shutdown();
                     }
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                    StardustInxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
+                    InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(StardustInxWorker::new(self.config.inx.clone())).await;
+                            cx.spawn_child(InxWorker::new(self.config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
                         }
                     },
-                    StardustInxWorkerError::Read(_) => {
+                    InxWorkerError::Read(_) => {
                         cx.shutdown();
                     }
-                    StardustInxWorkerError::Runtime(_) => {
+                    InxWorkerError::Runtime(_) => {
                         cx.shutdown();
                     }
-                    StardustInxWorkerError::ListenerError(_) => {
+                    InxWorkerError::ListenerError(_) => {
                         cx.shutdown();
                     }
-                    StardustInxWorkerError::MissingCollector => {
+                    InxWorkerError::MissingCollector => {
                         cx.delay(
-                            chronicle::runtime::SpawnActor::new(StardustInxWorker::new(self.config.inx.clone())),
+                            chronicle::runtime::SpawnActor::new(InxWorker::new(self.config.inx.clone())),
                             None,
                         )?;
                     }
-                    StardustInxWorkerError::FailedToAnswerRequest => {
+                    InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
                     }
                 },
@@ -303,9 +304,9 @@ impl HandleEvent<MilestoneState> for Solidifier {
                                 log::trace!("Requesting metadata for message {}", message_id.to_hex());
                                 // Send the state and everything. If the requester finds the message, it will circle
                                 // back.
-                                cx.addr::<StardustInxWorker>()
+                                cx.addr::<InxWorker>()
                                     .await
-                                    .send(StardustInxRequest::get_metadata(
+                                    .send(InxRequest::get_metadata(
                                         message_id.clone(),
                                         cx.handle().clone(),
                                         ms_state,
@@ -320,9 +321,9 @@ impl HandleEvent<MilestoneState> for Solidifier {
                         log::trace!("Requesting message {}", message_id.to_hex());
                         // Send the state and everything. If the requester finds the message, it will circle
                         // back.
-                        cx.addr::<StardustInxWorker>()
+                        cx.addr::<InxWorker>()
                             .await
-                            .send(StardustInxRequest::get_message(
+                            .send(InxRequest::get_message(
                                 message_id.clone(),
                                 cx.handle().clone(),
                                 ms_state,
