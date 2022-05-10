@@ -4,8 +4,8 @@ ci-build-inx = "build --all-targets --no-default-features --features inx,stardus
 ci-build-api = "build --all-targets --no-default-features --features api-node,stardust --release"
 
 ci-clippy-all = "clippy --all-targets --all-features -- -D warnings"
-ci-clippy-inx = "clippy --all-targets --features inx -- -D warnings"
-ci-clippy-api = "clippy --all-targets --features api -- -D warnings"
+ci-clippy-inx = "clippy --all-targets --no-default-features --features inx,stardust -- -D warnings"
+ci-clippy-api = "clippy --all-targets --no-default-features --features api-node,stardust -- -D warnings"
 
 ci-doctest = "test --doc --all-features --release"
 ci-doc = "doc --all-features --no-deps --document-private-items"
