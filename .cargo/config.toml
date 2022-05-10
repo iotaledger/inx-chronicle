@@ -17,3 +17,7 @@ ci-udeps = "udeps --all-targets --all-features --backend=depinfo"
 fix-clippy = "clippy --all-targets --all-features --fix"
 fix-fmt = "fmt --all"
 fix-toml = "sort --grouped"
+
+# Enable Tokio's experimental tracing API.
+[build]
+rustflags = ["--cfg", "tokio_unstable"]

@@ -17,7 +17,10 @@ use std::error::Error;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope, SpawnActor},
+    runtime::{
+        spawn_task, Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope,
+        SpawnActor,
+    },
 };
 use clap::Parser;
 use cli::CliArgs;
@@ -212,6 +215,8 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
 async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
+    #[cfg(all(tokio_unstable, feature = "console"))]
+    console_subscriber::init();
 
     std::panic::set_hook(Box::new(|p| {
         log::error!("{}", p);
@@ -225,7 +230,7 @@ async fn main() {
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
     let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
-    tokio::spawn(async move {
+    spawn_task("ctrl-c listener", async move {
         tokio::signal::ctrl_c().await.ok();
         launcher_addr.shutdown();
     });
