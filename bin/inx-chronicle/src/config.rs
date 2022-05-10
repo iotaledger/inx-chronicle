@@ -11,6 +11,8 @@ use thiserror::Error;
 use crate::api::ApiConfig;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 use crate::collector::CollectorConfig;
+#[cfg(feature = "metrics")]
+use crate::metrics::MetricsConfig;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 use crate::stardust_inx::StardustInxConfig;
 
@@ -32,6 +34,8 @@ pub struct ChronicleConfig {
     pub api: ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub collector: CollectorConfig,
+    #[cfg(feature = "metrics")]
+    pub metrics: MetricsConfig,
 }
 
 impl ChronicleConfig {

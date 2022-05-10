@@ -1,24 +1,51 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{convert::Infallible, sync::Arc};
+use std::{
+    convert::Infallible,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use bee_metrics::{encoding::SendSyncEncodeMetric, metrics::ProcessMetrics, serve_metrics, Registry};
 use chronicle::runtime::{Actor, ActorContext, HandleEvent};
+use serde::{Deserialize, Serialize};
 use tokio::{
     sync::oneshot,
     task::JoinHandle,
     time::{sleep, Duration},
 };
 
-#[derive(Default)]
-pub struct MetricsWorker {}
+pub struct MetricsWorker {
+    config: MetricsConfig,
+}
+
+impl MetricsWorker {
+    pub fn new(config: MetricsConfig) -> Self {
+        Self { config }
+    }
+}
 
 pub struct MetricsState {
     registry: Arc<Registry>,
     server_handle: (JoinHandle<()>, Option<oneshot::Sender<()>>),
     process_metrics_handle: JoinHandle<()>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetricsConfig {
+    address: IpAddr,
+    port: u16,
+}
+
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self {
+            address: [0, 0, 0, 0].into(),
+            port: 9100,
+        }
+    }
 }
 
 #[async_trait]
@@ -30,8 +57,7 @@ impl Actor for MetricsWorker {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let registry = Arc::new(Registry::default());
 
-        // FIXME: pass address via config.
-        let addr = "0.0.0.0:6969".parse().unwrap();
+        let addr = SocketAddr::new(self.config.address, self.config.port);
 
         let metrics = ProcessMetrics::new(std::process::id());
         let (mem_metric, cpu_metric) = metrics.metrics();

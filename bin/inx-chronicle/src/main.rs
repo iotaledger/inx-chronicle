@@ -86,7 +86,8 @@ impl Actor for Launcher {
         cx.spawn_child(ApiWorker::new(db, config.api.clone())).await;
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(metrics::MetricsWorker::default()).await;
+        cx.spawn_child(metrics::MetricsWorker::new(config.metrics.clone()))
+            .await;
 
         Ok(config)
     }
