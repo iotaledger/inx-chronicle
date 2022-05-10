@@ -105,10 +105,20 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
-      - name: Clippy
+      - name: Clippy with all features
         uses: actions-rs/cargo@v1
         with:
-          command: ci-clippy
+          command: ci-clippy-all
+
+      - name: Clippy with INX only
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-clippy-inx
+
+      - name: Clippy with API only
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-clippy-api
   
   check-toml:
     runs-on: ubuntu-latest
