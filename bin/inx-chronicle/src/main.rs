@@ -231,11 +231,23 @@ impl HandleEvent<Report<metrics::MetricsWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        _event: Report<metrics::MetricsWorker>,
-        _config: &mut Self::State,
+        event: Report<metrics::MetricsWorker>,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // FIXME: what to do here?
-        cx.shutdown();
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(_) => {
+                    cx.spawn_child(metrics::MetricsWorker::new(config.metrics.clone()))
+                        .await;
+                }
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
 
         Ok(())
     }
