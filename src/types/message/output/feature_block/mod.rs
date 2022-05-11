@@ -4,7 +4,7 @@
 use bee_message_stardust::output::feature_block as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::address::Address;
+use crate::types::message::Address;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]

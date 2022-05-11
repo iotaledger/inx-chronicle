@@ -4,15 +4,15 @@
 use bee_message_stardust::input as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types;
+use crate::types::message::{MilestoneId, OutputId};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Input {
     #[serde(rename = "utxo")]
-    Utxo(types::OutputId),
+    Utxo(OutputId),
     #[serde(rename = "treasury")]
-    Treasury(types::MilestoneId),
+    Treasury(MilestoneId),
 }
 
 impl From<&stardust::Input> for Input {

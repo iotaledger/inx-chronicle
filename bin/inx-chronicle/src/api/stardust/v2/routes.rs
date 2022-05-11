@@ -11,8 +11,8 @@ use axum::{
 use bee_message_stardust::payload::milestone::MilestoneId;
 use chronicle::{
     db::MongoDb,
-    types,
     stardust::{output::OutputId, payload::transaction::TransactionId, MessageId},
+    types,
 };
 use futures::TryStreamExt;
 

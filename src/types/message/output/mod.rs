@@ -25,14 +25,14 @@ pub use self::{
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
-use crate::types;
+use crate::types::message::TransactionId;
 
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OutputId {
-    pub transaction_id: types::TransactionId,
+    pub transaction_id: TransactionId,
     pub index: OutputIndex,
 }
 

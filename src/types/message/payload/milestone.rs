@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::milestone as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{self, address::Address};
+use crate::types::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -29,7 +29,7 @@ pub type MilestoneIndex = u32;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MilestonePayload {
     pub essence: MilestoneEssence,
-    pub signatures: Box<[types::Signature]>,
+    pub signatures: Box<[Signature]>,
 }
 
 impl From<&stardust::MilestonePayload> for MilestonePayload {
@@ -60,7 +60,7 @@ pub struct MilestoneEssence {
     pub index: MilestoneIndex,
     pub timestamp: u32,
     pub previous_milestone_id: MilestoneId,
-    pub parents: Box<[types::MessageId]>,
+    pub parents: Box<[MessageId]>,
     #[serde(with = "serde_bytes")]
     pub confirmed_merkle_proof: Box<[u8]>,
     #[serde(with = "serde_bytes")]
@@ -76,7 +76,7 @@ impl From<&stardust::MilestoneEssence> for MilestoneEssence {
             index: value.index().0,
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
-            parents: value.parents().iter().map(|id| types::MessageId::from(*id)).collect(),
+            parents: value.parents().iter().map(|id| MessageId::from(*id)).collect(),
             confirmed_merkle_proof: value.confirmed_merkle_root().to_vec().into_boxed_slice(),
             applied_merkle_proof: value.applied_merkle_root().to_vec().into_boxed_slice(),
             metadata: value.metadata().to_vec(),
@@ -120,7 +120,7 @@ pub enum MilestoneOption {
         migrated_at: MilestoneIndex,
         last: bool,
         funds: Box<[MigratedFundsEntry]>,
-        transaction: types::TreasuryTransactionPayload,
+        transaction: TreasuryTransactionPayload,
     },
     #[serde(rename = "pow")]
     Pow {

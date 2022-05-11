@@ -4,13 +4,13 @@
 use bee_message_stardust::unlock_block as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types;
+use crate::types::message::Signature;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum UnlockBlock {
     #[serde(rename = "signature")]
-    Signature(types::Signature),
+    Signature(Signature),
     #[serde(rename = "reference")]
     Reference { index: u16 },
     #[serde(rename = "alias")]

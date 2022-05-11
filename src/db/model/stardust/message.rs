@@ -78,7 +78,7 @@ pub struct MessageMetadata {
     /// The corresponding milestone index.
     pub milestone_index: u32,
     /// The inclusion state of the message.
-    pub inclusion_state: types::LedgerInclusionState,
+    pub inclusion_state: types::ledger::LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
     pub conflict_reason: Option<types::ConflictReason>,
 }
@@ -115,7 +115,9 @@ impl From<inx::MessageMetadata> for MessageMetadata {
                     Some(types::ConflictReason::InputUtxoAlreadySpentInThisMilestone)
                 }
                 inx::ConflictReason::InputNotFound => Some(types::ConflictReason::InputUtxoNotFound),
-                inx::ConflictReason::InputOutputSumMismatch => Some(types::ConflictReason::CreatedConsumedAmountMismatch),
+                inx::ConflictReason::InputOutputSumMismatch => {
+                    Some(types::ConflictReason::CreatedConsumedAmountMismatch)
+                }
                 inx::ConflictReason::InvalidSignature => Some(types::ConflictReason::InvalidSignature),
                 inx::ConflictReason::TimelockNotExpired => Some(types::ConflictReason::TimelockNotExpired),
                 inx::ConflictReason::InvalidNativeTokens => Some(types::ConflictReason::InvalidNativeTokens),
