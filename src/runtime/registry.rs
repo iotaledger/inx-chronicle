@@ -14,7 +14,7 @@ use std::{
 use async_recursion::async_recursion;
 use futures::future::AbortHandle;
 use tokio::sync::RwLock;
-pub(crate) use uuid::Uuid;
+use uuid::Uuid;
 
 use super::{
     actor::{
