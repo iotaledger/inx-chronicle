@@ -126,11 +126,16 @@ impl HandleEvent<OldestMilestone> for Syncer {
 impl HandleEvent<TargetMilestone> for Syncer {
     async fn handle_event(
         &mut self,
-        _: &mut ActorContext<Self>,
+        cx: &mut ActorContext<Self>,
         TargetMilestone(index): TargetMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        sync_state.target_milestone = index;
+        if index > sync_state.target_milestone {
+            let previous_target = sync_state.target_milestone;
+            sync_state.target_milestone = index;
+            // trigger the syncer again from the previous target index to the new
+            cx.delay(Next(previous_target + 1), None)?;
+        }
         Ok(())
     }
 }
