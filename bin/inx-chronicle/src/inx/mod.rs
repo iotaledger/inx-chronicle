@@ -6,8 +6,11 @@ mod error;
 mod listener;
 mod worker;
 
-pub use self::{
+pub(crate) use self::{
     config::InxConfig,
     error::InxWorkerError,
-    worker::{stardust::InxRequest, InxWorker},
+    worker::{
+        stardust::{MessageRequest, MetadataRequest, MilestoneRequest},
+        InxWorker,
+    },
 };

@@ -56,8 +56,7 @@ mod stardust {
     use super::*;
     use crate::{
         collector::stardust::MilestoneState,
-        inx::{InxRequest, InxWorker},
-        syncer::{self, Syncer},
+        inx::{InxWorker, MessageRequest, MetadataRequest},
     };
 
     #[async_trait]
@@ -109,7 +108,7 @@ mod stardust {
                                     // back.
                                     cx.addr::<InxWorker>()
                                         .await
-                                        .send(InxRequest::metadata(message_id.clone(), cx.handle().clone(), ms_state))
+                                        .send(MetadataRequest::new(message_id.clone(), cx.handle().clone(), ms_state))
                                         .map_err(|_| SolidifierError::MissingInxRequester)?;
                                     return Ok(());
                                 }
@@ -122,7 +121,7 @@ mod stardust {
                             // back.
                             cx.addr::<InxWorker>()
                                 .await
-                                .send(InxRequest::message(message_id.clone(), cx.handle().clone(), ms_state))
+                                .send(MessageRequest::new(message_id.clone(), cx.handle().clone(), ms_state))
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
                             return Ok(());
                         }
@@ -147,12 +146,6 @@ mod stardust {
                 ms_state.milestone_index,
                 elapsed.as_secs_f32()
             );
-
-            // Note: we sample how long solidification takes to synchronize milestone requests issued by the syncer.
-            // cx.addr::<Syncer>().await.send(syncer::Cooldown(elapsed))?;
-            cx.addr::<Syncer>()
-                .await
-                .send(syncer::Solidified(ms_state.milestone_index))?;
 
             Ok(())
         }

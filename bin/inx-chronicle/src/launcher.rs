@@ -12,19 +12,18 @@ use chronicle::{
     },
 };
 use clap::Parser;
-use inx::NodeStatus;
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
 #[cfg(feature = "api")]
 use crate::api::ApiWorker;
 #[cfg(feature = "inx")]
-use crate::inx::{InxRequest, InxWorker, InxWorkerError};
+use crate::inx::{InxWorker, InxWorkerError};
 use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
-    syncer::{self, Syncer},
+    syncer::Syncer,
 };
 
 #[derive(Debug, Error)]
@@ -39,9 +38,7 @@ pub enum LauncherError {
 
 #[derive(Debug, Default)]
 /// Supervisor actor
-pub struct Launcher {
-    node_status: Option<NodeStatus>,
-}
+pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
@@ -77,13 +74,7 @@ impl Actor for Launcher {
 
         // Start InxWorker.
         #[cfg(feature = "inx")]
-        {
-            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
-
-            // Send a `NodeStatus` request to the `InxWorker`
-            #[cfg(feature = "inx")]
-            cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
-        }
+        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
         // Start ApiWorker.
         #[cfg(feature = "api")]
@@ -235,31 +226,6 @@ impl HandleEvent<Report<Syncer>> for Launcher {
             Report::Error(_) => log::error!("Syncer finished with errors."),
         }
         cx.shutdown();
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<NodeStatus> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        node_status: NodeStatus,
-        _: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        // Start syncing from the node's pruning index to it's current ledger index + X.
-        // NOTE: we make sure there's a bit of overlap from which Chronicle started to listen
-        // to the stream of live milestones.
-        if self.node_status.is_none() {
-            let start_index = node_status.pruning_index + 1;
-            let end_index = node_status.ledger_index + 10;
-
-            cx.addr::<Syncer>().await.send(syncer::Stop(end_index))?;
-            cx.addr::<Syncer>().await.send(syncer::Next(start_index))?;
-        }
-
-        self.node_status.replace(node_status);
-
         Ok(())
     }
 }

@@ -31,7 +31,7 @@ pub enum CollectorError {
 }
 
 #[derive(Debug)]
-pub struct Collector {
+pub(crate) struct Collector {
     db: MongoDb,
     solidifier_count: usize,
 }
@@ -47,9 +47,14 @@ impl Collector {
     }
 }
 
+pub(crate) struct CollectorState {
+    solidifiers: HashMap<usize, Addr<Solidifier>>,
+    notified_syncer: bool,
+}
+
 #[async_trait]
 impl Actor for Collector {
-    type State = HashMap<usize, Addr<Solidifier>>;
+    type State = CollectorState;
     type Error = CollectorError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -61,7 +66,10 @@ impl Actor for Collector {
                     .await,
             );
         }
-        Ok(solidifiers)
+        Ok(CollectorState {
+            solidifiers,
+            notified_syncer: false,
+        })
     }
 }
 
@@ -71,7 +79,7 @@ impl HandleEvent<Report<Solidifier>> for Collector {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<Solidifier>,
-        solidifiers: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -80,7 +88,9 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
                     solidifier::SolidifierError::MissingInxRequester => {
-                        solidifiers.insert(report.actor.id, cx.spawn_child(report.actor).await);
+                        state
+                            .solidifiers
+                            .insert(report.actor.id, cx.spawn_child(report.actor).await);
                     }
                     // TODO: Maybe map Solidifier errors to Collector errors and return them?
                     _ => {
@@ -109,6 +119,7 @@ pub mod stardust {
     };
 
     use super::*;
+    use crate::syncer::{SyncRange, Syncer};
 
     #[derive(Debug)]
     pub struct MilestoneState {
@@ -128,24 +139,24 @@ pub mod stardust {
     }
 
     #[derive(Debug)]
-    pub struct RequestedMessage {
+    pub struct RequestedMessage<Sender: Actor> {
         raw: Option<inx::proto::RawMessage>,
         metadata: inx::proto::MessageMetadata,
-        solidifier: Addr<Solidifier>,
+        sender_addr: Addr<Sender>,
         ms_state: MilestoneState,
     }
 
-    impl RequestedMessage {
+    impl<Sender: Actor> RequestedMessage<Sender> {
         pub fn new(
             raw: Option<inx::proto::RawMessage>,
             metadata: inx::proto::MessageMetadata,
-            solidifier: Addr<Solidifier>,
+            sender_addr: Addr<Sender>,
             ms_state: MilestoneState,
         ) -> Self {
             Self {
                 raw,
                 metadata,
-                solidifier,
+                sender_addr,
                 ms_state,
             }
         }
@@ -206,9 +217,9 @@ pub mod stardust {
     impl HandleEvent<inx::proto::Milestone> for Collector {
         async fn handle_event(
             &mut self,
-            _cx: &mut ActorContext<Self>,
+            cx: &mut ActorContext<Self>,
             milestone: inx::proto::Milestone,
-            solidifiers: &mut Self::State,
+            state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             log::trace!(
                 "Received Stardust Milestone Event ({})",
@@ -218,16 +229,25 @@ pub mod stardust {
                 Ok(rec) => {
                     self.db.upsert_milestone_record(&rec).await?;
                     // Get or create the milestone state
-                    let mut state = MilestoneState::new(rec.milestone_index);
-                    state
+                    let mut ms_state = MilestoneState::new(rec.milestone_index);
+                    ms_state
                         .process_queue
                         .extend(Vec::from(rec.payload.essence.parents).into_iter());
-                    solidifiers
+                    // Notify the syncer if we haven't already
+                    if !state.notified_syncer {
+                        cx.addr::<Syncer>().await.send(SyncRange {
+                            start: None,
+                            end: ms_state.milestone_index,
+                        })?;
+                        state.notified_syncer = true;
+                    }
+                    state
+                        .solidifiers
                         // Divide solidifiers fairly by milestone
                         .get(&(rec.milestone_index as usize % self.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
-                        .send(state)?;
+                        .send(ms_state)?;
                 }
                 Err(e) => {
                     log::error!("Could not read milestone: {:?}", e);
@@ -238,16 +258,19 @@ pub mod stardust {
     }
 
     #[async_trait]
-    impl HandleEvent<RequestedMessage> for Collector {
+    impl<Sender: Actor> HandleEvent<RequestedMessage<Sender>> for Collector
+    where
+        Sender: 'static + HandleEvent<MilestoneState>,
+    {
         async fn handle_event(
             &mut self,
             _cx: &mut ActorContext<Self>,
             RequestedMessage {
                 raw,
                 metadata,
-                solidifier,
+                sender_addr,
                 ms_state,
-            }: RequestedMessage,
+            }: RequestedMessage<Sender>,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match raw {
@@ -257,7 +280,7 @@ pub mod stardust {
                         Ok(rec) => {
                             self.db.upsert_message_record(&rec).await?;
                             // Send this directly to the solidifier that requested it
-                            solidifier.send(ms_state)?;
+                            sender_addr.send(ms_state)?;
                         }
                         Err(e) => {
                             log::error!("Could not read message: {:?}", e);
@@ -273,7 +296,7 @@ pub mod stardust {
                                 .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
                                 .await?;
                             // Send this directly to the solidifier that requested it
-                            solidifier.send(ms_state)?;
+                            sender_addr.send(ms_state)?;
                         }
                         Err(e) => {
                             log::error!("Could not read message metadata: {:?}", e);
