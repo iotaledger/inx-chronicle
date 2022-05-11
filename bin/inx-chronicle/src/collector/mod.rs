@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
-    types::{ledger::MessageMetadata, stardust::message::MessageId},
+    types::{ledger::Metadata, stardust::message::MessageId},
 };
 pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
@@ -174,7 +174,7 @@ pub mod stardust_inx {
                 Ok(rec) => {
                     let message_id = rec.message_id;
                     self.db
-                        .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                        .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                         .await?;
                 }
                 Err(e) => {
@@ -250,7 +250,7 @@ pub mod stardust_inx {
                         Ok(rec) => {
                             let message_id = rec.message_id;
                             self.db
-                                .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                                .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                                 .await?;
                             // Send this directly to the solidifier that requested it
                             solidifier.send(ms_state)?;

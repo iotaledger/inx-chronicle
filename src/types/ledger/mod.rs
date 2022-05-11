@@ -8,5 +8,5 @@ mod metadata;
 pub use self::{
     conflict_reason::ConflictReason,
     inclusion_state::{LedgerInclusionState, UnexpectedLedgerInclusionState},
-    metadata::MessageMetadata,
+    metadata::Metadata,
 };

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{ConflictReason, LedgerInclusionState, MessageMetadata},
+        ledger::{ConflictReason, LedgerInclusionState, Metadata},
         stardust::message::{Address, Message, MessageId, Output, TransactionId},
     },
 };
@@ -27,7 +27,7 @@ pub struct MessageRecord {
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
     /// The message's metadata.
-    pub metadata: Option<MessageMetadata>,
+    pub metadata: Option<Metadata>,
 }
 
 impl MessageRecord {
@@ -76,13 +76,13 @@ pub struct OutputResult {
     /// The id of the message this output came from.
     pub message_id: MessageId,
     /// The metadata of the message this output came from.
-    pub metadata: Option<MessageMetadata>,
+    pub metadata: Option<Metadata>,
     /// The output.
     pub output: Output,
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::MessageMetadata> for MessageMetadata {
+impl From<inx::MessageMetadata> for Metadata {
     fn from(metadata: inx::MessageMetadata) -> Self {
         Self {
             is_solid: metadata.is_solid,
@@ -162,7 +162,7 @@ impl MongoDb {
     pub async fn update_message_metadata(
         &self,
         message_id: &MessageId,
-        metadata: &MessageMetadata,
+        metadata: &Metadata,
     ) -> Result<UpdateResult, Error> {
         self.0
             .collection::<MessageRecord>(MessageRecord::COLLECTION)

@@ -7,7 +7,7 @@ use super::{ConflictReason, LedgerInclusionState};
 
 /// Message metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MessageMetadata {
+pub struct Metadata {
     /// Status of the solidification process.
     pub is_solid: bool,
     /// Indicates that the message should be promoted.
