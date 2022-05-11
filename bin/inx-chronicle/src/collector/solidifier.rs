@@ -152,7 +152,7 @@ mod stardust {
             // historic one.
             cx.addr::<Syncer>()
                 .await
-                .send(syncer::Solidified(ms_state.milestone_index))?;
+                .send(syncer::LatestSolidified(ms_state.milestone_index))?;
 
             Ok(())
         }

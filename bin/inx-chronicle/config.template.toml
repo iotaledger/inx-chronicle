@@ -13,3 +13,4 @@ allow_origins = ["0.0.0.0"]
 
 [syncer]
 max_simultaneous_requests = 10
+max_milestones_to_sync = 1000

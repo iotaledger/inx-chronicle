@@ -111,7 +111,7 @@ pub mod stardust {
     };
 
     use super::*;
-    use crate::syncer::Latest;
+    use crate::syncer::LatestMilestone;
 
     #[derive(Debug)]
     pub struct MilestoneState {
@@ -221,7 +221,7 @@ pub mod stardust {
                 Ok(rec) => {
                     self.db.upsert_milestone_record(&rec).await?;
                     // Tell the Syncer about this new milestone
-                    cx.addr::<Syncer>().await.send(Latest(rec.milestone_index))?;
+                    cx.addr::<Syncer>().await.send(LatestMilestone(rec.milestone_index))?;
                     // Get or create the milestone state
                     let mut state = MilestoneState::new(rec.milestone_index);
                     state

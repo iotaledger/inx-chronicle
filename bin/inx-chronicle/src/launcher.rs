@@ -24,7 +24,7 @@ use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
-    syncer::{Latest, Next, Syncer},
+    syncer::{LatestMilestone, OldestMilestone, Syncer},
 };
 
 #[derive(Debug, Error)]
@@ -250,11 +250,11 @@ impl HandleEvent<NodeStatus> for Launcher {
         // Start syncing from the node's pruning index up to it's current ledger index.
         // NOTE: the upper bound will be updated through the milestone listening stream.
         if self.node_status.is_none() {
-            let start_index = node_status.pruning_index + 1;
-            let end_index = node_status.ledger_index;
+            let oldest_index = node_status.pruning_index + 1;
+            let latest_index = node_status.ledger_index;
 
-            cx.addr::<Syncer>().await.send(Latest(end_index))?;
-            cx.addr::<Syncer>().await.send(Next(start_index))?;
+            cx.addr::<Syncer>().await.send(LatestMilestone(latest_index))?;
+            cx.addr::<Syncer>().await.send(OldestMilestone(oldest_index))?;
         }
 
         self.node_status.replace(node_status);
