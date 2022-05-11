@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::transaction as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::message::{Input, Output, UnlockBlock, Payload};
+use crate::types::message::{Input, Output, Payload, UnlockBlock};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]

@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use chronicle::{
     runtime::{Actor, ActorContext, ActorError, Addr, HandleEvent, Report, SpawnActor},
-    types::MessageId,
+    types::message::MessageId,
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
 

@@ -11,7 +11,10 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::{db::MongoDb, types};
+use crate::{
+    db::MongoDb,
+    types::message::{MilestoneId, MilestonePayload},
+};
 
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
@@ -21,9 +24,9 @@ pub struct MilestoneRecord {
     /// The timestamp of the milestone.
     pub milestone_timestamp: DateTime,
     /// The [`MilestoneId`](types::MilestoneId) of the milestone.
-    pub milestone_id: types::MilestoneId,
+    pub milestone_id: MilestoneId,
     /// The milestone's payload.
-    pub payload: types::MilestonePayload,
+    pub payload: MilestonePayload,
 }
 
 impl MilestoneRecord {
@@ -48,7 +51,7 @@ impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
 
 impl MongoDb {
     /// Get milestone with index.
-    pub async fn get_milestone_record(&self, id: &types::MilestoneId) -> Result<Option<MilestoneRecord>, Error> {
+    pub async fn get_milestone_record(&self, id: &MilestoneId) -> Result<Option<MilestoneRecord>, Error> {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .find_one(doc! {"milestone_id": bson::to_bson(id)?}, None)

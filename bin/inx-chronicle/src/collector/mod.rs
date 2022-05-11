@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
+    types::{ledger::MessageMetadata, message::MessageId},
 };
 pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
@@ -96,10 +97,9 @@ pub mod stardust_inx {
 
     use chronicle::{
         db::model::stardust::{
-            message::{MessageMetadata, MessageRecord},
+            message::{MessageRecord},
             milestone::MilestoneRecord,
         },
-        types,
     };
 
     use super::*;
@@ -107,8 +107,8 @@ pub mod stardust_inx {
     #[derive(Debug)]
     pub struct MilestoneState {
         pub milestone_index: u32,
-        pub process_queue: VecDeque<types::MessageId>,
-        pub visited: HashSet<types::MessageId>,
+        pub process_queue: VecDeque<MessageId>,
+        pub visited: HashSet<MessageId>,
     }
 
     impl MilestoneState {
