@@ -14,7 +14,7 @@ use std::{
 use async_recursion::async_recursion;
 use futures::future::AbortHandle;
 use tokio::sync::RwLock;
-pub use uuid::Uuid;
+use uuid::Uuid;
 
 use super::{
     actor::{
@@ -25,21 +25,21 @@ use super::{
 };
 
 /// An alias type indicating that this is a scope id
-pub type ScopeId = Uuid;
+pub(crate) type ScopeId = Uuid;
 
 /// The root scope id, which is always a zeroed uuid.
-pub const ROOT_SCOPE: Uuid = Uuid::nil();
+pub(crate) const ROOT_SCOPE: Uuid = Uuid::nil();
 
 /// A scope, which marks data as usable for a given task.
 #[derive(Clone, Debug)]
-pub struct Scope {
+pub(crate) struct Scope {
     pub(crate) inner: Arc<ScopeInner>,
     valid: Arc<AtomicBool>,
 }
 
 /// Shared scope information.
 #[derive(Debug)]
-pub struct ScopeInner {
+pub(crate) struct ScopeInner {
     pub(crate) id: ScopeId,
     address_registry: RwLock<AddressRegistry>,
     shutdown_handle: Option<ShutdownHandle>,
@@ -162,19 +162,19 @@ impl Deref for Scope {
 }
 
 #[derive(Debug, Default)]
-pub struct AddressRegistry {
+pub(crate) struct AddressRegistry {
     map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
 impl AddressRegistry {
-    pub fn insert<A>(&mut self, addr: Addr<A>)
+    pub(crate) fn insert<A>(&mut self, addr: Addr<A>)
     where
         A: 'static + Actor,
     {
         self.map.insert(TypeId::of::<A>(), Box::new(addr));
     }
 
-    pub fn get<A>(&self) -> OptionalAddr<A>
+    pub(crate) fn get<A>(&self) -> OptionalAddr<A>
     where
         A: 'static + Actor,
     {
