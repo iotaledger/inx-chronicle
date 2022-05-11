@@ -52,12 +52,19 @@ struct Next(u32);
 pub(crate) struct LatestMilestone(pub(crate) u32);
 pub(crate) struct OldestMilestone(pub(crate) u32);
 pub(crate) struct LatestSolidified(pub(crate) u32);
+pub(crate) struct TargetMilestone(pub(crate) u32);
 
 #[derive(Default)]
 pub(crate) struct SyncState {
-    earliest_milestone: u32,
-    first_synced_milestone: u32,
-    latest_milestone: u32, // inclusive
+    // the oldest known milestone - usually the pruning index of the connected node
+    oldest_milestone: u32,
+    // the index up to which the syncer should request milestones from the node
+    target_milestone: u32,
+    // the oldest milestones we were able to sync
+    oldest_synced_milestone: u32,
+    // the latest milestone we know of from listening to the milestone stream
+    latest_milestone: u32,
+    // the set of milestones we are currently trying to sync
     pending: HashSet<u32>,
 }
 
@@ -71,6 +78,7 @@ impl Actor for Syncer {
     }
 }
 
+// issues requests in a controlled way
 #[async_trait]
 impl HandleEvent<Next> for Syncer {
     async fn handle_event(
@@ -79,8 +87,7 @@ impl HandleEvent<Next> for Syncer {
         Next(index): Next,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // let index = sync_state.next;
-        if index <= sync_state.latest_milestone {
+        if index <= sync_state.target_milestone {
             if sync_state.pending.len() < self.config.max_simultaneous_requests {
                 if !self.is_synced(index).await? {
                     log::info!("Requesting unsolid milestone {}.", index);
@@ -102,6 +109,7 @@ impl HandleEvent<Next> for Syncer {
     }
 }
 
+// sets the oldest milestone the syncer can try to sync from if the user configured to do so
 #[async_trait]
 impl HandleEvent<OldestMilestone> for Syncer {
     async fn handle_event(
@@ -110,12 +118,26 @@ impl HandleEvent<OldestMilestone> for Syncer {
         OldestMilestone(index): OldestMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        sync_state.earliest_milestone = sync_state.earliest_milestone.min(index);
+        sync_state.oldest_milestone = sync_state.oldest_milestone.min(index);
         Ok(())
     }
 }
 
-// that moves the upper bound of the sync range
+// changes the target milestone of the syncer moving the upper bound of the syncing range
+#[async_trait]
+impl HandleEvent<TargetMilestone> for Syncer {
+    async fn handle_event(
+        &mut self,
+        _: &mut ActorContext<Self>,
+        TargetMilestone(index): TargetMilestone,
+        sync_state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        sync_state.target_milestone = index;
+        Ok(())
+    }
+}
+
+// updates the sync state with the latest milestone from the listening stream
 #[async_trait]
 impl HandleEvent<LatestMilestone> for Syncer {
     async fn handle_event(
@@ -126,12 +148,13 @@ impl HandleEvent<LatestMilestone> for Syncer {
     ) -> Result<(), Self::Error> {
         // First ever listened milestone? Get the start index and trigger syncing.
         if sync_state.latest_milestone == 0 { 
+            sync_state.target_milestone = index;
             sync_state.latest_milestone = index;
             let next = if self.config.max_milestones_to_sync != 0 {
                 index.checked_sub(self.config.max_milestones_to_sync).unwrap_or(1)
             } else {
                 // Sync from the pruning index.
-                sync_state.earliest_milestone
+                sync_state.oldest_milestone
             };
             // Actually triggers the Syncer.
             cx.delay(Next(next), None)?;
@@ -152,7 +175,7 @@ impl HandleEvent<LatestSolidified> for Syncer {
         LatestSolidified(index): LatestSolidified,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        sync_state.first_synced_milestone = sync_state.first_synced_milestone.min(index);
+        sync_state.oldest_synced_milestone = sync_state.oldest_synced_milestone.min(index);
         sync_state.pending.remove(&index);
         Ok(())
     }
