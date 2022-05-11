@@ -4,9 +4,7 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount,
-};
+use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
