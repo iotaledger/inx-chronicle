@@ -51,8 +51,6 @@ impl Actor for Solidifier {
 
 #[cfg(feature = "stardust")]
 mod stardust {
-    use chronicle::db::model::sync::SyncRecord;
-
     use super::*;
     use crate::{
         collector::stardust::MilestoneState,
@@ -131,13 +129,7 @@ mod stardust {
 
             // If we finished all the parents, that means we have a complete milestone
             // so we should mark it synced
-            self.db
-                .upsert_sync_record(&SyncRecord {
-                    milestone_index: ms_state.milestone_index,
-                    logged: false,
-                    synced: true,
-                })
-                .await?;
+            self.db.upsert_sync_record(ms_state.milestone_index).await?;
 
             let elapsed = now.elapsed();
 

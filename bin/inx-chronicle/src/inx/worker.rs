@@ -102,7 +102,6 @@ pub mod stardust {
 
     pub(crate) struct NodeStatusRequest<Sender: Actor>(Addr<Sender>);
     impl<Sender: Actor> NodeStatusRequest<Sender> {
-        #[allow(dead_code)]
         pub fn new(sender_addr: Addr<Sender>) -> Self {
             Self(sender_addr)
         }
@@ -238,20 +237,35 @@ pub mod stardust {
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
             log::trace!("Requesting milestone {}", milestone_index);
-            if let Ok(milestone) = inx_client
+            match inx_client
                 .read_milestone(inx::proto::MilestoneRequest {
                     milestone_index,
                     milestone_id: None,
                 })
                 .await
             {
-                // TODO: unwrap
-                let milestone: inx::proto::Milestone = milestone.into_inner();
+                Ok(milestone) => {
+                    // TODO: unwrap
+                    let milestone: inx::proto::Milestone = milestone.into_inner();
 
-                // Instruct the collector to solidify this milestone.
-                cx.addr::<Collector>().await.send(milestone)?;
-            } else {
-                log::warn!("No milestone response for {}", milestone_index);
+                    // Instruct the collector to solidify this milestone.
+                    cx.addr::<Collector>().await.send(milestone)?;
+                }
+                Err(_e) => {
+                    log::warn!("No milestone response for {}", milestone_index);
+                    // match e.code().description() {
+                    //     // TODO: Import `Code` in the inx crate so we can match on it
+                    //     "The operation was cancelled"
+                    //     | "Unknown error"
+                    //     | "Deadline expired before operation could complete"
+                    //     | "Some resource has been exhausted"
+                    //     | "The service is currently unavailable" => {
+                    //         // TODO: Rebase onto combined inx and collector
+                    //         cx.addr::<Syncer>().await.send(SyncerEvent::retry(milestone_index))?;
+                    //     }
+                    //     _ => (),
+                    // }
+                }
             }
             Ok(())
         }

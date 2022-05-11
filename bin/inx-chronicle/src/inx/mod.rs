@@ -10,7 +10,7 @@ pub(crate) use self::{
     config::InxConfig,
     error::InxWorkerError,
     worker::{
-        stardust::{MessageRequest, MetadataRequest, MilestoneRequest},
+        stardust::{MessageRequest, MetadataRequest, MilestoneRequest, NodeStatusRequest},
         InxWorker,
     },
 };

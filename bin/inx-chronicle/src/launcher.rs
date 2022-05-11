@@ -23,7 +23,6 @@ use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
-    syncer::Syncer,
 };
 
 #[derive(Debug, Error)]
@@ -70,7 +69,8 @@ impl Actor for Launcher {
         };
 
         // Start Collector.
-        cx.spawn_child(Collector::new(db.clone(), 10)).await;
+        cx.spawn_child(Collector::new(db.clone(), 10, config.syncer.clone()))
+            .await;
 
         // Start InxWorker.
         #[cfg(feature = "inx")]
@@ -79,9 +79,6 @@ impl Actor for Launcher {
         // Start ApiWorker.
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
-
-        // Start Syncer.
-        cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone())).await;
 
         Ok((config, db))
     }
@@ -106,7 +103,8 @@ impl HandleEvent<Report<Collector>> for Launcher {
                         ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                             let new_db = MongoDb::connect(&config.mongodb).await?;
                             *db = new_db;
-                            cx.spawn_child(Collector::new(db.clone(), 1)).await;
+                            cx.spawn_child(Collector::new(db.clone(), 10, config.syncer.clone()))
+                                .await;
                         }
                         _ => {
                             cx.shutdown();
@@ -209,23 +207,6 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
                 }
             },
         }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Syncer>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        report: Report<Syncer>,
-        (_config, _db): &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match report {
-            Report::Success(_) => log::info!("Syncer finished."),
-            Report::Error(_) => log::error!("Syncer finished with errors."),
-        }
-        cx.shutdown();
         Ok(())
     }
 }

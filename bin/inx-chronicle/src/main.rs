@@ -12,7 +12,6 @@ mod config;
 #[cfg(feature = "inx")]
 mod inx;
 mod launcher;
-mod syncer;
 
 use std::error::Error;
 
