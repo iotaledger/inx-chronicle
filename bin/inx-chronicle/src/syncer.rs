@@ -94,9 +94,7 @@ impl HandleEvent<Next> for Syncer {
                     cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
                     sync_state.pending.insert(index);
                 }
-                if index < sync_state.latest_milestone {
-                    cx.delay(Next(index + 1), None)?;
-                }
+                cx.delay(Next(index + 1), None)?;
             } else {
                 // wait a bit and try again
                 // TODO: can we assume that `pending` always decreases over time?
