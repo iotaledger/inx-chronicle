@@ -150,17 +150,20 @@ impl HandleEvent<LatestMilestone> for Syncer {
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         // First ever listened milestone? Get the start index and trigger syncing.
-        if sync_state.latest_milestone == 0 { 
+        if sync_state.latest_milestone == 0 {
             sync_state.target_milestone = index;
             sync_state.latest_milestone = index;
-            let next = if self.config.max_milestones_to_sync != 0 {
-                index.checked_sub(self.config.max_milestones_to_sync).unwrap_or(1)
+            let index = if self.config.max_milestones_to_sync != 0 {
+                index
+                    .checked_sub(self.config.max_milestones_to_sync)
+                    .unwrap_or(1)
+                    .max(sync_state.oldest_milestone)
             } else {
                 // Sync from the pruning index.
                 sync_state.oldest_milestone
             };
             // Actually triggers the Syncer.
-            cx.delay(Next(next), None)?;
+            cx.delay(Next(index), None)?;
         } else if index != sync_state.latest_milestone + 1 {
             log::warn!("Latest milestone isn't the direct successor of the previous one.");
             sync_state.latest_milestone = index;
