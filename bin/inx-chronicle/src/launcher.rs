@@ -69,12 +69,11 @@ impl Actor for Launcher {
         };
 
         // Start Collector.
-        cx.spawn_child(Collector::new(db.clone(), 10, config.syncer.clone()))
-            .await;
+        cx.spawn_child(Collector::new(db.clone(), 10)).await;
 
         // Start InxWorker.
         #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+        cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
 
         // Start ApiWorker.
         #[cfg(feature = "api")]
@@ -103,8 +102,7 @@ impl HandleEvent<Report<Collector>> for Launcher {
                         ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
                             let new_db = MongoDb::connect(&config.mongodb).await?;
                             *db = new_db;
-                            cx.spawn_child(Collector::new(db.clone(), 10, config.syncer.clone()))
-                                .await;
+                            cx.spawn_child(Collector::new(db.clone(), 10)).await;
                         }
                         _ => {
                             cx.shutdown();
@@ -130,7 +128,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxWorker>,
-        (config, _): &mut Self::State,
+        (config, db): &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Report::Success(_) => {
@@ -141,7 +139,10 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     InxWorkerError::ConnectionError(_) => {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), wait_interval)?;
+                        cx.delay(
+                            SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())),
+                            wait_interval,
+                        )?;
                     }
                     InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
@@ -152,7 +153,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                     InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+                            cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
@@ -168,9 +169,12 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                         cx.shutdown();
                     }
                     InxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), None)?;
+                        cx.delay(SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())), None)?;
                     }
                     InxWorkerError::FailedToAnswerRequest => {
+                        cx.shutdown();
+                    }
+                    InxWorkerError::InxTypeConversion(_) => {
                         cx.shutdown();
                     }
                 },

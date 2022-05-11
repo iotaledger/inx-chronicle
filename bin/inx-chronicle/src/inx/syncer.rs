@@ -15,22 +15,23 @@ use inx::NodeStatus;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 
+use super::InxWorkerError;
 use crate::inx::{InxWorker, MilestoneRequest, NodeStatusRequest};
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SyncerError {
     #[error(transparent)]
-    Runtime(#[from] RuntimeError),
-    #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
-    Bson(#[from] mongodb::bson::de::Error),
+    Request(#[from] InxWorkerError),
+    #[error(transparent)]
+    Runtime(#[from] RuntimeError),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SyncerConfig {
-    pub(crate) earliest_milestone: u32,
+    pub(crate) max_milestones: u32,
     #[serde(with = "humantime_serde")]
     pub(crate) rate_limit: Duration,
 }
@@ -38,8 +39,8 @@ pub struct SyncerConfig {
 impl Default for SyncerConfig {
     fn default() -> Self {
         Self {
-            earliest_milestone: 0,
-            rate_limit: Duration::from_millis(100),
+            max_milestones: 10000,
+            rate_limit: Duration::from_millis(500),
         }
     }
 }
@@ -60,25 +61,14 @@ impl Syncer {
     }
 }
 
-pub(crate) enum SyncerEvent {
-    SyncRange {
-        start: u32,
-        end: u32,
-    },
-    #[allow(dead_code)]
-    Retry {
-        milestone: u32,
-    },
+pub(crate) struct SyncRange {
+    start: u32,
+    end: u32,
 }
 
-impl SyncerEvent {
-    pub fn sync_range(start: u32, end: u32) -> Self {
-        Self::SyncRange { start, end }
-    }
-
-    #[allow(dead_code)]
-    pub fn retry(milestone: u32) -> Self {
-        Self::Retry { milestone }
+impl SyncRange {
+    pub fn new(start: u32, end: u32) -> Self {
+        Self { start, end }
     }
 }
 
@@ -96,31 +86,23 @@ impl Actor for Syncer {
 }
 
 #[async_trait]
-impl HandleEvent<SyncerEvent> for Syncer {
+impl HandleEvent<SyncRange> for Syncer {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: SyncerEvent,
+        SyncRange { start, end }: SyncRange,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        match event {
-            SyncerEvent::SyncRange { start, end } => {
-                let target_time = Instant::now() + self.config.rate_limit;
-                if start <= end {
-                    if !self.is_synced(start).await? {
-                        log::info!("Requesting unsolid milestone {}.", start);
-                        cx.addr::<InxWorker>().await.send(MilestoneRequest::new(start))?;
-                    }
-                    tokio::time::sleep_until(target_time).await;
-                    cx.delay(SyncerEvent::sync_range(start + 1, end), None)?;
-                } else {
-                    log::info!("Syncer completed range.");
-                }
+        let target_time = Instant::now() + self.config.rate_limit;
+        if start <= end {
+            if !self.is_synced(start).await? {
+                log::info!("Requesting unsolid milestone {}.", start);
+                cx.addr::<InxWorker>().await.send(MilestoneRequest::new(start, 3))?;
+                tokio::time::sleep_until(target_time).await;
             }
-            SyncerEvent::Retry { milestone } => {
-                log::info!("Retrying milestone {}.", milestone);
-                cx.addr::<InxWorker>().await.send(MilestoneRequest::new(milestone))?;
-            }
+            cx.delay(SyncRange::new(start + 1, end), None)?;
+        } else {
+            log::info!("Syncer completed range.");
         }
         Ok(())
     }
@@ -136,13 +118,16 @@ impl HandleEvent<NodeStatus> for Syncer {
     ) -> Result<(), Self::Error> {
         // Get our maximum syncing range based on what we know from the node status
         let (start, end) = (
-            node_status.pruning_index.max(self.config.earliest_milestone),
+            node_status
+                .pruning_index
+                .max(node_status.latest_milestone.milestone_index - self.config.max_milestones),
             node_status.latest_milestone.milestone_index,
         );
         let gaps = self.db.get_sync_data(start, end).await?.gaps;
         for gap in gaps {
+            log::debug!("Requesting gap {} to {}", gap.start, gap.end);
             // Get the overlap between the gap and our syncing range
-            cx.delay(SyncerEvent::sync_range(gap.start, gap.end), None)?;
+            cx.delay(SyncRange::new(gap.start, gap.end), None)?;
         }
         Ok(())
     }

@@ -49,7 +49,7 @@ impl MongoDb {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
             .update_one(
-                doc! {"milestone_index": index},
+                doc! {"_id": index},
                 doc! {"$set": bson::to_document(&SyncRecord{milestone_index: index})?},
                 UpdateOptions::builder().upsert(true).build(),
             )

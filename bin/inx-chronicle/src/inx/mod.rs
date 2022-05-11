@@ -4,6 +4,7 @@
 mod config;
 mod error;
 mod listener;
+mod syncer;
 mod worker;
 
 pub(crate) use self::{

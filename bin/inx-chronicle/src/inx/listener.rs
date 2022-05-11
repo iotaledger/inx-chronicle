@@ -7,10 +7,13 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use async_trait::async_trait;
-use chronicle::runtime::{
-    actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
-    config::ConfigureActor,
-    error::RuntimeError,
+use chronicle::{
+    db::MongoDb,
+    runtime::{
+        actor::{context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
+        config::ConfigureActor,
+        error::RuntimeError,
+    },
 };
 use inx::{
     client::InxClient,
@@ -19,6 +22,7 @@ use inx::{
 };
 use thiserror::Error;
 
+use super::{syncer::Syncer, InxConfig};
 use crate::collector::Collector;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
@@ -29,8 +33,6 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxListenerError {
     #[error("the collector is not running")]
     MissingCollector,
-    // #[error("the syncer is not running")]
-    // MissingSyncer,
     #[error("failed to subscribe to stream: {0}")]
     SubscriptionFailed(#[from] inx::tonic::Status),
     #[error(transparent)]
@@ -39,13 +41,15 @@ pub enum InxListenerError {
 
 #[derive(Debug)]
 pub struct InxListener {
+    db: MongoDb,
+    config: InxConfig,
     inx_client: InxClient<Channel>,
 }
 
 impl InxListener {
     // TODO: Should we check for broker actor here too?
-    pub fn new(inx_client: InxClient<Channel>) -> Self {
-        Self { inx_client }
+    pub fn new(db: MongoDb, config: InxConfig, inx_client: InxClient<Channel>) -> Self {
+        Self { db, config, inx_client }
     }
 }
 
@@ -90,6 +94,35 @@ impl Actor for InxListener {
         )
         .await;
 
+        cx.spawn_child(Syncer::new(self.db.clone(), self.config.syncer.clone()))
+            .await;
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<Syncer>> for InxListener {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<Syncer>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(_) => {
+                    cx.spawn_child(Syncer::new(self.db.clone(), self.config.syncer.clone()))
+                        .await;
+                }
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
         Ok(())
     }
 }

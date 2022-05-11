@@ -4,8 +4,12 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chronicle::runtime::actor::{
-    addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
+use chronicle::{
+    db::MongoDb,
+    runtime::actor::{
+        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        Actor,
+    },
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
 
@@ -17,12 +21,13 @@ use crate::collector::Collector;
 
 #[derive(Debug)]
 pub struct InxWorker {
+    db: MongoDb,
     config: InxConfig,
 }
 
 impl InxWorker {
-    pub fn new(config: InxConfig) -> Self {
-        Self { config }
+    pub fn new(db: MongoDb, config: InxConfig) -> Self {
+        Self { db, config }
     }
 }
 
@@ -54,7 +59,12 @@ impl Actor for InxWorker {
 
         log::info!("Connected to INX.");
 
-        cx.spawn_child(InxListener::new(inx_client.clone())).await;
+        cx.spawn_child(InxListener::new(
+            self.db.clone(),
+            self.config.clone(),
+            inx_client.clone(),
+        ))
+        .await;
 
         Ok(inx_client)
     }
@@ -81,7 +91,14 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
                         cx.shutdown();
                     }
                     InxListenerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxListener::new(inx_client.clone())), None)?;
+                        cx.delay(
+                            SpawnActor::new(InxListener::new(
+                                self.db.clone(),
+                                self.config.clone(),
+                                inx_client.clone(),
+                            )),
+                            None,
+                        )?;
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -118,10 +135,10 @@ pub mod stardust {
             Self(message_id, sender_addr, milestone_state)
         }
     }
-    pub(crate) struct MilestoneRequest(u32);
+    pub(crate) struct MilestoneRequest(u32, usize);
     impl MilestoneRequest {
-        pub fn new(milestone_index: u32) -> Self {
-            Self(milestone_index)
+        pub fn new(milestone_index: u32, retries: usize) -> Self {
+            Self(milestone_index, retries)
         }
     }
 
@@ -136,17 +153,11 @@ pub mod stardust {
             NodeStatusRequest(sender_addr): NodeStatusRequest<Sender>,
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            let node_status: NodeStatus = inx_client
+            let node_status = inx_client
                 .read_node_status(NoParams {})
-                .await?
-                .into_inner()
-                .try_into()
-                .unwrap();
-
-            if !node_status.is_healthy {
-                log::warn!("Node is unhealthy.");
-            }
-            log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
+                .await
+                .map_err(InxWorkerError::Read)
+                .and_then(|s| NodeStatus::try_from(s.into_inner()).map_err(InxWorkerError::InxTypeConversion))?;
 
             sender_addr.send(node_status)?;
             Ok(())
@@ -233,7 +244,7 @@ pub mod stardust {
         async fn handle_event(
             &mut self,
             cx: &mut ActorContext<Self>,
-            MilestoneRequest(milestone_index): MilestoneRequest,
+            MilestoneRequest(milestone_index, retries): MilestoneRequest,
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
             log::trace!("Requesting milestone {}", milestone_index);
@@ -251,20 +262,22 @@ pub mod stardust {
                     // Instruct the collector to solidify this milestone.
                     cx.addr::<Collector>().await.send(milestone)?;
                 }
-                Err(_e) => {
+                Err(e) => {
                     log::warn!("No milestone response for {}", milestone_index);
-                    // match e.code().description() {
-                    //     // TODO: Import `Code` in the inx crate so we can match on it
-                    //     "The operation was cancelled"
-                    //     | "Unknown error"
-                    //     | "Deadline expired before operation could complete"
-                    //     | "Some resource has been exhausted"
-                    //     | "The service is currently unavailable" => {
-                    //         // TODO: Rebase onto combined inx and collector
-                    //         cx.addr::<Syncer>().await.send(SyncerEvent::retry(milestone_index))?;
-                    //     }
-                    //     _ => (),
-                    // }
+                    match e.code().description() {
+                        // TODO: Import `Code` in the inx crate so we can match on it
+                        "The operation was cancelled"
+                        | "Unknown error"
+                        | "Deadline expired before operation could complete"
+                        | "Some resource has been exhausted"
+                        | "The service is currently unavailable" => {
+                            // TODO: Rebase onto combined inx and collector
+                            if retries > 0 {
+                                cx.delay(MilestoneRequest::new(milestone_index, retries - 1), None)?;
+                            }
+                        }
+                        _ => (),
+                    }
                 }
             }
             Ok(())

@@ -9,7 +9,6 @@ use thiserror::Error;
 
 #[cfg(feature = "api")]
 use crate::api::ApiConfig;
-use crate::collector::syncer::SyncerConfig;
 #[cfg(feature = "inx")]
 use crate::inx::InxConfig;
 
@@ -29,7 +28,6 @@ pub struct ChronicleConfig {
     pub inx: InxConfig,
     #[cfg(feature = "api")]
     pub api: ApiConfig,
-    pub syncer: SyncerConfig,
 }
 
 impl ChronicleConfig {

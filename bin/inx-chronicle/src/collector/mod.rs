@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub mod solidifier;
-pub mod syncer;
 
 use std::collections::{HashMap, VecDeque};
 
@@ -17,7 +16,6 @@ use chronicle::{
 };
 use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
-use syncer::{Syncer, SyncerConfig};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -36,24 +34,21 @@ pub enum CollectorError {
 pub(crate) struct Collector {
     db: MongoDb,
     solidifier_count: usize,
-    syncer_config: SyncerConfig,
 }
 
 impl Collector {
     const MAX_SOLIDIFIERS: usize = 100;
 
-    pub fn new(db: MongoDb, solidifier_count: usize, syncer_config: SyncerConfig) -> Self {
+    pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
         Self {
             db,
             solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS),
-            syncer_config,
         }
     }
 }
 
 pub(crate) struct CollectorState {
     solidifiers: HashMap<usize, Addr<Solidifier>>,
-    syncer_spawned: bool,
 }
 
 #[async_trait]
@@ -70,10 +65,7 @@ impl Actor for Collector {
                     .await,
             );
         }
-        Ok(CollectorState {
-            solidifiers,
-            syncer_spawned: false,
-        })
+        Ok(CollectorState { solidifiers })
     }
 }
 
@@ -102,32 +94,6 @@ impl HandleEvent<Report<Solidifier>> for Collector {
                     }
                 },
                 ActorError::Aborted | ActorError::Panic => {
-                    cx.shutdown();
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Syncer>> for Collector {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<Syncer>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
-            Report::Error(e) => match e.error {
-                ActorError::Result(_) => {
-                    cx.spawn_child(Syncer::new(self.db.clone(), self.syncer_config.clone()))
-                        .await;
-                }
-                ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
                 }
             },
@@ -246,7 +212,7 @@ pub mod stardust {
     impl HandleEvent<inx::proto::Milestone> for Collector {
         async fn handle_event(
             &mut self,
-            cx: &mut ActorContext<Self>,
+            _cx: &mut ActorContext<Self>,
             milestone: inx::proto::Milestone,
             state: &mut Self::State,
         ) -> Result<(), Self::Error> {
@@ -262,11 +228,6 @@ pub mod stardust {
                     ms_state
                         .process_queue
                         .extend(Vec::from(rec.payload.essence.parents).into_iter());
-                    if !state.syncer_spawned {
-                        cx.spawn_child(Syncer::new(self.db.clone(), self.syncer_config.clone()))
-                            .await;
-                        state.syncer_spawned = true;
-                    }
                     state
                         .solidifiers
                         // Divide solidifiers fairly by milestone

@@ -10,7 +10,3 @@ connection_retry_interval = "5s"
 [api]
 port = 9092
 allow_origins = ["0.0.0.0"]
-
-[syncer]
-earliest_milestone = 0
-rate_limit = "100ms"

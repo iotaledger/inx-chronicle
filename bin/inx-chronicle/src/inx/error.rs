@@ -15,6 +15,8 @@ pub enum InxWorkerError {
     FailedToAnswerRequest,
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
+    #[error("INX type conversion error: {0:?}")]
+    InxTypeConversion(inx::Error),
     #[error(transparent)]
     ListenerError(#[from] InxListenerError),
     #[error("the collector is not running")]
