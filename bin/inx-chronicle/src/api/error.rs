@@ -25,7 +25,7 @@ pub enum InternalApiError {
     MongoDb(#[from] mongodb::error::Error),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    Stardust(#[from] chronicle::stardust::Error),
+    BeeMessageStardust(#[from] bee_message_stardust::Error),
     #[error(transparent)]
     UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
     #[error(transparent)]
@@ -101,7 +101,7 @@ pub enum ParseError {
     Bool(#[from] ParseBoolError),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    StardustId(#[from] chronicle::stardust::Error),
+    BeeMessageStardust(#[from] bee_message_stardust::Error),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }

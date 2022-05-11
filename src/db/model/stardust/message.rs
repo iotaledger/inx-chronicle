@@ -81,44 +81,6 @@ pub struct OutputResult {
     pub output: Output,
 }
 
-#[cfg(feature = "inx")]
-impl From<inx::MessageMetadata> for Metadata {
-    fn from(metadata: inx::MessageMetadata) -> Self {
-        use crate::types::ledger::ConflictReason;
-
-        Self {
-            is_solid: metadata.is_solid,
-            should_promote: metadata.should_promote,
-            should_reattach: metadata.should_reattach,
-            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
-            milestone_index: metadata.milestone_index,
-            inclusion_state: match metadata.ledger_inclusion_state {
-                inx::LedgerInclusionState::Included => LedgerInclusionState::Included,
-                inx::LedgerInclusionState::NoTransaction => LedgerInclusionState::NoTransaction,
-                inx::LedgerInclusionState::Conflicting => LedgerInclusionState::Conflicting,
-            },
-            conflict_reason: match metadata.conflict_reason {
-                inx::ConflictReason::None => None,
-                inx::ConflictReason::InputAlreadySpent => Some(ConflictReason::InputUtxoAlreadySpent),
-                inx::ConflictReason::InputAlreadySpentInThisMilestone => {
-                    Some(ConflictReason::InputUtxoAlreadySpentInThisMilestone)
-                }
-                inx::ConflictReason::InputNotFound => Some(ConflictReason::InputUtxoNotFound),
-                inx::ConflictReason::InputOutputSumMismatch => Some(ConflictReason::CreatedConsumedAmountMismatch),
-                inx::ConflictReason::InvalidSignature => Some(ConflictReason::InvalidSignature),
-                inx::ConflictReason::TimelockNotExpired => Some(ConflictReason::TimelockNotExpired),
-                inx::ConflictReason::InvalidNativeTokens => Some(ConflictReason::InvalidNativeTokens),
-                inx::ConflictReason::ReturnAmountNotFulfilled => Some(ConflictReason::StorageDepositReturnUnfulfilled),
-                inx::ConflictReason::InvalidInputUnlock => Some(ConflictReason::InvalidUnlockBlock),
-                inx::ConflictReason::InvalidInputsCommitment => Some(ConflictReason::InputsCommitmentsMismatch),
-                inx::ConflictReason::InvalidSender => Some(ConflictReason::UnverifiedSender),
-                inx::ConflictReason::InvalidChainStateTransition => Some(ConflictReason::InvalidChainStateTransition),
-                inx::ConflictReason::SemanticValidationFailed => Some(ConflictReason::SemanticValidationFailed),
-            },
-        }
-    }
-}
-
 impl MongoDb {
     /// Get milestone with index.
     pub async fn get_message(&self, message_id: &MessageId) -> Result<Option<MessageRecord>, Error> {

@@ -21,5 +21,20 @@ pub struct Metadata {
     /// The inclusion state of the message.
     pub inclusion_state: LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
-    pub conflict_reason: Option<ConflictReason>,
+    pub conflict_reason: ConflictReason,
+}
+
+#[cfg(feature = "inx")]
+impl From<inx::MessageMetadata> for Metadata {
+    fn from(metadata: inx::MessageMetadata) -> Self {
+        Self {
+            is_solid: metadata.is_solid,
+            should_promote: metadata.should_promote,
+            should_reattach: metadata.should_reattach,
+            referenced_by_milestone_index: metadata.referenced_by_milestone_index,
+            milestone_index: metadata.milestone_index,
+            inclusion_state: metadata.ledger_inclusion_state.into(),
+            conflict_reason: metadata.conflict_reason.into(),
+        }
+    }
 }

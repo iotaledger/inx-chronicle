@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::semantic as stardust;
+use bee_message_stardust::semantic as bee;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -23,52 +23,67 @@ pub enum ConflictReason {
     SemanticValidationFailed = 255,
 }
 
-impl From<stardust::ConflictReason> for ConflictReason {
-    fn from(value: stardust::ConflictReason) -> Self {
+impl From<inx::ConflictReason> for ConflictReason {
+    fn from(value: inx::ConflictReason) -> Self {
         match value {
-            stardust::ConflictReason::None => ConflictReason::None,
-            stardust::ConflictReason::InputUtxoAlreadySpent => ConflictReason::InputUtxoAlreadySpent,
-            stardust::ConflictReason::InputUtxoAlreadySpentInThisMilestone => {
-                ConflictReason::InputUtxoAlreadySpentInThisMilestone
-            }
-            stardust::ConflictReason::InputUtxoNotFound => ConflictReason::InputUtxoNotFound,
-            stardust::ConflictReason::CreatedConsumedAmountMismatch => ConflictReason::CreatedConsumedAmountMismatch,
-            stardust::ConflictReason::InvalidSignature => ConflictReason::InvalidSignature,
-            stardust::ConflictReason::TimelockNotExpired => ConflictReason::TimelockNotExpired,
-            stardust::ConflictReason::InvalidNativeTokens => ConflictReason::InvalidNativeTokens,
-            stardust::ConflictReason::StorageDepositReturnUnfulfilled => {
-                ConflictReason::StorageDepositReturnUnfulfilled
-            }
-            stardust::ConflictReason::InvalidUnlockBlock => ConflictReason::InvalidUnlockBlock,
-            stardust::ConflictReason::InputsCommitmentsMismatch => ConflictReason::InputsCommitmentsMismatch,
-            stardust::ConflictReason::UnverifiedSender => ConflictReason::UnverifiedSender,
-            stardust::ConflictReason::InvalidChainStateTransition => ConflictReason::InvalidChainStateTransition,
-            stardust::ConflictReason::SemanticValidationFailed => ConflictReason::SemanticValidationFailed,
+            inx::ConflictReason::None => Self::None,
+            inx::ConflictReason::InputAlreadySpent => Self::InputUtxoAlreadySpent,
+            inx::ConflictReason::InputAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
+            inx::ConflictReason::InputNotFound => Self::InputUtxoNotFound,
+            inx::ConflictReason::InputOutputSumMismatch => Self::CreatedConsumedAmountMismatch,
+            inx::ConflictReason::InvalidSignature => Self::InvalidSignature,
+            inx::ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
+            inx::ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
+            inx::ConflictReason::ReturnAmountNotFulfilled => Self::StorageDepositReturnUnfulfilled,
+            inx::ConflictReason::InvalidInputUnlock => Self::InvalidUnlockBlock,
+            inx::ConflictReason::InvalidInputsCommitment => Self::InputsCommitmentsMismatch,
+            inx::ConflictReason::InvalidSender => Self::UnverifiedSender,
+            inx::ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
+            inx::ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
         }
     }
 }
 
-impl From<ConflictReason> for stardust::ConflictReason {
+impl From<bee::ConflictReason> for ConflictReason {
+    fn from(value: bee::ConflictReason) -> Self {
+        match value {
+            bee::ConflictReason::None => Self::None,
+            bee::ConflictReason::InputUtxoAlreadySpent => Self::InputUtxoAlreadySpent,
+            bee::ConflictReason::InputUtxoAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
+            bee::ConflictReason::InputUtxoNotFound => Self::InputUtxoNotFound,
+            bee::ConflictReason::CreatedConsumedAmountMismatch => Self::CreatedConsumedAmountMismatch,
+            bee::ConflictReason::InvalidSignature => Self::InvalidSignature,
+            bee::ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
+            bee::ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
+            bee::ConflictReason::StorageDepositReturnUnfulfilled => Self::StorageDepositReturnUnfulfilled,
+            bee::ConflictReason::InvalidUnlockBlock => Self::InvalidUnlockBlock,
+            bee::ConflictReason::InputsCommitmentsMismatch => Self::InputsCommitmentsMismatch,
+            bee::ConflictReason::UnverifiedSender => Self::UnverifiedSender,
+            bee::ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
+            bee::ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
+        }
+    }
+}
+
+impl From<ConflictReason> for bee::ConflictReason {
     fn from(value: ConflictReason) -> Self {
         match value {
-            ConflictReason::None => stardust::ConflictReason::None,
-            ConflictReason::InputUtxoAlreadySpent => stardust::ConflictReason::InputUtxoAlreadySpent,
+            ConflictReason::None => bee::ConflictReason::None,
+            ConflictReason::InputUtxoAlreadySpent => bee::ConflictReason::InputUtxoAlreadySpent,
             ConflictReason::InputUtxoAlreadySpentInThisMilestone => {
-                stardust::ConflictReason::InputUtxoAlreadySpentInThisMilestone
+                bee::ConflictReason::InputUtxoAlreadySpentInThisMilestone
             }
-            ConflictReason::InputUtxoNotFound => stardust::ConflictReason::InputUtxoNotFound,
-            ConflictReason::CreatedConsumedAmountMismatch => stardust::ConflictReason::CreatedConsumedAmountMismatch,
-            ConflictReason::InvalidSignature => stardust::ConflictReason::InvalidSignature,
-            ConflictReason::TimelockNotExpired => stardust::ConflictReason::TimelockNotExpired,
-            ConflictReason::InvalidNativeTokens => stardust::ConflictReason::InvalidNativeTokens,
-            ConflictReason::StorageDepositReturnUnfulfilled => {
-                stardust::ConflictReason::StorageDepositReturnUnfulfilled
-            }
-            ConflictReason::InvalidUnlockBlock => stardust::ConflictReason::InvalidUnlockBlock,
-            ConflictReason::InputsCommitmentsMismatch => stardust::ConflictReason::InputsCommitmentsMismatch,
-            ConflictReason::UnverifiedSender => stardust::ConflictReason::UnverifiedSender,
-            ConflictReason::InvalidChainStateTransition => stardust::ConflictReason::InvalidChainStateTransition,
-            ConflictReason::SemanticValidationFailed => stardust::ConflictReason::SemanticValidationFailed,
+            ConflictReason::InputUtxoNotFound => bee::ConflictReason::InputUtxoNotFound,
+            ConflictReason::CreatedConsumedAmountMismatch => bee::ConflictReason::CreatedConsumedAmountMismatch,
+            ConflictReason::InvalidSignature => bee::ConflictReason::InvalidSignature,
+            ConflictReason::TimelockNotExpired => bee::ConflictReason::TimelockNotExpired,
+            ConflictReason::InvalidNativeTokens => bee::ConflictReason::InvalidNativeTokens,
+            ConflictReason::StorageDepositReturnUnfulfilled => bee::ConflictReason::StorageDepositReturnUnfulfilled,
+            ConflictReason::InvalidUnlockBlock => bee::ConflictReason::InvalidUnlockBlock,
+            ConflictReason::InputsCommitmentsMismatch => bee::ConflictReason::InputsCommitmentsMismatch,
+            ConflictReason::UnverifiedSender => bee::ConflictReason::UnverifiedSender,
+            ConflictReason::InvalidChainStateTransition => bee::ConflictReason::InvalidChainStateTransition,
+            ConflictReason::SemanticValidationFailed => bee::ConflictReason::SemanticValidationFailed,
         }
     }
 }

@@ -8,9 +8,9 @@ use axum::{
     routing::*,
     Router,
 };
+use bee_message_stardust as bee;
 use chronicle::{
     db::MongoDb,
-    stardust as bee,
     types::stardust::message::{MessageId, MilestoneId, OutputId, Payload, TransactionId},
 };
 use futures::TryStreamExt;
@@ -93,7 +93,7 @@ async fn message_metadata(
         should_promote: rec.metadata.as_ref().map(|d| d.should_promote),
         should_reattach: rec.metadata.as_ref().map(|d| d.should_reattach),
         ledger_inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
-        conflict_reason: rec.metadata.as_ref().and_then(|d| d.conflict_reason).map(|c| c as u8),
+        conflict_reason: rec.metadata.as_ref().map(|d| d.conflict_reason as u8),
     })
 }
 
