@@ -122,7 +122,7 @@ impl MongoDb {
             .await
     }
 
-    /// Updates a [`MessageRecord`] with [`MessageMetadata`].
+    /// Updates a [`MessageRecord`] with [`Metadata`].
     pub async fn update_message_metadata(
         &self,
         message_id: &MessageId,

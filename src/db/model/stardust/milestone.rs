@@ -23,7 +23,7 @@ pub struct MilestoneRecord {
     pub milestone_index: u32,
     /// The timestamp of the milestone.
     pub milestone_timestamp: DateTime,
-    /// The [`MilestoneId`](types::MilestoneId) of the milestone.
+    /// The [`MilestoneId`](MilestoneId) of the milestone.
     pub milestone_id: MilestoneId,
     /// The milestone's payload.
     pub payload: MilestonePayload,
