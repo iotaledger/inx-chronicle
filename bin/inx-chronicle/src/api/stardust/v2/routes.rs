@@ -11,7 +11,7 @@ use axum::{
 use bee_message_stardust::payload::milestone::MilestoneId;
 use chronicle::{
     db::MongoDb,
-    dto,
+    types,
     stardust::{output::OutputId, payload::transaction::TransactionId, MessageId},
 };
 use futures::TryStreamExt;
@@ -53,7 +53,7 @@ pub fn routes() -> Router {
 }
 
 async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
-    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let message_id_dto = types::MessageId::from(MessageId::from_str(&message_id)?);
     let rec = database
         .get_message(&message_id_dto)
         .await?
@@ -67,7 +67,7 @@ async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -
 }
 
 async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let message_id_dto = types::MessageId::from(MessageId::from_str(&message_id)?);
     let rec = database
         .get_message(&message_id_dto)
         .await?
@@ -79,7 +79,7 @@ async fn message_metadata(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
-    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let message_id_dto = types::MessageId::from(MessageId::from_str(&message_id)?);
     let rec = database
         .get_message(&message_id_dto)
         .await?
@@ -104,7 +104,7 @@ async fn message_children(
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
-    let message_id_dto = dto::MessageId::from(MessageId::from_str(&message_id)?);
+    let message_id_dto = types::MessageId::from(MessageId::from_str(&message_id)?);
     let messages = database
         .get_message_children(&message_id_dto, page_size, page)
         .await?
@@ -134,7 +134,7 @@ async fn message_children(
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = dto::OutputId::from(&OutputId::from_str(&output_id)?);
+    let output_id = types::OutputId::from(&OutputId::from_str(&output_id)?);
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -180,7 +180,7 @@ async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<OutputMetadataResponse> {
-    let output_id = dto::OutputId::from(&OutputId::from_str(&output_id)?);
+    let output_id = types::OutputId::from(&OutputId::from_str(&output_id)?);
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -217,7 +217,7 @@ async fn output_metadata(
             .as_ref()
             .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
         transaction_id_spent: spending_transaction.as_ref().map(|txn| {
-            if let Some(dto::Payload::Transaction(payload)) = &txn.message.payload {
+            if let Some(types::Payload::Transaction(payload)) = &txn.message.payload {
                 payload.id.to_hex()
             } else {
                 unreachable!()
@@ -232,7 +232,7 @@ async fn transaction_included_message(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
-    let transaction_id_dto = dto::TransactionId::from(TransactionId::from_str(&transaction_id)?);
+    let transaction_id_dto = types::TransactionId::from(TransactionId::from_str(&transaction_id)?);
     let rec = database
         .get_message_for_transaction(&transaction_id_dto)
         .await?
@@ -247,13 +247,13 @@ async fn transaction_included_message(
 }
 
 async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
-    let milestone_id_dto = dto::MilestoneId::from(MilestoneId::from_str(&milestone_id)?);
+    let milestone_id_dto = types::MilestoneId::from(MilestoneId::from_str(&milestone_id)?);
     database
         .get_milestone_record(&milestone_id_dto)
         .await?
         .ok_or(ApiError::NoResults)
         .map(|rec| MilestoneResponse {
-            payload: dto::Payload::Milestone(Box::new(rec.payload)),
+            payload: types::Payload::Milestone(Box::new(rec.payload)),
         })
 }
 
@@ -263,6 +263,6 @@ async fn milestone_by_index(database: Extension<MongoDb>, Path(index): Path<u32>
         .await?
         .ok_or(ApiError::NoResults)
         .map(|rec| MilestoneResponse {
-            payload: dto::Payload::Milestone(Box::new(rec.payload)),
+            payload: types::Payload::Milestone(Box::new(rec.payload)),
         })
 }

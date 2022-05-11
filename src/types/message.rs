@@ -23,7 +23,7 @@ impl From<stardust::MessageId> for MessageId {
 }
 
 impl TryFrom<MessageId> for stardust::MessageId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MessageId) -> Result<Self, Self::Error> {
         Ok(stardust::MessageId::new(value.0.as_ref().try_into()?))
@@ -36,7 +36,7 @@ pub struct Message {
     pub protocol_version: u8,
     pub parents: Box<[MessageId]>,
     pub payload: Option<Payload>,
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     pub nonce: u64,
 }
 
@@ -53,7 +53,7 @@ impl From<stardust::Message> for Message {
 }
 
 impl TryFrom<Message> for stardust::Message {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
         let mut builder = stardust::MessageBuilder::<u64>::new(stardust::parent::Parents::new(

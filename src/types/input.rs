@@ -4,15 +4,15 @@
 use bee_message_stardust::input as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::dto;
+use crate::types;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Input {
     #[serde(rename = "utxo")]
-    Utxo(dto::OutputId),
+    Utxo(types::OutputId),
     #[serde(rename = "treasury")]
-    Treasury(dto::MilestoneId),
+    Treasury(types::MilestoneId),
 }
 
 impl From<&stardust::Input> for Input {
@@ -25,7 +25,7 @@ impl From<&stardust::Input> for Input {
 }
 
 impl TryFrom<Input> for stardust::Input {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {

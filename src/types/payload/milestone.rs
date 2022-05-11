@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::milestone as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::dto::{self, address::Address};
+use crate::types::{self, address::Address};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -17,7 +17,7 @@ impl From<stardust::MilestoneId> for MilestoneId {
 }
 
 impl TryFrom<MilestoneId> for stardust::MilestoneId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MilestoneId) -> Result<Self, Self::Error> {
         Ok(stardust::MilestoneId::new(value.0.as_ref().try_into()?))
@@ -29,7 +29,7 @@ pub type MilestoneIndex = u32;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MilestonePayload {
     pub essence: MilestoneEssence,
-    pub signatures: Box<[dto::Signature]>,
+    pub signatures: Box<[types::Signature]>,
 }
 
 impl From<&stardust::MilestonePayload> for MilestonePayload {
@@ -42,7 +42,7 @@ impl From<&stardust::MilestonePayload> for MilestonePayload {
 }
 
 impl TryFrom<MilestonePayload> for stardust::MilestonePayload {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
         Ok(stardust::MilestonePayload::new(
@@ -60,7 +60,7 @@ pub struct MilestoneEssence {
     pub index: MilestoneIndex,
     pub timestamp: u32,
     pub previous_milestone_id: MilestoneId,
-    pub parents: Box<[dto::MessageId]>,
+    pub parents: Box<[types::MessageId]>,
     #[serde(with = "serde_bytes")]
     pub confirmed_merkle_proof: Box<[u8]>,
     #[serde(with = "serde_bytes")]
@@ -76,7 +76,7 @@ impl From<&stardust::MilestoneEssence> for MilestoneEssence {
             index: value.index().0,
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
-            parents: value.parents().iter().map(|id| dto::MessageId::from(*id)).collect(),
+            parents: value.parents().iter().map(|id| types::MessageId::from(*id)).collect(),
             confirmed_merkle_proof: value.confirmed_merkle_root().to_vec().into_boxed_slice(),
             applied_merkle_proof: value.applied_merkle_root().to_vec().into_boxed_slice(),
             metadata: value.metadata().to_vec(),
@@ -86,7 +86,7 @@ impl From<&stardust::MilestoneEssence> for MilestoneEssence {
 }
 
 impl TryFrom<MilestoneEssence> for stardust::MilestoneEssence {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MilestoneEssence) -> Result<Self, Self::Error> {
         Ok(stardust::MilestoneEssence::new(
@@ -120,7 +120,7 @@ pub enum MilestoneOption {
         migrated_at: MilestoneIndex,
         last: bool,
         funds: Box<[MigratedFundsEntry]>,
-        transaction: dto::TreasuryTransactionPayload,
+        transaction: types::TreasuryTransactionPayload,
     },
     #[serde(rename = "pow")]
     Pow {
@@ -147,7 +147,7 @@ impl From<&stardust::MilestoneOption> for MilestoneOption {
 }
 
 impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MilestoneOption) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -181,7 +181,7 @@ pub struct MigratedFundsEntry {
     #[serde(with = "serde_bytes")]
     tail_transaction_hash: Box<[u8]>,
     address: Address,
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     amount: u64,
 }
 
@@ -196,7 +196,7 @@ impl From<&stardust::option::MigratedFundsEntry> for MigratedFundsEntry {
 }
 
 impl TryFrom<MigratedFundsEntry> for stardust::option::MigratedFundsEntry {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Ok(Self::new(

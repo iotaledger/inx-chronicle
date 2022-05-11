@@ -17,7 +17,7 @@ impl From<stardust::NftId> for NftId {
 }
 
 impl TryFrom<NftId> for stardust::NftId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: NftId) -> Result<Self, Self::Error> {
         Ok(stardust::NftId::new(value.0.as_ref().try_into()?))
@@ -48,7 +48,7 @@ impl From<&stardust::NftOutput> for NftOutput {
 }
 
 impl TryFrom<NftOutput> for stardust::NftOutput {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
         Ok(Self::build_with_amount(value.amount, value.nft_id.try_into()?)?

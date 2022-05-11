@@ -38,7 +38,7 @@ impl From<stardust::TokenId> for TokenId {
 }
 
 impl TryFrom<TokenId> for stardust::TokenId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TokenId) -> Result<Self, Self::Error> {
         Ok(stardust::TokenId::new(value.0.as_ref().try_into()?))
@@ -69,7 +69,7 @@ impl From<&stardust::TokenScheme> for TokenScheme {
 }
 
 impl TryFrom<TokenScheme> for stardust::TokenScheme {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TokenScheme) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -102,7 +102,7 @@ impl From<&stardust::NativeToken> for NativeToken {
 }
 
 impl TryFrom<NativeToken> for stardust::NativeToken {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
         Ok(Self::new(value.token_id.try_into()?, value.amount.into())?)

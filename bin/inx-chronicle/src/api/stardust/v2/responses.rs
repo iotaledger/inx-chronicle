@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::dto;
+use chronicle::types;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{impl_success_response, responses::Expansion};
@@ -15,7 +15,7 @@ pub struct MessageResponse {
     pub protocol_version: u8,
     #[serde(rename = "parentMessageIds")]
     pub parents: Vec<String>,
-    pub payload: Option<dto::Payload>,
+    pub payload: Option<types::Payload>,
     pub nonce: u64,
 }
 
@@ -35,7 +35,7 @@ pub struct MessageMetadataResponse {
     #[serde(rename = "milestoneIndex", skip_serializing_if = "Option::is_none")]
     pub milestone_index: Option<u32>,
     #[serde(rename = "ledgerInclusionState", skip_serializing_if = "Option::is_none")]
-    pub ledger_inclusion_state: Option<dto::LedgerInclusionState>,
+    pub ledger_inclusion_state: Option<types::LedgerInclusionState>,
     #[serde(rename = "conflictReason", skip_serializing_if = "Option::is_none")]
     pub conflict_reason: Option<u8>,
     #[serde(rename = "shouldPromote", skip_serializing_if = "Option::is_none")]
@@ -79,7 +79,7 @@ pub struct OutputResponse {
     pub milestone_index_booked: u32,
     #[serde(rename = "milestoneTimestampBooked")]
     pub milestone_ts_booked: u32,
-    pub output: dto::Output,
+    pub output: types::Output,
 }
 
 impl_success_response!(OutputResponse);
@@ -119,9 +119,9 @@ pub struct TransactionResponse {
     #[serde(rename = "milestoneIndex")]
     pub milestone_index: Option<u32>,
     /// The output
-    pub outputs: Vec<dto::Output>,
+    pub outputs: Vec<types::Output>,
     /// The inputs, if they exist
-    pub inputs: Vec<dto::Input>,
+    pub inputs: Vec<types::Input>,
 }
 
 impl_success_response!(TransactionResponse);
@@ -138,7 +138,7 @@ impl_success_response!(TransactionsResponse);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct MilestoneResponse {
-    pub payload: dto::Payload,
+    pub payload: types::Payload,
 }
 
 impl_success_response!(MilestoneResponse);

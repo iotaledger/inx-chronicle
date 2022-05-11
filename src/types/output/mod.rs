@@ -25,14 +25,14 @@ pub use self::{
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
-use crate::dto;
+use crate::types;
 
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OutputId {
-    pub transaction_id: dto::TransactionId,
+    pub transaction_id: types::TransactionId,
     pub index: OutputIndex,
 }
 
@@ -46,7 +46,7 @@ impl From<&stardust::OutputId> for OutputId {
 }
 
 impl TryFrom<OutputId> for stardust::OutputId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: OutputId) -> Result<Self, Self::Error> {
         Ok(stardust::OutputId::new(value.transaction_id.try_into()?, value.index)?)
@@ -81,7 +81,7 @@ impl From<&stardust::Output> for Output {
 }
 
 impl TryFrom<Output> for stardust::Output {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Output) -> Result<Self, Self::Error> {
         Ok(match value {

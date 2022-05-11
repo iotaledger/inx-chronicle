@@ -4,13 +4,13 @@
 use bee_message_stardust::unlock_block as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::dto;
+use crate::types;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum UnlockBlock {
     #[serde(rename = "signature")]
-    Signature(dto::Signature),
+    Signature(types::Signature),
     #[serde(rename = "reference")]
     Reference { index: u16 },
     #[serde(rename = "alias")]
@@ -31,7 +31,7 @@ impl From<&stardust::UnlockBlock> for UnlockBlock {
 }
 
 impl TryFrom<UnlockBlock> for stardust::UnlockBlock {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: UnlockBlock) -> Result<Self, Self::Error> {
         Ok(match value {

@@ -99,7 +99,7 @@ pub mod stardust_inx {
             message::{MessageMetadata, MessageRecord},
             milestone::MilestoneRecord,
         },
-        dto,
+        types,
     };
 
     use super::*;
@@ -107,8 +107,8 @@ pub mod stardust_inx {
     #[derive(Debug)]
     pub struct MilestoneState {
         pub milestone_index: u32,
-        pub process_queue: VecDeque<dto::MessageId>,
-        pub visited: HashSet<dto::MessageId>,
+        pub process_queue: VecDeque<types::MessageId>,
+        pub visited: HashSet<types::MessageId>,
     }
 
     impl MilestoneState {

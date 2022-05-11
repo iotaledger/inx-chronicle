@@ -19,7 +19,7 @@ impl From<stardust::AliasId> for AliasId {
 }
 
 impl TryFrom<AliasId> for stardust::AliasId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: AliasId) -> Result<Self, Self::Error> {
         Ok(stardust::AliasId::new(value.0.as_ref().try_into()?))
@@ -28,7 +28,7 @@ impl TryFrom<AliasId> for stardust::AliasId {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AliasOutput {
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub alias_id: AliasId,
@@ -58,7 +58,7 @@ impl From<&stardust::AliasOutput> for AliasOutput {
 }
 
 impl TryFrom<AliasOutput> for stardust::AliasOutput {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
         Ok(Self::build_with_amount(value.amount, value.alias_id.try_into()?)?
