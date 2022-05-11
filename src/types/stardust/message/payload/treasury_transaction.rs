@@ -9,7 +9,7 @@ use super::MilestoneId;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
     input_milestone_id: MilestoneId,
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     output_amount: u64,
 }
 
@@ -23,7 +23,7 @@ impl From<&stardust::TreasuryTransactionPayload> for TreasuryTransactionPayload 
 }
 
 impl TryFrom<TreasuryTransactionPayload> for stardust::TreasuryTransactionPayload {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TreasuryTransactionPayload) -> Result<Self, Self::Error> {
         Ok(Self::new(

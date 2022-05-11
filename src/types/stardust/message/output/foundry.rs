@@ -8,10 +8,10 @@ use super::{FeatureBlock, NativeToken, OutputAmount, TokenScheme, TokenTag, Unlo
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FoundryOutput {
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     amount: OutputAmount,
     native_tokens: Box<[NativeToken]>,
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     serial_number: u32,
     token_tag: TokenTag,
     token_scheme: TokenScheme,
@@ -36,7 +36,7 @@ impl From<&stardust::FoundryOutput> for FoundryOutput {
 }
 
 impl TryFrom<FoundryOutput> for stardust::FoundryOutput {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
         Ok(Self::build_with_amount(

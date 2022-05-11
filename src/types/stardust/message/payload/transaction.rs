@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::transaction as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::dto;
+use crate::types::stardust::message::{Input, Output, Payload, UnlockBlock};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -23,7 +23,7 @@ impl From<stardust::TransactionId> for TransactionId {
 }
 
 impl TryFrom<TransactionId> for stardust::TransactionId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TransactionId) -> Result<Self, Self::Error> {
         Ok(stardust::TransactionId::new(value.0.as_ref().try_into()?))
@@ -34,7 +34,7 @@ impl TryFrom<TransactionId> for stardust::TransactionId {
 pub struct TransactionPayload {
     pub id: TransactionId,
     pub essence: TransactionEssence,
-    pub unlock_blocks: Box<[dto::UnlockBlock]>,
+    pub unlock_blocks: Box<[UnlockBlock]>,
 }
 
 impl From<&stardust::TransactionPayload> for TransactionPayload {
@@ -48,7 +48,7 @@ impl From<&stardust::TransactionPayload> for TransactionPayload {
 }
 
 impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
         Ok(stardust::TransactionPayload::new(
@@ -68,13 +68,13 @@ impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
 pub enum TransactionEssence {
     #[serde(rename = "regular")]
     Regular {
-        #[serde(with = "crate::dto::stringify")]
+        #[serde(with = "crate::types::stringify")]
         network_id: u64,
-        inputs: Box<[dto::Input]>,
+        inputs: Box<[Input]>,
         #[serde(with = "serde_bytes")]
         inputs_commitment: Box<[u8]>,
-        outputs: Box<[dto::Output]>,
-        payload: Option<dto::Payload>,
+        outputs: Box<[Output]>,
+        payload: Option<Payload>,
     },
 }
 
@@ -93,7 +93,7 @@ impl From<&stardust::TransactionEssence> for TransactionEssence {
 }
 
 impl TryFrom<TransactionEssence> for stardust::TransactionEssence {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TransactionEssence) -> Result<Self, Self::Error> {
         Ok(match value {

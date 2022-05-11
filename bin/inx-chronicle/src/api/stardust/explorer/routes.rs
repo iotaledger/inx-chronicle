@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{extract::Path, routing::get, Extension, Router};
+use bee_message_stardust::address as bee;
 use chronicle::{
     db::{bson::DocExt, MongoDb},
-    dto,
+    types::{ledger::LedgerInclusionState, stardust::message::Address},
 };
 use futures::TryStreamExt;
 
@@ -31,7 +32,7 @@ async fn transaction_history(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionHistoryResponse> {
-    let address_dto = dto::Address::from(&chronicle::stardust::address::Address::try_from_bech32(&address)?.1);
+    let address_dto = Address::from(&bee::Address::try_from_bech32(&address)?.1);
     let start_milestone = database
         .find_first_milestone(start_timestamp)
         .await?
@@ -60,7 +61,7 @@ async fn transaction_history(
                 inclusion_state: rec
                     .get_as_u8("inclusion_state")
                     .ok()
-                    .map(dto::LedgerInclusionState::try_from)
+                    .map(LedgerInclusionState::try_from)
                     .transpose()?,
                 message_id: rec.get_as_string("message_id")?,
                 amount: output.get_as_u64("amount")?,

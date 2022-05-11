@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
+    types::{ledger::Metadata, stardust::message::MessageId},
 };
 pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
@@ -94,21 +95,15 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 pub mod stardust_inx {
     use std::collections::HashSet;
 
-    use chronicle::{
-        db::model::stardust::{
-            message::{MessageMetadata, MessageRecord},
-            milestone::MilestoneRecord,
-        },
-        dto,
-    };
+    use chronicle::db::model::stardust::{message::MessageRecord, milestone::MilestoneRecord};
 
     use super::*;
 
     #[derive(Debug)]
     pub struct MilestoneState {
         pub milestone_index: u32,
-        pub process_queue: VecDeque<dto::MessageId>,
-        pub visited: HashSet<dto::MessageId>,
+        pub process_queue: VecDeque<MessageId>,
+        pub visited: HashSet<MessageId>,
     }
 
     impl MilestoneState {
@@ -179,7 +174,7 @@ pub mod stardust_inx {
                 Ok(rec) => {
                     let message_id = rec.message_id;
                     self.db
-                        .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                        .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                         .await?;
                 }
                 Err(e) => {
@@ -255,7 +250,7 @@ pub mod stardust_inx {
                         Ok(rec) => {
                             let message_id = rec.message_id;
                             self.db
-                                .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                                .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                                 .await?;
                             // Send this directly to the solidifier that requested it
                             solidifier.send(ms_state)?;

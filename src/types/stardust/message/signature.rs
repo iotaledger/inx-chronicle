@@ -28,7 +28,7 @@ impl From<&stardust::Signature> for Signature {
 }
 
 impl TryFrom<Signature> for stardust::Signature {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Signature) -> Result<Self, Self::Error> {
         Ok(match value {

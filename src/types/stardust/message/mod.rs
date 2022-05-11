@@ -1,10 +1,17 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod address;
+mod input;
+mod output;
+mod payload;
+mod signature;
+mod unlock_block;
+
 use bee_message_stardust as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::payload::Payload;
+pub use self::{address::*, input::*, output::*, payload::*, signature::*, unlock_block::*};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
 #[serde(transparent)]
@@ -23,7 +30,7 @@ impl From<stardust::MessageId> for MessageId {
 }
 
 impl TryFrom<MessageId> for stardust::MessageId {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: MessageId) -> Result<Self, Self::Error> {
         Ok(stardust::MessageId::new(value.0.as_ref().try_into()?))
@@ -36,7 +43,7 @@ pub struct Message {
     pub protocol_version: u8,
     pub parents: Box<[MessageId]>,
     pub payload: Option<Payload>,
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     pub nonce: u64,
 }
 
@@ -53,7 +60,7 @@ impl From<stardust::Message> for Message {
 }
 
 impl TryFrom<Message> for stardust::Message {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
         let mut builder = stardust::MessageBuilder::<u64>::new(stardust::parent::Parents::new(

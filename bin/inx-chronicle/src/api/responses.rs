@@ -4,7 +4,7 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::{db::model::sync::SyncData, dto};
+use chronicle::{db::model::sync::SyncData, types::ledger::LedgerInclusionState};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +50,7 @@ pub enum Expansion {
 pub struct Record {
     pub id: String,
     #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<dto::LedgerInclusionState>,
+    pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "milestoneIndex")]
     pub milestone_index: Option<u32>,
 }
@@ -64,7 +64,7 @@ pub struct Transfer {
     #[serde(rename = "isSpending")]
     pub is_spending: bool,
     #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<dto::LedgerInclusionState>,
+    pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "messageId")]
     pub message_id: String,
     pub amount: u64,

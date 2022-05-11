@@ -17,7 +17,7 @@ impl From<&stardust::Ed25519Address> for Ed25519Address {
 }
 
 impl TryFrom<Ed25519Address> for stardust::Ed25519Address {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Ed25519Address) -> Result<Self, Self::Error> {
         Ok(stardust::Ed25519Address::new(value.0.as_ref().try_into()?))
@@ -42,7 +42,7 @@ impl From<&stardust::Address> for Address {
 }
 
 impl TryFrom<Address> for stardust::Address {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Address) -> Result<Self, Self::Error> {
         Ok(match value {
