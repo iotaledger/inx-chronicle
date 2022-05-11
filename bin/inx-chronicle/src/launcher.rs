@@ -24,7 +24,7 @@ use crate::{
     cli::CliArgs,
     collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
-    syncer::{self, Syncer},
+    syncer::{Latest, Next, Syncer},
 };
 
 #[derive(Debug, Error)]
@@ -247,15 +247,14 @@ impl HandleEvent<NodeStatus> for Launcher {
         node_status: NodeStatus,
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // Start syncing from the node's pruning index to it's current ledger index + X.
-        // NOTE: we make sure there's a bit of overlap from which Chronicle started to listen
-        // to the stream of live milestones.
+        // Start syncing from the node's pruning index up to it's current ledger index.
+        // NOTE: the upper bound will be updated through the milestone listening stream.
         if self.node_status.is_none() {
             let start_index = node_status.pruning_index + 1;
-            let end_index = node_status.ledger_index + 10;
+            let end_index = node_status.ledger_index;
 
-            cx.addr::<Syncer>().await.send(syncer::Stop(end_index))?;
-            cx.addr::<Syncer>().await.send(syncer::Next(start_index))?;
+            cx.addr::<Syncer>().await.send(Latest(end_index))?;
+            cx.addr::<Syncer>().await.send(Next(start_index))?;
         }
 
         self.node_status.replace(node_status);

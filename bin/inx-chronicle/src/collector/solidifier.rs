@@ -148,8 +148,8 @@ mod stardust {
                 elapsed.as_secs_f32()
             );
 
-            // Note: we sample how long solidification takes to synchronize milestone requests issued by the syncer.
-            // cx.addr::<Syncer>().await.send(syncer::Cooldown(elapsed))?;
+            // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a
+            // historic one.
             cx.addr::<Syncer>()
                 .await
                 .send(syncer::Solidified(ms_state.milestone_index))?;

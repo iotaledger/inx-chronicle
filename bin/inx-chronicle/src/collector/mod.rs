@@ -18,6 +18,8 @@ use thiserror::Error;
 
 pub mod solidifier;
 
+use crate::syncer::Syncer;
+
 #[derive(Debug, Error)]
 pub enum CollectorError {
     #[error(transparent)]
@@ -109,6 +111,7 @@ pub mod stardust {
     };
 
     use super::*;
+    use crate::syncer::Latest;
 
     #[derive(Debug)]
     pub struct MilestoneState {
@@ -206,7 +209,7 @@ pub mod stardust {
     impl HandleEvent<inx::proto::Milestone> for Collector {
         async fn handle_event(
             &mut self,
-            _cx: &mut ActorContext<Self>,
+            cx: &mut ActorContext<Self>,
             milestone: inx::proto::Milestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
@@ -217,6 +220,8 @@ pub mod stardust {
             match MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
                     self.db.upsert_milestone_record(&rec).await?;
+                    // Tell the Syncer about this new milestone
+                    cx.addr::<Syncer>().await.send(Latest(rec.milestone_index))?;
                     // Get or create the milestone state
                     let mut state = MilestoneState::new(rec.milestone_index);
                     state

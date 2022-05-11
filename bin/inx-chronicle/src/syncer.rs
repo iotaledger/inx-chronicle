@@ -48,14 +48,14 @@ impl Syncer {
 }
 
 pub(crate) struct Next(pub(crate) u32);
-pub(crate) struct Stop(pub(crate) u32);
+pub(crate) struct Latest(pub(crate) u32);
 pub(crate) struct Run;
 pub(crate) struct Solidified(pub(crate) u32);
 
 #[derive(Default)]
 pub(crate) struct SyncState {
     next: u32,
-    stop: u32, // inclusive
+    latest: u32, // inclusive
     pending: HashSet<u32>,
 }
 
@@ -84,9 +84,12 @@ impl HandleEvent<Run> for Syncer {
                 cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
                 sync_state.pending.insert(index);
             }
-            cx.addr::<Syncer>().await.send(Next(index + 1))?;
+            if index < sync_state.latest {
+                cx.addr::<Syncer>().await.send(Next(index + 1))?;
+            }
         } else {
             // wait a bit and try again
+            // TODO: can we assume that `pending` always decreases over time?
             tokio::time::sleep(Duration::from_secs_f32(0.01)).await;
             cx.addr::<Syncer>().await.send(Next(index))?;
         }
@@ -104,7 +107,7 @@ impl HandleEvent<Next> for Syncer {
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         sync_state.next = index;
-        if sync_state.next <= sync_state.stop {
+        if sync_state.next <= sync_state.latest {
             cx.addr::<Syncer>().await.send(Run)?;
         }
         Ok(())
@@ -112,17 +115,17 @@ impl HandleEvent<Next> for Syncer {
 }
 
 #[async_trait]
-impl HandleEvent<Stop> for Syncer {
+impl HandleEvent<Latest> for Syncer {
     async fn handle_event(
         &mut self,
-        cx: &mut ActorContext<Self>,
-        Stop(index): Stop,
+        _: &mut ActorContext<Self>,
+        Latest(index): Latest,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        sync_state.stop = index;
-        if sync_state.next != 0 && sync_state.next <= sync_state.stop {
-            cx.addr::<Syncer>().await.send(Run)?;
+        if index != sync_state.latest + 1 {
+            log::warn!("Latest milestone didn't isn't the direct successor of the previous one.");
         }
+        sync_state.latest = index;
         Ok(())
     }
 }
