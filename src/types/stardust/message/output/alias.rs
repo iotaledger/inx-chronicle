@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 <<<<<<< HEAD:src/types/stardust/message/output/alias.rs
 <<<<<<< HEAD:src/types/stardust/message/output/alias.rs
+<<<<<<< HEAD:src/types/stardust/message/output/alias.rs
 use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 =======
 pub(crate) use super::{
@@ -15,6 +16,9 @@ use super::{
     feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount,
 };
 >>>>>>> ec14314 (Fix unreachable pub instances and add compiler warning):src/dto/output/alias.rs
+=======
+use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
+>>>>>>> e04f4bc (Format):src/dto/output/alias.rs
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
