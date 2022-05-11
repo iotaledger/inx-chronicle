@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{ConflictReason, LedgerInclusionState, Metadata},
+        ledger::{LedgerInclusionState, Metadata},
         stardust::message::{Address, Message, MessageId, Output, TransactionId},
     },
 };
@@ -84,6 +84,8 @@ pub struct OutputResult {
 #[cfg(feature = "inx")]
 impl From<inx::MessageMetadata> for Metadata {
     fn from(metadata: inx::MessageMetadata) -> Self {
+        use crate::types::ledger::ConflictReason;
+
         Self {
             is_solid: metadata.is_solid,
             should_promote: metadata.should_promote,
