@@ -52,6 +52,6 @@ where
 }
 
 /// Convenience type for boxed dynamic events.
-pub type Envelope<A> = Box<dyn DynEvent<A>>;
+pub(crate) type Envelope<A> = Box<dyn DynEvent<A>>;
 /// Convenience type for streams of dynamic events.
-pub type EnvelopeStream<A> = Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>;
+pub(crate) type EnvelopeStream<A> = Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>;

@@ -4,7 +4,13 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
+<<<<<<< HEAD:src/types/stardust/message/output/alias.rs
 use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
+=======
+pub(crate) use super::{
+    feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount,
+};
+>>>>>>> ec14314 (Fix unreachable pub instances and add compiler warning):src/dto/output/alias.rs
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
