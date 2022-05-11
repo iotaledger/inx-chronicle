@@ -5,7 +5,7 @@ use bee_message_stardust::output::unlock_condition as stardust;
 use serde::{Deserialize, Serialize};
 
 use super::AliasId;
-use crate::types::message::Address;
+use crate::types::stardust::message::Address;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]

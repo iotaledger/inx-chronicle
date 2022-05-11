@@ -4,7 +4,7 @@
 use axum::response::IntoResponse;
 use chronicle::types::{
     ledger::LedgerInclusionState,
-    message::{Input, Output, Payload},
+    stardust::message::{Input, Output, Payload},
 };
 use serde::{Deserialize, Serialize};
 

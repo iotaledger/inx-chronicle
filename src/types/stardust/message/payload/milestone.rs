@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::milestone as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
+use crate::types::stardust::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]

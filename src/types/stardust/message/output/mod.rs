@@ -25,7 +25,7 @@ pub use self::{
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
-use crate::types::message::TransactionId;
+use crate::types::stardust::message::TransactionId;
 
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;

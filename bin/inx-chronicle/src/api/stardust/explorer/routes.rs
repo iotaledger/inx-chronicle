@@ -4,7 +4,7 @@
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{bson::DocExt, MongoDb},
-    types::{ledger::LedgerInclusionState, message::Address},
+    types::{ledger::LedgerInclusionState, stardust::message::Address},
 };
 use futures::TryStreamExt;
 

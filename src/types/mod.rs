@@ -7,7 +7,8 @@
 
 pub mod error;
 pub mod ledger;
-pub mod message;
+#[cfg(feature = "stardust")]
+pub mod stardust;
 
 pub mod stringify {
     use std::{fmt::Display, marker::PhantomData, str::FromStr};

@@ -13,7 +13,7 @@ use time::OffsetDateTime;
 
 use crate::{
     db::MongoDb,
-    types::message::{MilestoneId, MilestonePayload},
+    types::stardust::message::{MilestoneId, MilestonePayload},
 };
 
 /// A milestone's metadata.

@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{ConflictReason, LedgerInclusionState, MessageMetadata},
-        message::{Address, Message, MessageId, Output, TransactionId},
+        stardust::message::{Address, Message, MessageId, Output, TransactionId},
     },
 };
 

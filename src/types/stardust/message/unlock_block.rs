@@ -4,7 +4,7 @@
 use bee_message_stardust::unlock_block as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::message::Signature;
+use crate::types::stardust::message::Signature;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]

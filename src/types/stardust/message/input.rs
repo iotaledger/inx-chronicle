@@ -4,7 +4,7 @@
 use bee_message_stardust::input as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::message::{MilestoneId, OutputId};
+use crate::types::stardust::message::{MilestoneId, OutputId};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]

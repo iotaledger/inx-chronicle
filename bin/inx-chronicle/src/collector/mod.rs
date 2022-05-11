@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
-    types::{ledger::MessageMetadata, message::MessageId},
+    types::{ledger::MessageMetadata, stardust::message::MessageId},
 };
 pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
@@ -95,12 +95,7 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 pub mod stardust_inx {
     use std::collections::HashSet;
 
-    use chronicle::{
-        db::model::stardust::{
-            message::{MessageRecord},
-            milestone::MilestoneRecord,
-        },
-    };
+    use chronicle::db::model::stardust::{message::MessageRecord, milestone::MilestoneRecord};
 
     use super::*;
 
