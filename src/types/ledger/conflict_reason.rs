@@ -23,6 +23,7 @@ pub enum ConflictReason {
     SemanticValidationFailed = 255,
 }
 
+#[cfg(feature = "inx")]
 impl From<inx::ConflictReason> for ConflictReason {
     fn from(value: inx::ConflictReason) -> Self {
         match value {
