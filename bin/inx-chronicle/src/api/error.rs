@@ -39,20 +39,22 @@ pub enum ApiError {
     BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
+    // TODO: use or remove dead code
     #[error("Provided index is too large (Max 64 bytes)")]
+    #[allow(dead_code)]
     IndexTooLarge,
     #[error("Internal server error")]
     Internal(InternalApiError),
+    // TODO: use or remove dead code
     #[error("Invalid hexidecimal encoding")]
+    #[allow(dead_code)]
     InvalidHex,
     #[error("No results returned")]
     NoResults,
     #[error("No endpoint found")]
     NotFound,
     #[error(transparent)]
-    QueryError(#[from] QueryRejection),
-    #[error("Provided tag is too large (Max 64 bytes)")]
-    TagTooLarge,
+    QueryError(QueryRejection),
 }
 
 impl ApiError {
@@ -61,7 +63,6 @@ impl ApiError {
         match self {
             ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::IndexTooLarge
-            | ApiError::TagTooLarge
             | ApiError::InvalidHex
             | ApiError::BadTimeRange
             | ApiError::BadParse(_)
@@ -73,11 +74,6 @@ impl ApiError {
     /// Gets the u16 status code representation associated with this error.
     pub fn code(&self) -> u16 {
         self.status().as_u16()
-    }
-
-    /// Creates a new ApiError from a bad parse.
-    pub fn bad_parse(err: impl Into<ParseError>) -> Self {
-        ApiError::BadParse(err.into())
     }
 }
 

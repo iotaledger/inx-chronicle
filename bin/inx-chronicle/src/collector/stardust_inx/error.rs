@@ -9,7 +9,9 @@ use super::listener::StardustInxListenerError;
 pub enum InxWorkerError {
     #[error("failed to establish connection: {0}")]
     ConnectionError(inx::tonic::Error),
+    // TODO: use or remove dead code
     #[error("failed to answer")]
+    #[allow(dead_code)]
     FailedToAnswerRequest,
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
@@ -22,7 +24,7 @@ pub enum InxWorkerError {
     #[error(transparent)]
     Read(#[from] inx::tonic::Status),
     #[error(transparent)]
-    Runtime(#[from] crate::RuntimeError),
+    Runtime(#[from] chronicle::runtime::RuntimeError),
     #[error(transparent)]
     TransportFailed(#[from] inx::tonic::Error),
 }

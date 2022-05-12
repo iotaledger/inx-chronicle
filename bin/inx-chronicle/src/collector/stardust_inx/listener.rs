@@ -28,7 +28,7 @@ pub enum StardustInxListenerError {
     #[error("failed to subscribe to stream: {0}")]
     SubscriptionFailed(#[from] inx::tonic::Status),
     #[error(transparent)]
-    Runtime(#[from] crate::RuntimeError),
+    Runtime(#[from] chronicle::runtime::RuntimeError),
 }
 
 #[derive(Debug)]
