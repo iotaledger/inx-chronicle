@@ -199,7 +199,7 @@ impl HandleEvent<LatestMilestone> for Syncer {
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         // Mark all milestones that are pending for too long as failed
-        // NOTE: some still unsafe API like `drain_filter` would make this code much nicer!
+        // NOTE: some still unstable API like `drain_filter` would make this code much nicer!
         let now = Instant::now();
         for (index, timestamp) in sync_state.pending.iter() {
             if now > *timestamp + MAX_SYNC_TIME {
