@@ -210,14 +210,21 @@ impl HandleEvent<LatestMilestone> for Syncer {
                     .unwrap_or(1)
                     .max(sync_state.oldest_milestone)
             } else {
-                // Sync from the pruning index.
+                // Sync from the pruning index
                 sync_state.oldest_milestone
             };
 
-            // Actually triggers the Syncer.
+            // Actually start syncing
+            log::info!("Syncing [{}:{}]", start_index, index);
             cx.delay(Next(start_index), None)?;
-        } else if index != sync_state.latest_milestone + 1 {
-            log::warn!("Latest milestone isn't the direct successor of the previous one.");
+        } else if index > sync_state.latest_milestone {
+            if index != sync_state.latest_milestone + 1 {
+                log::warn!(
+                    "Latest milestone isn't the direct successor of the previous one: {} {}.",
+                    index,
+                    sync_state.latest_milestone
+                );
+            }
             sync_state.latest_milestone = index;
         }
         Ok(())
