@@ -107,7 +107,7 @@ impl HandleEvent<Next> for Syncer {
         if index <= sync_state.target_milestone {
             if sync_state.pending.len() < self.config.max_simultaneous_requests {
                 if !self.is_synced(index).await? {
-                    log::info!("Requesting unsolid milestone {}.", index);
+                    log::info!("Requesting old milestone {}.", index);
                     cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
                     sync_state.pending.insert(index, Instant::now());
                 }
