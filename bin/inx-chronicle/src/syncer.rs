@@ -119,7 +119,11 @@ impl HandleEvent<Next> for Syncer {
             }
         } else if !sync_state.failed.is_empty() && sync_state.retry_round < self.config.max_request_retries {
             sync_state.retry_round += 1;
-            log::info!("Retrying {} failed requests (round #{})...", sync_state.failed.len(), sync_state.retry_round);
+            log::info!(
+                "Retrying {} failed requests (round #{})...",
+                sync_state.failed.len(),
+                sync_state.retry_round
+            );
             // Grab the first failed index and start the Syncer again from that index.
             // Any other potential gaps will be retried as well, and the Syncer doesn't
             // need some 2nd mode of operation. It is less efficient, however, since
@@ -181,7 +185,7 @@ impl HandleEvent<LatestMilestone> for Syncer {
         LatestMilestone(index): LatestMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // Mark all milestones that are pending for too long as failed 
+        // Mark all milestones that are pending for too long as failed
         // NOTE: some still unsafe API like `drain_filter` would make this code much nicer!
         let now = Instant::now();
         for (index, timestamp) in sync_state.pending.iter() {
@@ -193,9 +197,14 @@ impl HandleEvent<LatestMilestone> for Syncer {
 
         // First ever listened milestone? Get the start index and trigger syncing.
         if sync_state.latest_milestone == 0 {
-            sync_state.target_milestone = index;
             sync_state.latest_milestone = index;
-            let index = if self.config.sync_back_delta != 0 {
+            sync_state.target_milestone = index;
+
+            // if the user specified a concrete sync start index then ignore
+            // the `sync_back_delta` configuration.
+            let start_index = if self.config.sync_back_index != 0 {
+                self.config.sync_back_index.max(sync_state.oldest_milestone)
+            } else if self.config.sync_back_delta != 0 {
                 index
                     .checked_sub(self.config.sync_back_delta)
                     .unwrap_or(1)
@@ -204,8 +213,9 @@ impl HandleEvent<LatestMilestone> for Syncer {
                 // Sync from the pruning index.
                 sync_state.oldest_milestone
             };
+
             // Actually triggers the Syncer.
-            cx.delay(Next(index), None)?;
+            cx.delay(Next(start_index), None)?;
         } else if index != sync_state.latest_milestone + 1 {
             log::warn!("Latest milestone isn't the direct successor of the previous one.");
             sync_state.latest_milestone = index;
