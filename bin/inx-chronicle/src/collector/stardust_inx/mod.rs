@@ -11,14 +11,11 @@ use std::collections::{HashSet, VecDeque};
 use async_trait::async_trait;
 use chronicle::{
     db::model::{
-        stardust::{
-            message::{MessageMetadata, MessageRecord},
-            milestone::MilestoneRecord,
-        },
+        stardust::{message::MessageRecord, milestone::MilestoneRecord},
         sync::SyncRecord,
     },
-    dto,
     runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
+    types::{ledger::Metadata, stardust::message::MessageId},
 };
 pub(super) use config::InxConfig;
 use error::InxWorkerError;
@@ -86,8 +83,8 @@ impl HandleEvent<Report<InxWorker>> for Collector {
 #[derive(Debug)]
 pub struct MilestoneState {
     pub milestone_index: u32,
-    pub process_queue: VecDeque<dto::MessageId>,
-    pub visited: HashSet<dto::MessageId>,
+    pub process_queue: VecDeque<MessageId>,
+    pub visited: HashSet<MessageId>,
 }
 
 impl MilestoneState {
@@ -158,7 +155,7 @@ impl HandleEvent<inx::proto::MessageMetadata> for Collector {
             Ok(rec) => {
                 let message_id = rec.message_id;
                 self.db
-                    .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                    .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                     .await?;
             }
             Err(e) => {
@@ -234,7 +231,7 @@ impl HandleEvent<RequestedMessage> for Collector {
                     Ok(rec) => {
                         let message_id = rec.message_id;
                         self.db
-                            .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                            .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                             .await?;
                         // Send this directly to the solidifier that requested it
                         solidifier.send(ms_state)?;

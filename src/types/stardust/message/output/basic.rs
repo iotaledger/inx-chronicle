@@ -8,7 +8,7 @@ use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BasicOutput {
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub unlock_conditions: Box<[UnlockCondition]>,
@@ -27,7 +27,7 @@ impl From<&stardust::BasicOutput> for BasicOutput {
 }
 
 impl TryFrom<BasicOutput> for stardust::BasicOutput {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: BasicOutput) -> Result<Self, Self::Error> {
         Ok(Self::build_with_amount(value.amount)?

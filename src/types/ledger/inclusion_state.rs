@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use bee_rest_api_stardust::types::dtos as bee;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -44,23 +45,34 @@ impl From<LedgerInclusionState> for Bson {
 }
 
 #[cfg(feature = "stardust")]
-impl From<crate::stardust::types::dtos::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn from(value: crate::stardust::types::dtos::LedgerInclusionStateDto) -> Self {
+impl From<bee::LedgerInclusionStateDto> for LedgerInclusionState {
+    fn from(value: bee::LedgerInclusionStateDto) -> Self {
         match value {
-            crate::stardust::types::dtos::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
-            crate::stardust::types::dtos::LedgerInclusionStateDto::Included => Self::Included,
-            crate::stardust::types::dtos::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
+            bee::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
+            bee::LedgerInclusionStateDto::Included => Self::Included,
+            bee::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
         }
     }
 }
 
 #[cfg(feature = "stardust")]
-impl From<LedgerInclusionState> for crate::stardust::types::dtos::LedgerInclusionStateDto {
-    fn from(v: LedgerInclusionState) -> Self {
-        match v {
+impl From<LedgerInclusionState> for bee::LedgerInclusionStateDto {
+    fn from(value: LedgerInclusionState) -> Self {
+        match value {
             LedgerInclusionState::Conflicting => Self::Conflicting,
             LedgerInclusionState::Included => Self::Included,
             LedgerInclusionState::NoTransaction => Self::NoTransaction,
+        }
+    }
+}
+
+#[cfg(feature = "inx")]
+impl From<inx::LedgerInclusionState> for LedgerInclusionState {
+    fn from(value: inx::LedgerInclusionState) -> Self {
+        match value {
+            inx::LedgerInclusionState::Included => Self::Included,
+            inx::LedgerInclusionState::NoTransaction => Self::NoTransaction,
+            inx::LedgerInclusionState::Conflicting => Self::Conflicting,
         }
     }
 }

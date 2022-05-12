@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
-    #[serde(with = "crate::dto::stringify")]
+    #[serde(with = "crate::types::stringify")]
     amount: u64,
 }
 
@@ -17,7 +17,7 @@ impl From<&stardust::TreasuryOutput> for TreasuryOutput {
 }
 
 impl TryFrom<TreasuryOutput> for stardust::TreasuryOutput {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TreasuryOutput) -> Result<Self, Self::Error> {
         Ok(Self::new(value.amount)?)

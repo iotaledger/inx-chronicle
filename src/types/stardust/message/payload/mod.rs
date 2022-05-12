@@ -41,7 +41,7 @@ impl From<&stardust::Payload> for Payload {
 }
 
 impl TryFrom<Payload> for stardust::Payload {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: Payload) -> Result<Self, Self::Error> {
         Ok(match value {

@@ -22,7 +22,7 @@ impl From<&stardust::TaggedDataPayload> for TaggedDataPayload {
 }
 
 impl TryFrom<TaggedDataPayload> for stardust::TaggedDataPayload {
-    type Error = crate::dto::error::Error;
+    type Error = crate::types::error::Error;
 
     fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
         Ok(stardust::TaggedDataPayload::new(value.tag.into(), value.data.into())?)

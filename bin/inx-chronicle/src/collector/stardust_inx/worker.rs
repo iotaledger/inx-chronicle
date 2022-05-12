@@ -5,8 +5,8 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 use chronicle::{
-    dto::MessageId,
     runtime::{Actor, ActorContext, ActorError, Addr, HandleEvent, Report, SpawnActor},
+    types::stardust::message::MessageId,
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
 

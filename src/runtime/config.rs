@@ -78,7 +78,7 @@ impl<A> Default for SpawnConfigInner<A> {
 
 impl<A> SpawnConfigInner<A> {
     /// Merges a custom stream in addition to the event stream.
-    pub fn set_stream<S, E>(&mut self, stream: S)
+    pub(crate) fn set_stream<S, E>(&mut self, stream: S)
     where
         A: Actor,
         S: 'static + Stream<Item = E> + Unpin + Send,
@@ -88,7 +88,7 @@ impl<A> SpawnConfigInner<A> {
     }
 
     /// Sets whether the actor's address should be added to the registry.
-    pub fn set_add_to_registry(&mut self, add: bool) {
+    pub(crate) fn set_add_to_registry(&mut self, add: bool) {
         self.add_to_registry = add;
     }
 }

@@ -13,3 +13,7 @@ connection_retry_interval = "5s"
 
 [collector]
 solidifier_count = 10
+
+[metrics]
+address = "0.0.0.0"
+port = 9100

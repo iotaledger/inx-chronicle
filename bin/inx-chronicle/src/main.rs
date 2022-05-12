@@ -10,6 +10,8 @@ mod cli;
 #[cfg(feature = "collector")]
 mod collector;
 mod config;
+#[cfg(feature = "metrics")]
+mod metrics;
 
 use std::error::Error;
 
@@ -70,6 +72,11 @@ impl Actor for Launcher {
 
         #[cfg(feature = "api")]
         cx.spawn_child(api::ApiWorker::new(db, config.api.clone())).await;
+
+        #[cfg(feature = "metrics")]
+        cx.spawn_child(metrics::MetricsWorker::new(config.metrics.clone()))
+            .await;
+
         Ok(config)
     }
 }
@@ -137,6 +144,34 @@ impl HandleEvent<Report<api::ApiWorker>> for Launcher {
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "metrics")]
+#[async_trait]
+impl HandleEvent<Report<metrics::MetricsWorker>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<metrics::MetricsWorker>,
+        config: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(_) => {
+                    cx.spawn_child(metrics::MetricsWorker::new(config.metrics.clone()))
+                        .await;
+                }
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+
         Ok(())
     }
 }

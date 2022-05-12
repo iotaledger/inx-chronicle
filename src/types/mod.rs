@@ -3,21 +3,12 @@
 
 #![allow(missing_docs)] // TODO: Add missing comments
 
-mod address;
-mod conflict_reason;
-mod error;
-mod inclusion_state;
-mod input;
-mod message;
-mod output;
-mod payload;
-mod signature;
-mod unlock_block;
+// TODO Rework visibility of these modules
 
-pub use self::{
-    address::*, conflict_reason::*, inclusion_state::*, input::*, message::*, output::*, payload::*, signature::*,
-    unlock_block::*,
-};
+pub mod error;
+pub mod ledger;
+#[cfg(feature = "stardust")]
+pub mod stardust;
 
 pub mod stringify {
     use std::{fmt::Display, marker::PhantomData, str::FromStr};
