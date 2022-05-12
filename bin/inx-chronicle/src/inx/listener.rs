@@ -22,7 +22,7 @@ use inx::{
 };
 use thiserror::Error;
 
-use super::{syncer::Syncer, InxConfig};
+use super::{syncer::Syncer, InxConfig, InxWorker, NodeStatusRequest};
 use crate::collector::Collector;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
@@ -33,6 +33,8 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 pub enum InxListenerError {
     #[error("the collector is not running")]
     MissingCollector,
+    #[error("the syncer is not running")]
+    MissingSyncer,
     #[error("failed to subscribe to stream: {0}")]
     SubscriptionFailed(#[from] inx::tonic::Status),
     #[error(transparent)]
@@ -218,6 +220,12 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                             .with_registration(false),
                     )
                     .await;
+                    let syncer_addr = cx
+                        .addr::<Syncer>()
+                        .await
+                        .into_inner()
+                        .ok_or_else(|| InxListenerError::MissingSyncer)?;
+                    cx.addr::<InxWorker>().await.send(NodeStatusRequest::new(syncer_addr))?;
                 }
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();
