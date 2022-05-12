@@ -237,8 +237,7 @@ impl HandleEvent<Report<Syncer>> for Launcher {
             Report::Error(e) => match e.error {
                 ActorError::Result(e) => {
                     log::error!("Syncer exited with error: {}", e);
-                    cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone()))
-                        .await;
+                    cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone())).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
