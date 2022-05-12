@@ -6,7 +6,12 @@ use chronicle::{
     db::MongoDb,
     runtime::{
         actor::{
-            context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
+            context::ActorContext,
+            error::ActorError,
+            event::HandleEvent,
+            report::{ErrorReport, Report},
+            util::SpawnActor,
+            Actor,
         },
         error::RuntimeError,
     },
@@ -81,7 +86,6 @@ impl Actor for Launcher {
             cx.spawn_child(InxWorker::new(config.inx.clone())).await;
 
             // Send a `NodeStatus` request to the `InxWorker`
-            #[cfg(feature = "inx")]
             cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
         }
 
@@ -234,15 +238,25 @@ impl HandleEvent<Report<Syncer>> for Launcher {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(e) => match e.error {
-                ActorError::Result(e) => {
-                    log::error!("Syncer exited with error: {}", e);
-                    cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone())).await;
+            Report::Error(report) => {
+                let ErrorReport {
+                    error, internal_state, ..
+                } = report;
+
+                match error {
+                    ActorError::Result(e) => {
+                        log::error!("Syncer exited with error: {}", e);
+                        // Panic: a previous Syncer instance always has an internal state.
+                        cx.spawn_child(
+                            Syncer::new(db.clone(), config.syncer.clone()).with_internal_state(internal_state.unwrap()),
+                        )
+                        .await;
+                    }
+                    ActorError::Panic | ActorError::Aborted => {
+                        cx.shutdown();
+                    }
                 }
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
-                }
-            },
+            }
         }
         cx.shutdown();
         Ok(())
@@ -257,8 +271,7 @@ impl HandleEvent<NodeStatus> for Launcher {
         node_status: NodeStatus,
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // Start syncing from the node's pruning index up to it's current ledger index.
-        // NOTE: the upper bound will be updated through the milestone listening stream.
+        // Start syncing from the node's pruning index up to the first solidified listened milestone.
         if self.node_status.is_none() {
             let oldest_index = node_status.pruning_index + 1;
             cx.addr::<Syncer>().await.send(OldestMilestone(oldest_index))?;

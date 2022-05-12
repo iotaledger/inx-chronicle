@@ -48,11 +48,21 @@ pub(crate) struct Syncer {
     db: MongoDb,
     #[allow(dead_code)]
     config: SyncerConfig,
+    internal_state: Option<SyncState>,
 }
 
 impl Syncer {
-    pub(crate) fn new(db: MongoDb, config: SyncerConfig) -> Self {
-        Self { db, config }
+    pub fn new(db: MongoDb, config: SyncerConfig) -> Self {
+        Self {
+            db,
+            config,
+            internal_state: None,
+        }
+    }
+
+    pub fn with_internal_state(mut self, internal_state: SyncState) -> Self {
+        self.internal_state.replace(internal_state);
+        self
     }
 
     async fn is_synced(&self, index: u32) -> Result<bool, SyncerError> {
@@ -91,7 +101,8 @@ impl Actor for Syncer {
     type Error = SyncerError;
 
     async fn init(&mut self, _: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        Ok(SyncState::default())
+        let internal_state = self.internal_state.take();
+        Ok(internal_state.unwrap_or_default())
     }
 }
 
