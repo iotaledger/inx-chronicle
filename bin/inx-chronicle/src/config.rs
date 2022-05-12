@@ -18,14 +18,19 @@ pub enum ConfigError {
 /// Configuration of Chronicle.
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChronicleConfig {
+    #[serde(default)]
     pub mongodb: MongoDbConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[serde(default)]
     pub inx: crate::stardust_inx::InxConfig,
     #[cfg(feature = "api")]
+    #[serde(default)]
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[serde(default)]
     pub collector: crate::collector::CollectorConfig,
     #[cfg(feature = "metrics")]
+    #[serde(default)]
     pub metrics: crate::metrics::MetricsConfig,
 }
 

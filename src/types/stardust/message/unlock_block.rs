@@ -10,7 +10,7 @@ use crate::types::stardust::message::Signature;
 #[serde(tag = "kind")]
 pub enum UnlockBlock {
     #[serde(rename = "signature")]
-    Signature(Signature),
+    Signature { signature: Signature },
     #[serde(rename = "reference")]
     Reference { index: u16 },
     #[serde(rename = "alias")]
@@ -22,7 +22,9 @@ pub enum UnlockBlock {
 impl From<&stardust::UnlockBlock> for UnlockBlock {
     fn from(value: &stardust::UnlockBlock) -> Self {
         match value {
-            stardust::UnlockBlock::Signature(s) => Self::Signature(s.signature().into()),
+            stardust::UnlockBlock::Signature(s) => Self::Signature {
+                signature: s.signature().into(),
+            },
             stardust::UnlockBlock::Reference(r) => Self::Reference { index: r.index() },
             stardust::UnlockBlock::Alias(a) => Self::Alias { index: a.index() },
             stardust::UnlockBlock::Nft(n) => Self::Nft { index: n.index() },
@@ -35,8 +37,8 @@ impl TryFrom<UnlockBlock> for stardust::UnlockBlock {
 
     fn try_from(value: UnlockBlock) -> Result<Self, Self::Error> {
         Ok(match value {
-            UnlockBlock::Signature(s) => {
-                stardust::UnlockBlock::Signature(stardust::SignatureUnlockBlock::new(s.try_into()?))
+            UnlockBlock::Signature { signature } => {
+                stardust::UnlockBlock::Signature(stardust::SignatureUnlockBlock::new(signature.try_into()?))
             }
             UnlockBlock::Reference { index } => {
                 stardust::UnlockBlock::Reference(stardust::ReferenceUnlockBlock::new(index)?)
