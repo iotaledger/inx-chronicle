@@ -22,7 +22,7 @@ use inx::{
 };
 use thiserror::Error;
 
-use super::{syncer::Syncer, InxConfig, InxWorker, NodeStatusRequest};
+use super::{syncer::Syncer, InxConfig};
 use crate::collector::Collector;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
@@ -31,10 +31,10 @@ type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
 pub enum InxListenerError {
+    #[error("the milestone stream exited")]
+    MilestoneGap,
     #[error("the collector is not running")]
     MissingCollector,
-    #[error("the syncer is not running")]
-    MissingSyncer,
     #[error("failed to subscribe to stream: {0}")]
     SubscriptionFailed(#[from] inx::tonic::Status),
     #[error(transparent)]
@@ -209,23 +209,8 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let milestone_stream = self
-                        .inx_client
-                        .listen_to_latest_milestone(NoParams {})
-                        .await?
-                        .into_inner();
-                    cx.spawn_child::<MilestoneStream, _>(
-                        InxStreamListener::default()
-                            .with_stream(milestone_stream)
-                            .with_registration(false),
-                    )
-                    .await;
-                    let syncer_addr = cx
-                        .addr::<Syncer>()
-                        .await
-                        .into_inner()
-                        .ok_or_else(|| InxListenerError::MissingSyncer)?;
-                    cx.addr::<InxWorker>().await.send(NodeStatusRequest::new(syncer_addr))?;
+                    // Simplest thing is to just restart the listener
+                    return Err(InxListenerError::MilestoneGap);
                 }
                 ActorError::Aborted | ActorError::Panic => {
                     cx.shutdown();

@@ -90,7 +90,7 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
                     InxListenerError::Runtime(_) => {
                         cx.shutdown();
                     }
-                    InxListenerError::MissingCollector | InxListenerError::MissingSyncer => {
+                    InxListenerError::MissingCollector | InxListenerError::MilestoneGap => {
                         cx.delay(
                             SpawnActor::new(InxListener::new(
                                 self.db.clone(),
