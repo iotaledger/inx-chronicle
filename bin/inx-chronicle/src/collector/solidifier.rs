@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Instant;
-
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
@@ -50,7 +48,7 @@ impl Actor for Solidifier {
 }
 
 #[cfg(feature = "stardust")]
-mod stardust {
+pub mod stardust {
     use super::*;
     use crate::{
         collector::stardust::MilestoneState,
@@ -67,8 +65,6 @@ mod stardust {
         ) -> Result<(), Self::Error> {
             log::debug!("Solidifying {}...", ms_state.milestone_index);
 
-            // Process by iterating the queue until we either complete the milestone or fail to find a message
-            let now = Instant::now();
             while let Some(message_id) = ms_state.process_queue.front() {
                 // First check if we already processed this message in this run
                 if ms_state.visited.contains(message_id) {
@@ -131,13 +127,12 @@ mod stardust {
             // so we should mark it synced
             self.db.upsert_sync_record(ms_state.milestone_index).await?;
 
-            let elapsed = now.elapsed();
+            log::info!("Milestone {} solidified.", ms_state.milestone_index,);
 
-            log::info!(
-                "Milestone {} solidified in {}s.",
-                ms_state.milestone_index,
-                elapsed.as_secs_f32()
-            );
+            // If this was sent with a channel, respond to it
+            if let Some(tx) = ms_state.sender {
+                tx.send(ms_state.milestone_index).ok();
+            }
 
             Ok(())
         }

@@ -31,7 +31,7 @@ pub enum CollectorError {
 }
 
 #[derive(Debug)]
-pub(crate) struct Collector {
+pub struct Collector {
     db: MongoDb,
     solidifier_count: usize,
 }
@@ -47,7 +47,7 @@ impl Collector {
     }
 }
 
-pub(crate) struct CollectorState {
+pub struct CollectorState {
     solidifiers: HashMap<usize, Addr<Solidifier>>,
 }
 
@@ -121,6 +121,7 @@ pub mod stardust {
         pub milestone_index: u32,
         pub process_queue: VecDeque<dto::MessageId>,
         pub visited: HashSet<dto::MessageId>,
+        pub sender: Option<tokio::sync::oneshot::Sender<u32>>,
     }
 
     impl MilestoneState {
@@ -129,6 +130,16 @@ pub mod stardust {
                 milestone_index,
                 process_queue: VecDeque::new(),
                 visited: HashSet::new(),
+                sender: None,
+            }
+        }
+
+        pub fn requested(milestone_index: u32, sender: tokio::sync::oneshot::Sender<u32>) -> Self {
+            Self {
+                milestone_index,
+                process_queue: VecDeque::new(),
+                visited: HashSet::new(),
+                sender: Some(sender),
             }
         }
     }
@@ -154,6 +165,13 @@ pub mod stardust {
                 sender_addr,
                 ms_state,
             }
+        }
+    }
+
+    pub struct RequestedMilestone(inx::proto::Milestone, tokio::sync::oneshot::Sender<u32>);
+    impl RequestedMilestone {
+        pub fn new(milestone: inx::proto::Milestone, sender: tokio::sync::oneshot::Sender<u32>) -> Self {
+            Self(milestone, sender)
         }
     }
 
@@ -292,6 +310,42 @@ pub mod stardust {
                 }
             }
 
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl HandleEvent<RequestedMilestone> for Collector {
+        async fn handle_event(
+            &mut self,
+            _cx: &mut ActorContext<Self>,
+            RequestedMilestone(milestone, sender): RequestedMilestone,
+            state: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            log::trace!(
+                "Received Stardust Requested Milestone Event ({})",
+                milestone.milestone_info.as_ref().unwrap().milestone_index
+            );
+            match MilestoneRecord::try_from(milestone) {
+                Ok(rec) => {
+                    self.db.upsert_milestone_record(&rec).await?;
+                    // Get or create the milestone state
+                    let mut ms_state = MilestoneState::requested(rec.milestone_index, sender);
+                    ms_state
+                        .process_queue
+                        .extend(Vec::from(rec.payload.essence.parents).into_iter());
+                    state
+                        .solidifiers
+                        // Divide solidifiers fairly by milestone
+                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        // Unwrap: We never remove solidifiers, so they should always exist
+                        .unwrap()
+                        .send(ms_state)?;
+                }
+                Err(e) => {
+                    log::error!("Could not read milestone: {:?}", e);
+                }
+            }
             Ok(())
         }
     }

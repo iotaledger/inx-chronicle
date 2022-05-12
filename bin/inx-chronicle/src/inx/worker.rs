@@ -115,30 +115,31 @@ pub mod stardust {
     use chronicle::dto::MessageId;
 
     use super::*;
-    use crate::collector::stardust::{MilestoneState, RequestedMessage};
+    use crate::collector::stardust::{MilestoneState, RequestedMessage, RequestedMilestone};
 
-    pub(crate) struct NodeStatusRequest<Sender: Actor>(Addr<Sender>);
+    pub struct NodeStatusRequest<Sender: Actor>(Addr<Sender>);
     impl<Sender: Actor> NodeStatusRequest<Sender> {
         pub fn new(sender_addr: Addr<Sender>) -> Self {
             Self(sender_addr)
         }
     }
-    pub(crate) struct MessageRequest<Sender: Actor>(MessageId, Addr<Sender>, MilestoneState);
+    pub struct MessageRequest<Sender: Actor>(MessageId, Addr<Sender>, MilestoneState);
     impl<Sender: Actor> MessageRequest<Sender> {
-        pub fn new(message_id: MessageId, sender_addr: Addr<Sender>, milestone_state: MilestoneState) -> Self {
-            Self(message_id, sender_addr, milestone_state)
+        pub fn new(message_id: MessageId, sender_addr: Addr<Sender>, ms_state: MilestoneState) -> Self {
+            Self(message_id, sender_addr, ms_state)
         }
     }
-    pub(crate) struct MetadataRequest<Sender: Actor>(MessageId, Addr<Sender>, MilestoneState);
+    pub struct MetadataRequest<Sender: Actor>(MessageId, Addr<Sender>, MilestoneState);
     impl<Sender: Actor> MetadataRequest<Sender> {
-        pub fn new(message_id: MessageId, sender_addr: Addr<Sender>, milestone_state: MilestoneState) -> Self {
-            Self(message_id, sender_addr, milestone_state)
+        pub fn new(message_id: MessageId, sender_addr: Addr<Sender>, ms_state: MilestoneState) -> Self {
+            Self(message_id, sender_addr, ms_state)
         }
     }
-    pub(crate) struct MilestoneRequest(u32, usize);
+
+    pub struct MilestoneRequest(u32, usize, tokio::sync::oneshot::Sender<u32>);
     impl MilestoneRequest {
-        pub fn new(milestone_index: u32, retries: usize) -> Self {
-            Self(milestone_index, retries)
+        pub fn new(milestone_index: u32, retries: usize, sender: tokio::sync::oneshot::Sender<u32>) -> Self {
+            Self(milestone_index, retries, sender)
         }
     }
 
@@ -244,7 +245,7 @@ pub mod stardust {
         async fn handle_event(
             &mut self,
             cx: &mut ActorContext<Self>,
-            MilestoneRequest(milestone_index, retries): MilestoneRequest,
+            MilestoneRequest(milestone_index, retries, sender): MilestoneRequest,
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
             log::trace!("Requesting milestone {}", milestone_index);
@@ -260,7 +261,9 @@ pub mod stardust {
                     let milestone: inx::proto::Milestone = milestone.into_inner();
 
                     // Instruct the collector to solidify this milestone.
-                    cx.addr::<Collector>().await.send(milestone)?;
+                    cx.addr::<Collector>()
+                        .await
+                        .send(RequestedMilestone::new(milestone, sender))?;
                 }
                 Err(e) => {
                     log::warn!("No milestone response for {}", milestone_index);
@@ -273,7 +276,7 @@ pub mod stardust {
                         | "The service is currently unavailable" => {
                             // TODO: Rebase onto combined inx and collector
                             if retries > 0 {
-                                cx.delay(MilestoneRequest::new(milestone_index, retries - 1), None)?;
+                                cx.delay(MilestoneRequest::new(milestone_index, retries - 1, sender), None)?;
                             }
                         }
                         _ => (),

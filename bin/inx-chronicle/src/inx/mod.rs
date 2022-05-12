@@ -7,11 +7,11 @@ mod listener;
 mod syncer;
 mod worker;
 
-pub(crate) use self::{
+pub use self::{
     config::InxConfig,
     error::InxWorkerError,
     worker::{
-        stardust::{MessageRequest, MetadataRequest, MilestoneRequest, NodeStatusRequest},
+        stardust::{MessageRequest, MetadataRequest, NodeStatusRequest},
         InxWorker,
     },
 };
