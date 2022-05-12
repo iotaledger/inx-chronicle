@@ -162,12 +162,9 @@ pub mod stardust {
             message: inx::proto::Message,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!(
-                "Received Stardust Message Event ({})",
-                hex::encode(message.message_id.as_ref().unwrap().id.as_slice())
-            );
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
+                    log::trace!("Received Stardust Message Event ({})", rec.message.id.to_hex());
                     self.db.upsert_message_record(&rec).await?;
                 }
                 Err(e) => {
@@ -186,12 +183,9 @@ pub mod stardust {
             metadata: inx::proto::MessageMetadata,
             _solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!(
-                "Received Stardust Message Referenced Event ({})",
-                metadata.milestone_index
-            );
             match inx::MessageMetadata::try_from(metadata) {
                 Ok(rec) => {
+                    log::trace!("Received Stardust Message Referenced Event ({})", rec.milestone_index);
                     let message_id = rec.message_id;
                     self.db
                         .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
@@ -213,12 +207,9 @@ pub mod stardust {
             milestone: inx::proto::Milestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::trace!(
-                "Received Stardust Milestone Event ({})",
-                milestone.milestone_info.as_ref().unwrap().milestone_index
-            );
             match MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
+                    log::trace!("Received Stardust Milestone Event ({})", rec.milestone_index);
                     self.db.upsert_milestone_record(&rec).await?;
                     // Tell the Syncer about this new milestone
                     cx.addr::<Syncer>().await.send(LatestMilestone(rec.milestone_index))?;
