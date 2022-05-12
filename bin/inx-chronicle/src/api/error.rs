@@ -35,17 +35,21 @@ pub enum InternalApiError {
 }
 
 #[derive(Error, Debug)]
-#[allow(missing_docs, dead_code)]
+#[allow(missing_docs)]
 pub enum ApiError {
     #[error(transparent)]
     BadParse(ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
+    // TODO: use or remove dead code
     #[error("Provided index is too large (Max 64 bytes)")]
+    #[allow(dead_code)]
     IndexTooLarge,
     #[error("Internal server error")]
     Internal(InternalApiError),
+    // TODO: use or remove dead code
     #[error("Invalid hexidecimal encoding")]
+    #[allow(dead_code)]
     InvalidHex,
     #[error("No results returned")]
     NoResults,
@@ -53,7 +57,9 @@ pub enum ApiError {
     NotFound,
     #[error(transparent)]
     QueryError(QueryRejection),
+    // TODO: use or remove dead code
     #[error("Provided tag is too large (Max 64 bytes)")]
+    #[allow(dead_code)]
     TagTooLarge,
 }
 
