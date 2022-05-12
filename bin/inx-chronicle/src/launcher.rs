@@ -228,11 +228,22 @@ impl HandleEvent<Report<Syncer>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         report: Report<Syncer>,
-        (_config, _db): &mut Self::State,
+        (config, db): &mut Self::State,
     ) -> Result<(), Self::Error> {
         match report {
-            Report::Success(_) => log::info!("Syncer finished."),
-            Report::Error(_) => log::error!("Syncer finished with errors."),
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(e) => {
+                    log::error!("Syncer exited with error: {}", e);
+                    cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone()))
+                        .await;
+                }
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
         }
         cx.shutdown();
         Ok(())
