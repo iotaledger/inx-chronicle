@@ -1,25 +1,24 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+/// Module containing the actor address handle.
+pub(crate) mod addr;
+/// Module containing the actor context.
+pub(crate) mod context;
+/// Module containing actor error types.
+pub(crate) mod error;
+/// Module containing event types.
+pub(crate) mod event;
+/// Module containing actor exit report types.
+pub(crate) mod report;
+/// Module containing utilities.
+pub(crate) mod util;
+
 use std::{borrow::Cow, error::Error};
 
 use async_trait::async_trait;
+use context::ActorContext;
 use futures::StreamExt;
-
-use self::context::ActorContext;
-
-/// Module containing the actor address handle.
-pub mod addr;
-/// Module containing the actor context.
-pub mod context;
-/// Module containing actor error types.
-pub mod error;
-/// Module containing event types.
-pub mod event;
-/// Module containing actor exit report types.
-pub mod report;
-/// Module containing utilities.
-pub mod util;
 
 /// The actor trait, which defines a task that is managed by the runtime.
 #[async_trait]

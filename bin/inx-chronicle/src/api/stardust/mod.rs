@@ -2,10 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::Router;
-use chronicle::db::MongoDb;
-use time::OffsetDateTime;
-
-use super::{ApiError, ApiResult};
 
 #[cfg(feature = "api-analytics")]
 pub mod analytics;
@@ -34,18 +30,4 @@ pub fn routes() -> Router {
     }
 
     router
-}
-
-pub async fn start_milestone(database: &MongoDb, start_timestamp: OffsetDateTime) -> ApiResult<u32> {
-    database
-        .find_first_milestone(start_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)
-}
-
-pub async fn end_milestone(database: &MongoDb, end_timestamp: OffsetDateTime) -> ApiResult<u32> {
-    database
-        .find_last_milestone(end_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)
 }

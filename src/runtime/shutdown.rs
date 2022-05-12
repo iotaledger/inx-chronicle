@@ -24,7 +24,7 @@ pub(crate) struct ShutdownFlag {
 }
 
 impl ShutdownFlag {
-    pub fn signal(&self) {
+    pub(crate) fn signal(&self) {
         self.set.store(true, Ordering::SeqCst);
         self.waker.wake();
     }

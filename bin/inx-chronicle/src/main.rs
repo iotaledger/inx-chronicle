@@ -7,21 +7,26 @@
 #[cfg(feature = "api")]
 mod api;
 mod cli;
+#[cfg(all(feature = "stardust", feature = "inx"))]
 mod collector;
 mod config;
-#[cfg(feature = "inx")]
-mod inx;
 mod launcher;
+#[cfg(feature = "metrics")]
+mod metrics;
+#[cfg(all(feature = "stardust", feature = "inx"))]
+mod stardust_inx;
 
 use std::error::Error;
 
-use chronicle::runtime::{scope::RuntimeScope, Runtime};
+use chronicle::runtime::{spawn_task, Runtime, RuntimeScope};
 use launcher::Launcher;
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
+    #[cfg(all(tokio_unstable, feature = "console"))]
+    console_subscriber::init();
 
     std::panic::set_hook(Box::new(|p| {
         log::error!("{}", p);
@@ -33,9 +38,9 @@ async fn main() {
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_addr = scope.spawn_actor_unsupervised(Launcher::default()).await;
+    let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
-    tokio::spawn(async move {
+    spawn_task("ctrl-c listener", async move {
         tokio::signal::ctrl_c().await.ok();
         launcher_addr.shutdown();
     });

@@ -97,7 +97,7 @@ impl MongoDb {
             last_record.replace(milestone_index);
         }
         if let Some(last) = last_record.as_ref() {
-            if last + 1 <= end {
+            if *last < end {
                 sync_data.gaps.push(last + 1..end);
             }
         } else if start <= end {

@@ -7,11 +7,6 @@ use chronicle::db::MongoDbConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[cfg(feature = "api")]
-use crate::api::ApiConfig;
-#[cfg(feature = "inx")]
-use crate::inx::InxConfig;
-
 #[derive(Error, Debug)]
 pub enum ConfigError {
     #[error("failed to read file: {0}")]
@@ -24,10 +19,14 @@ pub enum ConfigError {
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
-    #[cfg(feature = "inx")]
-    pub inx: InxConfig,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
+    pub inx: crate::stardust_inx::InxConfig,
     #[cfg(feature = "api")]
-    pub api: ApiConfig,
+    pub api: crate::api::ApiConfig,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
+    pub collector: crate::collector::CollectorConfig,
+    #[cfg(feature = "metrics")]
+    pub metrics: crate::metrics::MetricsConfig,
 }
 
 impl ChronicleConfig {
@@ -39,12 +38,16 @@ impl ChronicleConfig {
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
     pub fn apply_cli_args(&mut self, args: super::cli::CliArgs) {
-        #[cfg(feature = "stardust")]
+        #[cfg(all(feature = "stardust", feature = "inx"))]
         if let Some(inx) = args.inx {
-            self.inx = InxConfig::new(inx);
+            self.inx = crate::stardust_inx::InxConfig::new(inx);
         }
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
+        }
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        if let Some(solidifier_count) = args.solidifier_count {
+            self.collector = crate::collector::CollectorConfig::new(solidifier_count);
         }
     }
 }

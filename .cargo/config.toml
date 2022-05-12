@@ -1,9 +1,12 @@
 [alias]
 ci-build-all = "build --all-targets --all-features --release"
-ci-build-inx = "build --all-targets --features inx --release"
-ci-build-api = "build --all-targets --features api --release"
+ci-build-inx = "build --all-targets --no-default-features --features inx,stardust --release"
+ci-build-api = "build --all-targets --no-default-features --features api-node,stardust --release"
 
-ci-clippy = "clippy --all-targets --all-features -- -D warnings"
+ci-clippy-all = "clippy --all-targets --all-features -- -D warnings"
+ci-clippy-inx = "clippy --all-targets --no-default-features --features inx,stardust -- -D warnings"
+ci-clippy-api = "clippy --all-targets --no-default-features --features api-node,stardust -- -D warnings"
+
 ci-doctest = "test --doc --all-features --release"
 ci-doc = "doc --all-features --no-deps --document-private-items"
 ci-fmt = "fmt --all -- --check"
@@ -14,3 +17,7 @@ ci-udeps = "udeps --all-targets --all-features --backend=depinfo"
 fix-clippy = "clippy --all-targets --all-features --fix"
 fix-fmt = "fmt --all"
 fix-toml = "sort --grouped"
+
+# Enable Tokio's experimental tracing API.
+[build]
+rustflags = ["--cfg", "tokio_unstable"]

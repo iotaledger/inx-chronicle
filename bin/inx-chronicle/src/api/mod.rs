@@ -19,13 +19,12 @@ use async_trait::async_trait;
 use axum::{Extension, Server};
 use chronicle::{
     db::MongoDb,
-    runtime::actor::{context::ActorContext, Actor},
+    runtime::{spawn_task, Actor, ActorContext},
 };
 pub use config::ApiConfig;
 pub use error::ApiError;
 use hyper::Method;
-pub(crate) use responses::impl_success_response;
-pub use responses::SuccessBody;
+use responses::impl_success_response;
 use routes::routes;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
@@ -85,7 +84,7 @@ impl Actor for ApiWorker {
                     .allow_headers(Any)
                     .allow_credentials(false),
             );
-        let join_handle = tokio::spawn(async move {
+        let join_handle = spawn_task("Axum server", async move {
             let res = Server::bind(&([0, 0, 0, 0], port).into())
                 .serve(routes.into_make_service())
                 .with_graceful_shutdown(shutdown_signal(receiver))

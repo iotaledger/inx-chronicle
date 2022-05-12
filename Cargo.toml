@@ -29,10 +29,10 @@ derive_more = { version = "0.99", default-features = false }
 dotenv = { version = "0.15", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3", default-features = false }
-hex = { version = "0.4", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
+prefix-hex = { version = "0.4.0", default-features = false, features = [ "primitive-types" ] }
 primitive-types = { version = "0.10", default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
@@ -55,9 +55,15 @@ tower-http = { version = "0.3", default-features = false, features = ["cors", "c
 # INX
 inx = { git = "https://github.com/iotaledger/inx", version = "0.3", default-features = false, features = ["types"], optional = true }
 
+# Metrics
+bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, optional = true }
+
 # Stardust types
 bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
+
+# Tokio Console
+console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 [features]
 default = [
@@ -67,7 +73,7 @@ default = [
     "inx",
     "stardust",
 ]
-api = [ 
+api = [
     "dep:axum",
     "derive_more/from",
     "dep:hyper",
@@ -84,8 +90,15 @@ api-explorer = [
 api-node = [
     "api",
 ]
+console = [
+    "dep:console-subscriber",
+    "tokio/tracing",
+]
 inx = [
     "dep:inx",
+]
+metrics = [
+    "dep:bee-metrics",
 ]
 stardust = [
     "dep:bee-message-stardust",

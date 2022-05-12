@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod config;
 pub mod solidifier;
 
 use std::collections::{HashMap, VecDeque};
@@ -8,12 +9,10 @@ use std::collections::{HashMap, VecDeque};
 use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
-    runtime::{
-        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
-        config::ConfigureActor,
-        error::RuntimeError,
-    },
+    runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
+    types::{ledger::Metadata, stardust::message::MessageId},
 };
+pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
@@ -33,17 +32,12 @@ pub enum CollectorError {
 #[derive(Debug)]
 pub struct Collector {
     db: MongoDb,
-    solidifier_count: usize,
+    config: CollectorConfig,
 }
 
 impl Collector {
-    const MAX_SOLIDIFIERS: usize = 100;
-
-    pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
-        Self {
-            db,
-            solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS),
-        }
+    pub fn new(db: MongoDb, config: CollectorConfig) -> Self {
+        Self { db, config }
     }
 }
 
@@ -58,7 +52,7 @@ impl Actor for Collector {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let mut solidifiers = HashMap::new();
-        for i in 0..self.solidifier_count {
+        for i in 0..self.config.solidifier_count {
             solidifiers.insert(
                 i,
                 cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
@@ -83,7 +77,8 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    solidifier::SolidifierError::MissingInxRequester => {
+                    #[cfg(all(feature = "stardust", feature = "inx"))]
+                    solidifier::SolidifierError::MissingStardustInxRequester => {
                         state
                             .solidifiers
                             .insert(report.actor.id, cx.spawn_child(report.actor).await);
@@ -102,25 +97,19 @@ impl HandleEvent<Report<Solidifier>> for Collector {
     }
 }
 
-#[cfg(feature = "stardust")]
-pub mod stardust {
+#[cfg(all(feature = "stardust", feature = "inx"))]
+pub mod stardust_inx {
     use std::collections::HashSet;
 
-    use chronicle::{
-        db::model::stardust::{
-            message::{MessageMetadata, MessageRecord},
-            milestone::MilestoneRecord,
-        },
-        dto,
-    };
+    use chronicle::db::model::stardust::{message::MessageRecord, milestone::MilestoneRecord};
 
     use super::*;
 
     #[derive(Debug)]
     pub struct MilestoneState {
         pub milestone_index: u32,
-        pub process_queue: VecDeque<dto::MessageId>,
-        pub visited: HashSet<dto::MessageId>,
+        pub process_queue: VecDeque<MessageId>,
+        pub visited: HashSet<MessageId>,
         pub sender: Option<tokio::sync::oneshot::Sender<u32>>,
     }
 
@@ -185,7 +174,7 @@ pub mod stardust {
         ) -> Result<(), Self::Error> {
             log::trace!(
                 "Received Stardust Message Event ({})",
-                hex::encode(message.message_id.as_ref().unwrap().id.as_slice())
+                prefix_hex::encode(message.message_id.as_ref().unwrap().id.as_slice())
             );
             match MessageRecord::try_from(message) {
                 Ok(rec) => {
@@ -215,7 +204,7 @@ pub mod stardust {
                 Ok(rec) => {
                     let message_id = rec.message_id;
                     self.db
-                        .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                        .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                         .await?;
                 }
                 Err(e) => {
@@ -249,7 +238,7 @@ pub mod stardust {
                     state
                         .solidifiers
                         // Divide solidifiers fairly by milestone
-                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        .get(&(rec.milestone_index as usize % self.config.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(ms_state)?;
@@ -298,7 +287,7 @@ pub mod stardust {
                         Ok(rec) => {
                             let message_id = rec.message_id;
                             self.db
-                                .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
+                                .update_message_metadata(&message_id.into(), &Metadata::from(rec))
                                 .await?;
                             // Send this directly to the solidifier that requested it
                             sender_addr.send(ms_state)?;
@@ -337,7 +326,7 @@ pub mod stardust {
                     state
                         .solidifiers
                         // Divide solidifiers fairly by milestone
-                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        .get(&(rec.milestone_index as usize % self.config.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(ms_state)?;

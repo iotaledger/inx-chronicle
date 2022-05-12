@@ -5,11 +5,7 @@ use axum::{routing::get, Extension, Router};
 use chronicle::db::{bson::DocExt, MongoDb};
 
 use super::responses::AddressAnalyticsResponse;
-use crate::api::{
-    extractors::TimeRange,
-    stardust::{end_milestone, start_milestone},
-    ApiError, ApiResult,
-};
+use crate::api::{extractors::TimeRange, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().route("/addresses", get(address_analytics))
@@ -22,8 +18,14 @@ async fn address_analytics(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let start_milestone = start_milestone(&database, start_timestamp).await?;
-    let end_milestone = end_milestone(&database, end_timestamp).await?;
+    let start_milestone = database
+        .find_first_milestone(start_timestamp)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+    let end_milestone = database
+        .find_last_milestone(end_timestamp)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
     let res = database
         .aggregate_addresses(start_milestone, end_milestone)

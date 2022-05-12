@@ -4,24 +4,13 @@
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{
-        actor::{
-            context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
-        },
-        error::RuntimeError,
-    },
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
 };
 use clap::Parser;
-use mongodb::error::ErrorKind;
 use thiserror::Error;
 
-#[cfg(feature = "api")]
-use crate::api::ApiWorker;
-#[cfg(feature = "inx")]
-use crate::inx::{InxWorker, InxWorkerError};
-use crate::{
+use super::{
     cli::CliArgs,
-    collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
 };
 
@@ -35,17 +24,16 @@ pub enum LauncherError {
     Runtime(#[from] RuntimeError),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 /// Supervisor actor
 pub struct Launcher;
 
 #[async_trait]
 impl Actor for Launcher {
-    type State = (ChronicleConfig, MongoDb);
+    type State = ChronicleConfig;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        // Get configuration.
         let cli_args = CliArgs::parse();
         let mut config = match &cli_args.config {
             Some(path) => ChronicleConfig::from_file(path)?,
@@ -59,7 +47,6 @@ impl Actor for Launcher {
         };
         config.apply_cli_args(cli_args);
 
-        // Connect to MongoDb instance.
         let db = MongoDb::connect(&config.mongodb).await?;
 
         if let Some(node_status) = db.status().await? {
@@ -68,28 +55,33 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        // Start Collector.
-        cx.spawn_child(Collector::new(db.clone(), 10)).await;
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        cx.spawn_child(super::collector::Collector::new(db.clone(), config.collector.clone()))
+            .await;
 
-        // Start InxWorker.
-        #[cfg(feature = "inx")]
-        cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        cx.spawn_child(super::stardust_inx::InxWorker::new(db.clone(), config.inx.clone()))
+            .await;
 
-        // Start ApiWorker.
         #[cfg(feature = "api")]
-        cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
+        cx.spawn_child(super::api::ApiWorker::new(db, config.api.clone())).await;
 
-        Ok((config, db))
+        #[cfg(feature = "metrics")]
+        cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+            .await;
+
+        Ok(config)
     }
 }
 
+#[cfg(all(feature = "stardust", feature = "inx"))]
 #[async_trait]
-impl HandleEvent<Report<Collector>> for Launcher {
+impl HandleEvent<Report<super::collector::Collector>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<Collector>,
-        (config, db): &mut Self::State,
+        event: Report<super::collector::Collector>,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -97,12 +89,13 @@ impl HandleEvent<Report<Collector>> for Launcher {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    CollectorError::MongoDb(e) => match e.kind.as_ref() {
+                    super::collector::CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
-                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                            let new_db = MongoDb::connect(&config.mongodb).await?;
-                            *db = new_db;
-                            cx.spawn_child(Collector::new(db.clone(), 10)).await;
+                        mongodb::error::ErrorKind::Io(_)
+                        | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
+                            let db = MongoDb::connect(&config.mongodb).await?;
+                            cx.spawn_child(super::collector::Collector::new(db, config.collector.clone()))
+                                .await;
                         }
                         _ => {
                             cx.shutdown();
@@ -121,14 +114,14 @@ impl HandleEvent<Report<Collector>> for Launcher {
     }
 }
 
-#[cfg(feature = "inx")]
+#[cfg(all(feature = "stardust", feature = "inx"))]
 #[async_trait]
-impl HandleEvent<Report<InxWorker>> for Launcher {
+impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<InxWorker>,
-        (config, db): &mut Self::State,
+        event: Report<super::stardust_inx::InxWorker>,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Report::Success(_) => {
@@ -136,45 +129,46 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
             }
             Report::Error(e) => match &e.error {
                 ActorError::Result(e) => match e {
-                    InxWorkerError::ConnectionError(_) => {
+                    crate::stardust_inx::InxWorkerError::ConnectionError(_) => {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
+                        let db = MongoDb::connect(&config.mongodb).await?;
                         cx.delay(
-                            SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())),
+                            chronicle::runtime::SpawnActor::new(super::stardust_inx::InxWorker::new(
+                                db,
+                                config.inx.clone(),
+                            )),
                             wait_interval,
                         )?;
                     }
-                    InxWorkerError::InvalidAddress(_) => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::ParsingAddressFailed(_) => {
-                        cx.shutdown();
-                    }
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                    InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
+                    crate::stardust_inx::InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
+                            let db = MongoDb::connect(&config.mongodb).await?;
+                            cx.spawn_child(super::stardust_inx::InxWorker::new(db, config.inx.clone()))
+                                .await;
                         }
                         _ => {
                             cx.shutdown();
                         }
                     },
-                    InxWorkerError::Read(_) => {
-                        cx.shutdown();
+                    crate::stardust_inx::InxWorkerError::MissingCollector => {
+                        let db = MongoDb::connect(&config.mongodb).await?;
+                        cx.delay(
+                            chronicle::runtime::SpawnActor::new(super::stardust_inx::InxWorker::new(
+                                db,
+                                config.inx.clone(),
+                            )),
+                            None,
+                        )?;
                     }
-                    InxWorkerError::Runtime(_) => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::ListenerError(_) => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())), None)?;
-                    }
-                    InxWorkerError::FailedToAnswerRequest => {
-                        cx.shutdown();
-                    }
-                    InxWorkerError::InxTypeConversion(_) => {
+                    crate::stardust_inx::InxWorkerError::FailedToAnswerRequest
+                    | crate::stardust_inx::InxWorkerError::InxTypeConversion(_)
+                    | crate::stardust_inx::InxWorkerError::ListenerError(_)
+                    | crate::stardust_inx::InxWorkerError::Runtime(_)
+                    | crate::stardust_inx::InxWorkerError::Read(_)
+                    | crate::stardust_inx::InxWorkerError::ParsingAddressFailed(_)
+                    | crate::stardust_inx::InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
                     }
                 },
@@ -189,12 +183,12 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
 
 #[cfg(feature = "api")]
 #[async_trait]
-impl HandleEvent<Report<ApiWorker>> for Launcher {
+impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<ApiWorker>,
-        (config, db): &mut Self::State,
+        event: Report<super::api::ApiWorker>,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -202,15 +196,42 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let new_db = MongoDb::connect(&config.mongodb).await?;
-                    *db = new_db;
-                    cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
+                    let db = MongoDb::connect(&config.mongodb).await?;
+                    cx.spawn_child(super::api::ApiWorker::new(db, config.api.clone())).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "metrics")]
+#[async_trait]
+impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<super::metrics::MetricsWorker>,
+        config: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(_) => {
+                    cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+                        .await;
+                }
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+
         Ok(())
     }
 }

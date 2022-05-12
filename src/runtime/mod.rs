@@ -1,6 +1,19 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+/// Module containing the Actor trait and associated types.
+mod actor;
+/// Module containing runtime spawn configurations.
+mod config;
+/// Module containing runtime errors.
+mod error;
+/// Module containing the actor registry.
+mod registry;
+/// Module containing runtime scope types.
+mod scope;
+/// Module containing shutdown functionality.
+mod shutdown;
+
 use std::error::Error;
 
 use futures::{
@@ -8,18 +21,15 @@ use futures::{
     Future,
 };
 
-use self::{error::RuntimeError, scope::RuntimeScope};
-
-/// Module containing the Actor trait and associated types.
-pub mod actor;
-/// Module containing runtime spawn configurations.
-pub mod config;
-/// Module containing runtime errors.
-pub mod error;
-mod registry;
-/// Module containing runtime scope types.
-pub mod scope;
-mod shutdown;
+pub use self::{
+    actor::{
+        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        Actor,
+    },
+    config::ConfigureActor,
+    error::RuntimeError,
+    scope::RuntimeScope,
+};
 
 #[allow(missing_docs)]
 pub trait AsyncFn<'a, O> {
@@ -59,4 +69,17 @@ impl Runtime {
             Err(_) => Err(RuntimeError::AbortedScope(scope.id())),
         }
     }
+}
+
+/// Spawn a tokio task. The provided name will be used to configure the task if console tracing is enabled.
+pub fn spawn_task<F>(name: &str, task: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: 'static + Future + Send,
+    F::Output: 'static + Send,
+{
+    log::trace!("Spawning task {}", name);
+    #[cfg(all(tokio_unstable, feature = "console"))]
+    return tokio::task::Builder::new().name(name).spawn(task);
+    #[cfg(not(all(tokio_unstable, feature = "console")))]
+    return tokio::spawn(task);
 }

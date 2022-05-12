@@ -4,7 +4,7 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::{db::model::sync::SyncData, dto};
+use chronicle::{db::model::sync::SyncData, types::ledger::LedgerInclusionState};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ macro_rules! impl_success_response {
         $(
             impl IntoResponse for $type {
                 fn into_response(self) -> axum::response::Response {
-                    SuccessBody::from(self).into_response()
+                    crate::api::responses::SuccessBody::from(self).into_response()
                 }
             }
         )*
@@ -32,20 +32,12 @@ pub struct InfoResponse {
     pub is_healthy: bool,
 }
 
-impl IntoResponse for InfoResponse {
-    fn into_response(self) -> axum::response::Response {
-        SuccessBody::from(self).into_response()
-    }
-}
+impl_success_response!(InfoResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyncDataResponse(pub SyncData);
 
-impl IntoResponse for SyncDataResponse {
-    fn into_response(self) -> axum::response::Response {
-        SuccessBody::from(self).into_response()
-    }
-}
+impl_success_response!(SyncDataResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize, From)]
 #[serde(untagged)]
@@ -58,7 +50,7 @@ pub enum Expansion {
 pub struct Record {
     pub id: String,
     #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<dto::LedgerInclusionState>,
+    pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "milestoneIndex")]
     pub milestone_index: Option<u32>,
 }
@@ -72,7 +64,7 @@ pub struct Transfer {
     #[serde(rename = "isSpending")]
     pub is_spending: bool,
     #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<dto::LedgerInclusionState>,
+    pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "messageId")]
     pub message_id: String,
     pub amount: u64,

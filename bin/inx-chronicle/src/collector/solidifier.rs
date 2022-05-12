@@ -4,19 +4,16 @@
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{
-        actor::{context::ActorContext, event::HandleEvent, Actor},
-        error::RuntimeError,
-    },
+    runtime::{Actor, ActorContext, HandleEvent, RuntimeError},
 };
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SolidifierError {
-    #[cfg(feature = "stardust")]
-    #[error("the INX requester is missing")]
-    MissingInxRequester,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[error("the stardust INX requester is missing")]
+    MissingStardustInxRequester,
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
@@ -45,14 +42,18 @@ impl Actor for Solidifier {
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
     }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        format!("Solidifier {}", self.id).into()
+    }
 }
 
-#[cfg(feature = "stardust")]
-pub mod stardust {
+#[cfg(all(feature = "stardust", feature = "inx"))]
+mod stardust_inx {
     use super::*;
     use crate::{
-        collector::stardust::MilestoneState,
-        inx::{InxWorker, MessageRequest, MetadataRequest},
+        collector::stardust_inx::MilestoneState,
+        stardust_inx::{InxWorker, MessageRequest, MetadataRequest},
     };
 
     #[async_trait]
@@ -103,7 +104,7 @@ pub mod stardust {
                                     cx.addr::<InxWorker>()
                                         .await
                                         .send(MetadataRequest::new(message_id.clone(), cx.handle().clone(), ms_state))
-                                        .map_err(|_| SolidifierError::MissingInxRequester)?;
+                                        .map_err(|_| SolidifierError::MissingStardustInxRequester)?;
                                     return Ok(());
                                 }
                             }
@@ -116,7 +117,7 @@ pub mod stardust {
                             cx.addr::<InxWorker>()
                                 .await
                                 .send(MessageRequest::new(message_id.clone(), cx.handle().clone(), ms_state))
-                                .map_err(|_| SolidifierError::MissingInxRequester)?;
+                                .map_err(|_| SolidifierError::MissingStardustInxRequester)?;
                             return Ok(());
                         }
                     }
