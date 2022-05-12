@@ -170,7 +170,9 @@ impl HandleEvent<TargetMilestone> for Syncer {
             let previous_target = sync_state.target_milestone;
             sync_state.target_milestone = index;
             // trigger the syncer again from the previous target index to the new
-            cx.delay(Next(previous_target + 1), None)?;
+            let start_index = previous_target + 1;
+            log::info!("Syncing [{}:{}]", start_index, index);
+            cx.delay(Next(start_index), None)?;
         }
         Ok(())
     }
