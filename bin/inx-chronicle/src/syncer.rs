@@ -117,9 +117,9 @@ impl HandleEvent<Next> for Syncer {
                 // TODO: can we assume that `pending` always decreases over time?
                 cx.delay(Next(index), Duration::from_secs_f32(0.01))?;
             }
-        } else if sync_state.retry_round < self.config.max_request_retries {
+        } else if !sync_state.failed.is_empty() && sync_state.retry_round < self.config.max_request_retries {
             sync_state.retry_round += 1;
-            log::info!("Retrying failed requests (round #{})...", sync_state.retry_round);
+            log::info!("Retrying {} failed requests (round #{})...", sync_state.failed.len(), sync_state.retry_round);
             // Grab the first failed index and start the Syncer again from that index.
             // Any other potential gaps will be retried as well, and the Syncer doesn't
             // need some 2nd mode of operation. It is less efficient, however, since
@@ -184,9 +184,9 @@ impl HandleEvent<LatestMilestone> for Syncer {
         // Mark all milestones that are pending for too long as failed 
         // NOTE: some still unsafe API like `drain_filter` would make this code much nicer!
         let now = Instant::now();
-        for (index, timestamp) in sync_state.pending.iter().map(|(k, v)| (*k, *v)) {
-            if now > timestamp + MAX_SYNC_TIME {
-                sync_state.failed.insert(index);
+        for (index, timestamp) in sync_state.pending.iter() {
+            if now > *timestamp + MAX_SYNC_TIME {
+                sync_state.failed.insert(*index);
             }
         }
         sync_state.pending.retain(|_, t| now <= *t + MAX_SYNC_TIME);
