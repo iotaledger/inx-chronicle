@@ -142,13 +142,11 @@ impl HandleEvent<Next> for Syncer {
             // Syncer does most of its work only one time (at startup), this "extra"
             // work is neglibible, and it's therefore better to keep the syncer as
             // simple as possible.
-            if let Some(first_failed) = sync_state.failed.iter().next().copied() {
-                cx.delay(Next(first_failed), None)?;
-            } else {
-                log::info!("Syncer finished (no milestones missing).");
-            }
+            // Panic: `failed` is not empty so a first item must exist.
+            let first_failed = sync_state.failed.iter().next().copied().unwrap();
+            cx.delay(Next(first_failed), None)?;
         } else {
-            log::info!("Syncer finished ({} milestones missing).", sync_state.failed.len());
+            log::info!("Syncer finished (no milestones missing).");
         }
         Ok(())
     }
