@@ -91,7 +91,7 @@ pub(crate) struct SyncState {
     pending: HashMap<u32, Instant>,
     // the set of milestones that we failed to sync on the 1st attempt and need to be retried
     failed: BTreeSet<u32>,
-    // the current round of retrying failed requests that failed earlier
+    // the current round of retrying requests that failed earlier
     retry_round: usize,
 }
 
@@ -145,10 +145,10 @@ impl HandleEvent<Next> for Syncer {
             if let Some(first_failed) = sync_state.failed.iter().next().copied() {
                 cx.delay(Next(first_failed), None)?;
             } else {
-                log::info!("Syncer completed (missed none).");
+                log::info!("Syncer finished (no milestones missing).");
             }
         } else {
-            log::info!("Syncer completed (missed {}).", sync_state.failed.len());
+            log::info!("Syncer finished ({} milestones missing).", sync_state.failed.len());
         }
         Ok(())
     }
