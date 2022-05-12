@@ -12,7 +12,7 @@ port = 9092
 allow_origins = ["0.0.0.0"]
 
 [syncer]
-max_simultaneous_requests = 100
+max_simultaneous_requests = 200
 max_request_retries = 3
 sync_back_delta = 10000
 sync_back_index = 0
