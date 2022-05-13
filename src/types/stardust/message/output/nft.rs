@@ -110,7 +110,8 @@ pub(crate) mod test {
             native_token::test::get_test_native_token,
             test::OUTPUT_ID,
             unlock_condition::test::{
-                get_test_address_condition, get_test_storage_deposit_return_condition, get_test_timelock_condition, get_test_expiration_condition,
+                get_test_address_condition, get_test_expiration_condition, get_test_storage_deposit_return_condition,
+                get_test_timelock_condition,
             },
         },
     };

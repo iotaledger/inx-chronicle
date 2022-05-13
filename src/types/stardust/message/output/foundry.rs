@@ -85,7 +85,8 @@ pub(crate) mod test {
     use crate::types::stardust::message::output::{
         alias::test::get_test_alias_id,
         feature_block::test::get_test_metadata_block,
-        native_token::test::{get_test_native_token, TOKEN_TAG}, unlock_condition::test::get_test_immut_alias_address_condition,
+        native_token::test::{get_test_native_token, TOKEN_TAG},
+        unlock_condition::test::get_test_immut_alias_address_condition,
     };
 
     #[test]
