@@ -8,6 +8,8 @@ mod payload;
 mod signature;
 mod unlock_block;
 
+use std::str::FromStr;
+
 use bee_message_stardust as stardust;
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +36,14 @@ impl TryFrom<MessageId> for stardust::MessageId {
 
     fn try_from(value: MessageId) -> Result<Self, Self::Error> {
         Ok(stardust::MessageId::new(value.0.as_ref().try_into()?))
+    }
+}
+
+impl FromStr for MessageId {
+    type Err = crate::types::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(stardust::MessageId::from_str(s)?.into())
     }
 }
 
@@ -74,5 +84,79 @@ impl TryFrom<Message> for stardust::Message {
             builder = builder.with_payload(payload.try_into()?)
         }
         Ok(builder.finish()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    pub(crate) const MESSAGE_ID: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649";
+
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::{
+        payload::test::{get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload},
+        *,
+    };
+
+    #[test]
+    fn test_message_id_bson() {
+        let message_id = get_test_message_id();
+        let bson = to_bson(&message_id).unwrap();
+        from_bson::<MessageId>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_message_bson() {
+        let message = get_test_transaction_message();
+        let bson = to_bson(&message).unwrap();
+        from_bson::<Message>(bson).unwrap();
+
+        let message = get_test_milestone_message();
+        let bson = to_bson(&message).unwrap();
+        from_bson::<Message>(bson).unwrap();
+
+        let message = get_test_tagged_data_message();
+        let bson = to_bson(&message).unwrap();
+        from_bson::<Message>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_message_id() -> MessageId {
+        MessageId::from_str(MESSAGE_ID).unwrap()
+    }
+
+    fn get_test_transaction_message() -> Message {
+        Message::from(
+            stardust::MessageBuilder::<u64>::new(
+                stardust::parent::Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
+            )
+            .with_nonce_provider(12345, 0.0)
+            .with_payload(get_test_transaction_payload().try_into().unwrap())
+            .finish()
+            .unwrap(),
+        )
+    }
+
+    fn get_test_milestone_message() -> Message {
+        Message::from(
+            stardust::MessageBuilder::<u64>::new(
+                stardust::parent::Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
+            )
+            .with_nonce_provider(12345, 0.0)
+            .with_payload(get_test_milestone_payload().try_into().unwrap())
+            .finish()
+            .unwrap(),
+        )
+    }
+
+    fn get_test_tagged_data_message() -> Message {
+        Message::from(
+            stardust::MessageBuilder::<u64>::new(
+                stardust::parent::Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
+            )
+            .with_nonce_provider(12345, 0.0)
+            .with_payload(get_test_tagged_data_payload().try_into().unwrap())
+            .finish()
+            .unwrap(),
+        )
     }
 }

@@ -38,3 +38,26 @@ impl TryFrom<Signature> for stardust::Signature {
         })
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    pub(crate) const PUBLIC_KEY: [u8; 32] = [0; 32];
+    pub(crate) const SIGNATURE: [u8; 64] = [0; 64];
+
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::*;
+
+    #[test]
+    fn test_signature_bson() {
+        let signature = get_test_signature();
+        let bson = to_bson(&signature).unwrap();
+        from_bson::<Signature>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_signature() -> Signature {
+        Signature::from(&stardust::Signature::Ed25519(stardust::Ed25519Signature::new(
+            PUBLIC_KEY, SIGNATURE,
+        )))
+    }
+}

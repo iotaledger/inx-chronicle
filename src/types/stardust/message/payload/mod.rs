@@ -52,3 +52,48 @@ impl TryFrom<Payload> for stardust::Payload {
         })
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    use mongodb::bson::{from_bson, to_bson};
+
+    pub(crate) use super::milestone::test::get_test_milestone_id;
+    use super::{milestone, tagged_data, transaction, treasury_transaction, *};
+
+    #[test]
+    fn test_payload_bson() {
+        let payload = get_test_transaction_payload();
+        let bson = to_bson(&payload).unwrap();
+        from_bson::<Payload>(bson).unwrap();
+
+        let payload = get_test_milestone_payload();
+        let bson = to_bson(&payload).unwrap();
+        from_bson::<Payload>(bson).unwrap();
+
+        let payload = get_test_treasury_transaction_payload();
+        let bson = to_bson(&payload).unwrap();
+        from_bson::<Payload>(bson).unwrap();
+
+        let payload = get_test_tagged_data_payload();
+        let bson = to_bson(&payload).unwrap();
+        from_bson::<Payload>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_transaction_payload() -> Payload {
+        Payload::Transaction(Box::new(transaction::test::get_test_transaction_payload()))
+    }
+
+    pub(crate) fn get_test_milestone_payload() -> Payload {
+        Payload::Milestone(Box::new(milestone::test::get_test_milestone_payload()))
+    }
+
+    pub(crate) fn get_test_treasury_transaction_payload() -> Payload {
+        Payload::TreasuryTransaction(Box::new(
+            treasury_transaction::test::get_test_treasury_transaction_payload(),
+        ))
+    }
+
+    pub(crate) fn get_test_tagged_data_payload() -> Payload {
+        Payload::TaggedData(Box::new(tagged_data::test::get_test_tagged_data_payload()))
+    }
+}

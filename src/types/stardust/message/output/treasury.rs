@@ -23,3 +23,21 @@ impl TryFrom<TreasuryOutput> for stardust::TreasuryOutput {
         Ok(Self::new(value.amount)?)
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::*;
+
+    #[test]
+    fn test_treasury_output_bson() {
+        let output = get_test_treasury_output();
+        let bson = to_bson(&output).unwrap();
+        from_bson::<TreasuryOutput>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_treasury_output() -> TreasuryOutput {
+        TreasuryOutput::from(&stardust::TreasuryOutput::new(1000).unwrap())
+    }
+}

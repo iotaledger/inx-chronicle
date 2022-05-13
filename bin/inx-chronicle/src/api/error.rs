@@ -38,7 +38,7 @@ pub enum InternalApiError {
 #[allow(missing_docs)]
 pub enum ApiError {
     #[error(transparent)]
-    BadParse(ParseError),
+    BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
     #[error("Provided index is too large (Max 64 bytes)")]
@@ -52,7 +52,7 @@ pub enum ApiError {
     #[error("No endpoint found")]
     NotFound,
     #[error(transparent)]
-    QueryError(QueryRejection),
+    QueryError(#[from] QueryRejection),
     #[error("Provided tag is too large (Max 64 bytes)")]
     TagTooLarge,
 }
@@ -101,7 +101,7 @@ pub enum ParseError {
     Bool(#[from] ParseBoolError),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    BeeMessageStardust(#[from] bee_message_stardust::Error),
+    BeeMessageStardust(#[from] chronicle::types::error::Error),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }

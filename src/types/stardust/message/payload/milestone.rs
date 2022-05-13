@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use bee_message_stardust::payload::milestone as stardust;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +23,14 @@ impl TryFrom<MilestoneId> for stardust::MilestoneId {
 
     fn try_from(value: MilestoneId) -> Result<Self, Self::Error> {
         Ok(stardust::MilestoneId::new(value.0.as_ref().try_into()?))
+    }
+}
+
+impl FromStr for MilestoneId {
+    type Err = crate::types::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(stardust::MilestoneId::from_str(s)?.into())
     }
 }
 
@@ -189,7 +199,7 @@ impl From<&stardust::option::MigratedFundsEntry> for MigratedFundsEntry {
     fn from(value: &stardust::option::MigratedFundsEntry) -> Self {
         Self {
             tail_transaction_hash: value.tail_transaction_hash().as_ref().to_vec().into_boxed_slice(),
-            address: value.address().into(),
+            address: (*value.address()).into(),
             amount: value.amount(),
         }
     }
@@ -204,5 +214,133 @@ impl TryFrom<MigratedFundsEntry> for stardust::option::MigratedFundsEntry {
             value.address.try_into()?,
             value.amount,
         )?)
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test {
+    pub(crate) const MILESTONE_ID: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649";
+    pub(crate) const MERKLE_PROOF: [u8; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH] =
+        [0; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH];
+    pub(crate) const APPLIED_MERKLE_PROOF: [u8; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH] =
+        [0; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH];
+    pub(crate) const METADATA: &str = "Foo";
+    const TAIL_TRANSACTION_HASH1: [u8; 49] = [
+        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
+        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 10,
+    ];
+    const TAIL_TRANSACTION_HASH2: [u8; 49] = [
+        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
+        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 11,
+    ];
+    const TAIL_TRANSACTION_HASH3: [u8; 49] = [
+        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
+        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 12,
+    ];
+
+    use bee_message_stardust::{
+        input::TreasuryInput, output::TreasuryOutput, parent::Parents, payload::TreasuryTransactionPayload,
+    };
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::*;
+    use crate::types::stardust::message::{
+        address::test::{get_test_alias_address, get_test_ed25519_address, get_test_nft_address},
+        signature::test::get_test_signature,
+        tests::get_test_message_id,
+    };
+
+    #[test]
+    fn test_milestone_id_bson() {
+        let milestone_id = get_test_milestone_id();
+        let bson = to_bson(&milestone_id).unwrap();
+        from_bson::<MilestoneId>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_milestone_payload_bson() {
+        let payload = get_test_milestone_payload();
+        let bson = to_bson(&payload).unwrap();
+        from_bson::<MilestonePayload>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_milestone_id() -> MilestoneId {
+        MilestoneId::from_str(MILESTONE_ID).unwrap()
+    }
+
+    pub(crate) fn get_test_ed25519_migrated_funds_entry() -> MigratedFundsEntry {
+        MigratedFundsEntry::from(
+            &stardust::option::MigratedFundsEntry::new(
+                stardust::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH1).unwrap(),
+                get_test_ed25519_address().try_into().unwrap(),
+                2000000,
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_alias_migrated_funds_entry() -> MigratedFundsEntry {
+        MigratedFundsEntry::from(
+            &stardust::option::MigratedFundsEntry::new(
+                stardust::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH2).unwrap(),
+                get_test_alias_address().try_into().unwrap(),
+                2000000,
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_nft_migrated_funds_entry() -> MigratedFundsEntry {
+        MigratedFundsEntry::from(
+            &stardust::option::MigratedFundsEntry::new(
+                stardust::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH3).unwrap(),
+                get_test_nft_address().try_into().unwrap(),
+                2000000,
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_milestone_essence() -> MilestoneEssence {
+        MilestoneEssence::from(
+            &stardust::MilestoneEssence::new(
+                1.into(),
+                12345,
+                get_test_milestone_id().try_into().unwrap(),
+                Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
+                MERKLE_PROOF,
+                APPLIED_MERKLE_PROOF,
+                METADATA.as_bytes().to_vec(),
+                stardust::MilestoneOptions::new(vec![stardust::option::MilestoneOption::Receipt(
+                    stardust::option::ReceiptMilestoneOption::new(
+                        1.into(),
+                        false,
+                        vec![
+                            get_test_ed25519_migrated_funds_entry().try_into().unwrap(),
+                            get_test_alias_migrated_funds_entry().try_into().unwrap(),
+                            get_test_nft_migrated_funds_entry().try_into().unwrap(),
+                        ],
+                        TreasuryTransactionPayload::new(
+                            TreasuryInput::new(get_test_milestone_id().try_into().unwrap()),
+                            TreasuryOutput::new(100).unwrap(),
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap(),
+                )])
+                .unwrap(),
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_milestone_payload() -> MilestonePayload {
+        MilestonePayload::from(
+            &stardust::MilestonePayload::new(
+                get_test_milestone_essence().try_into().unwrap(),
+                vec![get_test_signature().try_into().unwrap()],
+            )
+            .unwrap(),
+        )
     }
 }

@@ -28,3 +28,26 @@ impl TryFrom<TaggedDataPayload> for stardust::TaggedDataPayload {
         Ok(stardust::TaggedDataPayload::new(value.tag.into(), value.data.into())?)
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    pub(crate) const TAG: &str = "Foo";
+    pub(crate) const DATA: &str = "Bar";
+
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::*;
+
+    #[test]
+    fn test_tagged_data_payload_bson() {
+        let payload = get_test_tagged_data_payload();
+        let bson = to_bson(&payload).unwrap();
+        from_bson::<TaggedDataPayload>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_tagged_data_payload() -> TaggedDataPayload {
+        TaggedDataPayload::from(
+            &stardust::TaggedDataPayload::new(TAG.as_bytes().to_vec(), DATA.as_bytes().to_vec()).unwrap(),
+        )
+    }
+}

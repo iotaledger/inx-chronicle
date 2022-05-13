@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::mem::size_of;
+use std::{mem::size_of, str::FromStr};
 
 use bee_message_stardust::output as stardust;
 use primitive_types::U256;
@@ -15,7 +15,7 @@ pub struct TokenAmount(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
 impl From<&U256> for TokenAmount {
     fn from(value: &U256) -> Self {
-        let mut amount = Vec::with_capacity(size_of::<U256>());
+        let mut amount = vec![0; size_of::<U256>()];
         value.to_little_endian(&mut amount);
         Self(amount.into_boxed_slice())
     }
@@ -42,6 +42,14 @@ impl TryFrom<TokenId> for stardust::TokenId {
 
     fn try_from(value: TokenId) -> Result<Self, Self::Error> {
         Ok(stardust::TokenId::new(value.0.as_ref().try_into()?))
+    }
+}
+
+impl FromStr for TokenId {
+    type Err = crate::types::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(stardust::TokenId::from_str(s)?.into())
     }
 }
 
@@ -106,5 +114,42 @@ impl TryFrom<NativeToken> for stardust::NativeToken {
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
         Ok(Self::new(value.token_id.try_into()?, value.amount.into())?)
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test {
+    pub(crate) const TOKEN_TAG: &str = "0x00aabbcc00aabbcc00aabbcc";
+    pub(crate) const TOKEN_ID: &str =
+        "0x00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff";
+
+    use std::str::FromStr;
+
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::*;
+
+    #[test]
+    fn test_token_id_bson() {
+        let token_id = get_test_token_id();
+        let bson = to_bson(&token_id).unwrap();
+        from_bson::<TokenId>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_native_token_bson() {
+        let native_token = get_test_native_token();
+        let bson = to_bson(&native_token).unwrap();
+        from_bson::<NativeToken>(bson).unwrap();
+    }
+
+    pub(crate) fn get_test_token_id() -> TokenId {
+        TokenId::from_str(TOKEN_ID).unwrap()
+    }
+
+    pub(crate) fn get_test_native_token() -> NativeToken {
+        NativeToken::from(
+            &stardust::NativeToken::new(stardust::TokenId::from_str(TOKEN_ID).unwrap(), 100.into()).unwrap(),
+        )
     }
 }
