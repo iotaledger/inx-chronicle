@@ -1,21 +1,22 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::{HashMap, VecDeque};
+mod config;
+pub mod solidifier;
+#[cfg(all(feature = "stardust", feature = "inx"))]
+pub(crate) mod stardust_inx;
+
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
-    types::{ledger::Metadata, stardust::message::MessageId},
 };
 pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
-
-mod config;
-pub mod solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
@@ -55,6 +56,9 @@ impl Actor for Collector {
                     .await,
             );
         }
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        cx.spawn_child(stardust_inx::InxWorker::new(self.config.inx.clone()))
+            .await;
         Ok(solidifiers)
     }
 }
@@ -88,181 +92,5 @@ impl HandleEvent<Report<Solidifier>> for Collector {
             },
         }
         Ok(())
-    }
-}
-
-#[cfg(all(feature = "stardust", feature = "inx"))]
-pub mod stardust_inx {
-    use std::collections::HashSet;
-
-    use chronicle::db::model::stardust::{message::MessageRecord, milestone::MilestoneRecord};
-
-    use super::*;
-
-    #[derive(Debug)]
-    pub struct MilestoneState {
-        pub milestone_index: u32,
-        pub process_queue: VecDeque<MessageId>,
-        pub visited: HashSet<MessageId>,
-    }
-
-    impl MilestoneState {
-        pub fn new(milestone_index: u32) -> Self {
-            Self {
-                milestone_index,
-                process_queue: VecDeque::new(),
-                visited: HashSet::new(),
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct RequestedMessage {
-        raw: Option<inx::proto::RawMessage>,
-        metadata: inx::proto::MessageMetadata,
-        solidifier: Addr<Solidifier>,
-        ms_state: MilestoneState,
-    }
-
-    impl RequestedMessage {
-        pub fn new(
-            raw: Option<inx::proto::RawMessage>,
-            metadata: inx::proto::MessageMetadata,
-            solidifier: Addr<Solidifier>,
-            ms_state: MilestoneState,
-        ) -> Self {
-            Self {
-                raw,
-                metadata,
-                solidifier,
-                ms_state,
-            }
-        }
-    }
-
-    #[async_trait]
-    impl HandleEvent<inx::proto::Message> for Collector {
-        async fn handle_event(
-            &mut self,
-            _cx: &mut ActorContext<Self>,
-            message: inx::proto::Message,
-            _solidifiers: &mut Self::State,
-        ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Message Event");
-            match MessageRecord::try_from(message) {
-                Ok(rec) => {
-                    self.db.upsert_message_record(&rec).await?;
-                }
-                Err(e) => {
-                    log::error!("Could not read message: {:?}", e);
-                }
-            };
-            Ok(())
-        }
-    }
-
-    #[async_trait]
-    impl HandleEvent<inx::proto::MessageMetadata> for Collector {
-        async fn handle_event(
-            &mut self,
-            _cx: &mut ActorContext<Self>,
-            metadata: inx::proto::MessageMetadata,
-            _solidifiers: &mut Self::State,
-        ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Message Referenced Event");
-            match inx::MessageMetadata::try_from(metadata) {
-                Ok(rec) => {
-                    let message_id = rec.message_id;
-                    self.db
-                        .update_message_metadata(&message_id.into(), &Metadata::from(rec))
-                        .await?;
-                }
-                Err(e) => {
-                    log::error!("Could not read message metadata: {:?}", e);
-                }
-            };
-            Ok(())
-        }
-    }
-
-    #[async_trait]
-    impl HandleEvent<inx::proto::Milestone> for Collector {
-        async fn handle_event(
-            &mut self,
-            _cx: &mut ActorContext<Self>,
-            milestone: inx::proto::Milestone,
-            solidifiers: &mut Self::State,
-        ) -> Result<(), Self::Error> {
-            log::trace!("Received Stardust Milestone Event");
-            match MilestoneRecord::try_from(milestone) {
-                Ok(rec) => {
-                    self.db.upsert_milestone_record(&rec).await?;
-                    // Get or create the milestone state
-                    let mut state = MilestoneState::new(rec.milestone_index);
-                    state
-                        .process_queue
-                        .extend(Vec::from(rec.payload.essence.parents).into_iter());
-                    solidifiers
-                        // Divide solidifiers fairly by milestone
-                        .get(&(rec.milestone_index as usize % self.config.solidifier_count))
-                        // Unwrap: We never remove solidifiers, so they should always exist
-                        .unwrap()
-                        .send(state)?;
-                }
-                Err(e) => {
-                    log::error!("Could not read milestone: {:?}", e);
-                }
-            }
-            Ok(())
-        }
-    }
-
-    #[async_trait]
-    impl HandleEvent<RequestedMessage> for Collector {
-        async fn handle_event(
-            &mut self,
-            _cx: &mut ActorContext<Self>,
-            RequestedMessage {
-                raw,
-                metadata,
-                solidifier,
-                ms_state,
-            }: RequestedMessage,
-            _solidifiers: &mut Self::State,
-        ) -> Result<(), Self::Error> {
-            match raw {
-                Some(raw) => {
-                    log::trace!("Received Stardust Requested Message and Metadata");
-                    match MessageRecord::try_from((raw, metadata)) {
-                        Ok(rec) => {
-                            self.db.upsert_message_record(&rec).await?;
-                            // Send this directly to the solidifier that requested it
-                            solidifier.send(ms_state)?;
-                        }
-                        Err(e) => {
-                            log::error!("Could not read message: {:?}", e);
-                        }
-                    };
-                }
-                None => {
-                    log::trace!("Received Stardust Requested Metadata");
-                    match inx::MessageMetadata::try_from(metadata) {
-                        Ok(rec) => {
-                            let message_id = rec.message_id;
-                            self.db
-                                .update_message_metadata(&message_id.into(), &Metadata::from(rec))
-                                .await?;
-                            // Send this directly to the solidifier that requested it
-                            solidifier.send(ms_state)?;
-                        }
-                        Err(e) => {
-                            log::error!("Could not read message metadata: {:?}", e);
-                        }
-                    };
-                }
-            }
-
-            Ok(())
-        }
     }
 }
