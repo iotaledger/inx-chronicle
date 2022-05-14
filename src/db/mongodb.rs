@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct MongoDb(pub(crate) mongodb::Database);
 
 impl MongoDb {
-    const NAME: &'static str = "chronicle-test";
+    const NAME: &'static str = "chronicle-syncer-test";
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.

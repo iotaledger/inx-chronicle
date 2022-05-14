@@ -239,26 +239,27 @@ impl HandleEvent<Report<Syncer>> for Launcher {
                 cx.shutdown();
             }
             Report::Error(report) => {
-                let ErrorReport {
-                    error, internal_state, ..
-                } = report;
+                log::error!("Syncer error");
+                // let ErrorReport {
+                //     error, internal_state, ..
+                // } = report;
 
-                match error {
-                    ActorError::Result(e) => {
-                        log::error!("Syncer exited with error: {}", e);
-                        // Panic: a previous Syncer instance always has an internal state.
-                        cx.spawn_child(
-                            Syncer::new(db.clone(), config.syncer.clone()).with_internal_state(internal_state.unwrap()),
-                        )
-                        .await;
-                    }
-                    ActorError::Panic | ActorError::Aborted => {
-                        cx.shutdown();
-                    }
-                }
+                // match error {
+                //     ActorError::Result(e) => {
+                //         log::error!("Syncer exited with error: {}", e);
+                //         // Panic: a previous Syncer instance always has an internal state.
+                //         cx.spawn_child(
+                //             Syncer::new(db.clone(), config.syncer.clone()).with_internal_state(internal_state.unwrap()),
+                //         )
+                //         .await;
+                //     }
+                //     ActorError::Panic | ActorError::Aborted => {
+                //         cx.shutdown();
+                //     }
+                // }
+                cx.shutdown();
             }
         }
-        cx.shutdown();
         Ok(())
     }
 }
@@ -276,6 +277,8 @@ impl HandleEvent<NodeStatus> for Launcher {
             let oldest_index = node_status.pruning_index + 1;
             cx.addr::<Syncer>().await.send(OldestMilestone(oldest_index))?;
         }
+
+        log::info!("{:#?}", node_status);
 
         self.node_status.replace(node_status);
 

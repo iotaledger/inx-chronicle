@@ -68,7 +68,7 @@ mod stardust {
             mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            log::debug!("Solidifying milestone `{}`...", ms_state.milestone_index);
+            // log::trace!("Solidifying milestone `{}`...", ms_state.milestone_index);
 
             // Process by iterating the queue until we either complete the milestone or fail to find a message
             let now = Instant::now();

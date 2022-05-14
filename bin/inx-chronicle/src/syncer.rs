@@ -251,6 +251,7 @@ impl HandleEvent<LatestSolidified> for Syncer {
         LatestSolidified(index): LatestSolidified,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        println!("REMOVE");
         sync_state.oldest_synced_milestone = sync_state.oldest_synced_milestone.min(index);
         sync_state.pending.remove(&index);
         sync_state.failed.remove(&index);

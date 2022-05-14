@@ -26,8 +26,11 @@ impl TryFrom<Ed25519Address> for stardust::Ed25519Address {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Address {
+    #[serde(rename = "ed25519")]
     Ed25519(Ed25519Address),
+    #[serde(rename = "alias")]
     Alias(AliasId),
+    #[serde(rename = "nft")]
     Nft(NftId),
 }
 
