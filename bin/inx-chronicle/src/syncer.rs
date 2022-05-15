@@ -3,7 +3,7 @@
 
 use std::{
     collections::{BTreeSet, HashMap},
-    time::Duration,
+    time::Duration, sync::atomic::{AtomicUsize, Ordering},
 };
 
 use async_trait::async_trait;
@@ -21,6 +21,9 @@ use crate::inx::{InxRequest, InxWorker};
 
 // solidifying a milestone must never take longer than the coordinator milestone interval
 const MAX_SYNC_TIME: Duration = Duration::from_secs(10);
+
+static NUM_REQUESTED: AtomicUsize = AtomicUsize::new(0);
+static NUM_SYNCED: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SyncerError {
@@ -83,8 +86,6 @@ pub(crate) struct SyncState {
     oldest_milestone: u32,
     // the index up to which the syncer should request milestones from the node
     target_milestone: u32,
-    // the oldest milestones we were able to sync
-    oldest_synced_milestone: u32,
     // the latest milestone we know of from listening to the milestone stream
     latest_milestone: u32,
     // the set of milestones we are currently trying to sync
@@ -120,6 +121,7 @@ impl HandleEvent<Next> for Syncer {
                 if !self.is_synced(index).await? {
                     log::info!("Requesting old milestone {}.", index);
                     cx.addr::<InxWorker>().await.send(InxRequest::milestone(index.into()))?;
+                    NUM_REQUESTED.fetch_add( 1, Ordering::Relaxed);
                     sync_state.pending.insert(index, Instant::now());
                 }
                 cx.delay(Next(index + 1), None)?;
@@ -196,6 +198,8 @@ impl HandleEvent<LatestMilestone> for Syncer {
         LatestMilestone(index): LatestMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        println!("Requested: {}, Synced: {}", NUM_REQUESTED.load(Ordering::Relaxed), NUM_SYNCED.load(Ordering::Relaxed));
+
         // Mark all milestones that are pending for too long as failed
         // NOTE: some still unstable API like `drain_filter` would make this code much nicer!
         let now = Instant::now();
@@ -251,10 +255,11 @@ impl HandleEvent<LatestSolidified> for Syncer {
         LatestSolidified(index): LatestSolidified,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        println!("REMOVE");
-        sync_state.oldest_synced_milestone = sync_state.oldest_synced_milestone.min(index);
-        sync_state.pending.remove(&index);
-        sync_state.failed.remove(&index);
+        if sync_state.pending.remove(&index).is_some() {
+            NUM_SYNCED.fetch_add( 1, Ordering::Relaxed);
+        } else if sync_state.failed.remove(&index) {
+            NUM_SYNCED.fetch_add( 1, Ordering::Relaxed);
+        }
         Ok(())
     }
 }

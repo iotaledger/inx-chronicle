@@ -68,10 +68,7 @@ mod stardust {
             mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            // log::trace!("Solidifying milestone `{}`...", ms_state.milestone_index);
-
             // Process by iterating the queue until we either complete the milestone or fail to find a message
-            let now = Instant::now();
             while let Some(message_id) = ms_state.process_queue.front() {
                 // First check if we already processed this message in this run
                 if ms_state.visited.contains(message_id) {
@@ -140,12 +137,10 @@ mod stardust {
                 })
                 .await?;
 
-            let elapsed = now.elapsed();
-
-            log::info!(
-                "Milestone {} solidified in {}s.",
+            log::debug!(
+                "Milestone '{}' synced in {}s.",
                 ms_state.milestone_index,
-                elapsed.as_secs_f32()
+                ms_state.time.elapsed().as_secs_f32()
             );
 
             // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a

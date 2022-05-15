@@ -22,7 +22,9 @@ pub enum UnlockBlock {
 impl From<&stardust::UnlockBlock> for UnlockBlock {
     fn from(value: &stardust::UnlockBlock) -> Self {
         match value {
-            stardust::UnlockBlock::Signature(s) => Self::Signature { signature: s.signature().into()},
+            stardust::UnlockBlock::Signature(s) => Self::Signature {
+                signature: s.signature().into(),
+            },
             stardust::UnlockBlock::Reference(r) => Self::Reference { index: r.index() },
             stardust::UnlockBlock::Alias(a) => Self::Alias { index: a.index() },
             stardust::UnlockBlock::Nft(n) => Self::Nft { index: n.index() },

@@ -100,7 +100,7 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, time::Instant};
 
     use chronicle::{
         db::model::stardust::{
@@ -118,6 +118,7 @@ pub mod stardust {
         pub milestone_index: u32,
         pub process_queue: VecDeque<dto::MessageId>,
         pub visited: HashSet<dto::MessageId>,
+        pub time: Instant,
     }
 
     impl MilestoneState {
@@ -126,7 +127,19 @@ pub mod stardust {
                 milestone_index,
                 process_queue: VecDeque::new(),
                 visited: HashSet::new(),
+                time: Instant::now(),
             }
+        }
+    }
+
+    impl Drop for MilestoneState {
+        fn drop(&mut self) {
+            log::trace!(
+                "Solidification of milestone '{}' in process for {}s with {} remaining messages.",
+                self.milestone_index,
+                self.time.elapsed().as_secs_f32(),
+                self.process_queue.len()
+            );
         }
     }
 

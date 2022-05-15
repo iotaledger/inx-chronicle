@@ -249,8 +249,8 @@ impl HandleEvent<Report<Syncer>> for Launcher {
                 //         log::error!("Syncer exited with error: {}", e);
                 //         // Panic: a previous Syncer instance always has an internal state.
                 //         cx.spawn_child(
-                //             Syncer::new(db.clone(), config.syncer.clone()).with_internal_state(internal_state.unwrap()),
-                //         )
+                //             Syncer::new(db.clone(),
+                // config.syncer.clone()).with_internal_state(internal_state.unwrap()),         )
                 //         .await;
                 //     }
                 //     ActorError::Panic | ActorError::Aborted => {
