@@ -3,7 +3,7 @@
 
 use axum::Router;
 
-#[cfg(feature = "api-analytics")]
+#[cfg(feature = "analytics")]
 pub mod analytics;
 #[cfg(feature = "api-explorer")]
 pub mod explorer;
@@ -14,7 +14,7 @@ pub fn routes() -> Router {
     #[allow(unused_mut)]
     let mut router = Router::new();
 
-    #[cfg(feature = "api-analytics")]
+    #[cfg(feature = "analytics")]
     {
         router = router.nest("/analytics", analytics::routes());
     }

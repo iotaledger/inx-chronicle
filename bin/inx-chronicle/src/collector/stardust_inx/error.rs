@@ -19,6 +19,8 @@ pub enum InxWorkerError {
     #[error("the collector is not running")]
     MissingCollector,
     #[error(transparent)]
+    MongoDb(#[from] mongodb::error::Error),
+    #[error(transparent)]
     ParsingAddressFailed(#[from] url::ParseError),
     #[error(transparent)]
     Read(#[from] inx::tonic::Status),

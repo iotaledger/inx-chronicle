@@ -20,13 +20,10 @@ pub enum ConfigError {
 pub struct ChronicleConfig {
     #[serde(default)]
     pub mongodb: MongoDbConfig,
-    #[cfg(all(feature = "stardust", feature = "inx"))]
-    #[serde(default)]
-    pub inx: crate::stardust_inx::InxConfig,
     #[cfg(feature = "api")]
     #[serde(default)]
     pub api: crate::api::ApiConfig,
-    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[cfg(feature = "collector")]
     #[serde(default)]
     pub collector: crate::collector::CollectorConfig,
     #[cfg(feature = "metrics")]
@@ -43,16 +40,16 @@ impl ChronicleConfig {
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
     pub fn apply_cli_args(&mut self, args: super::cli::CliArgs) {
-        #[cfg(all(feature = "stardust", feature = "inx"))]
-        if let Some(inx) = args.inx {
-            self.inx = crate::stardust_inx::InxConfig::new(inx);
-        }
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
-        #[cfg(all(feature = "stardust", feature = "inx"))]
+        #[cfg(feature = "collector")]
         if let Some(solidifier_count) = args.solidifier_count {
-            self.collector = crate::collector::CollectorConfig::new(solidifier_count);
+            self.collector.solidifier_count = solidifier_count;
+        }
+        #[cfg(all(feature = "stardust", feature = "inx"))]
+        if let Some(inx) = args.inx {
+            self.collector.inx.connect_url = inx;
         }
     }
 }

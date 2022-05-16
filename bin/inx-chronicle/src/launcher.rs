@@ -55,12 +55,8 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        #[cfg(all(feature = "stardust", feature = "inx"))]
+        #[cfg(feature = "collector")]
         cx.spawn_child(super::collector::Collector::new(db.clone(), config.collector.clone()))
-            .await;
-
-        #[cfg(all(feature = "stardust", feature = "inx"))]
-        cx.spawn_child(super::stardust_inx::InxWorker::new(db.clone(), config.inx.clone()))
             .await;
 
         #[cfg(feature = "api")]
@@ -74,7 +70,7 @@ impl Actor for Launcher {
     }
 }
 
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "collector")]
 #[async_trait]
 impl HandleEvent<Report<super::collector::Collector>> for Launcher {
     async fn handle_event(
@@ -102,73 +98,6 @@ impl HandleEvent<Report<super::collector::Collector>> for Launcher {
                         }
                     },
                     _ => {
-                        cx.shutdown();
-                    }
-                },
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[cfg(all(feature = "stardust", feature = "inx"))]
-#[async_trait]
-impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<super::stardust_inx::InxWorker>,
-        config: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match &event {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
-            Report::Error(e) => match &e.error {
-                ActorError::Result(e) => match e {
-                    crate::stardust_inx::InxWorkerError::ConnectionError(_) => {
-                        let wait_interval = config.inx.connection_retry_interval;
-                        log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                        let db = MongoDb::connect(&config.mongodb).await?;
-                        cx.delay(
-                            chronicle::runtime::SpawnActor::new(super::stardust_inx::InxWorker::new(
-                                db,
-                                config.inx.clone(),
-                            )),
-                            wait_interval,
-                        )?;
-                    }
-                    // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
-                    crate::stardust_inx::InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
-                        "transport error" => {
-                            let db = MongoDb::connect(&config.mongodb).await?;
-                            cx.spawn_child(super::stardust_inx::InxWorker::new(db, config.inx.clone()))
-                                .await;
-                        }
-                        _ => {
-                            cx.shutdown();
-                        }
-                    },
-                    crate::stardust_inx::InxWorkerError::MissingCollector => {
-                        let db = MongoDb::connect(&config.mongodb).await?;
-                        cx.delay(
-                            chronicle::runtime::SpawnActor::new(super::stardust_inx::InxWorker::new(
-                                db,
-                                config.inx.clone(),
-                            )),
-                            None,
-                        )?;
-                    }
-                    crate::stardust_inx::InxWorkerError::FailedToAnswerRequest
-                    | crate::stardust_inx::InxWorkerError::InxTypeConversion(_)
-                    | crate::stardust_inx::InxWorkerError::ListenerError(_)
-                    | crate::stardust_inx::InxWorkerError::Runtime(_)
-                    | crate::stardust_inx::InxWorkerError::Read(_)
-                    | crate::stardust_inx::InxWorkerError::ParsingAddressFailed(_)
-                    | crate::stardust_inx::InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
                     }
                 },

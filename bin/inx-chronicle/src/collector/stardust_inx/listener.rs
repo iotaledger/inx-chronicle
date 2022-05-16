@@ -108,9 +108,7 @@ impl HandleEvent<Report<Syncer>> for InxListener {
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
+            Report::Success(_) => (),
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     cx.spawn_child(Syncer::new(self.db.clone(), self.config.syncer.clone()))

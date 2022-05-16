@@ -267,7 +267,7 @@ impl MongoDb {
     }
 }
 
-#[cfg(feature = "api-analytics")]
+#[cfg(feature = "analytics")]
 impl MongoDb {
     /// Create aggregate statistics of all addresses.
     pub async fn aggregate_addresses(

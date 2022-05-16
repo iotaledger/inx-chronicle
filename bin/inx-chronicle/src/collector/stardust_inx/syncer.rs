@@ -59,7 +59,14 @@ impl Syncer {
 }
 
 #[derive(Default)]
-pub struct Gaps(Vec<Range<u32>>);
+pub struct SyncerState {
+    first_ms: u32,
+    last_ms: u32,
+    gaps: Gaps,
+}
+
+#[derive(Default)]
+struct Gaps(Vec<Range<u32>>);
 impl Iterator for Gaps {
     type Item = u32;
 
@@ -81,11 +88,11 @@ impl Iterator for Gaps {
     }
 }
 
-pub struct SyncNext(usize);
+pub struct SyncNext;
 
 #[async_trait]
 impl Actor for Syncer {
-    type State = Gaps;
+    type State = SyncerState;
     type Error = SyncerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -101,29 +108,33 @@ impl HandleEvent<SyncNext> for Syncer {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        SyncNext(num): SyncNext,
-        gaps: &mut Self::State,
+        _evt: SyncNext,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        for _ in 0..num {
-            if let Some(ms) = gaps.next() {
-                if !self.is_synced(ms).await? {
-                    log::info!("Requesting unsynced milestone {}.", ms);
-                    let (sender, receiver) = tokio::sync::oneshot::channel();
-                    cx.addr::<InxWorker>()
-                        .await
-                        .send(MilestoneRequest::new(ms, 3, sender))?;
-                    let handle = cx.handle().clone();
-                    // Spawn a task to await the solidification
-                    tokio::spawn(async move {
-                        receiver.await.ok();
-                        // Once solidification is complete, we can continue with this range.
-                        handle.send(SyncNext(1)).ok();
-                    });
-                }
-            } else {
-                log::info!("Syncer completed range.");
-                break;
+        if let Some(ms) = state.gaps.next() {
+            if !self.is_synced(ms).await? {
+                log::info!("Requesting unsynced milestone {}.", ms);
+                let (sender, receiver) = tokio::sync::oneshot::channel();
+                cx.addr::<InxWorker>()
+                    .await
+                    .send(MilestoneRequest::new(ms, 3, sender))?;
+                let handle = cx.handle().clone();
+                // Spawn a task to await the solidification
+                tokio::spawn(async move {
+                    receiver.await.ok();
+                    // Once solidification is complete, we can continue with this range.
+                    handle.send(SyncNext).ok();
+                });
             }
+        } else {
+            let gaps = self.db.get_sync_data(state.first_ms, state.last_ms).await?.gaps;
+            if gaps.is_empty() {
+                log::info!("Syncer completed.");
+                cx.shutdown();
+                return Ok(());
+            }
+            state.gaps = Gaps(gaps);
+            cx.delay(SyncNext, None)?;
         }
         Ok(())
     }
@@ -135,7 +146,7 @@ impl HandleEvent<NodeStatus> for Syncer {
         &mut self,
         cx: &mut ActorContext<Self>,
         node_status: NodeStatus,
-        gaps: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         // Get our maximum syncing range based on what we know from the node status
         let (start, end) = (
@@ -144,8 +155,11 @@ impl HandleEvent<NodeStatus> for Syncer {
                 .max(node_status.latest_milestone.milestone_index - self.config.max_milestones),
             node_status.latest_milestone.milestone_index,
         );
-        *gaps = Gaps(self.db.get_sync_data(start, end).await?.gaps);
-        cx.delay(SyncNext(self.config.max_parallel_requests), None)?;
+        state.first_ms = start;
+        state.last_ms = end;
+        for _ in 0..self.config.max_parallel_requests {
+            cx.delay(SyncNext, None)?;
+        }
         Ok(())
     }
 }

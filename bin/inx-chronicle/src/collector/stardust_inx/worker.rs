@@ -244,6 +244,11 @@ impl HandleEvent<MilestoneRequest> for InxWorker {
         inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Requesting milestone {}", milestone_index);
+        // Check if this milestone is already solidified
+        if self.db.get_sync_record_by_index(milestone_index).await?.is_some() {
+            // No need to re-solidify this
+            return Ok(());
+        }
         match inx_client
             .read_milestone(inx::proto::MilestoneRequest {
                 milestone_index,
