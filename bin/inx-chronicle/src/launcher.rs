@@ -17,7 +17,6 @@ use chronicle::{
     },
 };
 use clap::Parser;
-use inx::NodeStatus;
 use mongodb::error::ErrorKind;
 use thiserror::Error;
 
@@ -27,9 +26,8 @@ use crate::api::ApiWorker;
 use crate::inx::{InxRequest, InxWorker, InxWorkerError};
 use crate::{
     cli::CliArgs,
-    collector::{Collector, CollectorError},
     config::{ChronicleConfig, ConfigError},
-    syncer::{OldestMilestone, Syncer},
+    inx::collector::{Collector, CollectorError},
 };
 
 #[derive(Debug, Error)]
@@ -44,13 +42,16 @@ pub enum LauncherError {
 
 #[derive(Debug, Default)]
 /// Supervisor actor
-pub struct Launcher {
-    node_status: Option<NodeStatus>,
+pub struct Launcher;
+
+pub struct LauncherState {
+    config: ChronicleConfig,
+    db: MongoDb,
 }
 
 #[async_trait]
 impl Actor for Launcher {
-    type State = (ChronicleConfig, MongoDb);
+    type State = LauncherState;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -77,64 +78,15 @@ impl Actor for Launcher {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
-        // Start Collector.
-        cx.spawn_child(Collector::new(db.clone(), 10)).await;
-
         // Start InxWorker.
         #[cfg(feature = "inx")]
-        {
-            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
-
-            // Send a `NodeStatus` request to the `InxWorker`
-            cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
-        }
+        cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
 
         // Start ApiWorker.
         #[cfg(feature = "api")]
         cx.spawn_child(ApiWorker::new(db.clone(), config.api.clone())).await;
 
-        // Start Syncer.
-        cx.spawn_child(Syncer::new(db.clone(), config.syncer.clone())).await;
-
-        Ok((config, db))
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Collector>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<Collector>,
-        (config, db): &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
-            Report::Error(report) => match &report.error {
-                ActorError::Result(e) => match e {
-                    CollectorError::MongoDb(e) => match e.kind.as_ref() {
-                        // Only a few possible errors we could potentially recover from
-                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                            let new_db = MongoDb::connect(&config.mongodb).await?;
-                            *db = new_db;
-                            cx.spawn_child(Collector::new(db.clone(), 1)).await;
-                        }
-                        _ => {
-                            cx.shutdown();
-                        }
-                    },
-                    _ => {
-                        cx.shutdown();
-                    }
-                },
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
-                }
-            },
-        }
-        Ok(())
+        Ok(LauncherState { config, db })
     }
 }
 
@@ -145,7 +97,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxWorker>,
-        (config, _): &mut Self::State,
+        LauncherState { config, db }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Report::Success(_) => {
@@ -156,7 +108,10 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     InxWorkerError::ConnectionError(_) => {
                         let wait_interval = config.inx.connection_retry_interval;
                         log::info!("Retrying INX connection in {} seconds.", wait_interval.as_secs_f32());
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), wait_interval)?;
+                        cx.delay(
+                            SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())),
+                            wait_interval,
+                        )?;
                     }
                     InxWorkerError::InvalidAddress(_) => {
                         cx.shutdown();
@@ -167,7 +122,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                     // TODO: This is stupid, but we can't use the ErrorKind enum so :shrug:
                     InxWorkerError::TransportFailed(e) => match e.to_string().as_ref() {
                         "transport error" => {
-                            cx.spawn_child(InxWorker::new(config.inx.clone())).await;
+                            cx.spawn_child(InxWorker::new(db.clone(), config.inx.clone())).await;
                         }
                         _ => {
                             cx.shutdown();
@@ -183,7 +138,7 @@ impl HandleEvent<Report<InxWorker>> for Launcher {
                         cx.shutdown();
                     }
                     InxWorkerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxWorker::new(config.inx.clone())), None)?;
+                        cx.delay(SpawnActor::new(InxWorker::new(db.clone(), config.inx.clone())), None)?;
                     }
                     InxWorkerError::FailedToAnswerRequest => {
                         cx.shutdown();
@@ -205,7 +160,7 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<ApiWorker>,
-        (config, db): &mut Self::State,
+        LauncherState { config, db }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -222,66 +177,6 @@ impl HandleEvent<Report<ApiWorker>> for Launcher {
                 }
             },
         }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Syncer>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        report: Report<Syncer>,
-        (config, db): &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match report {
-            Report::Success(_) => {
-                cx.shutdown();
-            }
-            Report::Error(report) => {
-                log::error!("Syncer error");
-                // let ErrorReport {
-                //     error, internal_state, ..
-                // } = report;
-
-                // match error {
-                //     ActorError::Result(e) => {
-                //         log::error!("Syncer exited with error: {}", e);
-                //         // Panic: a previous Syncer instance always has an internal state.
-                //         cx.spawn_child(
-                //             Syncer::new(db.clone(),
-                // config.syncer.clone()).with_internal_state(internal_state.unwrap()),         )
-                //         .await;
-                //     }
-                //     ActorError::Panic | ActorError::Aborted => {
-                //         cx.shutdown();
-                //     }
-                // }
-                cx.shutdown();
-            }
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<NodeStatus> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        node_status: NodeStatus,
-        _: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        // Start syncing from the node's pruning index up to the first solidified listened milestone.
-        if self.node_status.is_none() {
-            let oldest_index = node_status.pruning_index + 1;
-            cx.addr::<Syncer>().await.send(OldestMilestone(oldest_index))?;
-        }
-
-        log::info!("{:#?}", node_status);
-
-        self.node_status.replace(node_status);
-
         Ok(())
     }
 }

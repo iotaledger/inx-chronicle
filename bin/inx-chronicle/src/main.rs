@@ -7,12 +7,10 @@
 #[cfg(feature = "api")]
 mod api;
 mod cli;
-mod collector;
 mod config;
 #[cfg(feature = "inx")]
 mod inx;
 mod launcher;
-mod syncer;
 
 use std::error::Error;
 

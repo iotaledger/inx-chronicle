@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Instant;
-
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
@@ -54,11 +52,7 @@ mod stardust {
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
-    use crate::{
-        collector::stardust::MilestoneState,
-        inx::{InxRequest, InxWorker},
-        syncer::{self, Syncer},
-    };
+    use crate::inx::{collector::stardust::MilestoneState, syncer::{NewSyncedMilestone, InxSyncer}, InxRequest, InxWorker};
 
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
@@ -145,9 +139,14 @@ mod stardust {
 
             // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a
             // historic one.
-            cx.addr::<Syncer>()
+            // let _ = ms_state.notify.send(NewSyncedMilestone(ms_state.milestone_index));
+
+            match cx.addr::<InxSyncer>()
                 .await
-                .send(syncer::LatestSolidified(ms_state.milestone_index))?;
+                .send(NewSyncedMilestone(ms_state.milestone_index)) {
+                    Err(_) => log::error!("Failed to notify Syncer"),
+                    Ok(_) => (),
+                }
 
             Ok(())
         }

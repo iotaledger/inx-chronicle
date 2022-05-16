@@ -7,12 +7,12 @@ password = "root"
 connect_url = "http://localhost:9029"
 connection_retry_interval = "5s"
 
-[api]
-port = 9092
-allow_origins = ["0.0.0.0"]
-
-[syncer]
+[inx.syncer]
 max_simultaneous_requests = 200
 max_request_retries = 3
 sync_back_delta = 10000
 sync_back_index = 0
+
+[api]
+port = 9092
+allow_origins = ["0.0.0.0"]

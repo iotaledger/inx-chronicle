@@ -19,7 +19,7 @@ use inx::{
 };
 use thiserror::Error;
 
-use crate::collector::Collector;
+use crate::inx::collector::Collector;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
 type MessageMetadataStream = InxStreamListener<inx::proto::MessageMetadata>;

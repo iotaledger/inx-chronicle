@@ -6,6 +6,9 @@ mod error;
 mod listener;
 mod worker;
 
+pub(crate) mod collector;
+pub(crate) mod syncer;
+
 pub use self::{
     config::InxConfig,
     error::InxWorkerError,

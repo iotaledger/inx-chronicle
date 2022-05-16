@@ -7,7 +7,14 @@ use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{
-        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
+        actor::{
+            addr::{Addr, OptionalAddr},
+            context::ActorContext,
+            error::ActorError,
+            event::HandleEvent,
+            report::Report,
+            Actor,
+        },
         config::ConfigureActor,
         error::RuntimeError,
     },
@@ -16,9 +23,9 @@ use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
 
-pub mod solidifier;
+use crate::inx::syncer::InxSyncer;
 
-use crate::syncer::Syncer;
+pub mod solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
@@ -108,10 +115,11 @@ pub mod stardust {
             milestone::MilestoneRecord,
         },
         dto,
+        runtime::actor::addr::OptionalAddr,
     };
 
     use super::*;
-    use crate::syncer::LatestMilestone;
+    use crate::inx::syncer::InxSyncer;
 
     #[derive(Debug)]
     pub struct MilestoneState {
@@ -119,15 +127,17 @@ pub mod stardust {
         pub process_queue: VecDeque<dto::MessageId>,
         pub visited: HashSet<dto::MessageId>,
         pub time: Instant,
+        pub notify: OptionalAddr<InxSyncer>,
     }
 
     impl MilestoneState {
-        pub fn new(milestone_index: u32) -> Self {
+        pub fn new(milestone_index: u32, notify: OptionalAddr<InxSyncer>) -> Self {
             Self {
                 milestone_index,
                 process_queue: VecDeque::new(),
                 visited: HashSet::new(),
                 time: Instant::now(),
+                notify,
             }
         }
     }
@@ -224,10 +234,8 @@ pub mod stardust {
                 Ok(rec) => {
                     log::trace!("Received Stardust Milestone Event ({})", rec.milestone_index);
                     self.db.upsert_milestone_record(&rec).await?;
-                    // Tell the Syncer about this new milestone
-                    cx.addr::<Syncer>().await.send(LatestMilestone(rec.milestone_index))?;
                     // Get or create the milestone state
-                    let mut state = MilestoneState::new(rec.milestone_index);
+                    let mut state = MilestoneState::new(rec.milestone_index, None.into());
                     state
                         .process_queue
                         .extend(Vec::from(rec.payload.essence.parents).into_iter());
@@ -291,6 +299,49 @@ pub mod stardust {
                 }
             }
 
+            Ok(())
+        }
+    }
+
+    pub struct RequestedMilestone {
+        milestone: inx::proto::Milestone,
+        syncer_addr: OptionalAddr<InxSyncer>,
+    }
+
+    impl RequestedMilestone {
+        pub fn new(milestone: inx::proto::Milestone, syncer_addr: OptionalAddr<InxSyncer>) -> Self {
+            Self { milestone, syncer_addr }
+        }
+    }
+
+    #[async_trait]
+    impl HandleEvent<RequestedMilestone> for Collector {
+        async fn handle_event(
+            &mut self,
+            cx: &mut ActorContext<Self>,
+            RequestedMilestone { milestone, syncer_addr }: RequestedMilestone,
+            solidifiers: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            match MilestoneRecord::try_from(milestone) {
+                Ok(rec) => {
+                    log::trace!("Received Stardust Requested Milestone ({})", rec.milestone_index);
+                    self.db.upsert_milestone_record(&rec).await?;
+                    // Get or create the milestone state
+                    let mut state = MilestoneState::new(rec.milestone_index, syncer_addr);
+                    state
+                        .process_queue
+                        .extend(Vec::from(rec.payload.essence.parents).into_iter());
+                    solidifiers
+                        // Divide solidifiers fairly by milestone
+                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        // Unwrap: We never remove solidifiers, so they should always exist
+                        .unwrap()
+                        .send(state)?;
+                }
+                Err(e) => {
+                    log::error!("Could not read milestone: {:?}", e);
+                }
+            }
             Ok(())
         }
     }

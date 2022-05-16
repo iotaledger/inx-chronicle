@@ -4,25 +4,32 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
-use chronicle::runtime::actor::{
-    addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
+use chronicle::{
+    db::MongoDb,
+    runtime::actor::{
+        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        Actor,
+    },
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
+use mongodb::error::ErrorKind;
 
 use super::{
+    collector::{Collector, CollectorError},
     listener::{InxListener, InxListenerError},
+    syncer::InxSyncer,
     InxConfig, InxWorkerError,
 };
-use crate::collector::{solidifier::Solidifier, Collector};
 
 #[derive(Debug)]
 pub struct InxWorker {
+    db: MongoDb,
     config: InxConfig,
 }
 
 impl InxWorker {
-    pub fn new(config: InxConfig) -> Self {
-        Self { config }
+    pub fn new(db: MongoDb, config: InxConfig) -> Self {
+        Self { db, config }
     }
 }
 
@@ -51,12 +58,52 @@ impl Actor for InxWorker {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::info!("Connecting to INX at bind address `{}`.", self.config.connect_url);
         let inx_client = Inx::connect(&self.config).await?;
-
         log::info!("Connected to INX.");
 
+        cx.spawn_child(Collector::new(self.db.clone(), 10)).await;
         cx.spawn_child(InxListener::new(inx_client.clone())).await;
+        cx.spawn_child(InxSyncer::new(self.db.clone(), self.config.syncer.clone()))
+            .await;
 
         Ok(inx_client)
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<Collector>> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<Collector>,
+        _: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(report) => match &report.error {
+                ActorError::Result(e) => match e {
+                    CollectorError::MongoDb(e) => match e.kind.as_ref() {
+                        // Only a few possible errors we could potentially recover from
+                        ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
+                            // let new_db = MongoDb::connect(&config.mongodb).await?;
+                            // *db = new_db;
+                            // cx.spawn_child(Collector::new(db.clone(), 10)).await;
+                        }
+                        _ => {
+                            cx.shutdown();
+                        }
+                    },
+                    _ => {
+                        cx.shutdown();
+                    }
+                },
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
     }
 }
 
@@ -93,15 +140,53 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
     }
 }
 
+#[async_trait]
+impl HandleEvent<Report<InxSyncer>> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        report: Report<InxSyncer>,
+        _: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match report {
+            Report::Success(_) => {
+                cx.shutdown();
+            }
+            Report::Error(report) => {
+                log::error!("Syncer error");
+                // let ErrorReport {
+                //     error, internal_state, ..
+                // } = report;
+
+                // match error {
+                //     ActorError::Result(e) => {
+                //         log::error!("Syncer exited with error: {}", e);
+                //         // Panic: a previous Syncer instance always has an internal state.
+                //         cx.spawn_child(
+                //             Syncer::new(db.clone(),
+                // config.syncer.clone()).with_internal_state(internal_state.unwrap()),         )
+                //         .await;
+                //     }
+                //     ActorError::Panic | ActorError::Aborted => {
+                //         cx.shutdown();
+                //     }
+                // }
+                cx.shutdown();
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(feature = "stardust")]
 pub mod stardust {
     use bee_message_stardust::payload::milestone::MilestoneIndex;
-    use chronicle::dto::MessageId;
+    use chronicle::{dto::MessageId, runtime::actor::addr::OptionalAddr};
 
     use super::*;
-    use crate::{
-        collector::stardust::{MilestoneState, RequestedMessage},
-        launcher::Launcher,
+    use crate::inx::collector::{
+        solidifier::Solidifier,
+        stardust::{MilestoneState, RequestedMessage, RequestedMilestone},
     };
 
     #[derive(Debug)]
@@ -109,7 +194,7 @@ pub mod stardust {
         NodeStatus,
         Message(MessageId, Addr<Solidifier>, MilestoneState),
         Metadata(MessageId, Addr<Solidifier>, MilestoneState),
-        Milestone(MilestoneIndex),
+        Milestone(MilestoneIndex, OptionalAddr<InxSyncer>),
     }
 
     impl InxRequest {
@@ -121,8 +206,8 @@ pub mod stardust {
             Self::Metadata(message_id, solidifier_addr, ms_state)
         }
 
-        pub fn milestone(milestone_index: MilestoneIndex) -> Self {
-            Self::Milestone(milestone_index)
+        pub fn milestone(milestone_index: MilestoneIndex, syncer_addr: OptionalAddr<InxSyncer>) -> Self {
+            Self::Milestone(milestone_index, syncer_addr)
         }
     }
 
@@ -148,7 +233,7 @@ pub mod stardust {
                     }
                     log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
-                    cx.addr::<Launcher>().await.send(node_status)?;
+                    cx.addr::<InxSyncer>().await.send(node_status)?;
                 }
                 InxRequest::Message(message_id, solidifier_addr, mut ms_state) => {
                     match (
@@ -199,7 +284,7 @@ pub mod stardust {
                             .map_err(|_| InxWorkerError::MissingCollector)?;
                     }
                 }
-                InxRequest::Milestone(milestone_index) => {
+                InxRequest::Milestone(milestone_index, syncer_addr) => {
                     log::trace!("Requesting milestone {}", *milestone_index);
                     if let Ok(milestone) = inx_client
                         .read_milestone(inx::proto::MilestoneRequest {
@@ -208,11 +293,12 @@ pub mod stardust {
                         })
                         .await
                     {
-                        // TODO: unwrap
                         let milestone: inx::proto::Milestone = milestone.into_inner();
 
                         // Instruct the collector to solidify this milestone.
-                        cx.addr::<Collector>().await.send(milestone)?;
+                        cx.addr::<Collector>()
+                            .await
+                            .send(RequestedMilestone::new(milestone, syncer_addr))?;
                     } else {
                         log::warn!("No milestone response for {}", *milestone_index);
                     }

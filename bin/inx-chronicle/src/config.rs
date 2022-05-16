@@ -11,7 +11,6 @@ use thiserror::Error;
 use crate::api::ApiConfig;
 #[cfg(feature = "inx")]
 use crate::inx::InxConfig;
-use crate::syncer::SyncerConfig;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -29,7 +28,6 @@ pub struct ChronicleConfig {
     pub inx: InxConfig,
     #[cfg(feature = "api")]
     pub api: ApiConfig,
-    pub syncer: SyncerConfig,
 }
 
 impl ChronicleConfig {
