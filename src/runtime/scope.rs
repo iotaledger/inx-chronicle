@@ -8,7 +8,7 @@ use futures::{
     Future,
 };
 use tokio::task::JoinHandle;
-use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
+use tokio_stream::StreamExt;
 
 use super::{
     actor::{
@@ -24,6 +24,7 @@ use super::{
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
     spawn_task,
+    sync::mpsc::{unbounded_channel, UnboundedReceiverStream},
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -162,7 +163,7 @@ impl RuntimeScope {
         A: 'static + Actor,
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
-        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
+        let (sender, receiver) = unbounded_channel::<Envelope<A>>();
         let receiver = UnboundedReceiverStream::new(receiver);
         let (receiver, shutdown_handle) = if let Some(stream) = stream {
             let receiver = receiver.merge(stream);

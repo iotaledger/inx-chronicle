@@ -13,6 +13,7 @@ mod registry;
 mod scope;
 /// Module containing shutdown functionality.
 mod shutdown;
+mod sync;
 
 use std::error::Error;
 

@@ -4,13 +4,12 @@
 use std::ops::Deref;
 
 use thiserror::Error;
-use tokio::sync::mpsc::UnboundedSender;
 
 use super::{
     event::{DynEvent, Envelope},
     Actor,
 };
-use crate::runtime::{error::RuntimeError, registry::ScopeId, scope::ScopeView};
+use crate::runtime::{error::RuntimeError, registry::ScopeId, scope::ScopeView, sync::mpsc::UnboundedSender};
 
 /// Error sending a message to an actor
 #[derive(Error, Debug)]
@@ -31,10 +30,22 @@ impl<S: Into<String>> From<S> for SendError {
 }
 
 /// An actor handle, used to send events.
-#[derive(Debug)]
+
+#[cfg_attr(not(feature = "metrics"), derive(Debug))]
 pub struct Addr<A: Actor> {
     pub(crate) scope: ScopeView,
     pub(crate) sender: UnboundedSender<Envelope<A>>,
+}
+
+/// FIXME: remove this once `Debug` is implemented for `UnboundedSender` in `bee-metrics`.
+#[cfg(feature = "metrics")]
+impl<A: Actor> std::fmt::Debug for Addr<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Addr")
+            .field("scope", &self.scope)
+            .field("sender", &"UnboundedSender")
+            .finish()
+    }
 }
 
 impl<A: Actor> Addr<A> {
