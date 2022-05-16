@@ -136,10 +136,9 @@ mod stardust {
                 .await?;
 
             log::debug!(
-                // "Milestone '{}' synced in {}s.",
-                "Milestone '{}' synced",
+                "Milestone '{}' synced in {}s.",
                 ms_state.milestone_index,
-                // ms_state.time.elapsed().as_secs_f32()
+                ms_state.time.elapsed().as_secs_f32()
             );
 
             // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a

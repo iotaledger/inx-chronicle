@@ -126,7 +126,7 @@ pub mod stardust {
         pub milestone_index: u32,
         pub process_queue: VecDeque<dto::MessageId>,
         pub visited: HashSet<dto::MessageId>,
-        // pub time: Instant,
+        pub time: Instant,
         // pub notify: OptionalAddr<InxSyncer>,
     }
 
@@ -136,23 +136,22 @@ pub mod stardust {
                 milestone_index,
                 process_queue: VecDeque::new(),
                 visited: HashSet::new(),
-                // time: Instant::now(),
+                time: Instant::now(),
                 // notify,
             }
         }
     }
 
-    // impl Drop for MilestoneState {
-    //     fn drop(&mut self) {
-    //         log::warn!(
-    //             // "Solidification of milestone '{}' in process for {}s with {} remaining messages.",
-    //             "Solidification of milestone '{}' in process with {} remaining messages.",
-    //             self.milestone_index,
-    //             // self.time.elapsed().as_secs_f32(),
-    //             self.process_queue.len()
-    //         );
-    //     }
-    // }
+    impl Drop for MilestoneState {
+        fn drop(&mut self) {
+            log::warn!(
+                "Solidification state of milestone '{}' dropped after {}s with {} remaining messages.",
+                self.milestone_index,
+                self.time.elapsed().as_secs_f32(),
+                self.process_queue.len()
+            );
+        }
+    }
 
     #[derive(Debug)]
     pub struct RequestedMessage {
