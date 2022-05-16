@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod feature_block;
+mod feature;
 mod native_token;
 mod unlock_condition;
 
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 pub use self::{
     alias::{AliasId, AliasOutput},
     basic::BasicOutput,
-    feature_block::Feature,
+    feature::Feature,
     foundry::FoundryOutput,
     native_token::{NativeToken, TokenScheme, TokenTag},
     nft::{NftId, NftOutput},

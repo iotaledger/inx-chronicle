@@ -4,7 +4,7 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::{feature_block::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
+use super::{feature::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -35,8 +35,8 @@ pub struct AliasOutput {
     pub state_metadata: Box<[u8]>,
     pub foundry_counter: u32,
     pub unlock_conditions: Box<[UnlockCondition]>,
-    pub feature_blocks: Box<[Feature]>,
-    pub immutable_feature_blocks: Box<[Feature]>,
+    pub features: Box<[Feature]>,
+    pub immutable_features: Box<[Feature]>,
 }
 
 impl From<&stardust::AliasOutput> for AliasOutput {
@@ -49,8 +49,8 @@ impl From<&stardust::AliasOutput> for AliasOutput {
             state_metadata: value.state_metadata().to_vec().into_boxed_slice(),
             foundry_counter: value.foundry_counter(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
-            immutable_feature_blocks: value.immutable_feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -75,14 +75,14 @@ impl TryFrom<AliasOutput> for stardust::AliasOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_feature_blocks(
-                Vec::from(value.feature_blocks)
+            .with_features(
+                Vec::from(value.features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_immutable_feature_blocks(
-                Vec::from(value.immutable_feature_blocks)
+            .with_immutable_features(
+                Vec::from(value.immutable_features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,

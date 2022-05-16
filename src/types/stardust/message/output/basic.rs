@@ -12,7 +12,7 @@ pub struct BasicOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub unlock_conditions: Box<[UnlockCondition]>,
-    pub feature_blocks: Box<[Feature]>,
+    pub features: Box<[Feature]>,
 }
 
 impl From<&stardust::BasicOutput> for BasicOutput {
@@ -21,7 +21,7 @@ impl From<&stardust::BasicOutput> for BasicOutput {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -43,8 +43,8 @@ impl TryFrom<BasicOutput> for stardust::BasicOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_feature_blocks(
-                Vec::from(value.feature_blocks)
+            .with_features(
+                Vec::from(value.features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,

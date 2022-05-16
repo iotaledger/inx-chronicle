@@ -30,8 +30,8 @@ pub struct NftOutput {
     native_tokens: Box<[NativeToken]>,
     nft_id: NftId,
     unlock_conditions: Box<[UnlockCondition]>,
-    feature_blocks: Box<[Feature]>,
-    immutable_feature_blocks: Box<[Feature]>,
+    features: Box<[Feature]>,
+    immutable_features: Box<[Feature]>,
 }
 
 impl From<&stardust::NftOutput> for NftOutput {
@@ -41,8 +41,8 @@ impl From<&stardust::NftOutput> for NftOutput {
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
             nft_id: (*value.nft_id()).into(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
-            immutable_feature_blocks: value.immutable_feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -64,14 +64,14 @@ impl TryFrom<NftOutput> for stardust::NftOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_feature_blocks(
-                Vec::from(value.feature_blocks)
+            .with_features(
+                Vec::from(value.features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_immutable_feature_blocks(
-                Vec::from(value.immutable_feature_blocks)
+            .with_immutable_features(
+                Vec::from(value.immutable_features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,

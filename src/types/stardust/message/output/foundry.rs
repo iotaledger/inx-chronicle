@@ -16,8 +16,8 @@ pub struct FoundryOutput {
     token_tag: TokenTag,
     token_scheme: TokenScheme,
     unlock_conditions: Box<[UnlockCondition]>,
-    feature_blocks: Box<[Feature]>,
-    immutable_feature_blocks: Box<[Feature]>,
+    features: Box<[Feature]>,
+    immutable_features: Box<[Feature]>,
 }
 
 impl From<&stardust::FoundryOutput> for FoundryOutput {
@@ -29,8 +29,8 @@ impl From<&stardust::FoundryOutput> for FoundryOutput {
             token_tag: value.token_tag().as_ref().to_vec().into_boxed_slice(),
             token_scheme: value.token_scheme().into(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
-            immutable_feature_blocks: value.immutable_feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -57,14 +57,14 @@ impl TryFrom<FoundryOutput> for stardust::FoundryOutput {
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
         )
-        .with_feature_blocks(
-            Vec::from(value.feature_blocks)
+        .with_features(
+            Vec::from(value.features)
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
         )
-        .with_immutable_feature_blocks(
-            Vec::from(value.immutable_feature_blocks)
+        .with_immutable_features(
+            Vec::from(value.immutable_features)
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
