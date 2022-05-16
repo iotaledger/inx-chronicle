@@ -75,21 +75,12 @@ impl Actor for Launcher {
 
         #[cfg(feature = "metrics")]
         {
-            let metrics_worker = cx
-                .spawn_child(metrics::MetricsWorker::new(config.metrics.clone()))
-                .await;
-            if let Some((send_counter, recv_counter)) = cx.take_counters() {
-                metrics_worker.send(metrics::RegisterMetric {
-                    name: "launcher_send".to_string(),
-                    help: "launcher_send".to_string(),
-                    metric: send_counter,
-                })?;
+            use metrics::{MetricsWorker, MetricsWorkerExt};
 
-                metrics_worker.send(metrics::RegisterMetric {
-                    name: "launcher_recv".to_string(),
-                    help: "launcher_recv".to_string(),
-                    metric: recv_counter,
-                })?;
+            let metrics_worker = cx.spawn_child(MetricsWorker::new(config.metrics.clone())).await;
+            if let Some((send_counter, recv_counter)) = cx.take_counters() {
+                metrics_worker.register("launcher_send", "launcher_send", send_counter)?;
+                metrics_worker.register("launcher_recv", "launcher_recv", recv_counter)?;
             }
         }
 

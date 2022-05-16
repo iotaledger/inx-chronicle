@@ -9,7 +9,7 @@ use std::{
 
 use async_trait::async_trait;
 use bee_metrics::{encoding::SendSyncEncodeMetric, metrics::process::ProcessMetrics, serve_metrics, Registry};
-use chronicle::runtime::{Actor, ActorContext, HandleEvent};
+use chronicle::runtime::{Actor, ActorContext, Addr, HandleEvent, RuntimeError};
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::oneshot,
@@ -114,10 +114,40 @@ impl Actor for MetricsWorker {
     }
 }
 
-pub struct RegisterMetric<M: 'static + SendSyncEncodeMetric> {
-    pub name: String,
-    pub help: String,
-    pub metric: M,
+struct RegisterMetric<M: 'static + SendSyncEncodeMetric> {
+    name: String,
+    help: String,
+    metric: M,
+}
+
+mod sealed {
+    pub trait Sealed {}
+
+    impl<T: super::MetricsWorkerExt> Sealed for T {}
+}
+
+pub(crate) trait MetricsWorkerExt: sealed::Sealed {
+    fn register(
+        &self,
+        name: impl ToString,
+        help: impl ToString,
+        metric: impl SendSyncEncodeMetric + 'static,
+    ) -> Result<(), RuntimeError>;
+}
+
+impl MetricsWorkerExt for Addr<MetricsWorker> {
+    fn register(
+        &self,
+        name: impl ToString,
+        help: impl ToString,
+        metric: impl SendSyncEncodeMetric + 'static,
+    ) -> Result<(), RuntimeError> {
+        self.send(RegisterMetric {
+            name: name.to_string(),
+            help: help.to_string(),
+            metric,
+        })
+    }
 }
 
 #[async_trait]
