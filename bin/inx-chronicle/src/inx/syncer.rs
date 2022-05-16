@@ -219,8 +219,10 @@ fn get_milestone_to_retry(syncer_state: &mut SyncerState) -> Option<(u32, usize)
     if let Some((insertion_ts, _)) = syncer_state.pending_deadlines.front() {
         if insertion_ts.elapsed() > MAX_SYNC_TIME {
             let (_, index) = syncer_state.pending_deadlines.pop_front().unwrap();
-            let round = syncer_state.pending.remove(&index).unwrap();
-            return Some((index, round));
+            // If it has been removed already, then it was successfully synced
+            if let Some(round) = syncer_state.pending.remove(&index) {
+                return Some((index, round));
+            }
         }
     }
     None
