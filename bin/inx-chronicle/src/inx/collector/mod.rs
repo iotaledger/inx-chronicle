@@ -145,9 +145,10 @@ pub mod stardust {
     impl Drop for MilestoneState {
         fn drop(&mut self) {
             log::warn!(
-                "Solidification state of milestone '{}' dropped after {}s with {} remaining messages.",
+                "Solidification state of milestone '{}' dropped after {}s with {} visited and {} remaining messages.",
                 self.milestone_index,
                 self.time.elapsed().as_secs_f32(),
+                self.visited.len(),
                 self.process_queue.len()
             );
         }
