@@ -76,39 +76,24 @@ impl FromStr for Address {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const ED25519_ADDRESS: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649";
-
-    use std::str::FromStr;
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::output::test::OUTPUT_ID;
 
     #[test]
     fn test_address_bson() {
-        let address = Address::Ed25519(Ed25519Address::from_str(ED25519_ADDRESS).unwrap());
+        let address = Address::from(stardust::Address::Ed25519(
+            bee_test::rand::address::rand_ed25519_address(),
+        ));
         let bson = to_bson(&address).unwrap();
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
-        let address = Address::Alias(AliasId::from_output_id_str(OUTPUT_ID).unwrap());
+        let address = Address::from(stardust::Address::Alias(bee_test::rand::address::rand_alias_address()));
         let bson = to_bson(&address).unwrap();
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
-        let address = Address::Nft(NftId::from_output_id_str(OUTPUT_ID).unwrap());
+        let address = Address::from(stardust::Address::Nft(bee_test::rand::address::rand_nft_address()));
         let bson = to_bson(&address).unwrap();
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_ed25519_address() -> Address {
-        Address::Ed25519(Ed25519Address::from_str(ED25519_ADDRESS).unwrap())
-    }
-
-    pub(crate) fn get_test_alias_address() -> Address {
-        Address::Alias(AliasId::from_output_id_str(OUTPUT_ID).unwrap())
-    }
-
-    pub(crate) fn get_test_nft_address() -> Address {
-        Address::Nft(NftId::from_output_id_str(OUTPUT_ID).unwrap())
     }
 }

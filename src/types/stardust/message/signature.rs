@@ -41,9 +41,6 @@ impl TryFrom<Signature> for stardust::Signature {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const PUBLIC_KEY: [u8; 32] = [0; 32];
-    pub(crate) const SIGNATURE: [u8; 64] = [0; 64];
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
@@ -57,7 +54,8 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_signature() -> Signature {
         Signature::from(&stardust::Signature::Ed25519(stardust::Ed25519Signature::new(
-            PUBLIC_KEY, SIGNATURE,
+            bee_test::rand::bytes::rand_bytes_array(),
+            bee_test::rand::bytes::rand_bytes_array(),
         )))
     }
 }

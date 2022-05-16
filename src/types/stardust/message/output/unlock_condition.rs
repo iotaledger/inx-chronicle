@@ -113,26 +113,15 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::{
-        address::test::{get_test_alias_address, get_test_ed25519_address, get_test_nft_address},
-        output::alias::test::get_test_alias_id,
-    };
+    use crate::types::stardust::message::output::alias::test::rand_alias_id;
 
     #[test]
     fn test_unlock_condition_bson() {
-        let block = get_test_address_condition(get_test_ed25519_address());
+        let block = get_test_address_condition(bee_test::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_address_condition(get_test_alias_address());
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
-
-        let block = get_test_storage_deposit_return_condition(get_test_ed25519_address(), 1);
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
-
-        let block = get_test_storage_deposit_return_condition(get_test_nft_address(), 1);
+        let block = get_test_storage_deposit_return_condition(bee_test::rand::address::rand_address().into(), 1);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
@@ -140,19 +129,19 @@ pub(crate) mod test {
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_expiration_condition(get_test_ed25519_address(), 1, 1);
+        let block = get_test_expiration_condition(bee_test::rand::address::rand_address().into(), 1, 1);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_state_controller_address_condition(get_test_ed25519_address());
+        let block = get_test_state_controller_address_condition(bee_test::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_governor_address_condition(get_test_alias_address());
+        let block = get_test_governor_address_condition(bee_test::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_immut_alias_address_condition(get_test_alias_id());
+        let block = get_test_immut_alias_address_condition(rand_alias_id().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
     }

@@ -65,27 +65,17 @@ impl TryFrom<FeatureBlock> for stardust::FeatureBlock {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const METADATA: &str = "Foo!";
-    pub(crate) const TAG: &str = "Bar!";
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::address::test::{
-        get_test_alias_address, get_test_ed25519_address, get_test_nft_address,
-    };
 
     #[test]
     fn test_feature_block_bson() {
-        let block = get_test_sender_block(get_test_ed25519_address());
+        let block = get_test_sender_block(bee_test::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
 
-        let block = get_test_sender_block(get_test_alias_address());
-        let bson = to_bson(&block).unwrap();
-        assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
-
-        let block = get_test_issuer_block(get_test_nft_address());
+        let block = get_test_issuer_block(bee_test::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
 
@@ -108,13 +98,13 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_metadata_block() -> FeatureBlock {
         FeatureBlock::Metadata {
-            data: METADATA.as_bytes().to_vec().into_boxed_slice(),
+            data: "Foo".as_bytes().to_vec().into_boxed_slice(),
         }
     }
 
     pub(crate) fn get_test_tag_block() -> FeatureBlock {
         FeatureBlock::Tag {
-            data: TAG.as_bytes().to_vec().into_boxed_slice(),
+            data: "Bar".as_bytes().to_vec().into_boxed_slice(),
         }
     }
 }

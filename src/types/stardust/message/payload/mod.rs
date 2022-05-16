@@ -57,7 +57,6 @@ impl TryFrom<Payload> for stardust::Payload {
 pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
-    pub(crate) use super::milestone::test::get_test_milestone_id;
     use super::{milestone, tagged_data, transaction, treasury_transaction, *};
 
     #[test]

@@ -101,24 +101,20 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::{
-        address::test::{get_test_alias_address, get_test_ed25519_address, get_test_nft_address},
-        output::{
-            feature_block::test::{
-                get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block,
-            },
-            native_token::test::get_test_native_token,
-            test::OUTPUT_ID,
-            unlock_condition::test::{
-                get_test_address_condition, get_test_expiration_condition, get_test_storage_deposit_return_condition,
-                get_test_timelock_condition,
-            },
+    use crate::types::stardust::message::output::{
+        feature_block::test::{
+            get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block,
+        },
+        native_token::test::get_test_native_token,
+        unlock_condition::test::{
+            get_test_address_condition, get_test_expiration_condition, get_test_storage_deposit_return_condition,
+            get_test_timelock_condition,
         },
     };
 
     #[test]
     fn test_nft_id_bson() {
-        let nft_id = get_test_nft_id();
+        let nft_id = NftId::from(rand_nft_id());
         let bson = to_bson(&nft_id).unwrap();
         assert_eq!(nft_id, from_bson::<NftId>(bson).unwrap());
     }
@@ -130,34 +126,38 @@ pub(crate) mod test {
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }
 
-    pub(crate) fn get_test_nft_id() -> NftId {
-        NftId::from_output_id_str(OUTPUT_ID).unwrap()
+    pub(crate) fn rand_nft_id() -> stardust::NftId {
+        bee_test::rand::bytes::rand_bytes_array().into()
     }
 
     pub(crate) fn get_test_nft_output() -> NftOutput {
         NftOutput::from(
-            &stardust::NftOutput::build_with_amount(100, get_test_nft_id().try_into().unwrap())
+            &stardust::NftOutput::build_with_amount(100, rand_nft_id())
                 .unwrap()
                 .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
                 .with_unlock_conditions(vec![
-                    get_test_address_condition(get_test_ed25519_address())
+                    get_test_address_condition(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
-                    get_test_storage_deposit_return_condition(get_test_ed25519_address(), 1)
+                    get_test_storage_deposit_return_condition(bee_test::rand::address::rand_address().into(), 1)
                         .try_into()
                         .unwrap(),
                     get_test_timelock_condition(1, 1).try_into().unwrap(),
-                    get_test_expiration_condition(get_test_alias_address(), 1, 1)
+                    get_test_expiration_condition(bee_test::rand::address::rand_address().into(), 1, 1)
                         .try_into()
                         .unwrap(),
                 ])
                 .with_feature_blocks(vec![
-                    get_test_sender_block(get_test_nft_address()).try_into().unwrap(),
+                    get_test_sender_block(bee_test::rand::address::rand_address().into())
+                        .try_into()
+                        .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                     get_test_tag_block().try_into().unwrap(),
                 ])
                 .with_immutable_feature_blocks(vec![
-                    get_test_issuer_block(get_test_alias_address()).try_into().unwrap(),
+                    get_test_issuer_block(bee_test::rand::address::rand_address().into())
+                        .try_into()
+                        .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                 ])
                 .finish()

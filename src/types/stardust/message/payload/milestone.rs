@@ -219,12 +219,6 @@ impl TryFrom<MigratedFundsEntry> for stardust::option::MigratedFundsEntry {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const MILESTONE_ID: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649";
-    pub(crate) const MERKLE_PROOF: [u8; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH] =
-        [0; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH];
-    pub(crate) const APPLIED_MERKLE_PROOF: [u8; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH] =
-        [0; stardust::MilestoneEssence::MERKLE_ROOT_LENGTH];
-    pub(crate) const METADATA: &str = "Foo";
     const TAIL_TRANSACTION_HASH1: [u8; 49] = [
         222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
         154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 10,
@@ -238,21 +232,15 @@ pub(crate) mod test {
         154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 12,
     ];
 
-    use bee_message_stardust::{
-        input::TreasuryInput, output::TreasuryOutput, parent::Parents, payload::TreasuryTransactionPayload,
-    };
+    use bee_message_stardust::payload::TreasuryTransactionPayload;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::{
-        address::test::{get_test_alias_address, get_test_ed25519_address, get_test_nft_address},
-        signature::test::get_test_signature,
-        tests::get_test_message_id,
-    };
+    use crate::types::stardust::message::signature::test::get_test_signature;
 
     #[test]
     fn test_milestone_id_bson() {
-        let milestone_id = get_test_milestone_id();
+        let milestone_id = MilestoneId::from(bee_test::rand::milestone::rand_milestone_id());
         let bson = to_bson(&milestone_id).unwrap();
         assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
     }
@@ -264,15 +252,11 @@ pub(crate) mod test {
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }
 
-    pub(crate) fn get_test_milestone_id() -> MilestoneId {
-        MilestoneId::from_str(MILESTONE_ID).unwrap()
-    }
-
     pub(crate) fn get_test_ed25519_migrated_funds_entry() -> MigratedFundsEntry {
         MigratedFundsEntry::from(
             &stardust::option::MigratedFundsEntry::new(
                 stardust::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH1).unwrap(),
-                get_test_ed25519_address().try_into().unwrap(),
+                bee_message_stardust::address::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()),
                 2000000,
             )
             .unwrap(),
@@ -283,7 +267,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &stardust::option::MigratedFundsEntry::new(
                 stardust::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH2).unwrap(),
-                get_test_alias_address().try_into().unwrap(),
+                bee_message_stardust::address::Address::Alias(bee_test::rand::address::rand_alias_address()),
                 2000000,
             )
             .unwrap(),
@@ -294,7 +278,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &stardust::option::MigratedFundsEntry::new(
                 stardust::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH3).unwrap(),
-                get_test_nft_address().try_into().unwrap(),
+                bee_message_stardust::address::Address::Nft(bee_test::rand::address::rand_nft_address()),
                 2000000,
             )
             .unwrap(),
@@ -306,11 +290,11 @@ pub(crate) mod test {
             &stardust::MilestoneEssence::new(
                 1.into(),
                 12345,
-                get_test_milestone_id().try_into().unwrap(),
-                Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
-                MERKLE_PROOF,
-                APPLIED_MERKLE_PROOF,
-                METADATA.as_bytes().to_vec(),
+                bee_test::rand::milestone::rand_milestone_id(),
+                bee_test::rand::parents::rand_parents(),
+                bee_test::rand::bytes::rand_bytes_array(),
+                bee_test::rand::bytes::rand_bytes_array(),
+                "Foo".as_bytes().to_vec(),
                 stardust::MilestoneOptions::new(vec![stardust::option::MilestoneOption::Receipt(
                     stardust::option::ReceiptMilestoneOption::new(
                         1.into(),
@@ -321,8 +305,8 @@ pub(crate) mod test {
                             get_test_nft_migrated_funds_entry().try_into().unwrap(),
                         ],
                         TreasuryTransactionPayload::new(
-                            TreasuryInput::new(get_test_milestone_id().try_into().unwrap()),
-                            TreasuryOutput::new(100).unwrap(),
+                            bee_test::rand::input::rand_treasury_input(),
+                            bee_test::rand::output::rand_treasury_output(),
                         )
                         .unwrap(),
                     )

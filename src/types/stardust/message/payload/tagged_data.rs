@@ -31,9 +31,6 @@ impl TryFrom<TaggedDataPayload> for stardust::TaggedDataPayload {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const TAG: &str = "Foo";
-    pub(crate) const DATA: &str = "Bar";
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
@@ -46,8 +43,6 @@ pub(crate) mod test {
     }
 
     pub(crate) fn get_test_tagged_data_payload() -> TaggedDataPayload {
-        TaggedDataPayload::from(
-            &stardust::TaggedDataPayload::new(TAG.as_bytes().to_vec(), DATA.as_bytes().to_vec()).unwrap(),
-        )
+        (&bee_test::rand::payload::rand_tagged_data_payload()).into()
     }
 }

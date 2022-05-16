@@ -89,8 +89,6 @@ impl TryFrom<Message> for stardust::Message {
 
 #[cfg(test)]
 mod tests {
-    pub(crate) const MESSAGE_ID: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649";
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::{
@@ -100,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_message_id_bson() {
-        let message_id = get_test_message_id();
+        let message_id = MessageId::from(bee_test::rand::message::rand_message_id());
         let bson = to_bson(&message_id).unwrap();
         from_bson::<MessageId>(bson).unwrap();
     }
@@ -120,43 +118,33 @@ mod tests {
         assert_eq!(message, from_bson::<Message>(bson).unwrap());
     }
 
-    pub(crate) fn get_test_message_id() -> MessageId {
-        MessageId::from_str(MESSAGE_ID).unwrap()
-    }
-
     fn get_test_transaction_message() -> Message {
         Message::from(
-            stardust::MessageBuilder::<u64>::new(
-                stardust::parent::Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
-            )
-            .with_nonce_provider(12345, 0.0)
-            .with_payload(get_test_transaction_payload().try_into().unwrap())
-            .finish()
-            .unwrap(),
+            stardust::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+                .with_nonce_provider(12345, 0.0)
+                .with_payload(get_test_transaction_payload().try_into().unwrap())
+                .finish()
+                .unwrap(),
         )
     }
 
     fn get_test_milestone_message() -> Message {
         Message::from(
-            stardust::MessageBuilder::<u64>::new(
-                stardust::parent::Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
-            )
-            .with_nonce_provider(12345, 0.0)
-            .with_payload(get_test_milestone_payload().try_into().unwrap())
-            .finish()
-            .unwrap(),
+            stardust::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+                .with_nonce_provider(12345, 0.0)
+                .with_payload(get_test_milestone_payload().try_into().unwrap())
+                .finish()
+                .unwrap(),
         )
     }
 
     fn get_test_tagged_data_message() -> Message {
         Message::from(
-            stardust::MessageBuilder::<u64>::new(
-                stardust::parent::Parents::new(vec![get_test_message_id().try_into().unwrap()]).unwrap(),
-            )
-            .with_nonce_provider(12345, 0.0)
-            .with_payload(get_test_tagged_data_payload().try_into().unwrap())
-            .finish()
-            .unwrap(),
+            stardust::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+                .with_nonce_provider(12345, 0.0)
+                .with_payload(get_test_tagged_data_payload().try_into().unwrap())
+                .finish()
+                .unwrap(),
         )
     }
 }

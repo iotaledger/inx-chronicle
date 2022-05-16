@@ -35,13 +35,9 @@ impl TryFrom<TreasuryTransactionPayload> for stardust::TreasuryTransactionPayloa
 
 #[cfg(test)]
 pub(crate) mod test {
-    use bee_message_stardust::input::TreasuryInput;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::{
-        output::treasury::test::get_test_treasury_output, payload::test::get_test_milestone_id,
-    };
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
@@ -53,8 +49,8 @@ pub(crate) mod test {
     pub(crate) fn get_test_treasury_transaction_payload() -> TreasuryTransactionPayload {
         TreasuryTransactionPayload::from(
             &stardust::TreasuryTransactionPayload::new(
-                TreasuryInput::new(get_test_milestone_id().try_into().unwrap()),
-                get_test_treasury_output().try_into().unwrap(),
+                bee_test::rand::input::rand_treasury_input(),
+                bee_test::rand::output::rand_treasury_output(),
             )
             .unwrap(),
         )

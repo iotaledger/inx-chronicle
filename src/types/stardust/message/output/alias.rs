@@ -109,27 +109,18 @@ impl TryFrom<AliasOutput> for stardust::AliasOutput {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const STATE_METADATA: &str = "Foo";
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::{
-        address::test::{get_test_ed25519_address, get_test_nft_address},
-        output::{
-            feature_block::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block},
-            native_token::test::get_test_native_token,
-            test::OUTPUT_ID,
-            unlock_condition::test::{
-                get_test_governor_address_condition, get_test_state_controller_address_condition,
-            },
-        },
-        Address,
+    use crate::types::stardust::message::output::{
+        feature_block::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block},
+        native_token::test::get_test_native_token,
+        unlock_condition::test::{get_test_governor_address_condition, get_test_state_controller_address_condition},
     };
 
     #[test]
     fn test_alias_id_bson() {
-        let alias_id = get_test_alias_id();
+        let alias_id = AliasId::from(rand_alias_id());
         let bson = to_bson(&alias_id).unwrap();
         assert_eq!(alias_id, from_bson::<AliasId>(bson).unwrap());
     }
@@ -141,42 +132,39 @@ pub(crate) mod test {
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }
 
-    pub(crate) fn get_test_alias_id() -> AliasId {
-        AliasId::from_output_id_str(OUTPUT_ID).unwrap()
+    pub(crate) fn rand_alias_id() -> stardust::AliasId {
+        bee_test::rand::bytes::rand_bytes_array().into()
     }
 
     pub(crate) fn get_test_alias_output() -> AliasOutput {
         AliasOutput::from(
-            &stardust::AliasOutput::build_with_amount(100, get_test_alias_id().try_into().unwrap())
+            &stardust::AliasOutput::build_with_amount(100, rand_alias_id())
                 .unwrap()
                 .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
                 .with_state_index(0)
-                .with_state_metadata(STATE_METADATA.as_bytes().to_vec())
+                .with_state_metadata("Foo".as_bytes().to_vec())
                 .with_foundry_counter(0)
                 .with_unlock_conditions(vec![
-                    get_test_state_controller_address_condition(get_test_ed25519_address())
+                    get_test_state_controller_address_condition(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
-                    get_test_governor_address_condition(get_alt_test_alias_address())
+                    get_test_governor_address_condition(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
                 ])
                 .with_feature_blocks(vec![
-                    get_test_sender_block(get_test_nft_address()).try_into().unwrap(),
+                    get_test_sender_block(bee_test::rand::address::rand_address().into())
+                        .try_into()
+                        .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                 ])
                 .with_immutable_feature_blocks(vec![
-                    get_test_issuer_block(get_alt_test_alias_address()).try_into().unwrap(),
+                    get_test_issuer_block(bee_test::rand::address::rand_address().into())
+                        .try_into()
+                        .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                 ])
                 .finish()
-                .unwrap(),
-        )
-    }
-
-    fn get_alt_test_alias_address() -> Address {
-        Address::Alias(
-            AliasId::from_output_id_str("0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c6492b00")
                 .unwrap(),
         )
     }

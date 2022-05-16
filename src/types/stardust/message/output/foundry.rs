@@ -75,18 +75,12 @@ impl TryFrom<FoundryOutput> for stardust::FoundryOutput {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const SERIAL_NUMBER: u32 = 12345;
-
-    use std::str::FromStr;
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
     use crate::types::stardust::message::output::{
-        alias::test::get_test_alias_id,
-        feature_block::test::get_test_metadata_block,
-        native_token::test::{get_test_native_token, TOKEN_TAG},
-        unlock_condition::test::get_test_immut_alias_address_condition,
+        alias::test::rand_alias_id, feature_block::test::get_test_metadata_block,
+        native_token::test::get_test_native_token, unlock_condition::test::get_test_immut_alias_address_condition,
     };
 
     #[test]
@@ -100,8 +94,8 @@ pub(crate) mod test {
         FoundryOutput::from(
             &stardust::FoundryOutput::build_with_amount(
                 100,
-                SERIAL_NUMBER,
-                stardust::TokenTag::from_str(TOKEN_TAG).unwrap(),
+                bee_test::rand::number::rand_number(),
+                stardust::TokenTag::new(bee_test::rand::bytes::rand_bytes_array()),
                 stardust::TokenScheme::Simple(
                     stardust::SimpleTokenScheme::new(250.into(), 200.into(), 300.into()).unwrap(),
                 ),
@@ -109,7 +103,7 @@ pub(crate) mod test {
             .unwrap()
             .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
             .with_unlock_conditions(vec![
-                get_test_immut_alias_address_condition(get_test_alias_id())
+                get_test_immut_alias_address_condition(rand_alias_id().into())
                     .try_into()
                     .unwrap(),
             ])

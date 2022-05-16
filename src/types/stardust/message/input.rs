@@ -44,7 +44,6 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::{output::test::get_test_output_id, payload::test::get_test_milestone_id};
 
     #[test]
     fn test_input_bson() {
@@ -58,12 +57,12 @@ pub(crate) mod test {
     }
 
     pub(crate) fn get_test_utxo_input() -> Input {
-        Input::Utxo(get_test_output_id())
+        Input::Utxo(bee_test::rand::output::rand_output_id().into())
     }
 
     pub(crate) fn get_test_treasury_input() -> Input {
         Input::Treasury {
-            milestone_id: get_test_milestone_id(),
+            milestone_id: bee_test::rand::milestone::rand_milestone_id().into(),
         }
     }
 }

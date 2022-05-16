@@ -106,17 +106,13 @@ impl TryFrom<Output> for stardust::Output {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const OUTPUT_ID: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c6492a00";
-
-    use std::str::FromStr;
-
     use mongodb::bson::{from_bson, to_bson};
 
-    use super::{alias, basic, foundry, nft, treasury, *};
+    use super::{alias, basic, foundry, nft, *};
 
     #[test]
     fn test_output_id_bson() {
-        let output_id = get_test_output_id();
+        let output_id = OutputId::from(bee_test::rand::output::rand_output_id());
         let bson = to_bson(&output_id).unwrap();
         from_bson::<OutputId>(bson).unwrap();
     }
@@ -139,13 +135,11 @@ pub(crate) mod test {
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = get_test_treasury_output();
+        let output = Output::from(&stardust::Output::Treasury(
+            bee_test::rand::output::rand_treasury_output(),
+        ));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_output_id() -> OutputId {
-        OutputId::from_str(OUTPUT_ID).unwrap()
     }
 
     pub(crate) fn get_test_alias_output() -> Output {
@@ -162,9 +156,5 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_nft_output() -> Output {
         Output::Nft(nft::test::get_test_nft_output())
-    }
-
-    pub(crate) fn get_test_treasury_output() -> Output {
-        Output::Treasury(treasury::test::get_test_treasury_output())
     }
 }

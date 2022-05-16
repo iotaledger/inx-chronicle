@@ -119,19 +119,13 @@ impl TryFrom<NativeToken> for stardust::NativeToken {
 
 #[cfg(test)]
 pub(crate) mod test {
-    pub(crate) const TOKEN_TAG: &str = "0x00aabbcc00aabbcc00aabbcc";
-    pub(crate) const TOKEN_ID: &str =
-        "0x00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff00aabbccff";
-
-    use std::str::FromStr;
-
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_token_id_bson() {
-        let token_id = get_test_token_id();
+        let token_id = TokenId::from(rand_token_id());
         let bson = to_bson(&token_id).unwrap();
         assert_eq!(token_id, from_bson::<TokenId>(bson).unwrap());
     }
@@ -143,13 +137,13 @@ pub(crate) mod test {
         assert_eq!(native_token, from_bson::<NativeToken>(bson).unwrap());
     }
 
-    pub(crate) fn get_test_token_id() -> TokenId {
-        TokenId::from_str(TOKEN_ID).unwrap()
+    pub(crate) fn rand_token_id() -> stardust::TokenId {
+        bee_test::rand::bytes::rand_bytes_array().into()
     }
 
     pub(crate) fn get_test_native_token() -> NativeToken {
         NativeToken::from(
-            &stardust::NativeToken::new(stardust::TokenId::from_str(TOKEN_ID).unwrap(), 100.into()).unwrap(),
+            &stardust::NativeToken::new(bee_test::rand::bytes::rand_bytes_array().into(), 100.into()).unwrap(),
         )
     }
 }
