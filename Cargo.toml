@@ -55,6 +55,9 @@ tower-http = { version = "0.3", default-features = false, features = ["cors", "c
 # INX
 inx = { git = "https://github.com/iotaledger/inx", version = "0.3", default-features = false, features = ["types"], optional = true }
 
+# Metrics
+bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, optional = true }
+
 # Stardust types
 bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
@@ -64,12 +67,13 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [features]
 default = [
-    "api-analytics",
+    "analytics",
     "api-explorer",
     "api-node",
     "inx",
     "stardust",
 ]
+analytics = []
 api = [ 
     "dep:axum",
     "derive_more/from",
@@ -78,21 +82,23 @@ api = [
     "dep:tower",
     "dep:tower-http",
 ]
-api-analytics = [
-    "api",
-]
 api-explorer = [
     "api",
 ]
 api-node = [
     "api",
 ]
+collector = []
 console = [
     "dep:console-subscriber",
     "tokio/tracing",
 ]
 inx = [
+    "collector",
     "dep:inx",
+]
+metrics = [
+    "dep:bee-metrics",
 ]
 stardust = [
     "dep:bee-message-stardust",

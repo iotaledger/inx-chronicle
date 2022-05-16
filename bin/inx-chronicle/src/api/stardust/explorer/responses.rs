@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::dto;
+use chronicle::types::ledger::LedgerInclusionState;
 use serde::{Deserialize, Serialize};
 
 use crate::api::impl_success_response;
@@ -24,7 +24,7 @@ pub struct Transfer {
     #[serde(rename = "isSpent")]
     pub is_spent: bool,
     #[serde(rename = "inclusionState")]
-    pub inclusion_state: Option<dto::LedgerInclusionState>,
+    pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "messageId")]
     pub message_id: String,
     #[serde(rename = "milestoneIndex")]

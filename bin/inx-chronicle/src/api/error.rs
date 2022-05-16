@@ -4,7 +4,7 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::dto;
+use chronicle::types::ledger::UnexpectedLedgerInclusionState;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -23,9 +23,9 @@ pub enum InternalApiError {
     MongoDb(#[from] mongodb::error::Error),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    Stardust(#[from] chronicle::stardust::Error),
+    BeeMessageStardust(#[from] bee_message_stardust::Error),
     #[error(transparent)]
-    UnexpectedLedgerInclusionState(#[from] dto::UnexpectedLedgerInclusionState),
+    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
     #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]
@@ -99,7 +99,7 @@ pub enum ParseError {
     Bool(#[from] ParseBoolError),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    StardustId(#[from] chronicle::stardust::Error),
+    BeeMessageStardust(#[from] bee_message_stardust::Error),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }
