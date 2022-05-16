@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::tagged_data as stardust;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaggedDataPayload {
     #[serde(with = "serde_bytes")]
     tag: Box<[u8]>,
@@ -42,7 +42,7 @@ pub(crate) mod test {
     fn test_tagged_data_payload_bson() {
         let payload = get_test_tagged_data_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<TaggedDataPayload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<TaggedDataPayload>(bson).unwrap());
     }
 
     pub(crate) fn get_test_tagged_data_payload() -> TaggedDataPayload {

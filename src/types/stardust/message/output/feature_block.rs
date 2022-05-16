@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::Address;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum FeatureBlock {
     #[serde(rename = "sender")]
@@ -79,23 +79,23 @@ pub(crate) mod test {
     fn test_feature_block_bson() {
         let block = get_test_sender_block(get_test_ed25519_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<FeatureBlock>(bson).unwrap();
+        assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
 
         let block = get_test_sender_block(get_test_alias_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<FeatureBlock>(bson).unwrap();
+        assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
 
         let block = get_test_issuer_block(get_test_nft_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<FeatureBlock>(bson).unwrap();
+        assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
 
         let block = get_test_metadata_block();
         let bson = to_bson(&block).unwrap();
-        from_bson::<FeatureBlock>(bson).unwrap();
+        assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
 
         let block = get_test_tag_block();
         let bson = to_bson(&block).unwrap();
-        from_bson::<FeatureBlock>(bson).unwrap();
+        assert_eq!(block, from_bson::<FeatureBlock>(bson).unwrap());
     }
 
     pub(crate) fn get_test_sender_block(address: Address) -> FeatureBlock {

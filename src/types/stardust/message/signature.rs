@@ -4,7 +4,7 @@
 use bee_message_stardust::signature as stardust;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Signature {
     #[serde(rename = "ed25519")]
@@ -52,7 +52,7 @@ pub(crate) mod test {
     fn test_signature_bson() {
         let signature = get_test_signature();
         let bson = to_bson(&signature).unwrap();
-        from_bson::<Signature>(bson).unwrap();
+        assert_eq!(signature, from_bson::<Signature>(bson).unwrap());
     }
 
     pub(crate) fn get_test_signature() -> Signature {

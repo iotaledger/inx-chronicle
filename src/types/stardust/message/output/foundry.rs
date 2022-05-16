@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{FeatureBlock, NativeToken, OutputAmount, TokenScheme, TokenTag, UnlockCondition};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
     #[serde(with = "crate::types::stringify")]
     amount: OutputAmount,
@@ -93,7 +93,7 @@ pub(crate) mod test {
     fn test_foundry_output_bson() {
         let output = get_test_foundry_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<FoundryOutput>(bson).unwrap();
+        assert_eq!(output, from_bson::<FoundryOutput>(bson).unwrap());
     }
 
     pub(crate) fn get_test_foundry_output() -> FoundryOutput {

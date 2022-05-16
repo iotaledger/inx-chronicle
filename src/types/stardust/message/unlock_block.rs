@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::Signature;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum UnlockBlock {
     #[serde(rename = "signature")]
@@ -60,7 +60,19 @@ pub(crate) mod test {
     fn test_unlock_block_bson() {
         let unlock_block = get_test_signature_unlock_block();
         let bson = to_bson(&unlock_block).unwrap();
-        from_bson::<UnlockBlock>(bson).unwrap();
+        assert_eq!(unlock_block, from_bson::<UnlockBlock>(bson).unwrap());
+
+        let unlock_block = UnlockBlock::Reference { index: 1 };
+        let bson = to_bson(&unlock_block).unwrap();
+        assert_eq!(unlock_block, from_bson::<UnlockBlock>(bson).unwrap());
+
+        let unlock_block = UnlockBlock::Alias { index: 1 };
+        let bson = to_bson(&unlock_block).unwrap();
+        assert_eq!(unlock_block, from_bson::<UnlockBlock>(bson).unwrap());
+
+        let unlock_block = UnlockBlock::Nft { index: 1 };
+        let bson = to_bson(&unlock_block).unwrap();
+        assert_eq!(unlock_block, from_bson::<UnlockBlock>(bson).unwrap());
     }
 
     pub(crate) fn get_test_signature_unlock_block() -> UnlockBlock {

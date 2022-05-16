@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::{MilestoneId, OutputId};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Input {
     #[serde(rename = "utxo")]
@@ -50,11 +50,11 @@ pub(crate) mod test {
     fn test_input_bson() {
         let input = get_test_utxo_input();
         let bson = to_bson(&input).unwrap();
-        from_bson::<Input>(bson).unwrap();
+        assert_eq!(input, from_bson::<Input>(bson).unwrap());
 
         let input = get_test_treasury_input();
         let bson = to_bson(&input).unwrap();
-        from_bson::<Input>(bson).unwrap();
+        assert_eq!(input, from_bson::<Input>(bson).unwrap());
     }
 
     pub(crate) fn get_test_utxo_input() -> Input {

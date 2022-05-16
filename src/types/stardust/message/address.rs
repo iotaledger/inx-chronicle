@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{AliasId, NftId};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Ed25519Address(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -34,11 +34,11 @@ impl FromStr for Ed25519Address {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Address {
     #[serde(rename = "ed25519")]
     Ed25519(Ed25519Address),
-    #[serde(rename = "nft")]
+    #[serde(rename = "alias")]
     Alias(AliasId),
     #[serde(rename = "nft")]
     Nft(NftId),
@@ -86,24 +86,18 @@ pub(crate) mod test {
     use crate::types::stardust::message::output::test::OUTPUT_ID;
 
     #[test]
-    fn test_ed25519_bson() {
+    fn test_address_bson() {
         let address = Address::Ed25519(Ed25519Address::from_str(ED25519_ADDRESS).unwrap());
         let bson = to_bson(&address).unwrap();
-        from_bson::<Address>(bson).unwrap();
-    }
+        assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
-    #[test]
-    fn test_alias_bson() {
         let address = Address::Alias(AliasId::from_output_id_str(OUTPUT_ID).unwrap());
         let bson = to_bson(&address).unwrap();
-        from_bson::<Address>(bson).unwrap();
-    }
+        assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
-    #[test]
-    fn test_nft_bson() {
         let address = Address::Nft(NftId::from_output_id_str(OUTPUT_ID).unwrap());
         let bson = to_bson(&address).unwrap();
-        from_bson::<Address>(bson).unwrap();
+        assert_eq!(address, from_bson::<Address>(bson).unwrap());
     }
 
     pub(crate) fn get_test_ed25519_address() -> Address {

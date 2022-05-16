@@ -4,7 +4,7 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
     #[serde(with = "crate::types::stringify")]
     amount: u64,
@@ -34,7 +34,7 @@ pub(crate) mod test {
     fn test_treasury_output_bson() {
         let output = get_test_treasury_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<TreasuryOutput>(bson).unwrap();
+        assert_eq!(output, from_bson::<TreasuryOutput>(bson).unwrap());
     }
 
     pub(crate) fn get_test_treasury_output() -> TreasuryOutput {

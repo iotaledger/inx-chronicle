@@ -32,7 +32,7 @@ use crate::types::stardust::message::TransactionId;
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputId {
     pub transaction_id: TransactionId,
     pub index: OutputIndex,
@@ -63,7 +63,7 @@ impl FromStr for OutputId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Output {
     #[serde(rename = "treasury")]
@@ -125,23 +125,23 @@ pub(crate) mod test {
     fn test_output_bson() {
         let output = get_test_alias_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<Output>(bson).unwrap();
+        assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
         let output = get_test_basic_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<Output>(bson).unwrap();
+        assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
         let output = get_test_foundry_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<Output>(bson).unwrap();
+        assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
         let output = get_test_nft_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<Output>(bson).unwrap();
+        assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
         let output = get_test_treasury_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<Output>(bson).unwrap();
+        assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
     pub(crate) fn get_test_output_id() -> OutputId {

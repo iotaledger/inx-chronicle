@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::AliasId;
 use crate::types::stardust::message::Address;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum UnlockCondition {
     #[serde(rename = "address")]
@@ -122,39 +122,39 @@ pub(crate) mod test {
     fn test_unlock_condition_bson() {
         let block = get_test_address_condition(get_test_ed25519_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_address_condition(get_test_alias_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_storage_deposit_return_condition(get_test_ed25519_address(), 1);
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_storage_deposit_return_condition(get_test_nft_address(), 1);
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_timelock_condition(1, 1);
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_expiration_condition(get_test_ed25519_address(), 1, 1);
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_state_controller_address_condition(get_test_ed25519_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_governor_address_condition(get_test_alias_address());
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
         let block = get_test_immut_alias_address_condition(get_test_alias_id());
         let bson = to_bson(&block).unwrap();
-        from_bson::<UnlockCondition>(bson).unwrap();
+        assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
     }
 
     pub(crate) fn get_test_address_condition(address: Address) -> UnlockCondition {

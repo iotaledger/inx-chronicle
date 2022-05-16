@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::MilestoneId;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
     input_milestone_id: MilestoneId,
     #[serde(with = "crate::types::stringify")]
@@ -47,7 +47,7 @@ pub(crate) mod test {
     fn test_treasury_transaction_payload_bson() {
         let payload = get_test_treasury_transaction_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<TreasuryTransactionPayload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<TreasuryTransactionPayload>(bson).unwrap());
     }
 
     pub(crate) fn get_test_treasury_transaction_payload() -> TreasuryTransactionPayload {

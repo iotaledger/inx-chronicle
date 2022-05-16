@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub type TokenTag = Box<[u8]>;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TokenAmount(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -27,7 +27,7 @@ impl From<TokenAmount> for U256 {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TokenId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -53,7 +53,7 @@ impl FromStr for TokenId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum TokenScheme {
     #[serde(rename = "simple")]
@@ -94,7 +94,7 @@ impl TryFrom<TokenScheme> for stardust::TokenScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeToken {
     pub token_id: TokenId,
     pub amount: TokenAmount,
@@ -133,14 +133,14 @@ pub(crate) mod test {
     fn test_token_id_bson() {
         let token_id = get_test_token_id();
         let bson = to_bson(&token_id).unwrap();
-        from_bson::<TokenId>(bson).unwrap();
+        assert_eq!(token_id, from_bson::<TokenId>(bson).unwrap());
     }
 
     #[test]
     fn test_native_token_bson() {
         let native_token = get_test_native_token();
         let bson = to_bson(&native_token).unwrap();
-        from_bson::<NativeToken>(bson).unwrap();
+        assert_eq!(native_token, from_bson::<NativeToken>(bson).unwrap());
     }
 
     pub(crate) fn get_test_token_id() -> TokenId {

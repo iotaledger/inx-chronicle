@@ -16,7 +16,7 @@ pub use self::{
     treasury_transaction::TreasuryTransactionPayload,
 };
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Payload {
     #[serde(rename = "transaction")]
@@ -64,19 +64,19 @@ pub(crate) mod test {
     fn test_payload_bson() {
         let payload = get_test_transaction_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<Payload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
         let payload = get_test_milestone_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<Payload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
         let payload = get_test_treasury_transaction_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<Payload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
         let payload = get_test_tagged_data_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<Payload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
     pub(crate) fn get_test_transaction_payload() -> Payload {

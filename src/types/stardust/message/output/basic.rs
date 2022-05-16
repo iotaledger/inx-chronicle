@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicOutput {
     #[serde(with = "crate::types::stringify")]
     pub amount: OutputAmount,
@@ -74,7 +74,7 @@ pub(crate) mod test {
     fn test_basic_output_bson() {
         let output = get_test_basic_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<BasicOutput>(bson).unwrap();
+        assert_eq!(output, from_bson::<BasicOutput>(bson).unwrap());
     }
 
     pub(crate) fn get_test_basic_output() -> BasicOutput {

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AliasId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -40,7 +40,7 @@ impl FromStr for AliasId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasOutput {
     #[serde(with = "crate::types::stringify")]
     pub amount: OutputAmount,
@@ -131,14 +131,14 @@ pub(crate) mod test {
     fn test_alias_id_bson() {
         let alias_id = get_test_alias_id();
         let bson = to_bson(&alias_id).unwrap();
-        from_bson::<AliasId>(bson).unwrap();
+        assert_eq!(alias_id, from_bson::<AliasId>(bson).unwrap());
     }
 
     #[test]
     fn test_alias_output_bson() {
         let output = get_test_alias_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<AliasOutput>(bson).unwrap();
+        assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }
 
     pub(crate) fn get_test_alias_id() -> AliasId {

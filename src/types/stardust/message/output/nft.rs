@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NftId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -40,7 +40,7 @@ impl FromStr for NftId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NftOutput {
     amount: OutputAmount,
     native_tokens: Box<[NativeToken]>,
@@ -120,14 +120,14 @@ pub(crate) mod test {
     fn test_nft_id_bson() {
         let nft_id = get_test_nft_id();
         let bson = to_bson(&nft_id).unwrap();
-        from_bson::<NftId>(bson).unwrap();
+        assert_eq!(nft_id, from_bson::<NftId>(bson).unwrap());
     }
 
     #[test]
     fn test_nft_output_bson() {
         let output = get_test_nft_output();
         let bson = to_bson(&output).unwrap();
-        from_bson::<NftOutput>(bson).unwrap();
+        assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }
 
     pub(crate) fn get_test_nft_id() -> NftId {

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct MilestoneId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -36,7 +36,7 @@ impl FromStr for MilestoneId {
 
 pub type MilestoneIndex = u32;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestonePayload {
     pub essence: MilestoneEssence,
     pub signatures: Box<[Signature]>,
@@ -65,7 +65,7 @@ impl TryFrom<MilestonePayload> for stardust::MilestonePayload {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestoneEssence {
     pub index: MilestoneIndex,
     pub timestamp: u32,
@@ -122,7 +122,7 @@ impl TryFrom<MilestoneEssence> for stardust::MilestoneEssence {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MilestoneOption {
     #[serde(rename = "receipt")]
@@ -186,7 +186,7 @@ impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
     #[serde(with = "serde_bytes")]
     tail_transaction_hash: Box<[u8]>,
@@ -254,14 +254,14 @@ pub(crate) mod test {
     fn test_milestone_id_bson() {
         let milestone_id = get_test_milestone_id();
         let bson = to_bson(&milestone_id).unwrap();
-        from_bson::<MilestoneId>(bson).unwrap();
+        assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
     }
 
     #[test]
     fn test_milestone_payload_bson() {
         let payload = get_test_milestone_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<MilestonePayload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }
 
     pub(crate) fn get_test_milestone_id() -> MilestoneId {

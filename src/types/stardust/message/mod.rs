@@ -47,7 +47,7 @@ impl FromStr for MessageId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
     pub id: MessageId,
     pub protocol_version: u8,
@@ -109,15 +109,15 @@ mod tests {
     fn test_message_bson() {
         let message = get_test_transaction_message();
         let bson = to_bson(&message).unwrap();
-        from_bson::<Message>(bson).unwrap();
+        assert_eq!(message, from_bson::<Message>(bson).unwrap());
 
         let message = get_test_milestone_message();
         let bson = to_bson(&message).unwrap();
-        from_bson::<Message>(bson).unwrap();
+        assert_eq!(message, from_bson::<Message>(bson).unwrap());
 
         let message = get_test_tagged_data_message();
         let bson = to_bson(&message).unwrap();
-        from_bson::<Message>(bson).unwrap();
+        assert_eq!(message, from_bson::<Message>(bson).unwrap());
     }
 
     pub(crate) fn get_test_message_id() -> MessageId {

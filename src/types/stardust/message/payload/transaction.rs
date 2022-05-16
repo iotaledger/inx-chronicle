@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::{Input, Output, Payload, UnlockBlock};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
@@ -40,7 +40,7 @@ impl FromStr for TransactionId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionPayload {
     pub id: TransactionId,
     pub essence: TransactionEssence,
@@ -73,7 +73,7 @@ impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum TransactionEssence {
     #[serde(rename = "regular")]
@@ -162,7 +162,7 @@ pub(crate) mod test {
     fn test_transaction_payload_bson() {
         let payload = get_test_transaction_payload();
         let bson = to_bson(&payload).unwrap();
-        from_bson::<TransactionPayload>(bson).unwrap();
+        assert_eq!(payload, from_bson::<TransactionPayload>(bson).unwrap());
     }
 
     pub(crate) fn get_test_transaction_essence() -> TransactionEssence {
