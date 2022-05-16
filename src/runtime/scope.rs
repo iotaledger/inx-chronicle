@@ -164,6 +164,8 @@ impl RuntimeScope {
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
         let (sender, receiver) = unbounded_channel::<Envelope<A>>();
+        #[cfg(feature = "metrics")]
+        let counters = (sender.counter(), receiver.counter());
         let receiver = UnboundedReceiverStream::new(receiver);
         let (receiver, shutdown_handle) = if let Some(stream) = stream {
             let receiver = receiver.merge(stream);
@@ -178,7 +180,13 @@ impl RuntimeScope {
         if add_to_registry {
             self.scope.0.insert_addr(handle.clone()).await;
         }
-        let cx = ActorContext::new(scope, handle.clone(), receiver);
+        let cx = ActorContext::new(
+            scope,
+            handle.clone(),
+            receiver,
+            #[cfg(feature = "metrics")]
+            counters,
+        );
         log::debug!("Initializing {}", actor.name());
         (handle, cx, abort_reg)
     }

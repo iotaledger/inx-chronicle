@@ -24,20 +24,41 @@ use crate::runtime::{config::SpawnConfig, error::RuntimeError, scope::RuntimeSco
 
 type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
 
+#[cfg(feature = "metrics")]
+type Counters = (
+    bee_metrics::metrics::sync::mpsc::UnboundedSenderCounter,
+    bee_metrics::metrics::sync::mpsc::UnboundedReceiverCounter,
+);
+
 /// The context that an actor can use to interact with the runtime.
 pub struct ActorContext<A: Actor> {
     pub(crate) scope: RuntimeScope,
     pub(crate) handle: Addr<A>,
     pub(crate) receiver: Receiver<A>,
+    #[cfg(feature = "metrics")]
+    counters: Option<Counters>,
 }
 
 impl<A: Actor> ActorContext<A> {
-    pub(crate) fn new(scope: RuntimeScope, handle: Addr<A>, receiver: Receiver<A>) -> Self {
+    pub(crate) fn new(
+        scope: RuntimeScope,
+        handle: Addr<A>,
+        receiver: Receiver<A>,
+        #[cfg(feature = "metrics")] counters: Counters,
+    ) -> Self {
         Self {
             handle,
             scope,
             receiver,
+            #[cfg(feature = "metrics")]
+            counters: Some(counters),
         }
+    }
+
+    /// Takes the counter metrics for this actor's channel.
+    #[cfg(feature = "metrics")]
+    pub fn take_counters(&mut self) -> Option<Counters> {
+        self.counters.take()
     }
 
     /// Spawn a new supervised child actor.
