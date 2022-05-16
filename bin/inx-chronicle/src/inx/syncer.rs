@@ -254,7 +254,7 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
         NewSyncedMilestone(latest_synced_index): NewSyncedMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Syncer received new synced milestone '{}'", latest_synced_index);
+        log::warn!("Syncer received new synced milestone '{}'", latest_synced_index);
 
         let was_requested = sync_state.pending.remove(&latest_synced_index).is_some();
         if was_requested {
