@@ -6,8 +6,6 @@ pub mod solidifier;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 pub(crate) mod stardust_inx;
 
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
@@ -44,14 +42,13 @@ impl Collector {
 
 #[async_trait]
 impl Actor for Collector {
-    type State = HashMap<usize, Addr<Solidifier>>;
+    type State = Box<[Addr<Solidifier>]>;
     type Error = CollectorError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let mut solidifiers = HashMap::new();
+        let mut solidifiers = Vec::with_capacity(self.config.solidifier_count);
         for i in 0..self.config.solidifier_count {
-            solidifiers.insert(
-                i,
+            solidifiers.push(
                 cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
                     .await,
             );
@@ -59,7 +56,7 @@ impl Actor for Collector {
         #[cfg(all(feature = "stardust", feature = "inx"))]
         cx.spawn_child(stardust_inx::InxWorker::new(self.config.inx.clone()))
             .await;
-        Ok(solidifiers)
+        Ok(solidifiers.into_boxed_slice())
     }
 }
 
@@ -79,7 +76,9 @@ impl HandleEvent<Report<Solidifier>> for Collector {
                 ActorError::Result(e) => match e {
                     #[cfg(all(feature = "stardust", feature = "inx"))]
                     solidifier::SolidifierError::MissingStardustInxRequester => {
-                        solidifiers.insert(report.actor.id, cx.spawn_child(report.actor).await);
+                        let actor_id = report.actor.id;
+                        // Panic: `Solidifier::id` points to the correct index by construction.
+                        solidifiers[actor_id] = cx.spawn_child(report.actor).await;
                     }
                     // TODO: Maybe map Solidifier errors to Collector errors and return them?
                     _ => {
