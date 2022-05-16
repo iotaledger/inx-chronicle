@@ -180,6 +180,8 @@ impl HandleEvent<Report<InxSyncer>> for InxWorker {
 
 #[cfg(feature = "stardust")]
 pub mod stardust {
+    use std::time::Instant;
+
     use bee_message_stardust::payload::milestone::MilestoneIndex;
     use chronicle::{dto::MessageId, runtime::actor::addr::OptionalAddr};
 
@@ -221,12 +223,14 @@ pub mod stardust {
         ) -> Result<(), Self::Error> {
             match inx_request {
                 InxRequest::NodeStatus => {
+                    let now = Instant::now();
                     let node_status: NodeStatus = inx_client
                         .read_node_status(NoParams {})
                         .await?
                         .into_inner()
                         .try_into()
                         .unwrap();
+                    log::debug!("Requesting node status took {}s", now.elapsed().as_secs_f32());
 
                     if !node_status.is_healthy {
                         log::warn!("Node is unhealthy.");
@@ -236,6 +240,7 @@ pub mod stardust {
                     cx.addr::<InxSyncer>().await.send(node_status)?;
                 }
                 InxRequest::Message(message_id, solidifier_addr, mut ms_state) => {
+                    let now = Instant::now();
                     match (
                         inx_client
                             .read_message(inx::proto::MessageId {
@@ -249,6 +254,8 @@ pub mod stardust {
                             .await,
                     ) {
                         (Ok(raw), Ok(metadata)) => {
+                            log::debug!("Requesting message/metadata took {}s", now.elapsed().as_secs_f32());
+
                             let (raw, metadata) = (raw.into_inner(), metadata.into_inner());
                             cx.addr::<Collector>()
                                 .await
@@ -271,12 +278,15 @@ pub mod stardust {
                     }
                 }
                 InxRequest::Metadata(message_id, solidifier_addr, ms_state) => {
+                    let now = Instant::now();
                     if let Ok(metadata) = inx_client
                         .read_message_metadata(inx::proto::MessageId {
                             id: message_id.0.into(),
                         })
                         .await
                     {
+                        log::debug!("Requesting metadata took {}s", now.elapsed().as_secs_f32());
+
                         let metadata = metadata.into_inner();
                         cx.addr::<Collector>()
                             .await
@@ -285,7 +295,7 @@ pub mod stardust {
                     }
                 }
                 InxRequest::Milestone(milestone_index, syncer_addr) => {
-                    log::trace!("Requesting milestone {}", *milestone_index);
+                    let now = Instant::now();
                     if let Ok(milestone) = inx_client
                         .read_milestone(inx::proto::MilestoneRequest {
                             milestone_index: *milestone_index,
@@ -293,6 +303,7 @@ pub mod stardust {
                         })
                         .await
                     {
+                        log::debug!("Requesting milestone '{}' took {}s", *milestone_index, now.elapsed().as_secs_f32());
                         let milestone: inx::proto::Milestone = milestone.into_inner();
 
                         // Instruct the collector to solidify this milestone.
