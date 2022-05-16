@@ -8,7 +8,7 @@ use crate::types::stardust::message::Signature;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
-pub enum UnlockBlock {
+pub enum Unlock {
     #[serde(rename = "signature")]
     Signature(Signature),
     #[serde(rename = "reference")]
@@ -19,30 +19,30 @@ pub enum UnlockBlock {
     Nft { index: u16 },
 }
 
-impl From<&stardust::UnlockBlock> for UnlockBlock {
-    fn from(value: &stardust::UnlockBlock) -> Self {
+impl From<&stardust::Unlock> for Unlock {
+    fn from(value: &stardust::Unlock) -> Self {
         match value {
-            stardust::UnlockBlock::Signature(s) => Self::Signature(s.signature().into()),
-            stardust::UnlockBlock::Reference(r) => Self::Reference { index: r.index() },
-            stardust::UnlockBlock::Alias(a) => Self::Alias { index: a.index() },
-            stardust::UnlockBlock::Nft(n) => Self::Nft { index: n.index() },
+            stardust::Unlock::Signature(s) => Self::Signature(s.signature().into()),
+            stardust::Unlock::Reference(r) => Self::Reference { index: r.index() },
+            stardust::Unlock::Alias(a) => Self::Alias { index: a.index() },
+            stardust::Unlock::Nft(n) => Self::Nft { index: n.index() },
         }
     }
 }
 
-impl TryFrom<UnlockBlock> for stardust::UnlockBlock {
+impl TryFrom<Unlock> for stardust::Unlock {
     type Error = crate::types::error::Error;
 
-    fn try_from(value: UnlockBlock) -> Result<Self, Self::Error> {
+    fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
-            UnlockBlock::Signature(s) => {
-                stardust::UnlockBlock::Signature(stardust::SignatureUnlockBlock::new(s.try_into()?))
+            Unlock::Signature(s) => {
+                stardust::Unlock::Signature(stardust::SignatureUnlock::new(s.try_into()?))
             }
-            UnlockBlock::Reference { index } => {
-                stardust::UnlockBlock::Reference(stardust::ReferenceUnlockBlock::new(index)?)
+            Unlock::Reference { index } => {
+                stardust::Unlock::Reference(stardust::ReferenceUnlock::new(index)?)
             }
-            UnlockBlock::Alias { index } => stardust::UnlockBlock::Alias(stardust::AliasUnlockBlock::new(index)?),
-            UnlockBlock::Nft { index } => stardust::UnlockBlock::Nft(stardust::NftUnlockBlock::new(index)?),
+            Unlock::Alias { index } => stardust::Unlock::Alias(stardust::AliasUnlock::new(index)?),
+            Unlock::Nft { index } => stardust::Unlock::Nft(stardust::NftUnlock::new(index)?),
         })
     }
 }

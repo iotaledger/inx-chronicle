@@ -4,7 +4,7 @@
 use bee_message_stardust::payload::transaction as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::message::{Input, Output, Payload, UnlockBlock};
+use crate::types::stardust::message::{Input, Output, Payload, Unlock};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -34,7 +34,7 @@ impl TryFrom<TransactionId> for stardust::TransactionId {
 pub struct TransactionPayload {
     pub id: TransactionId,
     pub essence: TransactionEssence,
-    pub unlock_blocks: Box<[UnlockBlock]>,
+    pub unlock_blocks: Box<[Unlock]>,
 }
 
 impl From<&stardust::TransactionPayload> for TransactionPayload {
@@ -53,7 +53,7 @@ impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
         Ok(stardust::TransactionPayload::new(
             value.essence.try_into()?,
-            bee_message_stardust::unlock_block::UnlockBlocks::new(
+            bee_message_stardust::unlock_block::Unlocks::new(
                 Vec::from(value.unlock_blocks)
                     .into_iter()
                     .map(TryInto::try_into)
