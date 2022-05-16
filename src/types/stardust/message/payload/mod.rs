@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload as stardust;
+use bee_block_stardust::payload as stardust;
 use serde::{Deserialize, Serialize};
 
 mod milestone;

@@ -12,7 +12,7 @@ mod foundry;
 mod nft;
 mod treasury;
 
-use bee_message_stardust::output as stardust;
+use bee_block_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -25,7 +25,7 @@ pub use self::{
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
-use crate::types::stardust::message::TransactionId;
+use crate::types::stardust::block::TransactionId;
 
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;

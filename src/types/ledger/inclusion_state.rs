@@ -11,17 +11,17 @@ use thiserror::Error;
 #[allow(missing_docs)]
 pub struct UnexpectedLedgerInclusionState(u8);
 
-/// A message's ledger inclusion state.
+/// A block's ledger inclusion state.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum LedgerInclusionState {
-    /// A conflicting message, ex. a double spend
+    /// A conflicting block, ex. a double spend
     #[serde(rename = "conflicting")]
     Conflicting = 0,
-    /// A successful, included message
+    /// A successful, included block
     #[serde(rename = "included")]
     Included = 1,
-    /// A message without a transaction
+    /// A block without a transaction
     #[serde(rename = "noTransaction")]
     NoTransaction = 2,
 }

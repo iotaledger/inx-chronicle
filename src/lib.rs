@@ -10,5 +10,5 @@
 pub mod db;
 /// Module that contains the actor runtime.
 pub mod runtime;
-/// Module containing the message types.
+/// Module containing the block types.
 pub mod types;

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use bee_message_stardust::address as bee;
+use bee_block_stardust::address as bee;
 use chronicle::{
     db::{bson::DocExt, MongoDb},
-    types::{ledger::LedgerInclusionState, stardust::message::Address},
+    types::{ledger::LedgerInclusionState, stardust::block::Address},
 };
 use futures::TryStreamExt;
 
@@ -51,7 +51,7 @@ async fn transaction_history(
     let transactions = records
         .into_iter()
         .map(|mut rec| {
-            let mut payload = rec.take_document("message.payload")?;
+            let mut payload = rec.take_document("block.payload")?;
             let spending_transaction = rec.take_document("spending_transaction").ok();
             let output = payload.take_document("essence.outputs")?;
             Ok(Transfer {
@@ -63,7 +63,7 @@ async fn transaction_history(
                     .ok()
                     .map(LedgerInclusionState::try_from)
                     .transpose()?,
-                message_id: rec.get_as_string("message_id")?,
+                block_id: rec.get_as_string("block_id")?,
                 amount: output.get_as_u64("amount")?,
             })
         })

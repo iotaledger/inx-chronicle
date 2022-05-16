@@ -3,7 +3,7 @@
 
 use std::mem::size_of;
 
-use bee_message_stardust::output as stardust;
+use bee_block_stardust::output as stardust;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 

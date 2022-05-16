@@ -10,15 +10,15 @@ use async_trait::async_trait;
 use chronicle::runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report};
 use inx::{
     client::InxClient,
-    proto::{MessageFilter, NoParams},
+    proto::{BlockFilter, NoParams},
     tonic::{Channel, Status},
 };
 use thiserror::Error;
 
 use crate::collector::Collector;
 
-type MessageStream = InxStreamListener<inx::proto::Message>;
-type MessageMetadataStream = InxStreamListener<inx::proto::MessageMetadata>;
+type BlockStream = InxStreamListener<inx::proto::Block>;
+type BlockMetadataStream = InxStreamListener<inx::proto::BlockMetadata>;
 type MilestoneStream = InxStreamListener<inx::proto::Milestone>;
 
 #[derive(Debug, Error)]
@@ -49,20 +49,20 @@ impl Actor for InxListener {
     type Error = StardustInxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-        cx.spawn_child::<MessageStream, _>(
+        let block_stream = self.inx_client.listen_to_blocks(BlockFilter {}).await?.into_inner();
+        cx.spawn_child::<BlockStream, _>(
             InxStreamListener::default()
-                .with_stream(message_stream)
+                .with_stream(block_stream)
                 .with_registration(false),
         )
         .await;
 
         let metadata_stream = self
             .inx_client
-            .listen_to_referenced_messages(MessageFilter {})
+            .listen_to_referenced_blocks(BlockFilter {})
             .await?
             .into_inner();
-        cx.spawn_child::<MessageMetadataStream, _>(
+        cx.spawn_child::<BlockMetadataStream, _>(
             InxStreamListener::default()
                 .with_stream(metadata_stream)
                 .with_registration(false),
@@ -86,11 +86,11 @@ impl Actor for InxListener {
 }
 
 #[async_trait]
-impl HandleEvent<Report<MessageStream>> for InxListener {
+impl HandleEvent<Report<BlockStream>> for InxListener {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<MessageStream>,
+        event: Report<BlockStream>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
@@ -99,10 +99,10 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let message_stream = self.inx_client.listen_to_messages(MessageFilter {}).await?.into_inner();
-                    cx.spawn_child::<MessageStream, _>(
+                    let block_stream = self.inx_client.listen_to_blocks(BlockFilter {}).await?.into_inner();
+                    cx.spawn_child::<BlockStream, _>(
                         InxStreamListener::default()
-                            .with_stream(message_stream)
+                            .with_stream(block_stream)
                             .with_registration(false),
                     )
                     .await;
@@ -117,11 +117,11 @@ impl HandleEvent<Report<MessageStream>> for InxListener {
 }
 
 #[async_trait]
-impl HandleEvent<Report<MessageMetadataStream>> for InxListener {
+impl HandleEvent<Report<BlockMetadataStream>> for InxListener {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<MessageMetadataStream>,
+        event: Report<BlockMetadataStream>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
@@ -130,14 +130,14 @@ impl HandleEvent<Report<MessageMetadataStream>> for InxListener {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let message_stream = self
+                    let block_stream = self
                         .inx_client
-                        .listen_to_referenced_messages(MessageFilter {})
+                        .listen_to_referenced_blocks(BlockFilter {})
                         .await?
                         .into_inner();
-                    cx.spawn_child::<MessageMetadataStream, _>(
+                    cx.spawn_child::<BlockMetadataStream, _>(
                         InxStreamListener::default()
-                            .with_stream(message_stream)
+                            .with_stream(block_stream)
                             .with_registration(false),
                     )
                     .await;

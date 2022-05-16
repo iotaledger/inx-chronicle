@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::input as stardust;
+use bee_block_stardust::input as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::message::{MilestoneId, OutputId};
+use crate::types::stardust::block::{MilestoneId, OutputId};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]

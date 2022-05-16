@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload::milestone as stardust;
+use bee_block_stardust::payload::milestone as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
+use crate::types::stardust::block::{Address, BlockId, Signature, TreasuryTransactionPayload};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -60,7 +60,7 @@ pub struct MilestoneEssence {
     pub index: MilestoneIndex,
     pub timestamp: u32,
     pub previous_milestone_id: MilestoneId,
-    pub parents: Box<[MessageId]>,
+    pub parents: Box<[BlockId]>,
     #[serde(with = "serde_bytes")]
     pub confirmed_merkle_proof: Box<[u8]>,
     #[serde(with = "serde_bytes")]
@@ -76,7 +76,7 @@ impl From<&stardust::MilestoneEssence> for MilestoneEssence {
             index: value.index().0,
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
-            parents: value.parents().iter().map(|id| MessageId::from(*id)).collect(),
+            parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
             confirmed_merkle_proof: value.confirmed_merkle_root().to_vec().into_boxed_slice(),
             applied_merkle_proof: value.applied_merkle_root().to_vec().into_boxed_slice(),
             metadata: value.metadata().to_vec(),
@@ -93,7 +93,7 @@ impl TryFrom<MilestoneEssence> for stardust::MilestoneEssence {
             value.index.into(),
             value.timestamp,
             value.previous_milestone_id.try_into()?,
-            bee_message_stardust::parent::Parents::new(
+            bee_block_stardust::parent::Parents::new(
                 Vec::from(value.parents)
                     .into_iter()
                     .map(TryInto::try_into)
@@ -102,7 +102,7 @@ impl TryFrom<MilestoneEssence> for stardust::MilestoneEssence {
             value.confirmed_merkle_proof.as_ref().try_into()?,
             value.applied_merkle_proof.as_ref().try_into()?,
             value.metadata,
-            bee_message_stardust::payload::MilestoneOptions::new(
+            bee_block_stardust::payload::MilestoneOptions::new(
                 Vec::from(value.options)
                     .into_iter()
                     .map(TryInto::try_into)

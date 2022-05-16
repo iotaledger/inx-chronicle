@@ -1,11 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output::unlock_condition as stardust;
+use bee_block_stardust::output::unlock_condition as stardust;
 use serde::{Deserialize, Serialize};
 
 use super::AliasId;
-use crate::types::stardust::message::Address;
+use crate::types::stardust::block::Address;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -93,7 +93,7 @@ impl TryFrom<UnlockCondition> for stardust::UnlockCondition {
             }
             UnlockCondition::ImmutableAliasAddress(a) => {
                 Self::ImmutableAliasAddress(stardust::ImmutableAliasAddressUnlockCondition::new(
-                    bee_message_stardust::address::AliasAddress::new(a.try_into()?),
+                    bee_block_stardust::address::AliasAddress::new(a.try_into()?),
                 ))
             }
         })

@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use chronicle::{
     runtime::{Actor, ActorContext, ActorError, Addr, HandleEvent, Report, SpawnActor},
-    types::stardust::message::MessageId,
+    types::stardust::block::BlockId,
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
 
@@ -17,7 +17,7 @@ use super::{
 };
 use crate::collector::{
     solidifier::Solidifier,
-    stardust_inx::{MilestoneState, RequestedMessage},
+    stardust_inx::{MilestoneState, RequestedBlock},
     Collector,
 };
 
@@ -107,8 +107,8 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
 
 #[derive(Debug, Clone)]
 pub enum InxRequestType {
-    Message(MessageId),
-    Metadata(MessageId),
+    Block(BlockId),
+    Metadata(BlockId),
 }
 
 #[derive(Debug)]
@@ -119,17 +119,17 @@ pub struct InxRequest {
 }
 
 impl InxRequest {
-    pub fn get_message(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+    pub fn get_block(block_id: BlockId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
         Self {
-            request_type: InxRequestType::Message(message_id),
+            request_type: InxRequestType::Block(block_id),
             solidifier_addr,
             ms_state,
         }
     }
 
-    pub fn get_metadata(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+    pub fn get_metadata(block_id: BlockId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
         Self {
-            request_type: InxRequestType::Metadata(message_id),
+            request_type: InxRequestType::Metadata(block_id),
             solidifier_addr,
             ms_state,
         }
@@ -149,16 +149,16 @@ impl HandleEvent<InxRequest> for InxWorker {
         inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match request_type {
-            InxRequestType::Message(message_id) => {
+            InxRequestType::Block(block_id) => {
                 match (
                     inx_client
-                        .read_message(inx::proto::MessageId {
-                            id: message_id.0.clone().into(),
+                        .read_block(inx::proto::BlockId {
+                            id: block_id.0.clone().into(),
                         })
                         .await,
                     inx_client
-                        .read_message_metadata(inx::proto::MessageId {
-                            id: message_id.0.into(),
+                        .read_block_metadata(inx::proto::BlockId {
+                            id: block_id.0.into(),
                         })
                         .await,
                 ) {
@@ -166,17 +166,17 @@ impl HandleEvent<InxRequest> for InxWorker {
                         let (raw, metadata) = (raw.into_inner(), metadata.into_inner());
                         cx.addr::<Collector>()
                             .await
-                            .send(RequestedMessage::new(Some(raw), metadata, solidifier_addr, ms_state))
+                            .send(RequestedBlock::new(Some(raw), metadata, solidifier_addr, ms_state))
                             .map_err(|_| InxWorkerError::MissingCollector)?;
                     }
                     (Err(e), Ok(metadata)) => {
                         let metadata = metadata.into_inner();
-                        // If this isn't a message we care about, don't worry, be happy
+                        // If this isn't a block we care about, don't worry, be happy
                         if metadata.milestone_index != ms_state.milestone_index || !metadata.solid {
                             ms_state.process_queue.pop_front();
                             solidifier_addr.send(ms_state)?;
                         } else {
-                            log::warn!("Failed to read message: {:?}", e);
+                            log::warn!("Failed to read block: {:?}", e);
                         }
                     }
                     (_, Err(e)) => {
@@ -184,17 +184,17 @@ impl HandleEvent<InxRequest> for InxWorker {
                     }
                 }
             }
-            InxRequestType::Metadata(message_id) => {
+            InxRequestType::Metadata(block_id) => {
                 if let Ok(metadata) = inx_client
-                    .read_message_metadata(inx::proto::MessageId {
-                        id: message_id.0.into(),
+                    .read_block_metadata(inx::proto::BlockId {
+                        id: block_id.0.into(),
                     })
                     .await
                 {
                     let metadata = metadata.into_inner();
                     cx.addr::<Collector>()
                         .await
-                        .send(RequestedMessage::new(None, metadata, solidifier_addr, ms_state))
+                        .send(RequestedBlock::new(None, metadata, solidifier_addr, ms_state))
                         .map_err(|_| InxWorkerError::MissingCollector)?;
                 }
             }

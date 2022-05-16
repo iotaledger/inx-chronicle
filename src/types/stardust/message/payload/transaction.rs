@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload::transaction as stardust;
+use bee_block_stardust::payload::transaction as stardust;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::message::{Input, Output, Payload, Unlock};
+use crate::types::stardust::block::{Input, Output, Payload, Unlock};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -53,7 +53,7 @@ impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
         Ok(stardust::TransactionPayload::new(
             value.essence.try_into()?,
-            bee_message_stardust::unlock::Unlocks::new(
+            bee_block_stardust::unlock::Unlocks::new(
                 Vec::from(value.unlocks)
                     .into_iter()
                     .map(TryInto::try_into)
@@ -107,10 +107,10 @@ impl TryFrom<TransactionEssence> for stardust::TransactionEssence {
                 let outputs = Vec::from(outputs)
                     .into_iter()
                     .map(TryInto::try_into)
-                    .collect::<Result<Vec<bee_message_stardust::output::Output>, _>>()?;
+                    .collect::<Result<Vec<bee_block_stardust::output::Output>, _>>()?;
                 let mut builder = stardust::RegularTransactionEssence::builder(
                     network_id,
-                    bee_message_stardust::output::InputsCommitment::new(outputs.iter()),
+                    bee_block_stardust::output::InputsCommitment::new(outputs.iter()),
                 )
                 .with_inputs(
                     Vec::from(inputs)
