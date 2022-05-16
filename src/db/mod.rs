@@ -7,4 +7,5 @@ pub mod bson;
 pub mod model;
 
 mod mongodb;
+
 pub use self::mongodb::{MongoDb, MongoDbConfig};
