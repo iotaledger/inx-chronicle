@@ -56,7 +56,7 @@ tower-http = { version = "0.3", default-features = false, features = ["cors", "c
 inx = { git = "https://github.com/iotaledger/inx", version = "0.3", default-features = false, features = ["types"], optional = true }
 
 # Metrics
-bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, optional = true }
+bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
 
 # Stardust types
 bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
@@ -74,7 +74,7 @@ default = [
     "stardust",
 ]
 analytics = []
-api = [ 
+api = [
     "dep:axum",
     "derive_more/from",
     "dep:hyper",
