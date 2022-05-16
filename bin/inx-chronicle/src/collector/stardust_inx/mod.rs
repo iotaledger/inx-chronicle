@@ -185,8 +185,8 @@ impl HandleEvent<inx::proto::Milestone> for Collector {
                     .extend(Vec::from(rec.payload.essence.parents).into_iter());
                 solidifiers
                     // Divide solidifiers fairly by milestone
-                    .get(&(rec.milestone_index as usize % self.config.solidifier_count))
-                    // Unwrap: We never remove solidifiers, so they should always exist
+                    .get(rec.milestone_index as usize % self.config.solidifier_count)
+                    // Unwrap: We can never remove a `Solidifier` from the boxed slice, so they should always exist.
                     .unwrap()
                     .send(state)?;
             }
