@@ -125,12 +125,6 @@ mod stardust {
                 }
             }
 
-            log::debug!(
-                "Milestone '{}' solidified in {}s.",
-                ms_state.milestone_index,
-                ms_state.time.elapsed().as_secs_f32()
-            );
-
             // If we finished all the parents, that means we have a complete milestone
             // so we should mark it synced
             self.db
@@ -142,29 +136,19 @@ mod stardust {
                 .await?;
 
             log::debug!(
-                "Milestone '{}' synced in {}s.",
+                // "Milestone '{}' synced in {}s.",
+                "Milestone '{}' synced",
                 ms_state.milestone_index,
-                ms_state.time.elapsed().as_secs_f32()
+                // ms_state.time.elapsed().as_secs_f32()
             );
 
             // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a
             // historic one.
             // let _ = ms_state.notify.send(NewSyncedMilestone(ms_state.milestone_index));
 
-            match cx
-                .addr::<InxSyncer>()
+            cx.addr::<InxSyncer>()
                 .await
-                .send(NewSyncedMilestone(ms_state.milestone_index))
-            {
-                Err(_) => log::error!("Failed to notify Syncer"),
-                Ok(_) => (),
-            }
-
-            log::debug!(
-                "Milestone '{}' published in {}s.",
-                ms_state.milestone_index,
-                ms_state.time.elapsed().as_secs_f32()
-            );
+                .send(NewSyncedMilestone(ms_state.milestone_index))?;
 
             Ok(())
         }

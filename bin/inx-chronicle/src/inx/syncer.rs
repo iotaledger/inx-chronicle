@@ -1,10 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    collections::HashMap,
-    time::Duration,
-};
+use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -196,7 +193,12 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
                 sync_state.start_ms_index,
                 sync_state.target_ms_index
             );
-            cx.delay(NextMilestone { index: sync_state.start_ms_index }, None)?;
+            cx.delay(
+                NextMilestone {
+                    index: sync_state.start_ms_index,
+                },
+                None,
+            )?;
         }
         Ok(())
     }
