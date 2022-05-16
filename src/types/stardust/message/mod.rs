@@ -6,12 +6,12 @@ mod input;
 mod output;
 mod payload;
 mod signature;
-mod unlock_block;
+mod unlock;
 
 use bee_message_stardust as stardust;
 use serde::{Deserialize, Serialize};
 
-pub use self::{address::*, input::*, output::*, payload::*, signature::*, unlock_block::*};
+pub use self::{address::*, input::*, output::*, payload::*, signature::*, unlock::*};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
 #[serde(transparent)]

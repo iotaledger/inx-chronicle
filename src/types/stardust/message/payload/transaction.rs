@@ -34,7 +34,7 @@ impl TryFrom<TransactionId> for stardust::TransactionId {
 pub struct TransactionPayload {
     pub id: TransactionId,
     pub essence: TransactionEssence,
-    pub unlock_blocks: Box<[Unlock]>,
+    pub unlocks: Box<[Unlock]>,
 }
 
 impl From<&stardust::TransactionPayload> for TransactionPayload {
@@ -42,7 +42,7 @@ impl From<&stardust::TransactionPayload> for TransactionPayload {
         Self {
             id: value.id().into(),
             essence: value.essence().into(),
-            unlock_blocks: value.unlock_blocks().iter().map(Into::into).collect(),
+            unlocks: value.unlocks().iter().map(Into::into).collect(),
         }
     }
 }
@@ -53,8 +53,8 @@ impl TryFrom<TransactionPayload> for stardust::TransactionPayload {
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
         Ok(stardust::TransactionPayload::new(
             value.essence.try_into()?,
-            bee_message_stardust::unlock_block::Unlocks::new(
-                Vec::from(value.unlock_blocks)
+            bee_message_stardust::unlock::Unlocks::new(
+                Vec::from(value.unlocks)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
