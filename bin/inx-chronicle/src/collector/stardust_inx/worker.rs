@@ -131,10 +131,10 @@ impl<Sender: Actor> MetadataRequest<Sender> {
     }
 }
 
-pub struct MilestoneRequest(u32, usize, tokio::sync::oneshot::Sender<u32>);
+pub struct MilestoneRequest(u32, tokio::sync::oneshot::Sender<u32>);
 impl MilestoneRequest {
-    pub fn new(milestone_index: u32, retries: usize, sender: tokio::sync::oneshot::Sender<u32>) -> Self {
-        Self(milestone_index, retries, sender)
+    pub fn new(milestone_index: u32, sender: tokio::sync::oneshot::Sender<u32>) -> Self {
+        Self(milestone_index, sender)
     }
 }
 
@@ -240,7 +240,7 @@ impl HandleEvent<MilestoneRequest> for InxWorker {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        MilestoneRequest(milestone_index, retries, sender): MilestoneRequest,
+        MilestoneRequest(milestone_index, sender): MilestoneRequest,
         inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Requesting milestone {}", milestone_index);
@@ -257,7 +257,6 @@ impl HandleEvent<MilestoneRequest> for InxWorker {
             .await
         {
             Ok(milestone) => {
-                // TODO: unwrap
                 let milestone: inx::proto::Milestone = milestone.into_inner();
 
                 // Instruct the collector to solidify this milestone.
@@ -266,21 +265,7 @@ impl HandleEvent<MilestoneRequest> for InxWorker {
                     .send(RequestedMilestone::new(milestone, sender))?;
             }
             Err(e) => {
-                log::warn!("No milestone response for {}", milestone_index);
-                match e.code().description() {
-                    // TODO: Import `Code` in the inx crate so we can match on it
-                    "The operation was cancelled"
-                    | "Unknown error"
-                    | "Deadline expired before operation could complete"
-                    | "Some resource has been exhausted"
-                    | "The service is currently unavailable" => {
-                        // TODO: Rebase onto combined inx and collector
-                        if retries > 0 {
-                            cx.delay(MilestoneRequest::new(milestone_index, retries - 1, sender), None)?;
-                        }
-                    }
-                    _ => (),
-                }
+                log::warn!("No milestone response for {}: {}", milestone_index, e);
             }
         }
         Ok(())

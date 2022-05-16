@@ -34,6 +34,7 @@ pub struct MetricsState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MetricsConfig {
     address: IpAddr,
     port: u16,

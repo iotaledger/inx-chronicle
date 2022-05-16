@@ -10,13 +10,13 @@ use super::syncer::SyncerConfig;
 /// A builder to establish a connection to INX.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct InxConfig {
     /// The bind address of node's INX interface.
     pub connect_url: String,
     /// The time that has to pass until a new connection attempt is made.
-    #[serde(default, with = "humantime_serde")]
+    #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
-    #[serde(default)]
     pub syncer: SyncerConfig,
 }
 

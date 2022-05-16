@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Range;
+use std::{ops::Range, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -27,17 +27,34 @@ pub enum SyncerError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SyncKind {
+    #[serde(rename = "max_milestones")]
+    Max(u32),
+    #[serde(rename = "from_milestone")]
+    From(u32),
+}
+
+impl Default for SyncKind {
+    fn default() -> Self {
+        Self::From(1)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SyncerConfig {
-    pub max_milestones: u32,
+    pub sync_kind: SyncKind,
     pub max_parallel_requests: usize,
+    #[serde(default, with = "humantime_serde")]
+    pub retry_delay: Duration,
 }
 
 impl Default for SyncerConfig {
     fn default() -> Self {
         Self {
-            max_milestones: 10000,
+            sync_kind: Default::default(),
             max_parallel_requests: 10,
+            retry_delay: Duration::from_secs(5),
         }
     }
 }
@@ -58,15 +75,8 @@ impl Syncer {
     }
 }
 
-#[derive(Default)]
-pub struct SyncerState {
-    first_ms: u32,
-    last_ms: u32,
-    gaps: Gaps,
-}
-
-#[derive(Default)]
-struct Gaps(Vec<Range<u32>>);
+#[derive(Debug, Default)]
+pub struct Gaps(Vec<Range<u32>>);
 impl Iterator for Gaps {
     type Item = u32;
 
@@ -89,10 +99,11 @@ impl Iterator for Gaps {
 }
 
 pub struct SyncNext;
+pub struct RequestNodeStatus;
 
 #[async_trait]
 impl Actor for Syncer {
-    type State = SyncerState;
+    type State = Option<Gaps>;
     type Error = SyncerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -109,32 +120,26 @@ impl HandleEvent<SyncNext> for Syncer {
         &mut self,
         cx: &mut ActorContext<Self>,
         _evt: SyncNext,
-        state: &mut Self::State,
+        gaps: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        if let Some(ms) = state.gaps.next() {
-            if !self.is_synced(ms).await? {
-                log::info!("Requesting unsynced milestone {}.", ms);
-                let (sender, receiver) = tokio::sync::oneshot::channel();
-                cx.addr::<InxWorker>()
-                    .await
-                    .send(MilestoneRequest::new(ms, 3, sender))?;
-                let handle = cx.handle().clone();
-                // Spawn a task to await the solidification
-                tokio::spawn(async move {
-                    receiver.await.ok();
-                    // Once solidification is complete, we can continue with this range.
-                    handle.send(SyncNext).ok();
-                });
+        if let Some(gaps_iter) = gaps {
+            if let Some(ms) = gaps_iter.next() {
+                if !self.is_synced(ms).await? {
+                    log::info!("Requesting unsynced milestone {}.", ms);
+                    let (sender, receiver) = tokio::sync::oneshot::channel();
+                    cx.addr::<InxWorker>().await.send(MilestoneRequest::new(ms, sender))?;
+                    let handle = cx.handle().clone();
+                    // Spawn a task to await the solidification
+                    tokio::spawn(async move {
+                        receiver.await.ok();
+                        // Once solidification is complete, we can continue with this range.
+                        handle.send(SyncNext).ok();
+                    });
+                }
+            } else {
+                *gaps = None;
+                cx.delay(RequestNodeStatus, Some(self.config.retry_delay))?;
             }
-        } else {
-            let gaps = self.db.get_sync_data(state.first_ms, state.last_ms).await?.gaps;
-            if gaps.is_empty() {
-                log::info!("Syncer completed.");
-                cx.shutdown();
-                return Ok(());
-            }
-            state.gaps = Gaps(gaps);
-            cx.delay(SyncNext, None)?;
         }
         Ok(())
     }
@@ -146,20 +151,43 @@ impl HandleEvent<NodeStatus> for Syncer {
         &mut self,
         cx: &mut ActorContext<Self>,
         node_status: NodeStatus,
-        state: &mut Self::State,
+        gaps: &mut Self::State,
     ) -> Result<(), Self::Error> {
         // Get our maximum syncing range based on what we know from the node status
+        let configured_start = match self.config.sync_kind {
+            SyncKind::Max(ms) => node_status.latest_milestone.milestone_index - ms,
+            SyncKind::From(ms) => ms,
+        };
         let (start, end) = (
-            node_status
-                .pruning_index
-                .max(node_status.latest_milestone.milestone_index - self.config.max_milestones),
+            node_status.pruning_index.max(configured_start),
             node_status.latest_milestone.milestone_index,
         );
-        state.first_ms = start;
-        state.last_ms = end;
+        let sync_data = self.db.get_sync_data(start, end).await?.gaps;
+        if sync_data.is_empty() {
+            log::info!("Sync complete");
+            cx.shutdown();
+            return Ok(());
+        }
+        gaps.replace(Gaps(sync_data));
         for _ in 0..self.config.max_parallel_requests {
             cx.delay(SyncNext, None)?;
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<RequestNodeStatus> for Syncer {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        _evt: RequestNodeStatus,
+        _gaps: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        log::info!("Requesting node status");
+        cx.addr::<InxWorker>()
+            .await
+            .send(NodeStatusRequest::new(cx.handle().clone()))?;
         Ok(())
     }
 }

@@ -7,6 +7,9 @@ password = "root"
 port = 9092
 allow_origins = ["0.0.0.0"]
 
+[collector.inx.syncer]
+sync_kind = { max_milestones = 1000 }
+
 [collector.inx]
 connect_url = "http://localhost:9029"
 connection_retry_interval = "5s"
