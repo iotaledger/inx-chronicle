@@ -70,13 +70,14 @@ bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git"
 
 [features]
 default = [
-    "api-analytics",
+    "analytics",
     "api-explorer",
     "api-node",
     "inx",
     "stardust",
 ]
-api = [
+analytics = []
+api = [ 
     "dep:axum",
     "derive_more/from",
     "dep:hyper",
@@ -84,20 +85,19 @@ api = [
     "dep:tower",
     "dep:tower-http",
 ]
-api-analytics = [
-    "api",
-]
 api-explorer = [
     "api",
 ]
 api-node = [
     "api",
 ]
+collector = []
 console = [
     "dep:console-subscriber",
     "tokio/tracing",
 ]
 inx = [
+    "collector",
     "dep:inx",
 ]
 metrics = [
