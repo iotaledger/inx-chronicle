@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 pub use self::{
     alias::{AliasId, AliasOutput},
     basic::BasicOutput,
-    feature_block::FeatureBlock,
+    feature_block::Feature,
     foundry::FoundryOutput,
     native_token::{NativeToken, TokenScheme, TokenTag},
     nft::{NftId, NftOutput},

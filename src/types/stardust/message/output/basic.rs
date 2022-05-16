@@ -4,7 +4,7 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
+use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BasicOutput {
@@ -12,7 +12,7 @@ pub struct BasicOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub unlock_conditions: Box<[UnlockCondition]>,
-    pub feature_blocks: Box<[FeatureBlock]>,
+    pub feature_blocks: Box<[Feature]>,
 }
 
 impl From<&stardust::BasicOutput> for BasicOutput {

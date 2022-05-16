@@ -4,7 +4,7 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
+use super::{feature_block::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -35,8 +35,8 @@ pub struct AliasOutput {
     pub state_metadata: Box<[u8]>,
     pub foundry_counter: u32,
     pub unlock_conditions: Box<[UnlockCondition]>,
-    pub feature_blocks: Box<[FeatureBlock]>,
-    pub immutable_feature_blocks: Box<[FeatureBlock]>,
+    pub feature_blocks: Box<[Feature]>,
+    pub immutable_feature_blocks: Box<[Feature]>,
 }
 
 impl From<&stardust::AliasOutput> for AliasOutput {

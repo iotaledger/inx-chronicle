@@ -4,7 +4,7 @@
 use bee_message_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
+use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -30,8 +30,8 @@ pub struct NftOutput {
     native_tokens: Box<[NativeToken]>,
     nft_id: NftId,
     unlock_conditions: Box<[UnlockCondition]>,
-    feature_blocks: Box<[FeatureBlock]>,
-    immutable_feature_blocks: Box<[FeatureBlock]>,
+    feature_blocks: Box<[Feature]>,
+    immutable_feature_blocks: Box<[Feature]>,
 }
 
 impl From<&stardust::NftOutput> for NftOutput {
