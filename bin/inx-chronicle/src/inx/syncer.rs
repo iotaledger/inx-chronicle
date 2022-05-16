@@ -148,17 +148,17 @@ impl HandleEvent<NextMilestone> for InxSyncer {
         NextMilestone { index }: NextMilestone,
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        if let Some((index, round)) = get_milestone_to_retry(syncer_state) {
-            if round > 0 {
-                cx.delay(
-                    RetryMilestone {
-                        index,
-                        round: round - 1,
-                    },
-                    Duration::from_secs_f32(0.5),
-                )?;
-            }
-        }
+        // if let Some((index, round)) = get_milestone_to_retry(syncer_state) {
+        //     if round > 0 {
+        //         cx.delay(
+        //             RetryMilestone {
+        //                 index,
+        //                 round: round - 1,
+        //             },
+        //             Duration::from_secs_f32(0.5),
+        //         )?;
+        //     }
+        // }
         if index > syncer_state.target_ms_index {
             log::info!("Syncer finished at target index '{}'.", syncer_state.target_ms_index);
             return Ok(());
