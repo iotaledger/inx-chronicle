@@ -144,7 +144,7 @@ pub mod stardust {
 
     impl Drop for MilestoneState {
         fn drop(&mut self) {
-            log::trace!(
+            log::warn!(
                 "Solidification of milestone '{}' in process for {}s with {} remaining messages.",
                 self.milestone_index,
                 self.time.elapsed().as_secs_f32(),

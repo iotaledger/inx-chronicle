@@ -125,6 +125,12 @@ mod stardust {
                 }
             }
 
+            log::debug!(
+                "Milestone '{}' solidified in {}s.",
+                ms_state.milestone_index,
+                ms_state.time.elapsed().as_secs_f32()
+            );
+
             // If we finished all the parents, that means we have a complete milestone
             // so we should mark it synced
             self.db
@@ -153,6 +159,12 @@ mod stardust {
                 Err(_) => log::error!("Failed to notify Syncer"),
                 Ok(_) => (),
             }
+
+            log::debug!(
+                "Milestone '{}' published in {}s.",
+                ms_state.milestone_index,
+                ms_state.time.elapsed().as_secs_f32()
+            );
 
             Ok(())
         }

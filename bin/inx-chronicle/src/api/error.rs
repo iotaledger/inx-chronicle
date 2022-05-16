@@ -43,7 +43,6 @@ pub enum ApiError {
     BadTimeRange,
     // TODO: use or remove dead code
     #[error("Provided index is too large (Max 64 bytes)")]
-    #[allow(dead_code)]
     IndexTooLarge,
     #[error("Internal server error")]
     Internal(InternalApiError),
