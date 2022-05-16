@@ -52,7 +52,11 @@ mod stardust {
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
-    use crate::inx::{collector::stardust::MilestoneState, syncer::{NewSyncedMilestone, InxSyncer}, InxRequest, InxWorker};
+    use crate::inx::{
+        collector::stardust::MilestoneState,
+        syncer::{InxSyncer, NewSyncedMilestone},
+        InxRequest, InxWorker,
+    };
 
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
@@ -141,12 +145,14 @@ mod stardust {
             // historic one.
             // let _ = ms_state.notify.send(NewSyncedMilestone(ms_state.milestone_index));
 
-            match cx.addr::<InxSyncer>()
+            match cx
+                .addr::<InxSyncer>()
                 .await
-                .send(NewSyncedMilestone(ms_state.milestone_index)) {
-                    Err(_) => log::error!("Failed to notify Syncer"),
-                    Ok(_) => (),
-                }
+                .send(NewSyncedMilestone(ms_state.milestone_index))
+            {
+                Err(_) => log::error!("Failed to notify Syncer"),
+                Ok(_) => (),
+            }
 
             Ok(())
         }
