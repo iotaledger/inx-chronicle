@@ -4,7 +4,7 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::{db::bson::DocError, types::ledger::UnexpectedLedgerInclusionState};
+use chronicle::{db::bson::DocError, runtime::RuntimeError, types::ledger::UnexpectedLedgerInclusionState};
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -55,6 +55,8 @@ pub enum ApiError {
     QueryError(QueryRejection),
     #[error("Provided tag is too large (Max 64 bytes)")]
     TagTooLarge,
+    #[error(transparent)]
+    Runtime(#[from] RuntimeError),
 }
 
 impl ApiError {
@@ -68,7 +70,7 @@ impl ApiError {
             | ApiError::BadTimeRange
             | ApiError::BadParse(_)
             | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
-            ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::Internal(_) | ApiError::Runtime(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

@@ -46,6 +46,15 @@ impl Actor for Collector {
     type Error = CollectorError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        #[cfg(feature = "metrics")]
+        if let Some((send_counter, recv_counter)) = cx.take_counters() {
+            use crate::metrics::{MetricsWorker, MetricsWorkerExt};
+
+            let metrics_worker = cx.addr::<MetricsWorker>().await;
+            metrics_worker.register("solidifier_send", "solidifier_send", send_counter)?;
+            metrics_worker.register("solidifier_recv", "solidifier_recv", recv_counter)?;
+        }
+
         let mut solidifiers = Vec::with_capacity(self.config.solidifier_count);
         for i in 0..self.config.solidifier_count {
             solidifiers.push(

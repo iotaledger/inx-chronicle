@@ -24,7 +24,12 @@ use futures::{
 
 pub use self::{
     actor::{
-        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        addr::{Addr, OptionalAddr},
+        context::ActorContext,
+        error::ActorError,
+        event::HandleEvent,
+        report::Report,
+        util::SpawnActor,
         Actor,
     },
     config::ConfigureActor,

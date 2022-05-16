@@ -62,6 +62,15 @@ impl Actor for ApiWorker {
     type Error = ApiError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        #[cfg(feature = "metrics")]
+        if let Some((send_counter, recv_counter)) = cx.take_counters() {
+            use crate::metrics::{MetricsWorker, MetricsWorkerExt};
+
+            let metrics_worker = cx.addr::<MetricsWorker>().await;
+            metrics_worker.register("api_send", "api_send", send_counter)?;
+            metrics_worker.register("api_recv", "api_recv", recv_counter)?;
+        }
+
         let (sender, receiver) = oneshot::channel();
         log::info!("Starting API server");
         let api_handle = cx.handle().clone();
