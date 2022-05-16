@@ -87,18 +87,17 @@ impl InxSyncer {
         Ok(sync_record.map_or(false, |rec| rec.synced))
     }
 
-    fn get_start_ms_index(&self, index: u32, sync_state: &mut SyncerState) -> u32 {
+    fn get_start_ms_index(&self, target_index: u32, sync_state: &SyncerState) -> u32 {
         // if the user specified a concrete sync start index then ignore
         // the `sync_back_delta` configuration.
         if self.config.sync_back_index != 0 {
             self.config.sync_back_index.max(sync_state.start_ms_index)
         } else if self.config.sync_back_delta != 0 {
-            index
+            target_index
                 .checked_sub(self.config.sync_back_delta)
                 .unwrap_or(1)
                 .max(sync_state.start_ms_index)
         } else {
-            // Sync from the pruning index
             sync_state.start_ms_index
         }
     }
@@ -240,7 +239,6 @@ impl HandleEvent<NodeStatus> for InxSyncer {
             node_status.pruning_index
         );
         syncer_state.start_ms_index = node_status.pruning_index + 1;
-        log::debug!("Syncer determined start index: '{}'", syncer_state.start_ms_index);
         Ok(())
     }
 }
@@ -263,7 +261,7 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
         } else if sync_state.target_ms_index == 0 {
             // Set the target to the first synced milestone that was not requested by the Syncer.
             sync_state.target_ms_index = latest_synced_index;
-            log::debug!("Syncer determined target index: '{}'", sync_state.target_ms_index);
+            sync_state.start_ms_index = self.get_start_ms_index(latest_synced_index, sync_state);
 
             log::info!(
                 "Start syncing milestone range: [{}:{}]",
