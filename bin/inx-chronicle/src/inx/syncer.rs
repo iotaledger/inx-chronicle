@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    sync::atomic::{AtomicUsize, Ordering},
-    time::{Duration, Instant},
+    collections::HashMap,
+    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -22,10 +21,6 @@ use crate::inx::{InxRequest, InxWorker};
 
 // solidifying a milestone must never take longer than the coordinator milestone interval
 const MAX_SYNC_TIME: Duration = Duration::from_secs(10);
-
-// TODO: remove
-static NUM_REQUESTED: AtomicUsize = AtomicUsize::new(0);
-static NUM_SYNCED: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, thiserror::Error)]
 pub enum InxSyncerError {
@@ -106,10 +101,6 @@ impl InxSyncer {
 struct NextMilestone {
     index: u32,
 }
-struct RetryMilestone {
-    index: u32,
-    round: usize,
-}
 pub(crate) struct NewSyncedMilestone(pub(crate) u32);
 pub(crate) struct NewTargetMilestone(pub(crate) u32);
 
@@ -121,8 +112,6 @@ pub struct SyncerState {
     target_ms_index: u32,
     // the set of currently synced milestones
     pending: HashMap<u32, usize>,
-    // the deadlines for all currently synced milestones
-    pending_deadlines: VecDeque<(Instant, u32)>,
 }
 
 #[async_trait]
@@ -148,17 +137,6 @@ impl HandleEvent<NextMilestone> for InxSyncer {
         NextMilestone { index }: NextMilestone,
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        // if let Some((index, round)) = get_milestone_to_retry(syncer_state) {
-        //     if round > 0 {
-        //         cx.delay(
-        //             RetryMilestone {
-        //                 index,
-        //                 round: round - 1,
-        //             },
-        //             Duration::from_secs_f32(0.5),
-        //         )?;
-        //     }
-        // }
         if index > syncer_state.target_ms_index {
             log::info!("Syncer finished at target index '{}'.", syncer_state.target_ms_index);
             return Ok(());
@@ -169,11 +147,7 @@ impl HandleEvent<NextMilestone> for InxSyncer {
                 cx.addr::<InxWorker>()
                     .await
                     .send(InxRequest::milestone(index.into(), cx.addr().await))?;
-                // sync_state.pending.insert(index, Instant::now());
                 syncer_state.pending.insert(index, self.config.max_request_retries);
-                syncer_state.pending_deadlines.push_back((Instant::now(), index));
-                // TODO: remove
-                NUM_REQUESTED.fetch_add(1, Ordering::Relaxed);
             }
             cx.delay(NextMilestone { index: index + 1 }, None)?;
         } else {
@@ -181,51 +155,6 @@ impl HandleEvent<NextMilestone> for InxSyncer {
         }
         Ok(())
     }
-}
-
-#[async_trait]
-impl HandleEvent<RetryMilestone> for InxSyncer {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        RetryMilestone { index, round }: RetryMilestone,
-        syncer_state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        if syncer_state.pending.len() < self.config.max_simultaneous_requests {
-            if !self.is_synced(index).await? {
-                log::info!(
-                    "Retrying milestone '{}' ({}/{}).",
-                    index,
-                    self.config.max_request_retries - round,
-                    self.config.max_request_retries
-                );
-                cx.addr::<InxWorker>()
-                    .await
-                    .send(InxRequest::milestone(index.into(), cx.addr().await))?;
-                // sync_state.pending.insert(index, Instant::now());
-                syncer_state.pending.insert(index,  round);
-                syncer_state.pending_deadlines.push_back((Instant::now(), index));
-                // TODO: remove
-                NUM_REQUESTED.fetch_add(1, Ordering::Relaxed);
-            }
-        } else {
-            cx.delay(RetryMilestone { index, round }, Duration::from_secs_f32(0.5))?;
-        }
-        Ok(())
-    }
-}
-
-fn get_milestone_to_retry(syncer_state: &mut SyncerState) -> Option<(u32, usize)> {
-    if let Some((insertion_ts, _)) = syncer_state.pending_deadlines.front() {
-        if insertion_ts.elapsed() > MAX_SYNC_TIME {
-            let (_, index) = syncer_state.pending_deadlines.pop_front().unwrap();
-            // If it has been removed already, then it was successfully synced
-            if let Some(round) = syncer_state.pending.remove(&index) {
-                return Some((index, round));
-            }
-        }
-    }
-    None
 }
 
 #[async_trait]
@@ -254,12 +183,9 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
         NewSyncedMilestone(latest_synced_index): NewSyncedMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::warn!("Syncer received new synced milestone '{}'", latest_synced_index);
+        log::debug!("Syncer received new synced milestone '{}'", latest_synced_index);
 
-        let was_requested = sync_state.pending.remove(&latest_synced_index).is_some();
-        if was_requested {
-            // TODO: remove
-            NUM_SYNCED.fetch_add(1, Ordering::Relaxed);
+        if sync_state.pending.remove(&latest_synced_index).is_some() {
         } else if sync_state.target_ms_index == 0 {
             // Set the target to the first synced milestone that was not requested by the Syncer.
             sync_state.target_ms_index = latest_synced_index;
