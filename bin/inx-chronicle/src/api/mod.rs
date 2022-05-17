@@ -90,18 +90,14 @@ impl Actor for ApiWorker {
         #[cfg(feature = "metrics")]
         let routes = {
             use self::metrics::MetricsLayer;
-            use crate::metrics::{MetricsWorker, RegisterMetric};
 
             let layer = MetricsLayer::default();
 
-            let metrics_worker = cx.addr::<MetricsWorker>().await;
-            metrics_worker
-                .send(RegisterMetric {
-                    name: "incoming_requests".to_string(),
-                    help: "incoming_requests".to_string(),
-                    metric: layer.metrics.incoming_requests.clone(),
-                })
-                .unwrap();
+            cx.metrics_registry().register(
+                "incoming_requests",
+                "Incoming API Requests",
+                layer.metrics.incoming_requests.clone(),
+            );
 
             routes.layer(layer)
         };

@@ -7,8 +7,8 @@ use std::{
 };
 
 use async_trait::async_trait;
-use bee_metrics::{encoding::SendSyncEncodeMetric, metrics::process::ProcessMetrics, serve_metrics};
-use chronicle::runtime::{Actor, ActorContext, HandleEvent};
+use bee_metrics::{metrics::process::ProcessMetrics, serve_metrics};
+use chronicle::runtime::{Actor, ActorContext};
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::oneshot,
@@ -104,25 +104,6 @@ impl Actor for MetricsWorker {
         state.process_metrics_handle.abort();
         state.server_handle.1.take().map(|send| send.send(()));
 
-        Ok(())
-    }
-}
-
-pub struct RegisterMetric<M: 'static + SendSyncEncodeMetric> {
-    pub name: String,
-    pub help: String,
-    pub metric: M,
-}
-
-#[async_trait]
-impl<M: 'static + SendSyncEncodeMetric> HandleEvent<RegisterMetric<M>> for MetricsWorker {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: RegisterMetric<M>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        cx.metrics_registry().register(event.name, event.help, event.metric);
         Ok(())
     }
 }
