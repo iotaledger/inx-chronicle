@@ -129,7 +129,7 @@ mod stardust {
 
             'parent: while let Some(parent_message_id) = ms_state.process_queue.pop_front() {
                 if ms_state.visited.contains(&parent_message_id) {
-                    continue;
+                    continue 'parent;
                 }
 
                 match self.db.get_message(&parent_message_id).await? {
@@ -145,25 +145,30 @@ mod stardust {
                             ms_state.process_queue.extend(parents);
 
                         } else {
+                            ms_state.process_queue.push_back(parent_message_id.clone());
+
                             // request metadata from the node and continue later
                             // TODO: measure this await point!
                             // TODO: collect as many as possible message to request before sending it to the INX worker
                             let now = Instant::now();
                             cx.addr::<InxWorker>()
                                 .await
-                                .send(InxRequest::metadata(parent_message_id.clone(), cx.handle().clone(), ms_state))
+                                .send(InxRequest::metadata(parent_message_id, cx.handle().clone(), ms_state))
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
                             log::debug!("Send metadata INX request. Took {}s", now.elapsed().as_secs_f32());
+
 
                             return Ok(())
                         }
                     },
                     None => {
+                        ms_state.process_queue.push_back(parent_message_id.clone());
+
                         let now = Instant::now();
                         // request message and metadata from the node and continue later
                         cx.addr::<InxWorker>()
                             .await
-                            .send(InxRequest::message(parent_message_id.clone(), cx.handle().clone(), ms_state))
+                            .send(InxRequest::message(parent_message_id, cx.handle().clone(), ms_state))
                             .map_err(|_| SolidifierError::MissingInxRequester)?;
                         log::debug!("Send message INX request. Took {}s", now.elapsed().as_secs_f32());
 
