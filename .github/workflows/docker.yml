@@ -1,0 +1,11 @@
+name: Build Docker
+
+on:
+  pull_request:
+    paths:
+      - "docker/Dockerfile"
+      - "docker/docker-compose.yml"
+
+jobs:
+  docker:
+    uses: ./.github/workflows/_docker.yml
