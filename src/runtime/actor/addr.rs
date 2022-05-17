@@ -4,7 +4,6 @@
 use std::ops::Deref;
 
 use thiserror::Error;
-use tokio::sync::mpsc::UnboundedSender;
 
 use super::{
     event::{DynEvent, Envelope},
@@ -31,14 +30,25 @@ impl<S: Into<String>> From<S> for SendError {
 }
 
 /// An actor handle, used to send events.
-#[derive(Debug)]
 pub struct Addr<A: Actor> {
     pub(crate) scope: ScopeView,
-    pub(crate) sender: UnboundedSender<Envelope<A>>,
+    #[cfg(not(feature = "metrics"))]
+    pub(crate) sender: tokio::sync::mpsc::UnboundedSender<Envelope<A>>,
+    #[cfg(feature = "metrics")]
+    pub(crate) sender: bee_metrics::metrics::sync::mpsc::UnboundedSender<Envelope<A>>,
 }
 
 impl<A: Actor> Addr<A> {
-    pub(crate) fn new(scope: ScopeView, sender: UnboundedSender<Envelope<A>>) -> Self {
+    #[cfg(not(feature = "metrics"))]
+    pub(crate) fn new(scope: ScopeView, sender: tokio::sync::mpsc::UnboundedSender<Envelope<A>>) -> Self {
+        Self { scope, sender }
+    }
+
+    #[cfg(feature = "metrics")]
+    pub(crate) fn new(
+        scope: ScopeView,
+        sender: bee_metrics::metrics::sync::mpsc::UnboundedSender<Envelope<A>>,
+    ) -> Self {
         Self { scope, sender }
     }
 
@@ -79,6 +89,12 @@ impl<A: Actor> Clone for Addr<A> {
             scope: self.scope.clone(),
             sender: self.sender.clone(),
         }
+    }
+}
+
+impl<A: Actor> std::fmt::Debug for Addr<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Addr").field("scope", &self.scope).finish()
     }
 }
 

@@ -31,10 +31,12 @@ pub(crate) type ScopeId = Uuid;
 pub(crate) const ROOT_SCOPE: Uuid = Uuid::nil();
 
 /// A scope, which marks data as usable for a given task.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) struct Scope {
     pub(crate) inner: Arc<ScopeInner>,
     valid: Arc<AtomicBool>,
+    #[cfg(feature = "metrics")]
+    metrics_registry: Arc<bee_metrics::Registry>,
 }
 
 /// Shared scope information.
@@ -60,6 +62,8 @@ impl Scope {
                 children: Default::default(),
             }),
             valid: Arc::new(AtomicBool::new(true)),
+            #[cfg(feature = "metrics")]
+            metrics_registry: Default::default(),
         }
     }
 
@@ -81,6 +85,8 @@ impl Scope {
                 children: Default::default(),
             }),
             valid: Arc::new(AtomicBool::new(true)),
+            #[cfg(feature = "metrics")]
+            metrics_registry: self.metrics_registry.clone(),
         };
         self.children.write().await.insert(id, child.clone());
         log::trace!("Added child to {:x}", self.id.as_fields().0);
@@ -151,6 +157,11 @@ impl Scope {
         self.shutdown();
         log::trace!("Aborted scope {:x}", self.id.as_fields().0);
     }
+
+    #[cfg(feature = "metrics")]
+    pub(crate) fn metrics_registry(&self) -> &Arc<bee_metrics::Registry> {
+        &self.metrics_registry
+    }
 }
 
 impl Deref for Scope {
@@ -158,6 +169,15 @@ impl Deref for Scope {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl std::fmt::Debug for Scope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Scope")
+            .field("inner", &self.inner)
+            .field("valid", &self.valid)
+            .finish()
     }
 }
 
