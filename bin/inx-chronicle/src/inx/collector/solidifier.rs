@@ -56,13 +56,13 @@ mod stardust {
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
-    use crate::inx::{collector::stardust::MilestoneState, syncer::NewSyncedMilestone};
+    use crate::inx::{collector::stardust::MilestoneState, syncer::{Syncer, NewSyncedMilestone}};
 
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
         async fn handle_event(
             &mut self,
-            _: &mut ActorContext<Self>,
+            cx: &mut ActorContext<Self>,
             mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
@@ -149,10 +149,8 @@ mod stardust {
                         } else {
                             ms_state.process_queue.push_back(current_message_id.clone());
 
-                            let now = Instant::now();
                             if let Some(metadata) = read_metadata(&mut self.inx, current_message_id.clone()).await {
                                 self.db.update_message_metadata(&current_message_id, &metadata).await?;
-                                log::warn!("Requested+Converted+Stored metadata. Took {}s.", now.elapsed().as_secs_f32());
                             }
 
                         }
@@ -160,10 +158,8 @@ mod stardust {
                     None => {
                         ms_state.process_queue.push_back(current_message_id.clone());
 
-                        let now = Instant::now();
                         if let Some(message) = read_message(&mut self.inx, current_message_id.clone()).await {
                             self.db.upsert_message_record(&message).await?;
-                            log::warn!("Requested+Converted+Stored message. Took {}s.", now.elapsed().as_secs_f32());
                         }
 
                     }
@@ -189,16 +185,17 @@ mod stardust {
 
             // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a
             // historic one.
-            if let Some(syncer_addr) = ms_state.syncer_addr.as_ref() {
-                println!("Syncer notified");
-                syncer_addr.send(NewSyncedMilestone(ms_state.milestone_index))?;
-            } else {
-                println!("Syncer NOT notified");
-            }
+            // TODO: this doesn't work
+            // if let Some(syncer_addr) = ms_state.syncer_addr.as_ref() {
+            //     println!("Syncer notified");
+            //     syncer_addr.send(NewSyncedMilestone(ms_state.milestone_index))?;
+            // } else {
+            //     println!("Syncer NOT notified");
+            // }
 
-            // cx.addr::<InxSyncer>()
-            //     .await
-            //     .send(NewSyncedMilestone(ms_state.milestone_index))?;
+            cx.addr::<Syncer>()
+                .await
+                .send(NewSyncedMilestone(ms_state.milestone_index))?;
 
             Ok(())
         }
@@ -220,9 +217,11 @@ async fn read_message(inx: &mut InxClient<Channel>, message_id: dto::MessageId) 
             .await,
     ) {
 
+        let now = Instant::now();
         let raw = message.into_inner();
         let metadata = metadata.into_inner();
         let message = MessageRecord::try_from((raw, metadata)).unwrap();
+        log::warn!("Created MessageRecord. Took {}s.", now.elapsed().as_secs_f32());
 
         Some(message)
     } else {
@@ -237,8 +236,12 @@ async fn read_metadata(inx: &mut InxClient<Channel>, message_id: dto::MessageId)
         })
         .await
     {
+        let now = Instant::now();
         let metadata: inx::MessageMetadata = metadata.into_inner().try_into().unwrap();
-        Some(metadata.into())
+        let metadata = metadata.into();
+        log::warn!("Created metadata. Took {}s.", now.elapsed().as_secs_f32());
+
+        Some(metadata)
     } else {
         None
     }
