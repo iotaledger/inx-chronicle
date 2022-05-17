@@ -421,6 +421,7 @@ dependencies = [
  "mongodb",
  "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
+ "prometheus-client",
  "serde",
  "serde_bytes",
  "serde_json",

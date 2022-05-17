@@ -58,6 +58,7 @@ inx = { git = "https://github.com/iotaledger/inx", version = "0.3", default-feat
 
 # Metrics
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
+prometheus-client = { version = "0.15", default-features = false, optional = true }
 
 # Stardust types
 bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
