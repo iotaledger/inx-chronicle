@@ -33,7 +33,7 @@ impl TryFrom<TransactionId> for bee::TransactionId {
 }
 
 impl FromStr for TransactionId {
-    type Err = crate::types::error::Error;
+    type Err = crate::types::error::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TransactionId::from_str(s)?.into())

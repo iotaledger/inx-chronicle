@@ -27,7 +27,7 @@ impl TryFrom<MilestoneId> for bee::MilestoneId {
 }
 
 impl FromStr for MilestoneId {
-    type Err = crate::types::error::Error;
+    type Err = crate::types::error::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::MilestoneId::from_str(s)?.into())

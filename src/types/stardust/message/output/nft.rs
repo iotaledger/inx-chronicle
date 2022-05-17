@@ -33,7 +33,7 @@ impl TryFrom<NftId> for bee::NftId {
 }
 
 impl FromStr for NftId {
-    type Err = crate::types::error::Error;
+    type Err = crate::types::error::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftId::from_str(s)?.into())

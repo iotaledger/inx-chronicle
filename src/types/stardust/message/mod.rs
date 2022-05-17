@@ -40,7 +40,7 @@ impl TryFrom<MessageId> for bee::MessageId {
 }
 
 impl FromStr for MessageId {
-    type Err = crate::types::error::Error;
+    type Err = crate::types::error::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::MessageId::from_str(s)?.into())

@@ -56,7 +56,7 @@ impl TryFrom<OutputId> for bee::OutputId {
 }
 
 impl FromStr for OutputId {
-    type Err = crate::types::error::Error;
+    type Err = crate::types::error::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::OutputId::from_str(s)?.into())

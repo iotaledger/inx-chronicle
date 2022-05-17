@@ -101,7 +101,7 @@ pub enum ParseError {
     Bool(#[from] ParseBoolError),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    BeeMessageStardust(#[from] chronicle::types::error::Error),
+    StorageType(#[from] chronicle::types::error::ParseError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }

@@ -33,7 +33,7 @@ impl TryFrom<AliasId> for bee::AliasId {
 }
 
 impl FromStr for AliasId {
-    type Err = crate::types::error::Error;
+    type Err = crate::types::error::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::AliasId::from_str(s)?.into())

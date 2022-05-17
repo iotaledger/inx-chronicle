@@ -51,7 +51,7 @@ pub fn routes() -> Router {
 }
 
 async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::BeeMessageStardust)?;
+    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_message(&message_id_dto)
         .await?
@@ -65,7 +65,7 @@ async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -
 }
 
 async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::BeeMessageStardust)?;
+    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_message(&message_id_dto)
         .await?
@@ -77,7 +77,7 @@ async fn message_metadata(
     database: Extension<MongoDb>,
     Path(message_id): Path<String>,
 ) -> ApiResult<MessageMetadataResponse> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::BeeMessageStardust)?;
+    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_message(&message_id_dto)
         .await?
@@ -102,7 +102,7 @@ async fn message_children(
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
 ) -> ApiResult<MessageChildrenResponse> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::BeeMessageStardust)?;
+    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
     let messages = database
         .get_message_children(&message_id_dto, page_size, page)
         .await?
@@ -132,7 +132,7 @@ async fn message_children(
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from_str(&output_id).map_err(ParseError::BeeMessageStardust)?;
+    let output_id = OutputId::from_str(&output_id).map_err(ParseError::StorageType)?;
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -178,7 +178,7 @@ async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<OutputMetadataResponse> {
-    let output_id = OutputId::from_str(&output_id).map_err(ParseError::BeeMessageStardust)?;
+    let output_id = OutputId::from_str(&output_id).map_err(ParseError::StorageType)?;
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -230,7 +230,7 @@ async fn transaction_included_message(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<MessageResponse> {
-    let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ParseError::BeeMessageStardust)?;
+    let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_message_for_transaction(&transaction_id_dto)
         .await?
@@ -245,7 +245,7 @@ async fn transaction_included_message(
 }
 
 async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
-    let milestone_id_dto = MilestoneId::from_str(&milestone_id).map_err(ParseError::BeeMessageStardust)?;
+    let milestone_id_dto = MilestoneId::from_str(&milestone_id).map_err(ParseError::StorageType)?;
     database
         .get_milestone_record(&milestone_id_dto)
         .await?
