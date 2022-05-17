@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -15,9 +15,6 @@ use inx::NodeStatus;
 use serde::{Deserialize, Serialize};
 
 use crate::inx::{InxRequest, InxWorker};
-
-// solidifying a milestone must never take longer than the coordinator milestone interval
-const MAX_SYNC_TIME: Duration = Duration::from_secs(10);
 
 #[derive(Debug, thiserror::Error)]
 pub enum InxSyncerError {
@@ -33,8 +30,6 @@ pub enum InxSyncerError {
 pub struct InxSyncerConfig {
     // the maximum number of simultaneously open requests for milestones
     pub(crate) max_simultaneous_requests: usize,
-    // the maximum number of requests for a single milestone
-    pub(crate) max_request_retries: usize,
     // the number of historic milestones the Syncer tries to sync from the ledger index at start
     pub(crate) sync_back_delta: u32,
     // the fixed milestone index of a historic milestone the Syncer tries to sync back to
@@ -45,7 +40,6 @@ impl Default for InxSyncerConfig {
     fn default() -> Self {
         Self {
             max_simultaneous_requests: 10,
-            max_request_retries: 3,
             sync_back_delta: 10000,
             sync_back_index: 0,
         }
@@ -79,18 +73,18 @@ impl InxSyncer {
         Ok(sync_record.map_or(false, |rec| rec.synced))
     }
 
-    fn get_start_ms_index(&self, target_index: u32, sync_state: &SyncerState) -> u32 {
+    fn get_start_ms_index(&self, pruning_index: u32, target_index: u32) -> u32 {
         // if the user specified a concrete sync start index then ignore
         // the `sync_back_delta` configuration.
         if self.config.sync_back_index != 0 {
-            self.config.sync_back_index.max(sync_state.start_ms_index)
+            self.config.sync_back_index.max(pruning_index)
         } else if self.config.sync_back_delta != 0 {
             target_index
                 .checked_sub(self.config.sync_back_delta)
                 .unwrap_or(1)
-                .max(sync_state.start_ms_index)
+                .max(pruning_index)
         } else {
-            sync_state.start_ms_index
+           pruning_index 
         }
     }
 }
@@ -108,7 +102,7 @@ pub struct SyncerState {
     // upper bound of the syncer range
     target_ms_index: u32,
     // the set of currently synced milestones
-    pending: HashMap<u32, usize>,
+    pending: HashSet<u32>,
 }
 
 #[async_trait]
@@ -140,11 +134,11 @@ impl HandleEvent<NextMilestone> for InxSyncer {
         }
         if syncer_state.pending.len() < self.config.max_simultaneous_requests {
             if !self.is_synced(index).await? {
-                log::info!("Requesting milestone '{}'.", index);
+                log::debug!("Requesting milestone '{}'.", index);
                 cx.addr::<InxWorker>()
                     .await
                     .send(InxRequest::milestone(index.into(), cx.addr().await))?;
-                syncer_state.pending.insert(index, self.config.max_request_retries);
+                syncer_state.pending.insert(index);
             }
             cx.delay(NextMilestone { index: index + 1 }, None)?;
         } else {
@@ -171,31 +165,33 @@ impl HandleEvent<NodeStatus> for InxSyncer {
     }
 }
 
-// removes successfully synced milestones from `pending` or `retrying`
+// removes successfully synced milestones from `pending` to allow for new requests
 #[async_trait]
 impl HandleEvent<NewSyncedMilestone> for InxSyncer {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
         NewSyncedMilestone(latest_synced_index): NewSyncedMilestone,
-        sync_state: &mut Self::State,
+        syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::info!("New synced milestone '{}'", latest_synced_index);
 
-        if sync_state.pending.remove(&latest_synced_index).is_some() {
-        } else if sync_state.target_ms_index == 0 {
+        syncer_state.pending.remove(&latest_synced_index);
+
+        if syncer_state.target_ms_index == 0 {
             // Set the target to the first synced milestone that was not requested by the Syncer.
-            sync_state.target_ms_index = latest_synced_index;
-            sync_state.start_ms_index = self.get_start_ms_index(latest_synced_index, sync_state);
+            syncer_state.target_ms_index = latest_synced_index;
+            // Note: at this point `start_ms_index` contains the pruning index
+            syncer_state.start_ms_index = self.get_start_ms_index(syncer_state.start_ms_index,latest_synced_index);
 
             log::info!(
                 "Start syncing milestone range: [{}:{}]",
-                sync_state.start_ms_index,
-                sync_state.target_ms_index
+                syncer_state.start_ms_index,
+                syncer_state.target_ms_index
             );
             cx.delay(
                 NextMilestone {
-                    index: sync_state.start_ms_index,
+                    index: syncer_state.start_ms_index,
                 },
                 None,
             )?;

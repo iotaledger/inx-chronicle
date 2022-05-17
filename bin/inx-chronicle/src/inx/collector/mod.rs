@@ -23,8 +23,6 @@ use mongodb::bson::document::ValueAccessError;
 use solidifier::Solidifier;
 use thiserror::Error;
 
-use crate::inx::syncer::InxSyncer;
-
 pub mod solidifier;
 
 #[derive(Debug, Error)]
