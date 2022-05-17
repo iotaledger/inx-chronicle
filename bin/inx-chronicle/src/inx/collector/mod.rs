@@ -125,7 +125,8 @@ pub mod stardust {
     };
 
     use super::*;
-    use crate::inx::syncer::InxSyncer;
+    use crate::inx::syncer::Syncer;
+    use crate::inx::worker::{InxWorker, NewMilestone};
 
     #[derive(Debug)]
     pub struct MilestoneState {
@@ -133,11 +134,11 @@ pub mod stardust {
         pub process_queue: VecDeque<dto::MessageId>,
         pub visited: HashSet<dto::MessageId>,
         pub time: Instant,
-        pub syncer_addr: Option<Addr<InxSyncer>>,
+        pub syncer_addr: Option<Addr<Syncer>>,
     }
 
     impl MilestoneState {
-        pub fn new(milestone_index: u32, parents: Vec<dto::MessageId>, syncer_addr: Option<Addr<InxSyncer>>) -> Self {
+        pub fn new(milestone_index: u32, parents: Vec<dto::MessageId>, syncer_addr: Option<Addr<Syncer>>) -> Self {
             Self {
                 milestone_index,
                 process_queue: parents.into(),
@@ -234,7 +235,7 @@ pub mod stardust {
     impl HandleEvent<inx::proto::Milestone> for Collector {
         async fn handle_event(
             &mut self,
-            _cx: &mut ActorContext<Self>,
+            cx: &mut ActorContext<Self>,
             milestone: inx::proto::Milestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
@@ -253,6 +254,8 @@ pub mod stardust {
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(state)?;
+
+                    cx.addr::<InxWorker>().await.send(NewMilestone(rec.milestone_index))?;
                 }
                 Err(e) => {
                     log::error!("Could not read milestone: {:?}", e);
@@ -313,11 +316,11 @@ pub mod stardust {
 
     pub struct RequestedMilestone {
         milestone: inx::proto::Milestone,
-        syncer_addr: Addr<InxSyncer>,
+        syncer_addr: Addr<Syncer>,
     }
 
     impl RequestedMilestone {
-        pub fn new(milestone: inx::proto::Milestone, syncer_addr: Addr<InxSyncer>) -> Self {
+        pub fn new(milestone: inx::proto::Milestone, syncer_addr: Addr<Syncer>) -> Self {
             Self { milestone, syncer_addr }
         }
     }

@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 pub use super::InxWorkerError;
-use super::{collector::CollectorConfig, syncer::InxSyncerConfig};
+use super::{collector::CollectorConfig, syncer::SyncerConfig};
 
 /// A builder to establish a connection to INX.
 #[must_use]
@@ -17,7 +17,7 @@ pub struct InxConfig {
     /// The time that has to pass until a new connection attempt is made.
     #[serde(default, with = "humantime_serde")]
     pub connection_retry_interval: Duration,
-    pub syncer: InxSyncerConfig,
+    pub syncer: SyncerConfig,
     pub collector: CollectorConfig,
 }
 
@@ -26,7 +26,7 @@ impl Default for InxConfig {
         Self {
             connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
-            syncer: InxSyncerConfig::default(),
+            syncer: SyncerConfig::default(),
             collector: CollectorConfig::default(),
         }
     }

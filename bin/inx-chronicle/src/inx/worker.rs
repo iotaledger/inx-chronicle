@@ -22,7 +22,7 @@ use mongodb::error::ErrorKind;
 use super::{
     collector::{Collector, CollectorError},
     listener::{InxListener, InxListenerError},
-    syncer::InxSyncer,
+    syncer::{Syncer, NewTargetMilestone},
     InxConfig, InxWorkerError,
 };
 
@@ -55,9 +55,14 @@ impl Inx {
     }
 }
 
+pub struct InxWorkerState {
+    inx_client: InxClient<Channel>,
+    syncer_started: bool,
+}
+
 #[async_trait]
 impl Actor for InxWorker {
-    type State = InxClient<Channel>;
+    type State = InxWorkerState;
     type Error = InxWorkerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -68,10 +73,10 @@ impl Actor for InxWorker {
         cx.spawn_child(Collector::new(self.db.clone(), self.config.collector.clone()))
             .await;
         cx.spawn_child(InxListener::new(inx_client.clone())).await;
-        cx.spawn_child(InxSyncer::new(self.db.clone(), self.config.syncer.clone()))
+        cx.spawn_child(Syncer::new(self.db.clone(), self.config.syncer.clone()))
             .await;
 
-        Ok(inx_client)
+        Ok(InxWorkerState { inx_client, syncer_started: false } )
     }
 }
 
@@ -118,7 +123,7 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<InxListener>,
-        inx_client: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match &event {
             Report::Success(_) => {
@@ -133,7 +138,7 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
                         cx.shutdown();
                     }
                     InxListenerError::MissingCollector => {
-                        cx.delay(SpawnActor::new(InxListener::new(inx_client.clone())), None)?;
+                        cx.delay(SpawnActor::new(InxListener::new(state.inx_client.clone())), None)?;
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
@@ -146,11 +151,11 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
 }
 
 #[async_trait]
-impl HandleEvent<Report<InxSyncer>> for InxWorker {
+impl HandleEvent<Report<Syncer>> for InxWorker {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        report: Report<InxSyncer>,
+        report: Report<Syncer>,
         _: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match report {
@@ -167,7 +172,7 @@ impl HandleEvent<Report<InxSyncer>> for InxWorker {
                         log::error!("Syncer exited with error: {}", e);
                         // Panic: a previous Syncer instance always has an internal state.
                         cx.spawn_child(
-                            InxSyncer::new(self.db.clone(), self.config.syncer.clone())
+                            Syncer::new(self.db.clone(), self.config.syncer.clone())
                                 .with_internal_state(internal_state.unwrap()),
                         )
                         .await;
@@ -178,6 +183,24 @@ impl HandleEvent<Report<InxSyncer>> for InxWorker {
                 }
                 cx.shutdown();
             }
+        }
+        Ok(())
+    }
+}
+
+pub struct NewMilestone(pub(crate) u32);
+
+#[async_trait]
+impl HandleEvent<NewMilestone> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        NewMilestone(milestone_index): NewMilestone,
+        state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        if !state.syncer_started {
+            cx.addr::<Syncer>().await.send(NewTargetMilestone(milestone_index.max(1) - 1))?;
+            state.syncer_started = true;
         }
         Ok(())
     }
@@ -214,7 +237,7 @@ pub mod stardust {
 
     #[derive(Debug)]
     pub struct NodeStatusRequest {
-        pub syncer_addr: Addr<InxSyncer>,
+        pub syncer_addr: Addr<Syncer>,
     }
 
     #[async_trait]
@@ -223,10 +246,10 @@ pub mod stardust {
             &mut self,
             _: &mut ActorContext<Self>,
             NodeStatusRequest { syncer_addr }: NodeStatusRequest,
-            inx_client: &mut Self::State,
+            state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             let now = Instant::now();
-            let node_status: NodeStatus = inx_client
+            let node_status: NodeStatus = state.inx_client
                 .read_node_status(NoParams {})
                 .await?
                 .into_inner()
@@ -239,7 +262,6 @@ pub mod stardust {
             }
             log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
 
-            // cx.addr::<InxSyncer>().await.send(node_status)?;
             syncer_addr.send(node_status)?;
 
             Ok(())
@@ -249,7 +271,7 @@ pub mod stardust {
     #[derive(Debug)]
     pub struct MilestoneRequest {
         pub milestone_index: MilestoneIndex,
-        pub syncer_addr: Addr<InxSyncer>,
+        pub syncer_addr: Addr<Syncer>,
     }
 
     #[async_trait]
@@ -261,10 +283,10 @@ pub mod stardust {
                 milestone_index,
                 syncer_addr,
             }: MilestoneRequest,
-            inx_client: &mut Self::State,
+            state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             let now = Instant::now();
-            if let Ok(milestone) = inx_client
+            if let Ok(milestone) = state.inx_client
                 .read_milestone(inx::proto::MilestoneRequest {
                     milestone_index: *milestone_index,
                     milestone_id: None,
@@ -295,18 +317,18 @@ pub mod stardust {
             &mut self,
             cx: &mut ActorContext<Self>,
             inx_request: InxRequest,
-            inx_client: &mut Self::State,
+            state: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match inx_request {
                 InxRequest::Message(message_id, solidifier_addr, mut ms_state) => {
                     let now = Instant::now();
                     match (
-                        inx_client
+                        state.inx_client
                             .read_message(inx::proto::MessageId {
                                 id: message_id.0.clone().into(),
                             })
                             .await,
-                        inx_client
+                        state.inx_client
                             .read_message_metadata(inx::proto::MessageId {
                                 id: message_id.0.into(),
                             })
@@ -338,7 +360,7 @@ pub mod stardust {
                 }
                 InxRequest::Metadata(message_id, solidifier_addr, ms_state) => {
                     let now = Instant::now();
-                    if let Ok(metadata) = inx_client
+                    if let Ok(metadata) = state.inx_client
                         .read_message_metadata(inx::proto::MessageId {
                             id: message_id.0.into(),
                         })

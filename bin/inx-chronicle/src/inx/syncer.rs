@@ -20,7 +20,7 @@ use super::{
 };
 
 #[derive(Debug, thiserror::Error)]
-pub enum InxSyncerError {
+pub enum SyncerError {
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
     #[error(transparent)]
@@ -30,7 +30,7 @@ pub enum InxSyncerError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct InxSyncerConfig {
+pub struct SyncerConfig {
     // the maximum number of simultaneously open requests for milestones
     pub(crate) max_simultaneous_requests: usize,
     // the number of historic milestones the Syncer tries to sync from the ledger index at start
@@ -39,7 +39,7 @@ pub struct InxSyncerConfig {
     pub(crate) sync_back_index: u32, // if set != 0 in the config, will override any also configured delta
 }
 
-impl Default for InxSyncerConfig {
+impl Default for SyncerConfig {
     fn default() -> Self {
         Self {
             max_simultaneous_requests: 10,
@@ -51,14 +51,14 @@ impl Default for InxSyncerConfig {
 
 // The Syncer goes backwards in time and tries collect as many milestones as possible.
 #[derive(Debug)]
-pub struct InxSyncer {
+pub struct Syncer {
     db: MongoDb,
-    config: InxSyncerConfig,
+    config: SyncerConfig,
     internal_state: Option<SyncerState>,
 }
 
-impl InxSyncer {
-    pub fn new(db: MongoDb, config: InxSyncerConfig) -> Self {
+impl Syncer {
+    pub fn new(db: MongoDb, config: SyncerConfig) -> Self {
         Self {
             db,
             config,
@@ -71,7 +71,7 @@ impl InxSyncer {
         self
     }
 
-    async fn is_synced(&self, index: u32) -> Result<bool, InxSyncerError> {
+    async fn is_synced(&self, index: u32) -> Result<bool, SyncerError> {
         let sync_record = self.db.get_sync_record_by_index(index).await?;
         Ok(sync_record.map_or(false, |rec| rec.synced))
     }
@@ -109,9 +109,9 @@ pub struct SyncerState {
 }
 
 #[async_trait]
-impl Actor for InxSyncer {
+impl Actor for Syncer {
     type State = SyncerState;
-    type Error = InxSyncerError;
+    type Error = SyncerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         // Send a `NodeStatus` request to the `InxWorker`
@@ -125,7 +125,7 @@ impl Actor for InxSyncer {
 
 // issues requests in a controlled way
 #[async_trait]
-impl HandleEvent<NextMilestone> for InxSyncer {
+impl HandleEvent<NextMilestone> for Syncer {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
@@ -154,14 +154,14 @@ impl HandleEvent<NextMilestone> for InxSyncer {
 }
 
 #[async_trait]
-impl HandleEvent<NodeStatus> for InxSyncer {
+impl HandleEvent<NodeStatus> for Syncer {
     async fn handle_event(
         &mut self,
         _: &mut ActorContext<Self>,
         node_status: NodeStatus,
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Node status (pruning index = '{}').", node_status.pruning_index);
+        log::debug!("Node's pruning index is at `{}`.", node_status.pruning_index);
         syncer_state.start_ms_index = node_status.pruning_index + 1;
         Ok(())
     }
@@ -169,22 +169,35 @@ impl HandleEvent<NodeStatus> for InxSyncer {
 
 // removes successfully synced milestones from `pending` to allow for new requests
 #[async_trait]
-impl HandleEvent<NewSyncedMilestone> for InxSyncer {
+impl HandleEvent<NewSyncedMilestone> for Syncer {
     async fn handle_event(
         &mut self,
-        cx: &mut ActorContext<Self>,
+        _: &mut ActorContext<Self>,
         NewSyncedMilestone(latest_synced_index): NewSyncedMilestone,
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::info!("New synced milestone '{}'", latest_synced_index);
-
         syncer_state.pending.remove(&latest_synced_index);
+        Ok(())
+    }
+}
+
+// allows to resume the syncer
+#[async_trait]
+impl HandleEvent<NewTargetMilestone> for Syncer {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        NewTargetMilestone(new_target_ms_index): NewTargetMilestone,
+        syncer_state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        log::trace!("New target milestone '{}'", new_target_ms_index);
 
         if syncer_state.target_ms_index == 0 {
             // Set the target to the first synced milestone that was not requested by the Syncer.
-            syncer_state.target_ms_index = latest_synced_index;
+            syncer_state.target_ms_index = new_target_ms_index;
             // Note: at this point `start_ms_index` contains the pruning index
-            syncer_state.start_ms_index = self.get_start_ms_index(syncer_state.start_ms_index, latest_synced_index);
+            syncer_state.start_ms_index = self.get_start_ms_index(syncer_state.start_ms_index, new_target_ms_index);
 
             log::info!(
                 "Start syncing milestone range: [{}:{}]",
@@ -197,23 +210,7 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
                 },
                 None,
             )?;
-        }
-        Ok(())
-    }
-}
-
-// allows to resume the syncer
-#[async_trait]
-impl HandleEvent<NewTargetMilestone> for InxSyncer {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        NewTargetMilestone(new_target_ms_index): NewTargetMilestone,
-        syncer_state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        log::trace!("New target milestone '{}'", new_target_ms_index);
-
-        if new_target_ms_index > syncer_state.target_ms_index {
+        } else if new_target_ms_index > syncer_state.target_ms_index {
             let previous_target = syncer_state.target_ms_index;
             syncer_state.target_ms_index = new_target_ms_index;
             let start_index = previous_target + 1;
