@@ -22,15 +22,34 @@ pub enum SolidifierError {
     ValueAccess(#[from] ValueAccessError),
 }
 
-#[derive(Debug)]
 pub struct Solidifier {
     pub id: usize,
     pub(crate) db: MongoDb,
+    #[cfg(feature = "metrics")]
+    pub(crate) counter: bee_metrics::metrics::counter::Counter,
 }
 
 impl Solidifier {
-    pub fn new(id: usize, db: MongoDb) -> Self {
-        Self { id, db }
+    pub fn new(
+        id: usize,
+        db: MongoDb,
+        #[cfg(feature = "metrics")] counter: bee_metrics::metrics::counter::Counter,
+    ) -> Self {
+        Self {
+            id,
+            db,
+            #[cfg(feature = "metrics")]
+            counter,
+        }
+    }
+}
+
+impl std::fmt::Debug for Solidifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Solidifier")
+            .field("id", &self.id)
+            .field("db", &self.db)
+            .finish()
     }
 }
 

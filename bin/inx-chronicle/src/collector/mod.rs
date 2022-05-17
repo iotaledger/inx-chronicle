@@ -47,11 +47,31 @@ impl Actor for Collector {
     type Error = CollectorError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        #[cfg(feature = "metrics")]
+        let solid_counter = {
+            let solid_counter = bee_metrics::metrics::counter::Counter::default();
+            cx.addr::<crate::metrics::MetricsWorker>()
+                .await
+                .send(crate::metrics::RegisterMetric {
+                    name: "solid count".to_string(),
+                    help: "Count of solidified milestones".to_string(),
+                    metric: solid_counter.clone(),
+                })?;
+            solid_counter
+        };
         let mut solidifiers = Vec::with_capacity(self.config.solidifier_count);
         for i in 0..self.config.solidifier_count {
             solidifiers.push(
-                cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
-                    .await,
+                cx.spawn_child(
+                    Solidifier::new(
+                        i,
+                        self.db.clone(),
+                        #[cfg(feature = "metrics")]
+                        solid_counter.clone(),
+                    )
+                    .with_registration(false),
+                )
+                .await,
             );
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]

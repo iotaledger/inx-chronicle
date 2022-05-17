@@ -329,6 +329,9 @@ impl HandleEvent<MilestoneState> for Solidifier {
                 synced: true,
             })
             .await?;
+        #[cfg(feature = "metrics")]
+        self.counter.inc();
+
         Ok(())
     }
 }
