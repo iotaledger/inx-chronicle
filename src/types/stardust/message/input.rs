@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::input as stardust;
+use bee_message_stardust::input as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::{MilestoneId, OutputId};
@@ -15,26 +15,24 @@ pub enum Input {
     Treasury { milestone_id: MilestoneId },
 }
 
-impl From<&stardust::Input> for Input {
-    fn from(value: &stardust::Input) -> Self {
+impl From<&bee::Input> for Input {
+    fn from(value: &bee::Input) -> Self {
         match value {
-            stardust::Input::Utxo(i) => Self::Utxo((*i.output_id()).into()),
-            stardust::Input::Treasury(i) => Self::Treasury {
+            bee::Input::Utxo(i) => Self::Utxo((*i.output_id()).into()),
+            bee::Input::Treasury(i) => Self::Treasury {
                 milestone_id: (*i.milestone_id()).into(),
             },
         }
     }
 }
 
-impl TryFrom<Input> for stardust::Input {
+impl TryFrom<Input> for bee::Input {
     type Error = crate::types::error::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {
-            Input::Utxo(i) => stardust::Input::Utxo(stardust::UtxoInput::new(i.transaction_id.try_into()?, i.index)?),
-            Input::Treasury { milestone_id } => {
-                stardust::Input::Treasury(stardust::TreasuryInput::new(milestone_id.try_into()?))
-            }
+            Input::Utxo(i) => bee::Input::Utxo(bee::UtxoInput::new(i.transaction_id.try_into()?, i.index)?),
+            Input::Treasury { milestone_id } => bee::Input::Treasury(bee::TreasuryInput::new(milestone_id.try_into()?)),
         })
     }
 }

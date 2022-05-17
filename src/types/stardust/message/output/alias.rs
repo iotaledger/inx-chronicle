@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_message_stardust::output as stardust;
+use bee_message_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
@@ -14,21 +14,21 @@ pub struct AliasId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
 impl AliasId {
     pub fn from_output_id_str(s: &str) -> Result<Self, crate::types::error::Error> {
-        Ok(stardust::AliasId::from(stardust::OutputId::from_str(s)?).into())
+        Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }
 }
 
-impl From<stardust::AliasId> for AliasId {
-    fn from(value: stardust::AliasId) -> Self {
+impl From<bee::AliasId> for AliasId {
+    fn from(value: bee::AliasId) -> Self {
         Self(value.to_vec().into_boxed_slice())
     }
 }
 
-impl TryFrom<AliasId> for stardust::AliasId {
+impl TryFrom<AliasId> for bee::AliasId {
     type Error = crate::types::error::Error;
 
     fn try_from(value: AliasId) -> Result<Self, Self::Error> {
-        Ok(stardust::AliasId::new(value.0.as_ref().try_into()?))
+        Ok(bee::AliasId::new(value.0.as_ref().try_into()?))
     }
 }
 
@@ -36,7 +36,7 @@ impl FromStr for AliasId {
     type Err = crate::types::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(stardust::AliasId::from_str(s)?.into())
+        Ok(bee::AliasId::from_str(s)?.into())
     }
 }
 
@@ -55,8 +55,8 @@ pub struct AliasOutput {
     pub immutable_feature_blocks: Box<[FeatureBlock]>,
 }
 
-impl From<&stardust::AliasOutput> for AliasOutput {
-    fn from(value: &stardust::AliasOutput) -> Self {
+impl From<&bee::AliasOutput> for AliasOutput {
+    fn from(value: &bee::AliasOutput) -> Self {
         Self {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -71,7 +71,7 @@ impl From<&stardust::AliasOutput> for AliasOutput {
     }
 }
 
-impl TryFrom<AliasOutput> for stardust::AliasOutput {
+impl TryFrom<AliasOutput> for bee::AliasOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
@@ -120,7 +120,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_alias_id_bson() {
-        let alias_id = AliasId::from(rand_alias_id());
+        let alias_id = AliasId::from(bee_test::rand::output::rand_alias_id());
         let bson = to_bson(&alias_id).unwrap();
         assert_eq!(alias_id, from_bson::<AliasId>(bson).unwrap());
     }
@@ -132,13 +132,9 @@ pub(crate) mod test {
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }
 
-    pub(crate) fn rand_alias_id() -> stardust::AliasId {
-        bee_test::rand::bytes::rand_bytes_array().into()
-    }
-
     pub(crate) fn get_test_alias_output() -> AliasOutput {
         AliasOutput::from(
-            &stardust::AliasOutput::build_with_amount(100, rand_alias_id())
+            &bee::AliasOutput::build_with_amount(100, bee_test::rand::output::rand_alias_id())
                 .unwrap()
                 .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
                 .with_state_index(0)

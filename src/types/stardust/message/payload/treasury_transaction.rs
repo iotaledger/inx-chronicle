@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload as stardust;
+use bee_message_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 
 use super::MilestoneId;
@@ -13,8 +13,8 @@ pub struct TreasuryTransactionPayload {
     output_amount: u64,
 }
 
-impl From<&stardust::TreasuryTransactionPayload> for TreasuryTransactionPayload {
-    fn from(value: &stardust::TreasuryTransactionPayload) -> Self {
+impl From<&bee::TreasuryTransactionPayload> for TreasuryTransactionPayload {
+    fn from(value: &bee::TreasuryTransactionPayload) -> Self {
         Self {
             input_milestone_id: (*value.input().milestone_id()).into(),
             output_amount: value.output().amount(),
@@ -22,7 +22,7 @@ impl From<&stardust::TreasuryTransactionPayload> for TreasuryTransactionPayload 
     }
 }
 
-impl TryFrom<TreasuryTransactionPayload> for stardust::TreasuryTransactionPayload {
+impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
     type Error = crate::types::error::Error;
 
     fn try_from(value: TreasuryTransactionPayload) -> Result<Self, Self::Error> {
@@ -48,7 +48,7 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_treasury_transaction_payload() -> TreasuryTransactionPayload {
         TreasuryTransactionPayload::from(
-            &stardust::TreasuryTransactionPayload::new(
+            &bee::TreasuryTransactionPayload::new(
                 bee_test::rand::input::rand_treasury_input(),
                 bee_test::rand::output::rand_treasury_output(),
             )

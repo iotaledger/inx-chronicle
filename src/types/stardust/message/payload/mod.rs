@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload as stardust;
+use bee_message_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 
 mod milestone;
@@ -29,26 +29,26 @@ pub enum Payload {
     TaggedData(Box<TaggedDataPayload>),
 }
 
-impl From<&stardust::Payload> for Payload {
-    fn from(value: &stardust::Payload) -> Self {
+impl From<&bee::Payload> for Payload {
+    fn from(value: &bee::Payload) -> Self {
         match value {
-            stardust::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
-            stardust::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
-            stardust::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
-            stardust::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
+            bee::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
+            bee::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
+            bee::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
+            bee::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
         }
     }
 }
 
-impl TryFrom<Payload> for stardust::Payload {
+impl TryFrom<Payload> for bee::Payload {
     type Error = crate::types::error::Error;
 
     fn try_from(value: Payload) -> Result<Self, Self::Error> {
         Ok(match value {
-            Payload::Transaction(p) => stardust::Payload::Transaction(Box::new((*p).try_into()?)),
-            Payload::Milestone(p) => stardust::Payload::Milestone(Box::new((*p).try_into()?)),
-            Payload::TreasuryTransaction(p) => stardust::Payload::TreasuryTransaction(Box::new((*p).try_into()?)),
-            Payload::TaggedData(p) => stardust::Payload::TaggedData(Box::new((*p).try_into()?)),
+            Payload::Transaction(p) => bee::Payload::Transaction(Box::new((*p).try_into()?)),
+            Payload::Milestone(p) => bee::Payload::Milestone(Box::new((*p).try_into()?)),
+            Payload::TreasuryTransaction(p) => bee::Payload::TreasuryTransaction(Box::new((*p).try_into()?)),
+            Payload::TaggedData(p) => bee::Payload::TaggedData(Box::new((*p).try_into()?)),
         })
     }
 }

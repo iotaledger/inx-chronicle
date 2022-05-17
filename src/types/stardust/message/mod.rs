@@ -10,7 +10,7 @@ mod unlock_block;
 
 use std::str::FromStr;
 
-use bee_message_stardust as stardust;
+use bee_message_stardust as bee;
 use serde::{Deserialize, Serialize};
 
 pub use self::{address::*, input::*, output::*, payload::*, signature::*, unlock_block::*};
@@ -25,17 +25,17 @@ impl MessageId {
     }
 }
 
-impl From<stardust::MessageId> for MessageId {
-    fn from(value: stardust::MessageId) -> Self {
+impl From<bee::MessageId> for MessageId {
+    fn from(value: bee::MessageId) -> Self {
         Self(value.to_vec().into_boxed_slice())
     }
 }
 
-impl TryFrom<MessageId> for stardust::MessageId {
+impl TryFrom<MessageId> for bee::MessageId {
     type Error = crate::types::error::Error;
 
     fn try_from(value: MessageId) -> Result<Self, Self::Error> {
-        Ok(stardust::MessageId::new(value.0.as_ref().try_into()?))
+        Ok(bee::MessageId::new(value.0.as_ref().try_into()?))
     }
 }
 
@@ -43,7 +43,7 @@ impl FromStr for MessageId {
     type Err = crate::types::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(stardust::MessageId::from_str(s)?.into())
+        Ok(bee::MessageId::from_str(s)?.into())
     }
 }
 
@@ -57,8 +57,8 @@ pub struct Message {
     pub nonce: u64,
 }
 
-impl From<stardust::Message> for Message {
-    fn from(value: stardust::Message) -> Self {
+impl From<bee::Message> for Message {
+    fn from(value: bee::Message) -> Self {
         Self {
             id: value.id().into(),
             protocol_version: value.protocol_version(),
@@ -69,11 +69,11 @@ impl From<stardust::Message> for Message {
     }
 }
 
-impl TryFrom<Message> for stardust::Message {
+impl TryFrom<Message> for bee::Message {
     type Error = crate::types::error::Error;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let mut builder = stardust::MessageBuilder::<u64>::new(stardust::parent::Parents::new(
+        let mut builder = bee::MessageBuilder::<u64>::new(bee::parent::Parents::new(
             Vec::from(value.parents)
                 .into_iter()
                 .map(|p| p.try_into())
@@ -120,7 +120,7 @@ mod tests {
 
     fn get_test_transaction_message() -> Message {
         Message::from(
-            stardust::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
                 .with_nonce_provider(12345, 0.0)
                 .with_payload(get_test_transaction_payload().try_into().unwrap())
                 .finish()
@@ -130,7 +130,7 @@ mod tests {
 
     fn get_test_milestone_message() -> Message {
         Message::from(
-            stardust::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
                 .with_nonce_provider(12345, 0.0)
                 .with_payload(get_test_milestone_payload().try_into().unwrap())
                 .finish()
@@ -140,7 +140,7 @@ mod tests {
 
     fn get_test_tagged_data_message() -> Message {
         Message::from(
-            stardust::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
                 .with_nonce_provider(12345, 0.0)
                 .with_payload(get_test_tagged_data_payload().try_into().unwrap())
                 .finish()

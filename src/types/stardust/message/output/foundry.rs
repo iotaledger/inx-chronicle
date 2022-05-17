@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output as stardust;
+use bee_message_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{FeatureBlock, NativeToken, OutputAmount, TokenScheme, TokenTag, UnlockCondition};
@@ -20,8 +20,8 @@ pub struct FoundryOutput {
     immutable_feature_blocks: Box<[FeatureBlock]>,
 }
 
-impl From<&stardust::FoundryOutput> for FoundryOutput {
-    fn from(value: &stardust::FoundryOutput) -> Self {
+impl From<&bee::FoundryOutput> for FoundryOutput {
+    fn from(value: &bee::FoundryOutput) -> Self {
         Self {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -35,14 +35,14 @@ impl From<&stardust::FoundryOutput> for FoundryOutput {
     }
 }
 
-impl TryFrom<FoundryOutput> for stardust::FoundryOutput {
+impl TryFrom<FoundryOutput> for bee::FoundryOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
         Ok(Self::build_with_amount(
             value.amount,
             value.serial_number,
-            stardust::TokenTag::new(value.token_tag.as_ref().try_into()?),
+            bee::TokenTag::new(value.token_tag.as_ref().try_into()?),
             value.token_scheme.try_into()?,
         )?
         .with_native_tokens(
@@ -79,8 +79,8 @@ pub(crate) mod test {
 
     use super::*;
     use crate::types::stardust::message::output::{
-        alias::test::rand_alias_id, feature_block::test::get_test_metadata_block,
-        native_token::test::get_test_native_token, unlock_condition::test::get_test_immut_alias_address_condition,
+        feature_block::test::get_test_metadata_block, native_token::test::get_test_native_token,
+        unlock_condition::test::get_test_immut_alias_address_condition,
     };
 
     #[test]
@@ -92,18 +92,16 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_foundry_output() -> FoundryOutput {
         FoundryOutput::from(
-            &stardust::FoundryOutput::build_with_amount(
+            &bee::FoundryOutput::build_with_amount(
                 100,
                 bee_test::rand::number::rand_number(),
-                stardust::TokenTag::new(bee_test::rand::bytes::rand_bytes_array()),
-                stardust::TokenScheme::Simple(
-                    stardust::SimpleTokenScheme::new(250.into(), 200.into(), 300.into()).unwrap(),
-                ),
+                bee::TokenTag::new(bee_test::rand::bytes::rand_bytes_array()),
+                bee::TokenScheme::Simple(bee::SimpleTokenScheme::new(250.into(), 200.into(), 300.into()).unwrap()),
             )
             .unwrap()
             .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
             .with_unlock_conditions(vec![
-                get_test_immut_alias_address_condition(rand_alias_id().into())
+                get_test_immut_alias_address_condition(bee_test::rand::output::rand_alias_id().into())
                     .try_into()
                     .unwrap(),
             ])

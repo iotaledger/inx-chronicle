@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload::tagged_data as stardust;
+use bee_message_stardust::payload::tagged_data as bee;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,8 +12,8 @@ pub struct TaggedDataPayload {
     data: Box<[u8]>,
 }
 
-impl From<&stardust::TaggedDataPayload> for TaggedDataPayload {
-    fn from(value: &stardust::TaggedDataPayload) -> Self {
+impl From<&bee::TaggedDataPayload> for TaggedDataPayload {
+    fn from(value: &bee::TaggedDataPayload) -> Self {
         Self {
             tag: value.tag().to_vec().into_boxed_slice(),
             data: value.data().to_vec().into_boxed_slice(),
@@ -21,11 +21,11 @@ impl From<&stardust::TaggedDataPayload> for TaggedDataPayload {
     }
 }
 
-impl TryFrom<TaggedDataPayload> for stardust::TaggedDataPayload {
+impl TryFrom<TaggedDataPayload> for bee::TaggedDataPayload {
     type Error = crate::types::error::Error;
 
     fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
-        Ok(stardust::TaggedDataPayload::new(value.tag.into(), value.data.into())?)
+        Ok(bee::TaggedDataPayload::new(value.tag.into(), value.data.into())?)
     }
 }
 

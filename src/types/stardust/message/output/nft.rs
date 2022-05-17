@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_message_stardust::output as stardust;
+use bee_message_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
@@ -14,21 +14,21 @@ pub struct NftId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
 impl NftId {
     pub fn from_output_id_str(s: &str) -> Result<Self, crate::types::error::Error> {
-        Ok(stardust::NftId::from(stardust::OutputId::from_str(s)?).into())
+        Ok(bee::NftId::from(bee::OutputId::from_str(s)?).into())
     }
 }
 
-impl From<stardust::NftId> for NftId {
-    fn from(value: stardust::NftId) -> Self {
+impl From<bee::NftId> for NftId {
+    fn from(value: bee::NftId) -> Self {
         Self(value.to_vec().into_boxed_slice())
     }
 }
 
-impl TryFrom<NftId> for stardust::NftId {
+impl TryFrom<NftId> for bee::NftId {
     type Error = crate::types::error::Error;
 
     fn try_from(value: NftId) -> Result<Self, Self::Error> {
-        Ok(stardust::NftId::new(value.0.as_ref().try_into()?))
+        Ok(bee::NftId::new(value.0.as_ref().try_into()?))
     }
 }
 
@@ -36,7 +36,7 @@ impl FromStr for NftId {
     type Err = crate::types::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(stardust::NftId::from_str(s)?.into())
+        Ok(bee::NftId::from_str(s)?.into())
     }
 }
 
@@ -50,8 +50,8 @@ pub struct NftOutput {
     immutable_feature_blocks: Box<[FeatureBlock]>,
 }
 
-impl From<&stardust::NftOutput> for NftOutput {
-    fn from(value: &stardust::NftOutput) -> Self {
+impl From<&bee::NftOutput> for NftOutput {
+    fn from(value: &bee::NftOutput) -> Self {
         Self {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -63,7 +63,7 @@ impl From<&stardust::NftOutput> for NftOutput {
     }
 }
 
-impl TryFrom<NftOutput> for stardust::NftOutput {
+impl TryFrom<NftOutput> for bee::NftOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
@@ -126,13 +126,13 @@ pub(crate) mod test {
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }
 
-    pub(crate) fn rand_nft_id() -> stardust::NftId {
+    pub(crate) fn rand_nft_id() -> bee::NftId {
         bee_test::rand::bytes::rand_bytes_array().into()
     }
 
     pub(crate) fn get_test_nft_output() -> NftOutput {
         NftOutput::from(
-            &stardust::NftOutput::build_with_amount(100, rand_nft_id())
+            &bee::NftOutput::build_with_amount(100, rand_nft_id())
                 .unwrap()
                 .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
                 .with_unlock_conditions(vec![

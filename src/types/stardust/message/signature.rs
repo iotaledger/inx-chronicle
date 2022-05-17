@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::signature as stardust;
+use bee_message_stardust::signature as bee;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,10 +16,10 @@ pub enum Signature {
     },
 }
 
-impl From<&stardust::Signature> for Signature {
-    fn from(value: &stardust::Signature) -> Self {
+impl From<&bee::Signature> for Signature {
+    fn from(value: &bee::Signature) -> Self {
         match value {
-            stardust::Signature::Ed25519(signature) => Self::Ed25519 {
+            bee::Signature::Ed25519(signature) => Self::Ed25519 {
                 public_key: signature.public_key().to_vec().into_boxed_slice(),
                 signature: signature.signature().to_vec().into_boxed_slice(),
             },
@@ -27,13 +27,13 @@ impl From<&stardust::Signature> for Signature {
     }
 }
 
-impl TryFrom<Signature> for stardust::Signature {
+impl TryFrom<Signature> for bee::Signature {
     type Error = crate::types::error::Error;
 
     fn try_from(value: Signature) -> Result<Self, Self::Error> {
         Ok(match value {
-            Signature::Ed25519 { public_key, signature } => stardust::Signature::Ed25519(
-                stardust::Ed25519Signature::new(public_key.as_ref().try_into()?, signature.as_ref().try_into()?),
+            Signature::Ed25519 { public_key, signature } => bee::Signature::Ed25519(
+                bee::Ed25519Signature::new(public_key.as_ref().try_into()?, signature.as_ref().try_into()?),
             ),
         })
     }
@@ -53,7 +53,7 @@ pub(crate) mod test {
     }
 
     pub(crate) fn get_test_signature() -> Signature {
-        Signature::from(&stardust::Signature::Ed25519(stardust::Ed25519Signature::new(
+        Signature::from(&bee::Signature::Ed25519(bee::Ed25519Signature::new(
             bee_test::rand::bytes::rand_bytes_array(),
             bee_test::rand::bytes::rand_bytes_array(),
         )))

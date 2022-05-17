@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output as stardust;
+use bee_message_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
@@ -15,8 +15,8 @@ pub struct BasicOutput {
     pub feature_blocks: Box<[FeatureBlock]>,
 }
 
-impl From<&stardust::BasicOutput> for BasicOutput {
-    fn from(value: &stardust::BasicOutput) -> Self {
+impl From<&bee::BasicOutput> for BasicOutput {
+    fn from(value: &bee::BasicOutput) -> Self {
         Self {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -26,7 +26,7 @@ impl From<&stardust::BasicOutput> for BasicOutput {
     }
 }
 
-impl TryFrom<BasicOutput> for stardust::BasicOutput {
+impl TryFrom<BasicOutput> for bee::BasicOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: BasicOutput) -> Result<Self, Self::Error> {
@@ -76,7 +76,7 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_basic_output() -> BasicOutput {
         BasicOutput::from(
-            &stardust::BasicOutput::build_with_amount(100)
+            &bee::BasicOutput::build_with_amount(100)
                 .unwrap()
                 .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
                 .with_unlock_conditions(vec![

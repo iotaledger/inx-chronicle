@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output::feature_block as stardust;
+use bee_message_stardust::output::feature_block as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::Address;
@@ -25,40 +25,40 @@ pub enum FeatureBlock {
     },
 }
 
-impl From<&stardust::FeatureBlock> for FeatureBlock {
-    fn from(value: &stardust::FeatureBlock) -> Self {
+impl From<&bee::FeatureBlock> for FeatureBlock {
+    fn from(value: &bee::FeatureBlock) -> Self {
         match value {
-            stardust::FeatureBlock::Sender(a) => Self::Sender {
+            bee::FeatureBlock::Sender(a) => Self::Sender {
                 address: (*a.address()).into(),
             },
-            stardust::FeatureBlock::Issuer(a) => Self::Issuer {
+            bee::FeatureBlock::Issuer(a) => Self::Issuer {
                 address: (*a.address()).into(),
             },
-            stardust::FeatureBlock::Metadata(b) => Self::Metadata {
+            bee::FeatureBlock::Metadata(b) => Self::Metadata {
                 data: b.data().to_vec().into_boxed_slice(),
             },
-            stardust::FeatureBlock::Tag(b) => Self::Tag {
+            bee::FeatureBlock::Tag(b) => Self::Tag {
                 data: b.tag().to_vec().into_boxed_slice(),
             },
         }
     }
 }
 
-impl TryFrom<FeatureBlock> for stardust::FeatureBlock {
+impl TryFrom<FeatureBlock> for bee::FeatureBlock {
     type Error = crate::types::error::Error;
 
     fn try_from(value: FeatureBlock) -> Result<Self, Self::Error> {
         Ok(match value {
             FeatureBlock::Sender { address } => {
-                stardust::FeatureBlock::Sender(stardust::SenderFeatureBlock::new(address.try_into()?))
+                bee::FeatureBlock::Sender(bee::SenderFeatureBlock::new(address.try_into()?))
             }
             FeatureBlock::Issuer { address } => {
-                stardust::FeatureBlock::Issuer(stardust::IssuerFeatureBlock::new(address.try_into()?))
+                bee::FeatureBlock::Issuer(bee::IssuerFeatureBlock::new(address.try_into()?))
             }
             FeatureBlock::Metadata { data } => {
-                stardust::FeatureBlock::Metadata(stardust::MetadataFeatureBlock::new(data.into())?)
+                bee::FeatureBlock::Metadata(bee::MetadataFeatureBlock::new(data.into())?)
             }
-            FeatureBlock::Tag { data } => stardust::FeatureBlock::Tag(stardust::TagFeatureBlock::new(data.into())?),
+            FeatureBlock::Tag { data } => bee::FeatureBlock::Tag(bee::TagFeatureBlock::new(data.into())?),
         })
     }
 }

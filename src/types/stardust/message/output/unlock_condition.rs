@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output::unlock_condition as stardust;
+use bee_message_stardust::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use super::AliasId;
@@ -34,73 +34,70 @@ pub enum UnlockCondition {
     ImmutableAliasAddress { alias_id: AliasId },
 }
 
-impl From<&stardust::UnlockCondition> for UnlockCondition {
-    fn from(value: &stardust::UnlockCondition) -> Self {
+impl From<&bee::UnlockCondition> for UnlockCondition {
+    fn from(value: &bee::UnlockCondition) -> Self {
         match value {
-            stardust::UnlockCondition::Address(a) => Self::Address {
+            bee::UnlockCondition::Address(a) => Self::Address {
                 address: (*a.address()).into(),
             },
-            stardust::UnlockCondition::StorageDepositReturn(c) => Self::StorageDepositReturn {
+            bee::UnlockCondition::StorageDepositReturn(c) => Self::StorageDepositReturn {
                 return_address: (*c.return_address()).into(),
                 amount: c.amount(),
             },
-            stardust::UnlockCondition::Timelock(c) => Self::Timelock {
+            bee::UnlockCondition::Timelock(c) => Self::Timelock {
                 milestone_index: c.milestone_index().0,
                 timestamp: c.timestamp(),
             },
-            stardust::UnlockCondition::Expiration(c) => Self::Expiration {
+            bee::UnlockCondition::Expiration(c) => Self::Expiration {
                 return_address: (*c.return_address()).into(),
                 milestone_index: c.milestone_index().0,
                 timestamp: c.timestamp(),
             },
-            stardust::UnlockCondition::StateControllerAddress(a) => Self::StateControllerAddress {
+            bee::UnlockCondition::StateControllerAddress(a) => Self::StateControllerAddress {
                 address: (*a.address()).into(),
             },
-            stardust::UnlockCondition::GovernorAddress(a) => Self::GovernorAddress {
+            bee::UnlockCondition::GovernorAddress(a) => Self::GovernorAddress {
                 address: (*a.address()).into(),
             },
-            stardust::UnlockCondition::ImmutableAliasAddress(a) => Self::ImmutableAliasAddress {
+            bee::UnlockCondition::ImmutableAliasAddress(a) => Self::ImmutableAliasAddress {
                 alias_id: (*a.address().alias_id()).into(),
             },
         }
     }
 }
 
-impl TryFrom<UnlockCondition> for stardust::UnlockCondition {
+impl TryFrom<UnlockCondition> for bee::UnlockCondition {
     type Error = crate::types::error::Error;
 
     fn try_from(value: UnlockCondition) -> Result<Self, Self::Error> {
         Ok(match value {
             UnlockCondition::Address { address } => {
-                Self::Address(stardust::AddressUnlockCondition::new(address.try_into()?))
+                Self::Address(bee::AddressUnlockCondition::new(address.try_into()?))
             }
             UnlockCondition::StorageDepositReturn { return_address, amount } => Self::StorageDepositReturn(
-                stardust::StorageDepositReturnUnlockCondition::new(return_address.try_into()?, amount)?,
+                bee::StorageDepositReturnUnlockCondition::new(return_address.try_into()?, amount)?,
             ),
             UnlockCondition::Timelock {
                 milestone_index,
                 timestamp,
-            } => Self::Timelock(stardust::TimelockUnlockCondition::new(
-                milestone_index.into(),
-                timestamp,
-            )?),
+            } => Self::Timelock(bee::TimelockUnlockCondition::new(milestone_index.into(), timestamp)?),
             UnlockCondition::Expiration {
                 return_address,
                 milestone_index,
                 timestamp,
-            } => Self::Expiration(stardust::ExpirationUnlockCondition::new(
+            } => Self::Expiration(bee::ExpirationUnlockCondition::new(
                 return_address.try_into()?,
                 milestone_index.into(),
                 timestamp,
             )?),
-            UnlockCondition::StateControllerAddress { address } => Self::StateControllerAddress(
-                stardust::StateControllerAddressUnlockCondition::new(address.try_into()?),
-            ),
+            UnlockCondition::StateControllerAddress { address } => {
+                Self::StateControllerAddress(bee::StateControllerAddressUnlockCondition::new(address.try_into()?))
+            }
             UnlockCondition::GovernorAddress { address } => {
-                Self::GovernorAddress(stardust::GovernorAddressUnlockCondition::new(address.try_into()?))
+                Self::GovernorAddress(bee::GovernorAddressUnlockCondition::new(address.try_into()?))
             }
             UnlockCondition::ImmutableAliasAddress { alias_id } => {
-                Self::ImmutableAliasAddress(stardust::ImmutableAliasAddressUnlockCondition::new(
+                Self::ImmutableAliasAddress(bee::ImmutableAliasAddressUnlockCondition::new(
                     bee_message_stardust::address::AliasAddress::new(alias_id.try_into()?),
                 ))
             }
@@ -113,7 +110,6 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::output::alias::test::rand_alias_id;
 
     #[test]
     fn test_unlock_condition_bson() {
@@ -141,7 +137,7 @@ pub(crate) mod test {
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_immut_alias_address_condition(rand_alias_id().into());
+        let block = get_test_immut_alias_address_condition(bee_test::rand::output::rand_alias_id().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
     }

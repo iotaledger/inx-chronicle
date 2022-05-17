@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output as stardust;
+use bee_message_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -10,13 +10,13 @@ pub struct TreasuryOutput {
     amount: u64,
 }
 
-impl From<&stardust::TreasuryOutput> for TreasuryOutput {
-    fn from(value: &stardust::TreasuryOutput) -> Self {
+impl From<&bee::TreasuryOutput> for TreasuryOutput {
+    fn from(value: &bee::TreasuryOutput) -> Self {
         Self { amount: value.amount() }
     }
 }
 
-impl TryFrom<TreasuryOutput> for stardust::TreasuryOutput {
+impl TryFrom<TreasuryOutput> for bee::TreasuryOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: TreasuryOutput) -> Result<Self, Self::Error> {
