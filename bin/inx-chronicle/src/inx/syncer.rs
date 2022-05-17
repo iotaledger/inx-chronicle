@@ -14,7 +14,10 @@ use chronicle::{
 use inx::NodeStatus;
 use serde::{Deserialize, Serialize};
 
-use crate::inx::{InxRequest, InxWorker};
+use super::{
+    worker::stardust::{MilestoneRequest, NodeStatusRequest},
+    InxWorker,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum InxSyncerError {
@@ -112,10 +115,11 @@ impl Actor for InxSyncer {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         // Send a `NodeStatus` request to the `InxWorker`
-        cx.addr::<InxWorker>().await.send(InxRequest::NodeStatus)?;
+        cx.addr::<InxWorker>().await.send(NodeStatusRequest {
+            syncer_addr: cx.handle().clone(),
+        })?;
 
-        let internal_state = self.internal_state.take();
-        Ok(internal_state.unwrap_or_default())
+        Ok(self.internal_state.take().unwrap_or_default())
     }
 }
 
@@ -135,9 +139,10 @@ impl HandleEvent<NextMilestone> for InxSyncer {
         if syncer_state.pending.len() < self.config.max_simultaneous_requests {
             if !self.is_synced(index).await? {
                 log::debug!("Requesting milestone '{}'.", index);
-                cx.addr::<InxWorker>()
-                    .await
-                    .send(InxRequest::milestone(index.into(), cx.addr().await))?;
+                cx.addr::<InxWorker>().await.send(MilestoneRequest {
+                    milestone_index: index.into(),
+                    syncer_addr: cx.handle().clone(),
+                })?;
                 syncer_state.pending.insert(index);
             }
             cx.delay(NextMilestone { index: index + 1 }, None)?;

@@ -7,7 +7,12 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::actor::{
-        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::{Report, ErrorReport}, util::SpawnActor,
+        addr::Addr,
+        context::ActorContext,
+        error::ActorError,
+        event::HandleEvent,
+        report::{ErrorReport, Report},
+        util::SpawnActor,
         Actor,
     },
 };
@@ -87,9 +92,8 @@ impl HandleEvent<Report<Collector>> for InxWorker {
                     CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         ErrorKind::Io(_) | ErrorKind::ServerSelection { message: _, .. } => {
-                            // let new_db = MongoDb::connect(&config.mongodb).await?;
-                            // *db = new_db;
-                            // cx.spawn_child(Collector::new(db.clone(), 10)).await;
+                            cx.spawn_child(Collector::new(self.db.clone(), self.config.collector.clone()))
+                                .await;
                         }
                         _ => {
                             cx.shutdown();
@@ -184,7 +188,7 @@ pub mod stardust {
     use std::time::Instant;
 
     use bee_message_stardust::payload::milestone::MilestoneIndex;
-    use chronicle::{dto::MessageId, runtime::actor::addr::OptionalAddr};
+    use chronicle::dto::MessageId;
 
     use super::*;
     use crate::inx::collector::{
@@ -194,23 +198,94 @@ pub mod stardust {
 
     #[derive(Debug)]
     pub enum InxRequest {
-        NodeStatus,
         Message(MessageId, Addr<Solidifier>, MilestoneState),
         Metadata(MessageId, Addr<Solidifier>, MilestoneState),
-        Milestone(MilestoneIndex, OptionalAddr<InxSyncer>),
     }
 
     impl InxRequest {
-        pub fn message(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
-            Self::Message(message_id, solidifier_addr, ms_state)
+        pub fn message(message_id: MessageId, callback_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+            Self::Message(message_id, callback_addr, ms_state)
         }
 
-        pub fn metadata(message_id: MessageId, solidifier_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
-            Self::Metadata(message_id, solidifier_addr, ms_state)
+        pub fn metadata(message_id: MessageId, callback_addr: Addr<Solidifier>, ms_state: MilestoneState) -> Self {
+            Self::Metadata(message_id, callback_addr, ms_state)
         }
+    }
 
-        pub fn milestone(milestone_index: MilestoneIndex, syncer_addr: OptionalAddr<InxSyncer>) -> Self {
-            Self::Milestone(milestone_index, syncer_addr)
+    #[derive(Debug)]
+    pub struct NodeStatusRequest {
+        pub syncer_addr: Addr<InxSyncer>,
+    }
+
+    #[async_trait]
+    impl HandleEvent<NodeStatusRequest> for InxWorker {
+        async fn handle_event(
+            &mut self,
+            _: &mut ActorContext<Self>,
+            NodeStatusRequest { syncer_addr }: NodeStatusRequest,
+            inx_client: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            let now = Instant::now();
+            let node_status: NodeStatus = inx_client
+                .read_node_status(NoParams {})
+                .await?
+                .into_inner()
+                .try_into()
+                .unwrap();
+            log::debug!("Requested node status. Took {}s.", now.elapsed().as_secs_f32());
+
+            if !node_status.is_healthy {
+                log::warn!("Node is unhealthy.");
+            }
+            log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
+
+            // cx.addr::<InxSyncer>().await.send(node_status)?;
+            syncer_addr.send(node_status)?;
+
+            Ok(())
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct MilestoneRequest {
+        pub milestone_index: MilestoneIndex,
+        pub syncer_addr: Addr<InxSyncer>,
+    }
+
+    #[async_trait]
+    impl HandleEvent<MilestoneRequest> for InxWorker {
+        async fn handle_event(
+            &mut self,
+            cx: &mut ActorContext<Self>,
+            MilestoneRequest {
+                milestone_index,
+                syncer_addr,
+            }: MilestoneRequest,
+            inx_client: &mut Self::State,
+        ) -> Result<(), Self::Error> {
+            let now = Instant::now();
+            if let Ok(milestone) = inx_client
+                .read_milestone(inx::proto::MilestoneRequest {
+                    milestone_index: *milestone_index,
+                    milestone_id: None,
+                })
+                .await
+            {
+                log::debug!(
+                    "Requested milestone '{}'. Took {}s.",
+                    *milestone_index,
+                    now.elapsed().as_secs_f32()
+                );
+                let milestone: inx::proto::Milestone = milestone.into_inner();
+
+                // Instruct the collector to solidify this milestone.
+                cx.addr::<Collector>()
+                    .await
+                    .send(RequestedMilestone::new(milestone, syncer_addr))?;
+            } else {
+                log::warn!("No milestone response for {}", *milestone_index);
+            }
+            Ok(())
         }
     }
 
@@ -223,23 +298,6 @@ pub mod stardust {
             inx_client: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match inx_request {
-                InxRequest::NodeStatus => {
-                    let now = Instant::now();
-                    let node_status: NodeStatus = inx_client
-                        .read_node_status(NoParams {})
-                        .await?
-                        .into_inner()
-                        .try_into()
-                        .unwrap();
-                    log::debug!("Requesting node status took {}s", now.elapsed().as_secs_f32());
-
-                    if !node_status.is_healthy {
-                        log::warn!("Node is unhealthy.");
-                    }
-                    log::info!("Node is at ledger index `{}`.", node_status.ledger_index);
-
-                    cx.addr::<InxSyncer>().await.send(node_status)?;
-                }
                 InxRequest::Message(message_id, solidifier_addr, mut ms_state) => {
                     let now = Instant::now();
                     match (
@@ -255,7 +313,7 @@ pub mod stardust {
                             .await,
                     ) {
                         (Ok(raw), Ok(metadata)) => {
-                            log::debug!("Requesting message/metadata took {}s", now.elapsed().as_secs_f32());
+                            log::debug!("Request message/metadata. Took {}s.", now.elapsed().as_secs_f32());
 
                             let (raw, metadata) = (raw.into_inner(), metadata.into_inner());
                             cx.addr::<Collector>()
@@ -286,37 +344,13 @@ pub mod stardust {
                         })
                         .await
                     {
-                        log::debug!("Requesting metadata took {}s", now.elapsed().as_secs_f32());
+                        log::debug!("Requested metadata. Took {}s.", now.elapsed().as_secs_f32());
 
                         let metadata = metadata.into_inner();
                         cx.addr::<Collector>()
                             .await
                             .send(RequestedMessage::new(None, metadata, solidifier_addr, ms_state))
                             .map_err(|_| InxWorkerError::MissingCollector)?;
-                    }
-                }
-                InxRequest::Milestone(milestone_index, syncer_addr) => {
-                    let now = Instant::now();
-                    if let Ok(milestone) = inx_client
-                        .read_milestone(inx::proto::MilestoneRequest {
-                            milestone_index: *milestone_index,
-                            milestone_id: None,
-                        })
-                        .await
-                    {
-                        log::debug!(
-                            "Requesting milestone '{}' took {}s",
-                            *milestone_index,
-                            now.elapsed().as_secs_f32()
-                        );
-                        let milestone: inx::proto::Milestone = milestone.into_inner();
-
-                        // Instruct the collector to solidify this milestone.
-                        cx.addr::<Collector>()
-                            .await
-                            .send(RequestedMilestone::new(milestone, syncer_addr))?;
-                    } else {
-                        log::warn!("No milestone response for {}", *milestone_index);
                     }
                 }
             }

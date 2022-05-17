@@ -36,12 +36,12 @@ pub struct CollectorConfig {
     pub solidifier_count: usize,
 }
 
+#[allow(dead_code)]
 impl CollectorConfig {
     const MAX_SOLIDIFIERS: usize = 100;
 
-    pub fn with_collector_count(mut self, solidifier_count: usize) -> Self {
+    pub fn set_solidifier_count(&mut self, solidifier_count: usize) {
         self.solidifier_count = solidifier_count.clamp(1, Self::MAX_SOLIDIFIERS);
-        self
     }
 }
 
@@ -122,7 +122,6 @@ pub mod stardust {
             milestone::MilestoneRecord,
         },
         dto,
-        runtime::actor::addr::OptionalAddr,
     };
 
     use super::*;
@@ -134,17 +133,17 @@ pub mod stardust {
         pub process_queue: VecDeque<dto::MessageId>,
         pub visited: HashSet<dto::MessageId>,
         pub time: Instant,
-        // pub notify: OptionalAddr<InxSyncer>,
+        pub syncer_addr: Option<Addr<InxSyncer>>,
     }
 
     impl MilestoneState {
-        pub fn new(milestone_index: u32, notify: OptionalAddr<InxSyncer>) -> Self {
+        pub fn new(milestone_index: u32, parents: Vec<dto::MessageId>, syncer_addr: Option<Addr<InxSyncer>>) -> Self {
             Self {
                 milestone_index,
-                process_queue: VecDeque::new(),
+                process_queue: parents.into(),
                 visited: HashSet::new(),
                 time: Instant::now(),
-                // notify,
+                syncer_addr,
             }
         }
     }
@@ -166,7 +165,7 @@ pub mod stardust {
     pub struct RequestedMessage {
         raw: Option<inx::proto::RawMessage>,
         metadata: inx::proto::MessageMetadata,
-        solidifier: Addr<Solidifier>,
+        solidifier_addr: Addr<Solidifier>,
         ms_state: MilestoneState,
     }
 
@@ -174,13 +173,13 @@ pub mod stardust {
         pub fn new(
             raw: Option<inx::proto::RawMessage>,
             metadata: inx::proto::MessageMetadata,
-            solidifier: Addr<Solidifier>,
+            solidifier_addr: Addr<Solidifier>,
             ms_state: MilestoneState,
         ) -> Self {
             Self {
                 raw,
                 metadata,
-                solidifier,
+                solidifier_addr,
                 ms_state,
             }
         }
@@ -235,7 +234,7 @@ pub mod stardust {
     impl HandleEvent<inx::proto::Milestone> for Collector {
         async fn handle_event(
             &mut self,
-            cx: &mut ActorContext<Self>,
+            _cx: &mut ActorContext<Self>,
             milestone: inx::proto::Milestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
@@ -243,11 +242,11 @@ pub mod stardust {
                 Ok(rec) => {
                     log::trace!("Received Stardust Milestone Event ({})", rec.milestone_index);
                     self.db.upsert_milestone_record(&rec).await?;
+
                     // Get or create the milestone state
-                    let mut state = MilestoneState::new(rec.milestone_index, None.into());
-                    state
-                        .process_queue
-                        .extend(Vec::from(rec.payload.essence.parents).into_iter());
+                    let parents = Vec::from(rec.payload.essence.parents);
+                    let state = MilestoneState::new(rec.milestone_index, parents, None);
+
                     solidifiers
                         // Divide solidifiers fairly by milestone
                         .get(&(rec.milestone_index as usize % self.config.solidifier_count))
@@ -271,7 +270,7 @@ pub mod stardust {
             RequestedMessage {
                 raw,
                 metadata,
-                solidifier,
+                solidifier_addr,
                 ms_state,
             }: RequestedMessage,
             _solidifiers: &mut Self::State,
@@ -283,7 +282,7 @@ pub mod stardust {
                         Ok(rec) => {
                             self.db.upsert_message_record(&rec).await?;
                             // Send this directly to the solidifier that requested it
-                            solidifier.send(ms_state)?;
+                            solidifier_addr.send(ms_state)?;
                         }
                         Err(e) => {
                             log::error!("Could not read message: {:?}", e);
@@ -299,7 +298,7 @@ pub mod stardust {
                                 .update_message_metadata(&message_id.into(), &MessageMetadata::from(rec))
                                 .await?;
                             // Send this directly to the solidifier that requested it
-                            solidifier.send(ms_state)?;
+                            solidifier_addr.send(ms_state)?;
                         }
                         Err(e) => {
                             log::error!("Could not read message metadata: {:?}", e);
@@ -314,11 +313,11 @@ pub mod stardust {
 
     pub struct RequestedMilestone {
         milestone: inx::proto::Milestone,
-        syncer_addr: OptionalAddr<InxSyncer>,
+        syncer_addr: Addr<InxSyncer>,
     }
 
     impl RequestedMilestone {
-        pub fn new(milestone: inx::proto::Milestone, syncer_addr: OptionalAddr<InxSyncer>) -> Self {
+        pub fn new(milestone: inx::proto::Milestone, syncer_addr: Addr<InxSyncer>) -> Self {
             Self { milestone, syncer_addr }
         }
     }
@@ -327,19 +326,20 @@ pub mod stardust {
     impl HandleEvent<RequestedMilestone> for Collector {
         async fn handle_event(
             &mut self,
-            cx: &mut ActorContext<Self>,
+            _cx: &mut ActorContext<Self>,
             RequestedMilestone { milestone, syncer_addr }: RequestedMilestone,
             solidifiers: &mut Self::State,
         ) -> Result<(), Self::Error> {
             match MilestoneRecord::try_from(milestone) {
                 Ok(rec) => {
-                    log::trace!("Received Stardust Requested Milestone ({})", rec.milestone_index);
+                    // TODO: back to trace
+                    log::warn!("Received Stardust Requested Milestone ({})", rec.milestone_index);
                     self.db.upsert_milestone_record(&rec).await?;
+
                     // Get or create the milestone state
-                    let mut state = MilestoneState::new(rec.milestone_index, syncer_addr);
-                    state
-                        .process_queue
-                        .extend(Vec::from(rec.payload.essence.parents).into_iter());
+                    let parents = Vec::from(rec.payload.essence.parents);
+                    let state = MilestoneState::new(rec.milestone_index, parents, Some(syncer_addr));
+
                     solidifiers
                         // Divide solidifiers fairly by milestone
                         .get(&(rec.milestone_index as usize % self.config.solidifier_count))

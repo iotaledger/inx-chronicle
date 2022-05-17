@@ -54,11 +54,7 @@ mod stardust {
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
-    use crate::inx::{
-        collector::stardust::MilestoneState,
-        syncer::{InxSyncer, NewSyncedMilestone},
-        InxRequest, InxWorker,
-    };
+    use crate::inx::{collector::stardust::MilestoneState, syncer::NewSyncedMilestone, InxRequest, InxWorker};
 
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
@@ -127,15 +123,15 @@ mod stardust {
             //     }
             // }
 
-            'parent: while let Some(parent_message_id) = ms_state.process_queue.pop_front() {
-                if ms_state.visited.contains(&parent_message_id) {
+            'parent: while let Some(current_message_id) = ms_state.process_queue.pop_front() {
+                if ms_state.visited.contains(&current_message_id) {
                     continue 'parent;
                 }
 
-                match self.db.get_message(&parent_message_id).await? {
+                match self.db.get_message(&current_message_id).await? {
                     Some(msg) => {
                         if let Some(md) = msg.metadata {
-                            ms_state.visited.insert(parent_message_id);
+                            ms_state.visited.insert(current_message_id);
 
                             let referenced_index = md.referenced_by_milestone_index;
                             if referenced_index != ms_state.milestone_index {
@@ -144,7 +140,7 @@ mod stardust {
                             let parents = msg.message.parents.to_vec();
                             ms_state.process_queue.extend(parents);
                         } else {
-                            ms_state.process_queue.push_back(parent_message_id.clone());
+                            ms_state.process_queue.push_back(current_message_id.clone());
 
                             // request metadata from the node and continue later
                             // TODO: measure this await point!
@@ -152,7 +148,7 @@ mod stardust {
                             let now = Instant::now();
                             cx.addr::<InxWorker>()
                                 .await
-                                .send(InxRequest::metadata(parent_message_id, cx.handle().clone(), ms_state))
+                                .send(InxRequest::metadata(current_message_id, cx.handle().clone(), ms_state))
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
                             log::debug!("Send metadata INX request. Took {}s", now.elapsed().as_secs_f32());
 
@@ -160,13 +156,13 @@ mod stardust {
                         }
                     }
                     None => {
-                        ms_state.process_queue.push_back(parent_message_id.clone());
+                        ms_state.process_queue.push_back(current_message_id.clone());
 
                         let now = Instant::now();
                         // request message and metadata from the node and continue later
                         cx.addr::<InxWorker>()
                             .await
-                            .send(InxRequest::message(parent_message_id, cx.handle().clone(), ms_state))
+                            .send(InxRequest::message(current_message_id, cx.handle().clone(), ms_state))
                             .map_err(|_| SolidifierError::MissingInxRequester)?;
                         log::debug!("Send message INX request. Took {}s", now.elapsed().as_secs_f32());
 
@@ -193,11 +189,13 @@ mod stardust {
 
             // Inform the Syncer about the newly solidified milestone so that it can make progress in case it was a
             // historic one.
-            // let _ = ms_state.notify.send(NewSyncedMilestone(ms_state.milestone_index));
+            if let Some(syncer_addr) = ms_state.syncer_addr.as_ref() {
+                syncer_addr.send(NewSyncedMilestone(ms_state.milestone_index))?;
+            }
 
-            cx.addr::<InxSyncer>()
-                .await
-                .send(NewSyncedMilestone(ms_state.milestone_index))?;
+            // cx.addr::<InxSyncer>()
+            //     .await
+            //     .send(NewSyncedMilestone(ms_state.milestone_index))?;
 
             Ok(())
         }
