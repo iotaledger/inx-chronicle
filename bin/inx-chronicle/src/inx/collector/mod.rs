@@ -142,9 +142,10 @@ pub mod stardust {
         }
     }
 
+    // TODO: investigate why `visited.len() == 0` for synced milestones
     impl Drop for MilestoneState {
         fn drop(&mut self) {
-            log::warn!(
+            log::trace!(
                 "Solidification state of milestone '{}' dropped after {}s with {} visited and {} remaining messages.",
                 self.milestone_index,
                 self.time.elapsed().as_secs_f32(),
