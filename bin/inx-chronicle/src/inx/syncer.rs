@@ -142,7 +142,7 @@ impl HandleEvent<NextMilestone> for InxSyncer {
             }
             cx.delay(NextMilestone { index: index + 1 }, None)?;
         } else {
-            cx.delay(NextMilestone { index }, Duration::from_secs_f32(0.5))?;
+            cx.delay(NextMilestone { index }, Duration::from_secs_f32(0.01))?;
         }
         Ok(())
     }

@@ -8,10 +8,12 @@ connect_url = "http://localhost:9029"
 connection_retry_interval = "5s"
 
 [inx.syncer]
-max_simultaneous_requests = 200
-max_request_retries = 3
+max_simultaneous_requests = 10
 sync_back_delta = 10000
 sync_back_index = 0
+
+[inx.collector]
+num_solidifiers = 10
 
 [api]
 port = 9092
