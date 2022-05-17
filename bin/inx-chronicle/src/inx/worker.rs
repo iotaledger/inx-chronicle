@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::actor::{
-        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::{Report, ErrorReport}, util::SpawnActor,
         Actor,
     },
 };
@@ -154,24 +154,24 @@ impl HandleEvent<Report<InxSyncer>> for InxWorker {
                 cx.shutdown();
             }
             Report::Error(report) => {
-                log::error!("Syncer error");
-                // let ErrorReport {
-                //     error, internal_state, ..
-                // } = report;
+                let ErrorReport {
+                    error, internal_state, ..
+                } = report;
 
-                // match error {
-                //     ActorError::Result(e) => {
-                //         log::error!("Syncer exited with error: {}", e);
-                //         // Panic: a previous Syncer instance always has an internal state.
-                //         cx.spawn_child(
-                //             Syncer::new(db.clone(),
-                // config.syncer.clone()).with_internal_state(internal_state.unwrap()),         )
-                //         .await;
-                //     }
-                //     ActorError::Panic | ActorError::Aborted => {
-                //         cx.shutdown();
-                //     }
-                // }
+                match error {
+                    ActorError::Result(e) => {
+                        log::error!("Syncer exited with error: {}", e);
+                        // Panic: a previous Syncer instance always has an internal state.
+                        cx.spawn_child(
+                            InxSyncer::new(self.db.clone(), self.config.syncer.clone())
+                                .with_internal_state(internal_state.unwrap()),
+                        )
+                        .await;
+                    }
+                    ActorError::Panic | ActorError::Aborted => {
+                        cx.shutdown();
+                    }
+                }
                 cx.shutdown();
             }
         }
