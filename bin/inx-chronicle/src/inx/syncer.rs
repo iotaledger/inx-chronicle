@@ -163,7 +163,7 @@ impl HandleEvent<NodeStatus> for InxSyncer {
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!(
-            "Syncer received node status (pruning index = '{}').",
+            "Node status (pruning index = '{}').",
             node_status.pruning_index
         );
         syncer_state.start_ms_index = node_status.pruning_index + 1;
@@ -180,7 +180,7 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
         NewSyncedMilestone(latest_synced_index): NewSyncedMilestone,
         sync_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::debug!("Syncer received new synced milestone '{}'", latest_synced_index);
+        log::info!("New synced milestone '{}'", latest_synced_index);
 
         if sync_state.pending.remove(&latest_synced_index).is_some() {
         } else if sync_state.target_ms_index == 0 {
@@ -213,7 +213,7 @@ impl HandleEvent<NewTargetMilestone> for InxSyncer {
         NewTargetMilestone(new_target_ms_index): NewTargetMilestone,
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Syncer received new target milestone '{}'", new_target_ms_index);
+        log::trace!("New target milestone '{}'", new_target_ms_index);
 
         if new_target_ms_index > syncer_state.target_ms_index {
             let previous_target = syncer_state.target_ms_index;
