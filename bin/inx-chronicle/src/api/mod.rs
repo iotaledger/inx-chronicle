@@ -89,8 +89,7 @@ impl Actor for ApiWorker {
 
         #[cfg(feature = "metrics")]
         let routes = {
-            use metrics::MetricsLayer;
-
+            use self::metrics::MetricsLayer;
             use crate::metrics::{MetricsWorker, RegisterMetric};
 
             let layer = MetricsLayer::default();
