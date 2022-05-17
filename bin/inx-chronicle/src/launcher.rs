@@ -6,28 +6,21 @@ use chronicle::{
     db::MongoDb,
     runtime::{
         actor::{
-            context::ActorContext,
-            error::ActorError,
-            event::HandleEvent,
-            report::{ErrorReport, Report},
-            util::SpawnActor,
-            Actor,
+            context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor, Actor,
         },
         error::RuntimeError,
     },
 };
 use clap::Parser;
-use mongodb::error::ErrorKind;
 use thiserror::Error;
 
 #[cfg(feature = "api")]
 use crate::api::ApiWorker;
 #[cfg(feature = "inx")]
-use crate::inx::{InxRequest, InxWorker, InxWorkerError};
+use crate::inx::{InxWorker, InxWorkerError};
 use crate::{
     cli::CliArgs,
     config::{ChronicleConfig, ConfigError},
-    inx::collector::{Collector, CollectorError},
 };
 
 #[derive(Debug, Error)]

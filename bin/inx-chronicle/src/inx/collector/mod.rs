@@ -7,19 +7,13 @@ use async_trait::async_trait;
 use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{
-        actor::{
-            addr::{Addr, OptionalAddr},
-            context::ActorContext,
-            error::ActorError,
-            event::HandleEvent,
-            report::Report,
-            Actor,
-        },
+        actor::{addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, Actor},
         config::ConfigureActor,
         error::RuntimeError,
     },
 };
 use mongodb::bson::document::ValueAccessError;
+use serde::{Deserialize, Serialize};
 use solidifier::Solidifier;
 use thiserror::Error;
 
@@ -37,20 +31,35 @@ pub enum CollectorError {
     ValueAccess(#[from] ValueAccessError),
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct CollectorConfig {
+    pub solidifier_count: usize,
+}
+
+impl CollectorConfig {
+    const MAX_SOLIDIFIERS: usize = 100;
+
+    pub fn with_collector_count(mut self, solidifier_count: usize) -> Self {
+        self.solidifier_count = solidifier_count.clamp(1, Self::MAX_SOLIDIFIERS);
+        self
+    }
+}
+
+impl Default for CollectorConfig {
+    fn default() -> Self {
+        Self { solidifier_count: 10 }
+    }
+}
+
 #[derive(Debug)]
 pub struct Collector {
     db: MongoDb,
-    solidifier_count: usize,
+    config: CollectorConfig,
 }
 
 impl Collector {
-    const MAX_SOLIDIFIERS: usize = 100;
-
-    pub fn new(db: MongoDb, solidifier_count: usize) -> Self {
-        Self {
-            db,
-            solidifier_count: solidifier_count.max(1).min(Self::MAX_SOLIDIFIERS),
-        }
+    pub fn new(db: MongoDb, config: CollectorConfig) -> Self {
+        Self { db, config }
     }
 }
 
@@ -61,7 +70,7 @@ impl Actor for Collector {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let mut solidifiers = HashMap::new();
-        for i in 0..self.solidifier_count {
+        for i in 0..self.config.solidifier_count {
             solidifiers.insert(
                 i,
                 cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
@@ -241,7 +250,7 @@ pub mod stardust {
                         .extend(Vec::from(rec.payload.essence.parents).into_iter());
                     solidifiers
                         // Divide solidifiers fairly by milestone
-                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        .get(&(rec.milestone_index as usize % self.config.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(state)?;
@@ -333,7 +342,7 @@ pub mod stardust {
                         .extend(Vec::from(rec.payload.essence.parents).into_iter());
                     solidifiers
                         // Divide solidifiers fairly by milestone
-                        .get(&(rec.milestone_index as usize % self.solidifier_count))
+                        .get(&(rec.milestone_index as usize % self.config.solidifier_count))
                         // Unwrap: We never remove solidifiers, so they should always exist
                         .unwrap()
                         .send(state)?;

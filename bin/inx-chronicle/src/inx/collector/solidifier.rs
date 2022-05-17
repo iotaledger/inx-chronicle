@@ -102,12 +102,12 @@ mod stardust {
             //                     // If the message has not been referenced, we can't proceed
             //                     None => {
             //                         log::trace!("Requesting metadata for message {}", message_id.to_hex());
-            //                         // Send the state and everything. If the requester finds the message, it will circle
-            //                         // back.
+            //                         // Send the state and everything. If the requester finds the message, it will
+            // circle                         // back.
             //                         cx.addr::<InxWorker>()
             //                             .await
-            //                             .send(InxRequest::metadata(message_id.clone(), cx.handle().clone(), ms_state))
-            //                             .map_err(|_| SolidifierError::MissingInxRequester)?;
+            //                             .send(InxRequest::metadata(message_id.clone(), cx.handle().clone(),
+            // ms_state))                             .map_err(|_| SolidifierError::MissingInxRequester)?;
             //                         return Ok(());
             //                     }
             //                 }
@@ -143,7 +143,6 @@ mod stardust {
                             }
                             let parents = msg.message.parents.to_vec();
                             ms_state.process_queue.extend(parents);
-
                         } else {
                             ms_state.process_queue.push_back(parent_message_id.clone());
 
@@ -157,10 +156,9 @@ mod stardust {
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
                             log::debug!("Send metadata INX request. Took {}s", now.elapsed().as_secs_f32());
 
-
-                            return Ok(())
+                            return Ok(());
                         }
-                    },
+                    }
                     None => {
                         ms_state.process_queue.push_back(parent_message_id.clone());
 
@@ -173,7 +171,7 @@ mod stardust {
                         log::debug!("Send message INX request. Took {}s", now.elapsed().as_secs_f32());
 
                         return Ok(());
-                    },
+                    }
                 }
             }
 

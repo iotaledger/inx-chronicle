@@ -84,7 +84,7 @@ impl InxSyncer {
                 .unwrap_or(1)
                 .max(pruning_index)
         } else {
-           pruning_index 
+            pruning_index
         }
     }
 }
@@ -156,10 +156,7 @@ impl HandleEvent<NodeStatus> for InxSyncer {
         node_status: NodeStatus,
         syncer_state: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!(
-            "Node status (pruning index = '{}').",
-            node_status.pruning_index
-        );
+        log::trace!("Node status (pruning index = '{}').", node_status.pruning_index);
         syncer_state.start_ms_index = node_status.pruning_index + 1;
         Ok(())
     }
@@ -182,7 +179,7 @@ impl HandleEvent<NewSyncedMilestone> for InxSyncer {
             // Set the target to the first synced milestone that was not requested by the Syncer.
             syncer_state.target_ms_index = latest_synced_index;
             // Note: at this point `start_ms_index` contains the pruning index
-            syncer_state.start_ms_index = self.get_start_ms_index(syncer_state.start_ms_index,latest_synced_index);
+            syncer_state.start_ms_index = self.get_start_ms_index(syncer_state.start_ms_index, latest_synced_index);
 
             log::info!(
                 "Start syncing milestone range: [{}:{}]",

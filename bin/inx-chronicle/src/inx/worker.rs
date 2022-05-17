@@ -60,7 +60,8 @@ impl Actor for InxWorker {
         let inx_client = Inx::connect(&self.config).await?;
         log::info!("Connected to INX.");
 
-        cx.spawn_child(Collector::new(self.db.clone(), 10)).await;
+        cx.spawn_child(Collector::new(self.db.clone(), self.config.collector.clone()))
+            .await;
         cx.spawn_child(InxListener::new(inx_client.clone())).await;
         cx.spawn_child(InxSyncer::new(self.db.clone(), self.config.syncer.clone()))
             .await;
@@ -303,7 +304,11 @@ pub mod stardust {
                         })
                         .await
                     {
-                        log::debug!("Requesting milestone '{}' took {}s", *milestone_index, now.elapsed().as_secs_f32());
+                        log::debug!(
+                            "Requesting milestone '{}' took {}s",
+                            *milestone_index,
+                            now.elapsed().as_secs_f32()
+                        );
                         let milestone: inx::proto::Milestone = milestone.into_inner();
 
                         // Instruct the collector to solidify this milestone.
