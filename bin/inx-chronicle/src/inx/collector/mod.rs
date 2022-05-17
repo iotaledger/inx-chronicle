@@ -12,6 +12,7 @@ use chronicle::{
         error::RuntimeError,
     },
 };
+use inx::{client::InxClient, tonic::Channel};
 use mongodb::bson::document::ValueAccessError;
 use serde::{Deserialize, Serialize};
 use solidifier::Solidifier;
@@ -53,13 +54,14 @@ impl Default for CollectorConfig {
 
 #[derive(Debug)]
 pub struct Collector {
-    db: MongoDb,
     config: CollectorConfig,
+    db: MongoDb,
+    inx: InxClient<Channel>,
 }
 
 impl Collector {
-    pub fn new(db: MongoDb, config: CollectorConfig) -> Self {
-        Self { db, config }
+    pub fn new(db: MongoDb, inx: InxClient<Channel>, config: CollectorConfig) -> Self {
+        Self { db, inx, config }
     }
 }
 
@@ -73,7 +75,7 @@ impl Actor for Collector {
         for i in 0..self.config.solidifier_count {
             solidifiers.insert(
                 i,
-                cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
+                cx.spawn_child(Solidifier::new(i, self.db.clone(), self.inx.clone()).with_registration(false))
                     .await,
             );
         }

@@ -1,14 +1,17 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::time::Instant;
+
 use async_trait::async_trait;
 use chronicle::{
-    db::MongoDb,
+    db::{MongoDb, model::stardust::message::{MessageMetadata, MessageRecord}},
     runtime::{
         actor::{context::ActorContext, event::HandleEvent, Actor},
         error::RuntimeError,
-    },
+    }, dto,
 };
+use inx::{client::InxClient, tonic::Channel};
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
 
@@ -29,11 +32,12 @@ pub enum SolidifierError {
 pub struct Solidifier {
     pub id: usize,
     db: MongoDb,
+    inx: InxClient<Channel>,
 }
 
 impl Solidifier {
-    pub fn new(id: usize, db: MongoDb) -> Self {
-        Self { id, db }
+    pub fn new(id: usize, db: MongoDb, inx: InxClient<Channel>) -> Self {
+        Self { id, db, inx }
     }
 }
 
@@ -49,18 +53,16 @@ impl Actor for Solidifier {
 
 #[cfg(feature = "stardust")]
 mod stardust {
-    use std::time::Instant;
-
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
-    use crate::inx::{collector::stardust::MilestoneState, syncer::NewSyncedMilestone, InxRequest, InxWorker};
+    use crate::inx::{collector::stardust::MilestoneState, syncer::NewSyncedMilestone};
 
     #[async_trait]
     impl HandleEvent<MilestoneState> for Solidifier {
         async fn handle_event(
             &mut self,
-            cx: &mut ActorContext<Self>,
+            _: &mut ActorContext<Self>,
             mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
@@ -137,36 +139,26 @@ mod stardust {
                             if referenced_index != ms_state.milestone_index {
                                 continue 'parent;
                             }
+
                             let parents = msg.message.parents.to_vec();
                             ms_state.process_queue.extend(parents);
+
                         } else {
                             ms_state.process_queue.push_back(current_message_id.clone());
 
-                            // request metadata from the node and continue later
-                            // TODO: measure this await point!
-                            // TODO: collect as many as possible message to request before sending it to the INX worker
-                            let now = Instant::now();
-                            cx.addr::<InxWorker>()
-                                .await
-                                .send(InxRequest::metadata(current_message_id, cx.handle().clone(), ms_state))
-                                .map_err(|_| SolidifierError::MissingInxRequester)?;
-                            log::debug!("Send metadata INX request. Took {}s", now.elapsed().as_secs_f32());
+                            if let Some(metadata) = read_metadata(&mut self.inx, current_message_id.clone()).await {
+                                self.db.update_message_metadata(&current_message_id, &metadata).await?;
+                            }
 
-                            return Ok(());
                         }
                     }
                     None => {
                         ms_state.process_queue.push_back(current_message_id.clone());
 
-                        let now = Instant::now();
-                        // request message and metadata from the node and continue later
-                        cx.addr::<InxWorker>()
-                            .await
-                            .send(InxRequest::message(current_message_id, cx.handle().clone(), ms_state))
-                            .map_err(|_| SolidifierError::MissingInxRequester)?;
-                        log::debug!("Send message INX request. Took {}s", now.elapsed().as_secs_f32());
+                        if let Some(message) = read_message(&mut self.inx, current_message_id.clone()).await {
+                            self.db.upsert_message_record(&message).await?;
+                        }
 
-                        return Ok(());
                     }
                 }
             }
@@ -199,5 +191,48 @@ mod stardust {
 
             Ok(())
         }
+    }
+}
+
+
+async fn read_message(inx: &mut InxClient<Channel>, message_id: dto::MessageId) -> Option<MessageRecord> {
+    let now = Instant::now();
+    if let (Ok(message), Ok(metadata)) = (
+        inx
+            .read_message(inx::proto::MessageId {
+                id: message_id.0.clone().into(),
+            })
+            .await,
+        inx
+            .read_message_metadata(inx::proto::MessageId {
+                id: message_id.0.into(),
+            })
+            .await,
+    ) {
+        log::debug!("Requested message. Took {}s.", now.elapsed().as_secs_f32());
+
+        let raw = message.into_inner();
+        let metadata = metadata.into_inner();
+        let message = MessageRecord::try_from((raw, metadata)).unwrap();
+        Some(message)
+    } else {
+        None
+    }
+}
+
+async fn read_metadata(inx: &mut InxClient<Channel>, message_id: dto::MessageId) -> Option<MessageMetadata>{
+    let now = Instant::now();
+    if let Ok(metadata) = inx
+        .read_message_metadata(inx::proto::MessageId {
+            id: message_id.0.into(),
+        })
+        .await
+    {
+        log::debug!("Requested metadata. Took {}s.", now.elapsed().as_secs_f32());
+
+        let metadata: inx::MessageMetadata = metadata.into_inner().try_into().unwrap();
+        Some(metadata.into())
+    } else {
+        None
     }
 }
