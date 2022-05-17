@@ -11,7 +11,7 @@ use super::{
     report::Report,
     Actor,
 };
-use crate::runtime::{config::SpawnConfig, spawn_task};
+use crate::runtime::{config::SpawnConfig, spawn_task, Sender};
 
 /// A wrapper that can be used to delay an event until a specified time.
 #[derive(Debug)]

@@ -23,7 +23,7 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
-    spawn_task,
+    spawn_task, Sender,
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -177,13 +177,18 @@ impl RuntimeScope {
         let (sender, receiver) = {
             use bee_metrics::metrics::sync::mpsc;
             let (sender, receiver) = mpsc::unbounded_channel::<Envelope<A>>();
+            let filter_whitespace = |s: &str| {
+                s.chars()
+                    .map(|c| if c.is_whitespace() { '_' } else { c })
+                    .collect::<String>()
+            };
             self.metrics_registry().register(
-                format!("{} send", actor.name()),
+                format!("{}_send", filter_whitespace(actor.name().as_ref())),
                 format!("{} sender channel counter", actor.name()),
                 sender.counter(),
             );
             self.metrics_registry().register(
-                format!("{} recv", actor.name()),
+                format!("{}_recv", filter_whitespace(actor.name().as_ref())),
                 format!("{} receiver channel counter", actor.name()),
                 receiver.counter(),
             );

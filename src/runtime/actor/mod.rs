@@ -11,6 +11,8 @@ pub(crate) mod error;
 pub(crate) mod event;
 /// Module containing actor exit report types.
 pub(crate) mod report;
+/// Module containing event sender traits.
+pub(crate) mod sender;
 /// Module containing utilities.
 pub(crate) mod util;
 

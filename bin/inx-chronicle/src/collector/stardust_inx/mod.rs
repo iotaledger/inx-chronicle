@@ -14,7 +14,7 @@ use chronicle::{
         stardust::{message::MessageRecord, milestone::MilestoneRecord},
         sync::SyncRecord,
     },
-    runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
+    runtime::{ActorContext, ActorError, Addr, HandleEvent, Report, Sender},
     types::{ledger::Metadata, stardust::message::MessageId},
 };
 pub(super) use config::InxConfig;

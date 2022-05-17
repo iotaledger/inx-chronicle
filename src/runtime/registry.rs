@@ -19,6 +19,7 @@ use uuid::Uuid;
 use super::{
     actor::{
         addr::{Addr, OptionalAddr},
+        sender::IsClosed,
         Actor,
     },
     shutdown::ShutdownHandle,

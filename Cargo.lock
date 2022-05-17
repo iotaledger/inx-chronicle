@@ -411,6 +411,7 @@ dependencies = [
  "console-subscriber",
  "derive_more",
  "dotenv",
+ "dyn-clone",
  "env_logger",
  "futures",
  "humantime-serde",
@@ -709,6 +710,12 @@ name = "dtoa"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5caaa75cbd2b960ff1e5392d2cfb1f44717fffe12fc1f32b7b5d1267f99732a6"
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
 name = "ed25519-zebra"
