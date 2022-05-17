@@ -23,17 +23,16 @@ use chronicle::{
     db::MongoDb,
     runtime::{spawn_task, Actor, ActorContext},
 };
-pub use config::ApiConfig;
-pub use error::ApiError;
 use hyper::Method;
-use responses::impl_success_response;
-use routes::routes;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{AllowOrigin, Any, CorsLayer},
     trace::TraceLayer,
 };
+
+pub use self::{config::ApiConfig, error::ApiError};
+use self::{responses::impl_success_response, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;

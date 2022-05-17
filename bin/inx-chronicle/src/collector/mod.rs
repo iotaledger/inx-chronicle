@@ -11,10 +11,11 @@ use chronicle::{
     db::{bson::DocError, MongoDb},
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
 };
-pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
-use solidifier::Solidifier;
 use thiserror::Error;
+
+pub use self::config::CollectorConfig;
+use self::solidifier::Solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
