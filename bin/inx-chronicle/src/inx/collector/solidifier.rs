@@ -49,6 +49,8 @@ impl Actor for Solidifier {
 
 #[cfg(feature = "stardust")]
 mod stardust {
+    use std::time::Instant;
+
     use chronicle::db::model::sync::SyncRecord;
 
     use super::*;
@@ -66,62 +68,107 @@ mod stardust {
             mut ms_state: MilestoneState,
             _state: &mut Self::State,
         ) -> Result<(), Self::Error> {
-            // Process by iterating the queue until we either complete the milestone or fail to find a message
-            while let Some(message_id) = ms_state.process_queue.front() {
-                // First check if we already processed this message in this run
-                if ms_state.visited.contains(message_id) {
-                    ms_state.process_queue.pop_front();
-                } else {
-                    // Try the database
-                    match self.db.get_message(message_id).await? {
-                        Some(message_rec) => {
-                            match message_rec
-                                .metadata
-                                .map(|metadata| metadata.referenced_by_milestone_index)
-                            {
-                                Some(ms_index) => {
-                                    log::trace!(
-                                        "Message {} is referenced by milestone {}",
-                                        message_id.to_hex(),
-                                        ms_index
-                                    );
+            // // Process by iterating the queue until we either complete the milestone or fail to find a message
+            // while let Some(message_id) = ms_state.process_queue.front() {
+            //     // First check if we already processed this message in this run
+            //     if ms_state.visited.contains(message_id) {
+            //         ms_state.process_queue.pop_front();
+            //     } else {
+            //         // Try the database
+            //         match self.db.get_message(message_id).await? {
+            //             Some(message_rec) => {
+            //                 match message_rec
+            //                     .metadata
+            //                     .map(|metadata| metadata.referenced_by_milestone_index)
+            //                 {
+            //                     Some(ms_index) => {
+            //                         log::trace!(
+            //                             "Message {} is referenced by milestone {}",
+            //                             message_id.to_hex(),
+            //                             ms_index
+            //                         );
 
-                                    // We add the current message to the list of visited messages.
-                                    ms_state.visited.insert(message_id.clone());
+            //                         // We add the current message to the list of visited messages.
+            //                         ms_state.visited.insert(message_id.clone());
 
-                                    // We may have reached a different milestone, in which case there is nothing to
-                                    // do for this message
-                                    if ms_state.milestone_index == ms_index {
-                                        let parents = Vec::from(message_rec.message.parents);
-                                        ms_state.process_queue.extend(parents);
-                                    }
-                                    ms_state.process_queue.pop_front();
-                                }
-                                // If the message has not been referenced, we can't proceed
-                                None => {
-                                    log::trace!("Requesting metadata for message {}", message_id.to_hex());
-                                    // Send the state and everything. If the requester finds the message, it will circle
-                                    // back.
-                                    cx.addr::<InxWorker>()
-                                        .await
-                                        .send(InxRequest::metadata(message_id.clone(), cx.handle().clone(), ms_state))
-                                        .map_err(|_| SolidifierError::MissingInxRequester)?;
-                                    return Ok(());
-                                }
+            //                         // We may have reached a different milestone, in which case there is nothing to
+            //                         // do for this message
+            //                         if ms_state.milestone_index == ms_index {
+            //                             let parents = Vec::from(message_rec.message.parents);
+            //                             ms_state.process_queue.extend(parents);
+            //                         }
+            //                         ms_state.process_queue.pop_front();
+            //                     }
+            //                     // If the message has not been referenced, we can't proceed
+            //                     None => {
+            //                         log::trace!("Requesting metadata for message {}", message_id.to_hex());
+            //                         // Send the state and everything. If the requester finds the message, it will circle
+            //                         // back.
+            //                         cx.addr::<InxWorker>()
+            //                             .await
+            //                             .send(InxRequest::metadata(message_id.clone(), cx.handle().clone(), ms_state))
+            //                             .map_err(|_| SolidifierError::MissingInxRequester)?;
+            //                         return Ok(());
+            //                     }
+            //                 }
+            //             }
+            //             // Otherwise, send a message to the requester
+            //             None => {
+            //                 log::trace!("Requesting message {}", message_id.to_hex());
+            //                 // Send the state and everything. If the requester finds the message, it will circle
+            //                 // back.
+            //                 cx.addr::<InxWorker>()
+            //                     .await
+            //                     .send(InxRequest::message(message_id.clone(), cx.handle().clone(), ms_state))
+            //                     .map_err(|_| SolidifierError::MissingInxRequester)?;
+            //                 return Ok(());
+            //             }
+            //         }
+            //     }
+            // }
+
+            'parent: while let Some(parent_message_id) = ms_state.process_queue.pop_front() {
+                if ms_state.visited.contains(&parent_message_id) {
+                    continue;
+                }
+
+                match self.db.get_message(&parent_message_id).await? {
+                    Some(msg) => {
+                        if let Some(md) = msg.metadata {
+                            ms_state.visited.insert(parent_message_id);
+
+                            let referenced_index = md.referenced_by_milestone_index;
+                            if referenced_index != ms_state.milestone_index {
+                                continue 'parent;
                             }
-                        }
-                        // Otherwise, send a message to the requester
-                        None => {
-                            log::trace!("Requesting message {}", message_id.to_hex());
-                            // Send the state and everything. If the requester finds the message, it will circle
-                            // back.
+                            let parents = msg.message.parents.to_vec();
+                            ms_state.process_queue.extend(parents);
+
+                        } else {
+                            // request metadata from the node and continue later
+                            // TODO: measure this await point!
+                            // TODO: collect as many as possible message to request before sending it to the INX worker
+                            let now = Instant::now();
                             cx.addr::<InxWorker>()
                                 .await
-                                .send(InxRequest::message(message_id.clone(), cx.handle().clone(), ms_state))
+                                .send(InxRequest::metadata(parent_message_id.clone(), cx.handle().clone(), ms_state))
                                 .map_err(|_| SolidifierError::MissingInxRequester)?;
-                            return Ok(());
+                            log::debug!("Send metadata INX request. Took {}s", now.elapsed().as_secs_f32());
+
+                            return Ok(())
                         }
-                    }
+                    },
+                    None => {
+                        let now = Instant::now();
+                        // request message and metadata from the node and continue later
+                        cx.addr::<InxWorker>()
+                            .await
+                            .send(InxRequest::message(parent_message_id.clone(), cx.handle().clone(), ms_state))
+                            .map_err(|_| SolidifierError::MissingInxRequester)?;
+                        log::debug!("Send message INX request. Took {}s", now.elapsed().as_secs_f32());
+
+                        return Ok(());
+                    },
                 }
             }
 
