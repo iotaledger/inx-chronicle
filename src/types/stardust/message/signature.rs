@@ -32,9 +32,10 @@ impl TryFrom<Signature> for bee::Signature {
 
     fn try_from(value: Signature) -> Result<Self, Self::Error> {
         Ok(match value {
-            Signature::Ed25519 { public_key, signature } => bee::Signature::Ed25519(
-                bee::Ed25519Signature::new(public_key.as_ref().try_into()?, signature.as_ref().try_into()?),
-            ),
+            Signature::Ed25519 { public_key, signature } => bee::Signature::Ed25519(bee::Ed25519Signature::new(
+                public_key.as_ref().try_into()?,
+                signature.as_ref().try_into()?,
+            )),
         })
     }
 }

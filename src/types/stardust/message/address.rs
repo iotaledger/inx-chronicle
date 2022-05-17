@@ -82,9 +82,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_address_bson() {
-        let address = Address::from(bee::Address::Ed25519(
-            bee_test::rand::address::rand_ed25519_address(),
-        ));
+        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
         let bson = to_bson(&address).unwrap();
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
