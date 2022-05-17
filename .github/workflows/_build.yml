@@ -14,7 +14,7 @@ jobs:
   build-and-test:
     name: '${{ inputs.os }}, ${{ inputs.rust }}'
     runs-on: ${{ inputs.os }}
-    # Unfortunately, we can do this right now because `indexmap` does not seem to follow semver.
+    # Unfortunately, we can't do this right now because `indexmap` does not seem to follow semver.
     # env:
     #   RUSTFLAGS: -D warnings -D missing-docs
     steps:
