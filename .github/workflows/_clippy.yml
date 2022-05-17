@@ -1,0 +1,40 @@
+name: Check Clippy
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      rust:
+        required: true
+        type: string
+
+jobs:
+  clippy:
+    name: '${{inputs.os}}, ${{inputs.rust}}'
+    runs-on: ${{inputs.os}}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{inputs.rust}}
+          override: true
+          components: clippy
+
+      - name: Clippy with all features
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-clippy-all
+
+      - name: Clippy with INX only
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-clippy-inx
+
+      - name: Clippy with API only
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-clippy-api
