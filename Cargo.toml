@@ -101,6 +101,7 @@ inx = [
 ]
 metrics = [
     "dep:bee-metrics",
+    "dep:prometheus-client",
 ]
 stardust = [
     "dep:bee-message-stardust",
