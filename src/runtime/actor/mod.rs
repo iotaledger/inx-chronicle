@@ -46,13 +46,7 @@ pub trait Actor: Send + Sync + Sized {
                 prometheus_client::metrics::histogram::exponential_buckets(1.0, 2.0, 10),
             );
             cx.metrics_registry().register(
-                format!(
-                    "{}_loop_time",
-                    self.name()
-                        .chars()
-                        .map(|c| if c.is_whitespace() { '_' } else { c })
-                        .collect::<String>()
-                ),
+                format!("{}_loop_time", util::sanitize_metric_name(self.name().as_ref())),
                 format!("{} loop timings", self.name()),
                 histogram.clone(),
             );

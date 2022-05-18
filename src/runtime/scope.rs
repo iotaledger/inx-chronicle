@@ -177,18 +177,19 @@ impl RuntimeScope {
         let (sender, receiver) = {
             use bee_metrics::metrics::sync::mpsc;
             let (sender, receiver) = mpsc::unbounded_channel::<Envelope<A>>();
-            let filter_whitespace = |s: &str| {
-                s.chars()
-                    .map(|c| if c.is_whitespace() { '_' } else { c })
-                    .collect::<String>()
-            };
             self.metrics_registry().register(
-                format!("{}_send", filter_whitespace(actor.name().as_ref())),
+                format!(
+                    "{}_send",
+                    super::actor::util::sanitize_metric_name(actor.name().as_ref())
+                ),
                 format!("{} sender channel counter", actor.name()),
                 sender.counter(),
             );
             self.metrics_registry().register(
-                format!("{}_recv", filter_whitespace(actor.name().as_ref())),
+                format!(
+                    "{}_recv",
+                    super::actor::util::sanitize_metric_name(actor.name().as_ref())
+                ),
                 format!("{} receiver channel counter", actor.name()),
                 receiver.counter(),
             );
