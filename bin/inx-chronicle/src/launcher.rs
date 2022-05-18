@@ -83,7 +83,7 @@ impl HandleEvent<Report<super::collector::Collector>> for Launcher {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(report) => match &report.error {
+            Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
                     super::collector::CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from

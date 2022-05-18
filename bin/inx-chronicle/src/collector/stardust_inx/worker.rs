@@ -9,17 +9,15 @@ use chronicle::{
     runtime::{Actor, ActorContext, ActorError, Addr, HandleEvent, Report, SpawnActor},
     types::stardust::message::MessageId,
 };
-use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
+use inx::{client::InxClient, tonic::Channel};
 
 use super::{
     config::InxConfig,
     error::InxWorkerError,
     listener::{InxListener, InxListenerError},
+    MilestoneState, RequestedMessage,
 };
-use crate::collector::{
-    stardust_inx::{MilestoneState, RequestedMessage, RequestedMilestone},
-    Collector,
-};
+use crate::collector::Collector;
 
 #[derive(Debug)]
 pub struct InxWorker {
@@ -80,16 +78,13 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
         event: Report<InxListener>,
         inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        match &event {
+        match event {
             Report::Success(_) => {
                 cx.shutdown();
             }
-            Report::Error(report) => match &report.error {
+            Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
-                    InxListenerError::SubscriptionFailed(_) => {
-                        cx.shutdown();
-                    }
-                    InxListenerError::Runtime(_) => {
+                    InxListenerError::SubscriptionFailed(_) | InxListenerError::Runtime(_) => {
                         cx.shutdown();
                     }
                     InxListenerError::MissingCollector | InxListenerError::MilestoneGap => {
@@ -112,12 +107,6 @@ impl HandleEvent<Report<InxListener>> for InxWorker {
     }
 }
 
-pub struct NodeStatusRequest<Sender: Actor>(Addr<Sender>);
-impl<Sender: Actor> NodeStatusRequest<Sender> {
-    pub fn new(sender_addr: Addr<Sender>) -> Self {
-        Self(sender_addr)
-    }
-}
 pub struct MessageRequest<Sender: Actor>(MessageId, Addr<Sender>, MilestoneState);
 impl<Sender: Actor> MessageRequest<Sender> {
     pub fn new(message_id: MessageId, sender_addr: Addr<Sender>, ms_state: MilestoneState) -> Self {
@@ -128,35 +117,6 @@ pub struct MetadataRequest<Sender: Actor>(MessageId, Addr<Sender>, MilestoneStat
 impl<Sender: Actor> MetadataRequest<Sender> {
     pub fn new(message_id: MessageId, sender_addr: Addr<Sender>, ms_state: MilestoneState) -> Self {
         Self(message_id, sender_addr, ms_state)
-    }
-}
-
-pub struct MilestoneRequest(u32, tokio::sync::oneshot::Sender<u32>);
-impl MilestoneRequest {
-    pub fn new(milestone_index: u32, sender: tokio::sync::oneshot::Sender<u32>) -> Self {
-        Self(milestone_index, sender)
-    }
-}
-
-#[async_trait]
-impl<Sender: Actor> HandleEvent<NodeStatusRequest<Sender>> for InxWorker
-where
-    Sender: 'static + HandleEvent<NodeStatus>,
-{
-    async fn handle_event(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        NodeStatusRequest(sender_addr): NodeStatusRequest<Sender>,
-        inx_client: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        let node_status = inx_client
-            .read_node_status(NoParams {})
-            .await
-            .map_err(InxWorkerError::Read)
-            .and_then(|s| NodeStatus::try_from(s.into_inner()).map_err(InxWorkerError::InxTypeConversion))?;
-
-        sender_addr.send(node_status)?;
-        Ok(())
     }
 }
 
@@ -230,43 +190,6 @@ where
                 .await
                 .send(RequestedMessage::new(None, metadata, sender_addr, ms_state))
                 .map_err(|_| InxWorkerError::MissingCollector)?;
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<MilestoneRequest> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        MilestoneRequest(milestone_index, sender): MilestoneRequest,
-        inx_client: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        log::trace!("Requesting milestone {}", milestone_index);
-        // Check if this milestone is already solidified
-        if self.db.get_sync_record_by_index(milestone_index).await?.is_some() {
-            // No need to re-solidify this
-            return Ok(());
-        }
-        match inx_client
-            .read_milestone(inx::proto::MilestoneRequest {
-                milestone_index,
-                milestone_id: None,
-            })
-            .await
-        {
-            Ok(milestone) => {
-                let milestone: inx::proto::Milestone = milestone.into_inner();
-
-                // Instruct the collector to solidify this milestone.
-                cx.addr::<Collector>()
-                    .await
-                    .send(RequestedMilestone::new(milestone, sender))?;
-            }
-            Err(e) => {
-                log::warn!("No milestone response for {}: {}", milestone_index, e);
-            }
         }
         Ok(())
     }

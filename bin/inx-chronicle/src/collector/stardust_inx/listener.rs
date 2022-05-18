@@ -11,6 +11,7 @@ use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
 };
+use futures::StreamExt;
 use inx::{
     client::InxClient,
     proto::{MessageFilter, NoParams},
@@ -18,7 +19,7 @@ use inx::{
 };
 use thiserror::Error;
 
-use super::{config::InxConfig, syncer::Syncer};
+use super::{syncer::Syncer, InxConfig};
 use crate::collector::Collector;
 
 type MessageStream = InxStreamListener<inx::proto::Message>;
@@ -80,11 +81,12 @@ impl Actor for InxListener {
         .await;
 
         // Listen to milestones.
-        let milestone_stream = self
+        let mut milestone_stream = self
             .inx_client
             .listen_to_latest_milestone(NoParams {})
             .await?
             .into_inner();
+        let first_ms = milestone_stream.next().await.ok_or(InxListenerError::MilestoneGap)??;
         cx.spawn_child::<MilestoneStream, _>(
             InxStreamListener::default()
                 .with_stream(milestone_stream)
@@ -92,8 +94,13 @@ impl Actor for InxListener {
         )
         .await;
 
-        cx.spawn_child(Syncer::new(self.db.clone(), self.config.syncer.clone()))
-            .await;
+        cx.spawn_child(Syncer::new(
+            self.db.clone(),
+            self.config.syncer.clone(),
+            self.inx_client.clone(),
+            first_ms.milestone_info.unwrap().milestone_index,
+        ))
+        .await;
 
         Ok(())
     }
@@ -109,10 +116,9 @@ impl HandleEvent<Report<Syncer>> for InxListener {
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => (),
-            Report::Error(e) => match e.error {
+            Report::Error(report) => match report.error {
                 ActorError::Result(_) => {
-                    cx.spawn_child(Syncer::new(self.db.clone(), self.config.syncer.clone()))
-                        .await;
+                    cx.spawn_child(report.actor).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();

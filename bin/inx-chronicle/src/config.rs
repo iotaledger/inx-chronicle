@@ -40,11 +40,11 @@ impl ChronicleConfig {
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
-        #[cfg(feature = "collector")]
+        #[cfg(all(feature = "stardust", feature = "inx", feature = "collector"))]
         if let Some(solidifier_count) = args.solidifier_count {
-            self.collector.solidifier_count = solidifier_count;
+            self.collector.inx.syncer.set_solidifier_count(solidifier_count);
         }
-        #[cfg(all(feature = "stardust", feature = "inx"))]
+        #[cfg(all(feature = "stardust", feature = "inx", feature = "collector"))]
         if let Some(inx) = args.inx {
             self.collector.inx.connect_url = inx;
         }
