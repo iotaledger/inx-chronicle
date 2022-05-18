@@ -107,3 +107,8 @@ stardust = [
     "dep:bee-message-stardust",
     "dep:bee-rest-api-stardust",
 ]
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = "symbols"
