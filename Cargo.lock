@@ -273,6 +273,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "bee-runtime"
+version = "0.1.1-alpha"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "async-trait",
+ "bee-storage",
+ "dashmap",
+ "futures",
+ "log",
+]
+
+[[package]]
+name = "bee-storage"
+version = "0.12.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "packable",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "bee-tangle"
+version = "0.3.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "async-trait",
+ "bee-message",
+ "bee-runtime",
+ "bee-storage",
+ "bitflags",
+ "futures",
+ "hashbrown 0.12.1",
+ "log",
+ "packable",
+ "rand",
+ "ref-cast",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
 name = "bee-ternary"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -281,6 +325,20 @@ dependencies = [
  "autocfg",
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "bee-test"
+version = "0.1.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "bee-ledger",
+ "bee-message",
+ "bee-tangle",
+ "bee-ternary",
+ "bytemuck",
+ "primitive-types 0.10.1",
+ "rand",
 ]
 
 [[package]]
@@ -407,6 +465,7 @@ dependencies = [
  "bee-message",
  "bee-metrics",
  "bee-rest-api",
+ "bee-test",
  "clap",
  "console-subscriber",
  "derive_more",
@@ -649,6 +708,16 @@ dependencies = [
  "darling_core",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "dashmap"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
 ]
 
 [[package]]
@@ -897,6 +966,7 @@ version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b7abd5d659d9b90c8cba917f6ec750a74e2dc23902ef9cd4cc8c8b22e6036a"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -1296,6 +1366,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if",
+ "serde",
 ]
 
 [[package]]
@@ -1938,6 +2009,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62f25bc4c7e55e0b0b7a1d43fb893f4fa1361d0abe38b9ce4f323c2adfe6ef42"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "ref-cast"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "685d58625b6c2b83e4cc88a27c4bf65adb7b6b16dbdc413e515c9405b47432ab"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a043824e29c94169374ac5183ac0ed43f5724dc4556b19568007486bd840fa1f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

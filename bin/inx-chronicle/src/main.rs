@@ -21,9 +21,12 @@ use chronicle::{
     runtime::{spawn_task, Actor, ActorContext, ActorError, HandleEvent, Report, Runtime, RuntimeError, RuntimeScope},
 };
 use clap::Parser;
-use cli::CliArgs;
-use config::{ChronicleConfig, ConfigError};
 use thiserror::Error;
+
+use self::{
+    cli::CliArgs,
+    config::{ChronicleConfig, ConfigError},
+};
 
 #[derive(Debug, Error)]
 pub enum LauncherError {

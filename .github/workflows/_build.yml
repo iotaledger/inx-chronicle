@@ -1,0 +1,70 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      rust:
+        required: true
+        type: string
+
+jobs:
+  build-and-test:
+    name: '${{ inputs.os }}, ${{ inputs.rust }}'
+    runs-on: ${{ inputs.os }}
+    # Unfortunately, we can't do this right now because `indexmap` does not seem to follow semver.
+    # env:
+    #   RUSTFLAGS: -D warnings -D missing-docs
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install protoc (Ubuntu)
+        if: contains(inputs.os, 'ubuntu')
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc (macOS)
+        if: contains(inputs.os, 'macos')
+        run: brew install protobuf
+
+      - name: Install protoc (Windows)
+        if: contains(inputs.os, 'windows')
+        run: choco install protoc
+
+      - name: Install Rust (${{ inputs.rust }})
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ inputs.rust }}
+          override: true
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Build with all features
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build-all
+
+      - name: Build with INX only
+        if: contains(inputs.os, 'ubuntu')
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build-inx
+
+      - name: Build with API only
+        if: contains(inputs.os, 'ubuntu')
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-build-api
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-test
+
+      - name: Doc Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: ci-doctest

@@ -8,18 +8,17 @@ pub(crate) mod stardust_inx;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{bson::DocError, MongoDb},
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
 };
-pub use config::CollectorConfig;
 use mongodb::bson::document::ValueAccessError;
-use solidifier::Solidifier;
 use thiserror::Error;
+
+pub use self::config::CollectorConfig;
+use self::solidifier::Solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
-    #[error(transparent)]
-    Doc(#[from] DocError),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
@@ -46,11 +45,26 @@ impl Actor for Collector {
     type Error = CollectorError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        #[cfg(feature = "metrics")]
+        let solid_counter = {
+            let solid_counter = bee_metrics::metrics::counter::Counter::default();
+            cx.metrics_registry()
+                .register("solid_count", "Count of solidified milestones", solid_counter.clone());
+            solid_counter
+        };
         let mut solidifiers = Vec::with_capacity(self.config.solidifier_count);
         for i in 0..self.config.solidifier_count {
             solidifiers.push(
-                cx.spawn_child(Solidifier::new(i, self.db.clone()).with_registration(false))
-                    .await,
+                cx.spawn_child(
+                    Solidifier::new(
+                        i,
+                        self.db.clone(),
+                        #[cfg(feature = "metrics")]
+                        solid_counter.clone(),
+                    )
+                    .with_registration(false),
+                )
+                .await,
             );
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]

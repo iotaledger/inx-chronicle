@@ -19,8 +19,9 @@ pub(crate) mod util;
 use std::{borrow::Cow, error::Error};
 
 use async_trait::async_trait;
-use context::ActorContext;
 use futures::StreamExt;
+
+use self::context::ActorContext;
 
 /// The actor trait, which defines a task that is managed by the runtime.
 #[async_trait]

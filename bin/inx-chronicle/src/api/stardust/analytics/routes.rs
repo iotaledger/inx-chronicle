@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{routing::get, Extension, Router};
-use chronicle::db::{bson::DocExt, MongoDb};
+use chronicle::db::MongoDb;
 
 use super::responses::AddressAnalyticsResponse;
 use crate::api::{extractors::TimeRange, ApiError, ApiResult};
@@ -33,8 +33,8 @@ async fn address_analytics(
         .ok_or(ApiError::NoResults)?;
 
     Ok(AddressAnalyticsResponse {
-        total_addresses: res.get_as_u64("total_addresses")?,
-        recv_addresses: res.get_as_u64("recv_addresses")?,
-        send_addresses: res.get_as_u64("send_addresses")?,
+        total_addresses: res.total_addresses,
+        recv_addresses: res.recv_addresses,
+        send_addresses: res.send_addresses,
     })
 }

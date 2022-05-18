@@ -17,11 +17,9 @@ use chronicle::{
     runtime::{ActorContext, ActorError, Addr, HandleEvent, Report, Sender},
     types::{ledger::Metadata, stardust::message::MessageId},
 };
-pub(super) use config::InxConfig;
-use error::InxWorkerError;
-use worker::InxRequest;
-pub(super) use worker::InxWorker;
 
+pub(super) use self::{config::InxConfig, worker::InxWorker};
+use self::{error::InxWorkerError, worker::InxRequest};
 use super::{solidifier::Solidifier, Collector};
 use crate::collector::solidifier::SolidifierError;
 
@@ -331,6 +329,9 @@ impl HandleEvent<MilestoneState> for Solidifier {
                 synced: true,
             })
             .await?;
+        #[cfg(feature = "metrics")]
+        self.counter.inc();
+
         Ok(())
     }
 }

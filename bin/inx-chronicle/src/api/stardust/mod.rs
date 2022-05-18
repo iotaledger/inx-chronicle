@@ -1,14 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::Router;
-
 #[cfg(feature = "analytics")]
 pub mod analytics;
 #[cfg(feature = "api-explorer")]
 pub mod explorer;
 #[cfg(feature = "api-node")]
 pub mod v2;
+
+use axum::Router;
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
