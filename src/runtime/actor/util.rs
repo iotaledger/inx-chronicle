@@ -80,6 +80,7 @@ where
     }
 }
 
+#[cfg(feature = "metrics")]
 pub(crate) fn sanitize_metric_name(name: &str) -> String {
     name.chars()
         .filter_map(|c| match c {
