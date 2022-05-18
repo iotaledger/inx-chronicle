@@ -8,7 +8,7 @@ pub(crate) mod stardust_inx;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{bson::DocError, MongoDb},
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, Addr, ConfigureActor, HandleEvent, Report, RuntimeError},
 };
 use mongodb::bson::document::ValueAccessError;
@@ -19,8 +19,6 @@ use self::solidifier::Solidifier;
 
 #[derive(Debug, Error)]
 pub enum CollectorError {
-    #[error(transparent)]
-    Doc(#[from] DocError),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
