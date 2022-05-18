@@ -6,8 +6,8 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{ClientOptions, Credential, IndexOptions},
-    Client, IndexModel,
+    options::{ClientOptions, Credential},
+    Client,
 };
 use serde::{Deserialize, Serialize};
 
@@ -35,22 +35,6 @@ impl MongoDb {
 
         let client = Client::with_options(client_options)?;
         let db = client.database(Self::NAME);
-
-        // Create indices
-        #[cfg(feature = "stardust")]
-        {
-            use crate::db::model::stardust::message::MessageRecord;
-
-            db.collection::<MessageRecord>(MessageRecord::COLLECTION)
-                .create_index(
-                    IndexModel::builder()
-                        .keys(doc! {"message.id": 1})
-                        .options(IndexOptions::builder().unique(true).build())
-                        .build(),
-                    None,
-                )
-                .await?;
-        }
 
         Ok(MongoDb(db))
     }

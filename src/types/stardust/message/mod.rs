@@ -16,7 +16,8 @@ pub use self::{address::*, input::*, message_id::*, output::*, payload::*, signa
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
-    pub id: MessageId,
+    #[serde(rename = "_id")]
+    pub message_id: MessageId,
     pub protocol_version: u8,
     pub parents: Box<[MessageId]>,
     pub payload: Option<Payload>,
@@ -27,7 +28,7 @@ pub struct Message {
 impl From<bee::Message> for Message {
     fn from(value: bee::Message) -> Self {
         Self {
-            id: value.id().into(),
+            message_id: value.id().into(),
             protocol_version: value.protocol_version(),
             parents: value.parents().iter().map(|id| MessageId::from(*id)).collect(),
             payload: value.payload().map(Into::into),

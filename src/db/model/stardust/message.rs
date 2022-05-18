@@ -22,7 +22,8 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageRecord {
     /// The message.
-    pub message: Message,
+    #[serde(flatten)]
+    pub inner: Message,
     /// The raw bytes of the message.
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
@@ -37,7 +38,7 @@ impl MessageRecord {
     /// Creates a new message record.
     pub fn new(message: Message, raw: Vec<u8>) -> Self {
         Self {
-            message,
+            inner: message,
             raw,
             metadata: None,
         }
@@ -63,7 +64,7 @@ impl TryFrom<(inx::proto::RawMessage, inx::proto::MessageMetadata)> for MessageR
     ) -> Result<Self, Self::Error> {
         let message = bee_message_stardust::Message::try_from(raw_message.clone())?;
         Ok(Self {
-            message: message.into(),
+            inner: message.into(),
             raw: raw_message.data,
             metadata: Some(inx::MessageMetadata::try_from(metadata)?.into()),
         })
@@ -105,7 +106,7 @@ impl MongoDb {
     pub async fn get_message(&self, message_id: &MessageId) -> Result<Option<MessageRecord>, Error> {
         self.0
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
-            .find_one(doc! {"message.id": bson::to_bson(message_id)?}, None)
+            .find_one(doc! {"_id": bson::to_bson(message_id)?}, None)
             .await
     }
 
@@ -134,7 +135,7 @@ impl MongoDb {
         self.0
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .update_one(
-                doc! { "message.id": bson::to_bson(&message_record.message.id)? },
+                doc! { "_id": bson::to_bson(&message_record.inner.message_id)? },
                 doc! { "$set": bson::to_document(message_record)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -150,7 +151,7 @@ impl MongoDb {
         self.0
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .update_one(
-                doc! { "message.id": bson::to_bson(message_id)? },
+                doc! { "_id": bson::to_bson(message_id)? },
                 doc! { "$set": { "metadata": bson::to_document(metadata)? } },
                 None,
             )
