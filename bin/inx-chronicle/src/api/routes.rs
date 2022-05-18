@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{handler::Handler, routing::get, Extension, Router};
-use chronicle::db::{
-    model::sync::{SyncData, SyncRecord},
-    MongoDb,
-};
+use chronicle::db::{model::sync::SyncRecord, MongoDb};
 use futures::TryStreamExt;
 
 use super::{error::ApiError, responses::*, ApiResult};
@@ -34,7 +31,7 @@ async fn info() -> InfoResponse {
 
 async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
     let mut res = database.sync_records_sorted().await?;
-    let mut sync_data = SyncData::default();
+    let mut sync_data = SyncDataResponse::default();
     let mut last_record: Option<SyncRecord> = None;
     while let Some(sync_record) = res.try_next().await? {
         // Missing records go into gaps
@@ -80,7 +77,7 @@ async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
         }
         last_record.replace(sync_record);
     }
-    Ok(SyncDataResponse(sync_data))
+    Ok(sync_data)
 }
 
 async fn not_found() -> ApiError {
