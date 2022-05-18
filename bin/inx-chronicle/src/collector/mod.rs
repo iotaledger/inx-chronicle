@@ -53,7 +53,7 @@ impl Actor for Collector {
             cx.addr::<crate::metrics::MetricsWorker>()
                 .await
                 .send(crate::metrics::RegisterMetric {
-                    name: "solid count".to_string(),
+                    name: "solid_count".to_string(),
                     help: "Count of solidified milestones".to_string(),
                     metric: solid_counter.clone(),
                 })?;
