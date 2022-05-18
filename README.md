@@ -1,5 +1,8 @@
 # inx-chronicle
 
+[![CI](https://github.com/iotaledger/inx-chronicle/actions/workflows/ci.yml/badge.svg)](https://github.com/iotaledger/inx-chronicle/actions/workflows/ci.yml)
+[![Canary](https://github.com/iotaledger/inx-chronicle/actions/workflows/canary.yml/badge.svg)](https://github.com/iotaledger/inx-chronicle/actions/workflows/canary.yml)
+
 ## Usage
 
 The easiest way to start Chronicle is by using our supplied Dockerfile.
