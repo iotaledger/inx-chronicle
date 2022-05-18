@@ -121,7 +121,7 @@ mod tests {
     fn get_test_transaction_message() -> Message {
         Message::from(
             bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
-                .with_nonce_provider(12345, 0.0)
+                .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_transaction_payload().try_into().unwrap())
                 .finish()
                 .unwrap(),
@@ -131,7 +131,7 @@ mod tests {
     fn get_test_milestone_message() -> Message {
         Message::from(
             bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
-                .with_nonce_provider(12345, 0.0)
+                .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_milestone_payload().try_into().unwrap())
                 .finish()
                 .unwrap(),
@@ -141,7 +141,7 @@ mod tests {
     fn get_test_tagged_data_message() -> Message {
         Message::from(
             bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
-                .with_nonce_provider(12345, 0.0)
+                .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_tagged_data_payload().try_into().unwrap())
                 .finish()
                 .unwrap(),
