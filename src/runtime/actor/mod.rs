@@ -42,8 +42,8 @@ pub trait Actor: Send + Sync + Sized {
     async fn run(&mut self, cx: &mut ActorContext<Self>, state: &mut Self::State) -> Result<(), Self::Error> {
         #[cfg(feature = "metrics")]
         let histogram = {
-            let histogram = prometheus_client::metrics::histogram::Histogram::new(
-                prometheus_client::metrics::histogram::exponential_buckets(1.0, 2.0, 10),
+            let histogram = bee_metrics::metrics::histogram::Histogram::new(
+                bee_metrics::metrics::histogram::exponential_buckets(1.0, 2.0, 10),
             );
             cx.metrics_registry().register(
                 format!("{}_loop_time", util::sanitize_metric_name(self.name().as_ref())),
