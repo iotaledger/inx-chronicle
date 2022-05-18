@@ -1,13 +1,15 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use axum::{extract::Path, routing::get, Extension, Router};
-use bee_message_stardust::address as bee;
 use chronicle::{db::MongoDb, types::stardust::message::Address};
 use futures::TryStreamExt;
 
 use super::responses::{TransactionHistoryResponse, Transfer};
 use crate::api::{
+    error::ParseError,
     extractors::{Pagination, TimeRange},
     ApiError, ApiResult,
 };
@@ -28,7 +30,7 @@ async fn transaction_history(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionHistoryResponse> {
-    let address_dto = Address::from(&bee::Address::try_from_bech32(&address)?.1);
+    let address_dto = Address::from_str(&address).map_err(ParseError::StorageType)?;
     let start_milestone = database
         .find_first_milestone(start_timestamp)
         .await?

@@ -200,7 +200,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-ledger"
 version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#12458320af158cef1ebc62b2b8c75f49184ae6dc"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
 dependencies = [
  "bee-message",
  "packable",
@@ -211,7 +211,7 @@ dependencies = [
 [[package]]
 name = "bee-message"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#12458320af158cef1ebc62b2b8c75f49184ae6dc"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -235,7 +235,7 @@ dependencies = [
 [[package]]
 name = "bee-metrics"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#af99222d5175d8ba5fb547dda7df1e9fc4a6b7b2"
+source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#f3ef9566275a234ea209fb2420e4062fc6afd873"
 dependencies = [
  "axum 0.4.8",
  "parking_lot",
@@ -246,7 +246,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#12458320af158cef1ebc62b2b8c75f49184ae6dc"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -256,7 +256,7 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#12458320af158cef1ebc62b2b8c75f49184ae6dc"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
 dependencies = [
  "bee-ledger",
  "bee-message",
@@ -271,6 +271,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "bee-runtime"
+version = "0.1.1-alpha"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "async-trait",
+ "bee-storage",
+ "dashmap",
+ "futures",
+ "log",
+]
+
+[[package]]
+name = "bee-storage"
+version = "0.12.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "packable",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "bee-tangle"
+version = "0.3.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "async-trait",
+ "bee-message",
+ "bee-runtime",
+ "bee-storage",
+ "bitflags",
+ "futures",
+ "hashbrown 0.12.1",
+ "log",
+ "packable",
+ "rand",
+ "ref-cast",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
 name = "bee-ternary"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -279,6 +323,20 @@ dependencies = [
  "autocfg",
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "bee-test"
+version = "0.1.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+dependencies = [
+ "bee-ledger",
+ "bee-message",
+ "bee-tangle",
+ "bee-ternary",
+ "bytemuck",
+ "primitive-types 0.10.1",
+ "rand",
 ]
 
 [[package]]
@@ -405,6 +463,7 @@ dependencies = [
  "bee-message",
  "bee-metrics",
  "bee-rest-api",
+ "bee-test",
  "clap",
  "console-subscriber",
  "derive_more",
@@ -649,6 +708,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e77a43b28d0668df09411cb0bc9a8c2adc40f9a048afe863e05fd43251e8e39c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -888,6 +957,7 @@ version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b7abd5d659d9b90c8cba917f6ec750a74e2dc23902ef9cd4cc8c8b22e6036a"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -1260,9 +1330,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.125"
+version = "0.2.126"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
+checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 
 [[package]]
 name = "linked-hash-map"
@@ -1287,6 +1357,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if",
+ "serde",
 ]
 
 [[package]]
@@ -1777,11 +1848,11 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.38"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9027b48e9d4c9175fa2218adf3557f91c1137021739951d4932f5f8268ac48aa"
+checksum = "c54b25569025b7fc9651de43004ae593a75ad88543b17178aa5e1b9c4f15f56f"
 dependencies = [
- "unicode-xid",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -1929,6 +2000,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62f25bc4c7e55e0b0b7a1d43fb893f4fa1361d0abe38b9ce4f323c2adfe6ef42"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "ref-cast"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "685d58625b6c2b83e4cc88a27c4bf65adb7b6b16dbdc413e515c9405b47432ab"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a043824e29c94169374ac5183ac0ed43f5724dc4556b19568007486bd840fa1f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2271,13 +2362,13 @@ checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "syn"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a07e33e919ebcd69113d5be0e4d70c5707004ff45188910106854f38b960df4a"
+checksum = "fbaf6116ab8924f39d52792136fb74fd60a80194cf1b1c6ffa6453eef1c3f942"
 dependencies = [
  "proc-macro2",
  "quote",
- "unicode-xid",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -2755,6 +2846,12 @@ name = "unicode-bidi"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "099b7128301d285f79ddd55b9a83d5e6b9e97c92e0ea0daebee7263e932de992"
+
+[[package]]
+name = "unicode-ident"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d22af068fba1eb5edcb4aea19d382b2a3deb4c8f9d475c589b6ada9e0fd493ee"
 
 [[package]]
 name = "unicode-normalization"
