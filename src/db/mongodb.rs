@@ -45,7 +45,7 @@ impl MongoDb {
                 .create_index(
                     IndexModel::builder()
                         .keys(doc! {"message.id": 1})
-                        .options(IndexOptions::builder().sparse(true).unique(true).build())
+                        .options(IndexOptions::builder().unique(true).build())
                         .build(),
                     None,
                 )
