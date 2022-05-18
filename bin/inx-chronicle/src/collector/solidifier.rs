@@ -131,6 +131,9 @@ mod _stardust_inx {
                 tx.send(ms_state.milestone_index).ok();
             }
 
+            #[cfg(feature = "metrics")]
+            crate::collector::SOLID_COUNTER.inc();
+
             Ok(())
         }
     }

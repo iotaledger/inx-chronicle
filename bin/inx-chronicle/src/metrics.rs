@@ -8,7 +8,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use bee_metrics::{encoding::SendSyncEncodeMetric, metrics::ProcessMetrics, serve_metrics, Registry};
+use bee_metrics::{encoding::SendSyncEncodeMetric, metrics::process::ProcessMetrics, serve_metrics, Registry};
 use chronicle::runtime::{Actor, ActorContext, HandleEvent};
 use serde::{Deserialize, Serialize};
 use tokio::{

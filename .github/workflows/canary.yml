@@ -1,10 +1,32 @@
-name: Canary
+name: canary
 
 on:
   schedule:
     - cron: '4 20 * * SUN'
 
 jobs:
+
+  build-and-test-1:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: ubuntu-latest, rust: beta }
+  
+  build-and-test-2:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: windows-latest, rust: beta }
+
+  build-and-test-3:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: macos-latest, rust: beta }
+
+  docker:
+    uses: ./.github/workflows/_docker.yml
+
+  clippy:
+    uses: ./.github/workflows/_clippy.yml
+    with: { os: ubuntu-latest, rust: beta }
 
   udeps:
     runs-on: ubuntu-latest
@@ -25,3 +47,5 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: ci-udeps
+
+    

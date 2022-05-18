@@ -8,13 +8,8 @@ pub(crate) mod stardust_inx;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        bson::DocError,
-        model::stardust::{message::MessageRecord, milestone::MilestoneRecord},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
-    types::ledger::Metadata,
 };
 use mongodb::bson::document::ValueAccessError;
 use thiserror::Error;
@@ -22,10 +17,13 @@ use thiserror::Error;
 pub use self::config::CollectorConfig;
 use self::solidifier::Solidifier;
 
+#[cfg(feature = "metrics")]
+lazy_static::lazy_static! {
+    static ref SOLID_COUNTER: bee_metrics::metrics::counter::Counter = Default::default();
+}
+
 #[derive(Debug, Error)]
 pub enum CollectorError {
-    #[error(transparent)]
-    Doc(#[from] DocError),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
@@ -52,6 +50,15 @@ impl Actor for Collector {
     type Error = CollectorError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        #[cfg(feature = "metrics")]
+        cx.addr::<crate::metrics::MetricsWorker>()
+            .await
+            .send(crate::metrics::RegisterMetric {
+                name: "solid_count".to_string(),
+                help: "Count of solidified milestones".to_string(),
+                metric: SOLID_COUNTER.clone(),
+            })?;
+
         cx.spawn_child(Solidifier::new(0, self.db.clone())).await;
         #[cfg(all(feature = "stardust", feature = "inx"))]
         cx.spawn_child(stardust_inx::InxWorker::new(self.db.clone(), self.config.inx.clone()))
@@ -94,6 +101,11 @@ impl HandleEvent<Report<Solidifier>> for Collector {
 
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod _stardust_inx {
+    use chronicle::{
+        db::model::stardust::{message::MessageRecord, milestone::MilestoneRecord},
+        types::ledger::Metadata,
+    };
+
     use super::{
         stardust_inx::{InxWorker, InxWorkerError, RequestedMessage},
         *,

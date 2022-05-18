@@ -1,39 +1,49 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::payload::milestone as stardust;
+use std::str::FromStr;
+
+use bee_message_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct MilestoneId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
-impl From<stardust::MilestoneId> for MilestoneId {
-    fn from(value: stardust::MilestoneId) -> Self {
+impl From<bee::MilestoneId> for MilestoneId {
+    fn from(value: bee::MilestoneId) -> Self {
         Self(value.to_vec().into_boxed_slice())
     }
 }
 
-impl TryFrom<MilestoneId> for stardust::MilestoneId {
+impl TryFrom<MilestoneId> for bee::MilestoneId {
     type Error = crate::types::error::Error;
 
     fn try_from(value: MilestoneId) -> Result<Self, Self::Error> {
-        Ok(stardust::MilestoneId::new(value.0.as_ref().try_into()?))
+        Ok(bee::MilestoneId::new(value.0.as_ref().try_into()?))
+    }
+}
+
+impl FromStr for MilestoneId {
+    type Err = crate::types::error::ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(bee::MilestoneId::from_str(s)?.into())
     }
 }
 
 pub type MilestoneIndex = u32;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestonePayload {
     pub essence: MilestoneEssence,
     pub signatures: Box<[Signature]>,
 }
 
-impl From<&stardust::MilestonePayload> for MilestonePayload {
-    fn from(value: &stardust::MilestonePayload) -> Self {
+impl From<&bee::MilestonePayload> for MilestonePayload {
+    fn from(value: &bee::MilestonePayload) -> Self {
         Self {
             essence: MilestoneEssence::from(value.essence()),
             signatures: value.signatures().iter().map(Into::into).collect(),
@@ -41,11 +51,11 @@ impl From<&stardust::MilestonePayload> for MilestonePayload {
     }
 }
 
-impl TryFrom<MilestonePayload> for stardust::MilestonePayload {
+impl TryFrom<MilestonePayload> for bee::MilestonePayload {
     type Error = crate::types::error::Error;
 
     fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
-        Ok(stardust::MilestonePayload::new(
+        Ok(bee::MilestonePayload::new(
             value.essence.try_into()?,
             Vec::from(value.signatures)
                 .into_iter()
@@ -55,7 +65,7 @@ impl TryFrom<MilestonePayload> for stardust::MilestonePayload {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestoneEssence {
     pub index: MilestoneIndex,
     pub timestamp: u32,
@@ -70,8 +80,8 @@ pub struct MilestoneEssence {
     pub options: Box<[MilestoneOption]>,
 }
 
-impl From<&stardust::MilestoneEssence> for MilestoneEssence {
-    fn from(value: &stardust::MilestoneEssence) -> Self {
+impl From<&bee::MilestoneEssence> for MilestoneEssence {
+    fn from(value: &bee::MilestoneEssence) -> Self {
         Self {
             index: value.index().0,
             timestamp: value.timestamp(),
@@ -85,11 +95,11 @@ impl From<&stardust::MilestoneEssence> for MilestoneEssence {
     }
 }
 
-impl TryFrom<MilestoneEssence> for stardust::MilestoneEssence {
+impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
     type Error = crate::types::error::Error;
 
     fn try_from(value: MilestoneEssence) -> Result<Self, Self::Error> {
-        Ok(stardust::MilestoneEssence::new(
+        Ok(bee::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
             value.previous_milestone_id.try_into()?,
@@ -112,7 +122,7 @@ impl TryFrom<MilestoneEssence> for stardust::MilestoneEssence {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MilestoneOption {
     #[serde(rename = "receipt")]
@@ -129,16 +139,16 @@ pub enum MilestoneOption {
     },
 }
 
-impl From<&stardust::MilestoneOption> for MilestoneOption {
-    fn from(value: &stardust::MilestoneOption) -> Self {
+impl From<&bee::MilestoneOption> for MilestoneOption {
+    fn from(value: &bee::MilestoneOption) -> Self {
         match value {
-            stardust::MilestoneOption::Receipt(r) => Self::Receipt {
+            bee::MilestoneOption::Receipt(r) => Self::Receipt {
                 migrated_at: r.migrated_at().0,
                 last: r.last(),
                 funds: r.funds().iter().map(Into::into).collect(),
                 transaction: r.transaction().into(),
             },
-            stardust::MilestoneOption::Pow(p) => Self::Pow {
+            bee::MilestoneOption::Pow(p) => Self::Pow {
                 next_pow_score: p.next_pow_score(),
                 next_pow_score_milestone_index: p.next_pow_score_milestone_index(),
             },
@@ -146,7 +156,7 @@ impl From<&stardust::MilestoneOption> for MilestoneOption {
     }
 }
 
-impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
+impl TryFrom<MilestoneOption> for bee::MilestoneOption {
     type Error = crate::types::error::Error;
 
     fn try_from(value: MilestoneOption) -> Result<Self, Self::Error> {
@@ -156,7 +166,7 @@ impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
                 last,
                 funds,
                 transaction,
-            } => Self::Receipt(stardust::ReceiptMilestoneOption::new(
+            } => Self::Receipt(bee::ReceiptMilestoneOption::new(
                 migrated_at.into(),
                 last,
                 Vec::from(funds)
@@ -168,7 +178,7 @@ impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
             MilestoneOption::Pow {
                 next_pow_score,
                 next_pow_score_milestone_index,
-            } => Self::Pow(stardust::PowMilestoneOption::new(
+            } => Self::Pow(bee::PowMilestoneOption::new(
                 next_pow_score,
                 next_pow_score_milestone_index,
             )?),
@@ -176,7 +186,7 @@ impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
     #[serde(with = "serde_bytes")]
     tail_transaction_hash: Box<[u8]>,
@@ -185,24 +195,136 @@ pub struct MigratedFundsEntry {
     amount: u64,
 }
 
-impl From<&stardust::option::MigratedFundsEntry> for MigratedFundsEntry {
-    fn from(value: &stardust::option::MigratedFundsEntry) -> Self {
+impl From<&bee::option::MigratedFundsEntry> for MigratedFundsEntry {
+    fn from(value: &bee::option::MigratedFundsEntry) -> Self {
         Self {
             tail_transaction_hash: value.tail_transaction_hash().as_ref().to_vec().into_boxed_slice(),
-            address: value.address().into(),
+            address: (*value.address()).into(),
             amount: value.amount(),
         }
     }
 }
 
-impl TryFrom<MigratedFundsEntry> for stardust::option::MigratedFundsEntry {
+impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
     type Error = crate::types::error::Error;
 
     fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            stardust::option::TailTransactionHash::new(value.tail_transaction_hash.as_ref().try_into()?)?,
+            bee::option::TailTransactionHash::new(value.tail_transaction_hash.as_ref().try_into()?)?,
             value.address.try_into()?,
             value.amount,
         )?)
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test {
+    const TAIL_TRANSACTION_HASH1: [u8; 49] = [
+        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
+        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 10,
+    ];
+    const TAIL_TRANSACTION_HASH2: [u8; 49] = [
+        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
+        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 11,
+    ];
+    const TAIL_TRANSACTION_HASH3: [u8; 49] = [
+        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
+        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 12,
+    ];
+
+    use bee_message_stardust::payload::TreasuryTransactionPayload;
+    use mongodb::bson::{from_bson, to_bson};
+
+    use super::*;
+    use crate::types::stardust::message::signature::test::get_test_signature;
+
+    #[test]
+    fn test_milestone_id_bson() {
+        let milestone_id = MilestoneId::from(bee_test::rand::milestone::rand_milestone_id());
+        let bson = to_bson(&milestone_id).unwrap();
+        assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
+    }
+
+    #[test]
+    fn test_milestone_payload_bson() {
+        let payload = get_test_milestone_payload();
+        let bson = to_bson(&payload).unwrap();
+        assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
+    }
+
+    pub(crate) fn get_test_ed25519_migrated_funds_entry() -> MigratedFundsEntry {
+        MigratedFundsEntry::from(
+            &bee::option::MigratedFundsEntry::new(
+                bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH1).unwrap(),
+                bee_message_stardust::address::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()),
+                2000000,
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_alias_migrated_funds_entry() -> MigratedFundsEntry {
+        MigratedFundsEntry::from(
+            &bee::option::MigratedFundsEntry::new(
+                bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH2).unwrap(),
+                bee_message_stardust::address::Address::Alias(bee_test::rand::address::rand_alias_address()),
+                2000000,
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_nft_migrated_funds_entry() -> MigratedFundsEntry {
+        MigratedFundsEntry::from(
+            &bee::option::MigratedFundsEntry::new(
+                bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH3).unwrap(),
+                bee_message_stardust::address::Address::Nft(bee_test::rand::address::rand_nft_address()),
+                2000000,
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_milestone_essence() -> MilestoneEssence {
+        MilestoneEssence::from(
+            &bee::MilestoneEssence::new(
+                1.into(),
+                12345,
+                bee_test::rand::milestone::rand_milestone_id(),
+                bee_test::rand::parents::rand_parents(),
+                bee_test::rand::bytes::rand_bytes_array(),
+                bee_test::rand::bytes::rand_bytes_array(),
+                "Foo".as_bytes().to_vec(),
+                bee::MilestoneOptions::new(vec![bee::option::MilestoneOption::Receipt(
+                    bee::option::ReceiptMilestoneOption::new(
+                        1.into(),
+                        false,
+                        vec![
+                            get_test_ed25519_migrated_funds_entry().try_into().unwrap(),
+                            get_test_alias_migrated_funds_entry().try_into().unwrap(),
+                            get_test_nft_migrated_funds_entry().try_into().unwrap(),
+                        ],
+                        TreasuryTransactionPayload::new(
+                            bee_test::rand::input::rand_treasury_input(),
+                            bee_test::rand::output::rand_treasury_output(),
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap(),
+                )])
+                .unwrap(),
+            )
+            .unwrap(),
+        )
+    }
+
+    pub(crate) fn get_test_milestone_payload() -> MilestonePayload {
+        MilestonePayload::from(
+            &bee::MilestonePayload::new(
+                get_test_milestone_essence().try_into().unwrap(),
+                vec![get_test_signature().try_into().unwrap()],
+            )
+            .unwrap(),
+        )
     }
 }
