@@ -134,7 +134,7 @@ impl MongoDb {
         self.0
             .collection::<MessageRecord>(MessageRecord::COLLECTION)
             .update_one(
-                doc! { "_id": bson::to_bson(&message_record.message.id)? },
+                doc! { "message.id": bson::to_bson(&message_record.message.id)? },
                 doc! { "$set": bson::to_document(message_record)? },
                 UpdateOptions::builder().upsert(true).build(),
             )

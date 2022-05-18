@@ -6,8 +6,8 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{ClientOptions, Credential},
-    Client,
+    options::{ClientOptions, Credential, IndexOptions},
+    Client, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct MongoDb(pub(crate) mongodb::Database);
 
 impl MongoDb {
-    const NAME: &'static str = "chronicle-test";
+    const NAME: &'static str = "chronicle";
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
@@ -35,6 +35,22 @@ impl MongoDb {
 
         let client = Client::with_options(client_options)?;
         let db = client.database(Self::NAME);
+
+        // Create indices
+        #[cfg(feature = "stardust")]
+        {
+            use crate::db::model::stardust::message::MessageRecord;
+
+            db.collection::<MessageRecord>(MessageRecord::COLLECTION)
+                .create_index(
+                    IndexModel::builder()
+                        .keys(doc! {"message.id": 1})
+                        .options(IndexOptions::builder().sparse(true).unique(true).build())
+                        .build(),
+                    None,
+                )
+                .await?;
+        }
 
         Ok(MongoDb(db))
     }
