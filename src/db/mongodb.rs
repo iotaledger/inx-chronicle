@@ -34,7 +34,12 @@ impl MongoDb {
         }
 
         let client = Client::with_options(client_options)?;
-        let db = client.database(Self::NAME);
+
+        let name = match &config.suffix {
+            Some(suffix) => format!("{}-{}", Self::NAME, suffix),
+            None => Self::NAME.to_string(),
+        };
+        let db = client.database(&name);
 
         Ok(MongoDb(db))
     }
@@ -47,6 +52,7 @@ pub struct MongoDbConfig {
     pub(crate) connect_url: String,
     pub(crate) username: Option<String>,
     pub(crate) password: Option<String>,
+    pub(crate) suffix: Option<String>,
 }
 
 impl MongoDbConfig {
@@ -72,6 +78,12 @@ impl MongoDbConfig {
         self.password = Some(password.into());
         self
     }
+
+    /// Sets the suffix.
+    pub fn with_suffix(mut self, suffix: impl Into<String>) -> Self {
+        self.suffix = Some(suffix.into());
+        self
+    }
 }
 
 impl Default for MongoDbConfig {
@@ -80,6 +92,7 @@ impl Default for MongoDbConfig {
             connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
+            suffix: None,
         }
     }
 }

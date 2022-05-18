@@ -17,6 +17,13 @@ jobs:
     # Unfortunately, we can't do this right now because `indexmap` does not seem to follow semver.
     # env:
     #   RUSTFLAGS: -D warnings -D missing-docs
+
+    services:
+      mongodb:
+        image: mongo:4.4
+        ports:
+          - 27017:27017
+
     steps:
       - uses: actions/checkout@v2
 

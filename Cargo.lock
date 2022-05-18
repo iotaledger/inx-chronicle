@@ -475,6 +475,7 @@ dependencies = [
  "inx",
  "log",
  "mongodb",
+ "packable",
  "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
  "serde",
