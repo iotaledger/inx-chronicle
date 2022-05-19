@@ -89,10 +89,13 @@ impl Actor for MetricsWorker {
 
         let process_metrics_handle = {
             tokio::spawn(async move {
+                if let Err(e) = metrics.update().await {
+                    log::warn!("Cannot update process metrics: {e}");
+                }
+
                 loop {
-                    // TODO: Fix me
-                    let _ = metrics.update().await;
                     sleep(Duration::from_secs(1)).await;
+                    let _ = metrics.update().await;
                 }
             })
         };
