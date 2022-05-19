@@ -4,16 +4,11 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-#[allow(dead_code)]
 pub enum InxWorkerError {
     #[error("failed to establish connection: {0}")]
     ConnectionError(inx::tonic::Error),
-    #[error("failed to answer")]
-    FailedToAnswerRequest,
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
-    #[error("INX type conversion error: {0:?}")]
-    InxTypeConversion(inx::Error),
     #[error(transparent)]
     ListenerError(#[from] super::listener::InxListenerError),
     #[error("the collector is not running")]

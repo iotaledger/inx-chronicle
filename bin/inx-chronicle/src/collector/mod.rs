@@ -163,9 +163,7 @@ mod _stardust_inx {
                         | InxWorkerError::Runtime(_)
                         | InxWorkerError::Read(_)
                         | InxWorkerError::ParsingAddressFailed(_)
-                        | InxWorkerError::InvalidAddress(_)
-                        | InxWorkerError::FailedToAnswerRequest
-                        | InxWorkerError::InxTypeConversion(_) => {
+                        | InxWorkerError::InvalidAddress(_) => {
                             cx.shutdown();
                         }
                     },
