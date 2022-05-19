@@ -98,6 +98,11 @@ impl<A: Actor> OptionalAddr<A> {
             .ok_or_else(|| SendError::new(format!("No open address for {}", std::any::type_name::<A>())))?
             .send(event)
     }
+
+    /// Gets the inner optional address.
+    pub fn into_inner(self) -> Option<Addr<A>> {
+        self.0
+    }
 }
 
 impl<A: Actor> From<Option<Addr<A>>> for OptionalAddr<A> {

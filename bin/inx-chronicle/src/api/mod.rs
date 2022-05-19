@@ -7,7 +7,7 @@
 mod extractors;
 
 #[cfg(feature = "stardust")]
-pub(crate) mod stardust;
+pub mod stardust;
 
 mod error;
 #[macro_use]

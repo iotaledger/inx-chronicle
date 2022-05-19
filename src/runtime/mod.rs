@@ -26,7 +26,7 @@ pub use self::{
         addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
         Actor,
     },
-    config::ConfigureActor,
+    config::{ConfigureActor, SpawnConfig},
     error::RuntimeError,
     scope::RuntimeScope,
 };

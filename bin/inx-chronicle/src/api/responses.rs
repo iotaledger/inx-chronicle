@@ -65,22 +65,22 @@ pub struct Transfer {
     pub is_spending: bool,
     #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
+    #[serde(rename = "blockId")]
+    pub block_id: String,
     pub amount: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MaybeSpentOutput {
     pub output: Value,
-    #[serde(rename = "spendingMessageId")]
-    pub spending_message_id: Option<String>,
+    #[serde(rename = "spendingBlockId")]
+    pub spending_block_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Unlock {
-    #[serde(rename = "messageId")]
-    pub message_id: String,
+    #[serde(rename = "blockId")]
+    pub block_id: String,
     pub block: Value,
 }
 
