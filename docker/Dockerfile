@@ -21,7 +21,7 @@ COPY --from=planner /inx-chronicle/recipe.json recipe.json
 
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
-RUN cargo build --release --bin inx-chronicle
+RUN cargo build --profile production --bin inx-chronicle
 
 ############################
 # Image

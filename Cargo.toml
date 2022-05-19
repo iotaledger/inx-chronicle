@@ -108,7 +108,8 @@ stardust = [
     "dep:bee-rest-api-stardust",
 ]
 
-[profile.release]
+[profile.production]
+inherits = "release"
 codegen-units = 1
 lto = true
 strip = "symbols"
