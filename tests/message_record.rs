@@ -8,6 +8,7 @@ use chronicle::{
 };
 use packable::PackableExt;
 
+#[ignore]
 #[tokio::test]
 async fn test_test() -> Result<(), mongodb::error::Error> {
     let bee_message = rand_message();
@@ -35,6 +36,8 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
 
     let config = MongoDbConfig::default().with_suffix("cargo-test");
     let db = MongoDb::connect(&config).await?;
+
+    db.clear().await?;
 
     db.upsert_message_record(&record).await?;
 

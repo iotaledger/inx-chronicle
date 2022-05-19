@@ -4,7 +4,7 @@
 //! Holds the `MongoDb` type and its config.
 
 use mongodb::{
-    bson::doc,
+    bson::{doc, Document},
     error::Error,
     options::{ClientOptions, Credential},
     Client,
@@ -42,6 +42,18 @@ impl MongoDb {
         let db = client.database(&name);
 
         Ok(MongoDb(db))
+    }
+
+    /// Clears all the collections from the database.
+    pub async fn clear(&self) -> Result<(), Error> {
+    
+        let collections = self.0.list_collection_names(None).await?;
+
+        for c  in collections {
+            self.0.collection::<Document>(&c).drop(None).await?;
+        }
+
+        Ok(())
     }
 }
 
