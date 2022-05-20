@@ -22,7 +22,8 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockRecord {
     /// The block.
-    pub block: Block,
+    #[serde(flatten)]
+    pub inner: Block,
     /// The raw bytes of the block.
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
@@ -37,7 +38,7 @@ impl BlockRecord {
     /// Creates a new block record.
     pub fn new(block: Block, raw: Vec<u8>) -> Self {
         Self {
-            block,
+            inner: block,
             raw,
             metadata: None,
         }
@@ -61,7 +62,7 @@ impl TryFrom<(inx::proto::RawBlock, inx::proto::BlockMetadata)> for BlockRecord 
     fn try_from((raw_block, metadata): (inx::proto::RawBlock, inx::proto::BlockMetadata)) -> Result<Self, Self::Error> {
         let block = bee_block_stardust::Block::try_from(raw_block.clone())?;
         Ok(Self {
-            block: block.into(),
+            inner: block.into(),
             raw: raw_block.data,
             metadata: Some(inx::BlockMetadata::try_from(metadata)?.into()),
         })
@@ -103,7 +104,7 @@ impl MongoDb {
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<BlockRecord>, Error> {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
-            .find_one(doc! {"block.id": bson::to_bson(block_id)?}, None)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
             .await
     }
 
@@ -132,7 +133,7 @@ impl MongoDb {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
             .update_one(
-                doc! { "_id": bson::to_bson(&block_record.block.id)? },
+                doc! { "_id": bson::to_bson(&block_record.inner.block_id)? },
                 doc! { "$set": bson::to_document(block_record)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -144,7 +145,7 @@ impl MongoDb {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
             .update_one(
-                doc! { "block.id": bson::to_bson(block_id)? },
+                doc! { "_id": bson::to_bson(block_id)? },
                 doc! { "$set": { "metadata": bson::to_document(metadata)? } },
                 None,
             )

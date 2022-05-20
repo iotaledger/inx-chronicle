@@ -2,54 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod address;
+mod block_id;
 mod input;
 mod output;
 mod payload;
 mod signature;
 mod unlock;
 
-use std::str::FromStr;
-
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-pub use self::{address::*, input::*, output::*, payload::*, signature::*, unlock::*};
+pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signature::*, unlock::*};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
-#[serde(transparent)]
-pub struct BlockId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
-
-impl BlockId {
-    pub fn to_hex(&self) -> String {
-        prefix_hex::encode(self.0.as_ref())
-    }
-}
-
-impl From<bee::BlockId> for BlockId {
-    fn from(value: bee::BlockId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
-    }
-}
-
-impl TryFrom<BlockId> for bee::BlockId {
-    type Error = crate::types::error::Error;
-
-    fn try_from(value: BlockId) -> Result<Self, Self::Error> {
-        Ok(bee::BlockId::new(value.0.as_ref().try_into()?))
-    }
-}
-
-impl FromStr for BlockId {
-    type Err = crate::types::error::ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::BlockId::from_str(s)?.into())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
-    pub id: BlockId,
+    #[serde(rename = "_id")]
+    pub block_id: BlockId,
     pub protocol_version: u8,
     pub parents: Box<[BlockId]>,
     pub payload: Option<Payload>,
@@ -60,7 +28,7 @@ pub struct Block {
 impl From<bee::Block> for Block {
     fn from(value: bee::Block) -> Self {
         Self {
-            id: value.id().into(),
+            block_id: value.id().into(),
             protocol_version: value.protocol_version(),
             parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
             payload: value.payload().map(Into::into),

@@ -19,12 +19,13 @@ use crate::{
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
 pub struct MilestoneRecord {
+    /// The [`MilestoneId`](MilestoneId) of the milestone.
+    #[serde(rename = "_id")]
+    pub milestone_id: MilestoneId,
     /// The milestone index.
     pub milestone_index: u32,
     /// The timestamp of the milestone.
     pub milestone_timestamp: DateTime,
-    /// The [`MilestoneId`](MilestoneId) of the milestone.
-    pub milestone_id: MilestoneId,
     /// The milestone's payload.
     pub payload: MilestonePayload,
 }
@@ -54,7 +55,7 @@ impl MongoDb {
     pub async fn get_milestone_record(&self, id: &MilestoneId) -> Result<Option<MilestoneRecord>, Error> {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
-            .find_one(doc! {"milestone_id": bson::to_bson(id)?}, None)
+            .find_one(doc! {"_id": bson::to_bson(id)?}, None)
             .await
     }
 

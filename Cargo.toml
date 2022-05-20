@@ -67,6 +67,7 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
+packable = { version = "0.3.2", default-features = false }
 
 [features]
 default = [

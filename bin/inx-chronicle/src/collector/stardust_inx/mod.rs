@@ -275,7 +275,7 @@ impl HandleEvent<MilestoneState> for Solidifier {
                                 // We may have reached a different milestone, in which case there is nothing to
                                 // do for this block
                                 if ms_state.milestone_index == ms_index {
-                                    let parents = Vec::from(block_rec.block.parents);
+                                    let parents = Vec::from(block_rec.inner.parents);
                                     ms_state.process_queue.extend(parents);
                                 }
                                 ms_state.process_queue.pop_front();
