@@ -1250,7 +1250,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.4.0"
-source = "git+https://github.com/iotaledger/inx?branch=feat/rename-block-feature-unlock#5970797fc8293115dcf2dc31529f7db90a4889a7"
+source = "git+https://github.com/iotaledger/inx#240a6048c5f7d72149a6e2ede26426c199b49757"
 dependencies = [
  "bee-block",
  "packable",
