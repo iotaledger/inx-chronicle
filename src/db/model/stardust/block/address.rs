@@ -6,9 +6,8 @@ use std::str::FromStr;
 use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::db;
-
 use super::{AliasId, NftId};
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
