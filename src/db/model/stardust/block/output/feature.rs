@@ -4,7 +4,7 @@
 use bee_block_stardust::output::feature as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::Address;
+use crate::db::{self, model::stardust::block::Address};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -45,7 +45,7 @@ impl From<&bee::Feature> for Feature {
 }
 
 impl TryFrom<Feature> for bee::Feature {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Feature) -> Result<Self, Self::Error> {
         Ok(match value {

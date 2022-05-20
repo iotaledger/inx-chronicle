@@ -8,10 +8,10 @@ use super::{Feature, NativeToken, OutputAmount, TokenScheme, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     amount: OutputAmount,
     native_tokens: Box<[NativeToken]>,
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     serial_number: u32,
     token_scheme: TokenScheme,
     unlock_conditions: Box<[UnlockCondition]>,
@@ -34,7 +34,7 @@ impl From<&bee::FoundryOutput> for FoundryOutput {
 }
 
 impl TryFrom<FoundryOutput> for bee::FoundryOutput {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
         Ok(
@@ -73,7 +73,7 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::block::output::{
+    use crate::db::model::stardust::block::output::{
         feature::test::get_test_metadata_block, native_token::test::get_test_native_token,
         unlock_condition::test::get_test_immut_alias_address_condition,
     };

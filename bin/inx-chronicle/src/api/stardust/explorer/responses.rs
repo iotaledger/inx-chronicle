@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::types::ledger::LedgerInclusionState;
+use chronicle::db::model::ledger::LedgerInclusionState;
 use serde::{Deserialize, Serialize};
 
 use crate::api::impl_success_response;

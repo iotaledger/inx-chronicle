@@ -4,7 +4,7 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::types::ledger::UnexpectedLedgerInclusionState;
+use chronicle::db::model::ledger::UnexpectedLedgerInclusionState;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -101,7 +101,7 @@ pub enum ParseError {
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
-    StorageType(#[from] chronicle::types::error::ParseError),
+    Model(#[from] chronicle::db::error::Error),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }

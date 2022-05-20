@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use bee_test::rand::block::rand_block;
-use chronicle::{
-    db::{model::stardust::block::BlockRecord, MongoDb, MongoDbConfig},
-    types::{
+use chronicle::db::{
+    model::{
         ledger::{ConflictReason, LedgerInclusionState, Metadata},
-        stardust::block::Block,
+        stardust::block::{Block, BlockRecord},
     },
+    MongoDb, MongoDbConfig,
 };
 use packable::PackableExt;
 

@@ -4,6 +4,8 @@
 use bee_block_stardust::payload::tagged_data as bee;
 use serde::{Deserialize, Serialize};
 
+use crate::db;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaggedDataPayload {
     #[serde(with = "serde_bytes")]
@@ -22,7 +24,7 @@ impl From<&bee::TaggedDataPayload> for TaggedDataPayload {
 }
 
 impl TryFrom<TaggedDataPayload> for bee::TaggedDataPayload {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
         Ok(bee::TaggedDataPayload::new(value.tag.into(), value.data.into())?)

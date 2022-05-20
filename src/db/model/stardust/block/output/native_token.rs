@@ -36,7 +36,7 @@ impl From<bee::TokenId> for TokenId {
 }
 
 impl TryFrom<TokenId> for bee::TokenId {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: TokenId) -> Result<Self, Self::Error> {
         Ok(bee::TokenId::new(value.0.as_ref().try_into()?))
@@ -44,7 +44,7 @@ impl TryFrom<TokenId> for bee::TokenId {
 }
 
 impl FromStr for TokenId {
-    type Err = crate::types::error::ParseError;
+    type Err = crate::db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TokenId::from_str(s)?.into())
@@ -75,7 +75,7 @@ impl From<&bee::TokenScheme> for TokenScheme {
 }
 
 impl TryFrom<TokenScheme> for bee::TokenScheme {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: TokenScheme) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -108,7 +108,7 @@ impl From<&bee::NativeToken> for NativeToken {
 }
 
 impl TryFrom<NativeToken> for bee::NativeToken {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
         Ok(Self::new(value.token_id.try_into()?, value.amount.into())?)

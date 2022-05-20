@@ -6,6 +6,8 @@ use std::str::FromStr;
 use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
+use crate::db;
+
 use super::{AliasId, NftId};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,7 +21,7 @@ impl From<bee::Ed25519Address> for Ed25519Address {
 }
 
 impl TryFrom<Ed25519Address> for bee::Ed25519Address {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Ed25519Address) -> Result<Self, Self::Error> {
         Ok(bee::Ed25519Address::new(value.0.as_ref().try_into()?))
@@ -27,7 +29,7 @@ impl TryFrom<Ed25519Address> for bee::Ed25519Address {
 }
 
 impl FromStr for Ed25519Address {
-    type Err = crate::types::error::ParseError;
+    type Err = db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::Ed25519Address::from_str(s)?.into())
@@ -55,7 +57,7 @@ impl From<bee::Address> for Address {
 }
 
 impl TryFrom<Address> for bee::Address {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: Address) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -67,7 +69,7 @@ impl TryFrom<Address> for bee::Address {
 }
 
 impl FromStr for Address {
-    type Err = crate::types::error::ParseError;
+    type Err = crate::db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::Address::try_from_bech32(s)?.1.into())

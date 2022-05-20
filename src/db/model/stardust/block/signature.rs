@@ -4,6 +4,8 @@
 use bee_block_stardust::signature as bee;
 use serde::{Deserialize, Serialize};
 
+use crate::db;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Signature {
@@ -28,7 +30,7 @@ impl From<&bee::Signature> for Signature {
 }
 
 impl TryFrom<Signature> for bee::Signature {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Signature) -> Result<Self, Self::Error> {
         Ok(match value {
