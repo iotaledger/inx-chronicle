@@ -84,11 +84,7 @@ where
         Pending => (),
     }
 
-    match second.poll_next(cx) {
-        Ready(Some(val)) => return Ready(Some(val)),
-        Ready(None) => return Ready(None),
-        Pending => return Pending,
-    }
+    second.poll_next(cx)
 }
 
 /// Merge the size hints from two streams.
