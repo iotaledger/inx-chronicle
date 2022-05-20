@@ -122,10 +122,11 @@ pub enum MilestoneOption {
         funds: Box<[MigratedFundsEntry]>,
         transaction: TreasuryTransactionPayload,
     },
-    #[serde(rename = "pow")]
-    Pow {
-        next_pow_score: u32,
-        next_pow_score_milestone_index: u32,
+    #[serde(rename = "parameters")]
+    Parameters {
+        target_milestone_index: MilestoneIndex,
+        protocol_version: u8,
+        binary_parameters: Box<[u8]>,
     },
 }
 
@@ -138,9 +139,10 @@ impl From<&stardust::MilestoneOption> for MilestoneOption {
                 funds: r.funds().iter().map(Into::into).collect(),
                 transaction: r.transaction().into(),
             },
-            stardust::MilestoneOption::Pow(p) => Self::Pow {
-                next_pow_score: p.next_pow_score(),
-                next_pow_score_milestone_index: p.next_pow_score_milestone_index(),
+            stardust::MilestoneOption::Parameters(p) => Self::Parameters {
+                target_milestone_index: p.target_milestone_index().0,
+                protocol_version: p.protocol_version(),
+                binary_parameters: p.binary_parameters().to_owned().into_boxed_slice(),
             },
         }
     }
@@ -165,12 +167,14 @@ impl TryFrom<MilestoneOption> for stardust::MilestoneOption {
                     .collect::<Result<Vec<_>, _>>()?,
                 transaction.try_into()?,
             )?),
-            MilestoneOption::Pow {
-                next_pow_score,
-                next_pow_score_milestone_index,
-            } => Self::Pow(stardust::PowMilestoneOption::new(
-                next_pow_score,
-                next_pow_score_milestone_index,
+            MilestoneOption::Parameters {
+                target_milestone_index,
+                protocol_version,
+                binary_parameters,
+            } => Self::Parameters(stardust::ParametersMilestoneOption::new(
+                stardust::MilestoneIndex(target_milestone_index),
+                protocol_version,
+                binary_parameters.into_vec(),
             )?),
         })
     }
