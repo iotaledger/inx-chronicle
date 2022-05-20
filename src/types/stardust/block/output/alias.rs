@@ -6,7 +6,7 @@ use std::str::FromStr;
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-use super::{feature_block::FeatureBlock, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
+use super::{feature::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -51,8 +51,8 @@ pub struct AliasOutput {
     pub state_metadata: Box<[u8]>,
     pub foundry_counter: u32,
     pub unlock_conditions: Box<[UnlockCondition]>,
-    pub feature_blocks: Box<[FeatureBlock]>,
-    pub immutable_feature_blocks: Box<[FeatureBlock]>,
+    pub features: Box<[Feature]>,
+    pub immutable_features: Box<[Feature]>,
 }
 
 impl From<&bee::AliasOutput> for AliasOutput {
@@ -65,8 +65,8 @@ impl From<&bee::AliasOutput> for AliasOutput {
             state_metadata: value.state_metadata().to_vec().into_boxed_slice(),
             foundry_counter: value.foundry_counter(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
-            immutable_feature_blocks: value.immutable_feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -91,14 +91,14 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_feature_blocks(
-                Vec::from(value.feature_blocks)
+            .with_features(
+                Vec::from(value.features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_immutable_feature_blocks(
-                Vec::from(value.immutable_feature_blocks)
+            .with_immutable_features(
+                Vec::from(value.immutable_features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -113,7 +113,7 @@ pub(crate) mod test {
 
     use super::*;
     use crate::types::stardust::block::output::{
-        feature_block::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block},
+        feature::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block},
         native_token::test::get_test_native_token,
         unlock_condition::test::{get_test_governor_address_condition, get_test_state_controller_address_condition},
     };
@@ -148,13 +148,13 @@ pub(crate) mod test {
                         .try_into()
                         .unwrap(),
                 ])
-                .with_feature_blocks(vec![
+                .with_features(vec![
                     get_test_sender_block(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                 ])
-                .with_immutable_feature_blocks(vec![
+                .with_immutable_features(vec![
                     get_test_issuer_block(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),

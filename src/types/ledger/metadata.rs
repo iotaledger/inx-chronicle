@@ -5,28 +5,28 @@ use serde::{Deserialize, Serialize};
 
 use super::{ConflictReason, LedgerInclusionState};
 
-/// Message metadata.
+/// Block metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     /// Status of the solidification process.
     pub is_solid: bool,
-    /// Indicates that the message should be promoted.
+    /// Indicates that the block should be promoted.
     pub should_promote: bool,
-    /// Indicates that the message should be reattached.
+    /// Indicates that the block should be reattached.
     pub should_reattach: bool,
-    /// The milestone index referencing the message.
+    /// The milestone index referencing the block.
     pub referenced_by_milestone_index: u32,
     /// The corresponding milestone index.
     pub milestone_index: u32,
-    /// The inclusion state of the message.
+    /// The inclusion state of the block.
     pub inclusion_state: LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
     pub conflict_reason: ConflictReason,
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::MessageMetadata> for Metadata {
-    fn from(metadata: inx::MessageMetadata) -> Self {
+impl From<inx::BlockMetadata> for Metadata {
+    fn from(metadata: inx::BlockMetadata) -> Self {
         Self {
             is_solid: metadata.is_solid,
             should_promote: metadata.should_promote,

@@ -4,7 +4,7 @@
 //! Holds the `MongoDb` type and its config.
 
 use mongodb::{
-    bson::doc,
+    bson::{doc, Document},
     error::Error,
     options::{ClientOptions, Credential},
     Client,
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct MongoDb(pub(crate) mongodb::Database);
 
 impl MongoDb {
-    const NAME: &'static str = "chronicle-test";
+    const NAME: &'static str = "chronicle";
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
@@ -34,9 +34,25 @@ impl MongoDb {
         }
 
         let client = Client::with_options(client_options)?;
-        let db = client.database(Self::NAME);
+
+        let name = match &config.suffix {
+            Some(suffix) => format!("{}-{}", Self::NAME, suffix),
+            None => Self::NAME.to_string(),
+        };
+        let db = client.database(&name);
 
         Ok(MongoDb(db))
+    }
+
+    /// Clears all the collections from the database.
+    pub async fn clear(&self) -> Result<(), Error> {
+        let collections = self.0.list_collection_names(None).await?;
+
+        for c in collections {
+            self.0.collection::<Document>(&c).drop(None).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -48,6 +64,7 @@ pub struct MongoDbConfig {
     pub(crate) connect_url: String,
     pub(crate) username: Option<String>,
     pub(crate) password: Option<String>,
+    pub(crate) suffix: Option<String>,
 }
 
 impl MongoDbConfig {
@@ -73,6 +90,12 @@ impl MongoDbConfig {
         self.password = Some(password.into());
         self
     }
+
+    /// Sets the suffix.
+    pub fn with_suffix(mut self, suffix: impl Into<String>) -> Self {
+        self.suffix = Some(suffix.into());
+        self
+    }
 }
 
 impl Default for MongoDbConfig {
@@ -81,6 +104,7 @@ impl Default for MongoDbConfig {
             connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
+            suffix: None,
         }
     }
 }

@@ -7,8 +7,6 @@ use bee_block_stardust::output as bee;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
-pub type TokenTag = Box<[u8]>;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TokenAmount(#[serde(with = "serde_bytes")] pub Box<[u8]>);

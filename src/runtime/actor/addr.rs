@@ -12,9 +12,9 @@ use super::{
 };
 use crate::runtime::{error::RuntimeError, registry::ScopeId, scope::ScopeView};
 
-/// Error sending a message to an actor
+/// Error sending a block to an actor
 #[derive(Error, Debug)]
-#[error("Error sending message to actor: {0}")]
+#[error("Error sending block to actor: {0}")]
 pub struct SendError(String);
 
 #[allow(missing_docs)]
@@ -57,7 +57,7 @@ impl<A: Actor> Addr<A> {
         self.scope.id()
     }
 
-    /// Sends a message to the actor
+    /// Sends a block to the actor
     pub fn send<E: 'static + DynEvent<A>>(&self, event: E) -> Result<(), RuntimeError>
     where
         Self: Sized,

@@ -34,7 +34,8 @@ pub struct InfoResponse {
 
 impl_success_response!(InfoResponse);
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// An aggregation type that represents the ranges of completed milestones and gaps.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncDataResponse(pub SyncData);
 
 impl_success_response!(SyncDataResponse);

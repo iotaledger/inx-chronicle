@@ -3,10 +3,7 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        model::stardust::block::{BlockRecord, BlockWithMetadata},
-        MongoDb,
-    },
+    db::{model::stardust::block::BlockRecord, MongoDb},
     runtime::{Actor, ActorContext, HandleEvent},
 };
 use inx::tonic::Status;
@@ -35,11 +32,11 @@ impl Actor for ConeStream {
 }
 
 #[async_trait]
-impl HandleEvent<Result<BlockWithMetadata, Status>> for ConeStream {
+impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        event: Result<BlockWithMetadata, Status>,
+        event: Result<inx::proto::BlockWithMetadata, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Block Event");

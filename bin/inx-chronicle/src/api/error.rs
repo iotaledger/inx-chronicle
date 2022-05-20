@@ -88,6 +88,8 @@ pub enum ParseError {
     Bool(#[from] ParseBoolError),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
+    BeeBlockStardust(#[from] bee_block_stardust::Error),
+    #[error(transparent)]
     StorageType(#[from] chronicle::types::error::ParseError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
@@ -103,7 +105,7 @@ pub struct ErrorBody {
     #[serde(skip_serializing)]
     status: StatusCode,
     code: u16,
-    message: String,
+    block: String,
 }
 
 impl IntoResponse for ErrorBody {
@@ -128,7 +130,7 @@ impl From<ApiError> for ErrorBody {
         Self {
             status: err.status(),
             code: err.code(),
-            message: err.to_string(),
+            block: err.to_string(),
         }
     }
 }

@@ -22,7 +22,8 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockRecord {
     /// The block.
-    pub block: Block,
+    #[serde(flatten)]
+    pub inner: Block,
     /// The raw bytes of the block.
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
@@ -35,65 +36,28 @@ impl BlockRecord {
     pub const COLLECTION: &'static str = "stardust_blocks";
 
     /// Creates a new block record.
-    pub fn new(block: Block, raw: Vec<u8>) -> Self {
+    pub fn new(block: Block, raw: Vec<u8>, metadata: Option<Metadata>) -> Self {
         Self {
-            block: block,
+            inner: block,
             raw,
-            metadata: None,
+            metadata,
         }
     }
 }
 
-pub struct BlockWithMetadata {
-    block: inx::proto::RawMessage,
-    metadata: BlockMetadata,
-}
-
-pub struct BlockMetadata {
-    block_id: inx::proto::MessageId,
-    parents: Vec<inx::proto::MessageId>,
-    solid: bool,
-    should_promote: bool,
-    should_reattach: bool,
-}
-
 #[cfg(feature = "inx")]
-impl TryFrom<BlockWithMetadata> for BlockRecord {
+impl TryFrom<inx::proto::BlockWithMetadata> for BlockRecord {
     type Error = inx::Error;
 
-    fn try_from(value: BlockWithMetadata) -> Result<Self, Self::Error> {
-        let block = bee_block_stardust::Message::try_from(value.block.clone())?;
-        Ok(Self {
-            block: block.into(),
-            raw: value.block.data,
-            metadata: todo!(),
-        })
-    }
-}
-
-#[cfg(feature = "inx")]
-impl TryFrom<inx::proto::Message> for BlockRecord {
-    type Error = inx::Error;
-
-    fn try_from(value: inx::proto::Message) -> Result<Self, Self::Error> {
-        let (block, raw_block) = value.try_into()?;
-        Ok(Self::new(block.message.into(), raw_block))
-    }
-}
-
-#[cfg(feature = "inx")]
-impl TryFrom<(inx::proto::RawMessage, inx::proto::MessageMetadata)> for BlockRecord {
-    type Error = inx::Error;
-
-    fn try_from(
-        (raw_block, metadata): (inx::proto::RawMessage, inx::proto::MessageMetadata),
-    ) -> Result<Self, Self::Error> {
-        let block = bee_block_stardust::Message::try_from(raw_block.clone())?;
-        Ok(Self {
-            block: block.into(),
-            raw: raw_block.data,
-            metadata: Some(inx::MessageMetadata::try_from(metadata)?.into()),
-        })
+    fn try_from(value: inx::proto::BlockWithMetadata) -> Result<Self, Self::Error> {
+        let raw_block = value
+            .block
+            .as_ref()
+            .ok_or(inx::Error::MissingField("block"))?
+            .data
+            .clone();
+        let block = inx::BlockWithMetadata::try_from(value)?;
+        Ok(Self::new(block.block.into(), raw_block, Some(block.metadata.into())))
     }
 }
 
@@ -132,7 +96,7 @@ impl MongoDb {
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<BlockRecord>, Error> {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
-            .find_one(doc! {"block.id": bson::to_bson(block_id)?}, None)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
             .await
     }
 
@@ -161,7 +125,7 @@ impl MongoDb {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
             .update_one(
-                doc! { "_id": bson::to_bson(&block_record.block.id)? },
+                doc! { "_id": bson::to_bson(&block_record.inner.block_id)? },
                 doc! { "$set": bson::to_document(block_record)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -173,7 +137,7 @@ impl MongoDb {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
             .update_one(
-                doc! { "block.id": bson::to_bson(block_id)? },
+                doc! { "_id": bson::to_bson(block_id)? },
                 doc! { "$set": { "metadata": bson::to_document(metadata)? } },
                 None,
             )
@@ -250,7 +214,7 @@ impl MongoDb {
             doc! { "$match": {
                 "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                 "inclusion_state": LedgerInclusionState::Included, 
-                "block.payload.essence.outputs.unlock_conditions": bson::to_bson(&address)?
+                "block.payload.essence.outputs.unlocks": bson::to_bson(&address)?
             } },
             doc! { "$set": {
                 "block.payload.essence.outputs": {
@@ -364,9 +328,9 @@ impl MongoDb {
                     ],
                     "as": "spent_transaction"
                 } },
-                doc! { "$set": { "send_address": "$spent_transaction.block.payload.essence.outputs.unlock_conditions" } },
+                doc! { "$set": { "send_address": "$spent_transaction.block.payload.essence.outputs.unlocks" } },
                 doc! { "$unwind": { "path": "$block.payload.essence.outputs", "includeArrayIndex": "block.payload.essence.outputs.idx" } },
-                doc! { "$set": { "recv_address": "$block.payload.essence.outputs.unlock_conditions" } },
+                doc! { "$set": { "recv_address": "$block.payload.essence.outputs.unlocks" } },
                 doc! { "$facet": {
                     "total": [
                         { "$set": { "address": ["$send_address", "$recv_address"] } },

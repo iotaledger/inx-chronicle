@@ -6,7 +6,7 @@ use std::str::FromStr;
 use bee_block_stardust::payload::transaction as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::{Input, Output, Payload, UnlockBlock};
+use crate::types::stardust::block::{Input, Output, Payload, Unlock};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -44,7 +44,7 @@ impl FromStr for TransactionId {
 pub struct TransactionPayload {
     pub id: TransactionId,
     pub essence: TransactionEssence,
-    pub unlock_blocks: Box<[UnlockBlock]>,
+    pub unlocks: Box<[Unlock]>,
 }
 
 impl From<&bee::TransactionPayload> for TransactionPayload {
@@ -52,7 +52,7 @@ impl From<&bee::TransactionPayload> for TransactionPayload {
         Self {
             id: value.id().into(),
             essence: value.essence().into(),
-            unlock_blocks: value.unlock_blocks().iter().map(Into::into).collect(),
+            unlocks: value.unlocks().iter().map(Into::into).collect(),
         }
     }
 }
@@ -63,8 +63,8 @@ impl TryFrom<TransactionPayload> for bee::TransactionPayload {
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
         Ok(bee::TransactionPayload::new(
             value.essence.try_into()?,
-            bee_block_stardust::unlock_block::UnlockBlocks::new(
-                Vec::from(value.unlock_blocks)
+            bee_block_stardust::unlock::Unlocks::new(
+                Vec::from(value.unlocks)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -145,15 +145,14 @@ pub(crate) mod test {
     pub(crate) const OUTPUT_ID3: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c6492c00";
     pub(crate) const OUTPUT_ID4: &str = "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c6492d00";
 
-    use bee_block_stardust::unlock_block::UnlockBlocks;
+    use bee_block_stardust::unlock::Unlocks;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
     use crate::types::stardust::block::{
         output::test::{get_test_alias_output, get_test_basic_output, get_test_foundry_output, get_test_nft_output},
-        unlock_block::test::{
-            get_test_alias_unlock_block, get_test_nft_unlock_block, get_test_reference_unlock_block,
-            get_test_signature_unlock_block,
+        unlock::test::{
+            get_test_alias_unlock, get_test_nft_unlock, get_test_reference_unlock, get_test_signature_unlock,
         },
         OutputId,
     };
@@ -189,11 +188,11 @@ pub(crate) mod test {
         TransactionPayload::from(
             &bee::TransactionPayload::new(
                 get_test_transaction_essence().try_into().unwrap(),
-                UnlockBlocks::new(vec![
-                    get_test_signature_unlock_block().try_into().unwrap(),
-                    get_test_reference_unlock_block().try_into().unwrap(),
-                    get_test_alias_unlock_block().try_into().unwrap(),
-                    get_test_nft_unlock_block().try_into().unwrap(),
+                Unlocks::new(vec![
+                    get_test_signature_unlock().try_into().unwrap(),
+                    get_test_reference_unlock().try_into().unwrap(),
+                    get_test_alias_unlock().try_into().unwrap(),
+                    get_test_nft_unlock().try_into().unwrap(),
                 ])
                 .unwrap(),
             )

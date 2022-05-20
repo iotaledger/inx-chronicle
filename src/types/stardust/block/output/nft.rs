@@ -6,7 +6,7 @@ use std::str::FromStr;
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
+use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -46,8 +46,8 @@ pub struct NftOutput {
     native_tokens: Box<[NativeToken]>,
     nft_id: NftId,
     unlock_conditions: Box<[UnlockCondition]>,
-    feature_blocks: Box<[FeatureBlock]>,
-    immutable_feature_blocks: Box<[FeatureBlock]>,
+    features: Box<[Feature]>,
+    immutable_features: Box<[Feature]>,
 }
 
 impl From<&bee::NftOutput> for NftOutput {
@@ -57,8 +57,8 @@ impl From<&bee::NftOutput> for NftOutput {
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
             nft_id: (*value.nft_id()).into(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
-            immutable_feature_blocks: value.immutable_feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -80,14 +80,14 @@ impl TryFrom<NftOutput> for bee::NftOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_feature_blocks(
-                Vec::from(value.feature_blocks)
+            .with_features(
+                Vec::from(value.features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_immutable_feature_blocks(
-                Vec::from(value.immutable_feature_blocks)
+            .with_immutable_features(
+                Vec::from(value.immutable_features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -102,9 +102,7 @@ pub(crate) mod test {
 
     use super::*;
     use crate::types::stardust::block::output::{
-        feature_block::test::{
-            get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block,
-        },
+        feature::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block},
         native_token::test::get_test_native_token,
         unlock_condition::test::{
             get_test_address_condition, get_test_expiration_condition, get_test_storage_deposit_return_condition,
@@ -147,14 +145,14 @@ pub(crate) mod test {
                         .try_into()
                         .unwrap(),
                 ])
-                .with_feature_blocks(vec![
+                .with_features(vec![
                     get_test_sender_block(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                     get_test_tag_block().try_into().unwrap(),
                 ])
-                .with_immutable_feature_blocks(vec![
+                .with_immutable_features(vec![
                     get_test_issuer_block(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),

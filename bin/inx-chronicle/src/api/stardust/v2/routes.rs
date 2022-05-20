@@ -54,10 +54,10 @@ async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> Ap
     let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
     let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
     Ok(BlockResponse {
-        protocol_version: rec.block.protocol_version,
-        parents: rec.block.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.block.payload,
-        nonce: rec.block.nonce,
+        protocol_version: rec.inner.protocol_version,
+        parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.inner.payload,
+        nonce: rec.inner.nonce,
     })
 }
 
@@ -75,8 +75,8 @@ async fn block_metadata(
     let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
 
     Ok(BlockMetadataResponse {
-        block_id: rec.block.id.to_hex(),
-        parent_block_ids: rec.block.parents.iter().map(|id| id.to_hex()).collect(),
+        block_id: rec.inner.block_id.to_hex(),
+        parents: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
         is_solid: rec.metadata.as_ref().map(|d| d.is_solid),
         referenced_by_milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
         milestone_index: rec.metadata.as_ref().map(|d| d.milestone_index),
@@ -104,18 +104,18 @@ async fn block_children(
         block_id,
         max_results: page_size,
         count: blocks.len(),
-        children_block_ids: blocks
+        children: blocks
             .into_iter()
             .map(|rec| {
                 if expanded {
                     Record {
-                        id: rec.block.id.to_hex(),
+                        id: rec.inner.block_id.to_hex(),
                         inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
                         milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
                     }
                     .into()
                 } else {
-                    rec.block.id.to_hex().into()
+                    rec.inner.block_id.to_hex().into()
                 }
             })
             .collect(),
@@ -206,7 +206,7 @@ async fn output_metadata(
             .as_ref()
             .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
         transaction_id_spent: spending_transaction.as_ref().map(|txn| {
-            if let Some(Payload::Transaction(payload)) = &txn.block.payload {
+            if let Some(Payload::Transaction(payload)) = &txn.inner.payload {
                 payload.id.to_hex()
             } else {
                 unreachable!()
@@ -228,10 +228,10 @@ async fn transaction_included_block(
         .ok_or(ApiError::NoResults)?;
 
     Ok(BlockResponse {
-        protocol_version: rec.block.protocol_version,
-        parents: rec.block.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.block.payload,
-        nonce: rec.block.nonce,
+        protocol_version: rec.inner.protocol_version,
+        parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.inner.payload,
+        nonce: rec.inner.nonce,
     })
 }
 

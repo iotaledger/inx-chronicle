@@ -2,54 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod address;
+mod block_id;
 mod input;
 mod output;
 mod payload;
 mod signature;
-mod unlock_block;
-
-use std::str::FromStr;
+mod unlock;
 
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-pub use self::{address::*, input::*, output::*, payload::*, signature::*, unlock_block::*};
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
-#[serde(transparent)]
-pub struct BlockId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
-
-impl BlockId {
-    pub fn to_hex(&self) -> String {
-        prefix_hex::encode(self.0.as_ref())
-    }
-}
-
-impl From<bee::MessageId> for BlockId {
-    fn from(value: bee::MessageId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
-    }
-}
-
-impl TryFrom<BlockId> for bee::MessageId {
-    type Error = crate::types::error::Error;
-
-    fn try_from(value: BlockId) -> Result<Self, Self::Error> {
-        Ok(bee::MessageId::new(value.0.as_ref().try_into()?))
-    }
-}
-
-impl FromStr for BlockId {
-    type Err = crate::types::error::ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::MessageId::from_str(s)?.into())
-    }
-}
+pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signature::*, unlock::*};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
-    pub id: BlockId,
+    #[serde(rename = "_id")]
+    pub block_id: BlockId,
     pub protocol_version: u8,
     pub parents: Box<[BlockId]>,
     pub payload: Option<Payload>,
@@ -57,10 +25,10 @@ pub struct Block {
     pub nonce: u64,
 }
 
-impl From<bee::Message> for Block {
-    fn from(value: bee::Message) -> Self {
+impl From<bee::Block> for Block {
+    fn from(value: bee::Block) -> Self {
         Self {
-            id: value.id().into(),
+            block_id: value.id().into(),
             protocol_version: value.protocol_version(),
             parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
             payload: value.payload().map(Into::into),
@@ -69,11 +37,11 @@ impl From<bee::Message> for Block {
     }
 }
 
-impl TryFrom<Block> for bee::Message {
+impl TryFrom<Block> for bee::Block {
     type Error = crate::types::error::Error;
 
     fn try_from(value: Block) -> Result<Self, Self::Error> {
-        let mut builder = bee::MessageBuilder::<u64>::new(bee::parent::Parents::new(
+        let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
             Vec::from(value.parents)
                 .into_iter()
                 .map(|p| p.try_into())
@@ -98,13 +66,13 @@ mod tests {
 
     #[test]
     fn test_block_id_bson() {
-        let block_id = BlockId::from(bee_test::rand::message::rand_message_id());
+        let block_id = BlockId::from(bee_test::rand::block::rand_block_id());
         let bson = to_bson(&block_id).unwrap();
         from_bson::<BlockId>(bson).unwrap();
     }
 
     #[test]
-    fn test_message_bson() {
+    fn test_block_bson() {
         let block = get_test_transaction_block();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
@@ -120,7 +88,7 @@ mod tests {
 
     fn get_test_transaction_block() -> Block {
         Block::from(
-            bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::BlockBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_transaction_payload().try_into().unwrap())
                 .finish()
@@ -130,7 +98,7 @@ mod tests {
 
     fn get_test_milestone_block() -> Block {
         Block::from(
-            bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::BlockBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_milestone_payload().try_into().unwrap())
                 .finish()
@@ -140,7 +108,7 @@ mod tests {
 
     fn get_test_tagged_data_block() -> Block {
         Block::from(
-            bee::MessageBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::BlockBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_tagged_data_payload().try_into().unwrap())
                 .finish()
