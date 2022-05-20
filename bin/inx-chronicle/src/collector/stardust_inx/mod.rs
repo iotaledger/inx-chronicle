@@ -17,11 +17,9 @@ use chronicle::{
     runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
     types::{ledger::Metadata, stardust::block::BlockId},
 };
-pub(super) use config::InxConfig;
-use error::InxWorkerError;
-use worker::InxRequest;
-pub(super) use worker::InxWorker;
 
+pub(super) use self::{config::InxConfig, worker::InxWorker};
+use self::{error::InxWorkerError, worker::InxRequest};
 use super::{solidifier::Solidifier, Collector};
 use crate::collector::solidifier::SolidifierError;
 
@@ -185,8 +183,8 @@ impl HandleEvent<inx::proto::Milestone> for Collector {
                     .extend(Vec::from(rec.payload.essence.parents).into_iter());
                 solidifiers
                     // Divide solidifiers fairly by milestone
-                    .get(&(rec.milestone_index as usize % self.config.solidifier_count))
-                    // Unwrap: We never remove solidifiers, so they should always exist
+                    .get(rec.milestone_index as usize % self.config.solidifier_count)
+                    // Unwrap: We can never remove a `Solidifier` from the boxed slice, so they should always exist.
                     .unwrap()
                     .send(state)?;
             }
@@ -331,6 +329,9 @@ impl HandleEvent<MilestoneState> for Solidifier {
                 synced: true,
             })
             .await?;
+        #[cfg(feature = "metrics")]
+        self.counter.inc();
+
         Ok(())
     }
 }

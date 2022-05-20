@@ -1,18 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use axum::{extract::Path, routing::get, Extension, Router};
-use bee_block_stardust::address as bee;
-use chronicle::{
-    db::{bson::DocExt, MongoDb},
-    types::{ledger::LedgerInclusionState, stardust::block::Address},
-};
+use chronicle::{db::MongoDb, types::stardust::block::Address};
 use futures::TryStreamExt;
 
-use super::responses::TransactionHistoryResponse;
+use super::responses::{TransactionHistoryResponse, Transfer};
 use crate::api::{
+    error::ParseError,
     extractors::{Pagination, TimeRange},
-    responses::Transfer,
     ApiError, ApiResult,
 };
 
@@ -32,7 +30,7 @@ async fn transaction_history(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionHistoryResponse> {
-    let address_dto = Address::from(&bee::Address::try_from_bech32(&address)?.1);
+    let address_dto = Address::from_str(&address).map_err(ParseError::StorageType)?;
     let start_milestone = database
         .find_first_milestone(start_timestamp)
         .await?
@@ -50,21 +48,15 @@ async fn transaction_history(
 
     let transactions = records
         .into_iter()
-        .map(|mut rec| {
-            let mut payload = rec.take_document("block.payload")?;
-            let spending_transaction = rec.take_document("spending_transaction").ok();
-            let output = payload.take_document("essence.outputs")?;
+        .map(|rec| {
             Ok(Transfer {
-                transaction_id: payload.get_as_string("transaction_id")?,
-                output_index: output.get_as_u16("idx")?,
-                is_spending: spending_transaction.is_some(),
-                inclusion_state: rec
-                    .get_as_u8("inclusion_state")
-                    .ok()
-                    .map(LedgerInclusionState::try_from)
-                    .transpose()?,
-                block_id: rec.get_as_string("block_id")?,
-                amount: output.get_as_u64("amount")?,
+                transaction_id: rec.transaction_id.to_hex(),
+                output_index: rec.output_index,
+                is_spent: rec.is_spent,
+                inclusion_state: rec.inclusion_state,
+                block_id: rec.block_id.to_hex(),
+                amount: rec.amount,
+                milestone_index: rec.milestone_index,
             })
         })
         .collect::<Result<_, ApiError>>()?;

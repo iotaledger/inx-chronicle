@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 on:
   push:
@@ -13,110 +13,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    runs-on: ${{ matrix.os }}
-    # Unfortunately, we can do this right now because `indexmap` does not seem to follow semver.
-    # env:
-    #   RUSTFLAGS: -D warnings -D missing-docs
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  build-and-test-1:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: ubuntu-latest, rust: stable }
+  
+  build-and-test-2:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: windows-latest, rust: stable }
 
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install protoc (Ubuntu)
-        if: contains(matrix.os, 'ubuntu')
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Install protoc (macOS)
-        if: contains(matrix.os, 'macos')
-        run: brew install protobuf
-
-      - name: Install protoc (Windows)
-        if: contains(matrix.os, 'windows')
-        run: choco install protoc
-
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - uses: Swatinem/rust-cache@v1
-
-      - name: Build with all features
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-build-all
-
-      - name: Build with INX only
-        if: contains(matrix.os, 'ubuntu')
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-build-inx
-
-      - name: Build with API only
-        if: contains(matrix.os, 'ubuntu')
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-build-api
-
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-test
-
-      - name: Doc Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-doctest
+  build-and-test-3:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: macos-latest, rust: stable }
 
   format:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-            profile: minimal
-            toolchain: nightly
-            override: true
-            components: rustfmt
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: ci-fmt
+    uses: ./.github/workflows/_fmt.yml
+    with: { os: ubuntu-latest, rust: nightly }
 
   clippy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
-
-      - name: Clippy with all features
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-clippy-all
-
-      - name: Clippy with INX only
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-clippy-inx
-
-      - name: Clippy with API only
-        uses: actions-rs/cargo@v1
-        with:
-          command: ci-clippy-api
+    uses: ./.github/workflows/_clippy.yml
+    with: { os: ubuntu-latest, rust: stable }
   
   check-toml:
     runs-on: ubuntu-latest

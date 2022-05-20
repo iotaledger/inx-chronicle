@@ -4,7 +4,7 @@
 use std::str::ParseBoolError;
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
-use chronicle::{db::bson::DocError, types::ledger::UnexpectedLedgerInclusionState};
+use chronicle::types::ledger::UnexpectedLedgerInclusionState;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -15,8 +15,6 @@ use thiserror::Error;
 pub enum InternalApiError {
     #[error(transparent)]
     BsonDeserialize(#[from] mongodb::bson::de::Error),
-    #[error(transparent)]
-    Doc(#[from] DocError),
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
@@ -38,7 +36,7 @@ pub enum InternalApiError {
 #[allow(missing_docs)]
 pub enum ApiError {
     #[error(transparent)]
-    BadParse(ParseError),
+    BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
     #[error("Provided index is too large (Max 64 bytes)")]
@@ -52,7 +50,7 @@ pub enum ApiError {
     #[error("No endpoint found")]
     NotFound,
     #[error(transparent)]
-    QueryError(QueryRejection),
+    QueryError(#[from] QueryRejection),
     #[error("Provided tag is too large (Max 64 bytes)")]
     TagTooLarge,
 }
@@ -102,6 +100,7 @@ pub enum ParseError {
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
+    StorageType(#[from] chronicle::types::error::ParseError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }

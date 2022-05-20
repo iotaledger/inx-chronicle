@@ -13,6 +13,8 @@ mod error;
 #[macro_use]
 mod responses;
 mod config;
+#[cfg(feature = "metrics")]
+mod metrics;
 mod routes;
 
 use async_trait::async_trait;
@@ -21,17 +23,16 @@ use chronicle::{
     db::MongoDb,
     runtime::{spawn_task, Actor, ActorContext},
 };
-pub use config::ApiConfig;
-pub use error::ApiError;
 use hyper::Method;
-use responses::impl_success_response;
-use routes::routes;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{AllowOrigin, Any, CorsLayer},
     trace::TraceLayer,
 };
+
+pub use self::{config::ApiConfig, error::ApiError};
+use self::{responses::impl_success_response, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -84,6 +85,26 @@ impl Actor for ApiWorker {
                     .allow_headers(Any)
                     .allow_credentials(false),
             );
+
+        #[cfg(feature = "metrics")]
+        let routes = {
+            use self::metrics::MetricsLayer;
+            use crate::metrics::{MetricsWorker, RegisterMetric};
+
+            let layer = MetricsLayer::default();
+
+            let metrics_worker = cx.addr::<MetricsWorker>().await;
+            metrics_worker
+                .send(RegisterMetric {
+                    name: "incoming_requests".to_string(),
+                    help: "incoming_requests".to_string(),
+                    metric: layer.metrics.incoming_requests.clone(),
+                })
+                .unwrap();
+
+            routes.layer(layer)
+        };
+
         let join_handle = spawn_task("Axum server", async move {
             let res = Server::bind(&([0, 0, 0, 0], port).into())
                 .serve(routes.into_make_service())

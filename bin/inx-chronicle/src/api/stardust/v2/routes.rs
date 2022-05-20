@@ -8,7 +8,6 @@ use axum::{
     routing::*,
     Router,
 };
-use bee_block_stardust as bee;
 use chronicle::{
     db::MongoDb,
     types::stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
@@ -17,7 +16,7 @@ use futures::TryStreamExt;
 
 use super::responses::*;
 use crate::api::{
-    error::ApiError,
+    error::{ApiError, ParseError},
     extractors::{Expanded, Pagination},
     responses::Record,
     ApiResult,
@@ -52,7 +51,7 @@ pub fn routes() -> Router {
 }
 
 async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<BlockResponse> {
-    let block_id_dto = BlockId::from(bee::BlockId::from_str(&block_id)?);
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_block(&block_id_dto)
         .await?
@@ -66,7 +65,7 @@ async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> Ap
 }
 
 async fn block_raw(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let block_id_dto = BlockId::from(bee::BlockId::from_str(&block_id)?);
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_block(&block_id_dto)
         .await?
@@ -78,7 +77,7 @@ async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
 ) -> ApiResult<BlockMetadataResponse> {
-    let block_id_dto = BlockId::from(bee::BlockId::from_str(&block_id)?);
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_block(&block_id_dto)
         .await?
@@ -103,7 +102,7 @@ async fn block_children(
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
 ) -> ApiResult<BlockChildrenResponse> {
-    let block_id_dto = BlockId::from(bee::BlockId::from_str(&block_id)?);
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
     let blocks = database
         .get_block_children(&block_id_dto, page_size, page)
         .await?
@@ -133,7 +132,7 @@ async fn block_children(
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from(&bee::output::OutputId::from_str(&output_id)?);
+    let output_id = OutputId::from_str(&output_id).map_err(ParseError::StorageType)?;
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -179,7 +178,7 @@ async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<OutputMetadataResponse> {
-    let output_id = OutputId::from(&bee::output::OutputId::from_str(&output_id)?);
+    let output_id = OutputId::from_str(&output_id).map_err(ParseError::StorageType)?;
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -231,7 +230,7 @@ async fn transaction_included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
-    let transaction_id_dto = TransactionId::from(bee::payload::transaction::TransactionId::from_str(&transaction_id)?);
+    let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ParseError::StorageType)?;
     let rec = database
         .get_block_for_transaction(&transaction_id_dto)
         .await?
@@ -246,7 +245,7 @@ async fn transaction_included_block(
 }
 
 async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
-    let milestone_id_dto = MilestoneId::from(bee::payload::milestone::MilestoneId::from_str(&milestone_id)?);
+    let milestone_id_dto = MilestoneId::from_str(&milestone_id).map_err(ParseError::StorageType)?;
     database
         .get_milestone_record(&milestone_id_dto)
         .await?
