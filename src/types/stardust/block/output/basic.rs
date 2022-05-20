@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output as bee;
+use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-use super::{FeatureBlock, NativeToken, OutputAmount, UnlockCondition};
+use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicOutput {
@@ -12,7 +12,7 @@ pub struct BasicOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub unlock_conditions: Box<[UnlockCondition]>,
-    pub feature_blocks: Box<[FeatureBlock]>,
+    pub features: Box<[Feature]>,
 }
 
 impl From<&bee::BasicOutput> for BasicOutput {
@@ -21,7 +21,7 @@ impl From<&bee::BasicOutput> for BasicOutput {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -43,8 +43,8 @@ impl TryFrom<BasicOutput> for bee::BasicOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .with_feature_blocks(
-                Vec::from(value.feature_blocks)
+            .with_features(
+                Vec::from(value.features)
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -58,8 +58,8 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::output::{
-        feature_block::test::{get_test_metadata_block, get_test_sender_block, get_test_tag_block},
+    use crate::types::stardust::block::output::{
+        feature::test::{get_test_metadata_block, get_test_sender_block, get_test_tag_block},
         native_token::test::get_test_native_token,
         unlock_condition::test::{
             get_test_address_condition, get_test_expiration_condition, get_test_storage_deposit_return_condition,
@@ -91,7 +91,7 @@ pub(crate) mod test {
                         .try_into()
                         .unwrap(),
                 ])
-                .with_feature_blocks(vec![
+                .with_features(vec![
                     get_test_sender_block(bee_test::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),

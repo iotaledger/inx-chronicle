@@ -25,8 +25,8 @@ pub struct Transfer {
     pub is_spent: bool,
     #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
+    #[serde(rename = "blockId")]
+    pub block_id: String,
     #[serde(rename = "milestoneIndex")]
     pub milestone_index: Option<u32>,
     pub amount: u64,

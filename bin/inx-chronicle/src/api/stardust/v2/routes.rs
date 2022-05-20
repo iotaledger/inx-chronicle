@@ -10,7 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::MongoDb,
-    types::stardust::message::{MessageId, MilestoneId, OutputId, Payload, TransactionId},
+    types::stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
 };
 use futures::TryStreamExt;
 
@@ -25,12 +25,12 @@ use crate::api::{
 pub fn routes() -> Router {
     Router::new()
         .nest(
-            "/messages",
+            "/blocks",
             Router::new()
-                .route("/:message_id", get(message))
-                .route("/:message_id/raw", get(message_raw))
-                .route("/:message_id/metadata", get(message_metadata))
-                .route("/:message_id/children", get(message_children)),
+                .route("/:block_id", get(block))
+                .route("/:block_id/raw", get(block_raw))
+                .route("/:block_id/metadata", get(block_metadata))
+                .route("/:block_id/children", get(block_children)),
         )
         .nest(
             "/outputs",
@@ -40,7 +40,7 @@ pub fn routes() -> Router {
         )
         .nest(
             "/transactions",
-            Router::new().route("/:transaction_id/included-message", get(transaction_included_message)),
+            Router::new().route("/:transaction_id/included-block", get(transaction_included_block)),
         )
         .nest(
             "/milestones",
@@ -50,13 +50,10 @@ pub fn routes() -> Router {
         )
 }
 
-async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<MessageResponse> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
-    let rec = database
-        .get_message(&message_id_dto)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    Ok(MessageResponse {
+async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<BlockResponse> {
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
+    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
+    Ok(BlockResponse {
         protocol_version: rec.inner.protocol_version,
         parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
         payload: rec.inner.payload,
@@ -64,28 +61,22 @@ async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -
     })
 }
 
-async fn message_raw(database: Extension<MongoDb>, Path(message_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
-    let rec = database
-        .get_message(&message_id_dto)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+async fn block_raw(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<Vec<u8>> {
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
+    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
     Ok(rec.raw)
 }
 
-async fn message_metadata(
+async fn block_metadata(
     database: Extension<MongoDb>,
-    Path(message_id): Path<String>,
-) -> ApiResult<MessageMetadataResponse> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
-    let rec = database
-        .get_message(&message_id_dto)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    Path(block_id): Path<String>,
+) -> ApiResult<BlockMetadataResponse> {
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
+    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
 
-    Ok(MessageMetadataResponse {
-        message_id: rec.inner.message_id.to_hex(),
-        parent_message_ids: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
+    Ok(BlockMetadataResponse {
+        block_id: rec.inner.block_id.to_hex(),
+        parents: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
         is_solid: rec.metadata.as_ref().map(|d| d.is_solid),
         referenced_by_milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
         milestone_index: rec.metadata.as_ref().map(|d| d.milestone_index),
@@ -96,35 +87,35 @@ async fn message_metadata(
     })
 }
 
-async fn message_children(
+async fn block_children(
     database: Extension<MongoDb>,
-    Path(message_id): Path<String>,
+    Path(block_id): Path<String>,
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
-) -> ApiResult<MessageChildrenResponse> {
-    let message_id_dto = MessageId::from_str(&message_id).map_err(ParseError::StorageType)?;
-    let messages = database
-        .get_message_children(&message_id_dto, page_size, page)
+) -> ApiResult<BlockChildrenResponse> {
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
+    let blocks = database
+        .get_block_children(&block_id_dto, page_size, page)
         .await?
         .try_collect::<Vec<_>>()
         .await?;
 
-    Ok(MessageChildrenResponse {
-        message_id,
+    Ok(BlockChildrenResponse {
+        block_id,
         max_results: page_size,
-        count: messages.len(),
-        children_message_ids: messages
+        count: blocks.len(),
+        children: blocks
             .into_iter()
             .map(|rec| {
                 if expanded {
                     Record {
-                        id: rec.inner.message_id.to_hex(),
+                        id: rec.inner.block_id.to_hex(),
                         inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
                         milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
                     }
                     .into()
                 } else {
-                    rec.inner.message_id.to_hex().into()
+                    rec.inner.block_id.to_hex().into()
                 }
             })
             .collect(),
@@ -160,7 +151,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
     };
 
     Ok(OutputResponse {
-        message_id: output_res.message_id.to_hex(),
+        block_id: output_res.block_id.to_hex(),
         transaction_id: output_id.transaction_id.to_hex(),
         output_index: output_id.index,
         is_spent: spending_transaction.is_some(),
@@ -206,7 +197,7 @@ async fn output_metadata(
     };
 
     Ok(OutputMetadataResponse {
-        message_id: output_res.message_id.to_hex(),
+        block_id: output_res.block_id.to_hex(),
         transaction_id: output_id.transaction_id.to_hex(),
         output_index: output_id.index,
         is_spent: spending_transaction.is_some(),
@@ -226,17 +217,17 @@ async fn output_metadata(
     })
 }
 
-async fn transaction_included_message(
+async fn transaction_included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
-) -> ApiResult<MessageResponse> {
+) -> ApiResult<BlockResponse> {
     let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ParseError::StorageType)?;
     let rec = database
-        .get_message_for_transaction(&transaction_id_dto)
+        .get_block_for_transaction(&transaction_id_dto)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(MessageResponse {
+    Ok(BlockResponse {
         protocol_version: rec.inner.protocol_version,
         parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
         payload: rec.inner.payload,

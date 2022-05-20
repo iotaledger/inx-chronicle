@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod feature_block;
+mod feature;
 mod native_token;
 mod unlock_condition;
 
@@ -14,20 +14,20 @@ pub(crate) mod treasury;
 
 use std::str::FromStr;
 
-use bee_message_stardust::output as bee;
+use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
     alias::{AliasId, AliasOutput},
     basic::BasicOutput,
-    feature_block::FeatureBlock,
+    feature::Feature,
     foundry::FoundryOutput,
-    native_token::{NativeToken, TokenScheme, TokenTag},
+    native_token::{NativeToken, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
-use crate::types::stardust::message::TransactionId;
+use crate::types::stardust::block::TransactionId;
 
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;

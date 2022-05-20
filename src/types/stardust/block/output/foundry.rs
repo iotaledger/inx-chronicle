@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_message_stardust::output as bee;
+use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-use super::{FeatureBlock, NativeToken, OutputAmount, TokenScheme, TokenTag, UnlockCondition};
+use super::{Feature, NativeToken, OutputAmount, TokenScheme, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
@@ -13,11 +13,10 @@ pub struct FoundryOutput {
     native_tokens: Box<[NativeToken]>,
     #[serde(with = "crate::types::stringify")]
     serial_number: u32,
-    token_tag: TokenTag,
     token_scheme: TokenScheme,
     unlock_conditions: Box<[UnlockCondition]>,
-    feature_blocks: Box<[FeatureBlock]>,
-    immutable_feature_blocks: Box<[FeatureBlock]>,
+    features: Box<[Feature]>,
+    immutable_features: Box<[Feature]>,
 }
 
 impl From<&bee::FoundryOutput> for FoundryOutput {
@@ -26,11 +25,10 @@ impl From<&bee::FoundryOutput> for FoundryOutput {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
             serial_number: value.serial_number(),
-            token_tag: value.token_tag().as_ref().to_vec().into_boxed_slice(),
             token_scheme: value.token_scheme().into(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
-            feature_blocks: value.feature_blocks().iter().map(Into::into).collect(),
-            immutable_feature_blocks: value.immutable_feature_blocks().iter().map(Into::into).collect(),
+            features: value.features().iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features().iter().map(Into::into).collect(),
         }
     }
 }
@@ -39,37 +37,34 @@ impl TryFrom<FoundryOutput> for bee::FoundryOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(
-            value.amount,
-            value.serial_number,
-            bee::TokenTag::new(value.token_tag.as_ref().try_into()?),
-            value.token_scheme.try_into()?,
-        )?
-        .with_native_tokens(
-            Vec::from(value.native_tokens)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
+        Ok(
+            Self::build_with_amount(value.amount, value.serial_number, value.token_scheme.try_into()?)?
+                .with_native_tokens(
+                    Vec::from(value.native_tokens)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .with_unlock_conditions(
+                    Vec::from(value.unlock_conditions)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .with_features(
+                    Vec::from(value.features)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .with_immutable_features(
+                    Vec::from(value.immutable_features)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .finish()?,
         )
-        .with_unlock_conditions(
-            Vec::from(value.unlock_conditions)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .with_feature_blocks(
-            Vec::from(value.feature_blocks)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .with_immutable_feature_blocks(
-            Vec::from(value.immutable_feature_blocks)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .finish()?)
     }
 }
 
@@ -78,8 +73,8 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::output::{
-        feature_block::test::get_test_metadata_block, native_token::test::get_test_native_token,
+    use crate::types::stardust::block::output::{
+        feature::test::get_test_metadata_block, native_token::test::get_test_native_token,
         unlock_condition::test::get_test_immut_alias_address_condition,
     };
 
@@ -95,7 +90,6 @@ pub(crate) mod test {
             &bee::FoundryOutput::build_with_amount(
                 100,
                 bee_test::rand::number::rand_number(),
-                bee::TokenTag::new(bee_test::rand::bytes::rand_bytes_array()),
                 bee::TokenScheme::Simple(bee::SimpleTokenScheme::new(250.into(), 200.into(), 300.into()).unwrap()),
             )
             .unwrap()
@@ -105,8 +99,8 @@ pub(crate) mod test {
                     .try_into()
                     .unwrap(),
             ])
-            .with_feature_blocks(vec![get_test_metadata_block().try_into().unwrap()])
-            .with_immutable_feature_blocks(vec![get_test_metadata_block().try_into().unwrap()])
+            .with_features(vec![get_test_metadata_block().try_into().unwrap()])
+            .with_immutable_features(vec![get_test_metadata_block().try_into().unwrap()])
             .finish()
             .unwrap(),
         )

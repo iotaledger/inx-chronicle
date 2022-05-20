@@ -3,10 +3,10 @@
 
 use std::str::FromStr;
 
-use bee_message_stardust::payload::milestone as bee;
+use bee_block_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::message::{Address, MessageId, Signature, TreasuryTransactionPayload};
+use crate::types::stardust::block::{Address, BlockId, Signature, TreasuryTransactionPayload};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -70,7 +70,7 @@ pub struct MilestoneEssence {
     pub index: MilestoneIndex,
     pub timestamp: u32,
     pub previous_milestone_id: MilestoneId,
-    pub parents: Box<[MessageId]>,
+    pub parents: Box<[BlockId]>,
     #[serde(with = "serde_bytes")]
     pub confirmed_merkle_proof: Box<[u8]>,
     #[serde(with = "serde_bytes")]
@@ -86,7 +86,7 @@ impl From<&bee::MilestoneEssence> for MilestoneEssence {
             index: value.index().0,
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
-            parents: value.parents().iter().map(|id| MessageId::from(*id)).collect(),
+            parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
             confirmed_merkle_proof: value.confirmed_merkle_root().to_vec().into_boxed_slice(),
             applied_merkle_proof: value.applied_merkle_root().to_vec().into_boxed_slice(),
             metadata: value.metadata().to_vec(),
@@ -103,7 +103,7 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
             value.index.into(),
             value.timestamp,
             value.previous_milestone_id.try_into()?,
-            bee_message_stardust::parent::Parents::new(
+            bee_block_stardust::parent::Parents::new(
                 Vec::from(value.parents)
                     .into_iter()
                     .map(TryInto::try_into)
@@ -112,7 +112,7 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
             value.confirmed_merkle_proof.as_ref().try_into()?,
             value.applied_merkle_proof.as_ref().try_into()?,
             value.metadata,
-            bee_message_stardust::payload::MilestoneOptions::new(
+            bee_block_stardust::payload::MilestoneOptions::new(
                 Vec::from(value.options)
                     .into_iter()
                     .map(TryInto::try_into)
@@ -132,10 +132,11 @@ pub enum MilestoneOption {
         funds: Box<[MigratedFundsEntry]>,
         transaction: TreasuryTransactionPayload,
     },
-    #[serde(rename = "pow")]
-    Pow {
-        next_pow_score: u32,
-        next_pow_score_milestone_index: u32,
+    #[serde(rename = "parameters")]
+    Parameters {
+        target_milestone_index: MilestoneIndex,
+        protocol_version: u8,
+        binary_parameters: Box<[u8]>,
     },
 }
 
@@ -148,9 +149,10 @@ impl From<&bee::MilestoneOption> for MilestoneOption {
                 funds: r.funds().iter().map(Into::into).collect(),
                 transaction: r.transaction().into(),
             },
-            bee::MilestoneOption::Pow(p) => Self::Pow {
-                next_pow_score: p.next_pow_score(),
-                next_pow_score_milestone_index: p.next_pow_score_milestone_index(),
+            bee::MilestoneOption::Parameters(p) => Self::Parameters {
+                target_milestone_index: p.target_milestone_index().0,
+                protocol_version: p.protocol_version(),
+                binary_parameters: p.binary_parameters().to_owned().into_boxed_slice(),
             },
         }
     }
@@ -175,12 +177,14 @@ impl TryFrom<MilestoneOption> for bee::MilestoneOption {
                     .collect::<Result<Vec<_>, _>>()?,
                 transaction.try_into()?,
             )?),
-            MilestoneOption::Pow {
-                next_pow_score,
-                next_pow_score_milestone_index,
-            } => Self::Pow(bee::PowMilestoneOption::new(
-                next_pow_score,
-                next_pow_score_milestone_index,
+            MilestoneOption::Parameters {
+                target_milestone_index,
+                protocol_version,
+                binary_parameters,
+            } => Self::Parameters(bee::ParametersMilestoneOption::new(
+                bee::MilestoneIndex(target_milestone_index),
+                protocol_version,
+                binary_parameters.into_vec(),
             )?),
         })
     }
@@ -232,11 +236,11 @@ pub(crate) mod test {
         154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 12,
     ];
 
-    use bee_message_stardust::payload::TreasuryTransactionPayload;
+    use bee_block_stardust::payload::TreasuryTransactionPayload;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::message::signature::test::get_test_signature;
+    use crate::types::stardust::block::signature::test::get_test_signature;
 
     #[test]
     fn test_milestone_id_bson() {
@@ -256,7 +260,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &bee::option::MigratedFundsEntry::new(
                 bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH1).unwrap(),
-                bee_message_stardust::address::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()),
+                bee_block_stardust::address::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()),
                 2000000,
             )
             .unwrap(),
@@ -267,7 +271,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &bee::option::MigratedFundsEntry::new(
                 bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH2).unwrap(),
-                bee_message_stardust::address::Address::Alias(bee_test::rand::address::rand_alias_address()),
+                bee_block_stardust::address::Address::Alias(bee_test::rand::address::rand_alias_address()),
                 2000000,
             )
             .unwrap(),
@@ -278,7 +282,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &bee::option::MigratedFundsEntry::new(
                 bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH3).unwrap(),
-                bee_message_stardust::address::Address::Nft(bee_test::rand::address::rand_nft_address()),
+                bee_block_stardust::address::Address::Nft(bee_test::rand::address::rand_nft_address()),
                 2000000,
             )
             .unwrap(),

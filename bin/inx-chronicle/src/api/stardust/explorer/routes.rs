@@ -4,7 +4,7 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::{db::MongoDb, types::stardust::message::Address};
+use chronicle::{db::MongoDb, types::stardust::block::Address};
 use futures::TryStreamExt;
 
 use super::responses::{TransactionHistoryResponse, Transfer};
@@ -54,7 +54,7 @@ async fn transaction_history(
                 output_index: rec.output_index,
                 is_spent: rec.is_spent,
                 inclusion_state: rec.inclusion_state,
-                message_id: rec.message_id.to_hex(),
+                block_id: rec.block_id.to_hex(),
                 amount: rec.amount,
                 milestone_index: rec.milestone_index,
             })

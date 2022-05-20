@@ -3,11 +3,9 @@
 
 use std::{mem::size_of, str::FromStr};
 
-use bee_message_stardust::output as bee;
+use bee_block_stardust::output as bee;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
-
-pub type TokenTag = Box<[u8]>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
