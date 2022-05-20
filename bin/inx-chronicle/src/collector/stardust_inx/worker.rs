@@ -157,9 +157,7 @@ impl HandleEvent<InxRequest> for InxWorker {
                         })
                         .await,
                     inx_client
-                        .read_block_metadata(inx::proto::BlockId {
-                            id: block_id.0.into(),
-                        })
+                        .read_block_metadata(inx::proto::BlockId { id: block_id.0.into() })
                         .await,
                 ) {
                     (Ok(raw), Ok(metadata)) => {
@@ -186,9 +184,7 @@ impl HandleEvent<InxRequest> for InxWorker {
             }
             InxRequestType::Metadata(block_id) => {
                 if let Ok(metadata) = inx_client
-                    .read_block_metadata(inx::proto::BlockId {
-                        id: block_id.0.into(),
-                    })
+                    .read_block_metadata(inx::proto::BlockId { id: block_id.0.into() })
                     .await
                 {
                     let metadata = metadata.into_inner();

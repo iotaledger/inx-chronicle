@@ -267,11 +267,7 @@ impl HandleEvent<MilestoneState> for Solidifier {
                             .map(|metadata| metadata.referenced_by_milestone_index)
                         {
                             Some(ms_index) => {
-                                log::trace!(
-                                    "Block {} is referenced by milestone {}",
-                                    block_id.to_hex(),
-                                    ms_index
-                                );
+                                log::trace!("Block {} is referenced by milestone {}", block_id.to_hex(), ms_index);
 
                                 // We add the current block to the list of visited blocks.
                                 ms_state.visited.insert(block_id.clone());
@@ -308,11 +304,7 @@ impl HandleEvent<MilestoneState> for Solidifier {
                         // back.
                         cx.addr::<InxWorker>()
                             .await
-                            .send(InxRequest::get_block(
-                                block_id.clone(),
-                                cx.handle().clone(),
-                                ms_state,
-                            ))
+                            .send(InxRequest::get_block(block_id.clone(), cx.handle().clone(), ms_state))
                             .map_err(|_| SolidifierError::MissingStardustInxRequester)?;
                         return Ok(());
                     }

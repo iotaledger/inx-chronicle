@@ -37,36 +37,34 @@ impl TryFrom<FoundryOutput> for bee::FoundryOutput {
     type Error = crate::types::error::Error;
 
     fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(
-            value.amount,
-            value.serial_number,
-            value.token_scheme.try_into()?,
-        )?
-        .with_native_tokens(
-            Vec::from(value.native_tokens)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
+        Ok(
+            Self::build_with_amount(value.amount, value.serial_number, value.token_scheme.try_into()?)?
+                .with_native_tokens(
+                    Vec::from(value.native_tokens)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .with_unlock_conditions(
+                    Vec::from(value.unlock_conditions)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .with_features(
+                    Vec::from(value.features)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .with_immutable_features(
+                    Vec::from(value.immutable_features)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .finish()?,
         )
-        .with_unlock_conditions(
-            Vec::from(value.unlock_conditions)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .with_features(
-            Vec::from(value.features)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .with_immutable_features(
-            Vec::from(value.immutable_features)
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .finish()?)
     }
 }
 

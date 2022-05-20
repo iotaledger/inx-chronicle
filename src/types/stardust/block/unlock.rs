@@ -37,9 +37,7 @@ impl TryFrom<Unlock> for bee::Unlock {
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
-            Unlock::Signature { signature } => {
-                bee::Unlock::Signature(bee::SignatureUnlock::new(signature.try_into()?))
-            }
+            Unlock::Signature { signature } => bee::Unlock::Signature(bee::SignatureUnlock::new(signature.try_into()?)),
             Unlock::Reference { index } => bee::Unlock::Reference(bee::ReferenceUnlock::new(index)?),
             Unlock::Alias { index } => bee::Unlock::Alias(bee::AliasUnlock::new(index)?),
             Unlock::Nft { index } => bee::Unlock::Nft(bee::NftUnlock::new(index)?),

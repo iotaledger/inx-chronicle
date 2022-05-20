@@ -49,15 +49,9 @@ impl TryFrom<Feature> for bee::Feature {
 
     fn try_from(value: Feature) -> Result<Self, Self::Error> {
         Ok(match value {
-            Feature::Sender { address } => {
-                bee::Feature::Sender(bee::SenderFeature::new(address.try_into()?))
-            }
-            Feature::Issuer { address } => {
-                bee::Feature::Issuer(bee::IssuerFeature::new(address.try_into()?))
-            }
-            Feature::Metadata { data } => {
-                bee::Feature::Metadata(bee::MetadataFeature::new(data.into())?)
-            }
+            Feature::Sender { address } => bee::Feature::Sender(bee::SenderFeature::new(address.try_into()?)),
+            Feature::Issuer { address } => bee::Feature::Issuer(bee::IssuerFeature::new(address.try_into()?)),
+            Feature::Metadata { data } => bee::Feature::Metadata(bee::MetadataFeature::new(data.into())?),
             Feature::Tag { data } => bee::Feature::Tag(bee::TagFeature::new(data.into())?),
         })
     }

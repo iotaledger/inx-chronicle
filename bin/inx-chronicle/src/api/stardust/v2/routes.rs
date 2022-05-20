@@ -52,10 +52,7 @@ pub fn routes() -> Router {
 
 async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<BlockResponse> {
     let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
-    let rec = database
-        .get_block(&block_id_dto)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
     Ok(BlockResponse {
         protocol_version: rec.block.protocol_version,
         parents: rec.block.parents.iter().map(|m| m.to_hex()).collect(),
@@ -66,10 +63,7 @@ async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> Ap
 
 async fn block_raw(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<Vec<u8>> {
     let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
-    let rec = database
-        .get_block(&block_id_dto)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
     Ok(rec.raw)
 }
 
@@ -78,10 +72,7 @@ async fn block_metadata(
     Path(block_id): Path<String>,
 ) -> ApiResult<BlockMetadataResponse> {
     let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::StorageType)?;
-    let rec = database
-        .get_block(&block_id_dto)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
 
     Ok(BlockMetadataResponse {
         block_id: rec.block.id.to_hex(),

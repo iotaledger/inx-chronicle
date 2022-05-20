@@ -58,9 +58,7 @@ impl TryFrom<inx::proto::Block> for BlockRecord {
 impl TryFrom<(inx::proto::RawBlock, inx::proto::BlockMetadata)> for BlockRecord {
     type Error = inx::Error;
 
-    fn try_from(
-        (raw_block, metadata): (inx::proto::RawBlock, inx::proto::BlockMetadata),
-    ) -> Result<Self, Self::Error> {
+    fn try_from((raw_block, metadata): (inx::proto::RawBlock, inx::proto::BlockMetadata)) -> Result<Self, Self::Error> {
         let block = bee_block_stardust::Block::try_from(raw_block.clone())?;
         Ok(Self {
             block: block.into(),
@@ -142,11 +140,7 @@ impl MongoDb {
     }
 
     /// Updates a [`BlockRecord`] with [`Metadata`].
-    pub async fn update_block_metadata(
-        &self,
-        block_id: &BlockId,
-        metadata: &Metadata,
-    ) -> Result<UpdateResult, Error> {
+    pub async fn update_block_metadata(&self, block_id: &BlockId, metadata: &Metadata) -> Result<UpdateResult, Error> {
         self.0
             .collection::<BlockRecord>(BlockRecord::COLLECTION)
             .update_one(

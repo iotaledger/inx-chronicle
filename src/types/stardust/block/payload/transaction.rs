@@ -152,8 +152,7 @@ pub(crate) mod test {
     use crate::types::stardust::block::{
         output::test::{get_test_alias_output, get_test_basic_output, get_test_foundry_output, get_test_nft_output},
         unlock::test::{
-            get_test_alias_unlock, get_test_nft_unlock, get_test_reference_unlock,
-            get_test_signature_unlock,
+            get_test_alias_unlock, get_test_nft_unlock, get_test_reference_unlock, get_test_signature_unlock,
         },
         OutputId,
     };

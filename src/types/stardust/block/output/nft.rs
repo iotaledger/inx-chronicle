@@ -102,9 +102,7 @@ pub(crate) mod test {
 
     use super::*;
     use crate::types::stardust::block::output::{
-        feature::test::{
-            get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block,
-        },
+        feature::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block},
         native_token::test::get_test_native_token,
         unlock_condition::test::{
             get_test_address_condition, get_test_expiration_condition, get_test_storage_deposit_return_condition,
