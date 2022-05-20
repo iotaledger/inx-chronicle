@@ -20,7 +20,7 @@ pub use self::{
     basic::BasicOutput,
     feature::Feature,
     foundry::FoundryOutput,
-    native_token::{NativeToken, TokenScheme, TokenTag},
+    native_token::{NativeToken, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,

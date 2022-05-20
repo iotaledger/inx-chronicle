@@ -4,7 +4,7 @@
 use bee_block_stardust::output as stardust;
 use serde::{Deserialize, Serialize};
 
-use super::{Feature, NativeToken, OutputAmount, TokenScheme, TokenTag, UnlockCondition};
+use super::{Feature, NativeToken, OutputAmount, TokenScheme, UnlockCondition};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FoundryOutput {
@@ -13,7 +13,6 @@ pub struct FoundryOutput {
     native_tokens: Box<[NativeToken]>,
     #[serde(with = "crate::types::stringify")]
     serial_number: u32,
-    token_tag: TokenTag,
     token_scheme: TokenScheme,
     unlock_conditions: Box<[UnlockCondition]>,
     features: Box<[Feature]>,
@@ -26,7 +25,6 @@ impl From<&stardust::FoundryOutput> for FoundryOutput {
             amount: value.amount(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
             serial_number: value.serial_number(),
-            token_tag: value.token_tag().as_ref().to_vec().into_boxed_slice(),
             token_scheme: value.token_scheme().into(),
             unlock_conditions: value.unlock_conditions().iter().map(Into::into).collect(),
             features: value.features().iter().map(Into::into).collect(),
@@ -42,7 +40,6 @@ impl TryFrom<FoundryOutput> for stardust::FoundryOutput {
         Ok(Self::build_with_amount(
             value.amount,
             value.serial_number,
-            stardust::TokenTag::new(value.token_tag.as_ref().try_into()?),
             value.token_scheme.try_into()?,
         )?
         .with_native_tokens(
