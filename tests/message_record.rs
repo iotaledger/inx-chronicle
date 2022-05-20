@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+#![warn(unused)]
+
 use bee_test::rand::block::rand_block;
 use chronicle::{
     db::{model::stardust::block::BlockRecord, MongoDb, MongoDbConfig},

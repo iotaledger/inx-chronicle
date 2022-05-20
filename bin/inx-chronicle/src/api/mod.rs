@@ -137,3 +137,71 @@ async fn shutdown_signal(recv: oneshot::Receiver<()>) {
         log::error!("Error receiving shutdown signal: {}", e);
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    use chronicle::{
+        db::{
+            model::stardust::{block::BlockRecord, milestone::MilestoneRecord},
+            MongoDb,
+        },
+        types::{
+            ledger::{ConflictReason, LedgerInclusionState, Metadata},
+            stardust::block::{BlockId, MilestonePayload},
+        },
+    };
+    use packable::PackableExt;
+    use rand::prelude::SliceRandom;
+
+    pub struct DatabaseData {
+        pub block_ids: Vec<BlockId>,
+    }
+
+    pub async fn setup_database(db: &MongoDb) -> Result<DatabaseData, Box<dyn std::error::Error>> {
+        let mut res = DatabaseData { block_ids: Vec::new() };
+
+        let mut rng = rand::thread_rng();
+        for ms in 1..10 {
+            let mut blocks = std::iter::repeat_with(bee_test::rand::block::rand_block)
+                .take(8)
+                .collect::<Vec<_>>();
+            res.block_ids.extend(blocks.iter().map(|b| b.id().into()));
+            for _ in 0..100 {
+                let mut parent_indexes = (0..blocks.len()).collect::<Vec<_>>();
+                parent_indexes.shuffle(&mut rng);
+                let block = bee_test::rand::block::rand_block_with_parents(bee_block_stardust::parent::Parents::new(
+                    parent_indexes.into_iter().take(8).map(|idx| blocks[idx].id()).collect(),
+                )?);
+                res.block_ids.push(block.id().into());
+                blocks.push(block);
+            }
+            for block in blocks {
+                let raw = block.pack_to_vec();
+                let rec = BlockRecord::new(block.into(), raw);
+                db.upsert_block_record(&rec).await?;
+                let metadata = Metadata {
+                    is_solid: true,
+                    should_promote: true,
+                    should_reattach: true,
+                    referenced_by_milestone_index: ms,
+                    milestone_index: 0,
+                    inclusion_state: LedgerInclusionState::Included,
+                    conflict_reason: ConflictReason::None,
+                };
+                db.update_block_metadata(&rec.inner.block_id, &metadata).await?;
+            }
+            let mut payload = MilestonePayload::from(&bee_test::rand::payload::rand_milestone_payload());
+            payload.essence.index = ms;
+            let ts = mongodb::bson::DateTime::now();
+            payload.essence.timestamp = (ts.timestamp_millis() / 1000) as u32;
+            db.upsert_milestone_record(&MilestoneRecord {
+                milestone_id: bee_test::rand::milestone::rand_milestone_id().into(),
+                milestone_index: ms,
+                milestone_timestamp: ts,
+                payload,
+            })
+            .await?;
+        }
+        Ok(res)
+    }
+}

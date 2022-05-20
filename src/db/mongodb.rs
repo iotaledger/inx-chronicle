@@ -54,6 +54,11 @@ impl MongoDb {
 
         Ok(())
     }
+
+    /// Drops the database.
+    pub async fn drop(self) -> Result<(), Error> {
+        self.0.drop(None).await
+    }
 }
 
 /// The [`MongoDb`] config.
