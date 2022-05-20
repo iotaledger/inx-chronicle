@@ -12,12 +12,13 @@ use super::InxError;
 
 #[derive(Debug)]
 pub struct ConeStream {
+    pub milestone_index: u32,
     db: MongoDb,
 }
 
 impl ConeStream {
-    pub fn new(db: MongoDb) -> Self {
-        Self { db }
+    pub fn new(milestone_index: u32, db: MongoDb) -> Self {
+        Self { milestone_index, db }
     }
 }
 
@@ -28,6 +29,10 @@ impl Actor for ConeStream {
 
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
+    }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        format!("ConeStream for milestone {}", self.milestone_index).into()
     }
 }
 

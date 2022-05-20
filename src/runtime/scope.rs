@@ -8,7 +8,7 @@ use futures::{
     Future,
 };
 use tokio::task::JoinHandle;
-use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use super::{
     actor::{
@@ -23,7 +23,7 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
-    spawn_task,
+    spawn_task, MergeExt,
 };
 
 /// A view into a particular scope which provides the user-facing API.

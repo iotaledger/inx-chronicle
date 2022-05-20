@@ -80,7 +80,9 @@ impl HandleEvent<Report<ConeStream>> for MilestoneStream {
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Report::Success(_) => (),
+            Report::Success(report) => {
+                self.db.upsert_sync_record(report.actor.milestone_index).await?;
+            }
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => {
                     Err(e)?;
@@ -137,7 +139,7 @@ impl HandleEvent<Result<inx::proto::Milestone, Status>> for MilestoneStream {
                     })
                     .await?
                     .into_inner();
-                cx.spawn_child(ConeStream::new(self.db.clone()).with_stream(cone_stream))
+                cx.spawn_child(ConeStream::new(rec.milestone_index, self.db.clone()).with_stream(cone_stream))
                     .await;
             }
             Err(e) => {

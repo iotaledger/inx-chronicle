@@ -74,8 +74,10 @@ impl HandleEvent<Report<ConeStream>> for Syncer {
         // Start syncing the next milestone
         cx.delay(SyncNext, None)?;
         match event {
-            Report::Success(_) => (),
-            Report::Error(e) => match e.error {
+            Report::Success(report) => {
+                self.db.upsert_sync_record(report.actor.milestone_index).await?;
+            }
+            Report::Error(report) => match report.error {
                 ActorError::Result(e) => {
                     Err(e)?;
                 }
@@ -100,31 +102,37 @@ impl HandleEvent<SyncNext> for Syncer {
     ) -> Result<(), Self::Error> {
         if let Some(milestone_index) = self.gaps.next() {
             log::info!("Requesting unsynced milestone {}.", milestone_index);
-            let milestone = self
+            if let Ok(milestone) = self
                 .inx_client
                 .read_milestone(inx::proto::MilestoneRequest {
                     milestone_index,
                     milestone_id: None,
                 })
                 .await
-                .map(|r| r.into_inner());
-            match MilestoneRecord::try_from(milestone?) {
-                Ok(rec) => {
-                    self.db.upsert_milestone_record(&rec).await?;
-                    let cone_stream = self
-                        .inx_client
-                        .read_milestone_cone(inx::proto::MilestoneRequest {
-                            milestone_index: rec.milestone_index,
-                            milestone_id: None,
-                        })
-                        .await?
-                        .into_inner();
-                    cx.spawn_child(ConeStream::new(self.db.clone()).with_stream(cone_stream))
-                        .await;
+                .map(|r| r.into_inner())
+            {
+                match MilestoneRecord::try_from(milestone) {
+                    Ok(rec) => {
+                        self.db.upsert_milestone_record(&rec).await?;
+                        let cone_stream = self
+                            .inx_client
+                            .read_milestone_cone(inx::proto::MilestoneRequest {
+                                milestone_index: rec.milestone_index,
+                                milestone_id: None,
+                            })
+                            .await?
+                            .into_inner();
+                        cx.spawn_child(ConeStream::new(rec.milestone_index, self.db.clone()).with_stream(cone_stream))
+                            .await;
+                    }
+                    Err(e) => {
+                        log::error!("Could not read milestone: {:?}", e);
+                        cx.delay(SyncNext, None)?;
+                    }
                 }
-                Err(e) => {
-                    log::error!("Could not read milestone: {:?}", e);
-                }
+            } else {
+                log::error!("Milestone {} could not be found", milestone_index);
+                cx.delay(SyncNext, None)?;
             }
         } else {
             log::info!("Sync complete");

@@ -51,7 +51,10 @@ impl Actor for Inx {
         log::info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx_client = Self::connect(&self.config).await?;
         log::info!("Connected to INX.");
-        let mut milestone_stream = inx_client.listen_to_latest_milestone(NoParams {}).await?.into_inner();
+        let mut milestone_stream = inx_client
+            .listen_to_confirmed_milestone(NoParams {})
+            .await?
+            .into_inner();
         let first_ms = milestone_stream.next().await.ok_or(InxError::MilestoneGap)??;
         cx.spawn_child(
             MilestoneStream::new(
