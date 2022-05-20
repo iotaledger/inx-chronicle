@@ -57,10 +57,10 @@ async fn message(database: Extension<MongoDb>, Path(message_id): Path<String>) -
         .await?
         .ok_or(ApiError::NoResults)?;
     Ok(MessageResponse {
-        protocol_version: rec.message.protocol_version,
-        parents: rec.message.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.message.payload,
-        nonce: rec.message.nonce,
+        protocol_version: rec.inner.protocol_version,
+        parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.inner.payload,
+        nonce: rec.inner.nonce,
     })
 }
 
@@ -84,8 +84,8 @@ async fn message_metadata(
         .ok_or(ApiError::NoResults)?;
 
     Ok(MessageMetadataResponse {
-        message_id: rec.message.id.to_hex(),
-        parent_message_ids: rec.message.parents.iter().map(|id| id.to_hex()).collect(),
+        message_id: rec.inner.message_id.to_hex(),
+        parent_message_ids: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
         is_solid: rec.metadata.as_ref().map(|d| d.is_solid),
         referenced_by_milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
         milestone_index: rec.metadata.as_ref().map(|d| d.milestone_index),
@@ -118,13 +118,13 @@ async fn message_children(
             .map(|rec| {
                 if expanded {
                     Record {
-                        id: rec.message.id.to_hex(),
+                        id: rec.inner.message_id.to_hex(),
                         inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
                         milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
                     }
                     .into()
                 } else {
-                    rec.message.id.to_hex().into()
+                    rec.inner.message_id.to_hex().into()
                 }
             })
             .collect(),
@@ -215,7 +215,7 @@ async fn output_metadata(
             .as_ref()
             .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
         transaction_id_spent: spending_transaction.as_ref().map(|txn| {
-            if let Some(Payload::Transaction(payload)) = &txn.message.payload {
+            if let Some(Payload::Transaction(payload)) = &txn.inner.payload {
                 payload.id.to_hex()
             } else {
                 unreachable!()
@@ -237,10 +237,10 @@ async fn transaction_included_message(
         .ok_or(ApiError::NoResults)?;
 
     Ok(MessageResponse {
-        protocol_version: rec.message.protocol_version,
-        parents: rec.message.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.message.payload,
-        nonce: rec.message.nonce,
+        protocol_version: rec.inner.protocol_version,
+        parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.inner.payload,
+        nonce: rec.inner.nonce,
     })
 }
 

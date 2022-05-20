@@ -68,6 +68,7 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
+packable = { version = "0.3.2", default-features = false }
 
 [features]
 default = [
@@ -108,3 +109,9 @@ stardust = [
     "dep:bee-message-stardust",
     "dep:bee-rest-api-stardust",
 ]
+
+[profile.production]
+inherits = "release"
+codegen-units = 1
+lto = true
+strip = "symbols"
