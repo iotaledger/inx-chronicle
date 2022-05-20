@@ -60,10 +60,11 @@ impl Actor for Launcher {
             .await;
 
         #[cfg(feature = "api")]
-        cx.spawn_child(super::api::ApiWorker::new(db, config.api.clone())).await;
+        cx.spawn_child(super::api::ApiWorker::new(db.clone(), config.api.clone()))
+            .await;
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+        cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
             .await;
 
         Ok(config)
@@ -155,7 +156,8 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+                    let db = MongoDb::connect(&config.mongodb).await?;
+                    cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
                         .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
