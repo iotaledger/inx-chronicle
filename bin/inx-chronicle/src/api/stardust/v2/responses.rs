@@ -16,7 +16,6 @@ use crate::api::{impl_success_response, responses::Expansion};
 pub struct BlockResponse {
     #[serde(rename = "protocolVersion")]
     pub protocol_version: u8,
-    #[serde(rename = "parentBlockIds")]
     pub parents: Vec<String>,
     pub payload: Option<Payload>,
     pub nonce: u64,
@@ -30,7 +29,7 @@ pub struct BlockMetadataResponse {
     #[serde(rename = "blockId")]
     pub block_id: String,
     #[serde(rename = "parentBlockIds")]
-    pub parent_block_ids: Vec<String>,
+    pub parents: Vec<String>,
     #[serde(rename = "isSolid")]
     pub is_solid: Option<bool>,
     #[serde(rename = "referencedByMilestoneIndex", skip_serializing_if = "Option::is_none")]
@@ -57,8 +56,7 @@ pub struct BlockChildrenResponse {
     #[serde(rename = "maxResults")]
     pub max_results: usize,
     pub count: usize,
-    #[serde(rename = "childrenBlockIds")]
-    pub children_block_ids: Vec<Expansion>,
+    pub children: Vec<Expansion>,
 }
 
 impl_success_response!(BlockChildrenResponse);

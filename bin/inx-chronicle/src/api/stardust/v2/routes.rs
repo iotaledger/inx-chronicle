@@ -76,7 +76,7 @@ async fn block_metadata(
 
     Ok(BlockMetadataResponse {
         block_id: rec.inner.block_id.to_hex(),
-        parent_block_ids: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
+        parents: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
         is_solid: rec.metadata.as_ref().map(|d| d.is_solid),
         referenced_by_milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
         milestone_index: rec.metadata.as_ref().map(|d| d.milestone_index),
@@ -104,7 +104,7 @@ async fn block_children(
         block_id,
         max_results: page_size,
         count: blocks.len(),
-        children_block_ids: blocks
+        children: blocks
             .into_iter()
             .map(|rec| {
                 if expanded {
