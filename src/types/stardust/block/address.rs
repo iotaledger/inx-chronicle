@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_message_stardust::address as bee;
+use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{AliasId, NftId};

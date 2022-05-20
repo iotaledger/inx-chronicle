@@ -100,6 +100,7 @@ pub enum ParseError {
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
+    #[error(transparent)]
     StorageType(#[from] chronicle::types::error::ParseError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),

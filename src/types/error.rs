@@ -18,5 +18,5 @@ pub enum Error {
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error(transparent)]
-    BeeError(#[from] bee_message_stardust::Error),
+    BeeError(#[from] bee_block_stardust::Error),
 }
