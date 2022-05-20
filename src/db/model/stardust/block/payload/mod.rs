@@ -15,6 +15,7 @@ pub use self::{
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,
 };
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -41,7 +42,7 @@ impl From<&bee::Payload> for Payload {
 }
 
 impl TryFrom<Payload> for bee::Payload {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Payload) -> Result<Self, Self::Error> {
         Ok(match value {

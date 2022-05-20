@@ -6,7 +6,8 @@ use std::str::FromStr;
 use bee_block_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::{Address, BlockId, Signature, TreasuryTransactionPayload};
+use super::super::{Address, BlockId, Signature, TreasuryTransactionPayload};
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -19,7 +20,7 @@ impl From<bee::MilestoneId> for MilestoneId {
 }
 
 impl TryFrom<MilestoneId> for bee::MilestoneId {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: MilestoneId) -> Result<Self, Self::Error> {
         Ok(bee::MilestoneId::new(value.0.as_ref().try_into()?))
@@ -27,7 +28,7 @@ impl TryFrom<MilestoneId> for bee::MilestoneId {
 }
 
 impl FromStr for MilestoneId {
-    type Err = crate::types::error::ParseError;
+    type Err = db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::MilestoneId::from_str(s)?.into())
@@ -52,7 +53,7 @@ impl From<&bee::MilestonePayload> for MilestonePayload {
 }
 
 impl TryFrom<MilestonePayload> for bee::MilestonePayload {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
         Ok(bee::MilestonePayload::new(
@@ -96,7 +97,7 @@ impl From<&bee::MilestoneEssence> for MilestoneEssence {
 }
 
 impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: MilestoneEssence) -> Result<Self, Self::Error> {
         Ok(bee::MilestoneEssence::new(
@@ -159,7 +160,7 @@ impl From<&bee::MilestoneOption> for MilestoneOption {
 }
 
 impl TryFrom<MilestoneOption> for bee::MilestoneOption {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: MilestoneOption) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -195,7 +196,7 @@ pub struct MigratedFundsEntry {
     #[serde(with = "serde_bytes")]
     tail_transaction_hash: Box<[u8]>,
     address: Address,
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     amount: u64,
 }
 
@@ -210,7 +211,7 @@ impl From<&bee::option::MigratedFundsEntry> for MigratedFundsEntry {
 }
 
 impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Ok(Self::new(
@@ -240,7 +241,7 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::block::signature::test::get_test_signature;
+    use crate::db::model::stardust::block::signature::test::get_test_signature;
 
     #[test]
     fn test_milestone_id_bson() {

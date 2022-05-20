@@ -5,8 +5,8 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 use chronicle::{
+    db::model::stardust::block::BlockId,
     runtime::{Actor, ActorContext, ActorError, Addr, HandleEvent, Report, SpawnActor},
-    types::stardust::block::BlockId,
 };
 use inx::{client::InxClient, proto::NoParams, tonic::Channel};
 

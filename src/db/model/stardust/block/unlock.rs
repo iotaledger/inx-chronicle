@@ -4,7 +4,8 @@
 use bee_block_stardust::unlock as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::Signature;
+use super::Signature;
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -33,7 +34,7 @@ impl From<&bee::Unlock> for Unlock {
 }
 
 impl TryFrom<Unlock> for bee::Unlock {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -49,8 +50,7 @@ impl TryFrom<Unlock> for bee::Unlock {
 pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
-    use super::*;
-    use crate::types::stardust::block::signature::test::get_test_signature;
+    use super::{super::signature::test::get_test_signature, *};
 
     #[test]
     fn test_unlock_bson() {

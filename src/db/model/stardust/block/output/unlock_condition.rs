@@ -5,7 +5,7 @@ use bee_block_stardust::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use super::AliasId;
-use crate::types::stardust::block::Address;
+use crate::db::model::stardust::block::Address;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -15,7 +15,7 @@ pub enum UnlockCondition {
     #[serde(rename = "storage_deposit_return")]
     StorageDepositReturn {
         return_address: Address,
-        #[serde(with = "crate::types::stringify")]
+        #[serde(with = "crate::db::model::util::stringify")]
         amount: u64,
     },
     #[serde(rename = "timelock")]
@@ -67,7 +67,7 @@ impl From<&bee::UnlockCondition> for UnlockCondition {
 }
 
 impl TryFrom<UnlockCondition> for bee::UnlockCondition {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: UnlockCondition) -> Result<Self, Self::Error> {
         Ok(match value {

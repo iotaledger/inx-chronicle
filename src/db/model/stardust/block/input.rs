@@ -4,7 +4,8 @@
 use bee_block_stardust::input as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::{MilestoneId, OutputId};
+use super::{MilestoneId, OutputId};
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -27,7 +28,7 @@ impl From<&bee::Input> for Input {
 }
 
 impl TryFrom<Input> for bee::Input {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {

@@ -11,11 +11,14 @@ use std::collections::{HashSet, VecDeque};
 use async_trait::async_trait;
 use chronicle::{
     db::model::{
-        stardust::{block::BlockRecord, milestone::MilestoneRecord},
+        ledger::Metadata,
+        stardust::{
+            block::{BlockId, BlockRecord},
+            milestone::MilestoneRecord,
+        },
         sync::SyncRecord,
     },
     runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
-    types::{ledger::Metadata, stardust::block::BlockId},
 };
 
 pub(super) use self::{config::InxConfig, worker::InxWorker};

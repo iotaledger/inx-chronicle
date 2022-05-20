@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     amount: u64,
 }
 
@@ -17,7 +17,7 @@ impl From<&bee::TreasuryOutput> for TreasuryOutput {
 }
 
 impl TryFrom<TreasuryOutput> for bee::TreasuryOutput {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: TreasuryOutput) -> Result<Self, Self::Error> {
         Ok(Self::new(value.amount)?)

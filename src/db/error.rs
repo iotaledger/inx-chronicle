@@ -5,18 +5,11 @@ use std::array::TryFromSliceError;
 
 use thiserror::Error;
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Error parsing from string: {0}")]
-    ParseError(#[from] ParseError),
     #[error(transparent)]
     BeeError(#[from] bee_block_stardust::Error),
-    #[error("failed to convert to DTO type")]
+    #[error("failed to convert to model type: {0}")]
     DtoEncodingFailed(#[from] TryFromSliceError),
-}
-
-#[derive(Debug, Error)]
-pub enum ParseError {
-    #[error(transparent)]
-    BeeError(#[from] bee_block_stardust::Error),
 }

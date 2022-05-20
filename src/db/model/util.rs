@@ -1,14 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(missing_docs)] // TODO: Add missing comments
-
-// TODO Rework visibility of these modules
-
-pub mod error;
-#[cfg(feature = "stardust")]
-pub mod stardust;
-
 pub mod stringify {
     use std::{fmt::Display, marker::PhantomData, str::FromStr};
 

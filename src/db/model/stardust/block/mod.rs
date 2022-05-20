@@ -10,12 +10,19 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::MongoDb,
-    types::{
-        ledger::{LedgerInclusionState, Metadata},
-        stardust::block::{Address, Block, BlockId, Output, TransactionId},
-    },
+mod address;
+mod block_id;
+mod block_inner;
+mod input;
+mod output;
+mod payload;
+mod signature;
+mod unlock;
+
+pub use self::{address::*, block_id::*, block_inner::*, input::*, output::*, payload::*, signature::*, unlock::*};
+use crate::db::{
+    model::ledger::{LedgerInclusionState, Metadata},
+    MongoDb,
 };
 
 /// Chronicle Block record.
