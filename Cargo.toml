@@ -53,7 +53,7 @@ tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.3", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
 # INX
-inx = { git = "https://github.com/iotaledger/inx", version = "0.3", default-features = false, features = ["types"], optional = true }
+inx = { git = "https://github.com/iotaledger/inx", branch = "feat/rename-block-feature-unlock", version = "0.4", default-features = false, features = ["types"], optional = true }
 
 # Metrics
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, optional = true }

@@ -198,20 +198,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
-name = "bee-ledger"
-version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#ebaac804a2a71de600b11677ceedf1492884d225"
-dependencies = [
- "bee-message",
- "packable",
- "thiserror",
- "time-helper",
-]
-
-[[package]]
-name = "bee-message"
-version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#ebaac804a2a71de600b11677ceedf1492884d225"
+name = "bee-block"
+version = "0.1.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#df14e3686f2ce6b2c91e28e38d0d88ebea419e7e"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -219,7 +208,6 @@ dependencies = [
  "bitflags",
  "bytemuck",
  "derive_more",
- "digest 0.9.0",
  "hashbrown 0.12.1",
  "hex",
  "iota-crypto",
@@ -231,6 +219,17 @@ dependencies = [
  "serde-big-array",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "bee-ledger"
+version = "0.7.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#df14e3686f2ce6b2c91e28e38d0d88ebea419e7e"
+dependencies = [
+ "bee-block",
+ "packable",
+ "thiserror",
+ "time-helper",
 ]
 
 [[package]]
@@ -247,7 +246,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#ebaac804a2a71de600b11677ceedf1492884d225"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#df14e3686f2ce6b2c91e28e38d0d88ebea419e7e"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -257,14 +256,14 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#ebaac804a2a71de600b11677ceedf1492884d225"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#df14e3686f2ce6b2c91e28e38d0d88ebea419e7e"
 dependencies = [
+ "bee-block",
  "bee-ledger",
- "bee-message",
  "bee-pow",
  "multiaddr",
  "packable",
- "prefix-hex 0.2.0",
+ "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
  "serde",
  "serde_json",
@@ -403,7 +402,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "axum 0.5.4",
- "bee-message",
+ "bee-block",
  "bee-metrics",
  "bee-rest-api",
  "clap",
@@ -526,6 +525,15 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "core2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -1170,12 +1178,13 @@ dependencies = [
 
 [[package]]
 name = "inx"
-version = "0.3.0"
-source = "git+https://github.com/iotaledger/inx#fe6d08fea25ef2e3e92f8c80539f7cfcdcb6a1ad"
+version = "0.4.0"
+source = "git+https://github.com/iotaledger/inx?branch=feat/rename-block-feature-unlock#5970797fc8293115dcf2dc31529f7db90a4889a7"
 dependencies = [
- "bee-message",
+ "bee-block",
  "packable",
  "prost",
+ "thiserror",
  "tonic",
  "tonic-build",
 ]
@@ -1422,9 +1431,9 @@ dependencies = [
 
 [[package]]
 name = "multiaddr"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48ee4ea82141951ac6379f964f71b20876d43712bea8faf6dd1a375e08a46499"
+checksum = "3c580bfdd8803cce319b047d239559a22f809094aaea4ac13902a1fdcfcd4261"
 dependencies = [
  "arrayref",
  "bs58",
@@ -1439,20 +1448,20 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.14.0"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "752a61cd890ff691b4411423d23816d5866dd5621e4d1c5687a53b94b5a979d8"
+checksum = "e3db354f401db558759dfc1e568d010a5d4146f4d3f637be1275ec4a3cf09689"
 dependencies = [
- "generic-array",
+ "core2",
  "multihash-derive",
  "unsigned-varint",
 ]
 
 [[package]]
 name = "multihash-derive"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "424f6e86263cd5294cbd7f1e95746b95aca0e0d66bff31e5a40d6baa87b4aa99"
+checksum = "fc076939022111618a5026d3be019fd8b366e76314538ff9a1b59ffbcbf98bcd"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
@@ -2092,9 +2101,9 @@ dependencies = [
 
 [[package]]
 name = "serde-big-array"
-version = "0.3.3"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
+checksum = "3323f09a748af288c3dc2474ea6803ee81f118321775bffa3ac8f7e65c5e90e7"
 dependencies = [
  "serde",
 ]
