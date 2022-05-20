@@ -23,7 +23,7 @@ pub enum InternalApiError {
     MongoDb(#[from] mongodb::error::Error),
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    BeeBlockStardust(#[from] bee_block_stardust::Error),
+    BeeStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
     #[error(transparent)]
