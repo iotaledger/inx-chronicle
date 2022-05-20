@@ -99,7 +99,7 @@ impl HandleEvent<Report<collector::Collector>> for Launcher {
                     collector::CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         mongodb::error::ErrorKind::Io(_)
-                        | mongodb::error::ErrorKind::ServerSelection { block: _, .. } => {
+                        | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
                             cx.spawn_child(collector::Collector::new(db, config.collector.clone()))
                                 .await;
