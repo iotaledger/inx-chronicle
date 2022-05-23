@@ -61,9 +61,9 @@ pub struct SyncData {
 
 impl MongoDb {
     /// Get the [`Payload`] of a milestone.
-    pub async fn get_milestone_payload_by_id(&self, milestone_id: &MilestoneId) -> Result<Option<Payload>, Error> {
+    pub async fn get_milestone_payload_by_id(&self, milestone_id: &MilestoneId) -> Result<Option<MilestonePayload>, Error> {
         self.0
-            .collection::<Payload>(MilestoneDocument::COLLECTION)
+            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! {"milestone_id": bson::to_bson(milestone_id)?},
                 FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),
@@ -72,9 +72,9 @@ impl MongoDb {
     }
 
     /// Get [`Payload`] of a milestone by the [`MilestoneIndex`].
-    pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<Payload>, Error> {
+    pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         self.0
-            .collection::<Payload>(MilestoneDocument::COLLECTION)
+            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! {"_id": index},
                 FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),

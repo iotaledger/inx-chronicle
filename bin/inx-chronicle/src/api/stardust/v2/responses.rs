@@ -1,149 +1,76 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::response::IntoResponse;
-use chronicle::types::{
-    ledger::LedgerInclusionState,
-    stardust::{
-        block::{BlockId, Input, Output, Payload},
-        milestone::MilestoneTimestamp,
-    },
-    tangle::MilestoneIndex,
+use chronicle::{types::{stardust::block::Block, ledger::BlockMetadata}};
+
+pub mod bee {
+    pub use bee_block_stardust::{
+        output::{dto::OutputDto, Output},
+        payload::{dto::PayloadDto, milestone::dto::MilestonePayloadDto, MilestonePayload, Payload},
+        Block, BlockDto,
+    };
+    pub use bee_rest_api_stardust::types::{
+        dtos::LedgerInclusionStateDto,
+        responses::{
+            BlockChildrenResponse, BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse,
+            OutputResponse, ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
+        },
+    };
+}
+
+/// NOTE: this module is only necessary until the PR #1239 is merged into the `shimmer-develop` branch of Bee.
+mod temporary {
+    macro_rules! create_response_wrapper {
+        ($wrapped:ident => $wrapper:ident) => {
+            #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+            #[serde(transparent)]
+            pub struct $wrapper(pub super::bee::$wrapped);
+
+            impl From<super::bee::$wrapped> for $wrapper {
+                fn from(value: super::bee::$wrapped) -> Self {
+                    Self(value)
+                }
+            }
+
+            crate::api::responses::impl_success_response!($wrapper);
+
+            pub use $wrapper as $wrapped;
+        };
+    }
+
+    // Response of `GET /api/v2/blocks/<block_id>`
+    // and `GET /api/v2/transactions/<transaction_id>/included-block`.
+    create_response_wrapper!(BlockResponse => BlockResponseWrapper);
+
+    // Response of `GET /api/v2/blocks/<block_id>/metadata`.
+    create_response_wrapper!(BlockMetadataResponse => BlockMetadataResponseWrapper);
+
+    // Response of `GET /api/v2/blocks/<block_id>/children`.
+    create_response_wrapper!(BlockChildrenResponse => BlockChildrenResponseWrapper);
+
+    // Response of `GET /api/v2/outputs/<output_id>`.
+    create_response_wrapper!(OutputResponse => OutputResponseWrapper);
+
+    // Response of `GET /api/v2/outputs/<output_id>/metadata`.
+    create_response_wrapper!(OutputMetadataResponse => OutputMetadataResponseWrapper);
+
+    // Response of `GET /api/v2/receipts` 
+    // and `GET /api/v2/receipts/<migrated_at>`.
+    create_response_wrapper!(ReceiptsResponse => ReceiptsResponseWrapper);
+
+    // Response of `GET /api/v2/treasury`.
+    create_response_wrapper!(TreasuryResponse => TreasuryResponseWrapper);
+
+    // Response of `GET /api/v2/milestones/<milestone_id>`
+    // and `GET /api/v2/milestones/by-index/<index>.
+    create_response_wrapper!(MilestoneResponse => MilestoneResponseWrapper);
+
+    // Response of `GET /api/v2/milestones/<milestone_id>/utxo-changes`
+    // and `GET /api/v2/milestones/by-index/<index>/utxo-changes.
+    create_response_wrapper!(UtxoChangesResponse => UtxoChangesResponseWrapper);
+}
+
+pub use temporary::{
+    BlockChildrenResponse, BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse,
+    OutputResponse, ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
 };
-use serde::{Deserialize, Serialize};
-
-use crate::api::impl_success_response;
-
-/// Response of `GET /api/v2/blocks/<block_id>`
-/// and `GET /api/v2/transactions/<transaction_id>/included-block`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BlockResponse {
-    #[serde(rename = "protocolVersion")]
-    pub protocol_version: u8,
-    pub parents: Vec<String>,
-    pub payload: Option<Payload>,
-    pub nonce: u64,
-}
-
-impl_success_response!(BlockResponse);
-
-/// Response of `GET /api/v2/blocks/<block_id>/metadata`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BlockMetadataResponse {
-    #[serde(rename = "blockId")]
-    pub block_id: String,
-    #[serde(rename = "parentBlockIds")]
-    pub parents: Vec<String>,
-    #[serde(rename = "isSolid")]
-    pub is_solid: Option<bool>,
-    #[serde(rename = "referencedByMilestoneIndex", skip_serializing_if = "Option::is_none")]
-    pub referenced_by_milestone_index: Option<MilestoneIndex>,
-    #[serde(rename = "milestoneIndex", skip_serializing_if = "Option::is_none")]
-    pub milestone_index: Option<MilestoneIndex>,
-    #[serde(rename = "ledgerInclusionState", skip_serializing_if = "Option::is_none")]
-    pub ledger_inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "conflictReason", skip_serializing_if = "Option::is_none")]
-    pub conflict_reason: Option<u8>,
-    #[serde(rename = "shouldPromote", skip_serializing_if = "Option::is_none")]
-    pub should_promote: Option<bool>,
-    #[serde(rename = "shouldReattach", skip_serializing_if = "Option::is_none")]
-    pub should_reattach: Option<bool>,
-}
-
-impl_success_response!(BlockMetadataResponse);
-
-/// Response of `GET /api/v2/blocks/<block_id>/children`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BlockChildrenResponse {
-    #[serde(rename = "blockId")]
-    pub block_id: String,
-    #[serde(rename = "maxResults")]
-    pub max_results: usize,
-    pub count: usize,
-    pub children: Vec<BlockId>,
-}
-
-impl_success_response!(BlockChildrenResponse);
-
-/// Response of `GET /api/v2/outputs/<output_id>`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputResponse {
-    #[serde(rename = "blockId")]
-    pub block_id: String,
-    #[serde(rename = "transactionId")]
-    pub transaction_id: String,
-    #[serde(rename = "outputIndex")]
-    pub output_index: u16,
-    #[serde(rename = "spendingTransaction")]
-    pub is_spent: bool,
-    #[serde(rename = "milestoneIndexSpent")]
-    pub milestone_index_spent: Option<MilestoneIndex>,
-    #[serde(rename = "milestoneTimestampSpent")]
-    pub milestone_ts_spent: Option<MilestoneTimestamp>,
-    #[serde(rename = "milestoneIndexBooked")]
-    pub milestone_index_booked: MilestoneIndex,
-    #[serde(rename = "milestoneTimestampBooked")]
-    pub milestone_ts_booked: MilestoneTimestamp,
-    pub output: Output,
-}
-
-impl_success_response!(OutputResponse);
-
-/// Response of `GET /api/v2/outputs/<output_id>/metadata`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputMetadataResponse {
-    #[serde(rename = "blockId")]
-    pub block_id: String,
-    #[serde(rename = "transactionId")]
-    pub transaction_id: String,
-    #[serde(rename = "outputIndex")]
-    pub output_index: u16,
-    #[serde(rename = "spendingTransaction")]
-    pub is_spent: bool,
-    #[serde(rename = "milestoneIndexSpent")]
-    pub milestone_index_spent: Option<MilestoneIndex>,
-    #[serde(rename = "milestoneTimestampSpent")]
-    pub milestone_ts_spent: Option<MilestoneTimestamp>,
-    #[serde(rename = "transactionIdSpent")]
-    pub transaction_id_spent: Option<String>,
-    #[serde(rename = "milestoneIndexBooked")]
-    pub milestone_index_booked: MilestoneIndex,
-    #[serde(rename = "milestoneTimestampBooked")]
-    pub milestone_ts_booked: MilestoneTimestamp,
-}
-
-impl_success_response!(OutputMetadataResponse);
-
-/// Response of `GET /api/v2/transactions/<block_id>`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionResponse {
-    /// The created output's block id
-    #[serde(rename = "blockId")]
-    pub block_id: String,
-    /// The confirmation timestamp
-    #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<MilestoneIndex>,
-    /// The output
-    pub outputs: Vec<Output>,
-    /// The inputs, if they exist
-    pub inputs: Vec<Input>,
-}
-
-impl_success_response!(TransactionResponse);
-
-/// Response of `GET /api/v2/transactions/ed25519/<address>`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionsResponse {
-    pub transactions: Vec<TransactionResponse>,
-}
-
-impl_success_response!(TransactionsResponse);
-
-/// Response of `GET /api/v2/milestone/<index>`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct MilestoneResponse {
-    pub payload: Payload,
-}
-
-impl_success_response!(MilestoneResponse);

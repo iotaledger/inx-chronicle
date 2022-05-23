@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 macro_rules! impl_success_response {
     ($($type:ty),*) => {
         $(
-            impl IntoResponse for $type {
+            impl axum::response::IntoResponse for $type {
                 fn into_response(self) -> axum::response::Response {
                     crate::api::responses::SuccessBody::from(self).into_response()
                 }
@@ -48,6 +48,23 @@ impl_success_response!(SyncDataDto);
 pub enum Expansion {
     Simple(String),
     Expanded(Record),
+}
+
+impl std::fmt::Display for Expansion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            Expansion::Simple(s) => write!(f, "{}", s),
+            Expansion::Expanded(rec) => write!(
+                f,
+                "id:{}{}{}",
+                rec.id,
+                rec.inclusion_state
+                    .map_or(String::new(), |s| format!(";inclusion_state:{}", s as u8)),
+                rec.milestone_index
+                    .map_or(String::new(), |i| format!(";milestone_index:{}", i)),
+            ),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -115,7 +132,7 @@ impl<T> From<T> for SuccessBody<T> {
     }
 }
 
-impl<T: Serialize> IntoResponse for SuccessBody<T> {
+impl<T: Serialize> axum::response::IntoResponse for SuccessBody<T> {
     fn into_response(self) -> axum::response::Response {
         axum::Json(self).into_response()
     }
