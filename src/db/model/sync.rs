@@ -34,7 +34,7 @@ impl MongoDb {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
             .update_one(
-                doc! {"milestone_index": *record.milestone_index},
+                doc! {"milestone_index": record.milestone_index},
                 doc! {"$set": bson::to_document(record)?},
                 UpdateOptions::builder().upsert(true).build(),
             )

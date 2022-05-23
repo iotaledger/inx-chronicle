@@ -230,7 +230,7 @@ impl MongoDb {
         .aggregate(vec![
             // Only outputs for this address
             doc! { "$match": {
-                "milestone_index": { "$gt": start_milestone.0, "$lt": end_milestone.0 },
+                "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                 "inclusion_state": LedgerInclusionState::Included, 
                 "block.payload.essence.outputs.unlocks": bson::to_bson(&address)?
             } },
@@ -323,7 +323,7 @@ impl MongoDb {
             vec![
                 doc! { "$match": {
                     "inclusion_state": LedgerInclusionState::Included,
-                    "milestone_index": { "$gt": start_milestone.0, "$lt": end_milestone.0 },
+                    "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                     "block.payload.kind": "transaction",
                 } },
                 doc! { "$unwind": { "path": "$block.payload.essence.inputs", "includeArrayIndex": "block.payload.essence.inputs.idx" } },

@@ -4,7 +4,7 @@
 use derive_more::{Add, Deref, DerefMut, Sub};
 use futures::TryStreamExt;
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, Bson},
     error::Error,
     options::{FindOptions, UpdateOptions},
     results::UpdateResult,
@@ -28,6 +28,12 @@ pub struct MilestoneTimestamp(pub u32);
 impl From<u32> for MilestoneTimestamp {
     fn from(value: u32) -> Self {
         MilestoneTimestamp(value)
+    }
+}
+
+impl From<MilestoneTimestamp> for Bson {
+    fn from(value: MilestoneTimestamp) -> Self {
+        Bson::from(value.0)
     }
 }
 
@@ -78,7 +84,7 @@ impl MongoDb {
     pub async fn get_milestone_record_by_index(&self, index: MilestoneIndex) -> Result<Option<MilestoneRecord>, Error> {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
-            .find_one(doc! {"milestone_index": *index}, None)
+            .find_one(doc! {"milestone_index": index}, None)
             .await
     }
 
@@ -88,7 +94,7 @@ impl MongoDb {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .update_one(
-                doc! { "milestone_index": milestone_record.milestone_index.0 },
+                doc! { "milestone_index": milestone_record.milestone_index },
                 doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -104,7 +110,7 @@ impl MongoDb {
             .0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .find(
-                doc! {"milestone_timestamp": { "$gte": *start_timestamp }},
+                doc! {"milestone_timestamp": { "$gte": start_timestamp }},
                 FindOptions::builder()
                     .sort(doc! {"milestone_index": 1})
                     .limit(1)
@@ -125,7 +131,7 @@ impl MongoDb {
             .0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .find(
-                doc! {"milestone_timestamp": { "$lte": *end_timestamp }},
+                doc! {"milestone_timestamp": { "$lte": end_timestamp }},
                 FindOptions::builder()
                     .sort(doc! {"milestone_index": -1})
                     .limit(1)
