@@ -71,7 +71,9 @@ impl Actor for InxListener {
 
         let milestone_stream = self
             .inx_client
-            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(inx::MilestoneRangeRequest::UntilForever))
+            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
+                inx::MilestoneRangeRequest::UntilForever,
+            ))
             .await?
             .into_inner();
         cx.spawn_child::<MilestoneStream, _>(
@@ -167,7 +169,9 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                 ActorError::Result(_) => {
                     let milestone_stream = self
                         .inx_client
-                        .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(inx::MilestoneRangeRequest::UntilForever))
+                        .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
+                            inx::MilestoneRangeRequest::UntilForever,
+                        ))
                         .await?
                         .into_inner();
                     cx.spawn_child::<MilestoneStream, _>(

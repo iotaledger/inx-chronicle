@@ -21,7 +21,10 @@ mod unlock;
 
 pub use self::{address::*, block_id::*, block_inner::*, input::*, output::*, payload::*, signature::*, unlock::*};
 use crate::db::{
-    model::{tangle::MilestoneIndex, ledger::{LedgerInclusionState, Metadata}},
+    model::{
+        ledger::{LedgerInclusionState, Metadata},
+        tangle::MilestoneIndex,
+    },
     MongoDb,
 };
 
