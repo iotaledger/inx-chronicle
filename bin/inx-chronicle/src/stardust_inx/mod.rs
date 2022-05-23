@@ -14,9 +14,13 @@ use chronicle::{
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use futures::StreamExt;
-use inx::{client::InxClient, proto::NoParams, tonic::Channel};
+use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
 pub use milestone_stream::MilestoneStream;
+
+use self::{
+    config::SyncKind,
+    syncer::{SyncNext, Syncer},
+};
 
 pub struct Inx {
     db: MongoDb,
@@ -51,21 +55,39 @@ impl Actor for Inx {
         log::info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx_client = Self::connect(&self.config).await?;
         log::info!("Connected to INX.");
-        let mut milestone_stream = inx_client
-            .listen_to_confirmed_milestone(NoParams {})
+
+        // Request the node status so we can get the pruning index and latest confirmed milestone
+        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
+            .map_err(InxError::InxTypeConversion)?;
+        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
+        let configured_start = match self.config.sync_kind {
+            SyncKind::Max(ms) => latest_ms - ms,
+            SyncKind::From(ms) => ms,
+        };
+        let sync_data = self
+            .db
+            .get_sync_data(configured_start.max(node_status.tangle_pruning_index), latest_ms)
+            .await?
+            .gaps;
+        if !sync_data.is_empty() {
+            let syncer = cx
+                .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
+                .await;
+            syncer.send(SyncNext)?;
+        } else {
+            cx.shutdown();
+        }
+
+        let milestone_stream = inx_client
+            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
+                inx::MilestoneRangeRequest::FromMilestoneIndex(
+                    node_status.confirmed_milestone.milestone_info.milestone_index + 1,
+                ),
+            ))
             .await?
             .into_inner();
-        let first_ms = milestone_stream.next().await.ok_or(InxError::MilestoneGap)??;
-        cx.spawn_child(
-            MilestoneStream::new(
-                self.db.clone(),
-                inx_client,
-                self.config.clone(),
-                first_ms.milestone_info.unwrap().milestone_index,
-            )
-            .with_stream(milestone_stream),
-        )
-        .await;
+        cx.spawn_child(MilestoneStream::new(self.db.clone(), inx_client).with_stream(milestone_stream))
+            .await;
         Ok(())
     }
 }
@@ -85,6 +107,29 @@ impl HandleEvent<Report<MilestoneStream>> for Inx {
                     Err(e)?;
                 }
                 ActorError::Aborted | ActorError::Panic => {
+                    cx.shutdown();
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<Syncer>> for Inx {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<Syncer>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => (),
+            Report::Error(report) => match report.error {
+                ActorError::Result(e) => {
+                    Err(e)?;
+                }
+                ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
                 }
             },

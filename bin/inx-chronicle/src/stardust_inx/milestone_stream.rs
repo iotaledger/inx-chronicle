@@ -8,34 +8,20 @@ use chronicle::{
 };
 use inx::{
     client::InxClient,
-    proto::NoParams,
     tonic::{Channel, Status},
-    NodeStatus,
 };
 
-use super::{
-    cone_stream::ConeStream,
-    config::SyncKind,
-    syncer::{SyncNext, Syncer},
-    InxConfig, InxError,
-};
+use super::{cone_stream::ConeStream, InxError};
 
 #[derive(Debug)]
 pub struct MilestoneStream {
     db: MongoDb,
     inx_client: InxClient<Channel>,
-    config: InxConfig,
-    latest_ms: u32,
 }
 
 impl MilestoneStream {
-    pub fn new(db: MongoDb, inx_client: InxClient<Channel>, config: InxConfig, latest_ms: u32) -> Self {
-        Self {
-            db,
-            inx_client,
-            config,
-            latest_ms,
-        }
+    pub fn new(db: MongoDb, inx_client: InxClient<Channel>) -> Self {
+        Self { db, inx_client }
     }
 }
 
@@ -44,29 +30,7 @@ impl Actor for MilestoneStream {
     type State = ();
     type Error = InxError;
 
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        // Request the node status so we can get the pruning index
-        let node_status = NodeStatus::try_from(self.inx_client.read_node_status(NoParams {}).await?.into_inner())
-            .map_err(InxError::InxTypeConversion)?;
-        let configured_start = match self.config.sync_kind {
-            SyncKind::Max(ms) => self.latest_ms - ms,
-            SyncKind::From(ms) => ms,
-        };
-        let sync_data = self
-            .db
-            .get_sync_data(configured_start.max(node_status.pruning_index), self.latest_ms)
-            .await?
-            .gaps;
-        if !sync_data.is_empty() {
-            let syncer = cx
-                .spawn_child(Syncer::new(sync_data, self.db.clone(), self.inx_client.clone()))
-                .await;
-            for _ in 0..self.config.max_parallel_requests {
-                syncer.send(SyncNext)?;
-            }
-        } else {
-            cx.shutdown();
-        }
+    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
     }
 }
@@ -88,29 +52,6 @@ impl HandleEvent<Report<ConeStream>> for MilestoneStream {
                     Err(e)?;
                 }
                 ActorError::Aborted | ActorError::Panic => {
-                    cx.shutdown();
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<Report<Syncer>> for MilestoneStream {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<Syncer>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => (),
-            Report::Error(report) => match report.error {
-                ActorError::Result(e) => {
-                    Err(e)?;
-                }
-                ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
                 }
             },

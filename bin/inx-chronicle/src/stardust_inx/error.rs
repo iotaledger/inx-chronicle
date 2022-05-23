@@ -11,8 +11,6 @@ pub enum InxError {
     InvalidAddress(String),
     #[error("INX type conversion error: {0:?}")]
     InxTypeConversion(inx::Error),
-    #[error("the milestone stream exited")]
-    MilestoneGap,
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]

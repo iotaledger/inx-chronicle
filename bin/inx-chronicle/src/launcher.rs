@@ -97,9 +97,7 @@ impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
                             cx.shutdown();
                         }
                     },
-                    super::stardust_inx::InxError::MilestoneGap
-                    | super::stardust_inx::InxError::Read(_)
-                    | super::stardust_inx::InxError::TransportFailed(_) => {
+                    super::stardust_inx::InxError::Read(_) | super::stardust_inx::InxError::TransportFailed(_) => {
                         cx.spawn_child(report.actor).await;
                     }
                     _ => {

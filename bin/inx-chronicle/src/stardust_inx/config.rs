@@ -16,7 +16,6 @@ pub struct InxConfig {
     #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
     pub sync_kind: SyncKind,
-    pub max_parallel_requests: usize,
 }
 
 impl Default for InxConfig {
@@ -25,7 +24,6 @@ impl Default for InxConfig {
             connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
             sync_kind: Default::default(),
-            max_parallel_requests: 10,
         }
     }
 }
