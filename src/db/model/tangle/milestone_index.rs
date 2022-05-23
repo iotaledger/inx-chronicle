@@ -1,12 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{ops, fmt};
+use std::{fmt, ops};
 
 use bee_block_stardust::payload::milestone as bee;
+use derive_more::{Add, Deref, Sub};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, derive_more::Add, derive_more::Sub)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref)]
 pub struct MilestoneIndex(pub u32);
 
 impl fmt::Display for MilestoneIndex {
@@ -54,7 +55,6 @@ impl From<MilestoneIndex> for bee::MilestoneIndex {
         Self(value.0)
     }
 }
-
 
 #[cfg(test)]
 mod test {
