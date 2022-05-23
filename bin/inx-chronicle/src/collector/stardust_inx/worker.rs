@@ -170,7 +170,7 @@ impl HandleEvent<InxRequest> for InxWorker {
                     (Err(e), Ok(metadata)) => {
                         let metadata = metadata.into_inner();
                         // If this isn't a block we care about, don't worry, be happy
-                        if metadata.milestone_index != ms_state.milestone_index.0 || !metadata.solid {
+                        if metadata.milestone_index != ms_state.milestone_index || !metadata.solid {
                             ms_state.process_queue.pop_front();
                             solidifier_addr.send(ms_state)?;
                         } else {

@@ -4,10 +4,10 @@
 use std::{fmt, ops};
 
 use bee_block_stardust::payload::milestone as bee;
-use derive_more::{Add, Deref, Sub};
+use derive_more::{Add, Sub};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub)]
 pub struct MilestoneIndex(pub u32);
 
 impl fmt::Display for MilestoneIndex {
@@ -19,6 +19,12 @@ impl fmt::Display for MilestoneIndex {
 impl From<u32> for MilestoneIndex {
     fn from(value: u32) -> Self {
         MilestoneIndex(value)
+    }
+}
+
+impl From<MilestoneIndex> for u32 {
+    fn from(value: MilestoneIndex) -> Self {
+        value.0
     }
 }
 
@@ -41,6 +47,18 @@ impl ops::Sub<u32> for MilestoneIndex {
 
     fn sub(self, x: u32) -> Self {
         MilestoneIndex(self.0 - x)
+    }
+}
+
+impl PartialEq<u32> for MilestoneIndex {
+    fn eq(&self, x: &u32) -> bool {
+        self.0 == *x
+    }
+}
+
+impl PartialEq<MilestoneIndex> for u32 {
+    fn eq(&self, x: &MilestoneIndex) -> bool {
+        *self == x.0
     }
 }
 
