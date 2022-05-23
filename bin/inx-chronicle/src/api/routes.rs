@@ -39,7 +39,7 @@ async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
             if last.milestone_index + 1 != sync_record.milestone_index {
                 sync_data
                     .gaps
-                    .push(last.milestone_index + 1..sync_record.milestone_index - 1);
+                    .push((last.milestone_index + 1)..(sync_record.milestone_index - 1));
             }
         }
         // Synced AND logged records go into completed

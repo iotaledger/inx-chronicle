@@ -10,7 +10,7 @@ mod transaction;
 mod treasury_transaction;
 
 pub use self::{
-    milestone::{MilestoneEssence, MilestoneId, MilestoneIndex, MilestoneOption, MilestonePayload},
+    milestone::{MilestoneEssence, MilestoneId, MilestoneOption, MilestonePayload},
     tagged_data::TaggedDataPayload,
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,

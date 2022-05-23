@@ -17,6 +17,7 @@ use chronicle::{
             milestone::MilestoneRecord,
         },
         sync::SyncRecord,
+        tangle::MilestoneIndex,
     },
     runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
 };
@@ -83,13 +84,13 @@ impl HandleEvent<Report<InxWorker>> for Collector {
 
 #[derive(Debug)]
 pub struct MilestoneState {
-    pub milestone_index: u32,
+    pub milestone_index: MilestoneIndex,
     pub process_queue: VecDeque<BlockId>,
     pub visited: HashSet<BlockId>,
 }
 
 impl MilestoneState {
-    pub fn new(milestone_index: u32) -> Self {
+    pub fn new(milestone_index: MilestoneIndex) -> Self {
         Self {
             milestone_index,
             process_queue: VecDeque::new(),
@@ -186,7 +187,7 @@ impl HandleEvent<inx::proto::Milestone> for Collector {
                     .extend(Vec::from(rec.payload.essence.parents).into_iter());
                 solidifiers
                     // Divide solidifiers fairly by milestone
-                    .get(rec.milestone_index as usize % self.config.solidifier_count)
+                    .get(*rec.milestone_index as usize % self.config.solidifier_count)
                     // Unwrap: We can never remove a `Solidifier` from the boxed slice, so they should always exist.
                     .unwrap()
                     .send(state)?;
