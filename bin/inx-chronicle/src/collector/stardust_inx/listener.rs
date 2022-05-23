@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use chronicle::runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report};
 use inx::{
     client::InxClient,
-    proto::{BlockFilter, NoParams},
+    proto::NoParams,
     tonic::{Channel, Status},
 };
 use thiserror::Error;
@@ -49,7 +49,7 @@ impl Actor for InxListener {
     type Error = StardustInxListenerError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let block_stream = self.inx_client.listen_to_blocks(BlockFilter {}).await?.into_inner();
+        let block_stream = self.inx_client.listen_to_blocks(NoParams {}).await?.into_inner();
         cx.spawn_child::<BlockStream, _>(
             InxStreamListener::default()
                 .with_stream(block_stream)
@@ -59,7 +59,7 @@ impl Actor for InxListener {
 
         let metadata_stream = self
             .inx_client
-            .listen_to_referenced_blocks(BlockFilter {})
+            .listen_to_referenced_blocks(NoParams {})
             .await?
             .into_inner();
         cx.spawn_child::<BlockMetadataStream, _>(
@@ -71,7 +71,7 @@ impl Actor for InxListener {
 
         let milestone_stream = self
             .inx_client
-            .listen_to_latest_milestone(NoParams {})
+            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(inx::MilestoneRangeRequest::UntilForever))
             .await?
             .into_inner();
         cx.spawn_child::<MilestoneStream, _>(
@@ -99,7 +99,7 @@ impl HandleEvent<Report<BlockStream>> for InxListener {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let block_stream = self.inx_client.listen_to_blocks(BlockFilter {}).await?.into_inner();
+                    let block_stream = self.inx_client.listen_to_blocks(NoParams {}).await?.into_inner();
                     cx.spawn_child::<BlockStream, _>(
                         InxStreamListener::default()
                             .with_stream(block_stream)
@@ -132,7 +132,7 @@ impl HandleEvent<Report<BlockMetadataStream>> for InxListener {
                 ActorError::Result(_) => {
                     let block_stream = self
                         .inx_client
-                        .listen_to_referenced_blocks(BlockFilter {})
+                        .listen_to_referenced_blocks(NoParams {})
                         .await?
                         .into_inner();
                     cx.spawn_child::<BlockMetadataStream, _>(
@@ -167,7 +167,7 @@ impl HandleEvent<Report<MilestoneStream>> for InxListener {
                 ActorError::Result(_) => {
                     let milestone_stream = self
                         .inx_client
-                        .listen_to_latest_milestone(NoParams {})
+                        .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(inx::MilestoneRangeRequest::UntilForever))
                         .await?
                         .into_inner();
                     cx.spawn_child::<MilestoneStream, _>(

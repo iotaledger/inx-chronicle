@@ -9,7 +9,7 @@ use axum::{
     Router,
 };
 use chronicle::db::{
-    model::stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
+    model::{tangle::MilestoneIndex, stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId}},
     MongoDb,
 };
 use futures::TryStreamExt;
@@ -158,9 +158,9 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         milestone_index_spent: spending_ms_index,
         milestone_ts_spent: spending_ms
             .as_ref()
-            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+            .map(|ms| ms.milestone_timestamp),
         milestone_index_booked: booked_ms_index,
-        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
+        milestone_ts_booked: booked_ms.milestone_timestamp,
         output: output_res.output,
     })
 }
@@ -204,7 +204,7 @@ async fn output_metadata(
         milestone_index_spent: spending_ms_index,
         milestone_ts_spent: spending_ms
             .as_ref()
-            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+            .map(|ms| ms.milestone_timestamp),
         transaction_id_spent: spending_transaction.as_ref().map(|txn| {
             if let Some(Payload::Transaction(payload)) = &txn.inner.payload {
                 payload.id.to_hex()
@@ -213,7 +213,7 @@ async fn output_metadata(
             }
         }),
         milestone_index_booked: booked_ms_index,
-        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
+        milestone_ts_booked: booked_ms.milestone_timestamp,
     })
 }
 
@@ -246,7 +246,7 @@ async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String
         })
 }
 
-async fn milestone_by_index(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
+async fn milestone_by_index(database: Extension<MongoDb>, Path(index): Path<MilestoneIndex>) -> ApiResult<MilestoneResponse> {
     database
         .get_milestone_record_by_index(index)
         .await?

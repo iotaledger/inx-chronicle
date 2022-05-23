@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::db::model::ledger::LedgerInclusionState;
+use chronicle::db::model::{ledger::LedgerInclusionState, tangle::MilestoneIndex};
 use serde::{Deserialize, Serialize};
 
 use crate::api::impl_success_response;
@@ -28,6 +28,6 @@ pub struct Transfer {
     #[serde(rename = "blockId")]
     pub block_id: String,
     #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
     pub amount: u64,
 }

@@ -12,5 +12,7 @@ pub mod stardust;
 pub mod status;
 /// Module containing sync models.
 pub mod sync;
+/// Module containing the tangle models.
+pub mod tangle;
 /// Module contain utility functions.
 pub mod util;

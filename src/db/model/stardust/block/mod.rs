@@ -21,7 +21,7 @@ mod unlock;
 
 pub use self::{address::*, block_id::*, block_inner::*, input::*, output::*, payload::*, signature::*, unlock::*};
 use crate::db::{
-    model::ledger::{LedgerInclusionState, Metadata},
+    model::{tangle::MilestoneIndex, ledger::{LedgerInclusionState, Metadata}},
     MongoDb,
 };
 
@@ -101,7 +101,7 @@ pub struct TransactionHistoryResult {
     /// The transaction's block id.
     pub block_id: BlockId,
     /// The milestone index that references the transaction.
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
     /// The transfer amount.
     pub amount: u64,
 }
@@ -219,15 +219,15 @@ impl MongoDb {
         address: &Address,
         page_size: usize,
         page: usize,
-        start_milestone: u32,
-        end_milestone: u32,
+        start_milestone: MilestoneIndex,
+        end_milestone: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<TransactionHistoryResult, Error>>, Error> {
         self.0
         .collection::<BlockRecord>(BlockRecord::COLLECTION)
         .aggregate(vec![
             // Only outputs for this address
             doc! { "$match": {
-                "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
+                "milestone_index": { "$gt": start_milestone.0, "$lt": end_milestone.0 },
                 "inclusion_state": LedgerInclusionState::Included, 
                 "block.payload.essence.outputs.unlocks": bson::to_bson(&address)?
             } },
@@ -312,15 +312,15 @@ impl MongoDb {
     /// Create aggregate statistics of all addresses.
     pub async fn aggregate_addresses(
         &self,
-        start_milestone: u32,
-        end_milestone: u32,
+        start_milestone: MilestoneIndex,
+        end_milestone: MilestoneIndex,
     ) -> Result<Option<AddressAnalyticsResult>, Error> {
         Ok(self.0.collection::<BlockRecord>(BlockRecord::COLLECTION)
         .aggregate(
             vec![
                 doc! { "$match": {
                     "inclusion_state": LedgerInclusionState::Included,
-                    "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
+                    "milestone_index": { "$gt": start_milestone.0, "$lt": end_milestone.0 },
                     "block.payload.kind": "transaction",
                 } },
                 doc! { "$unwind": { "path": "$block.payload.essence.inputs", "includeArrayIndex": "block.payload.essence.inputs.idx" } },

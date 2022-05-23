@@ -200,7 +200,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-block"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#df14e3686f2ce6b2c91e28e38d0d88ebea419e7e"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#146ce1011fd76f3d9f07390b002b29dd6762daf3"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -246,7 +246,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#df14e3686f2ce6b2c91e28e38d0d88ebea419e7e"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#146ce1011fd76f3d9f07390b002b29dd6762daf3"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -1250,7 +1250,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.4.0"
-source = "git+https://github.com/iotaledger/inx#240a6048c5f7d72149a6e2ede26426c199b49757"
+source = "git+https://github.com/iotaledger/inx#af9c5eba2f94bd34e079e823058a6cce15202123"
 dependencies = [
  "bee-block",
  "packable",

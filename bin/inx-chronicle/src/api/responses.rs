@@ -4,7 +4,7 @@
 use std::ops::{Deref, Range};
 
 use axum::response::IntoResponse;
-use chronicle::db::model::ledger::LedgerInclusionState;
+use chronicle::db::model::{ledger::LedgerInclusionState, tangle::MilestoneIndex};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -38,11 +38,11 @@ impl_success_response!(InfoResponse);
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncDataResponse {
     /// The completed(synced and logged) milestones data
-    pub completed: Vec<Range<u32>>,
+    pub completed: Vec<Range<MilestoneIndex>>,
     /// Synced milestones data but unlogged
-    pub synced_but_unlogged: Vec<Range<u32>>,
+    pub synced_but_unlogged: Vec<Range<MilestoneIndex>>,
     /// Gaps/missings milestones data
-    pub gaps: Vec<Range<u32>>,
+    pub gaps: Vec<Range<MilestoneIndex>>,
 }
 
 impl_success_response!(SyncDataResponse);
@@ -60,7 +60,7 @@ pub struct Record {
     #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -12,9 +12,21 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use crate::db::{
-    model::stardust::block::{MilestoneId, MilestonePayload},
+    model::{
+        stardust::block::{MilestoneId, MilestonePayload},
+        tangle::MilestoneIndex,
+    },
     MongoDb,
 };
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct MilestoneTimestamp(pub u32);
+
+impl From<u32> for MilestoneTimestamp {
+    fn from(value: u32) -> Self {
+        MilestoneTimestamp(value)
+    }
+}
 
 /// A milestone's metadata.
 #[derive(Serialize, Deserialize)]
@@ -23,9 +35,9 @@ pub struct MilestoneRecord {
     #[serde(rename = "_id")]
     pub milestone_id: MilestoneId,
     /// The milestone index.
-    pub milestone_index: u32,
+    pub milestone_index: MilestoneIndex,
     /// The timestamp of the milestone.
-    pub milestone_timestamp: DateTime,
+    pub milestone_timestamp: MilestoneTimestamp,
     /// The milestone's payload.
     pub payload: MilestonePayload,
 }
@@ -42,8 +54,8 @@ impl TryFrom<inx::proto::Milestone> for MilestoneRecord {
     fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
         let milestone = inx::Milestone::try_from(value)?;
         Ok(Self {
-            milestone_index: milestone.milestone_info.milestone_index,
-            milestone_timestamp: DateTime::from_millis(milestone.milestone_info.milestone_timestamp as i64 * 1000),
+            milestone_index: milestone.milestone_info.milestone_index.into(),
+            milestone_timestamp: milestone.milestone_info.milestone_timestamp.into(),
             milestone_id: milestone.milestone_info.milestone_id.into(),
             payload: (&milestone.milestone).into(),
         })
@@ -60,10 +72,10 @@ impl MongoDb {
     }
 
     /// Get milestone with index.
-    pub async fn get_milestone_record_by_index(&self, index: u32) -> Result<Option<MilestoneRecord>, Error> {
+    pub async fn get_milestone_record_by_index(&self, index: MilestoneIndex) -> Result<Option<MilestoneRecord>, Error> {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
-            .find_one(doc! {"milestone_index": index}, None)
+            .find_one(doc! {"milestone_index": index.0}, None)
             .await
     }
 
@@ -73,7 +85,7 @@ impl MongoDb {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .update_one(
-                doc! { "milestone_index": milestone_record.milestone_index },
+                doc! { "milestone_index": milestone_record.milestone_index.0 },
                 doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -81,7 +93,7 @@ impl MongoDb {
     }
 
     /// Find the starting milestone.
-    pub async fn find_first_milestone(&self, start_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
+    pub async fn find_first_milestone(&self, start_timestamp: OffsetDateTime) -> Result<Option<MilestoneIndex>, Error> {
         Ok(self.0.collection::<MilestoneRecord>(MilestoneRecord::COLLECTION).find(
             doc! {"milestone_timestamp": { "$gte": DateTime::from_millis(start_timestamp.unix_timestamp() * 1000) }},
             FindOptions::builder()
@@ -96,7 +108,7 @@ impl MongoDb {
     }
 
     /// Find the end milestone.
-    pub async fn find_last_milestone(&self, end_timestamp: OffsetDateTime) -> Result<Option<u32>, Error> {
+    pub async fn find_last_milestone(&self, end_timestamp: OffsetDateTime) -> Result<Option<MilestoneIndex>, Error> {
         Ok(self
             .0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)

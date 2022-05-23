@@ -10,13 +10,13 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::db::MongoDb;
+use crate::db::{model::tangle::MilestoneIndex, MongoDb};
 
 /// A record indicating that a milestone is completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncRecord {
     /// The index of the milestone that was completed.
-    pub milestone_index: u32,
+    pub milestone_index: MilestoneIndex,
     /// Whether the milestone has been written to an archive file.
     pub logged: bool,
     /// Whether the milestone has been synced.
@@ -34,7 +34,7 @@ impl MongoDb {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
             .update_one(
-                doc! {"milestone_index": record.milestone_index},
+                doc! {"milestone_index": record.milestone_index.0},
                 doc! {"$set": bson::to_document(record)?},
                 UpdateOptions::builder().upsert(true).build(),
             )
