@@ -5,11 +5,12 @@ use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 
 use super::MilestoneId;
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
     input_milestone_id: MilestoneId,
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     output_amount: u64,
 }
 
@@ -23,7 +24,7 @@ impl From<&bee::TreasuryTransactionPayload> for TreasuryTransactionPayload {
 }
 
 impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: TreasuryTransactionPayload) -> Result<Self, Self::Error> {
         Ok(Self::new(

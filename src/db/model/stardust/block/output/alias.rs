@@ -7,13 +7,14 @@ use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{feature::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AliasId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
 
 impl AliasId {
-    pub fn from_output_id_str(s: &str) -> Result<Self, crate::types::error::Error> {
+    pub fn from_output_id_str(s: &str) -> Result<Self, db::error::Error> {
         Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }
 }
@@ -25,7 +26,7 @@ impl From<bee::AliasId> for AliasId {
 }
 
 impl TryFrom<AliasId> for bee::AliasId {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: AliasId) -> Result<Self, Self::Error> {
         Ok(bee::AliasId::new(value.0.as_ref().try_into()?))
@@ -33,7 +34,7 @@ impl TryFrom<AliasId> for bee::AliasId {
 }
 
 impl FromStr for AliasId {
-    type Err = crate::types::error::ParseError;
+    type Err = db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::AliasId::from_str(s)?.into())
@@ -42,7 +43,7 @@ impl FromStr for AliasId {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasOutput {
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
     pub alias_id: AliasId,
@@ -72,7 +73,7 @@ impl From<&bee::AliasOutput> for AliasOutput {
 }
 
 impl TryFrom<AliasOutput> for bee::AliasOutput {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
         Ok(Self::build_with_amount(value.amount, value.alias_id.try_into()?)?
@@ -112,7 +113,7 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::block::output::{
+    use crate::db::model::stardust::block::output::{
         feature::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block},
         native_token::test::get_test_native_token,
         unlock_condition::test::{get_test_governor_address_condition, get_test_state_controller_address_condition},

@@ -11,9 +11,9 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::{
-    db::MongoDb,
-    types::stardust::block::{MilestoneId, MilestonePayload},
+use crate::db::{
+    model::stardust::block::{MilestoneId, MilestonePayload},
+    MongoDb,
 };
 
 /// A milestone's metadata.

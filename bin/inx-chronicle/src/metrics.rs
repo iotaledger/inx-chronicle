@@ -90,11 +90,24 @@ impl Actor for MetricsWorker {
 
         let process_metrics_handle = {
             tokio::spawn(async move {
-                loop {
-                    // TODO: Fix me
-                    let _ = metrics.update().await;
+                const MAX_RETRIES: u8 = 5;
+                let mut retries = MAX_RETRIES;
+
+                while retries > 0 {
                     sleep(Duration::from_secs(1)).await;
+
+                    match metrics.update().await {
+                        Ok(_) => {
+                            retries = MAX_RETRIES;
+                        }
+                        Err(e) => {
+                            log::warn!("Cannot update process metrics: {e}");
+                            retries -= 1;
+                        }
+                    }
                 }
+
+                log::warn!("Could not update process metrics after {MAX_RETRIES} retries");
             })
         };
 

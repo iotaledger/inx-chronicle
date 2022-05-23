@@ -1,18 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod address;
-mod block_id;
-mod input;
-mod output;
-mod payload;
-mod signature;
-mod unlock;
-
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signature::*, unlock::*};
+use super::{BlockId, Payload};
+use crate::db;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
@@ -21,7 +14,7 @@ pub struct Block {
     pub protocol_version: u8,
     pub parents: Box<[BlockId]>,
     pub payload: Option<Payload>,
-    #[serde(with = "crate::types::stringify")]
+    #[serde(with = "crate::db::model::util::stringify")]
     pub nonce: u64,
 }
 
@@ -38,7 +31,7 @@ impl From<bee::Block> for Block {
 }
 
 impl TryFrom<Block> for bee::Block {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: Block) -> Result<Self, Self::Error> {
         let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
@@ -60,7 +53,9 @@ mod tests {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::{
-        payload::test::{get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload},
+        super::payload::test::{
+            get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload,
+        },
         *,
     };
 

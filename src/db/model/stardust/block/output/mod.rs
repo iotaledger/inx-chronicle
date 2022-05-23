@@ -27,7 +27,7 @@ pub use self::{
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
-use crate::types::stardust::block::TransactionId;
+use crate::db::model::stardust::block::TransactionId;
 
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;
@@ -48,7 +48,7 @@ impl From<bee::OutputId> for OutputId {
 }
 
 impl TryFrom<OutputId> for bee::OutputId {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: OutputId) -> Result<Self, Self::Error> {
         Ok(bee::OutputId::new(value.transaction_id.try_into()?, value.index)?)
@@ -56,7 +56,7 @@ impl TryFrom<OutputId> for bee::OutputId {
 }
 
 impl FromStr for OutputId {
-    type Err = crate::types::error::ParseError;
+    type Err = crate::db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::OutputId::from_str(s)?.into())
@@ -91,7 +91,7 @@ impl From<&bee::Output> for Output {
 }
 
 impl TryFrom<Output> for bee::Output {
-    type Error = crate::types::error::Error;
+    type Error = crate::db::error::Error;
 
     fn try_from(value: Output) -> Result<Self, Self::Error> {
         Ok(match value {

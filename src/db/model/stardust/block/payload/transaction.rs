@@ -6,7 +6,10 @@ use std::str::FromStr;
 use bee_block_stardust::payload::transaction as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::{Input, Output, Payload, Unlock};
+use crate::db::{
+    self,
+    model::stardust::block::{Input, Output, Payload, Unlock},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -25,7 +28,7 @@ impl From<bee::TransactionId> for TransactionId {
 }
 
 impl TryFrom<TransactionId> for bee::TransactionId {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: TransactionId) -> Result<Self, Self::Error> {
         Ok(bee::TransactionId::new(value.0.as_ref().try_into()?))
@@ -33,7 +36,7 @@ impl TryFrom<TransactionId> for bee::TransactionId {
 }
 
 impl FromStr for TransactionId {
-    type Err = crate::types::error::ParseError;
+    type Err = db::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TransactionId::from_str(s)?.into())
@@ -58,7 +61,7 @@ impl From<&bee::TransactionPayload> for TransactionPayload {
 }
 
 impl TryFrom<TransactionPayload> for bee::TransactionPayload {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
         Ok(bee::TransactionPayload::new(
@@ -78,7 +81,7 @@ impl TryFrom<TransactionPayload> for bee::TransactionPayload {
 pub enum TransactionEssence {
     #[serde(rename = "regular")]
     Regular {
-        #[serde(with = "crate::types::stringify")]
+        #[serde(with = "crate::db::model::util::stringify")]
         network_id: u64,
         inputs: Box<[Input]>,
         #[serde(with = "serde_bytes")]
@@ -103,7 +106,7 @@ impl From<&bee::TransactionEssence> for TransactionEssence {
 }
 
 impl TryFrom<TransactionEssence> for bee::TransactionEssence {
-    type Error = crate::types::error::Error;
+    type Error = db::error::Error;
 
     fn try_from(value: TransactionEssence) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -149,7 +152,7 @@ pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::block::{
+    use crate::db::model::stardust::block::{
         output::test::{get_test_alias_output, get_test_basic_output, get_test_foundry_output, get_test_nft_output},
         unlock::test::{
             get_test_alias_unlock, get_test_nft_unlock, get_test_reference_unlock, get_test_signature_unlock,

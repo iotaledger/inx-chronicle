@@ -4,7 +4,7 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::{db::MongoDb, types::stardust::block::Address};
+use chronicle::db::{model::stardust::block::Address, MongoDb};
 use futures::TryStreamExt;
 
 use super::responses::{TransactionHistoryResponse, Transfer};
@@ -30,7 +30,7 @@ async fn transaction_history(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionHistoryResponse> {
-    let address_dto = Address::from_str(&address).map_err(ParseError::StorageType)?;
+    let address_dto = Address::from_str(&address).map_err(ParseError::Model)?;
     let start_milestone = database
         .find_first_milestone(start_timestamp)
         .await?
