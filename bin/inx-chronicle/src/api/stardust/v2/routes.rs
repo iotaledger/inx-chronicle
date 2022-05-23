@@ -17,7 +17,7 @@ use chronicle::{
 };
 use futures::TryStreamExt;
 
-use super::responses::*;
+use super::responses::{bee, *};
 use crate::api::{
     error::{ApiError, ParseError},
     extractors::{Expanded, Pagination},
@@ -129,7 +129,10 @@ async fn block_children(
         block_id: block_id.to_hex(),
         max_results: page_size,
         count: children.len(),
-        children: children.into_iter().map(|block_id| block_id.to_hex()).collect::<_>(),
+        children: children
+            .into_iter()
+            .map(|block_id| block_id.to_hex())
+            .collect(),
     }))
 }
 
@@ -184,18 +187,6 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
     let output: &bee::Output = &output.try_into().map_err(|_| ApiError::NoResults)?;
     let output: bee::OutputDto = output.into();
 
-    // pub struct OutputResponse {
-    //     pub metadata: OutputMetadataResponse,
-    //     pub output: OutputDto,
-    // }
-
-    // pub enum OutputDto {
-    //     Treasury(TreasuryOutputDto),
-    //     Basic(BasicOutputDto),
-    //     Alias(AliasOutputDto),
-    //     Foundry(FoundryOutputDto),
-    //     Nft(NftOutputDto),
-    // }
     Ok(OutputResponse(bee::OutputResponse {
         metadata,
         output,
@@ -328,6 +319,6 @@ async fn utxo_changes_by_index(database: Extension<MongoDb>, Path(index): Path<M
         .get_milestone_payload(index)
         .await?
         .ok_or(ApiError::NoResults)?;
-    
+
     todo!("utxo_changes_by_index")
 }

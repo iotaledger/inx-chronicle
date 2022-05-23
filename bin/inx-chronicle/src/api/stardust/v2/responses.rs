@@ -54,7 +54,7 @@ mod temporary {
     // Response of `GET /api/v2/outputs/<output_id>/metadata`.
     create_response_wrapper!(OutputMetadataResponse => OutputMetadataResponseWrapper);
 
-    // Response of `GET /api/v2/receipts` 
+    // Response of `GET /api/v2/receipts`
     // and `GET /api/v2/receipts/<migrated_at>`.
     create_response_wrapper!(ReceiptsResponse => ReceiptsResponseWrapper);
 
