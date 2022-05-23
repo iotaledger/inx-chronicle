@@ -19,7 +19,9 @@ use crate::db::{
     MongoDb,
 };
 
-#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut)]
+#[derive(
+    Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut,
+)]
 #[serde(transparent)]
 pub struct MilestoneTimestamp(pub u32);
 

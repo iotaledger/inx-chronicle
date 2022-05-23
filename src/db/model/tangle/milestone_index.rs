@@ -8,7 +8,9 @@ use derive_more::{Add, Deref, DerefMut, Sub};
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut)]
+#[derive(
+    Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut,
+)]
 #[serde(transparent)]
 pub struct MilestoneIndex(pub u32);
 
