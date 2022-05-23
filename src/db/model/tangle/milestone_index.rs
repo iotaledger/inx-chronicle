@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::fmt;
+use std::{ops, fmt};
 
 use bee_block_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,28 @@ impl From<u32> for MilestoneIndex {
     }
 }
 
+impl ops::Add<u32> for MilestoneIndex {
+    type Output = Self;
+
+    fn add(self, x: u32) -> Self {
+        MilestoneIndex(self.0 + x)
+    }
+}
+
+impl ops::AddAssign<u32> for MilestoneIndex {
+    fn add_assign(&mut self, x: u32) {
+        self.0 += x
+    }
+}
+
+impl ops::Sub<u32> for MilestoneIndex {
+    type Output = Self;
+
+    fn sub(self, x: u32) -> Self {
+        MilestoneIndex(self.0 - x)
+    }
+}
+
 impl From<bee::MilestoneIndex> for MilestoneIndex {
     fn from(value: bee::MilestoneIndex) -> Self {
         Self(value.0)
@@ -30,5 +52,18 @@ impl From<bee::MilestoneIndex> for MilestoneIndex {
 impl From<MilestoneIndex> for bee::MilestoneIndex {
     fn from(value: MilestoneIndex) -> Self {
         Self(value.0)
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn add_assign() {
+        let mut a = MilestoneIndex(42);
+        a += 1;
+        assert_eq!(a, MilestoneIndex(43))
     }
 }

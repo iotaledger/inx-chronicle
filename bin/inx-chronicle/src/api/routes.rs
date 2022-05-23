@@ -36,18 +36,18 @@ async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
     while let Some(sync_record) = res.try_next().await? {
         // Missing records go into gaps
         if let Some(last) = last_record.as_ref() {
-            if last.milestone_index.0 + 1 != sync_record.milestone_index.0 {
+            if last.milestone_index + 1 != sync_record.milestone_index {
                 sync_data
                     .gaps
-                    .push((last.milestone_index + 1.into())..(sync_record.milestone_index - 1.into()));
+                    .push((last.milestone_index + 1)..(sync_record.milestone_index - 1));
             }
         }
         // Synced AND logged records go into completed
         if sync_record.logged {
             match sync_data.completed.last_mut() {
                 Some(last) => {
-                    if last.end + 1.into() == sync_record.milestone_index {
-                        last.end = last.end + 1.into();
+                    if last.end + 1 == sync_record.milestone_index {
+                        last.end += 1;
                     } else {
                         sync_data
                             .completed
@@ -62,8 +62,8 @@ async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
         } else {
             match sync_data.synced_but_unlogged.last_mut() {
                 Some(last) => {
-                    if last.end + 1.into() == sync_record.milestone_index {
-                        last.end = last.end + 1.into();
+                    if last.end + 1 == sync_record.milestone_index {
+                        last.end += 1;
                     } else {
                         sync_data
                             .synced_but_unlogged
