@@ -4,10 +4,10 @@
 use std::{fmt, ops};
 
 use bee_block_stardust::payload::milestone as bee;
-use derive_more::{Add, Sub};
+use derive_more::{Add, Deref, DerefMut, Sub};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut)]
 pub struct MilestoneIndex(pub u32);
 
 impl fmt::Display for MilestoneIndex {
