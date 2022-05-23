@@ -5,9 +5,11 @@ use std::{fmt, ops};
 
 use bee_block_stardust::payload::milestone as bee;
 use derive_more::{Add, Deref, DerefMut, Sub};
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut)]
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut)]
+#[serde(transparent)]
 pub struct MilestoneIndex(pub u32);
 
 impl fmt::Display for MilestoneIndex {
@@ -71,6 +73,12 @@ impl From<bee::MilestoneIndex> for MilestoneIndex {
 impl From<MilestoneIndex> for bee::MilestoneIndex {
     fn from(value: MilestoneIndex) -> Self {
         Self(value.0)
+    }
+}
+
+impl From<MilestoneIndex> for Bson {
+    fn from(value: MilestoneIndex) -> Self {
+        Bson::from(value.0)
     }
 }
 

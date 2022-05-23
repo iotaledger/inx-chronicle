@@ -1,15 +1,15 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use derive_more::{Add, Deref, DerefMut, Sub};
 use futures::TryStreamExt;
 use mongodb::{
-    bson::{self, doc, DateTime},
+    bson::{self, doc},
     error::Error,
     options::{FindOptions, UpdateOptions},
     results::UpdateResult,
 };
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 
 use crate::db::{
     model::{
@@ -19,7 +19,8 @@ use crate::db::{
     MongoDb,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut)]
+#[serde(transparent)]
 pub struct MilestoneTimestamp(pub u32);
 
 impl From<u32> for MilestoneTimestamp {
@@ -75,7 +76,7 @@ impl MongoDb {
     pub async fn get_milestone_record_by_index(&self, index: MilestoneIndex) -> Result<Option<MilestoneRecord>, Error> {
         self.0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
-            .find_one(doc! {"milestone_index": index.0}, None)
+            .find_one(doc! {"milestone_index": *index}, None)
             .await
     }
 
@@ -93,27 +94,36 @@ impl MongoDb {
     }
 
     /// Find the starting milestone.
-    pub async fn find_first_milestone(&self, start_timestamp: OffsetDateTime) -> Result<Option<MilestoneIndex>, Error> {
-        Ok(self.0.collection::<MilestoneRecord>(MilestoneRecord::COLLECTION).find(
-            doc! {"milestone_timestamp": { "$gte": DateTime::from_millis(start_timestamp.unix_timestamp() * 1000) }},
-            FindOptions::builder()
-                .sort(doc! {"milestone_index": 1})
-                .limit(1)
-                .build(),
-        )
-        .await?
-        .try_next()
-        .await?
-        .map(|d| d.milestone_index))
-    }
-
-    /// Find the end milestone.
-    pub async fn find_last_milestone(&self, end_timestamp: OffsetDateTime) -> Result<Option<MilestoneIndex>, Error> {
+    pub async fn find_first_milestone(
+        &self,
+        start_timestamp: MilestoneTimestamp,
+    ) -> Result<Option<MilestoneIndex>, Error> {
         Ok(self
             .0
             .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
             .find(
-                doc! {"milestone_timestamp": { "$lte": DateTime::from_millis(end_timestamp.unix_timestamp() * 1000) }},
+                doc! {"milestone_timestamp": { "$gte": *start_timestamp }},
+                FindOptions::builder()
+                    .sort(doc! {"milestone_index": 1})
+                    .limit(1)
+                    .build(),
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|d| d.milestone_index))
+    }
+
+    /// Find the end milestone.
+    pub async fn find_last_milestone(
+        &self,
+        end_timestamp: MilestoneTimestamp,
+    ) -> Result<Option<MilestoneIndex>, Error> {
+        Ok(self
+            .0
+            .collection::<MilestoneRecord>(MilestoneRecord::COLLECTION)
+            .find(
+                doc! {"milestone_timestamp": { "$lte": *end_timestamp }},
                 FindOptions::builder()
                     .sort(doc! {"milestone_index": -1})
                     .limit(1)
