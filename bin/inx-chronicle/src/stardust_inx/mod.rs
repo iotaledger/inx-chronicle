@@ -59,6 +59,7 @@ impl Actor for Inx {
         // Request the node status so we can get the pruning index and latest confirmed milestone
         let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
             .map_err(InxError::InxTypeConversion)?;
+        let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         let configured_start = match self.config.sync_kind {
             SyncKind::Max(ms) => latest_ms - ms,
@@ -66,7 +67,7 @@ impl Actor for Inx {
         };
         let sync_data = self
             .db
-            .get_sync_data(configured_start.max(node_status.tangle_pruning_index), latest_ms)
+            .get_sync_data(configured_start.max(first_ms), latest_ms)
             .await?
             .gaps;
         if !sync_data.is_empty() {
