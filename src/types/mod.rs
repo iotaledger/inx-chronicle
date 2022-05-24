@@ -6,7 +6,6 @@
 // TODO Rework visibility of these modules
 
 pub mod error;
-pub mod ledger;
 #[cfg(feature = "stardust")]
 pub mod stardust;
 

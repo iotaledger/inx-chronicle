@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Deref;
+use std::ops::{Deref, Range};
 
 use axum::response::IntoResponse;
-use chronicle::{db::model::sync::SyncData, types::ledger::LedgerInclusionState};
+use chronicle::db::model::{ledger::LedgerInclusionState, tangle::MilestoneIndex};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -34,8 +34,16 @@ pub struct InfoResponse {
 
 impl_success_response!(InfoResponse);
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SyncDataResponse(pub SyncData);
+/// An aggregation type that represents the ranges of completed milestones and gaps.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SyncDataResponse {
+    /// The completed(synced and logged) milestones data
+    pub completed: Vec<Range<MilestoneIndex>>,
+    /// Synced milestones data but unlogged
+    pub synced_but_unlogged: Vec<Range<MilestoneIndex>>,
+    /// Gaps/missings milestones data
+    pub gaps: Vec<Range<MilestoneIndex>>,
+}
 
 impl_success_response!(SyncDataResponse);
 
@@ -52,7 +60,7 @@ pub struct Record {
     #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -65,22 +73,22 @@ pub struct Transfer {
     pub is_spending: bool,
     #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "messageId")]
-    pub message_id: String,
+    #[serde(rename = "blockId")]
+    pub block_id: String,
     pub amount: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MaybeSpentOutput {
     pub output: Value,
-    #[serde(rename = "spendingMessageId")]
-    pub spending_message_id: Option<String>,
+    #[serde(rename = "spendingBlockId")]
+    pub spending_block_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Unlock {
-    #[serde(rename = "messageId")]
-    pub message_id: String,
+    #[serde(rename = "blockId")]
+    pub block_id: String,
     pub block: Value,
 }
 

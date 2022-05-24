@@ -198,20 +198,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
-name = "bee-ledger"
-version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
-dependencies = [
- "bee-message",
- "packable",
- "thiserror",
- "time-helper",
-]
-
-[[package]]
-name = "bee-message"
-version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+name = "bee-block"
+version = "0.1.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -233,9 +222,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bee-ledger"
+version = "0.7.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+dependencies = [
+ "bee-block",
+ "packable",
+ "thiserror",
+ "time-helper",
+]
+
+[[package]]
 name = "bee-metrics"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#866ee3e503e3718fdde5a6015cb9b02382ffafd7"
+source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#b92a926c44e530fcae1e75141f9c9d3c27cb3a4c"
 dependencies = [
  "axum 0.4.8",
  "futures",
@@ -248,7 +248,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -258,10 +258,10 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
+ "bee-block",
  "bee-ledger",
- "bee-message",
  "bee-pow",
  "multiaddr",
  "packable",
@@ -275,7 +275,7 @@ dependencies = [
 [[package]]
 name = "bee-runtime"
 version = "0.1.1-alpha"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
  "async-trait",
  "bee-storage",
@@ -287,7 +287,7 @@ dependencies = [
 [[package]]
 name = "bee-storage"
 version = "0.12.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
  "packable",
  "serde",
@@ -297,10 +297,10 @@ dependencies = [
 [[package]]
 name = "bee-tangle"
 version = "0.3.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
  "async-trait",
- "bee-message",
+ "bee-block",
  "bee-runtime",
  "bee-storage",
  "bitflags",
@@ -330,10 +330,10 @@ dependencies = [
 [[package]]
 name = "bee-test"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#0375d18f1edcae8326b29f5f8956a32f038e16bb"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
 dependencies = [
+ "bee-block",
  "bee-ledger",
- "bee-message",
  "bee-tangle",
  "bee-ternary",
  "bytemuck",
@@ -462,7 +462,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "axum 0.5.6",
- "bee-message",
+ "bee-block",
  "bee-metrics",
  "bee-rest-api",
  "bee-test",
@@ -478,6 +478,7 @@ dependencies = [
  "inx",
  "log",
  "mongodb",
+ "packable",
  "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
  "serde",
@@ -555,9 +556,9 @@ dependencies = [
 
 [[package]]
 name = "console-api"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cb05777feccbb2642d4f2df44d0505601a2cd88ca517d8c913f263a5a8dc8b"
+checksum = "06c5fd425783d81668ed68ec98408a80498fb4ae2fd607797539e1a9dfa3618f"
 dependencies = [
  "prost",
  "prost-types",
@@ -567,9 +568,9 @@ dependencies = [
 
 [[package]]
 name = "console-subscriber"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f21a16ee925aa9d2bad2e296beffd6c5b1bfaad50af509d305b8e7f23af20fb"
+checksum = "31432bc31ff8883bf6a693a79371862f73087822470c82d6a1ec778781ee3978"
 dependencies = [
  "console-api",
  "crossbeam-channel",
@@ -1111,9 +1112,9 @@ dependencies = [
 
 [[package]]
 name = "http-body"
-version = "0.4.4"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ff4f84919677303da5f147645dbea6b1881f368d03ac84e1dc09031ebd7b2c6"
+checksum = "d5f38f16d184e36f2408a55281cd658ecbd3ca05cce6d6510a176eca393e26d1"
 dependencies = [
  "bytes",
  "http",
@@ -1238,9 +1239,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.8.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f647032dfaa1f8b6dc29bd3edb7bbef4861b8b8007ebb118d6db284fd59f6ee"
+checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg",
  "hashbrown 0.11.2",
@@ -1257,12 +1258,13 @@ dependencies = [
 
 [[package]]
 name = "inx"
-version = "0.3.0"
-source = "git+https://github.com/iotaledger/inx#665a887924b0276e86b70173a0eb879176090dfe"
+version = "0.4.0"
+source = "git+https://github.com/iotaledger/inx#f45f6a01842d83964375119d91b43445949583fe"
 dependencies = [
- "bee-message",
+ "bee-block",
  "packable",
  "prost",
+ "thiserror",
  "tonic",
  "tonic-build",
 ]
@@ -1595,9 +1597,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.10.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
+checksum = "7709cef83f0c1f58f666e746a08b21e0085f7440fa6a29cc194d68aac97a4225"
 
 [[package]]
 name = "opaque-debug"
@@ -1607,9 +1609,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "os_info"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04304d855bb5385d4b595edf0147b8e281871766b75dd4c87b2bdf3c9e5c2d19"
+checksum = "0eca3ecae1481e12c3d9379ec541b238a16f0b75c9a409942daa8ec20dbfdb62"
 dependencies = [
  "log",
  "winapi",
@@ -1721,9 +1723,9 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
 name = "petgraph"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
+checksum = "51b305cc4569dd4e8765bab46261f67ef5d4d11a4b6e745100ee5dad8948b46c"
 dependencies = [
  "fixedbitset",
  "indexmap",
@@ -2033,18 +2035,18 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.5.5"
+version = "1.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a11647b6b25ff05a515cb92c365cec08801e83423a235b51e231e1808747286"
+checksum = "d83f127d94bdbcda4c8cc2e50f6f84f4b611f69c902699ca385a39c3a75f9ff1"
 dependencies = [
  "regex-syntax",
 ]
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.25"
+version = "0.6.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
+checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 
 [[package]]
 name = "remove_dir_all"

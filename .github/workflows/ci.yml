@@ -4,29 +4,21 @@ on:
   push:
     paths-ignore: 
       - '**.md'
+      - 'bin/inx-chronicle/docker/**'
   pull_request:
     paths-ignore: 
       - '**.md'
+      - 'bin/inx-chronicle/docker/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-test-1:
+  build-and-test:
     name: "build and test"
     uses: ./.github/workflows/_build.yml
     with: { os: ubuntu-latest, rust: stable }
-  
-  build-and-test-2:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
-    with: { os: windows-latest, rust: stable }
-
-  build-and-test-3:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
-    with: { os: macos-latest, rust: stable }
 
   format:
     uses: ./.github/workflows/_fmt.yml

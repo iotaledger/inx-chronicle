@@ -25,7 +25,7 @@ path = "bin/inx-chronicle/src/main.rs"
 async-recursion = { version = "1.0", default-features = false }
 async-trait = { version = "0.1", default-features = false }
 clap = { version = "3.1", default-features = false, features = [ "derive", "std" ] }
-derive_more = { version = "0.99", default-features = false }
+derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut" ] }
 dotenv = { version = "0.15", default-features = false }
 dyn-clone = { version = "1.0", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
@@ -54,13 +54,13 @@ tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.3", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
 
 # INX
-inx = { git = "https://github.com/iotaledger/inx", version = "0.3", default-features = false, features = ["types"], optional = true }
+inx = { git = "https://github.com/iotaledger/inx", version = "0.4", default-features = false, features = ["types"], optional = true }
 
 # Metrics
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
 
 # Stardust types
-bee-message-stardust = { package = "bee-message", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
+bee-block-stardust = { package = "bee-block", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
 bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 
 # Tokio Console
@@ -68,6 +68,7 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
+packable = { version = "0.3.2", default-features = false }
 
 [features]
 default = [
@@ -105,6 +106,12 @@ metrics = [
     "dep:bee-metrics",
 ]
 stardust = [
-    "dep:bee-message-stardust",
+    "dep:bee-block-stardust",
     "dep:bee-rest-api-stardust",
 ]
+
+[profile.production]
+inherits = "release"
+codegen-units = 1
+lto = true
+strip = "symbols"

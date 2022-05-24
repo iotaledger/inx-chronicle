@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Range;
-
 use futures::stream::Stream;
 use mongodb::{
     bson::{self, doc},
@@ -12,13 +10,13 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::db::MongoDb;
+use crate::db::{model::tangle::MilestoneIndex, MongoDb};
 
 /// A record indicating that a milestone is completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncRecord {
     /// The index of the milestone that was completed.
-    pub milestone_index: u32,
+    pub milestone_index: MilestoneIndex,
     /// Whether the milestone has been written to an archive file.
     pub logged: bool,
     /// Whether the milestone has been synced.
@@ -28,17 +26,6 @@ pub struct SyncRecord {
 impl SyncRecord {
     /// The status collection name.
     pub const COLLECTION: &'static str = "sync";
-}
-
-/// An aggregation type that represents the ranges of completed milestones and gaps.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SyncData {
-    /// The completed(synced and logged) milestones data
-    pub completed: Vec<Range<u32>>,
-    /// Synced milestones data but unlogged
-    pub synced_but_unlogged: Vec<Range<u32>>,
-    /// Gaps/missings milestones data
-    pub gaps: Vec<Range<u32>>,
 }
 
 impl MongoDb {

@@ -8,9 +8,9 @@ use thiserror::Error;
 use super::{event::Envelope, sender::CloneSender, Actor};
 use crate::runtime::{registry::ScopeId, scope::ScopeView};
 
-/// Error sending a message to an actor
+/// Error sending a block to an actor
 #[derive(Error, Debug)]
-#[error("Error sending message to actor: {0}")]
+#[error("Error sending block to actor: {0}")]
 pub struct SendError(String);
 
 #[allow(missing_docs)]

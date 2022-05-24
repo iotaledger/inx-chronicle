@@ -9,14 +9,24 @@ jobs:
   build-and-test-1:
     name: "build and test"
     uses: ./.github/workflows/_build.yml
+    with: { os: windows-latest, rust: stable }
+
+  build-and-test-2:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
+    with: { os: macos-latest, rust: stable }
+
+  build-and-test-3:
+    name: "build and test"
+    uses: ./.github/workflows/_build.yml
     with: { os: ubuntu-latest, rust: beta }
   
-  build-and-test-2:
+  build-and-test-4:
     name: "build and test"
     uses: ./.github/workflows/_build.yml
     with: { os: windows-latest, rust: beta }
 
-  build-and-test-3:
+  build-and-test-5:
     name: "build and test"
     uses: ./.github/workflows/_build.yml
     with: { os: macos-latest, rust: beta }
