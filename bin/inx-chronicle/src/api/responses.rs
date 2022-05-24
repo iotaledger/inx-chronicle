@@ -4,7 +4,7 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::db::model::{ledger::LedgerInclusionState, sync::SyncData, tangle::MilestoneIndex};
+use chronicle::types::{ledger::LedgerInclusionState, tangle::MilestoneIndex};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 

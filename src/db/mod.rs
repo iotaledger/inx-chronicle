@@ -1,10 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-/// Module containing the error type.
-pub mod error;
-/// Module containing database record models.
-pub mod model;
+/// Module containing the collections in the database.
+pub mod collections;
 
 mod mongodb;
 

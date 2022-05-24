@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::response::IntoResponse;
-use chronicle::db::model::{
+use chronicle::types::{
     ledger::LedgerInclusionState,
     stardust::{
         block::{Input, Output, Payload},

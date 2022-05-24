@@ -8,12 +8,12 @@ use axum::{
     routing::*,
     Router,
 };
-use chronicle::db::{
-    model::{
+use chronicle::{
+    db::MongoDb,
+    types::{
         stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
         tangle::MilestoneIndex,
     },
-    MongoDb,
 };
 use futures::TryStreamExt;
 

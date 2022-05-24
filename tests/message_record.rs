@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use bee_test::rand::block::rand_block;
-use chronicle::db::{
-    model::{
-        ledger::{ConflictReason, LedgerInclusionState, Metadata},
-        stardust::block::{Block, BlockRecord},
+use chronicle::{
+    db::{collections::BlockDocument, MongoDb, MongoDbConfig},
+    types::{
+        ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
+        stardust::block::Block,
     },
-    MongoDb, MongoDbConfig,
 };
 use packable::PackableExt;
 
@@ -20,7 +20,7 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
 
     let block_id = block.block_id.clone();
 
-    let metadata = Metadata {
+    let metadata = BlockMetadata {
         is_solid: true,
         should_promote: true,
         should_reattach: true,
@@ -30,7 +30,7 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
         conflict_reason: ConflictReason::None,
     };
 
-    let record = BlockRecord {
+    let record = BlockDocument {
         inner: block,
         raw,
         metadata: Some(metadata),
