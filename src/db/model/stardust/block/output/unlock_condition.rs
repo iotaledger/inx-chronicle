@@ -146,10 +146,8 @@ pub(crate) mod test {
     }
 
     pub(crate) fn get_test_alias_address_as_address() -> Address {
-        bee_block_stardust::address::Address::from(bee_block_stardust::address::AliasAddress::new(
-            bee_test::rand::output::rand_alias_id(),
-        ))
-        .into()
+        use bee_block_stardust::address::{Address as BeeAddress, AliasAddress as BeeAliasAddress};
+        BeeAddress::from(BeeAliasAddress::new(bee_test::rand::output::rand_alias_id())).into()
     }
 
     pub(crate) fn get_test_address_condition(address: Address) -> UnlockCondition {
