@@ -40,7 +40,7 @@ impl Actor for ConeStream {
 
     async fn shutdown(&mut self, _cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
         self.db.upsert_sync_record(self.milestone_index).await?;
-        log::info!("Milestone {} synced", self.milestone_index);
+        log::debug!("Milestone {} synced", self.milestone_index);
         Ok(())
     }
 }
