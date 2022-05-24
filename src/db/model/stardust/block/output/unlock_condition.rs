@@ -101,7 +101,7 @@ impl TryFrom<UnlockCondition> for bee::UnlockCondition {
                 if let bee_block_stardust::address::Address::Alias(alias_address) = bee_address {
                     Self::ImmutableAliasAddress(bee::ImmutableAliasAddressUnlockCondition::new(alias_address))
                 } else {
-                    unreachable!()
+                    Err(bee_block_stardust::Error::InvalidAddressKind(bee_address.kind()))?
                 }
             }
         })
@@ -140,7 +140,12 @@ pub(crate) mod test {
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_immut_alias_address_condition(bee_test::rand::output::rand_alias_id().into());
+        let block = get_test_immut_alias_address_condition(
+            bee_block_stardust::address::Address::from(bee_block_stardust::address::AliasAddress::new(
+                bee_test::rand::output::rand_alias_id(),
+            ))
+            .into(),
+        );
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
     }
