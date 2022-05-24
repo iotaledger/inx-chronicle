@@ -4,7 +4,7 @@ username = "root"
 password = "root"
 
 [api]
-port = 9092
+port = 8042
 allow_origins = ["0.0.0.0"]
 
 [inx]
