@@ -8,7 +8,8 @@ use std::{
 
 use async_trait::async_trait;
 use bee_metrics::{metrics::process::ProcessMetrics, serve_metrics};
-use chronicle::runtime::{Actor, ActorContext};
+use chronicle::runtime::{Actor, ActorContext, Task};
+use futures::future::AbortHandle;
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::oneshot,
@@ -28,7 +29,7 @@ impl MetricsWorker {
 
 pub struct MetricsState {
     server_handle: (JoinHandle<()>, Option<oneshot::Sender<()>>),
-    process_metrics_handle: JoinHandle<()>,
+    abort_handles: Vec<AbortHandle>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,6 +48,38 @@ impl Default for MetricsConfig {
     }
 }
 
+struct UpdateProcessMetrics {
+    process_metrics: ProcessMetrics,
+}
+
+#[async_trait]
+impl Task for UpdateProcessMetrics {
+    type Error = std::convert::Infallible;
+
+    async fn run(self) -> Result<(), Self::Error> {
+        const MAX_RETRIES: u8 = 5;
+        let mut retries = MAX_RETRIES;
+
+        while retries > 0 {
+            sleep(Duration::from_secs(1)).await;
+
+            match self.process_metrics.update().await {
+                Ok(_) => {
+                    retries = MAX_RETRIES;
+                }
+                Err(e) => {
+                    log::warn!("Cannot update process metrics: {e}");
+                    retries -= 1;
+                }
+            }
+        }
+
+        log::warn!("Could not update process metrics after {MAX_RETRIES} retries");
+
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl Actor for MetricsWorker {
     type State = MetricsState;
@@ -55,8 +88,8 @@ impl Actor for MetricsWorker {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let addr = SocketAddr::new(self.config.address, self.config.port);
 
-        let metrics = ProcessMetrics::new(std::process::id());
-        let (mem_metric, cpu_metric) = metrics.metrics();
+        let process_metrics = ProcessMetrics::new(std::process::id());
+        let (mem_metric, cpu_metric) = process_metrics.metrics();
 
         cx.metrics_registry()
             .register("memory_usage", "Memory usage", mem_metric);
@@ -84,32 +117,11 @@ impl Actor for MetricsWorker {
             })
         };
 
-        let process_metrics_handle = {
-            tokio::spawn(async move {
-                const MAX_RETRIES: u8 = 5;
-                let mut retries = MAX_RETRIES;
-
-                while retries > 0 {
-                    sleep(Duration::from_secs(1)).await;
-
-                    match metrics.update().await {
-                        Ok(_) => {
-                            retries = MAX_RETRIES;
-                        }
-                        Err(e) => {
-                            log::warn!("Cannot update process metrics: {e}");
-                            retries -= 1;
-                        }
-                    }
-                }
-
-                log::warn!("Could not update process metrics after {MAX_RETRIES} retries");
-            })
-        };
+        let abort_handles = vec![cx.spawn_task(UpdateProcessMetrics { process_metrics }).await];
 
         Ok(MetricsState {
             server_handle: (server_fut, Some(send)),
-            process_metrics_handle,
+            abort_handles,
         })
     }
 
@@ -121,8 +133,11 @@ impl Actor for MetricsWorker {
     ) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
 
-        state.process_metrics_handle.abort();
         state.server_handle.1.take().map(|send| send.send(()));
+
+        for abort_handle in &mut state.abort_handles {
+            abort_handle.abort();
+        }
 
         run_result
     }
