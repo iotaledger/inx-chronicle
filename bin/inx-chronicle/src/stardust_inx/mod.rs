@@ -74,7 +74,7 @@ impl Actor for Inx {
                 .await;
             syncer.send(SyncNext)?;
         } else {
-            cx.shutdown();
+            cx.abort().await;
         }
 
         let milestone_stream = inx_client
@@ -102,7 +102,7 @@ impl HandleEvent<Report<MilestoneStream>> for Inx {
                     Err(e)?;
                 }
                 ActorError::Aborted | ActorError::Panic => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }
@@ -140,7 +140,7 @@ impl HandleEvent<Report<Syncer>> for Inx {
                                     .await;
                                 syncer.send(SyncNext)?;
                             } else {
-                                cx.shutdown();
+                                cx.abort().await;
                             }
                         }
                         _ => Err(e)?,
@@ -148,7 +148,7 @@ impl HandleEvent<Report<Syncer>> for Inx {
                     _ => Err(e)?,
                 },
                 ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }

@@ -81,7 +81,7 @@ impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
-                cx.shutdown();
+                cx.abort().await;
             }
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
@@ -94,18 +94,18 @@ impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
                                 .await;
                         }
                         _ => {
-                            cx.shutdown();
+                            cx.abort().await;
                         }
                     },
                     super::stardust_inx::InxError::Read(_) | super::stardust_inx::InxError::TransportFailed(_) => {
                         cx.spawn_child(report.actor).await;
                     }
                     _ => {
-                        cx.shutdown();
+                        cx.abort().await;
                     }
                 },
                 ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }
@@ -124,7 +124,7 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
-                cx.shutdown();
+                cx.abort().await;
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
@@ -132,7 +132,7 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
                     cx.spawn_child(super::api::ApiWorker::new(db, config.api.clone())).await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }
@@ -151,7 +151,7 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
-                cx.shutdown();
+                cx.abort().await;
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
@@ -159,7 +159,7 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
                         .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }

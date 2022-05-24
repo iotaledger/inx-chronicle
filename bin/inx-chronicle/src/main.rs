@@ -40,7 +40,7 @@ async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + 
 
     spawn_task("ctrl-c listener", async move {
         tokio::signal::ctrl_c().await.ok();
-        launcher_addr.shutdown();
+        launcher_addr.abort().await;
     });
 
     Ok(())

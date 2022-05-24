@@ -44,15 +44,13 @@ impl HandleEvent<Report<ConeStream>> for MilestoneStream {
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
-            Report::Success(report) => {
-                self.db.upsert_sync_record(report.actor.milestone_index).await?;
-            }
+            Report::Success(_) => (),
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => {
                     Err(e)?;
                 }
                 ActorError::Aborted | ActorError::Panic => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }

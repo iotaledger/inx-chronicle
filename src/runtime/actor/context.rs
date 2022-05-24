@@ -78,11 +78,6 @@ impl<A: Actor> ActorContext<A> {
         }
     }
 
-    /// Shutdown the actor.
-    pub fn shutdown(&self) {
-        self.handle().shutdown();
-    }
-
     pub(crate) async fn start(
         &mut self,
         actor: &mut A,
@@ -104,7 +99,6 @@ impl<A: Actor> ActorContext<A> {
             abort_reg,
         )
         .await;
-        self.scope.abort().await;
         self.scope.join().await;
         res
     }

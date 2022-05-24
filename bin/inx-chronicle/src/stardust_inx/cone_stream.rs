@@ -37,6 +37,12 @@ impl Actor for ConeStream {
     fn name(&self) -> std::borrow::Cow<'static, str> {
         format!("ConeStream for milestone {}", self.milestone_index).into()
     }
+
+    async fn shutdown(&mut self, _cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
+        self.db.upsert_sync_record(self.milestone_index).await?;
+        log::info!("Milestone {} synced", self.milestone_index);
+        Ok(())
+    }
 }
 
 #[async_trait]

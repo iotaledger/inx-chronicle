@@ -37,7 +37,7 @@ impl Iterator for Gaps {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(range) = self.0.pop_front() {
-            if range.start() < range.end() {
+            if range.start() <= range.end() {
                 return Some(range);
             }
         }
@@ -72,7 +72,7 @@ impl HandleEvent<Report<MilestoneStream>> for Syncer {
                     Err(e)?;
                 }
                 ActorError::Aborted | ActorError::Panic => {
-                    cx.shutdown();
+                    cx.abort().await;
                 }
             },
         }

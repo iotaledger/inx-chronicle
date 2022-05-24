@@ -88,7 +88,7 @@ impl ScopeView {
 
     /// Aborts the tasks in this runtime's scope. This will shutdown tasks that have
     /// shutdown handles instead.
-    pub(crate) async fn abort(&self) {
+    pub async fn abort(&self) {
         self.0.abort().await;
     }
 }
