@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::VecDeque, ops::Range};
+use std::{collections::VecDeque, ops::RangeInclusive};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -20,7 +20,7 @@ pub struct Syncer {
 }
 
 impl Syncer {
-    pub fn new(gaps: Vec<Range<u32>>, db: MongoDb, inx_client: InxClient<Channel>) -> Self {
+    pub fn new(gaps: Vec<RangeInclusive<u32>>, db: MongoDb, inx_client: InxClient<Channel>) -> Self {
         Self {
             gaps: Gaps(gaps.into()),
             db,
@@ -30,23 +30,18 @@ impl Syncer {
 }
 
 #[derive(Debug, Default)]
-pub struct Gaps(VecDeque<Range<u32>>);
+pub struct Gaps(VecDeque<RangeInclusive<u32>>);
 
 impl Iterator for Gaps {
-    type Item = Range<u32>;
+    type Item = RangeInclusive<u32>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(range) = self.0.pop_front() {
-                if range.start >= range.end {
-                    continue;
-                } else {
-                    break Some(range);
-                }
-            } else {
-                break None;
+        while let Some(range) = self.0.pop_front() {
+            if range.start() < range.end() {
+                return Some(range);
             }
         }
+        None
     }
 }
 
@@ -98,13 +93,16 @@ impl HandleEvent<SyncNext> for Syncer {
         if let Some(milestone_range) = self.gaps.next() {
             log::info!(
                 "Requesting unsynced milestone range {}..{}.",
-                milestone_range.start,
-                milestone_range.end
+                milestone_range.start(),
+                milestone_range.end()
             );
             let milestone_stream = self
                 .inx_client
                 .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
-                    inx::MilestoneRangeRequest::FromUntilMilestoneIndex(milestone_range.start, milestone_range.end),
+                    inx::MilestoneRangeRequest::FromUntilMilestoneIndex(
+                        *milestone_range.start(),
+                        *milestone_range.end(),
+                    ),
                 ))
                 .await?
                 .into_inner();

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 use futures::{stream::Stream, TryStreamExt};
 use mongodb::{
@@ -32,7 +32,7 @@ pub struct SyncData {
     /// The completed(synced and logged) milestones data
     pub completed: Vec<Range<u32>>,
     /// Gaps/missings milestones data
-    pub gaps: Vec<Range<u32>>,
+    pub gaps: Vec<RangeInclusive<u32>>,
 }
 
 impl MongoDb {
@@ -58,31 +58,30 @@ impl MongoDb {
     /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
     pub async fn sync_records_sorted(
         &self,
-        start: u32,
-        end: u32,
+        range: RangeInclusive<u32>,
     ) -> Result<impl Stream<Item = Result<SyncRecord, Error>>, Error> {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
             .find(
-                doc! { "milestone_index": { "$gte": start, "$lte": end } },
+                doc! { "milestone_index": { "$gte": range.start(), "$lte": range.end() } },
                 FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
             )
             .await
     }
 
     /// Retrieves a [`SyncData`] structure that contains the completed and gaps ranges.
-    pub async fn get_sync_data(&self, start: u32, end: u32) -> Result<SyncData, Error> {
-        let mut res = self.sync_records_sorted(start, end).await?;
+    pub async fn get_sync_data(&self, range: RangeInclusive<u32>) -> Result<SyncData, Error> {
+        let mut res = self.sync_records_sorted(range.clone()).await?;
         let mut sync_data = SyncData::default();
         let mut last_record: Option<u32> = None;
         while let Some(SyncRecord { milestone_index }) = res.try_next().await? {
             // Missing records go into gaps
             if let Some(last) = last_record.as_ref() {
                 if last + 1 != milestone_index {
-                    sync_data.gaps.push(last + 1..milestone_index - 1);
+                    sync_data.gaps.push(last + 1..=milestone_index - 1);
                 }
-            } else if start < milestone_index {
-                sync_data.gaps.push(start..milestone_index - 1)
+            } else if *range.start() < milestone_index {
+                sync_data.gaps.push(*range.start()..=milestone_index - 1)
             }
             match sync_data.completed.last_mut() {
                 Some(last) => {
@@ -97,11 +96,11 @@ impl MongoDb {
             last_record.replace(milestone_index);
         }
         if let Some(last) = last_record.as_ref() {
-            if *last < end {
-                sync_data.gaps.push(last + 1..end);
+            if last < range.end() {
+                sync_data.gaps.push(last + 1..=*range.end());
             }
-        } else if start <= end {
-            sync_data.gaps.push(start..end);
+        } else if range.start() <= range.end() {
+            sync_data.gaps.push(range);
         }
         Ok(sync_data)
     }

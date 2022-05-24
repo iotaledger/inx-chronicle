@@ -10,7 +10,6 @@ allow_origins = ["0.0.0.0"]
 [inx]
 connect_url = "http://localhost:9029"
 connection_retry_interval = "5s"
-sync_kind = { max_milestones = 1000 }
 
 [metrics]
 address = "0.0.0.0"

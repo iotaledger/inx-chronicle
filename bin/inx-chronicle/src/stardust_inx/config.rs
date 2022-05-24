@@ -15,7 +15,7 @@ pub struct InxConfig {
     /// The time that has to pass until a new connection attempt is made.
     #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
-    pub sync_kind: SyncKind,
+    pub sync_start_milestone: u32,
 }
 
 impl Default for InxConfig {
@@ -23,21 +23,7 @@ impl Default for InxConfig {
         Self {
             connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
-            sync_kind: Default::default(),
+            sync_start_milestone: Default::default(),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SyncKind {
-    #[serde(rename = "max_milestones")]
-    Max(u32),
-    #[serde(rename = "from_milestone")]
-    From(u32),
-}
-
-impl Default for SyncKind {
-    fn default() -> Self {
-        Self::From(1)
     }
 }

@@ -17,10 +17,7 @@ pub use error::InxError;
 use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
 pub use milestone_stream::MilestoneStream;
 
-use self::{
-    config::SyncKind,
-    syncer::{SyncNext, Syncer},
-};
+use self::syncer::{SyncNext, Syncer};
 
 pub struct Inx {
     db: MongoDb,
@@ -61,13 +58,9 @@ impl Actor for Inx {
             .map_err(InxError::InxTypeConversion)?;
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-        let configured_start = match self.config.sync_kind {
-            SyncKind::Max(ms) => latest_ms - ms,
-            SyncKind::From(ms) => ms,
-        };
         let sync_data = self
             .db
-            .get_sync_data(configured_start.max(first_ms), latest_ms)
+            .get_sync_data(self.config.sync_start_milestone.max(first_ms)..=latest_ms)
             .await?
             .gaps;
         if !sync_data.is_empty() {
@@ -81,9 +74,7 @@ impl Actor for Inx {
 
         let milestone_stream = inx_client
             .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
-                inx::MilestoneRangeRequest::FromMilestoneIndex(
-                    node_status.confirmed_milestone.milestone_info.milestone_index + 1,
-                ),
+                inx::MilestoneRangeRequest::FromMilestoneIndex(latest_ms + 1),
             ))
             .await?
             .into_inner();
