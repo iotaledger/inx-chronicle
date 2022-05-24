@@ -32,7 +32,7 @@ FROM gcr.io/distroless/cc-debian11:nonroot AS runtime
 
 EXPOSE 9092/tcp
 
-COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/release/inx-chronicle /app/inx-chronicle
+COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/production/inx-chronicle /app/inx-chronicle
 
 WORKDIR /app
 USER nonroot
