@@ -140,14 +140,16 @@ pub(crate) mod test {
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_immut_alias_address_condition(
-            bee_block_stardust::address::Address::from(bee_block_stardust::address::AliasAddress::new(
-                bee_test::rand::output::rand_alias_id(),
-            ))
-            .into(),
-        );
+        let block = get_test_immut_alias_address_condition(get_test_alias_address_as_address());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
+    }
+
+    pub(crate) fn get_test_alias_address_as_address() -> Address {
+        bee_block_stardust::address::Address::from(bee_block_stardust::address::AliasAddress::new(
+            bee_test::rand::output::rand_alias_id(),
+        ))
+        .into()
     }
 
     pub(crate) fn get_test_address_condition(address: Address) -> UnlockCondition {
