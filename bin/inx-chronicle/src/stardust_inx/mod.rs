@@ -14,7 +14,12 @@ use chronicle::{
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use inx::{client::InxClient, proto::NoParams, tonic::Channel, NodeStatus};
+use inx::{
+    client::InxClient,
+    proto::NoParams,
+    tonic::{Channel, Code},
+    NodeStatus,
+};
 pub use milestone_stream::MilestoneStream;
 
 use self::syncer::{SyncNext, Syncer};
@@ -45,7 +50,7 @@ impl Inx {
 
 #[async_trait]
 impl Actor for Inx {
-    type State = ();
+    type State = InxClient<Channel>;
     type Error = InxError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -76,9 +81,9 @@ impl Actor for Inx {
             .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
             .await?
             .into_inner();
-        cx.spawn_child(MilestoneStream::new(self.db.clone(), inx_client).with_stream(milestone_stream))
+        cx.spawn_child(MilestoneStream::new(self.db.clone(), inx_client.clone()).with_stream(milestone_stream))
             .await;
-        Ok(())
+        Ok(inx_client)
     }
 }
 
@@ -111,14 +116,37 @@ impl HandleEvent<Report<Syncer>> for Inx {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<Syncer>,
-        _state: &mut Self::State,
+        inx_client: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => (),
             Report::Error(report) => match report.error {
-                ActorError::Result(e) => {
-                    Err(e)?;
-                }
+                ActorError::Result(e) => match &e {
+                    InxError::Read(s) => match s.code() {
+                        Code::InvalidArgument => {
+                            let node_status =
+                                NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
+                                    .map_err(InxError::InxTypeConversion)?;
+                            let first_ms = node_status.tangle_pruning_index + 1;
+                            let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
+                            let sync_data = self
+                                .db
+                                .get_sync_data(self.config.sync_start_milestone.max(first_ms.into())..=latest_ms.into())
+                                .await?
+                                .gaps;
+                            if !sync_data.is_empty() {
+                                let syncer = cx
+                                    .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
+                                    .await;
+                                syncer.send(SyncNext)?;
+                            } else {
+                                cx.shutdown();
+                            }
+                        }
+                        _ => Err(e)?,
+                    },
+                    _ => Err(e)?,
+                },
                 ActorError::Panic | ActorError::Aborted => {
                     cx.shutdown();
                 }
