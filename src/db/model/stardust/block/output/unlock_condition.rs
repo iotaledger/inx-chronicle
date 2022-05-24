@@ -4,7 +4,6 @@
 use bee_block_stardust::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
-use super::AliasId;
 use crate::db::model::stardust::block::Address;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,7 +30,7 @@ pub enum UnlockCondition {
     #[serde(rename = "governor_address")]
     GovernorAddress { address: Address },
     #[serde(rename = "immutable_alias_address")]
-    ImmutableAliasAddress { alias_id: AliasId },
+    ImmutableAliasAddress { address: Address },
 }
 
 impl From<&bee::UnlockCondition> for UnlockCondition {
@@ -60,7 +59,7 @@ impl From<&bee::UnlockCondition> for UnlockCondition {
                 address: (*a.address()).into(),
             },
             bee::UnlockCondition::ImmutableAliasAddress(a) => Self::ImmutableAliasAddress {
-                alias_id: (*a.address().alias_id()).into(),
+                address: (*a.address()).into(),
             },
         }
     }
@@ -96,10 +95,14 @@ impl TryFrom<UnlockCondition> for bee::UnlockCondition {
             UnlockCondition::GovernorAddress { address } => {
                 Self::GovernorAddress(bee::GovernorAddressUnlockCondition::new(address.try_into()?))
             }
-            UnlockCondition::ImmutableAliasAddress { alias_id } => {
-                Self::ImmutableAliasAddress(bee::ImmutableAliasAddressUnlockCondition::new(
-                    bee_block_stardust::address::AliasAddress::new(alias_id.try_into()?),
-                ))
+            UnlockCondition::ImmutableAliasAddress { address } => {
+                let bee_address = bee_block_stardust::address::Address::try_from(address)?;
+
+                if let bee_block_stardust::address::Address::Alias(alias_address) = bee_address {
+                    Self::ImmutableAliasAddress(bee::ImmutableAliasAddressUnlockCondition::new(alias_address))
+                } else {
+                    unreachable!()
+                }
             }
         })
     }
@@ -177,7 +180,7 @@ pub(crate) mod test {
         UnlockCondition::GovernorAddress { address }
     }
 
-    pub(crate) fn get_test_immut_alias_address_condition(alias_id: AliasId) -> UnlockCondition {
-        UnlockCondition::ImmutableAliasAddress { alias_id }
+    pub(crate) fn get_test_immut_alias_address_condition(address: Address) -> UnlockCondition {
+        UnlockCondition::ImmutableAliasAddress { address }
     }
 }
