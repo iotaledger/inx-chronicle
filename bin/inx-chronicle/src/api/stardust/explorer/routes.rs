@@ -9,7 +9,6 @@ use futures::TryStreamExt;
 
 use super::responses::{TransactionHistoryResponse, Transfer};
 use crate::api::{
-    error::ParseError,
     extractors::{Pagination, TimeRange},
     ApiError, ApiResult,
 };
@@ -30,7 +29,7 @@ async fn transaction_history(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionHistoryResponse> {
-    let address_dto = Address::from_str(&address).map_err(ParseError::Model)?;
+    let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
     let start_milestone = database
         .find_first_milestone(start_timestamp)
         .await?

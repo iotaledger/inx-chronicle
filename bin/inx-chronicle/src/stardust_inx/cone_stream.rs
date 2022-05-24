@@ -3,7 +3,10 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::stardust::block::BlockRecord, MongoDb},
+    db::{
+        model::{stardust::block::BlockRecord, tangle::MilestoneIndex},
+        MongoDb,
+    },
     runtime::{Actor, ActorContext, HandleEvent},
 };
 use inx::tonic::Status;
@@ -12,12 +15,12 @@ use super::InxError;
 
 #[derive(Debug)]
 pub struct ConeStream {
-    pub milestone_index: u32,
+    pub milestone_index: MilestoneIndex,
     db: MongoDb,
 }
 
 impl ConeStream {
-    pub fn new(milestone_index: u32, db: MongoDb) -> Self {
+    pub fn new(milestone_index: MilestoneIndex, db: MongoDb) -> Self {
         Self { milestone_index, db }
     }
 }

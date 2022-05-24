@@ -21,7 +21,10 @@ mod unlock;
 
 pub use self::{address::*, block_id::*, block_inner::*, input::*, output::*, payload::*, signature::*, unlock::*};
 use crate::db::{
-    model::ledger::{LedgerInclusionState, Metadata},
+    model::{
+        ledger::{LedgerInclusionState, Metadata},
+        tangle::MilestoneIndex,
+    },
     MongoDb,
 };
 
@@ -93,7 +96,7 @@ pub struct TransactionHistoryResult {
     /// The transaction's block id.
     pub block_id: BlockId,
     /// The milestone index that references the transaction.
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
     /// The transfer amount.
     pub amount: u64,
 }
@@ -211,8 +214,8 @@ impl MongoDb {
         address: &Address,
         page_size: usize,
         page: usize,
-        start_milestone: u32,
-        end_milestone: u32,
+        start_milestone: MilestoneIndex,
+        end_milestone: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<TransactionHistoryResult, Error>>, Error> {
         self.0
         .collection::<BlockRecord>(BlockRecord::COLLECTION)
@@ -304,8 +307,8 @@ impl MongoDb {
     /// Create aggregate statistics of all addresses.
     pub async fn aggregate_addresses(
         &self,
-        start_milestone: u32,
-        end_milestone: u32,
+        start_milestone: MilestoneIndex,
+        end_milestone: MilestoneIndex,
     ) -> Result<Option<AddressAnalyticsResult>, Error> {
         Ok(self.0.collection::<BlockRecord>(BlockRecord::COLLECTION)
         .aggregate(

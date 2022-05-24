@@ -24,8 +24,8 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
         is_solid: true,
         should_promote: true,
         should_reattach: true,
-        referenced_by_milestone_index: 42,
-        milestone_index: 0,
+        referenced_by_milestone_index: 42.into(),
+        milestone_index: 0.into(),
         inclusion_state: LedgerInclusionState::Included,
         conflict_reason: ConflictReason::None,
     };

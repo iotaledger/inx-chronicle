@@ -9,14 +9,17 @@ use axum::{
     Router,
 };
 use chronicle::db::{
-    model::stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
+    model::{
+        stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
+        tangle::MilestoneIndex,
+    },
     MongoDb,
 };
 use futures::TryStreamExt;
 
 use super::responses::*;
 use crate::api::{
-    error::{ApiError, ParseError},
+    error::ApiError,
     extractors::{Expanded, Pagination},
     responses::Record,
     ApiResult,
@@ -51,7 +54,7 @@ pub fn routes() -> Router {
 }
 
 async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<BlockResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::Model)?;
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
     Ok(BlockResponse {
         protocol_version: rec.inner.protocol_version,
@@ -62,7 +65,7 @@ async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> Ap
 }
 
 async fn block_raw(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::Model)?;
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
     Ok(rec.raw)
 }
@@ -71,7 +74,7 @@ async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
 ) -> ApiResult<BlockMetadataResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::Model)?;
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
 
     Ok(BlockMetadataResponse {
@@ -93,7 +96,7 @@ async fn block_children(
     Pagination { page_size, page }: Pagination,
     Expanded { expanded }: Expanded,
 ) -> ApiResult<BlockChildrenResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ParseError::Model)?;
+    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let blocks = database
         .get_block_children(&block_id_dto, page_size, page)
         .await?
@@ -123,7 +126,7 @@ async fn block_children(
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
-    let output_id = OutputId::from_str(&output_id).map_err(ParseError::Model)?;
+    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -156,11 +159,9 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         output_index: output_id.index,
         is_spent: spending_transaction.is_some(),
         milestone_index_spent: spending_ms_index,
-        milestone_ts_spent: spending_ms
-            .as_ref()
-            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+        milestone_ts_spent: spending_ms.as_ref().map(|ms| ms.milestone_timestamp),
         milestone_index_booked: booked_ms_index,
-        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
+        milestone_ts_booked: booked_ms.milestone_timestamp,
         output: output_res.output,
     })
 }
@@ -169,7 +170,7 @@ async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<OutputMetadataResponse> {
-    let output_id = OutputId::from_str(&output_id).map_err(ParseError::Model)?;
+    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let output_res = database
         .get_output(&output_id.transaction_id, output_id.index)
         .await?
@@ -202,9 +203,7 @@ async fn output_metadata(
         output_index: output_id.index,
         is_spent: spending_transaction.is_some(),
         milestone_index_spent: spending_ms_index,
-        milestone_ts_spent: spending_ms
-            .as_ref()
-            .map(|ms| (ms.milestone_timestamp.timestamp_millis() / 1000) as u32),
+        milestone_ts_spent: spending_ms.as_ref().map(|ms| ms.milestone_timestamp),
         transaction_id_spent: spending_transaction.as_ref().map(|txn| {
             if let Some(Payload::Transaction(payload)) = &txn.inner.payload {
                 payload.id.to_hex()
@@ -213,7 +212,7 @@ async fn output_metadata(
             }
         }),
         milestone_index_booked: booked_ms_index,
-        milestone_ts_booked: (booked_ms.milestone_timestamp.timestamp_millis() / 1000) as u32,
+        milestone_ts_booked: booked_ms.milestone_timestamp,
     })
 }
 
@@ -221,7 +220,7 @@ async fn transaction_included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
-    let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ParseError::Model)?;
+    let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
     let rec = database
         .get_block_for_transaction(&transaction_id_dto)
         .await?
@@ -236,7 +235,7 @@ async fn transaction_included_block(
 }
 
 async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
-    let milestone_id_dto = MilestoneId::from_str(&milestone_id).map_err(ParseError::Model)?;
+    let milestone_id_dto = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     database
         .get_milestone_record(&milestone_id_dto)
         .await?
@@ -246,7 +245,10 @@ async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String
         })
 }
 
-async fn milestone_by_index(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<MilestoneResponse> {
+async fn milestone_by_index(
+    database: Extension<MongoDb>,
+    Path(index): Path<MilestoneIndex>,
+) -> ApiResult<MilestoneResponse> {
     database
         .get_milestone_record_by_index(index)
         .await?

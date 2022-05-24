@@ -3,6 +3,7 @@
 
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
+use chronicle::db::model::stardust::milestone::MilestoneTimestamp;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
@@ -39,14 +40,23 @@ impl<B: Send> FromRequest<B> for Pagination {
 #[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct TimeRangeQuery {
-    start_timestamp: Option<i64>,
-    end_timestamp: Option<i64>,
+    start_timestamp: Option<u32>,
+    end_timestamp: Option<u32>,
 }
 
 #[derive(Copy, Clone)]
 pub struct TimeRange {
-    pub start_timestamp: OffsetDateTime,
-    pub end_timestamp: OffsetDateTime,
+    pub start_timestamp: MilestoneTimestamp,
+    pub end_timestamp: MilestoneTimestamp,
+}
+
+fn days_ago_utc(days: i64) -> u32 {
+    let then = OffsetDateTime::now_utc() - Duration::days(days);
+    (then.unix_timestamp() * 1000) as u32
+}
+
+fn now_utc() -> u32 {
+    (OffsetDateTime::now_utc().unix_timestamp() * 1000) as u32
 }
 
 #[async_trait]
@@ -61,16 +71,8 @@ impl<B: Send> FromRequest<B> for TimeRange {
             .await
             .map_err(ApiError::QueryError)?;
         let time_range = TimeRange {
-            start_timestamp: start_timestamp
-                .map(OffsetDateTime::from_unix_timestamp)
-                .transpose()
-                .map_err(ApiError::bad_parse)?
-                .unwrap_or_else(|| OffsetDateTime::now_utc() - Duration::days(30)),
-            end_timestamp: end_timestamp
-                .map(OffsetDateTime::from_unix_timestamp)
-                .transpose()
-                .map_err(ApiError::bad_parse)?
-                .unwrap_or_else(OffsetDateTime::now_utc),
+            start_timestamp: start_timestamp.unwrap_or_else(|| days_ago_utc(30)).into(),
+            end_timestamp: end_timestamp.unwrap_or_else(now_utc).into(),
         };
         if time_range.end_timestamp < time_range.start_timestamp {
             return Err(ApiError::BadTimeRange);

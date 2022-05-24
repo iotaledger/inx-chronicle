@@ -5,7 +5,7 @@ use std::{collections::VecDeque, ops::RangeInclusive};
 
 use async_trait::async_trait;
 use chronicle::{
-    db::MongoDb,
+    db::{model::tangle::MilestoneIndex, MongoDb},
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
 };
 use inx::{client::InxClient, tonic::Channel};
@@ -20,7 +20,7 @@ pub struct Syncer {
 }
 
 impl Syncer {
-    pub fn new(gaps: Vec<RangeInclusive<u32>>, db: MongoDb, inx_client: InxClient<Channel>) -> Self {
+    pub fn new(gaps: Vec<RangeInclusive<MilestoneIndex>>, db: MongoDb, inx_client: InxClient<Channel>) -> Self {
         Self {
             gaps: Gaps(gaps.into()),
             db,
@@ -30,10 +30,10 @@ impl Syncer {
 }
 
 #[derive(Debug, Default)]
-pub struct Gaps(VecDeque<RangeInclusive<u32>>);
+pub struct Gaps(VecDeque<RangeInclusive<MilestoneIndex>>);
 
 impl Iterator for Gaps {
-    type Item = RangeInclusive<u32>;
+    type Item = RangeInclusive<MilestoneIndex>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(range) = self.0.pop_front() {
@@ -99,10 +99,7 @@ impl HandleEvent<SyncNext> for Syncer {
             let milestone_stream = self
                 .inx_client
                 .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
-                    inx::MilestoneRangeRequest::FromUntilMilestoneIndex(
-                        *milestone_range.start(),
-                        *milestone_range.end(),
-                    ),
+                    *milestone_range.start()..=*milestone_range.end(),
                 ))
                 .await?
                 .into_inner();

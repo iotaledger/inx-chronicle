@@ -60,7 +60,7 @@ impl Actor for Inx {
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         let sync_data = self
             .db
-            .get_sync_data(self.config.sync_start_milestone.max(first_ms)..=latest_ms)
+            .get_sync_data(self.config.sync_start_milestone.max(first_ms.into())..=latest_ms.into())
             .await?
             .gaps;
         if !sync_data.is_empty() {
@@ -73,9 +73,7 @@ impl Actor for Inx {
         }
 
         let milestone_stream = inx_client
-            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
-                inx::MilestoneRangeRequest::FromMilestoneIndex(latest_ms + 1),
-            ))
+            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
             .await?
             .into_inner();
         cx.spawn_child(MilestoneStream::new(self.db.clone(), inx_client).with_stream(milestone_stream))

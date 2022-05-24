@@ -12,13 +12,13 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::db::MongoDb;
+use crate::db::{model::tangle::MilestoneIndex, MongoDb};
 
 /// A record indicating that a milestone is completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncRecord {
     /// The index of the milestone that was completed.
-    pub milestone_index: u32,
+    pub milestone_index: MilestoneIndex,
 }
 
 impl SyncRecord {
@@ -30,14 +30,14 @@ impl SyncRecord {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncData {
     /// The completed(synced and logged) milestones data
-    pub completed: Vec<Range<u32>>,
+    pub completed: Vec<Range<MilestoneIndex>>,
     /// Gaps/missings milestones data
-    pub gaps: Vec<RangeInclusive<u32>>,
+    pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
 }
 
 impl MongoDb {
     /// If available, returns the [`SyncRecord`] associated with the provided milestone `index`.
-    pub async fn get_sync_record_by_index(&self, index: u32) -> Result<Option<SyncRecord>, Error> {
+    pub async fn get_sync_record_by_index(&self, index: MilestoneIndex) -> Result<Option<SyncRecord>, Error> {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
             .find_one(doc! {"milestone_index": index}, None)
@@ -45,7 +45,7 @@ impl MongoDb {
     }
 
     /// Upserts a [`SyncRecord`] to the database.
-    pub async fn upsert_sync_record(&self, index: u32) -> Result<UpdateResult, Error> {
+    pub async fn upsert_sync_record(&self, index: MilestoneIndex) -> Result<UpdateResult, Error> {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
             .update_one(
@@ -58,7 +58,7 @@ impl MongoDb {
     /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
     pub async fn sync_records_sorted(
         &self,
-        range: RangeInclusive<u32>,
+        range: RangeInclusive<MilestoneIndex>,
     ) -> Result<impl Stream<Item = Result<SyncRecord, Error>>, Error> {
         self.0
             .collection::<SyncRecord>(SyncRecord::COLLECTION)
@@ -70,13 +70,13 @@ impl MongoDb {
     }
 
     /// Retrieves a [`SyncData`] structure that contains the completed and gaps ranges.
-    pub async fn get_sync_data(&self, range: RangeInclusive<u32>) -> Result<SyncData, Error> {
+    pub async fn get_sync_data(&self, range: RangeInclusive<MilestoneIndex>) -> Result<SyncData, Error> {
         let mut res = self.sync_records_sorted(range.clone()).await?;
         let mut sync_data = SyncData::default();
-        let mut last_record: Option<u32> = None;
+        let mut last_record: Option<MilestoneIndex> = None;
         while let Some(SyncRecord { milestone_index }) = res.try_next().await? {
             // Missing records go into gaps
-            if let Some(last) = last_record.as_ref() {
+            if let Some(&last) = last_record.as_ref() {
                 if last + 1 != milestone_index {
                     sync_data.gaps.push(last + 1..=milestone_index - 1);
                 }
@@ -95,8 +95,8 @@ impl MongoDb {
             }
             last_record.replace(milestone_index);
         }
-        if let Some(last) = last_record.as_ref() {
-            if last < range.end() {
+        if let Some(&last) = last_record.as_ref() {
+            if last < *range.end() {
                 sync_data.gaps.push(last + 1..=*range.end());
             }
         } else if range.start() <= range.end() {

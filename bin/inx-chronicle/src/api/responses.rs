@@ -4,7 +4,7 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::db::model::{ledger::LedgerInclusionState, sync::SyncData};
+use chronicle::db::model::{ledger::LedgerInclusionState, sync::SyncData, tangle::MilestoneIndex};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ pub struct Record {
     #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

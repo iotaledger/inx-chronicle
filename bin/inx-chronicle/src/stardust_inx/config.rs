@@ -3,6 +3,7 @@
 
 use std::time::Duration;
 
+use chronicle::db::model::tangle::MilestoneIndex;
 use serde::{Deserialize, Serialize};
 
 /// A builder to establish a connection to INX.
@@ -15,7 +16,7 @@ pub struct InxConfig {
     /// The time that has to pass until a new connection attempt is made.
     #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
-    pub sync_start_milestone: u32,
+    pub sync_start_milestone: MilestoneIndex,
 }
 
 impl Default for InxConfig {

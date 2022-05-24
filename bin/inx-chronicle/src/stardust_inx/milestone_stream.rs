@@ -75,7 +75,7 @@ impl HandleEvent<Result<inx::proto::Milestone, Status>> for MilestoneStream {
                 let cone_stream = self
                     .inx_client
                     .read_milestone_cone(inx::proto::MilestoneRequest {
-                        milestone_index: rec.milestone_index,
+                        milestone_index: *rec.milestone_index,
                         milestone_id: None,
                     })
                     .await?

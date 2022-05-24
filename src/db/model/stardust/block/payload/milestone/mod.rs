@@ -1,41 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+mod milestone_id;
 
 use bee_block_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
 
+pub use self::milestone_id::MilestoneId;
 use super::super::{Address, BlockId, Signature, TreasuryTransactionPayload};
-use crate::db;
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct MilestoneId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
-
-impl From<bee::MilestoneId> for MilestoneId {
-    fn from(value: bee::MilestoneId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
-    }
-}
-
-impl TryFrom<MilestoneId> for bee::MilestoneId {
-    type Error = db::error::Error;
-
-    fn try_from(value: MilestoneId) -> Result<Self, Self::Error> {
-        Ok(bee::MilestoneId::new(value.0.as_ref().try_into()?))
-    }
-}
-
-impl FromStr for MilestoneId {
-    type Err = db::error::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::MilestoneId::from_str(s)?.into())
-    }
-}
-
-pub type MilestoneIndex = u32;
+use crate::db::{self, model::tangle::MilestoneIndex};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestonePayload {
@@ -84,7 +57,7 @@ pub struct MilestoneEssence {
 impl From<&bee::MilestoneEssence> for MilestoneEssence {
     fn from(value: &bee::MilestoneEssence) -> Self {
         Self {
-            index: value.index().0,
+            index: value.index().0.into(),
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
             parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
@@ -145,13 +118,13 @@ impl From<&bee::MilestoneOption> for MilestoneOption {
     fn from(value: &bee::MilestoneOption) -> Self {
         match value {
             bee::MilestoneOption::Receipt(r) => Self::Receipt {
-                migrated_at: r.migrated_at().0,
+                migrated_at: r.migrated_at().into(),
                 last: r.last(),
                 funds: r.funds().iter().map(Into::into).collect(),
                 transaction: r.transaction().into(),
             },
             bee::MilestoneOption::Parameters(p) => Self::Parameters {
-                target_milestone_index: p.target_milestone_index().0,
+                target_milestone_index: p.target_milestone_index().into(),
                 protocol_version: p.protocol_version(),
                 binary_parameters: p.binary_parameters().to_owned().into_boxed_slice(),
             },
@@ -183,7 +156,7 @@ impl TryFrom<MilestoneOption> for bee::MilestoneOption {
                 protocol_version,
                 binary_parameters,
             } => Self::Parameters(bee::ParametersMilestoneOption::new(
-                bee::MilestoneIndex(target_milestone_index),
+                target_milestone_index.into(),
                 protocol_version,
                 binary_parameters.into_vec(),
             )?),

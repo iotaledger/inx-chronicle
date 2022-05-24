@@ -4,7 +4,11 @@
 use axum::response::IntoResponse;
 use chronicle::db::model::{
     ledger::LedgerInclusionState,
-    stardust::block::{Input, Output, Payload},
+    stardust::{
+        block::{Input, Output, Payload},
+        milestone::MilestoneTimestamp,
+    },
+    tangle::MilestoneIndex,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,9 +37,9 @@ pub struct BlockMetadataResponse {
     #[serde(rename = "isSolid")]
     pub is_solid: Option<bool>,
     #[serde(rename = "referencedByMilestoneIndex", skip_serializing_if = "Option::is_none")]
-    pub referenced_by_milestone_index: Option<u32>,
+    pub referenced_by_milestone_index: Option<MilestoneIndex>,
     #[serde(rename = "milestoneIndex", skip_serializing_if = "Option::is_none")]
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
     #[serde(rename = "ledgerInclusionState", skip_serializing_if = "Option::is_none")]
     pub ledger_inclusion_state: Option<LedgerInclusionState>,
     #[serde(rename = "conflictReason", skip_serializing_if = "Option::is_none")]
@@ -73,13 +77,13 @@ pub struct OutputResponse {
     #[serde(rename = "spendingTransaction")]
     pub is_spent: bool,
     #[serde(rename = "milestoneIndexSpent")]
-    pub milestone_index_spent: Option<u32>,
+    pub milestone_index_spent: Option<MilestoneIndex>,
     #[serde(rename = "milestoneTimestampSpent")]
-    pub milestone_ts_spent: Option<u32>,
+    pub milestone_ts_spent: Option<MilestoneTimestamp>,
     #[serde(rename = "milestoneIndexBooked")]
-    pub milestone_index_booked: u32,
+    pub milestone_index_booked: MilestoneIndex,
     #[serde(rename = "milestoneTimestampBooked")]
-    pub milestone_ts_booked: u32,
+    pub milestone_ts_booked: MilestoneTimestamp,
     pub output: Output,
 }
 
@@ -97,15 +101,15 @@ pub struct OutputMetadataResponse {
     #[serde(rename = "spendingTransaction")]
     pub is_spent: bool,
     #[serde(rename = "milestoneIndexSpent")]
-    pub milestone_index_spent: Option<u32>,
+    pub milestone_index_spent: Option<MilestoneIndex>,
     #[serde(rename = "milestoneTimestampSpent")]
-    pub milestone_ts_spent: Option<u32>,
+    pub milestone_ts_spent: Option<MilestoneTimestamp>,
     #[serde(rename = "transactionIdSpent")]
     pub transaction_id_spent: Option<String>,
     #[serde(rename = "milestoneIndexBooked")]
-    pub milestone_index_booked: u32,
+    pub milestone_index_booked: MilestoneIndex,
     #[serde(rename = "milestoneTimestampBooked")]
-    pub milestone_ts_booked: u32,
+    pub milestone_ts_booked: MilestoneTimestamp,
 }
 
 impl_success_response!(OutputMetadataResponse);
@@ -118,7 +122,7 @@ pub struct TransactionResponse {
     pub block_id: String,
     /// The confirmation timestamp
     #[serde(rename = "milestoneIndex")]
-    pub milestone_index: Option<u32>,
+    pub milestone_index: Option<MilestoneIndex>,
     /// The output
     pub outputs: Vec<Output>,
     /// The inputs, if they exist

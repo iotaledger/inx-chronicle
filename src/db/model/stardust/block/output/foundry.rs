@@ -74,8 +74,9 @@ pub(crate) mod test {
 
     use super::*;
     use crate::db::model::stardust::block::output::{
-        feature::test::get_test_metadata_block, native_token::test::get_test_native_token,
-        unlock_condition::test::get_test_immut_alias_address_condition,
+        feature::test::get_test_metadata_block,
+        native_token::test::get_test_native_token,
+        unlock_condition::test::{get_test_alias_address_as_address, get_test_immut_alias_address_condition},
     };
 
     #[test]
@@ -95,7 +96,7 @@ pub(crate) mod test {
             .unwrap()
             .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
             .with_unlock_conditions(vec![
-                get_test_immut_alias_address_condition(bee_test::rand::output::rand_alias_id().into())
+                get_test_immut_alias_address_condition(get_test_alias_address_as_address())
                     .try_into()
                     .unwrap(),
             ])
