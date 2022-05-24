@@ -88,10 +88,8 @@ impl<A: Actor> ActorContext<A> {
             AssertUnwindSafe(async {
                 let mut state = actor.init(self).await?;
                 // Call handle events until shutdown
-                let mut res = actor.run(self, &mut state).await;
-                if let Err(e) = actor.shutdown(self, &mut state).await {
-                    res = Err(e);
-                }
+                let res = actor.run(self, &mut state).await;
+                let res = actor.shutdown(self, &mut state, res).await;
                 actor_state.replace(state);
                 res
             })

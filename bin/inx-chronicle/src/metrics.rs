@@ -118,14 +118,19 @@ impl Actor for MetricsWorker {
         })
     }
 
-    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, state: &mut Self::State) -> Result<(), Self::Error> {
+    async fn shutdown(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        state: &mut Self::State,
+        run_result: Result<(), Self::Error>,
+    ) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
 
         state.process_metrics_handle.abort();
 
         state.server_handle.1.take().map(|send| send.send(()));
 
-        Ok(())
+        run_result
     }
 }
 
