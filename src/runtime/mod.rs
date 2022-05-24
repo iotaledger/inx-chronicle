@@ -15,6 +15,7 @@ mod registry;
 mod scope;
 /// Module containing shutdown functionality.
 mod shutdown;
+mod task;
 
 use std::error::Error;
 
@@ -38,6 +39,7 @@ pub use self::{
     config::{ConfigureActor, SpawnConfig},
     error::RuntimeError,
     scope::RuntimeScope,
+    task::Task,
 };
 
 #[allow(missing_docs)]
