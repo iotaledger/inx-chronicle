@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::{Range, RangeInclusive};
+use std::ops::RangeInclusive;
 
 use futures::{stream::Stream, TryStreamExt};
 use mongodb::{
@@ -30,7 +30,7 @@ impl SyncRecord {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncData {
     /// The completed(synced and logged) milestones data
-    pub completed: Vec<Range<MilestoneIndex>>,
+    pub completed: Vec<RangeInclusive<MilestoneIndex>>,
     /// Gaps/missings milestones data
     pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
 }
@@ -85,13 +85,13 @@ impl MongoDb {
             }
             match sync_data.completed.last_mut() {
                 Some(last) => {
-                    if last.end + 1 == milestone_index {
-                        last.end += 1;
+                    if *last.end() + 1 == milestone_index {
+                        *last = *last.start()..=milestone_index;
                     } else {
-                        sync_data.completed.push(milestone_index..milestone_index);
+                        sync_data.completed.push(milestone_index..=milestone_index);
                     }
                 }
-                None => sync_data.completed.push(milestone_index..milestone_index),
+                None => sync_data.completed.push(milestone_index..=milestone_index),
             }
             last_record.replace(milestone_index);
         }
