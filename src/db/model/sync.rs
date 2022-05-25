@@ -77,7 +77,7 @@ impl MongoDb {
         while let Some(SyncRecord { milestone_index }) = res.try_next().await? {
             // Missing records go into gaps
             if let Some(&last) = last_record.as_ref() {
-                if last + 1 != milestone_index {
+                if last + 1 < milestone_index {
                     sync_data.gaps.push(last + 1..=milestone_index - 1);
                 }
             } else if *range.start() < milestone_index {
