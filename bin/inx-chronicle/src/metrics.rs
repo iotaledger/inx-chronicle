@@ -8,7 +8,7 @@ use std::{
 
 use async_trait::async_trait;
 use bee_metrics::{metrics::process::ProcessMetrics, serve_metrics};
-use chronicle::runtime::{Actor, ActorContext, Task};
+use chronicle::runtime::{Actor, ActorContext, HandleEvent, Task, TaskReport};
 use futures::future::AbortHandle;
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -56,7 +56,7 @@ struct UpdateProcessMetrics {
 impl Task for UpdateProcessMetrics {
     type Error = std::convert::Infallible;
 
-    async fn run(self) -> Result<(), Self::Error> {
+    async fn run(&mut self) -> Result<(), Self::Error> {
         const MAX_RETRIES: u8 = 5;
         let mut retries = MAX_RETRIES;
 
@@ -117,7 +117,7 @@ impl Actor for MetricsWorker {
             })
         };
 
-        let abort_handles = vec![cx.spawn_task(UpdateProcessMetrics { process_metrics }).await];
+        let abort_handles = vec![cx.spawn_child_task(UpdateProcessMetrics { process_metrics }).await];
 
         Ok(MetricsState {
             server_handle: (server_fut, Some(send)),
@@ -140,5 +140,17 @@ impl Actor for MetricsWorker {
         }
 
         run_result
+    }
+}
+
+#[async_trait]
+impl HandleEvent<TaskReport<UpdateProcessMetrics>> for MetricsWorker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        _event: TaskReport<UpdateProcessMetrics>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
