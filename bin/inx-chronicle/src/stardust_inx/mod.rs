@@ -59,7 +59,7 @@ impl Inx {
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         let sync_data = self
             .db
-            .get_sync_data(self.config.sync_start_milestone.min(1.into()).max(first_ms.into())..=latest_ms.into())
+            .get_sync_data(self.config.sync_start_milestone.0.clamp(1, first_ms).into()..=latest_ms.into())
             .await?
             .gaps;
         if !sync_data.is_empty() {
