@@ -13,7 +13,6 @@ use thiserror::Error;
 
 use crate::{
     cli::CliArgs,
-    collector,
     config::{ChronicleConfig, ConfigError},
 };
 
@@ -59,7 +58,7 @@ impl Actor for Launcher {
         };
 
         #[cfg(feature = "collector")]
-        cx.spawn_child(collector::Collector::new(db.clone(), config.collector.clone()))
+        cx.spawn_child(crate::collector::Collector::new(db.clone(), config.collector.clone()))
             .await;
 
         #[cfg(feature = "api")]
@@ -75,11 +74,11 @@ impl Actor for Launcher {
 
 #[cfg(feature = "collector")]
 #[async_trait]
-impl HandleEvent<Report<collector::Collector>> for Launcher {
+impl HandleEvent<Report<crate::collector::Collector>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<collector::Collector>,
+        event: Report<crate::collector::Collector>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
@@ -88,12 +87,12 @@ impl HandleEvent<Report<collector::Collector>> for Launcher {
             }
             Report::Error(report) => match &report.error {
                 ActorError::Result(e) => match e {
-                    collector::CollectorError::MongoDb(e) => match e.kind.as_ref() {
+                    crate::collector::CollectorError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         mongodb::error::ErrorKind::Io(_)
                         | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
-                            cx.spawn_child(collector::Collector::new(db, config.collector.clone()))
+                            cx.spawn_child(crate::collector::Collector::new(db, config.collector.clone()))
                                 .await;
                         }
                         _ => {
