@@ -19,7 +19,7 @@ use chronicle::{
         sync::SyncRecord,
         tangle::MilestoneIndex,
     },
-    runtime::{ActorContext, ActorError, Addr, HandleEvent, Report},
+    runtime::{ActorContext, ActorError, Addr, HandleEvent, Report, Sender},
 };
 
 pub(super) use self::{config::InxConfig, worker::InxWorker};

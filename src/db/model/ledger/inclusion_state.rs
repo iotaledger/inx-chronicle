@@ -12,7 +12,7 @@ use thiserror::Error;
 pub struct UnexpectedLedgerInclusionState(u8);
 
 /// A block's ledger inclusion state.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum LedgerInclusionState {
     /// A conflicting block, ex. a double spend

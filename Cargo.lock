@@ -238,9 +238,11 @@ version = "0.1.0"
 source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#b92a926c44e530fcae1e75141f9c9d3c27cb3a4c"
 dependencies = [
  "axum 0.4.8",
+ "futures",
  "parking_lot",
  "prometheus-client",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -468,6 +470,7 @@ dependencies = [
  "console-subscriber",
  "derive_more",
  "dotenv",
+ "dyn-clone",
  "env_logger",
  "futures",
  "humantime-serde",
@@ -777,6 +780,12 @@ name = "dtoa"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5caaa75cbd2b960ff1e5392d2cfb1f44717fffe12fc1f32b7b5d1267f99732a6"
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
 name = "ed25519-zebra"

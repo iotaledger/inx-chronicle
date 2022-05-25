@@ -48,13 +48,8 @@ impl Actor for Collector {
         #[cfg(feature = "metrics")]
         let solid_counter = {
             let solid_counter = bee_metrics::metrics::counter::Counter::default();
-            cx.addr::<crate::metrics::MetricsWorker>()
-                .await
-                .send(crate::metrics::RegisterMetric {
-                    name: "solid_count".to_string(),
-                    help: "Count of solidified milestones".to_string(),
-                    metric: solid_counter.clone(),
-                })?;
+            cx.metrics_registry()
+                .register("solid_count", "Count of solidified milestones", solid_counter.clone());
             solid_counter
         };
         let mut solidifiers = Vec::with_capacity(self.config.solidifier_count);
