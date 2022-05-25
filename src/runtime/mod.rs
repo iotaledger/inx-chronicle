@@ -23,7 +23,13 @@ use futures::{
 
 pub use self::{
     actor::{
-        addr::Addr, context::ActorContext, error::ActorError, event::HandleEvent, report::Report, util::SpawnActor,
+        addr::Addr,
+        context::ActorContext,
+        error::ActorError,
+        event::HandleEvent,
+        report::Report,
+        sender::{IsClosed, Sender},
+        util::SpawnActor,
         Actor,
     },
     config::ConfigureActor,
