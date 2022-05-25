@@ -1,9 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::RangeInclusive;
+
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::stardust::milestone::MilestoneRecord, MongoDb},
+    db::{
+        model::{stardust::milestone::MilestoneRecord, tangle::MilestoneIndex},
+        MongoDb,
+    },
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
 };
 use inx::{
@@ -17,11 +22,12 @@ use super::{cone_stream::ConeStream, InxError};
 pub struct MilestoneStream {
     db: MongoDb,
     inx_client: InxClient<Channel>,
+    range: RangeInclusive<MilestoneIndex>,
 }
 
 impl MilestoneStream {
-    pub fn new(db: MongoDb, inx_client: InxClient<Channel>) -> Self {
-        Self { db, inx_client }
+    pub fn new(db: MongoDb, inx_client: InxClient<Channel>, range: RangeInclusive<MilestoneIndex>) -> Self {
+        Self { db, inx_client, range }
     }
 }
 
@@ -32,6 +38,14 @@ impl Actor for MilestoneStream {
 
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
+    }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        if *self.range.end() == u32::MAX {
+            format!("Milestone Stream ({}..)", self.range.start()).into()
+        } else {
+            format!("Milestone Stream ({}..={})", self.range.start(), self.range.end()).into()
+        }
     }
 }
 

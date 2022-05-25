@@ -54,6 +54,10 @@ impl Actor for Syncer {
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         Ok(())
     }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "Syncer".into()
+    }
 }
 
 #[async_trait]
@@ -105,7 +109,12 @@ impl HandleEvent<SyncNext> for Syncer {
                 .await?
                 .into_inner();
             cx.spawn_child(
-                MilestoneStream::new(self.db.clone(), self.inx_client.clone()).with_stream(milestone_stream),
+                MilestoneStream::new(
+                    self.db.clone(),
+                    self.inx_client.clone(),
+                    *milestone_range.start()..=*milestone_range.end(),
+                )
+                .with_stream(milestone_stream),
             )
             .await;
         } else {

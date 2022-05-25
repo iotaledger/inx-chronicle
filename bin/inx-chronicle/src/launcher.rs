@@ -56,7 +56,7 @@ impl Actor for Launcher {
         };
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
-        cx.spawn_child(super::stardust_inx::Inx::new(db.clone(), config.inx.clone()))
+        cx.spawn_child(super::stardust_inx::InxWorker::new(db.clone(), config.inx.clone()))
             .await;
 
         #[cfg(feature = "api")]
@@ -68,15 +68,19 @@ impl Actor for Launcher {
 
         Ok(config)
     }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "Launcher".into()
+    }
 }
 
 #[cfg(all(feature = "inx", feature = "stardust"))]
 #[async_trait]
-impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
+impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<super::stardust_inx::Inx>,
+        event: Report<super::stardust_inx::InxWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
@@ -90,7 +94,7 @@ impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
                         mongodb::error::ErrorKind::Io(_)
                         | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&config.mongodb).await?;
-                            cx.spawn_child(super::stardust_inx::Inx::new(db, config.inx.clone()))
+                            cx.spawn_child(super::stardust_inx::InxWorker::new(db, config.inx.clone()))
                                 .await;
                         }
                         _ => {
