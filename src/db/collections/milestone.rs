@@ -65,7 +65,10 @@ impl MongoDb {
     }
 
     /// Get milestone with index.
-    pub async fn get_milestone_record_by_index(&self, index: MilestoneIndex) -> Result<Option<MilestoneDocument>, Error> {
+    pub async fn get_milestone_record_by_index(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<Option<MilestoneDocument>, Error> {
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find_one(doc! {"milestone_index": index}, None)

@@ -114,13 +114,13 @@ async fn block_children(
             .map(|rec| {
                 if expanded {
                     Record {
-                        id: rec.inner.block_id.to_hex(),
+                        id: rec.block_id.to_hex(),
                         inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
                         milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
                     }
                     .into()
                 } else {
-                    rec.inner.block_id.to_hex().into()
+                    rec.block_id.to_hex().into()
                 }
             })
             .collect(),
@@ -207,7 +207,7 @@ async fn output_metadata(
         milestone_index_spent: spending_ms_index,
         milestone_ts_spent: spending_ms.as_ref().map(|ms| ms.milestone_timestamp),
         transaction_id_spent: spending_transaction.as_ref().map(|txn| {
-            if let Some(Payload::Transaction(payload)) = &txn.inner.payload {
+            if let Some(Payload::Transaction(payload)) = &txn.block.payload {
                 payload.id.to_hex()
             } else {
                 unreachable!()
@@ -229,10 +229,10 @@ async fn transaction_included_block(
         .ok_or(ApiError::NoResults)?;
 
     Ok(BlockResponse {
-        protocol_version: rec.inner.protocol_version,
-        parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.inner.payload,
-        nonce: rec.inner.nonce,
+        protocol_version: rec.block.protocol_version,
+        parents: rec.block.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.block.payload,
+        nonce: rec.block.nonce,
     })
 }
 

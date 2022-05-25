@@ -1,12 +1,12 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_test::rand::block::rand_block;
+use bee_test::rand::block::{rand_block, rand_block_id};
 use chronicle::{
     db::{MongoDb, MongoDbConfig},
     types::{
         ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-        stardust::block::Block,
+        stardust::block::{Block, BlockId},
     },
 };
 use packable::PackableExt;
@@ -18,7 +18,7 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
     let raw = bee_block.pack_to_vec();
     let block: Block = bee_block.clone().into();
 
-    let block_id = block.block_id.clone();
+    let block_id: BlockId = rand_block_id().into();
 
     let metadata = BlockMetadata {
         is_solid: true,

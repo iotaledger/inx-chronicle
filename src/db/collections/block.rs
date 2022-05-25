@@ -5,7 +5,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOptions, UpdateOptions},
+    options::{FindOneOptions, FindOptions},
     results::UpdateResult,
 };
 use serde::{Deserialize, Serialize};
@@ -22,9 +22,10 @@ use crate::{
 /// Chronicle Block record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockDocument {
+    #[serde(rename = "_id")]
+    pub block_id: BlockId,
     /// The block.
-    #[serde(flatten)] // TODO: Get rid of flatten to allow easier projections
-    pub inner: Block,
+    pub block: Block,
     /// The raw bytes of the block.
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
@@ -36,15 +37,6 @@ pub struct BlockDocument {
 impl BlockDocument {
     /// The stardust blocks collection name.
     pub const COLLECTION: &'static str = "stardust_blocks";
-
-    /// Creates a new block record.
-    pub fn new(block: Block, raw: Vec<u8>, metadata: Option<BlockMetadata>) -> Self {
-        Self {
-            inner: block,
-            raw,
-            metadata,
-        }
-    }
 }
 
 /// A result received when querying for a single output.
@@ -77,20 +69,21 @@ pub struct TransactionHistoryResult {
     pub amount: u64,
 }
 
+fn projection(field: &str) -> Option<FindOneOptions> {
+    Some(FindOneOptions::builder().projection(doc! {field: 1 }).build())
+}
+
 /// Implements the queries for the core API.
 impl MongoDb {
-    /// Gets a [`Block`] by its [`BlockId`].
+    /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
-        let result = self
-            .0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
-            .await?;
-
-        Ok(result.map(|d| d.inner)) // TODO: Use MongoDb projection instead.
+        self.0
+            .collection::<Block>(BlockDocument::COLLECTION)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, projection("block"))
+            .await
     }
 
-    /// Gets the raw bytes of a [`Block`] by its [`BlockId`].
+    /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
         let result = self
             .0
@@ -101,7 +94,7 @@ impl MongoDb {
         Ok(result.map(|d| d.raw)) // TODO: Use MongoDb projection instead.
     }
 
-    /// Gets the raw bytes of a [`Block`] by its [`BlockId`].
+    /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         let result = self
             .0
@@ -112,21 +105,22 @@ impl MongoDb {
         Ok(result.map(|d| d.metadata.unwrap())) // TODO: Use MongoDb projection instead.
     }
 
-    /// Get the children of a block.
+    /// Get the children of a [`Block`] as [`BlockId`]s.
     pub async fn get_block_children(
         &self,
         block_id: &BlockId,
         page_size: usize,
         page: usize,
-    ) -> Result<impl Stream<Item = Result<BlockDocument, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
         self.0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .collection::<BlockId>(BlockDocument::COLLECTION)
             .find(
                 doc! {"block.parents": bson::to_bson(block_id)?},
                 FindOptions::builder()
                     .skip((page_size * page) as u64)
                     .sort(doc! {"metadata.referenced_by_milestone_index": -1})
                     .limit(page_size as i64)
+                    .projection(doc! {"block_id": 1 })
                     .build(),
             )
             .await
@@ -134,33 +128,31 @@ impl MongoDb {
 
     /// Upserts a [`BlockRecord`] to the database.
     #[deprecated(note = "Use `insert_block_with_metadata` instead")]
-    pub async fn upsert_block_record(&self, block_record: &BlockDocument) -> Result<UpdateResult, Error> {
-        self.0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .update_one(
-                doc! { "_id": bson::to_bson(&block_record.inner.block_id)? },
-                doc! { "$set": bson::to_document(block_record)? },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await
+    pub async fn upsert_block_record(&self, _block_record: &BlockDocument) -> Result<UpdateResult, Error> {
+        unimplemented!();
     }
 
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
     pub async fn insert_block_with_metadata(
         &self,
-        _block_id: BlockId,
+        block_id: BlockId,
         block: Block,
         raw: Vec<u8>,
         metadata: BlockMetadata,
     ) -> Result<(), Error> {
         let block_document = BlockDocument {
-            inner: block,
+            block_id,
+            block,
             raw,
             metadata: Some(metadata),
         };
-        // TODO use insert instead of upsertdocs.rs./
-        #[allow(deprecated)]
-        let _ = self.upsert_block_record(&block_document).await?;
+
+        let _ = self
+            .0
+            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .insert_one(block_document, None)
+            .await;
+
         Ok(())
     }
 
