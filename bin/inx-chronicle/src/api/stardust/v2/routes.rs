@@ -18,11 +18,7 @@ use chronicle::{
 use futures::TryStreamExt;
 
 use super::responses::*;
-use crate::api::{
-    error::ApiError,
-    extractors::{Expanded, Pagination},
-    ApiResult,
-};
+use crate::api::{error::ApiError, extractors::Pagination, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -95,7 +91,6 @@ async fn block_children(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
     Pagination { page_size, page }: Pagination,
-    Expanded { expanded }: Expanded,
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let blocks = database
@@ -108,7 +103,7 @@ async fn block_children(
         block_id,
         max_results: page_size,
         count: blocks.len(),
-        children: blocks
+        children: blocks,
     })
 }
 
@@ -149,7 +144,7 @@ async fn output_metadata(
         is_spent: metadata.spent.is_some(),
         milestone_index_spent: metadata.spent.as_ref().map(|s| s.milestone_index_spent),
         milestone_ts_spent: metadata.spent.as_ref().map(|s| s.milestone_timestamp_spent),
-        transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex() ),
+        transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex()),
         milestone_index_booked: metadata.milestone_index_booked,
         milestone_ts_booked: metadata.milestone_timestamp_booked,
     })

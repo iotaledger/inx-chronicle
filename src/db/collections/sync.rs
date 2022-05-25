@@ -4,12 +4,7 @@
 use std::ops::RangeInclusive;
 
 use futures::{stream::Stream, TryStreamExt};
-use mongodb::{
-    bson::{self, doc},
-    error::Error,
-    options::{FindOptions, UpdateOptions},
-    results::UpdateResult,
-};
+use mongodb::{bson::doc, error::Error, options::FindOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::{db::MongoDb, types::tangle::MilestoneIndex};
@@ -18,6 +13,7 @@ use crate::{db::MongoDb, types::tangle::MilestoneIndex};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyncDocument {
     /// The index of the milestone that was completed.
+    #[serde(rename = "_id")]
     pub milestone_index: MilestoneIndex,
 }
 
@@ -40,21 +36,22 @@ impl MongoDb {
     pub async fn get_sync_record_by_index(&self, index: MilestoneIndex) -> Result<Option<SyncDocument>, Error> {
         self.0
             .collection::<SyncDocument>(SyncDocument::COLLECTION)
-            .find_one(doc! {"milestone_index": index}, None)
+            .find_one(doc! {"_id": index}, None)
             .await
     }
 
     /// Upserts a [`SyncDocument`] to the database.
     // TODO Redo this call.
-    pub async fn upsert_sync_record(&self, index: MilestoneIndex) -> Result<UpdateResult, Error> {
-        self.0
+    pub async fn insert_sync_status(&self, index: MilestoneIndex) -> Result<(), Error> {
+        let sync_document = SyncDocument { milestone_index: index };
+
+        let _ = self
+            .0
             .collection::<SyncDocument>(SyncDocument::COLLECTION)
-            .update_one(
-                doc! {"_id": index},
-                doc! {"$set": bson::to_document(&SyncDocument{milestone_index: index})?},
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await
+            .insert_one(sync_document, None)
+            .await?;
+
+        Ok(())
     }
 
     /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
@@ -65,8 +62,8 @@ impl MongoDb {
         self.0
             .collection::<SyncDocument>(SyncDocument::COLLECTION)
             .find(
-                doc! { "milestone_index": { "$gte": range.start(), "$lte": range.end() } },
-                FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
+                doc! { "_id": { "$gte": range.start(), "$lte": range.end() } },
+                FindOptions::builder().sort(doc! {"_id": 1}).build(),
             )
             .await
     }

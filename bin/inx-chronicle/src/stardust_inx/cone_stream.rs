@@ -3,13 +3,11 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        model::{stardust::block::BlockRecord, tangle::MilestoneIndex},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
+    types::tangle::MilestoneIndex,
 };
-use inx::tonic::Status;
+use inx::{tonic::Status, BlockWithMetadata};
 
 use super::InxError;
 
@@ -45,9 +43,11 @@ impl Actor for ConeStream {
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
         if run_result.is_ok() {
-            self.db.upsert_sync_record(self.milestone_index).await?;
+            self.db.insert_sync_status(self.milestone_index).await?;
+            log::debug!("Milestone `{}` synced.", self.milestone_index);
+        } else {
+            log::warn!("Syncing milestone `{}` failed.", self.milestone_index);
         }
-        log::debug!("Milestone {} synced", self.milestone_index);
         run_result
     }
 }
@@ -57,18 +57,28 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        event: Result<inx::proto::BlockWithMetadata, Status>,
+        block_metadata_result: Result<inx::proto::BlockWithMetadata, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Block Event");
-        match BlockRecord::try_from(event?) {
-            Ok(rec) => {
-                self.db.upsert_block_record(&rec).await?;
+
+        let block_metadata = block_metadata_result?;
+        // TODO: Get rid of unwrap here!
+        // TODO: Get rid of clone here!
+        let raw = block_metadata.block.as_ref().unwrap().data.clone();
+
+        match inx::BlockWithMetadata::try_from(block_metadata) {
+            Ok(BlockWithMetadata { block, metadata }) => {
+                self.db
+                    .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
+                    .await?;
+                log::trace!("Inserted block into database.")
             }
             Err(e) => {
                 log::error!("Could not read block: {:?}", e);
             }
         };
+
         Ok(())
     }
 }

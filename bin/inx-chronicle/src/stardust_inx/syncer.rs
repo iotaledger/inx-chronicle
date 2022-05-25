@@ -5,8 +5,9 @@ use std::{collections::VecDeque, ops::RangeInclusive};
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::tangle::MilestoneIndex, MongoDb},
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    types::tangle::MilestoneIndex,
 };
 use inx::{client::InxClient, tonic::Channel};
 
@@ -118,7 +119,7 @@ impl HandleEvent<SyncNext> for Syncer {
             )
             .await;
         } else {
-            log::info!("Sync complete");
+            log::info!("Successfully finished synchronization with node.");
             cx.shutdown();
         }
         Ok(())

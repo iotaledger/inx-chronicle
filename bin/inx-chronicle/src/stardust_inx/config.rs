@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use chronicle::db::model::tangle::MilestoneIndex;
+use chronicle::types::tangle::MilestoneIndex;
 use serde::{Deserialize, Serialize};
 
 /// A builder to establish a connection to INX.

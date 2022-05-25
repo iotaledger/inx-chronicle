@@ -73,7 +73,7 @@ impl MongoDb {
 
         Ok(size.try_into().unwrap())
     }
-    
+
     pub(crate) fn projection(field: &str) -> Option<FindOneOptions> {
         Some(FindOneOptions::builder().projection(doc! {field: 1 }).build())
     }

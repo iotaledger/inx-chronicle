@@ -5,7 +5,7 @@ password = "root"
 
 [api]
 port = 8042
-allow_origins = ["0.0.0.0"]
+allow_origins = "0.0.0.0"
 
 [inx]
 connect_url = "http://localhost:9029"

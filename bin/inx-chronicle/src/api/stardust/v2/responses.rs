@@ -5,14 +5,14 @@ use axum::response::IntoResponse;
 use chronicle::types::{
     ledger::LedgerInclusionState,
     stardust::{
-        block::{Input, Output, Payload, BlockId},
+        block::{BlockId, Input, Output, Payload},
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::api::{impl_success_response};
+use crate::api::impl_success_response;
 
 /// Response of `GET /api/v2/blocks/<block_id>`
 /// and `GET /api/v2/transactions/<transaction_id>/included-block`.

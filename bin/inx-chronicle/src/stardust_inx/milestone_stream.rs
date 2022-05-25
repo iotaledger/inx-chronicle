@@ -5,11 +5,9 @@ use std::ops::RangeInclusive;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        model::{stardust::milestone::MilestoneRecord, tangle::MilestoneIndex},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    types::tangle::MilestoneIndex,
 };
 use inx::{
     client::InxClient,
@@ -77,22 +75,32 @@ impl HandleEvent<Result<inx::proto::Milestone, Status>> for MilestoneStream {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        milestone: Result<inx::proto::Milestone, Status>,
+        milestone_result: Result<inx::proto::Milestone, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Milestone Event");
-        match MilestoneRecord::try_from(milestone?) {
-            Ok(rec) => {
-                self.db.upsert_milestone_record(&rec).await?;
+
+        match inx::Milestone::try_from(milestone_result?) {
+            Ok(milestone) => {
+                let milestone_index = milestone.milestone_info.milestone_index.into();
+                let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
+                let milestone_id = milestone.milestone_info.milestone_id.into();
+                let payload = (&milestone.milestone).into();
+
+                self.db
+                    .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+                    .await?;
+
                 let cone_stream = self
                     .inx_client
                     .read_milestone_cone(inx::proto::MilestoneRequest {
-                        milestone_index: *rec.milestone_index,
+                        milestone_index: *milestone_index,
                         milestone_id: None,
                     })
                     .await?
                     .into_inner();
-                cx.spawn_child(ConeStream::new(rec.milestone_index, self.db.clone()).with_stream(cone_stream))
+
+                cx.spawn_child(ConeStream::new(milestone_index, self.db.clone()).with_stream(cone_stream))
                     .await;
             }
             Err(e) => {

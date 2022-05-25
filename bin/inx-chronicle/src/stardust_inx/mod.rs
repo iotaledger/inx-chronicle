@@ -9,8 +9,9 @@ mod syncer;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::tangle::MilestoneIndex, MongoDb},
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report, Sender},
+    types::tangle::MilestoneIndex,
 };
 pub use config::InxConfig;
 pub use error::InxError;

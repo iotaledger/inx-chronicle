@@ -6,7 +6,7 @@ use std::str::FromStr;
 use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::{db, db::model::stardust::block::AliasId};
+use crate::types::stardust::block::AliasId;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -25,7 +25,7 @@ impl From<AliasAddress> for bee::AliasAddress {
 }
 
 impl FromStr for AliasAddress {
-    type Err = db::error::Error;
+    type Err = crate::types::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::AliasAddress::from_str(s)?.into())

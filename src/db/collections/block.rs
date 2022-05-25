@@ -5,16 +5,16 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOneOptions, FindOptions},
+    options::FindOptions,
     results::UpdateResult,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{MongoDb},
+    db::MongoDb,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{Address, Block, BlockId, Output, TransactionId},
+        stardust::block::{Address, Block, BlockId, TransactionId},
         tangle::MilestoneIndex,
     },
 };
@@ -38,17 +38,6 @@ pub struct BlockDocument {
 impl BlockDocument {
     /// The stardust blocks collection name.
     pub const COLLECTION: &'static str = "stardust_blocks";
-}
-
-/// A result received when querying for a single output.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputResult {
-    /// The id of the block this output came from.
-    pub block_id: BlockId,
-    /// The metadata of the block this output came from.
-    pub metadata: Option<BlockMetadata>,
-    /// The output.
-    pub output: Output,
 }
 
 /// A single transaction history result row.
@@ -82,8 +71,7 @@ impl MongoDb {
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
-        self
-            .0
+        self.0
             .collection::<Vec<u8>>(BlockDocument::COLLECTION)
             .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("raw"))
             .await
@@ -91,14 +79,13 @@ impl MongoDb {
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
-        self
-            .0
+        self.0
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("metadata"))
             .await
     }
 
-    /// Get the children of a [`Block`] as [`BlockId`]s.
+    /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
     pub async fn get_block_children(
         &self,
         block_id: &BlockId,
@@ -167,6 +154,7 @@ impl MongoDb {
     }
 
     /// Aggregates the spending transactions
+    #[deprecated(note = "don't use")]
     pub async fn get_spending_transaction(
         &self,
         transaction_id: &TransactionId,
@@ -185,11 +173,8 @@ impl MongoDb {
             .await
     }
 
-    /// Finds the block that included a transaction.
-    pub async fn get_block_for_transaction(
-        &self,
-        transaction_id: &TransactionId,
-    ) -> Result<Option<Block>, Error> {
+    /// Finds the [`Block`] that included a transaction by [`TransactionId`].
+    pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
         self.0
             .collection::<Block>(BlockDocument::COLLECTION)
             .find_one(

@@ -75,7 +75,8 @@ impl MongoDb {
             .await
     }
 
-    /// Upserts a [`MilestoneRecord`] to the database.
+    ///
+    #[deprecated(note = "Use `insert_milestone` instead")]
     pub async fn upsert_milestone_record(&self, milestone_record: &MilestoneDocument) -> Result<UpdateResult, Error> {
         let doc = bson::to_document(milestone_record)?;
         self.0
@@ -86,6 +87,30 @@ impl MongoDb {
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await
+    }
+
+    /// Inserts the information of a milestone into the database.
+    pub async fn insert_milestone(
+        &self,
+        milestone_id: MilestoneId,
+        milestone_index: MilestoneIndex,
+        milestone_timestamp: MilestoneTimestamp,
+        payload: MilestonePayload,
+    ) -> Result<(), Error> {
+        let milestone_document = MilestoneDocument {
+            milestone_id,
+            milestone_index,
+            milestone_timestamp,
+            payload,
+        };
+
+        let _ = self
+            .0
+            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+            .insert_one(milestone_document, None)
+            .await;
+
+        Ok(())
     }
 
     /// Find the starting milestone.
