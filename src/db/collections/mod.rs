@@ -13,6 +13,6 @@ mod status;
 mod sync;
 
 pub use self::{
-    block::BlockDocument, milestone::MilestoneRecord, output::OutputDocument, status::StatusDocument,
+    block::BlockDocument, milestone::MilestoneDocument, output::OutputDocument, status::StatusDocument,
     sync::SyncDocument,
 };
