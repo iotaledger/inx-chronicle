@@ -24,7 +24,7 @@ impl Default for InxConfig {
         Self {
             connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
-            sync_start_milestone: Default::default(),
+            sync_start_milestone: 1.into(),
         }
     }
 }

@@ -9,7 +9,7 @@ mod syncer;
 
 use async_trait::async_trait;
 use chronicle::{
-    db::MongoDb,
+    db::{model::tangle::MilestoneIndex, MongoDb},
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report, Sender},
 };
 pub use config::InxConfig;
@@ -46,6 +46,32 @@ impl Inx {
             .await
             .map_err(InxError::ConnectionError)
     }
+
+    async fn spawn_syncer(
+        &self,
+        cx: &mut ActorContext<Self>,
+        inx_client: &mut InxClient<Channel>,
+    ) -> Result<MilestoneIndex, InxError> {
+        // Request the node status so we can get the pruning index and latest confirmed milestone
+        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
+            .map_err(InxError::InxTypeConversion)?;
+        let first_ms = node_status.tangle_pruning_index + 1;
+        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
+        let sync_data = self
+            .db
+            .get_sync_data(self.config.sync_start_milestone.min(1.into()).max(first_ms.into())..=latest_ms.into())
+            .await?
+            .gaps;
+        if !sync_data.is_empty() {
+            let syncer = cx
+                .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
+                .await;
+            syncer.send(SyncNext)?;
+        } else {
+            cx.abort().await;
+        }
+        Ok(latest_ms.into())
+    }
 }
 
 #[async_trait]
@@ -58,24 +84,7 @@ impl Actor for Inx {
         let mut inx_client = Self::connect(&self.config).await?;
         log::info!("Connected to INX.");
 
-        // Request the node status so we can get the pruning index and latest confirmed milestone
-        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
-            .map_err(InxError::InxTypeConversion)?;
-        let first_ms = node_status.tangle_pruning_index + 1;
-        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-        let sync_data = self
-            .db
-            .get_sync_data(self.config.sync_start_milestone.max(first_ms.into())..=latest_ms.into())
-            .await?
-            .gaps;
-        if !sync_data.is_empty() {
-            let syncer = cx
-                .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
-                .await;
-            syncer.send(SyncNext)?;
-        } else {
-            cx.abort().await;
-        }
+        let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
 
         let milestone_stream = inx_client
             .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
@@ -124,24 +133,7 @@ impl HandleEvent<Report<Syncer>> for Inx {
                 ActorError::Result(e) => match &e {
                     InxError::Read(s) => match s.code() {
                         Code::InvalidArgument => {
-                            let node_status =
-                                NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
-                                    .map_err(InxError::InxTypeConversion)?;
-                            let first_ms = node_status.tangle_pruning_index + 1;
-                            let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-                            let sync_data = self
-                                .db
-                                .get_sync_data(self.config.sync_start_milestone.max(first_ms.into())..=latest_ms.into())
-                                .await?
-                                .gaps;
-                            if !sync_data.is_empty() {
-                                let syncer = cx
-                                    .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
-                                    .await;
-                                syncer.send(SyncNext)?;
-                            } else {
-                                cx.abort().await;
-                            }
+                            self.spawn_syncer(cx, inx_client).await?;
                         }
                         _ => Err(e)?,
                     },
