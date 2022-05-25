@@ -11,7 +11,7 @@ use super::{
     report::Report,
     Actor,
 };
-use crate::runtime::{config::SpawnConfig, spawn_task};
+use crate::runtime::{config::SpawnConfig, spawn_task, Sender};
 
 /// A wrapper that can be used to delay an event until a specified time.
 #[derive(Debug)]
@@ -78,4 +78,17 @@ where
         cx.spawn_child(event.actor).await;
         Ok(())
     }
+}
+
+#[cfg(feature = "metrics")]
+pub(crate) fn sanitize_metric_name(name: &str) -> String {
+    name.chars()
+        .filter_map(|c| match c {
+            '<' => Some('_'),
+            '_' | ':' => Some(c),
+            c if c.is_whitespace() => Some('_'),
+            c if c.is_ascii_alphanumeric() => Some(c),
+            _ => None,
+        })
+        .collect::<String>()
 }

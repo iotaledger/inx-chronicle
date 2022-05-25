@@ -20,7 +20,7 @@ use super::{
     util::DelayedEvent,
     Actor,
 };
-use crate::runtime::{config::SpawnConfig, error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream};
+use crate::runtime::{config::SpawnConfig, error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream, Sender};
 
 type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
 

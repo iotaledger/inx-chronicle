@@ -10,7 +10,7 @@ mod syncer;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report, Sender},
 };
 pub use config::InxConfig;
 pub use error::InxError;

@@ -4,13 +4,9 @@
 use std::ops::Deref;
 
 use thiserror::Error;
-use tokio::sync::mpsc::UnboundedSender;
 
-use super::{
-    event::{DynEvent, Envelope},
-    Actor,
-};
-use crate::runtime::{error::RuntimeError, registry::ScopeId, scope::ScopeView};
+use super::{event::Envelope, sender::CloneSender, Actor};
+use crate::runtime::{registry::ScopeId, scope::ScopeView};
 
 /// Error sending a block to an actor
 #[derive(Error, Debug)]
@@ -31,15 +27,17 @@ impl<S: Into<String>> From<S> for SendError {
 }
 
 /// An actor handle, used to send events.
-#[derive(Debug)]
 pub struct Addr<A: Actor> {
     pub(crate) scope: ScopeView,
-    pub(crate) sender: UnboundedSender<Envelope<A>>,
+    pub(crate) sender: Box<dyn CloneSender<Envelope<A>>>,
 }
 
 impl<A: Actor> Addr<A> {
-    pub(crate) fn new(scope: ScopeView, sender: UnboundedSender<Envelope<A>>) -> Self {
-        Self { scope, sender }
+    pub(crate) fn new(scope: ScopeView, sender: impl CloneSender<Envelope<A>> + 'static) -> Self {
+        Self {
+            scope,
+            sender: Box::new(sender) as _,
+        }
     }
 
     /// Shuts down the actor. Use with care!
@@ -56,21 +54,6 @@ impl<A: Actor> Addr<A> {
     pub fn scope_id(&self) -> ScopeId {
         self.scope.id()
     }
-
-    /// Sends a block to the actor
-    pub fn send<E: 'static + DynEvent<A>>(&self, event: E) -> Result<(), RuntimeError>
-    where
-        Self: Sized,
-    {
-        self.sender
-            .send(Box::new(event))
-            .map_err(|_| RuntimeError::SendError("Failed to send event".into()))
-    }
-
-    /// Returns whether the actor's event channel is closed.
-    pub fn is_closed(&self) -> bool {
-        self.sender.is_closed()
-    }
 }
 
 impl<A: Actor> Clone for Addr<A> {
@@ -82,23 +65,17 @@ impl<A: Actor> Clone for Addr<A> {
     }
 }
 
+impl<A: Actor> std::fmt::Debug for Addr<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Addr").field("scope", &self.scope).finish()
+    }
+}
+
 /// An optional address, which allows sending events.
 #[derive(Debug, Clone)]
-pub struct OptionalAddr<A: Actor>(Option<Addr<A>>);
+pub struct OptionalAddr<A: Actor>(pub(crate) Option<Addr<A>>);
 
 impl<A: Actor> OptionalAddr<A> {
-    /// Sends an event if the address exists. Returns an error if the address is not set.
-    pub fn send<E>(&self, event: E) -> Result<(), RuntimeError>
-    where
-        A: 'static + Actor,
-        E: 'static + DynEvent<A>,
-    {
-        self.0
-            .as_ref()
-            .ok_or_else(|| SendError::new(format!("No open address for {}", std::any::type_name::<A>())))?
-            .send(event)
-    }
-
     /// Gets the inner optional address.
     pub fn into_inner(self) -> Option<Addr<A>> {
         self.0
