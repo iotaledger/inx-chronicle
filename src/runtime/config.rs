@@ -44,7 +44,7 @@ impl<A> SpawnConfig<A> {
     }
 }
 
-impl<A> From<A> for SpawnConfig<A> {
+impl<A: Actor> From<A> for SpawnConfig<A> {
     fn from(actor: A) -> Self {
         Self::new(actor)
     }

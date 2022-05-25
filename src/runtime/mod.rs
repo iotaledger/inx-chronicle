@@ -7,6 +7,8 @@ mod actor;
 mod config;
 /// Module containing runtime errors.
 mod error;
+/// Module containing stream merge functionality.
+mod merge;
 /// Module containing the actor registry.
 mod registry;
 /// Module containing runtime scope types.
@@ -21,6 +23,7 @@ use futures::{
     Future,
 };
 
+pub(crate) use self::merge::MergeExt;
 pub use self::{
     actor::{
         addr::Addr,
@@ -32,7 +35,7 @@ pub use self::{
         util::SpawnActor,
         Actor,
     },
-    config::ConfigureActor,
+    config::{ConfigureActor, SpawnConfig},
     error::RuntimeError,
     scope::RuntimeScope,
 };

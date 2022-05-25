@@ -1,10 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::{Deref, Range};
+use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::db::model::{ledger::LedgerInclusionState, tangle::MilestoneIndex};
+use chronicle::db::model::{ledger::LedgerInclusionState, sync::SyncData, tangle::MilestoneIndex};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -36,14 +36,7 @@ impl_success_response!(InfoResponse);
 
 /// An aggregation type that represents the ranges of completed milestones and gaps.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SyncDataResponse {
-    /// The completed(synced and logged) milestones data
-    pub completed: Vec<Range<MilestoneIndex>>,
-    /// Synced milestones data but unlogged
-    pub synced_but_unlogged: Vec<Range<MilestoneIndex>>,
-    /// Gaps/missings milestones data
-    pub gaps: Vec<Range<MilestoneIndex>>,
-}
+pub struct SyncDataResponse(pub SyncData);
 
 impl_success_response!(SyncDataResponse);
 

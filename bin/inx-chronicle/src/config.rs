@@ -16,13 +16,14 @@ pub enum ConfigError {
 }
 
 /// Configuration of Chronicle.
-#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
     #[cfg(feature = "api")]
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
-    pub collector: crate::collector::CollectorConfig,
+    pub inx: super::stardust_inx::InxConfig,
     #[cfg(feature = "metrics")]
     pub metrics: crate::metrics::MetricsConfig,
 }
@@ -35,17 +36,13 @@ impl ChronicleConfig {
     }
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
-    pub fn apply_cli_args(&mut self, args: super::CliArgs) {
+    pub fn apply_cli_args(&mut self, args: super::cli::CliArgs) {
         if let Some(connect_url) = args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
-        if let Some(solidifier_count) = args.solidifier_count {
-            self.collector.solidifier_count = solidifier_count;
-        }
-        #[cfg(all(feature = "stardust", feature = "inx"))]
         if let Some(inx) = args.inx {
-            self.collector.inx.connect_url = inx;
+            self.inx.connect_url = inx;
         }
     }
 }

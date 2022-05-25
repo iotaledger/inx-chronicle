@@ -8,7 +8,6 @@ use futures::{
     Future,
 };
 use tokio::task::JoinHandle;
-use tokio_stream::StreamExt;
 
 use super::{
     actor::{
@@ -23,7 +22,7 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
-    spawn_task, Sender,
+    spawn_task, MergeExt, Sender,
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -88,7 +87,7 @@ impl ScopeView {
 
     /// Aborts the tasks in this runtime's scope. This will shutdown tasks that have
     /// shutdown handles instead.
-    pub(crate) async fn abort(&self) {
+    pub async fn abort(&self) {
         self.0.abort().await;
     }
 }

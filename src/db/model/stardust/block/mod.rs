@@ -46,36 +46,28 @@ impl BlockRecord {
     pub const COLLECTION: &'static str = "stardust_blocks";
 
     /// Creates a new block record.
-    pub fn new(block: Block, raw: Vec<u8>) -> Self {
+    pub fn new(block: Block, raw: Vec<u8>, metadata: Option<Metadata>) -> Self {
         Self {
             inner: block,
             raw,
-            metadata: None,
+            metadata,
         }
     }
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<inx::proto::Block> for BlockRecord {
+impl TryFrom<inx::proto::BlockWithMetadata> for BlockRecord {
     type Error = inx::Error;
 
-    fn try_from(value: inx::proto::Block) -> Result<Self, Self::Error> {
-        let (block, raw_block) = value.try_into()?;
-        Ok(Self::new(block.block.into(), raw_block))
-    }
-}
-
-#[cfg(feature = "inx")]
-impl TryFrom<(inx::proto::RawBlock, inx::proto::BlockMetadata)> for BlockRecord {
-    type Error = inx::Error;
-
-    fn try_from((raw_block, metadata): (inx::proto::RawBlock, inx::proto::BlockMetadata)) -> Result<Self, Self::Error> {
-        let block = bee_block_stardust::Block::try_from(raw_block.clone())?;
-        Ok(Self {
-            inner: block.into(),
-            raw: raw_block.data,
-            metadata: Some(inx::BlockMetadata::try_from(metadata)?.into()),
-        })
+    fn try_from(value: inx::proto::BlockWithMetadata) -> Result<Self, Self::Error> {
+        let raw_block = value
+            .block
+            .as_ref()
+            .ok_or(inx::Error::MissingField("block"))?
+            .data
+            .clone();
+        let block = inx::BlockWithMetadata::try_from(value)?;
+        Ok(Self::new(block.block.into(), raw_block, Some(block.metadata.into())))
     }
 }
 

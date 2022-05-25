@@ -39,20 +39,14 @@ pub enum ApiError {
     BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
-    #[error("Provided index is too large (Max 64 bytes)")]
-    IndexTooLarge,
     #[error("Internal server error")]
     Internal(InternalApiError),
-    #[error("Invalid hexidecimal encoding")]
-    InvalidHex,
     #[error("No results returned")]
     NoResults,
     #[error("No endpoint found")]
     NotFound,
     #[error(transparent)]
     QueryError(#[from] QueryRejection),
-    #[error("Provided tag is too large (Max 64 bytes)")]
-    TagTooLarge,
 }
 
 impl ApiError {
@@ -60,12 +54,7 @@ impl ApiError {
     pub fn status(&self) -> StatusCode {
         match self {
             ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
-            ApiError::IndexTooLarge
-            | ApiError::TagTooLarge
-            | ApiError::InvalidHex
-            | ApiError::BadTimeRange
-            | ApiError::BadParse(_)
-            | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
+            ApiError::BadTimeRange | ApiError::BadParse(_) | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

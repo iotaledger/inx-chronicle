@@ -7,7 +7,7 @@
 mod extractors;
 
 #[cfg(feature = "stardust")]
-pub(crate) mod stardust;
+pub mod stardust;
 
 mod error;
 #[macro_use]
@@ -114,7 +114,12 @@ impl Actor for ApiWorker {
         Ok(())
     }
 
-    async fn shutdown(&mut self, cx: &mut ActorContext<Self>, _state: &mut Self::State) -> Result<(), Self::Error> {
+    async fn shutdown(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        _state: &mut Self::State,
+        run_result: Result<(), Self::Error>,
+    ) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
         if let Some((join_handle, shutdown_handle)) = self.server_handle.take() {
             // Try to shut down axum. It may have already shut down, which is fine.
@@ -124,7 +129,7 @@ impl Actor for ApiWorker {
             join_handle.await.unwrap()?;
         }
         log::info!("Stopping API server");
-        Ok(())
+        run_result
     }
 }
 

@@ -75,6 +75,13 @@ impl<A: Actor> std::fmt::Debug for Addr<A> {
 #[derive(Debug, Clone)]
 pub struct OptionalAddr<A: Actor>(pub(crate) Option<Addr<A>>);
 
+impl<A: Actor> OptionalAddr<A> {
+    /// Gets the inner optional address.
+    pub fn into_inner(self) -> Option<Addr<A>> {
+        self.0
+    }
+}
+
 impl<A: Actor> From<Option<Addr<A>>> for OptionalAddr<A> {
     fn from(opt_addr: Option<Addr<A>>) -> Self {
         Self(opt_addr)

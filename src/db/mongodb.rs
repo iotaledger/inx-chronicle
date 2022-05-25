@@ -59,6 +59,7 @@ impl MongoDb {
 /// The [`MongoDb`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MongoDbConfig {
     pub(crate) connect_url: String,
     pub(crate) username: Option<String>,
