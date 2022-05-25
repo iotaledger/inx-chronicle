@@ -6,7 +6,7 @@
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential},
+    options::{ClientOptions, Credential, FindOneOptions},
     Client,
 };
 use serde::{Deserialize, Serialize};
@@ -72,6 +72,10 @@ impl MongoDb {
             .unwrap();
 
         Ok(size.try_into().unwrap())
+    }
+    
+    pub(crate) fn projection(field: &str) -> Option<FindOneOptions> {
+        Some(FindOneOptions::builder().projection(doc! {field: 1 }).build())
     }
 }
 

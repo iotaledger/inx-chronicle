@@ -12,7 +12,9 @@ mod status;
 /// Module containing sync document models.
 mod sync;
 
+#[deprecated(note = "Don't use these directly.")]
 pub use self::{
-    block::BlockDocument, milestone::MilestoneDocument, output::OutputDocument, status::StatusDocument,
+    milestone::MilestoneDocument, output::OutputDocument, status::StatusDocument,
     sync::SyncDocument,
 };
+

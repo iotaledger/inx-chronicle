@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     stardust::{
-        block::{BlockId, TransactionId},
+        block::{BlockId, TransactionId, OutputId},
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
@@ -13,16 +13,18 @@ use crate::types::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpentMetadata {
-    transaction_id: TransactionId,
-    milestone_index_spent: MilestoneIndex,
-    milestone_timestamp_spent: MilestoneTimestamp,
+    pub transaction_id: TransactionId,
+    pub milestone_index_spent: MilestoneIndex,
+    pub milestone_timestamp_spent: MilestoneTimestamp,
 }
 
 /// Block metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputMetadata {
-    block_id: BlockId,
-    milestone_index_booked: MilestoneIndex,
-    milestone_timestamp_booked: MilestoneTimestamp,
-    spent: Option<SpentMetadata>,
+    pub output_id: OutputId,
+    pub block_id: BlockId,
+    pub transaction_id: TransactionId,
+    pub milestone_index_booked: MilestoneIndex,
+    pub milestone_timestamp_booked: MilestoneTimestamp,
+    pub spent: Option<SpentMetadata>,
 }

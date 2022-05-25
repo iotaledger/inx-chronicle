@@ -11,7 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::MongoDb,
+    db::{MongoDb},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{Address, Block, BlockId, Output, TransactionId},
@@ -22,6 +22,7 @@ use crate::{
 /// Chronicle Block record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockDocument {
+    /// The id of the current block.
     #[serde(rename = "_id")]
     pub block_id: BlockId,
     /// The block.
@@ -69,40 +70,32 @@ pub struct TransactionHistoryResult {
     pub amount: u64,
 }
 
-fn projection(field: &str) -> Option<FindOneOptions> {
-    Some(FindOneOptions::builder().projection(doc! {field: 1 }).build())
-}
-
 /// Implements the queries for the core API.
 impl MongoDb {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         self.0
             .collection::<Block>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, projection("block"))
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("block"))
             .await
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
-        let result = self
+        self
             .0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
-            .await?;
-
-        Ok(result.map(|d| d.raw)) // TODO: Use MongoDb projection instead.
+            .collection::<Vec<u8>>(BlockDocument::COLLECTION)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("raw"))
+            .await
     }
 
-    /// Get the raw bytes of a [`Block`] by its [`BlockId`].
+    /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
-        let result = self
+        self
             .0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
-            .await?;
-
-        Ok(result.map(|d| d.metadata.unwrap())) // TODO: Use MongoDb projection instead.
+            .collection::<BlockMetadata>(BlockDocument::COLLECTION)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("metadata"))
+            .await
     }
 
     /// Get the children of a [`Block`] as [`BlockId`]s.
@@ -157,6 +150,7 @@ impl MongoDb {
     }
 
     /// Updates a [`BlockRecord`] with [`Metadata`].
+    #[deprecated(note = "We never update block metadata")]
     pub async fn update_block_metadata(
         &self,
         block_id: &BlockId,
@@ -195,35 +189,17 @@ impl MongoDb {
     pub async fn get_block_for_transaction(
         &self,
         transaction_id: &TransactionId,
-    ) -> Result<Option<BlockDocument>, Error> {
+    ) -> Result<Option<Block>, Error> {
         self.0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .collection::<Block>(BlockDocument::COLLECTION)
             .find_one(
                 doc! {
                     "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?,
                     "block.payload.transaction_id": bson::to_bson(transaction_id)?,
                 },
-                None,
+                Self::projection("block"),
             )
             .await
-    }
-
-    /// Aggregates outputs by transaction ids.
-    pub async fn get_output(&self, transaction_id: &TransactionId, idx: u16) -> Result<Option<OutputResult>, Error> {
-        Ok(self.0.collection::<BlockDocument>(BlockDocument::COLLECTION).aggregate(
-            vec![
-                doc! { "$match": { "block.payload.transaction_id": bson::to_bson(transaction_id)? } },
-                doc! { "$unwind": { "path": "$block.payload.essence.outputs", "includeArrayIndex": "block.payload.essence.outputs.idx" } },
-                doc! { "$match": { "block.payload.essence.outputs.idx": bson::to_bson(&idx)? } },
-                doc! { "$project": { "block_id": "$block.id", "metadata": "$metadata", "output": "$block.payload.essence.outputs" } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await?
-        .map(bson::from_document)
-        .transpose()?)
     }
 
     /// Aggregates the transaction history for an address.

@@ -5,14 +5,14 @@ use axum::response::IntoResponse;
 use chronicle::types::{
     ledger::LedgerInclusionState,
     stardust::{
-        block::{Input, Output, Payload},
+        block::{Input, Output, Payload, BlockId},
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::api::{impl_success_response, responses::Expansion};
+use crate::api::{impl_success_response};
 
 /// Response of `GET /api/v2/blocks/<block_id>`
 /// and `GET /api/v2/transactions/<transaction_id>/included-block`.
@@ -60,7 +60,7 @@ pub struct BlockChildrenResponse {
     #[serde(rename = "maxResults")]
     pub max_results: usize,
     pub count: usize,
-    pub children: Vec<Expansion>,
+    pub children: Vec<BlockId>,
 }
 
 impl_success_response!(BlockChildrenResponse);

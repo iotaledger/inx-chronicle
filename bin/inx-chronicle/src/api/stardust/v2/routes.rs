@@ -21,7 +21,6 @@ use super::responses::*;
 use crate::api::{
     error::ApiError,
     extractors::{Expanded, Pagination},
-    responses::Record,
     ApiResult,
 };
 
@@ -110,61 +109,26 @@ async fn block_children(
         max_results: page_size,
         count: blocks.len(),
         children: blocks
-            .into_iter()
-            .map(|rec| {
-                if expanded {
-                    Record {
-                        id: rec.block_id.to_hex(),
-                        inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
-                        milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
-                    }
-                    .into()
-                } else {
-                    rec.block_id.to_hex().into()
-                }
-            })
-            .collect(),
     })
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let output_res = database
-        .get_output(&output_id.transaction_id, output_id.index)
+    let (output, metadata) = database
+        .get_output_and_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
-
-    let booked_ms_index = output_res
-        .metadata
-        .map(|d| d.referenced_by_milestone_index)
-        .ok_or(ApiError::NoResults)?;
-    let booked_ms = database
-        .get_milestone_record_by_index(booked_ms_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    let spending_transaction = database
-        .get_spending_transaction(&output_id.transaction_id, output_id.index)
-        .await?;
-
-    let spending_ms_index = spending_transaction
-        .as_ref()
-        .and_then(|txn| txn.metadata.as_ref().map(|d| d.referenced_by_milestone_index));
-    let spending_ms = if let Some(ms_index) = spending_ms_index {
-        database.get_milestone_record_by_index(ms_index).await?
-    } else {
-        None
-    };
 
     Ok(OutputResponse {
-        block_id: output_res.block_id.to_hex(),
-        transaction_id: output_id.transaction_id.to_hex(),
-        output_index: output_id.index,
-        is_spent: spending_transaction.is_some(),
-        milestone_index_spent: spending_ms_index,
-        milestone_ts_spent: spending_ms.as_ref().map(|ms| ms.milestone_timestamp),
-        milestone_index_booked: booked_ms_index,
-        milestone_ts_booked: booked_ms.milestone_timestamp,
-        output: output_res.output,
+        block_id: metadata.block_id.to_hex(),
+        transaction_id: metadata.transaction_id.to_hex(),
+        output_index: metadata.output_id.index,
+        is_spent: metadata.spent.is_some(),
+        milestone_index_spent: metadata.spent.as_ref().map(|s| s.milestone_index_spent),
+        milestone_ts_spent: metadata.spent.as_ref().map(|s| s.milestone_timestamp_spent),
+        milestone_index_booked: metadata.milestone_index_booked,
+        milestone_ts_booked: metadata.milestone_timestamp_booked,
+        output,
     })
 }
 
@@ -173,48 +137,21 @@ async fn output_metadata(
     Path(output_id): Path<String>,
 ) -> ApiResult<OutputMetadataResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let output_res = database
-        .get_output(&output_id.transaction_id, output_id.index)
+    let metadata = database
+        .get_output_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
-
-    let booked_ms_index = output_res
-        .metadata
-        .map(|d| d.referenced_by_milestone_index)
-        .ok_or(ApiError::NoResults)?;
-    let booked_ms = database
-        .get_milestone_record_by_index(booked_ms_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    let spending_transaction = database
-        .get_spending_transaction(&output_id.transaction_id, output_id.index)
-        .await?;
-
-    let spending_ms_index = spending_transaction
-        .as_ref()
-        .and_then(|txn| txn.metadata.as_ref().map(|d| d.referenced_by_milestone_index));
-    let spending_ms = if let Some(ms_index) = spending_ms_index {
-        database.get_milestone_record_by_index(ms_index).await?
-    } else {
-        None
-    };
 
     Ok(OutputMetadataResponse {
-        block_id: output_res.block_id.to_hex(),
-        transaction_id: output_id.transaction_id.to_hex(),
-        output_index: output_id.index,
-        is_spent: spending_transaction.is_some(),
-        milestone_index_spent: spending_ms_index,
-        milestone_ts_spent: spending_ms.as_ref().map(|ms| ms.milestone_timestamp),
-        transaction_id_spent: spending_transaction.as_ref().map(|txn| {
-            if let Some(Payload::Transaction(payload)) = &txn.block.payload {
-                payload.id.to_hex()
-            } else {
-                unreachable!()
-            }
-        }),
-        milestone_index_booked: booked_ms_index,
-        milestone_ts_booked: booked_ms.milestone_timestamp,
+        block_id: metadata.block_id.to_hex(),
+        transaction_id: metadata.transaction_id.to_hex(),
+        output_index: metadata.output_id.index,
+        is_spent: metadata.spent.is_some(),
+        milestone_index_spent: metadata.spent.as_ref().map(|s| s.milestone_index_spent),
+        milestone_ts_spent: metadata.spent.as_ref().map(|s| s.milestone_timestamp_spent),
+        transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex() ),
+        milestone_index_booked: metadata.milestone_index_booked,
+        milestone_ts_booked: metadata.milestone_timestamp_booked,
     })
 }
 
@@ -223,16 +160,16 @@ async fn transaction_included_block(
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
     let transaction_id_dto = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
-    let rec = database
+    let block = database
         .get_block_for_transaction(&transaction_id_dto)
         .await?
         .ok_or(ApiError::NoResults)?;
 
     Ok(BlockResponse {
-        protocol_version: rec.block.protocol_version,
-        parents: rec.block.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.block.payload,
-        nonce: rec.block.nonce,
+        protocol_version: block.protocol_version,
+        parents: block.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: block.payload,
+        nonce: block.nonce,
     })
 }
 
