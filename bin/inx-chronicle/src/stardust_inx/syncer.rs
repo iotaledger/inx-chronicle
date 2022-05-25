@@ -12,7 +12,8 @@ use inx::{client::InxClient, tonic::Channel};
 
 use super::{InxError, MilestoneStream};
 
-// The Syncer starts at a certain milestone index in the past and moves forwards in time trying to sync as many milestones as possible - including their cones.
+// The Syncer starts at a certain milestone index in the past and moves forwards in time trying to sync as many
+// milestones as possible - including their cones.
 pub struct Syncer {
     gaps: Gaps,
     db: MongoDb,
