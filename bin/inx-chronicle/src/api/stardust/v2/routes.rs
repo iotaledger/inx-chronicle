@@ -54,39 +54,41 @@ pub fn routes() -> Router {
 }
 
 async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<BlockResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
+    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
+    let rec = database.get_block(&block_id).await?.ok_or(ApiError::NoResults)?;
     Ok(BlockResponse {
-        protocol_version: rec.inner.protocol_version,
-        parents: rec.inner.parents.iter().map(|m| m.to_hex()).collect(),
-        payload: rec.inner.payload,
-        nonce: rec.inner.nonce,
+        protocol_version: rec.protocol_version,
+        parents: rec.parents.iter().map(|m| m.to_hex()).collect(),
+        payload: rec.payload,
+        nonce: rec.nonce,
     })
 }
 
 async fn block_raw(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
-    Ok(rec.raw)
+    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
+    database.get_block_raw(&block_id).await?.ok_or(ApiError::NoResults)
 }
 
 async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
 ) -> ApiResult<BlockMetadataResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let rec = database.get_block(&block_id_dto).await?.ok_or(ApiError::NoResults)?;
+    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
+    let metadata = database
+        .get_block_metadata(&block_id)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
     Ok(BlockMetadataResponse {
-        block_id: rec.inner.block_id.to_hex(),
-        parents: rec.inner.parents.iter().map(|id| id.to_hex()).collect(),
-        is_solid: rec.metadata.as_ref().map(|d| d.is_solid),
-        referenced_by_milestone_index: rec.metadata.as_ref().map(|d| d.referenced_by_milestone_index),
-        milestone_index: rec.metadata.as_ref().map(|d| d.milestone_index),
-        should_promote: rec.metadata.as_ref().map(|d| d.should_promote),
-        should_reattach: rec.metadata.as_ref().map(|d| d.should_reattach),
-        ledger_inclusion_state: rec.metadata.as_ref().map(|d| d.inclusion_state),
-        conflict_reason: rec.metadata.as_ref().map(|d| d.conflict_reason as u8),
+        block_id: metadata.block_id.to_hex(),
+        parents: metadata.parents.iter().map(|id| id.to_hex()).collect(),
+        is_solid: Some(metadata.is_solid),
+        referenced_by_milestone_index: Some(metadata.referenced_by_milestone_index),
+        milestone_index: Some(metadata.milestone_index),
+        should_promote: Some(metadata.should_promote),
+        should_reattach: Some(metadata.should_reattach),
+        ledger_inclusion_state: Some(metadata.inclusion_state),
+        conflict_reason: Some(metadata.conflict_reason as u8),
     })
 }
 

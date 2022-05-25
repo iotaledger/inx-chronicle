@@ -56,6 +56,7 @@ impl MongoDb {
             )
             .await
     }
+
     /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
     async fn sync_records_sorted(
         &self,

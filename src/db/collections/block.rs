@@ -23,12 +23,13 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockDocument {
     /// The block.
-    #[serde(flatten)]
+    #[serde(flatten)] // TODO: Get rid of flatten to allow easier projections
     pub inner: Block,
     /// The raw bytes of the block.
     #[serde(with = "serde_bytes")]
     pub raw: Vec<u8>,
     /// The block's metadata.
+    // TODO: Remove `Option`
     pub metadata: Option<BlockMetadata>,
 }
 
@@ -76,13 +77,39 @@ pub struct TransactionHistoryResult {
     pub amount: u64,
 }
 
+/// Implements the queries for the core API.
 impl MongoDb {
-    /// Get milestone with index.
-    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<BlockDocument>, Error> {
-        self.0
+    /// Gets a [`Block`] by its [`BlockId`].
+    pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
+        let result = self
+            .0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
-            .await
+            .await?;
+
+        Ok(result.map(|d| d.inner)) // TODO: Use MongoDb projection instead.
+    }
+
+    /// Gets the raw bytes of a [`Block`] by its [`BlockId`].
+    pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
+        let result = self
+            .0
+            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
+            .await?;
+
+        Ok(result.map(|d| d.raw)) // TODO: Use MongoDb projection instead.
+    }
+
+    /// Gets the raw bytes of a [`Block`] by its [`BlockId`].
+    pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
+        let result = self
+            .0
+            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .find_one(doc! {"_id": bson::to_bson(block_id)?}, None)
+            .await?;
+
+        Ok(result.map(|d| d.metadata.unwrap())) // TODO: Use MongoDb projection instead.
     }
 
     /// Get the children of a block.
@@ -106,6 +133,7 @@ impl MongoDb {
     }
 
     /// Upserts a [`BlockRecord`] to the database.
+    #[deprecated(note = "Use `insert_block_with_metadata` instead")]
     pub async fn upsert_block_record(&self, block_record: &BlockDocument) -> Result<UpdateResult, Error> {
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
@@ -115,6 +143,25 @@ impl MongoDb {
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await
+    }
+
+    /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
+    pub async fn insert_block_with_metadata(
+        &self,
+        _block_id: BlockId,
+        block: Block,
+        raw: Vec<u8>,
+        metadata: BlockMetadata,
+    ) -> Result<(), Error> {
+        let block_document = BlockDocument {
+            inner: block,
+            raw,
+            metadata: Some(metadata),
+        };
+        // TODO use insert instead of upsertdocs.rs./
+        #[allow(deprecated)]
+        let _ = self.upsert_block_record(&block_document).await?;
+        Ok(())
     }
 
     /// Updates a [`BlockRecord`] with [`Metadata`].

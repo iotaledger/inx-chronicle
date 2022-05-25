@@ -16,6 +16,7 @@ pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signatu
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
+    // TODO: Move to `BlockDocument`
     #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub protocol_version: u8,

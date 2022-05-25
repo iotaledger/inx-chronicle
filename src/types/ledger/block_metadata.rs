@@ -4,11 +4,15 @@
 use serde::{Deserialize, Serialize};
 
 use super::{ConflictReason, LedgerInclusionState};
-use crate::types::tangle::MilestoneIndex;
+use crate::types::{stardust::block::BlockId, tangle::MilestoneIndex};
 
 /// Block metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockMetadata {
+    /// The id of the corresponding block.
+    pub block_id: BlockId,
+    /// The parents of the corresponding block.
+    pub parents: Box<[BlockId]>,
     /// Status of the solidification process.
     pub is_solid: bool,
     /// Indicates that the block should be promoted.
@@ -29,6 +33,8 @@ pub struct BlockMetadata {
 impl From<inx::BlockMetadata> for BlockMetadata {
     fn from(metadata: inx::BlockMetadata) -> Self {
         Self {
+            block_id: metadata.block_id.into(),
+            parents: metadata.parents.into_iter().map(|id| id.into()).collect(),
             is_solid: metadata.is_solid,
             should_promote: metadata.should_promote,
             should_reattach: metadata.should_reattach,
