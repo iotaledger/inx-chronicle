@@ -22,7 +22,9 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
-    spawn_task, MergeExt, Sender, Task,
+    spawn_task,
+    task::{error::TaskError, report::TaskReport, Task},
+    MergeExt, Sender,
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -213,14 +215,15 @@ impl RuntimeScope {
     }
 
     /// Spawns a new, plain task.
-    pub async fn spawn_task<T>(&mut self, task: T) -> AbortHandle
+    pub async fn spawn_task<T, Sup>(&mut self, mut task: T, supervisor_addr: Addr<Sup>) -> AbortHandle
     where
         T: Task + 'static,
+        Sup: 'static + HandleEvent<TaskReport<T>>,
     {
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let mut child_scope = self.child(None, Some(abort_handle.clone())).await;
-        let fut = task.run();
-        let child_task = tokio::spawn(async move {
+        let child_task = spawn_task(task.name().as_ref(), async move {
+            let fut = task.run();
             let res = Abortable::new(AssertUnwindSafe(fut).catch_unwind(), abort_registration).await;
             child_scope.abort().await;
             child_scope.join().await;
@@ -238,10 +241,20 @@ impl RuntimeScope {
                         }
                     },
                     Err(e) => {
+                        supervisor_addr.send(TaskReport {
+                            task,
+                            error: Some(TaskError::Panic),
+                        })?;
                         std::panic::resume_unwind(e);
                     }
                 },
-                Err(_) => Err(RuntimeError::AbortedScope(child_scope.id())),
+                Err(_) => {
+                    supervisor_addr.send(TaskReport {
+                        task,
+                        error: Some(TaskError::Aborted),
+                    })?;
+                    Err(RuntimeError::AbortedScope(child_scope.id()))
+                }
             }
         });
         self.join_handles.push(child_task);

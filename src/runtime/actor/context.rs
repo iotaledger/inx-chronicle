@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures::{
-    future::{AbortRegistration, Abortable, Aborted},
+    future::{AbortHandle, AbortRegistration, Abortable, Aborted},
     FutureExt,
 };
 
@@ -20,7 +20,9 @@ use super::{
     util::DelayedEvent,
     Actor,
 };
-use crate::runtime::{config::SpawnConfig, error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream, Sender};
+use crate::runtime::{
+    config::SpawnConfig, error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream, Sender, Task, TaskReport,
+};
 
 type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
 
@@ -49,6 +51,16 @@ impl<A: Actor> ActorContext<A> {
     {
         let handle = self.handle().clone();
         self.scope.spawn_actor(actor, handle).await
+    }
+
+    /// Spawn a new supervised child task.
+    pub async fn spawn_child_task<T>(&mut self, task: T) -> AbortHandle
+    where
+        T: 'static + Task,
+        A: 'static + HandleEvent<TaskReport<T>>,
+    {
+        let handle = self.handle().clone();
+        self.scope.spawn_task(task, handle).await
     }
 
     /// Get this actor's handle.

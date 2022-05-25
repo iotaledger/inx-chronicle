@@ -39,7 +39,7 @@ pub use self::{
     config::{ConfigureActor, SpawnConfig},
     error::RuntimeError,
     scope::RuntimeScope,
-    task::Task,
+    task::{error::TaskError, report::TaskReport, Task},
 };
 
 #[allow(missing_docs)]
