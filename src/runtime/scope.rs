@@ -229,7 +229,6 @@ impl RuntimeScope {
         let child_task = spawn_task(task.name().as_ref(), async move {
             let fut = task.run();
             let res = Abortable::new(AssertUnwindSafe(fut).catch_unwind(), abort_registration).await;
-            child_scope.abort().await;
             child_scope.join().await;
             match res {
                 Ok(res) => match res {
