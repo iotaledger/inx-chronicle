@@ -8,14 +8,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::{
     self,
-    model::stardust::block::{Input, Output, Payload, Unlock},
+    model::{
+        stardust::block::{Input, Output, Payload, Unlock},
+        util::bytify,
+    },
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TransactionId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl TransactionId {
+    const LENGTH: usize = bee::TransactionId::LENGTH;
+
     pub fn to_hex(&self) -> String {
         prefix_hex::encode(self.0.as_ref())
     }
@@ -23,7 +28,7 @@ impl TransactionId {
 
 impl From<bee::TransactionId> for TransactionId {
     fn from(value: bee::TransactionId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 
@@ -84,11 +89,15 @@ pub enum TransactionEssence {
         #[serde(with = "crate::db::model::util::stringify")]
         network_id: u64,
         inputs: Box<[Input]>,
-        #[serde(with = "serde_bytes")]
-        inputs_commitment: Box<[u8]>,
+        #[serde(with = "bytify")]
+        inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
         outputs: Box<[Output]>,
         payload: Option<Payload>,
     },
+}
+
+impl TransactionEssence {
+    const INPUTS_COMMITMENT_LENGTH: usize = 32;
 }
 
 impl From<&bee::TransactionEssence> for TransactionEssence {
@@ -97,7 +106,7 @@ impl From<&bee::TransactionEssence> for TransactionEssence {
             bee::TransactionEssence::Regular(essence) => Self::Regular {
                 network_id: essence.network_id(),
                 inputs: essence.inputs().iter().map(Into::into).collect(),
-                inputs_commitment: essence.inputs_commitment().to_vec().into_boxed_slice(),
+                inputs_commitment: **essence.inputs_commitment(),
                 outputs: essence.outputs().iter().map(Into::into).collect(),
                 payload: essence.payload().map(Into::into),
             },

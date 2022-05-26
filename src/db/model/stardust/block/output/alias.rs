@@ -7,13 +7,15 @@ use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{feature::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
-use crate::db;
+use crate::{db, db::model::util::bytify};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct AliasId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl AliasId {
+    const LENGTH: usize = bee::AliasId::LENGTH;
+
     pub fn from_output_id_str(s: &str) -> Result<Self, db::error::Error> {
         Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }
@@ -21,7 +23,7 @@ impl AliasId {
 
 impl From<bee::AliasId> for AliasId {
     fn from(value: bee::AliasId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 

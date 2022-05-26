@@ -46,3 +46,30 @@ pub mod stringify {
         serializer.collect_str(&value)
     }
 }
+
+/// `serde_bytes` cannot be used with sized arrays, so this works around that limitation.
+pub mod bytify {
+    use std::fmt::Display;
+
+    use serde::{Deserializer, Serializer};
+
+    /// Deserialize T from bytes
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: TryFrom<&'de [u8]>,
+        T::Error: Display,
+    {
+        let bytes: &'de [u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
+        bytes.try_into().map_err(serde::de::Error::custom)
+    }
+
+    /// Serialize T as bytes
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: AsRef<[u8]>,
+        S: Serializer,
+    {
+        serde_bytes::Serialize::serialize(value.as_ref(), serializer)
+    }
+}

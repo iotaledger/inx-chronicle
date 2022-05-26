@@ -6,15 +6,19 @@ use std::str::FromStr;
 use bee_block_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::db;
+use crate::{db, db::model::util::bytify};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct MilestoneId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct MilestoneId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
+
+impl MilestoneId {
+    const LENGTH: usize = bee::MilestoneId::LENGTH;
+}
 
 impl From<bee::MilestoneId> for MilestoneId {
     fn from(value: bee::MilestoneId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 

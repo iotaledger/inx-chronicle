@@ -7,15 +7,19 @@ use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{AliasId, NftId};
-use crate::db;
+use crate::{db, db::model::util::bytify};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Ed25519Address(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct Ed25519Address(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
+
+impl Ed25519Address {
+    const LENGTH: usize = bee::Ed25519Address::LENGTH;
+}
 
 impl From<bee::Ed25519Address> for Ed25519Address {
     fn from(value: bee::Ed25519Address) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 

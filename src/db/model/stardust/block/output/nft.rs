@@ -7,12 +7,15 @@ use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
+use crate::db::model::util::bytify;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct NftId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl NftId {
+    const LENGTH: usize = bee::NftId::LENGTH;
+
     pub fn from_output_id_str(s: &str) -> Result<Self, crate::db::error::Error> {
         Ok(bee::NftId::from(bee::OutputId::from_str(s)?).into())
     }
@@ -20,7 +23,7 @@ impl NftId {
 
 impl From<bee::NftId> for NftId {
     fn from(value: bee::NftId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 
