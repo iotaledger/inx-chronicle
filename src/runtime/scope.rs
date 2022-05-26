@@ -23,7 +23,11 @@ use super::{
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
     spawn_task,
-    task::{error::TaskError, report::TaskReport, Task},
+    task::{
+        error::TaskError,
+        report::{TaskErrorReport, TaskReport, TaskSuccessReport},
+        Task,
+    },
     MergeExt, Sender,
 };
 
@@ -230,7 +234,10 @@ impl RuntimeScope {
             match res {
                 Ok(res) => match res {
                     Ok(res) => match res {
-                        Ok(_) => Ok(()),
+                        Ok(_) => {
+                            supervisor_addr.send(TaskReport::Success(TaskSuccessReport::new(task)))?;
+                            Ok(())
+                        }
                         Err(e) => {
                             log::error!(
                                 "{} exited with error: {}",
@@ -241,18 +248,12 @@ impl RuntimeScope {
                         }
                     },
                     Err(e) => {
-                        supervisor_addr.send(TaskReport {
-                            task,
-                            error: Some(TaskError::Panic),
-                        })?;
+                        supervisor_addr.send(TaskReport::Error(TaskErrorReport::new(task, TaskError::Panic)))?;
                         std::panic::resume_unwind(e);
                     }
                 },
                 Err(_) => {
-                    supervisor_addr.send(TaskReport {
-                        task,
-                        error: Some(TaskError::Aborted),
-                    })?;
+                    supervisor_addr.send(TaskReport::Error(TaskErrorReport::new(task, TaskError::Aborted)))?;
                     Err(RuntimeError::AbortedScope(child_scope.id()))
                 }
             }
