@@ -56,10 +56,12 @@ impl Actor for Launcher {
         };
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
+        #[allow(clippy::redundant_clone)]
         cx.spawn_child(super::stardust_inx::Inx::new(db.clone(), config.inx.clone()))
             .await;
 
         #[cfg(feature = "api")]
+        #[allow(clippy::redundant_clone)]
         cx.spawn_child(super::api::ApiWorker::new(db.clone(), config.api.clone()))
             .await;
 
