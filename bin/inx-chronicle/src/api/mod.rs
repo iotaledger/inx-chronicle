@@ -12,13 +12,14 @@ pub mod stardust;
 mod error;
 #[macro_use]
 mod responses;
+mod auth;
 mod config;
 #[cfg(feature = "metrics")]
 mod metrics;
 mod routes;
 
 use async_trait::async_trait;
-use axum::{Extension, Server};
+use axum::{middleware::from_extractor, Extension, Server};
 use chronicle::{
     db::MongoDb,
     runtime::{spawn_task, Actor, ActorContext},
@@ -31,8 +32,11 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-pub use self::{config::ApiConfig, error::ApiError};
-use self::{responses::impl_success_response, routes::routes};
+use self::{auth::Auth, config::ApiData, responses::impl_success_response, routes::routes};
+pub use self::{
+    config::ApiConfig,
+    error::{ApiError, ConfigError},
+};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -41,13 +45,13 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
-    config: ApiConfig,
+    config: ApiData,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: MongoDb, config: ApiConfig) -> Self {
+    pub fn new(db: MongoDb, config: ApiData) -> Self {
         Self {
             db,
             config,
@@ -69,6 +73,8 @@ impl Actor for ApiWorker {
         let port = self.config.port;
         let routes = routes()
             .layer(Extension(self.db.clone()))
+            .layer(Extension(self.config.clone()))
+            .route_layer(from_extractor::<Auth>())
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(

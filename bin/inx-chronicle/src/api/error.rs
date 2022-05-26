@@ -39,6 +39,8 @@ pub enum ApiError {
     BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
+    #[error("Invalid credentials provided in JWT")]
+    Unauthorized,
     #[error("Internal server error")]
     Internal(InternalApiError),
     #[error("No results returned")]
@@ -56,6 +58,7 @@ impl ApiError {
             ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadTimeRange | ApiError::BadParse(_) | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
         }
     }
 
@@ -99,6 +102,8 @@ pub enum ParseError {
 pub enum ConfigError {
     #[error(transparent)]
     InvalidHeader(#[from] InvalidHeaderValue),
+    #[error("Invalid regex in config: {0}")]
+    InvalidRegex(#[from] regex::Error),
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
