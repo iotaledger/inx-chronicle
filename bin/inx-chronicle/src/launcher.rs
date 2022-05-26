@@ -1,16 +1,12 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::path::Path;
-
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
 };
 use clap::Parser;
-use ed25519::pkcs8::DecodePrivateKey;
-use libp2p_core::identity::ed25519::SecretKey;
 use thiserror::Error;
 
 use super::{
@@ -35,7 +31,7 @@ pub struct Launcher;
 pub struct LauncherState {
     config: ChronicleConfig,
     #[cfg(feature = "api")]
-    secret_key: SecretKey,
+    secret_key: libp2p_core::identity::ed25519::SecretKey,
 }
 
 #[async_trait]
@@ -77,7 +73,7 @@ impl Actor for Launcher {
                     if let Ok(path) = std::env::var("IDENTITY_PATH") {
                         keypair_from_file(&path)?
                     } else {
-                        SecretKey::generate()
+                        libp2p_core::identity::ed25519::SecretKey::generate()
                     }
                 }
             };
@@ -103,12 +99,14 @@ impl Actor for Launcher {
     }
 }
 
-fn keypair_from_file(path: &str) -> Result<SecretKey, ConfigError> {
+#[cfg(feature = "api")]
+fn keypair_from_file(path: &str) -> Result<libp2p_core::identity::ed25519::SecretKey, ConfigError> {
+    use ed25519::pkcs8::DecodePrivateKey;
     let mut bytes = ed25519::pkcs8::KeypairBytes::from_pkcs8_pem(
-        &std::fs::read_to_string(Path::new(path)).map_err(ConfigError::FileRead)?,
+        &std::fs::read_to_string(std::path::Path::new(path)).map_err(ConfigError::FileRead)?,
     )
     .map_err(|_| ConfigError::KeyRead)?;
-    SecretKey::from_bytes(&mut bytes.secret_key).map_err(ConfigError::KeyDecode)
+    libp2p_core::identity::ed25519::SecretKey::from_bytes(&mut bytes.secret_key).map_err(ConfigError::KeyDecode)
 }
 
 #[cfg(all(feature = "inx", feature = "stardust"))]

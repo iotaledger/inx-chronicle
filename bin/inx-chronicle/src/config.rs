@@ -9,12 +9,15 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
+    #[cfg(feature = "api")]
     #[error(transparent)]
     Api(#[from] crate::api::ConfigError),
     #[error("failed to read file: {0}")]
     FileRead(std::io::Error),
+    #[cfg(feature = "api")]
     #[error("failed to decode key: {0}")]
     KeyDecode(libp2p_core::identity::error::DecodingError),
+    #[cfg(feature = "api")]
     #[error("failed to read key bytes")]
     KeyRead,
     #[error("toml deserialization failed: {0}")]
