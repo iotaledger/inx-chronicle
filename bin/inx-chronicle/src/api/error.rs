@@ -118,6 +118,8 @@ pub enum ConfigError {
     InvalidHeader(#[from] InvalidHeaderValue),
     #[error("Invalid regex in config: {0}")]
     InvalidRegex(#[from] regex::Error),
+    #[error(transparent)]
+    TimeConversion(#[from] time::error::ConversionRange),
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {

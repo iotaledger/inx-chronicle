@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::time::Duration;
+
 use derive_more::From;
 use libp2p_core::identity::ed25519::SecretKey;
 use regex::RegexSet;
@@ -17,6 +19,8 @@ pub struct ApiConfig {
     pub allow_origins: Option<SingleOrMultiple<String>>,
     pub password_hash: String,
     pub jwt_salt: String,
+    #[serde(with = "humantime_serde")]
+    pub jwt_expiration: Duration,
     pub public_routes: Vec<String>,
 }
 
@@ -27,6 +31,7 @@ impl Default for ApiConfig {
             allow_origins: Some(String::from("*").into()),
             password_hash: "0000".to_string(),
             jwt_salt: String::from("Chronicle"),
+            jwt_expiration: time::Duration::minutes(30).try_into().unwrap(),
             public_routes: Default::default(),
         }
     }
@@ -38,6 +43,7 @@ pub struct ApiData {
     pub allow_origins: Option<SingleOrMultiple<String>>,
     pub password_hash: String,
     pub jwt_salt: String,
+    pub jwt_expiration: time::Duration,
     pub public_routes: RegexSet,
     pub secret_key: SecretKey,
 }
@@ -56,6 +62,7 @@ impl TryFrom<(ApiConfig, SecretKey)> for ApiData {
             allow_origins: config.allow_origins,
             password_hash: config.password_hash,
             jwt_salt: config.jwt_salt,
+            jwt_expiration: config.jwt_expiration.try_into()?,
             public_routes: RegexSet::new(config.public_routes)?,
             secret_key,
         })

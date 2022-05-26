@@ -40,7 +40,7 @@ async fn login(
 ) -> Result<String, ApiError> {
     if password_hash == config.password_hash {
         let now = time::OffsetDateTime::now_utc();
-        let exp = now + time::Duration::minutes(30);
+        let exp = now + config.jwt_expiration;
         let jwt = jsonwebtoken::encode(
             &Header::default(),
             &serde_json::json!({
