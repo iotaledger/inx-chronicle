@@ -8,7 +8,7 @@ use std::{
 
 use async_trait::async_trait;
 use bee_metrics::{metrics::process::ProcessMetrics, serve_metrics};
-use chronicle::runtime::{Actor, ActorContext, HandleEvent, Task, TaskReport};
+use chronicle::runtime::{Actor, ActorContext, HandleEvent, Task, TaskError, TaskReport};
 use futures::future::AbortHandle;
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -147,10 +147,21 @@ impl Actor for MetricsWorker {
 impl HandleEvent<TaskReport<UpdateProcessMetrics>> for MetricsWorker {
     async fn handle_event(
         &mut self,
-        _cx: &mut ActorContext<Self>,
-        _event: TaskReport<UpdateProcessMetrics>,
+        cx: &mut ActorContext<Self>,
+        event: TaskReport<UpdateProcessMetrics>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        match event {
+            TaskReport::Success(_) => {}
+            TaskReport::Error(report) => match report.error {
+                TaskError::Aborted => {}
+                TaskError::Panic => {
+                    cx.spawn_child_task(report.take_task()).await;
+                }
+                TaskError::Result(err) => match err {},
+            },
+        }
+
         Ok(())
     }
 }
