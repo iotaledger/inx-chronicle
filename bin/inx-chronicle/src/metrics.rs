@@ -9,7 +9,6 @@ use std::{
 use async_trait::async_trait;
 use bee_metrics::{metrics::process::ProcessMetrics, serve_metrics};
 use chronicle::runtime::{Actor, ActorContext, HandleEvent, Task, TaskError, TaskReport};
-use futures::future::AbortHandle;
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::oneshot,
@@ -29,7 +28,6 @@ impl MetricsWorker {
 
 pub struct MetricsState {
     server_handle: (JoinHandle<()>, Option<oneshot::Sender<()>>),
-    abort_handles: Vec<AbortHandle>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,11 +115,10 @@ impl Actor for MetricsWorker {
             })
         };
 
-        let abort_handles = vec![cx.spawn_child_task(UpdateProcessMetrics { process_metrics }).await];
+        cx.spawn_child_task(UpdateProcessMetrics { process_metrics }).await;
 
         Ok(MetricsState {
             server_handle: (server_fut, Some(send)),
-            abort_handles,
         })
     }
 
@@ -134,10 +131,6 @@ impl Actor for MetricsWorker {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
 
         state.server_handle.1.take().map(|send| send.send(()));
-
-        for abort_handle in &mut state.abort_handles {
-            abort_handle.abort();
-        }
 
         run_result
     }
