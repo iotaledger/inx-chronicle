@@ -3,47 +3,60 @@
 
 use axum::{
     handler::Handler,
+    middleware::from_extractor,
     routing::{get, post},
-    Extension, Router,
+    Extension, Json, Router,
 };
 use chronicle::db::MongoDb;
 use jsonwebtoken::{EncodingKey, Header};
+use serde::Deserialize;
 
-use super::{config::ApiData, error::ApiError, responses::*, ApiResult};
+use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new()
-        .route("/info", get(info))
-        .route("/sync", get(sync))
-        .route("/login", post(login));
+    let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
 
     #[cfg(feature = "stardust")]
     {
         router = router.merge(super::stardust::routes())
     }
 
-    Router::new().nest("/api", router).fallback(not_found.into_service())
+    Router::new()
+        .route("/login", post(login))
+        .nest("/api", router.route_layer(from_extractor::<Auth>()))
+        .fallback(not_found.into_service())
 }
 
-async fn login(password_hash: String, Extension(config): Extension<ApiData>) -> Result<String, ApiError> {
+#[derive(Deserialize)]
+struct LoginInfo {
+    #[serde(rename = "passwordHash")]
+    password_hash: String,
+}
+
+async fn login(
+    Json(LoginInfo { password_hash }): Json<LoginInfo>,
+    Extension(config): Extension<ApiData>,
+) -> Result<String, ApiError> {
     if password_hash == config.password_hash {
+        let now = time::OffsetDateTime::now_utc();
+        let exp = now + time::Duration::minutes(30);
         let jwt = jsonwebtoken::encode(
             &Header::default(),
             &serde_json::json!({
                 "iss": ApiData::ISSUER,
                 "sub": uuid::Uuid::new_v4().to_string(),
                 "aud": ApiData::AUDIENCE,
-                "nbf": (time::OffsetDateTime::now_utc() - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
-                "iat": (time::OffsetDateTime::now_utc() - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64
+                "nbf": (now - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
+                "iat": (now - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
+                "exp": (exp - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
             }),
             &EncodingKey::from_secret(config.secret_key.as_ref()),
-        )
-        .map_err(|_| ApiError::Unauthorized)?;
+        )?;
 
-        Ok(format!("BEARER {}", jwt))
+        Ok(format!("Bearer {}", jwt))
     } else {
-        Err(ApiError::Unauthorized)
+        Err(ApiError::IncorrectPassword)
     }
 }
 

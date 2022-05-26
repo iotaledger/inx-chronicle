@@ -3,7 +3,10 @@
 
 use std::str::ParseBoolError;
 
-use axum::{extract::rejection::QueryRejection, response::IntoResponse};
+use axum::{
+    extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
+    response::IntoResponse,
+};
 use chronicle::db::model::ledger::UnexpectedLedgerInclusionState;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
@@ -13,17 +16,21 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum InternalApiError {
+    #[cfg(feature = "stardust")]
+    #[error(transparent)]
+    BeeStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     BsonDeserialize(#[from] mongodb::bson::de::Error),
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
+    ExtensionRejection(#[from] ExtensionRejection),
+    #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
-    MongoDb(#[from] mongodb::error::Error),
-    #[cfg(feature = "stardust")]
+    Jwt(#[from] jsonwebtoken::errors::Error),
     #[error(transparent)]
-    BeeStardust(#[from] bee_block_stardust::Error),
+    MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
     UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
     #[error(transparent)]
@@ -39,10 +46,14 @@ pub enum ApiError {
     BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
-    #[error("Invalid credentials provided in JWT")]
-    Unauthorized,
+    #[error("Invalid password hash provided")]
+    IncorrectPassword,
     #[error("Internal server error")]
     Internal(InternalApiError),
+    #[error(transparent)]
+    InvalidJwt(jsonwebtoken::errors::Error),
+    #[error(transparent)]
+    InvalidAuthHeader(#[from] TypedHeaderRejection),
     #[error("No results returned")]
     NoResults,
     #[error("No endpoint found")]
@@ -56,9 +67,12 @@ impl ApiError {
     pub fn status(&self) -> StatusCode {
         match self {
             ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
-            ApiError::BadTimeRange | ApiError::BadParse(_) | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
+            ApiError::BadTimeRange
+            | ApiError::BadParse(_)
+            | ApiError::InvalidAuthHeader(_)
+            | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
+            ApiError::IncorrectPassword | ApiError::InvalidJwt(_) => StatusCode::UNAUTHORIZED,
         }
     }
 
@@ -132,6 +146,9 @@ impl IntoResponse for ErrorBody {
 
 impl From<ApiError> for ErrorBody {
     fn from(err: ApiError) -> Self {
+        if let ApiError::Internal(e) = &err {
+            log::error!("{}", e);
+        }
         Self {
             status: err.status(),
             code: err.code(),

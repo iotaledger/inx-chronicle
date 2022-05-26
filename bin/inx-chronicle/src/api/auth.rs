@@ -19,21 +19,16 @@ impl<B: Send> FromRequest<B> for Auth {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let OriginalUri(uri) = OriginalUri::from_request(req)
-            .await
-            .map_err(|_| ApiError::Unauthorized)?;
+        // Unwrap: Infallable
+        let OriginalUri(uri) = OriginalUri::from_request(req).await.unwrap();
 
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(|_| ApiError::Unauthorized)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         if config.public_routes.is_match(&uri.to_string()) {
             return Ok(Auth);
         }
 
-        let TypedHeader(Authorization(bearer)) = TypedHeader::<Authorization<Bearer>>::from_request(req)
-            .await
-            .map_err(|_| ApiError::Unauthorized)?;
+        let TypedHeader(Authorization(bearer)) = TypedHeader::<Authorization<Bearer>>::from_request(req).await?;
         let jwt = bearer.token().to_string();
 
         let mut validation = Validation::default();
@@ -42,7 +37,7 @@ impl<B: Send> FromRequest<B> for Auth {
         validation.validate_nbf = true;
 
         jsonwebtoken::decode::<Claims>(&jwt, &DecodingKey::from_secret(config.secret_key.as_ref()), &validation)
-            .map_err(|_| ApiError::Unauthorized)?;
+            .map_err(ApiError::InvalidJwt)?;
 
         Ok(Auth)
     }

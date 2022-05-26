@@ -19,7 +19,7 @@ mod metrics;
 mod routes;
 
 use async_trait::async_trait;
-use axum::{middleware::from_extractor, Extension, Server};
+use axum::{Extension, Server};
 use chronicle::{
     db::MongoDb,
     runtime::{spawn_task, Actor, ActorContext},
@@ -32,11 +32,11 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use self::{auth::Auth, config::ApiData, responses::impl_success_response, routes::routes};
 pub use self::{
     config::ApiConfig,
     error::{ApiError, ConfigError},
 };
+use self::{config::ApiData, responses::impl_success_response, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -74,7 +74,6 @@ impl Actor for ApiWorker {
         let routes = routes()
             .layer(Extension(self.db.clone()))
             .layer(Extension(self.config.clone()))
-            .route_layer(from_extractor::<Auth>())
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(
