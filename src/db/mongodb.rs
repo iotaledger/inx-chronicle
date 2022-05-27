@@ -6,7 +6,7 @@
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential, FindOneOptions},
+    options::{ClientOptions, Credential},
     Client,
 };
 use serde::{Deserialize, Serialize};

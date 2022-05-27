@@ -5,8 +5,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::FindOptions,
-    results::UpdateResult,
+    options::{FindOneOptions, FindOptions},
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,23 +20,23 @@ use crate::{
 
 /// Chronicle Block record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BlockDocument {
+struct BlockDocument {
     /// The id of the current block.
     #[serde(rename = "_id")]
-    pub block_id: BlockId,
+    block_id: BlockId,
     /// The block.
-    pub block: Block,
+    block: Block,
     /// The raw bytes of the block.
     #[serde(with = "serde_bytes")]
-    pub raw: Vec<u8>,
+    raw: Vec<u8>,
     /// The block's metadata.
     // TODO: Remove `Option`
-    pub metadata: Option<BlockMetadata>,
+    metadata: Option<BlockMetadata>,
 }
 
 impl BlockDocument {
     /// The stardust blocks collection name.
-    pub const COLLECTION: &'static str = "stardust_blocks";
+    const COLLECTION: &'static str = "stardust_blocks";
 }
 
 /// A single transaction history result row.
@@ -65,7 +64,10 @@ impl MongoDb {
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         self.0
             .collection::<Block>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("block"))
+            .find_one(
+                doc! {"_id": bson::to_bson(block_id)?},
+                FindOneOptions::builder().projection(doc! {"block": 1 }).build(),
+            )
             .await
     }
 
@@ -73,7 +75,10 @@ impl MongoDb {
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
         self.0
             .collection::<Vec<u8>>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("raw"))
+            .find_one(
+                doc! {"_id": bson::to_bson(block_id)?},
+                FindOneOptions::builder().projection(doc! {"raw": 1 }).build(),
+            )
             .await
     }
 
@@ -81,7 +86,10 @@ impl MongoDb {
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         self.0
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(block_id)?}, Self::projection("metadata"))
+            .find_one(
+                doc! {"_id": bson::to_bson(block_id)?},
+                FindOneOptions::builder().projection(doc! {"metadata": 1 }).build(),
+            )
             .await
     }
 
@@ -104,12 +112,6 @@ impl MongoDb {
                     .build(),
             )
             .await
-    }
-
-    /// Upserts a [`BlockRecord`] to the database.
-    #[deprecated(note = "Use `insert_block_with_metadata` instead")]
-    pub async fn upsert_block_record(&self, _block_record: &BlockDocument) -> Result<UpdateResult, Error> {
-        unimplemented!();
     }
 
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
@@ -136,43 +138,6 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Updates a [`BlockRecord`] with [`Metadata`].
-    #[deprecated(note = "We never update block metadata")]
-    pub async fn update_block_metadata(
-        &self,
-        block_id: &BlockId,
-        metadata: &BlockMetadata,
-    ) -> Result<UpdateResult, Error> {
-        self.0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .update_one(
-                doc! { "_id": bson::to_bson(block_id)? },
-                doc! { "$set": { "metadata": bson::to_document(metadata)? } },
-                None,
-            )
-            .await
-    }
-
-    /// Aggregates the spending transactions
-    #[deprecated(note = "don't use")]
-    pub async fn get_spending_transaction(
-        &self,
-        transaction_id: &TransactionId,
-        idx: u16,
-    ) -> Result<Option<BlockDocument>, Error> {
-        self.0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .find_one(
-                doc! {
-                    "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?,
-                    "block.payload.essence.inputs.transaction_id": bson::to_bson(transaction_id)?,
-                    "block.payload.essence.inputs.index": bson::to_bson(&idx)?
-                },
-                None,
-            )
-            .await
-    }
-
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
         self.0
@@ -182,7 +147,7 @@ impl MongoDb {
                     "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?,
                     "block.payload.transaction_id": bson::to_bson(transaction_id)?,
                 },
-                Self::projection("block"),
+                FindOneOptions::builder().projection(doc! {"block": 1 }).build(),
             )
             .await
     }

@@ -4,6 +4,7 @@
 use mongodb::{
     bson::{self, doc},
     error::Error,
+    options::FindOneOptions,
 };
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +60,10 @@ impl MongoDb {
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         self.0
             .collection::<Output>(OutputDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(output_id)?}, Self::projection("output"))
+            .find_one(
+                doc! {"_id": bson::to_bson(output_id)?},
+                Some(FindOneOptions::builder().projection(doc! {"output": 1 }).build()),
+            )
             .await
     }
 
@@ -84,7 +88,10 @@ impl MongoDb {
     pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
         self.0
             .collection::<OutputMetadata>(OutputDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(output_id)?}, Self::projection("metadata"))
+            .find_one(
+                doc! {"_id": bson::to_bson(output_id)?},
+                Some(FindOneOptions::builder().projection(doc! {"metadata": 1 }).build()),
+            )
             .await
     }
 }

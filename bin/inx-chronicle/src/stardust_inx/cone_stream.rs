@@ -43,7 +43,7 @@ impl Actor for ConeStream {
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
         if run_result.is_ok() {
-            self.db.insert_sync_status(self.milestone_index).await?;
+            self.db.set_sync_status_blocks(self.milestone_index).await?;
             log::debug!("Milestone `{}` synced.", self.milestone_index);
         } else {
             log::warn!("Syncing milestone `{}` failed.", self.milestone_index);

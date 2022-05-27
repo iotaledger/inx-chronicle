@@ -1,12 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::TryStreamExt;
+use std::ops::RangeInclusive;
+
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOptions, UpdateOptions},
-    results::UpdateResult,
+    options::{FindOneOptions, FindOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,77 +15,70 @@ use crate::{
     db::MongoDb,
     types::{
         stardust::{
-            block::{MilestoneId, MilestonePayload},
+            block::{MilestoneId, MilestonePayload, Payload},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
     },
 };
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct SyncStatus {
+    /// Indicates if all blocks of a milestone were successfully synchronized.
+    has_all_blocks: bool,
+    /// Indicates if all ledger updates of a milestone were successfully synchronized.
+    has_all_ledger_updates: bool,
+}
+
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MilestoneDocument {
-    /// The [`MilestoneId`](MilestoneId) of the milestone.
-    #[serde(rename = "_id")]
-    pub milestone_id: MilestoneId,
+struct MilestoneDocument {
     /// The milestone index.
-    pub milestone_index: MilestoneIndex,
+    #[serde(rename = "_id")]
+    milestone_index: MilestoneIndex,
+    /// The [`MilestoneId`](MilestoneId) of the milestone.
+    milestone_id: MilestoneId,
     /// The timestamp of the milestone.
-    pub milestone_timestamp: MilestoneTimestamp,
+    milestone_timestamp: MilestoneTimestamp,
     /// The milestone's payload.
-    pub payload: MilestonePayload,
+    payload: MilestonePayload,
+    /// The milestone's sync status.
+    sync_status: SyncStatus,
 }
 
 impl MilestoneDocument {
     /// The stardust milestone collection name.
-    pub const COLLECTION: &'static str = "stardust_milestones";
+    const COLLECTION: &'static str = "stardust_milestones";
 }
 
-#[cfg(feature = "inx")]
-impl TryFrom<inx::proto::Milestone> for MilestoneDocument {
-    type Error = inx::Error;
-
-    fn try_from(value: inx::proto::Milestone) -> Result<Self, Self::Error> {
-        let milestone = inx::Milestone::try_from(value)?;
-        Ok(Self {
-            milestone_index: milestone.milestone_info.milestone_index.into(),
-            milestone_timestamp: milestone.milestone_info.milestone_timestamp.into(),
-            milestone_id: milestone.milestone_info.milestone_id.into(),
-            payload: (&milestone.milestone).into(),
-        })
-    }
+/// An aggregation type that represents the ranges of completed milestones and gaps.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SyncData {
+    /// The completed(synced and logged) milestones data
+    pub completed: Vec<RangeInclusive<MilestoneIndex>>,
+    /// Gaps/missings milestones data
+    pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
 }
 
 impl MongoDb {
-    /// Get milestone with index.
-    pub async fn get_milestone_record(&self, id: &MilestoneId) -> Result<Option<MilestoneDocument>, Error> {
+    /// Get the [`Payload`] of a milestone.
+    pub async fn get_milestone_payload_by_id(&self, milestone_id: &MilestoneId) -> Result<Option<Payload>, Error> {
         self.0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .find_one(doc! {"_id": bson::to_bson(id)?}, None)
+            .collection::<Payload>(MilestoneDocument::COLLECTION)
+            .find_one(
+                doc! {"milestone_id": bson::to_bson(milestone_id)?},
+                FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),
+            )
             .await
     }
 
-    /// Get milestone with index.
-    pub async fn get_milestone_record_by_index(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Option<MilestoneDocument>, Error> {
+    /// Get [`Payload`] of a milestone by the [`MilestoneIndex`].
+    pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<Payload>, Error> {
         self.0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .find_one(doc! {"milestone_index": index}, None)
-            .await
-    }
-
-    ///
-    #[deprecated(note = "Use `insert_milestone` instead")]
-    pub async fn upsert_milestone_record(&self, milestone_record: &MilestoneDocument) -> Result<UpdateResult, Error> {
-        let doc = bson::to_document(milestone_record)?;
-        self.0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .update_one(
-                doc! { "milestone_index": milestone_record.milestone_index },
-                doc! { "$set": doc },
-                UpdateOptions::builder().upsert(true).build(),
+            .collection::<Payload>(MilestoneDocument::COLLECTION)
+            .find_one(
+                doc! {"_id": index},
+                FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),
             )
             .await
     }
@@ -102,6 +96,7 @@ impl MongoDb {
             milestone_index,
             milestone_timestamp,
             payload,
+            sync_status: Default::default(),
         };
 
         let _ = self
@@ -153,5 +148,93 @@ impl MongoDb {
             .try_next()
             .await?
             .map(|d| d.milestone_index))
+    }
+
+    /// If a milestone is available, returns if of its [`Block`](crate::types::stardust::block::Block)s have been
+    /// synchronized.
+    pub async fn get_sync_status_blocks(&self, index: MilestoneIndex) -> Result<Option<bool>, Error> {
+        self.0
+            .collection::<bool>(MilestoneDocument::COLLECTION)
+            .find_one(
+                doc! {"_id": index},
+                FindOneOptions::builder()
+                    .projection(doc! {"sync_status.has_all_blocks": 1 })
+                    .build(),
+            )
+            .await
+    }
+
+    /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
+    pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
+        let _ = self
+            .0
+            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+            .update_one(
+                doc! { "_id": index },
+                doc! { "$set": {
+                    "sync_status.has_all_blocks": true,
+
+                }},
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
+    async fn get_sorted_milestone_indices_synced(
+        &self,
+        range: RangeInclusive<MilestoneIndex>,
+    ) -> Result<impl Stream<Item = Result<MilestoneIndex, Error>>, Error> {
+        self.0
+            .collection::<MilestoneIndex>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! {
+                    "_id": { "$gte": range.start(), "$lte": range.end() },
+                    "sync_status.has_all_blocks": { "$eq": true }
+                },
+                FindOptions::builder()
+                    .sort(doc! {"_id": 1})
+                    .projection(doc! {"_id": 1})
+                    .build(),
+            )
+            .await
+    }
+
+    /// Retrieves a [`SyncData`] structure that contains the completed and gaps ranges.
+    pub async fn get_sync_data(&self, range: RangeInclusive<MilestoneIndex>) -> Result<SyncData, Error> {
+        let mut synced_ms = self.get_sorted_milestone_indices_synced(range.clone()).await?;
+        let mut sync_data = SyncData::default();
+        let mut last_record: Option<MilestoneIndex> = None;
+        while let Some(milestone_index) = synced_ms.try_next().await? {
+            // Missing records go into gaps
+            if let Some(&last) = last_record.as_ref() {
+                if last + 1 < milestone_index {
+                    sync_data.gaps.push(last + 1..=milestone_index - 1);
+                }
+            } else if *range.start() < milestone_index {
+                sync_data.gaps.push(*range.start()..=milestone_index - 1)
+            }
+            match sync_data.completed.last_mut() {
+                Some(last) => {
+                    if *last.end() + 1 == milestone_index {
+                        *last = *last.start()..=milestone_index;
+                    } else {
+                        sync_data.completed.push(milestone_index..=milestone_index);
+                    }
+                }
+                None => sync_data.completed.push(milestone_index..=milestone_index),
+            }
+            last_record.replace(milestone_index);
+        }
+        if let Some(&last) = last_record.as_ref() {
+            if last < *range.end() {
+                sync_data.gaps.push(last + 1..=*range.end());
+            }
+        } else if range.start() <= range.end() {
+            sync_data.gaps.push(range);
+        }
+        Ok(sync_data)
     }
 }

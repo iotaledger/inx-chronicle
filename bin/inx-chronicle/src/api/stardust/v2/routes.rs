@@ -11,7 +11,7 @@ use axum::{
 use chronicle::{
     db::MongoDb,
     types::{
-        stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId},
+        stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
         tangle::MilestoneIndex,
     },
 };
@@ -169,25 +169,23 @@ async fn transaction_included_block(
 }
 
 async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
-    let milestone_id_dto = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
-    database
-        .get_milestone_record(&milestone_id_dto)
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+    let payload = database
+        .get_milestone_payload_by_id(&milestone_id)
         .await?
-        .ok_or(ApiError::NoResults)
-        .map(|rec| MilestoneResponse {
-            payload: Payload::Milestone(Box::new(rec.payload)),
-        })
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(MilestoneResponse { payload })
 }
 
 async fn milestone_by_index(
     database: Extension<MongoDb>,
     Path(index): Path<MilestoneIndex>,
 ) -> ApiResult<MilestoneResponse> {
-    database
-        .get_milestone_record_by_index(index)
+    let payload = database
+        .get_milestone_payload(index)
         .await?
-        .ok_or(ApiError::NoResults)
-        .map(|rec| MilestoneResponse {
-            payload: Payload::Milestone(Box::new(rec.payload)),
-        })
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(MilestoneResponse { payload })
 }

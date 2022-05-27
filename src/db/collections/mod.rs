@@ -9,11 +9,5 @@ mod milestone;
 mod output;
 /// Module containing information about the network and state of the node.
 mod status;
-/// Module containing sync document models.
-mod sync;
 
-#[deprecated(note = "Slowly get rid of these")]
-pub use self::{
-    milestone::MilestoneDocument,
-    sync::{SyncData, SyncDocument},
-};
+pub use self::milestone::SyncData;
