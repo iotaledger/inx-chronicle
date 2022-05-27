@@ -56,6 +56,13 @@ impl InxWorker {
         // Request the node status so we can get the pruning index and latest confirmed milestone
         let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
             .map_err(InxError::InxTypeConversion)?;
+
+        log::debug!(
+            "The node has a pruning index of `{}` and a latest confirmed milestone index of `{}`.",
+            node_status.tangle_pruning_index,
+            node_status.confirmed_milestone.milestone_info.milestone_index
+        );
+
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         let sync_data = self
@@ -93,7 +100,7 @@ impl Actor for InxWorker {
             .into_inner();
         cx.spawn_child(
             LedgerUpdateStream::new(self.db.clone(), inx_client.clone(), latest_ms + 1..=u32::MAX.into())
-                .with_stream(milestone_stream),
+                .with_stream(ledger_update_stream),
         )
         .await;
         Ok(inx_client)

@@ -187,19 +187,26 @@ impl MongoDb {
         &self,
         range: RangeInclusive<MilestoneIndex>,
     ) -> Result<impl Stream<Item = Result<MilestoneIndex, Error>>, Error> {
+        #[derive(Deserialize)]
+        struct SyncEntry {
+            #[serde(rename = "_id")]
+            milestone_index: MilestoneIndex,
+        }
+
         self.0
-            .collection::<MilestoneIndex>(MilestoneDocument::COLLECTION)
+            .collection::<SyncEntry>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
-                    "_id": { "$gte": range.start(), "$lte": range.end() },
+                    "_id": { "$gte": *range.start(), "$lte": *range.end() },
                     "sync_status.has_all_blocks": { "$eq": true }
                 },
                 FindOptions::builder()
-                    .sort(doc! {"_id": 1})
-                    .projection(doc! {"_id": 1})
+                    .sort(doc! {"_id": 1u32})
+                    .projection(doc! {"_id": 1u32})
                     .build(),
             )
             .await
+            .map(|c| c.map_ok(|e| e.milestone_index))
     }
 
     /// Retrieves a [`SyncData`] structure that contains the completed and gaps ranges.
@@ -207,6 +214,7 @@ impl MongoDb {
         let mut synced_ms = self.get_sorted_milestone_indices_synced(range.clone()).await?;
         let mut sync_data = SyncData::default();
         let mut last_record: Option<MilestoneIndex> = None;
+
         while let Some(milestone_index) = synced_ms.try_next().await? {
             // Missing records go into gaps
             if let Some(&last) = last_record.as_ref() {
