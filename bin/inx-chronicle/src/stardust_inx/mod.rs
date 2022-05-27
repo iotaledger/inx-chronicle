@@ -4,7 +4,7 @@
 mod cone_stream;
 mod config;
 mod error;
-mod milestone_stream;
+mod ledger_update_stream;
 mod syncer;
 
 use async_trait::async_trait;
@@ -21,7 +21,7 @@ use inx::{
     tonic::{Channel, Code},
     NodeStatus,
 };
-pub use milestone_stream::MilestoneStream;
+pub use ledger_update_stream::LedgerUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
 
@@ -87,12 +87,12 @@ impl Actor for InxWorker {
 
         let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
 
-        let milestone_stream = inx_client
-            .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
+        let ledger_update_stream = inx_client
+            .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
             .await?
             .into_inner();
         cx.spawn_child(
-            MilestoneStream::new(self.db.clone(), inx_client.clone(), latest_ms + 1..=u32::MAX.into())
+            LedgerUpdateStream::new(self.db.clone(), inx_client.clone(), latest_ms + 1..=u32::MAX.into())
                 .with_stream(milestone_stream),
         )
         .await;
@@ -105,11 +105,11 @@ impl Actor for InxWorker {
 }
 
 #[async_trait]
-impl HandleEvent<Report<MilestoneStream>> for InxWorker {
+impl HandleEvent<Report<LedgerUpdateStream>> for InxWorker {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<MilestoneStream>,
+        event: Report<LedgerUpdateStream>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
