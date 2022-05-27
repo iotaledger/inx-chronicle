@@ -1,11 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{error::Error, fmt::Debug, ops::Deref};
+use std::{error::Error, fmt::Debug, ops::Deref, panic::AssertUnwindSafe};
 
 use futures::{
     future::{AbortHandle, AbortRegistration, Abortable},
-    Future,
+    Future, FutureExt,
 };
 use tokio::task::JoinHandle;
 
@@ -22,7 +22,13 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
-    spawn_task, MergeExt, Sender,
+    spawn_task,
+    task::{
+        error::TaskError,
+        report::{TaskErrorReport, TaskReport, TaskSuccessReport},
+        Task,
+    },
+    MergeExt, Sender,
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -210,6 +216,49 @@ impl RuntimeScope {
         let cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
         (handle, cx, abort_reg)
+    }
+
+    /// Spawns a new, plain task.
+    pub async fn spawn_task<T, Sup>(&mut self, mut task: T, supervisor_addr: Addr<Sup>) -> AbortHandle
+    where
+        T: Task + 'static,
+        Sup: 'static + HandleEvent<TaskReport<T>>,
+    {
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let mut child_scope = self.child(None, Some(abort_handle.clone())).await;
+        let child_task = spawn_task(task.name().as_ref(), async move {
+            let fut = task.run();
+            let res = Abortable::new(AssertUnwindSafe(fut).catch_unwind(), abort_registration).await;
+            child_scope.join().await;
+            match res {
+                Ok(res) => match res {
+                    Ok(res) => match res {
+                        Ok(_) => {
+                            supervisor_addr.send(TaskReport::Success(TaskSuccessReport::new(task)))?;
+                            Ok(())
+                        }
+                        Err(e) => {
+                            log::error!(
+                                "{} exited with error: {}",
+                                format!("Task {:x}", child_scope.id().as_fields().0),
+                                e
+                            );
+                            Err(RuntimeError::ActorError(e.to_string()))
+                        }
+                    },
+                    Err(e) => {
+                        supervisor_addr.send(TaskReport::Error(TaskErrorReport::new(task, TaskError::Panic)))?;
+                        std::panic::resume_unwind(e);
+                    }
+                },
+                Err(_) => {
+                    supervisor_addr.send(TaskReport::Error(TaskErrorReport::new(task, TaskError::Aborted)))?;
+                    Err(RuntimeError::AbortedScope(child_scope.id()))
+                }
+            }
+        });
+        self.join_handles.push(child_task);
+        abort_handle
     }
 
     /// Spawns a new actor with a supervisor handle.

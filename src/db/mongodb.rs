@@ -54,6 +54,25 @@ impl MongoDb {
 
         Ok(())
     }
+
+    /// Returns the storage size of the database.
+    pub async fn size(&self) -> Result<u64, Error> {
+        let size = self
+            .0
+            .run_command(
+                doc! {
+                    "dbStats": 1,
+                    "scale": 1,
+                    "freeStorage": 0
+                },
+                None,
+            )
+            .await?
+            .get_i32("storageSize")
+            .unwrap();
+
+        Ok(size.try_into().unwrap())
+    }
 }
 
 /// The [`MongoDb`] config.
