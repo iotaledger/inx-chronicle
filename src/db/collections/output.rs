@@ -30,30 +30,28 @@ impl OutputDocument {
     pub(crate) const COLLECTION: &'static str = "stardust_outputs";
 }
 
-/// # Queries that are related to [`Output`]s
+/// Queries that are related to [`Output`]s
 impl MongoDb {
     /// Upserts a [`Output`] together with its associated [`OutputMetadata`].
-    pub async fn upsert_output_update(
+    pub async fn insert_output_with_metadata(
         &self,
-        _output_id: OutputId,
-        _output: Output,
-        _metadata: OutputMetadata,
+        output_id: OutputId,
+        output: Output,
+        metadata: OutputMetadata,
     ) -> Result<(), Error> {
-        // let block_document = BlockDocument {
-        //     block_id,
-        //     block,
-        //     raw,
-        //     metadata: Some(metadata),
-        // };
+        let output_document = OutputDocument {
+            output_id,
+            output,
+            metadata,
+        };
 
-        // let _ = self
-        //     .0
-        //     .collection::<BlockDocument>(BlockDocument::COLLECTION)
-        //     .insert_one(block_document, None)
-        //     .await;
+        let _ = self
+            .0
+            .collection::<OutputDocument>(OutputDocument::COLLECTION)
+            .insert_one(output_document, None)
+            .await;
 
-        // Ok(())
-        todo!()
+        Ok(())
     }
 
     /// Get an [`Output`] by [`OutputId`].
