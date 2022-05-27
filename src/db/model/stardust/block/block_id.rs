@@ -26,11 +26,9 @@ impl From<bee::BlockId> for BlockId {
     }
 }
 
-impl TryFrom<BlockId> for bee::BlockId {
-    type Error = db::error::Error;
-
-    fn try_from(value: BlockId) -> Result<Self, Self::Error> {
-        Ok(bee::BlockId::new(value.0.as_ref().try_into()?))
+impl From<BlockId> for bee::BlockId {
+    fn from(value: BlockId) -> Self {
+        bee::BlockId::new(value.0)
     }
 }
 

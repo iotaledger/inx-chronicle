@@ -70,11 +70,9 @@ impl TryFrom<UnlockCondition> for bee::UnlockCondition {
 
     fn try_from(value: UnlockCondition) -> Result<Self, Self::Error> {
         Ok(match value {
-            UnlockCondition::Address { address } => {
-                Self::Address(bee::AddressUnlockCondition::new(address.try_into()?))
-            }
+            UnlockCondition::Address { address } => Self::Address(bee::AddressUnlockCondition::new(address.into())),
             UnlockCondition::StorageDepositReturn { return_address, amount } => Self::StorageDepositReturn(
-                bee::StorageDepositReturnUnlockCondition::new(return_address.try_into()?, amount)?,
+                bee::StorageDepositReturnUnlockCondition::new(return_address.into(), amount)?,
             ),
             UnlockCondition::Timelock {
                 milestone_index,
@@ -85,18 +83,18 @@ impl TryFrom<UnlockCondition> for bee::UnlockCondition {
                 milestone_index,
                 timestamp,
             } => Self::Expiration(bee::ExpirationUnlockCondition::new(
-                return_address.try_into()?,
+                return_address.into(),
                 milestone_index.into(),
                 timestamp,
             )?),
             UnlockCondition::StateControllerAddress { address } => {
-                Self::StateControllerAddress(bee::StateControllerAddressUnlockCondition::new(address.try_into()?))
+                Self::StateControllerAddress(bee::StateControllerAddressUnlockCondition::new(address.into()))
             }
             UnlockCondition::GovernorAddress { address } => {
-                Self::GovernorAddress(bee::GovernorAddressUnlockCondition::new(address.try_into()?))
+                Self::GovernorAddress(bee::GovernorAddressUnlockCondition::new(address.into()))
             }
             UnlockCondition::ImmutableAliasAddress { address } => {
-                let bee_address = bee_block_stardust::address::Address::try_from(address)?;
+                let bee_address = bee_block_stardust::address::Address::from(address);
 
                 if let bee_block_stardust::address::Address::Alias(alias_address) = bee_address {
                     Self::ImmutableAliasAddress(bee::ImmutableAliasAddressUnlockCondition::new(alias_address))

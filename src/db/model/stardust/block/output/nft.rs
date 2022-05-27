@@ -27,11 +27,9 @@ impl From<bee::NftId> for NftId {
     }
 }
 
-impl TryFrom<NftId> for bee::NftId {
-    type Error = crate::db::error::Error;
-
-    fn try_from(value: NftId) -> Result<Self, Self::Error> {
-        Ok(bee::NftId::new(value.0.as_ref().try_into()?))
+impl From<NftId> for bee::NftId {
+    fn from(value: NftId) -> Self {
+        bee::NftId::new(value.0)
     }
 }
 
@@ -70,7 +68,7 @@ impl TryFrom<NftOutput> for bee::NftOutput {
     type Error = crate::db::error::Error;
 
     fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(value.amount, value.nft_id.try_into()?)?
+        Ok(Self::build_with_amount(value.amount, value.nft_id.into())?
             .with_native_tokens(
                 Vec::from(value.native_tokens)
                     .into_iter()

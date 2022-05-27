@@ -23,11 +23,9 @@ impl From<bee::Ed25519Address> for Ed25519Address {
     }
 }
 
-impl TryFrom<Ed25519Address> for bee::Ed25519Address {
-    type Error = db::error::Error;
-
-    fn try_from(value: Ed25519Address) -> Result<Self, Self::Error> {
-        Ok(bee::Ed25519Address::new(value.0.as_ref().try_into()?))
+impl From<Ed25519Address> for bee::Ed25519Address {
+    fn from(value: Ed25519Address) -> Self {
+        bee::Ed25519Address::new(value.0)
     }
 }
 
@@ -59,15 +57,13 @@ impl From<bee::Address> for Address {
     }
 }
 
-impl TryFrom<Address> for bee::Address {
-    type Error = crate::db::error::Error;
-
-    fn try_from(value: Address) -> Result<Self, Self::Error> {
-        Ok(match value {
-            Address::Ed25519(a) => Self::Ed25519(a.try_into()?),
-            Address::Alias(a) => Self::Alias(bee::AliasAddress::new(a.try_into()?)),
-            Address::Nft(a) => Self::Nft(bee::NftAddress::new(a.try_into()?)),
-        })
+impl From<Address> for bee::Address {
+    fn from(value: Address) -> Self {
+        match value {
+            Address::Ed25519(a) => Self::Ed25519(a.into()),
+            Address::Alias(a) => Self::Alias(bee::AliasAddress::new(a.into())),
+            Address::Nft(a) => Self::Nft(bee::NftAddress::new(a.into())),
+        }
     }
 }
 

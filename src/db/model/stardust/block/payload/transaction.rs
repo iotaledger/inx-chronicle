@@ -32,11 +32,9 @@ impl From<bee::TransactionId> for TransactionId {
     }
 }
 
-impl TryFrom<TransactionId> for bee::TransactionId {
-    type Error = db::error::Error;
-
-    fn try_from(value: TransactionId) -> Result<Self, Self::Error> {
-        Ok(bee::TransactionId::new(value.0.as_ref().try_into()?))
+impl From<TransactionId> for bee::TransactionId {
+    fn from(value: TransactionId) -> Self {
+        bee::TransactionId::new(value.0)
     }
 }
 

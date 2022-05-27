@@ -4,7 +4,7 @@
 use bee_block_stardust::signature as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::{db, db::model::util::bytify};
+use crate::db::model::util::bytify;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -34,16 +34,13 @@ impl From<&bee::Signature> for Signature {
     }
 }
 
-impl TryFrom<Signature> for bee::Signature {
-    type Error = db::error::Error;
-
-    fn try_from(value: Signature) -> Result<Self, Self::Error> {
-        Ok(match value {
-            Signature::Ed25519 { public_key, signature } => bee::Signature::Ed25519(bee::Ed25519Signature::new(
-                public_key.as_ref().try_into()?,
-                signature.as_ref().try_into()?,
-            )),
-        })
+impl From<Signature> for bee::Signature {
+    fn from(value: Signature) -> Self {
+        match value {
+            Signature::Ed25519 { public_key, signature } => {
+                bee::Signature::Ed25519(bee::Ed25519Signature::new(public_key, signature))
+            }
+        }
     }
 }
 

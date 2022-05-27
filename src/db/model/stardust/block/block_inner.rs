@@ -35,10 +35,7 @@ impl TryFrom<Block> for bee::Block {
 
     fn try_from(value: Block) -> Result<Self, Self::Error> {
         let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
-            Vec::from(value.parents)
-                .into_iter()
-                .map(|p| p.try_into())
-                .collect::<Result<Vec<_>, _>>()?,
+            Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
         )?)
         .with_nonce_provider(value.nonce, 0.0);
         if let Some(payload) = value.payload {

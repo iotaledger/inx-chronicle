@@ -22,11 +22,9 @@ impl From<bee::MilestoneId> for MilestoneId {
     }
 }
 
-impl TryFrom<MilestoneId> for bee::MilestoneId {
-    type Error = db::error::Error;
-
-    fn try_from(value: MilestoneId) -> Result<Self, Self::Error> {
-        Ok(bee::MilestoneId::new(value.0.as_ref().try_into()?))
+impl From<MilestoneId> for bee::MilestoneId {
+    fn from(value: MilestoneId) -> Self {
+        bee::MilestoneId::new(value.0)
     }
 }
 

@@ -27,11 +27,9 @@ impl From<bee::AliasId> for AliasId {
     }
 }
 
-impl TryFrom<AliasId> for bee::AliasId {
-    type Error = db::error::Error;
-
-    fn try_from(value: AliasId) -> Result<Self, Self::Error> {
-        Ok(bee::AliasId::new(value.0.as_ref().try_into()?))
+impl From<AliasId> for bee::AliasId {
+    fn from(value: AliasId) -> Self {
+        bee::AliasId::new(value.0)
     }
 }
 
@@ -78,7 +76,7 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
     type Error = db::error::Error;
 
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(value.amount, value.alias_id.try_into()?)?
+        Ok(Self::build_with_amount(value.amount, value.alias_id.into())?
             .with_native_tokens(
                 Vec::from(value.native_tokens)
                     .into_iter()

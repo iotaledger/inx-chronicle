@@ -23,7 +23,7 @@ impl From<&U256> for TokenAmount {
 
 impl From<TokenAmount> for U256 {
     fn from(value: TokenAmount) -> Self {
-        U256::from_little_endian(value.0.as_ref())
+        U256::from_little_endian(&value.0)
     }
 }
 
@@ -41,11 +41,9 @@ impl From<bee::TokenId> for TokenId {
     }
 }
 
-impl TryFrom<TokenId> for bee::TokenId {
-    type Error = crate::db::error::Error;
-
-    fn try_from(value: TokenId) -> Result<Self, Self::Error> {
-        Ok(bee::TokenId::new(value.0.as_ref().try_into()?))
+impl From<TokenId> for bee::TokenId {
+    fn from(value: TokenId) -> Self {
+        bee::TokenId::new(value.0)
     }
 }
 
@@ -117,7 +115,7 @@ impl TryFrom<NativeToken> for bee::NativeToken {
     type Error = crate::db::error::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
-        Ok(Self::new(value.token_id.try_into()?, value.amount.into())?)
+        Ok(Self::new(value.token_id.into(), value.amount.into())?)
     }
 }
 

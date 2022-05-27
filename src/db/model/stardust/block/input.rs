@@ -32,8 +32,8 @@ impl TryFrom<Input> for bee::Input {
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {
-            Input::Utxo(i) => bee::Input::Utxo(bee::UtxoInput::new(i.transaction_id.try_into()?, i.index)?),
-            Input::Treasury { milestone_id } => bee::Input::Treasury(bee::TreasuryInput::new(milestone_id.try_into()?)),
+            Input::Utxo(i) => bee::Input::Utxo(bee::UtxoInput::new(i.transaction_id.into(), i.index)?),
+            Input::Treasury { milestone_id } => bee::Input::Treasury(bee::TreasuryInput::new(milestone_id.into())),
         })
     }
 }

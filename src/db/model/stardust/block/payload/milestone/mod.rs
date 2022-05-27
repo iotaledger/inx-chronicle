@@ -36,8 +36,8 @@ impl TryFrom<MilestonePayload> for bee::MilestonePayload {
             value.essence.try_into()?,
             Vec::from(value.signatures)
                 .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
+                .map(Into::into)
+                .collect::<Vec<_>>(),
         )?)
     }
 }
@@ -84,15 +84,12 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
         Ok(bee::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
-            value.previous_milestone_id.try_into()?,
+            value.previous_milestone_id.into(),
             bee_block_stardust::parent::Parents::new(
-                Vec::from(value.parents)
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>, _>>()?,
+                Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
             )?,
-            value.confirmed_merkle_proof.as_ref().try_into()?,
-            value.applied_merkle_proof.as_ref().try_into()?,
+            value.confirmed_merkle_proof,
+            value.applied_merkle_proof,
             value.metadata,
             bee_block_stardust::payload::MilestoneOptions::new(
                 Vec::from(value.options)
@@ -201,8 +198,8 @@ impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
 
     fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            bee::option::TailTransactionHash::new(value.tail_transaction_hash.as_ref().try_into()?)?,
-            value.address.try_into()?,
+            bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
+            value.address.into(),
             value.amount,
         )?)
     }
