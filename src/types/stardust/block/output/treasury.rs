@@ -17,10 +17,10 @@ impl From<&bee::TreasuryOutput> for TreasuryOutput {
 }
 
 impl TryFrom<TreasuryOutput> for bee::TreasuryOutput {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: TreasuryOutput) -> Result<Self, Self::Error> {
-        Ok(Self::new(value.amount)?)
+        Self::new(value.amount)
     }
 }
 

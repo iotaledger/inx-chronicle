@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::payload::transaction as bee;
+use bee_block_stardust::{output::InputsCommitment, payload::transaction as bee};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
@@ -36,7 +36,7 @@ impl From<TransactionId> for bee::TransactionId {
 }
 
 impl FromStr for TransactionId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TransactionId::from_str(s)?.into())
@@ -61,10 +61,10 @@ impl From<&bee::TransactionPayload> for TransactionPayload {
 }
 
 impl TryFrom<TransactionPayload> for bee::TransactionPayload {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
-        Ok(bee::TransactionPayload::new(
+        bee::TransactionPayload::new(
             value.essence.try_into()?,
             bee_block_stardust::unlock::Unlocks::new(
                 Vec::from(value.unlocks)
@@ -72,7 +72,7 @@ impl TryFrom<TransactionPayload> for bee::TransactionPayload {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )?,
-        )?)
+        )
     }
 }
 
@@ -92,7 +92,7 @@ pub enum TransactionEssence {
 }
 
 impl TransactionEssence {
-    const INPUTS_COMMITMENT_LENGTH: usize = 32;
+    const INPUTS_COMMITMENT_LENGTH: usize = InputsCommitment::LENGTH;
 }
 
 impl From<&bee::TransactionEssence> for TransactionEssence {
@@ -110,7 +110,7 @@ impl From<&bee::TransactionEssence> for TransactionEssence {
 }
 
 impl TryFrom<TransactionEssence> for bee::TransactionEssence {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: TransactionEssence) -> Result<Self, Self::Error> {
         Ok(match value {

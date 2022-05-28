@@ -1,10 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::RangeInclusive;
+
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    types::{ledger::OutputWithMetadata, tangle::MilestoneIndex},
 };
 use inx::{
     client::InxClient,
@@ -78,6 +81,15 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
         log::trace!("Received ledger update event {:#?}", ledger_update_result);
 
         let ledger_update = inx::LedgerUpdate::try_from(ledger_update_result?)?;
+
+        let output_updates_iter = ledger_update
+            .created
+            .iter()
+            .cloned()
+            .map(OutputWithMetadata::from)
+            .chain(ledger_update.consumed.iter().cloned().map(OutputWithMetadata::from));
+
+        self.db.insert_ledger_updates(output_updates_iter).await?;
 
         let milestone_request = inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index);
 

@@ -43,7 +43,7 @@ impl From<Address> for bee::Address {
 }
 
 impl FromStr for Address {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::Address::try_from_bech32(s)?.1.into())

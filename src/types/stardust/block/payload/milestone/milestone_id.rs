@@ -29,7 +29,7 @@ impl From<MilestoneId> for bee::MilestoneId {
 }
 
 impl FromStr for MilestoneId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::MilestoneId::from_str(s)?.into())

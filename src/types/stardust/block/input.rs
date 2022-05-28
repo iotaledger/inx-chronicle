@@ -27,7 +27,7 @@ impl From<&bee::Input> for Input {
 }
 
 impl TryFrom<Input> for bee::Input {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {

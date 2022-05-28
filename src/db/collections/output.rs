@@ -18,7 +18,7 @@ use crate::{
 
 /// Contains all informations related to an output.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct OutputDocument {
+struct OutputDocument {
     #[serde(rename = "_id")]
     output_id: OutputId,
     output: Output,
@@ -27,13 +27,13 @@ pub(crate) struct OutputDocument {
 
 impl OutputDocument {
     /// The stardust outputs collection name.
-    pub(crate) const COLLECTION: &'static str = "stardust_outputs";
+    const COLLECTION: &'static str = "stardust_outputs";
 }
 
 /// Queries that are related to [`Output`]s
 impl MongoDb {
     /// Upserts a [`Output`] together with its associated [`OutputMetadata`].
-    pub async fn insert_output_with_metadata(
+    pub(super) async fn upsert_output_with_metadata(
         &self,
         output_id: OutputId,
         output: Output,
@@ -45,11 +45,10 @@ impl MongoDb {
             metadata,
         };
 
-        let _ = self
-            .0
+        self.0
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .insert_one(output_document, None)
-            .await;
+            .await?;
 
         Ok(())
     }

@@ -41,7 +41,7 @@ impl From<&bee::Payload> for Payload {
 }
 
 impl TryFrom<Payload> for bee::Payload {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: Payload) -> Result<Self, Self::Error> {
         Ok(match value {

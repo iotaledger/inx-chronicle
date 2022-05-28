@@ -3,8 +3,6 @@
 
 #![allow(missing_docs)] // TODO Remove this once everything has settled.
 
-/// Module containing type conversion errors.
-pub mod error;
 /// Module containing the ledger data models.
 pub mod ledger;
 /// Module containing Stardust data models.
@@ -14,5 +12,3 @@ pub mod stardust;
 pub mod tangle;
 /// Module contain utility functions.
 pub mod util;
-
-pub use self::error::Error;

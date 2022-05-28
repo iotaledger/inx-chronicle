@@ -87,8 +87,6 @@ pub enum ParseError {
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
-    Model(#[from] chronicle::types::Error),
-    #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }
 

@@ -25,7 +25,7 @@ impl From<NftAddress> for bee::NftAddress {
 }
 
 impl FromStr for NftAddress {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftAddress::from_str(s)?.into())

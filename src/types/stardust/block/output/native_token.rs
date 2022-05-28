@@ -48,7 +48,7 @@ impl From<TokenId> for bee::TokenId {
 }
 
 impl FromStr for TokenId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TokenId::from_str(s)?.into())
@@ -79,7 +79,7 @@ impl From<&bee::TokenScheme> for TokenScheme {
 }
 
 impl TryFrom<TokenScheme> for bee::TokenScheme {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: TokenScheme) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -112,10 +112,10 @@ impl From<&bee::NativeToken> for NativeToken {
 }
 
 impl TryFrom<NativeToken> for bee::NativeToken {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
-        Ok(Self::new(value.token_id.into(), value.amount.into())?)
+        Self::new(value.token_id.into(), value.amount.into())
     }
 }
 

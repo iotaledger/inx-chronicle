@@ -99,11 +99,10 @@ impl MongoDb {
             sync_status: Default::default(),
         };
 
-        let _ = self
-            .0
+        self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .insert_one(milestone_document, None)
-            .await;
+            .await?;
 
         Ok(())
     }
@@ -166,8 +165,7 @@ impl MongoDb {
 
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
     pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
-        let _ = self
-            .0
+        self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
                 doc! { "_id": index },

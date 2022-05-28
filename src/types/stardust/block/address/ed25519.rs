@@ -29,7 +29,7 @@ impl From<Ed25519Address> for bee::Ed25519Address {
 }
 
 impl FromStr for Ed25519Address {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::Ed25519Address::from_str(s)?.into())

@@ -33,6 +33,20 @@ pub enum UnlockCondition {
     ImmutableAliasAddress { address: Address },
 }
 
+impl UnlockCondition {
+    pub fn owning_address(&self) -> Option<&Address> {
+        match self {
+            Self::Address { address } => Some(address),
+            Self::StorageDepositReturn { return_address, .. } => Some(return_address),
+            Self::Timelock { .. } => None,
+            Self::Expiration { return_address, .. } => Some(return_address),
+            Self::StateControllerAddress { address } => Some(address),
+            Self::GovernorAddress { address } => Some(address),
+            Self::ImmutableAliasAddress { address } => Some(address),
+        }
+    }
+}
+
 impl From<&bee::UnlockCondition> for UnlockCondition {
     fn from(value: &bee::UnlockCondition) -> Self {
         match value {
@@ -66,7 +80,7 @@ impl From<&bee::UnlockCondition> for UnlockCondition {
 }
 
 impl TryFrom<UnlockCondition> for bee::UnlockCondition {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: UnlockCondition) -> Result<Self, Self::Error> {
         Ok(match value {

@@ -29,16 +29,16 @@ impl From<&bee::MilestonePayload> for MilestonePayload {
 }
 
 impl TryFrom<MilestonePayload> for bee::MilestonePayload {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
-        Ok(bee::MilestonePayload::new(
+        bee::MilestonePayload::new(
             value.essence.try_into()?,
             Vec::from(value.signatures)
                 .into_iter()
                 .map(Into::into)
                 .collect::<Vec<_>>(),
-        )?)
+        )
     }
 }
 
@@ -49,16 +49,16 @@ pub struct MilestoneEssence {
     pub previous_milestone_id: MilestoneId,
     pub parents: Box<[BlockId]>,
     #[serde(with = "bytify")]
-    pub confirmed_merkle_proof: [u8; Self::MERKLE_PROOF_LENGTH],
+    pub inclusion_merkle_root: [u8; Self::MERKLE_PROOF_LENGTH],
     #[serde(with = "bytify")]
-    pub applied_merkle_proof: [u8; Self::MERKLE_PROOF_LENGTH],
+    pub applied_merkle_root: [u8; Self::MERKLE_PROOF_LENGTH],
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
     pub options: Box<[MilestoneOption]>,
 }
 
 impl MilestoneEssence {
-    const MERKLE_PROOF_LENGTH: usize = bee::MilestoneEssence::MERKLE_ROOT_LENGTH;
+    const MERKLE_PROOF_LENGTH: usize = bee::MerkleRoot::LENGTH;
 }
 
 impl From<&bee::MilestoneEssence> for MilestoneEssence {
@@ -68,9 +68,8 @@ impl From<&bee::MilestoneEssence> for MilestoneEssence {
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
             parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
-            // Unwrap: Cannot fail as the essence struct constricts the length
-            confirmed_merkle_proof: value.confirmed_merkle_root().try_into().unwrap(),
-            applied_merkle_proof: value.applied_merkle_root().try_into().unwrap(),
+            inclusion_merkle_root: **value.inclusion_merkle_root(),
+            applied_merkle_root: **value.applied_merkle_root(),
             metadata: value.metadata().to_vec(),
             options: value.options().iter().map(Into::into).collect(),
         }
@@ -78,18 +77,18 @@ impl From<&bee::MilestoneEssence> for MilestoneEssence {
 }
 
 impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: MilestoneEssence) -> Result<Self, Self::Error> {
-        Ok(bee::MilestoneEssence::new(
+        bee::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
             value.previous_milestone_id.into(),
             bee_block_stardust::parent::Parents::new(
                 Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
             )?,
-            value.confirmed_merkle_proof,
-            value.applied_merkle_proof,
+            bee_block_stardust::payload::milestone::MerkleRoot::from(value.inclusion_merkle_root),
+            bee_block_stardust::payload::milestone::MerkleRoot::from(value.applied_merkle_root),
             value.metadata,
             bee_block_stardust::payload::MilestoneOptions::new(
                 Vec::from(value.options)
@@ -97,7 +96,7 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )?,
-        )?)
+        )
     }
 }
 
@@ -138,7 +137,7 @@ impl From<&bee::MilestoneOption> for MilestoneOption {
 }
 
 impl TryFrom<MilestoneOption> for bee::MilestoneOption {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: MilestoneOption) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -194,14 +193,14 @@ impl From<&bee::option::MigratedFundsEntry> for MigratedFundsEntry {
 }
 
 impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
-        Ok(Self::new(
+        Self::new(
             bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
             value.address.into(),
             value.amount,
-        )?)
+        )
     }
 }
 
@@ -280,8 +279,8 @@ pub(crate) mod test {
                 12345,
                 bee_test::rand::milestone::rand_milestone_id(),
                 bee_test::rand::parents::rand_parents(),
-                bee_test::rand::bytes::rand_bytes_array(),
-                bee_test::rand::bytes::rand_bytes_array(),
+                bee_test::rand::milestone::rand_merkle_root(),
+                bee_test::rand::milestone::rand_merkle_root(),
                 "Foo".as_bytes().to_vec(),
                 bee::MilestoneOptions::new(vec![bee::option::MilestoneOption::Receipt(
                     bee::option::ReceiptMilestoneOption::new(

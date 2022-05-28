@@ -27,6 +27,7 @@ pub use self::{
     treasury::TreasuryOutput,
     unlock_condition::UnlockCondition,
 };
+use super::Address;
 use crate::types::stardust::block::TransactionId;
 
 pub type OutputAmount = u64;
@@ -48,15 +49,15 @@ impl From<bee::OutputId> for OutputId {
 }
 
 impl TryFrom<OutputId> for bee::OutputId {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: OutputId) -> Result<Self, Self::Error> {
-        Ok(bee::OutputId::new(value.transaction_id.into(), value.index)?)
+        bee::OutputId::new(value.transaction_id.into(), value.index)
     }
 }
 
 impl FromStr for OutputId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::OutputId::from_str(s)?.into())
@@ -78,6 +79,22 @@ pub enum Output {
     Nft(NftOutput),
 }
 
+impl Output {
+    pub fn owning_addresses(&self) -> Vec<Address> {
+        match self {
+            Self::Treasury(_) => Vec::new(),
+            Self::Basic(BasicOutput { unlock_conditions, .. })
+            | Self::Alias(AliasOutput { unlock_conditions, .. })
+            | Self::Nft(NftOutput { unlock_conditions, .. })
+            | Self::Foundry(FoundryOutput { unlock_conditions, .. }) => unlock_conditions
+                .iter()
+                .filter_map(UnlockCondition::owning_address)
+                .cloned()
+                .collect(),
+        }
+    }
+}
+
 impl From<&bee::Output> for Output {
     fn from(value: &bee::Output) -> Self {
         match value {
@@ -91,7 +108,7 @@ impl From<&bee::Output> for Output {
 }
 
 impl TryFrom<Output> for bee::Output {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: Output) -> Result<Self, Self::Error> {
         Ok(match value {

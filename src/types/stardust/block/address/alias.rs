@@ -25,7 +25,7 @@ impl From<AliasAddress> for bee::AliasAddress {
 }
 
 impl FromStr for AliasAddress {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::AliasAddress::from_str(s)?.into())

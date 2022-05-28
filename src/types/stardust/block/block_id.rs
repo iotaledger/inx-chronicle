@@ -33,7 +33,7 @@ impl From<BlockId> for bee::BlockId {
 }
 
 impl FromStr for BlockId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::BlockId::from_str(s)?.into())

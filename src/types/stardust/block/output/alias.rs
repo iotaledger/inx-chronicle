@@ -16,7 +16,7 @@ pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl AliasId {
     const LENGTH: usize = bee::AliasId::LENGTH;
 
-    pub fn from_output_id_str(s: &str) -> Result<Self, crate::types::Error> {
+    pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
         Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }
 }
@@ -34,7 +34,7 @@ impl From<AliasId> for bee::AliasId {
 }
 
 impl FromStr for AliasId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::AliasId::from_str(s)?.into())
@@ -73,10 +73,10 @@ impl From<&bee::AliasOutput> for AliasOutput {
 }
 
 impl TryFrom<AliasOutput> for bee::AliasOutput {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(value.amount, value.alias_id.into())?
+        Self::build_with_amount(value.amount, value.alias_id.into())?
             .with_native_tokens(
                 Vec::from(value.native_tokens)
                     .into_iter()
@@ -104,7 +104,7 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()?)
+            .finish()
     }
 }
 

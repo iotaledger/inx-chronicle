@@ -16,7 +16,7 @@ pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl NftId {
     const LENGTH: usize = bee::NftId::LENGTH;
 
-    pub fn from_output_id_str(s: &str) -> Result<Self, crate::types::Error> {
+    pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
         Ok(bee::NftId::from(bee::OutputId::from_str(s)?).into())
     }
 }
@@ -34,7 +34,7 @@ impl From<NftId> for bee::NftId {
 }
 
 impl FromStr for NftId {
-    type Err = crate::types::Error;
+    type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftId::from_str(s)?.into())
@@ -43,12 +43,12 @@ impl FromStr for NftId {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NftOutput {
-    amount: OutputAmount,
-    native_tokens: Box<[NativeToken]>,
-    nft_id: NftId,
-    unlock_conditions: Box<[UnlockCondition]>,
-    features: Box<[Feature]>,
-    immutable_features: Box<[Feature]>,
+    pub amount: OutputAmount,
+    pub native_tokens: Box<[NativeToken]>,
+    pub nft_id: NftId,
+    pub unlock_conditions: Box<[UnlockCondition]>,
+    pub features: Box<[Feature]>,
+    pub immutable_features: Box<[Feature]>,
 }
 
 impl From<&bee::NftOutput> for NftOutput {
@@ -65,10 +65,10 @@ impl From<&bee::NftOutput> for NftOutput {
 }
 
 impl TryFrom<NftOutput> for bee::NftOutput {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(value.amount, value.nft_id.into())?
+        Self::build_with_amount(value.amount, value.nft_id.into())?
             .with_native_tokens(
                 Vec::from(value.native_tokens)
                     .into_iter()
@@ -93,7 +93,7 @@ impl TryFrom<NftOutput> for bee::NftOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()?)
+            .finish()
     }
 }
 

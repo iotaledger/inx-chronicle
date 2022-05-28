@@ -35,7 +35,7 @@ impl From<bee::Block> for Block {
 }
 
 impl TryFrom<Block> for bee::Block {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: Block) -> Result<Self, Self::Error> {
         let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
@@ -45,7 +45,7 @@ impl TryFrom<Block> for bee::Block {
         if let Some(payload) = value.payload {
             builder = builder.with_payload(payload.try_into()?)
         }
-        Ok(builder.finish()?)
+        builder.finish()
     }
 }
 

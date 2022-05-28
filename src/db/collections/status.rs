@@ -31,11 +31,10 @@ impl MongoDb {
 
     /// Sets the name of the network.
     pub async fn set_network_name(&self, network_name: String) -> Result<(), Error> {
-        let _ = self
-            .0
+        self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .insert_one(StatusDocument { network_name }, None)
-            .await;
+            .await?;
 
         Ok(())
     }

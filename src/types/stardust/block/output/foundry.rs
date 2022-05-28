@@ -9,14 +9,14 @@ use super::{Feature, NativeToken, OutputAmount, TokenScheme, UnlockCondition};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
     #[serde(with = "crate::types::util::stringify")]
-    amount: OutputAmount,
-    native_tokens: Box<[NativeToken]>,
+    pub amount: OutputAmount,
+    pub native_tokens: Box<[NativeToken]>,
     #[serde(with = "crate::types::util::stringify")]
-    serial_number: u32,
-    token_scheme: TokenScheme,
-    unlock_conditions: Box<[UnlockCondition]>,
-    features: Box<[Feature]>,
-    immutable_features: Box<[Feature]>,
+    pub serial_number: u32,
+    pub token_scheme: TokenScheme,
+    pub unlock_conditions: Box<[UnlockCondition]>,
+    pub features: Box<[Feature]>,
+    pub immutable_features: Box<[Feature]>,
 }
 
 impl From<&bee::FoundryOutput> for FoundryOutput {
@@ -34,11 +34,10 @@ impl From<&bee::FoundryOutput> for FoundryOutput {
 }
 
 impl TryFrom<FoundryOutput> for bee::FoundryOutput {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
-        Ok(
-            Self::build_with_amount(value.amount, value.serial_number, value.token_scheme.try_into()?)?
+        Self::build_with_amount(value.amount, value.serial_number, value.token_scheme.try_into()?)?
                 .with_native_tokens(
                     Vec::from(value.native_tokens)
                         .into_iter()
@@ -63,8 +62,7 @@ impl TryFrom<FoundryOutput> for bee::FoundryOutput {
                         .map(TryInto::try_into)
                         .collect::<Result<Vec<_>, _>>()?,
                 )
-                .finish()?,
-        )
+                .finish()
     }
 }
 

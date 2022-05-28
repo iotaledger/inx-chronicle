@@ -62,25 +62,14 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Block Event");
 
-        let block_metadata = block_metadata_result?;
+        let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata_result?.try_into()?;
+        let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
 
-        if let Some(raw_block) = block_metadata.block.as_ref() {
-            let raw = raw_block.data.clone();
+        self.db
+            .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
+            .await?;
 
-            match inx::BlockWithMetadata::try_from(block_metadata) {
-                Ok(BlockWithMetadata { block, metadata }) => {
-                    self.db
-                        .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
-                        .await?;
-                    log::trace!("Inserted block into database.")
-                }
-                Err(e) => {
-                    log::error!("Could not read block: {:?}", e);
-                }
-            };
-        } else {
-            log::error!("Could not read raw message from block.");
-        }
+        log::trace!("Inserted block into database.");
 
         Ok(())
     }

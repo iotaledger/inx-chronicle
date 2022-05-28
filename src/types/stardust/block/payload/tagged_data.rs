@@ -22,10 +22,10 @@ impl From<&bee::TaggedDataPayload> for TaggedDataPayload {
 }
 
 impl TryFrom<TaggedDataPayload> for bee::TaggedDataPayload {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
-        Ok(bee::TaggedDataPayload::new(value.tag.into(), value.data.into())?)
+        bee::TaggedDataPayload::new(value.tag.into(), value.data.into())
     }
 }
 

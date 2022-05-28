@@ -45,7 +45,7 @@ impl From<&bee::Feature> for Feature {
 }
 
 impl TryFrom<Feature> for bee::Feature {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: Feature) -> Result<Self, Self::Error> {
         Ok(match value {

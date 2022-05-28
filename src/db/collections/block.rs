@@ -30,8 +30,7 @@ struct BlockDocument {
     #[serde(with = "serde_bytes")]
     raw: Vec<u8>,
     /// The block's metadata.
-    // TODO: Remove `Option`
-    metadata: Option<BlockMetadata>,
+    metadata: BlockMetadata,
 }
 
 impl BlockDocument {
@@ -126,14 +125,13 @@ impl MongoDb {
             block_id,
             block,
             raw,
-            metadata: Some(metadata),
+            metadata,
         };
 
-        let _ = self
-            .0
+        self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .insert_one(block_document, None)
-            .await;
+            .await?;
 
         Ok(())
     }

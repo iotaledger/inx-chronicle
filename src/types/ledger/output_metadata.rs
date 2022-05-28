@@ -5,17 +5,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     stardust::{
-        block::{BlockId, OutputId, TransactionId},
+        block::{BlockId, Output, OutputId, TransactionId},
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MilestoneIndexTimestamp {
+    pub milestone_index: MilestoneIndex,
+    pub milestone_timestamp: MilestoneTimestamp,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpentMetadata {
     pub transaction_id: TransactionId,
-    pub milestone_index_spent: MilestoneIndex,
-    pub milestone_timestamp_spent: MilestoneTimestamp,
+    pub spent: MilestoneIndexTimestamp,
 }
 
 /// Block metadata.
@@ -24,7 +29,48 @@ pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub transaction_id: TransactionId,
-    pub milestone_index_booked: MilestoneIndex,
-    pub milestone_timestamp_booked: MilestoneTimestamp,
+    pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
+}
+
+pub struct OutputWithMetadata {
+    pub output: Output,
+    pub metadata: OutputMetadata,
+}
+
+impl From<inx::LedgerOutput> for OutputWithMetadata {
+    fn from(value: inx::LedgerOutput) -> Self {
+        let output_id = OutputId::from(value.output_id);
+        let transaction_id = output_id.transaction_id.clone();
+        let metadata = OutputMetadata {
+            output_id,
+            block_id: value.block_id.into(),
+            transaction_id,
+            booked: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_booked.into(),
+                milestone_timestamp: value.milestone_timestamp_booked.into(),
+            },
+            spent: None,
+        };
+        Self {
+            output: (&value.output).into(),
+            metadata,
+        }
+    }
+}
+
+impl From<inx::LedgerSpent> for OutputWithMetadata {
+    fn from(value: inx::LedgerSpent) -> Self {
+        let mut output_with_metadata = OutputWithMetadata::from(value.output);
+
+        output_with_metadata.metadata.spent = Some(SpentMetadata {
+            transaction_id: value.transaction_id_spent.into(),
+            spent: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_spent.into(),
+                milestone_timestamp: value.milestone_timestamp_spent.into(),
+            },
+        });
+
+        output_with_metadata
+    }
 }

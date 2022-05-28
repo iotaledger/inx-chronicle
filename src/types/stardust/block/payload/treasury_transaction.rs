@@ -23,13 +23,13 @@ impl From<&bee::TreasuryTransactionPayload> for TreasuryTransactionPayload {
 }
 
 impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: TreasuryTransactionPayload) -> Result<Self, Self::Error> {
-        Ok(Self::new(
+        Self::new(
             bee_block_stardust::input::TreasuryInput::new(value.input_milestone_id.into()),
             bee_block_stardust::output::TreasuryOutput::new(value.output_amount)?,
-        )?)
+        )
     }
 }
 

@@ -27,10 +27,10 @@ impl From<&bee::BasicOutput> for BasicOutput {
 }
 
 impl TryFrom<BasicOutput> for bee::BasicOutput {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: BasicOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(value.amount)?
+        Self::build_with_amount(value.amount)?
             .with_native_tokens(
                 Vec::from(value.native_tokens)
                     .into_iter()
@@ -49,7 +49,7 @@ impl TryFrom<BasicOutput> for bee::BasicOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()?)
+            .finish()
     }
 }
 

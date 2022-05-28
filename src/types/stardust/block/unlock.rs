@@ -33,7 +33,7 @@ impl From<&bee::Unlock> for Unlock {
 }
 
 impl TryFrom<Unlock> for bee::Unlock {
-    type Error = crate::types::Error;
+    type Error = bee_block_stardust::Error;
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
