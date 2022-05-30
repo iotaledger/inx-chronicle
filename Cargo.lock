@@ -200,7 +200,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-block"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "bee-ledger"
 version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-block",
  "packable",
@@ -248,7 +248,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -258,14 +258,13 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-block",
  "bee-ledger",
  "bee-pow",
  "multiaddr",
  "packable",
- "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
  "serde",
  "serde_json",
@@ -275,7 +274,7 @@ dependencies = [
 [[package]]
 name = "bee-runtime"
 version = "0.1.1-alpha"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "async-trait",
  "bee-storage",
@@ -287,7 +286,7 @@ dependencies = [
 [[package]]
 name = "bee-storage"
 version = "0.12.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "packable",
  "serde",
@@ -297,7 +296,7 @@ dependencies = [
 [[package]]
 name = "bee-tangle"
 version = "0.3.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "async-trait",
  "bee-block",
@@ -330,7 +329,7 @@ dependencies = [
 [[package]]
 name = "bee-test"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-block",
  "bee-ledger",
@@ -1635,9 +1634,9 @@ dependencies = [
 
 [[package]]
 name = "packable"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47762ff3c7cbf55a5b822ce505b97bbcf1617be780f71c3ee43c272dd4a1867"
+checksum = "3ba68b40fa9b816f4bba41799ace47d683ee7c1c8a93b0bf7c449c1acd35ecbe"
 dependencies = [
  "autocfg",
  "packable-derive",
@@ -1647,9 +1646,9 @@ dependencies = [
 
 [[package]]
 name = "packable-derive"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ec4d652900dcba58871e8f421111f1459bee2d40fe0bb43df07008b17598b0"
+checksum = "49ac147a716456f01535d90ead1fa84341886a5ee764c86690937e59335c928d"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
