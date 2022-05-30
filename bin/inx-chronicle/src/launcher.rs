@@ -56,14 +56,17 @@ impl Actor for Launcher {
         };
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
+        #[allow(clippy::redundant_clone)]
         cx.spawn_child(super::stardust_inx::InxWorker::new(db.clone(), config.inx.clone()))
             .await;
 
         #[cfg(feature = "api")]
-        cx.spawn_child(super::api::ApiWorker::new(db, config.api.clone())).await;
+        #[allow(clippy::redundant_clone)]
+        cx.spawn_child(super::api::ApiWorker::new(db.clone(), config.api.clone()))
+            .await;
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+        cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
             .await;
 
         Ok(config)
@@ -159,7 +162,8 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+                    let db = MongoDb::connect(&config.mongodb).await?;
+                    cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
                         .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
