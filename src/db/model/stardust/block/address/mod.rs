@@ -6,8 +6,8 @@ use std::str::FromStr;
 use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
-mod ed25519;
 mod alias;
+mod ed25519;
 mod nft;
 
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};

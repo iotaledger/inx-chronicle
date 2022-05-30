@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{db, db::model::util::bytify};
 
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Ed25519Address(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
