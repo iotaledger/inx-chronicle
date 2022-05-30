@@ -6,53 +6,28 @@ use std::str::FromStr;
 use bee_block_stardust::address as bee;
 use serde::{Deserialize, Serialize};
 
-use super::{AliasId, NftId};
-use crate::{db, db::model::util::bytify};
+mod ed25519;
+mod alias;
+mod nft;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Ed25519Address(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
-
-impl Ed25519Address {
-    const LENGTH: usize = bee::Ed25519Address::LENGTH;
-}
-
-impl From<bee::Ed25519Address> for Ed25519Address {
-    fn from(value: bee::Ed25519Address) -> Self {
-        Self(*value)
-    }
-}
-
-impl From<Ed25519Address> for bee::Ed25519Address {
-    fn from(value: Ed25519Address) -> Self {
-        bee::Ed25519Address::new(value.0)
-    }
-}
-
-impl FromStr for Ed25519Address {
-    type Err = db::error::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::Ed25519Address::from_str(s)?.into())
-    }
-}
+pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Address {
     #[serde(rename = "ed25519")]
     Ed25519(Ed25519Address),
     #[serde(rename = "alias")]
-    Alias(AliasId),
+    Alias(AliasAddress),
     #[serde(rename = "nft")]
-    Nft(NftId),
+    Nft(NftAddress),
 }
 
 impl From<bee::Address> for Address {
     fn from(value: bee::Address) -> Self {
         match value {
-            bee::Address::Ed25519(a) => Self::Ed25519(Ed25519Address::from(a)),
-            bee::Address::Alias(a) => Self::Alias((*a.alias_id()).into()),
-            bee::Address::Nft(a) => Self::Nft((*a.nft_id()).into()),
+            bee::Address::Ed25519(a) => Self::Ed25519(a.into()),
+            bee::Address::Alias(a) => Self::Alias(a.into()),
+            bee::Address::Nft(a) => Self::Nft(a.into()),
         }
     }
 }
@@ -61,8 +36,8 @@ impl From<Address> for bee::Address {
     fn from(value: Address) -> Self {
         match value {
             Address::Ed25519(a) => Self::Ed25519(a.into()),
-            Address::Alias(a) => Self::Alias(bee::AliasAddress::new(a.into())),
-            Address::Nft(a) => Self::Nft(bee::NftAddress::new(a.into())),
+            Address::Alias(a) => Self::Alias(a.into()),
+            Address::Nft(a) => Self::Nft(a.into()),
         }
     }
 }
