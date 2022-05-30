@@ -46,3 +46,48 @@ pub mod stringify {
         serializer.collect_str(&value)
     }
 }
+
+/// `serde_bytes` cannot be used with sized arrays, so this works around that limitation.
+pub mod bytify {
+    use std::marker::PhantomData;
+
+    use serde::{de::Visitor, Deserializer, Serializer};
+
+    /// Deserialize T from bytes
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: for<'a> TryFrom<&'a [u8]>,
+    {
+        struct Helper<S>(PhantomData<S>);
+
+        impl<'de, S> Visitor<'de> for Helper<S>
+        where
+            S: for<'a> TryFrom<&'a [u8]>,
+        {
+            type Value = S;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "bytes")
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                v.try_into().map_err(|_| serde::de::Error::custom("invalid bytes"))
+            }
+        }
+
+        deserializer.deserialize_bytes(Helper(PhantomData))
+    }
+
+    /// Serialize T as bytes
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: AsRef<[u8]>,
+        S: Serializer,
+    {
+        serde_bytes::Serialize::serialize(value.as_ref(), serializer)
+    }
+}

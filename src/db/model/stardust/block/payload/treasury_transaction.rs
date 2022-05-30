@@ -28,7 +28,7 @@ impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
 
     fn try_from(value: TreasuryTransactionPayload) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            bee_block_stardust::input::TreasuryInput::new(value.input_milestone_id.try_into()?),
+            bee_block_stardust::input::TreasuryInput::new(value.input_milestone_id.into()),
             bee_block_stardust::output::TreasuryOutput::new(value.output_amount)?,
         )?)
     }

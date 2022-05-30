@@ -7,12 +7,15 @@ use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
+use crate::db::model::util::bytify;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct NftId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl NftId {
+    const LENGTH: usize = bee::NftId::LENGTH;
+
     pub fn from_output_id_str(s: &str) -> Result<Self, crate::db::error::Error> {
         Ok(bee::NftId::from(bee::OutputId::from_str(s)?).into())
     }
@@ -20,15 +23,13 @@ impl NftId {
 
 impl From<bee::NftId> for NftId {
     fn from(value: bee::NftId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 
-impl TryFrom<NftId> for bee::NftId {
-    type Error = crate::db::error::Error;
-
-    fn try_from(value: NftId) -> Result<Self, Self::Error> {
-        Ok(bee::NftId::new(value.0.as_ref().try_into()?))
+impl From<NftId> for bee::NftId {
+    fn from(value: NftId) -> Self {
+        bee::NftId::new(value.0)
     }
 }
 
@@ -67,7 +68,7 @@ impl TryFrom<NftOutput> for bee::NftOutput {
     type Error = crate::db::error::Error;
 
     fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
-        Ok(Self::build_with_amount(value.amount, value.nft_id.try_into()?)?
+        Ok(Self::build_with_amount(value.amount, value.nft_id.into())?
             .with_native_tokens(
                 Vec::from(value.native_tokens)
                     .into_iter()

@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 pub use self::milestone_id::MilestoneId;
 use super::super::{Address, BlockId, Signature, TreasuryTransactionPayload};
-use crate::db::{self, model::tangle::MilestoneIndex};
+use crate::db::{
+    self,
+    model::{tangle::MilestoneIndex, util::bytify},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestonePayload {
@@ -33,8 +36,8 @@ impl TryFrom<MilestonePayload> for bee::MilestonePayload {
             value.essence.try_into()?,
             Vec::from(value.signatures)
                 .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
+                .map(Into::into)
+                .collect::<Vec<_>>(),
         )?)
     }
 }
@@ -45,13 +48,17 @@ pub struct MilestoneEssence {
     pub timestamp: u32,
     pub previous_milestone_id: MilestoneId,
     pub parents: Box<[BlockId]>,
-    #[serde(with = "serde_bytes")]
-    pub confirmed_merkle_proof: Box<[u8]>,
-    #[serde(with = "serde_bytes")]
-    pub applied_merkle_proof: Box<[u8]>,
+    #[serde(with = "bytify")]
+    pub confirmed_merkle_proof: [u8; Self::MERKLE_PROOF_LENGTH],
+    #[serde(with = "bytify")]
+    pub applied_merkle_proof: [u8; Self::MERKLE_PROOF_LENGTH],
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
     pub options: Box<[MilestoneOption]>,
+}
+
+impl MilestoneEssence {
+    const MERKLE_PROOF_LENGTH: usize = bee::MilestoneEssence::MERKLE_ROOT_LENGTH;
 }
 
 impl From<&bee::MilestoneEssence> for MilestoneEssence {
@@ -61,8 +68,9 @@ impl From<&bee::MilestoneEssence> for MilestoneEssence {
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
             parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
-            confirmed_merkle_proof: value.confirmed_merkle_root().to_vec().into_boxed_slice(),
-            applied_merkle_proof: value.applied_merkle_root().to_vec().into_boxed_slice(),
+            // Unwrap: Cannot fail as the essence struct constricts the length
+            confirmed_merkle_proof: value.confirmed_merkle_root().try_into().unwrap(),
+            applied_merkle_proof: value.applied_merkle_root().try_into().unwrap(),
             metadata: value.metadata().to_vec(),
             options: value.options().iter().map(Into::into).collect(),
         }
@@ -76,15 +84,12 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
         Ok(bee::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
-            value.previous_milestone_id.try_into()?,
+            value.previous_milestone_id.into(),
             bee_block_stardust::parent::Parents::new(
-                Vec::from(value.parents)
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>, _>>()?,
+                Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
             )?,
-            value.confirmed_merkle_proof.as_ref().try_into()?,
-            value.applied_merkle_proof.as_ref().try_into()?,
+            value.confirmed_merkle_proof,
+            value.applied_merkle_proof,
             value.metadata,
             bee_block_stardust::payload::MilestoneOptions::new(
                 Vec::from(value.options)
@@ -166,17 +171,22 @@ impl TryFrom<MilestoneOption> for bee::MilestoneOption {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
-    #[serde(with = "serde_bytes")]
-    tail_transaction_hash: Box<[u8]>,
+    #[serde(with = "bytify")]
+    tail_transaction_hash: [u8; Self::TAIL_TRANSACTION_HASH_LENGTH],
     address: Address,
     #[serde(with = "crate::db::model::util::stringify")]
     amount: u64,
 }
 
+impl MigratedFundsEntry {
+    const TAIL_TRANSACTION_HASH_LENGTH: usize = bee::option::TailTransactionHash::LENGTH;
+}
+
 impl From<&bee::option::MigratedFundsEntry> for MigratedFundsEntry {
     fn from(value: &bee::option::MigratedFundsEntry) -> Self {
         Self {
-            tail_transaction_hash: value.tail_transaction_hash().as_ref().to_vec().into_boxed_slice(),
+            // Unwrap: Should not fail as the length is defined by the struct
+            tail_transaction_hash: value.tail_transaction_hash().as_ref().try_into().unwrap(),
             address: (*value.address()).into(),
             amount: value.amount(),
         }
@@ -188,8 +198,8 @@ impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
 
     fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Ok(Self::new(
-            bee::option::TailTransactionHash::new(value.tail_transaction_hash.as_ref().try_into()?)?,
-            value.address.try_into()?,
+            bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
+            value.address.into(),
             value.amount,
         )?)
     }

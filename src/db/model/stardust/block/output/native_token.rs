@@ -7,39 +7,43 @@ use bee_block_stardust::output as bee;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
+use crate::db::model::util::bytify;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TokenAmount(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct TokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
 
 impl From<&U256> for TokenAmount {
     fn from(value: &U256) -> Self {
-        let mut amount = vec![0; size_of::<U256>()];
+        let mut amount = [0; size_of::<U256>()];
         value.to_little_endian(&mut amount);
-        Self(amount.into_boxed_slice())
+        Self(amount)
     }
 }
 
 impl From<TokenAmount> for U256 {
     fn from(value: TokenAmount) -> Self {
-        U256::from_little_endian(value.0.as_ref())
+        U256::from_little_endian(&value.0)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TokenId(#[serde(with = "serde_bytes")] pub Box<[u8]>);
+pub struct TokenId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
+
+impl TokenId {
+    const LENGTH: usize = bee::TokenId::LENGTH;
+}
 
 impl From<bee::TokenId> for TokenId {
     fn from(value: bee::TokenId) -> Self {
-        Self(value.to_vec().into_boxed_slice())
+        Self(*value)
     }
 }
 
-impl TryFrom<TokenId> for bee::TokenId {
-    type Error = crate::db::error::Error;
-
-    fn try_from(value: TokenId) -> Result<Self, Self::Error> {
-        Ok(bee::TokenId::new(value.0.as_ref().try_into()?))
+impl From<TokenId> for bee::TokenId {
+    fn from(value: TokenId) -> Self {
+        bee::TokenId::new(value.0)
     }
 }
 
@@ -101,7 +105,7 @@ pub struct NativeToken {
 impl From<&bee::NativeToken> for NativeToken {
     fn from(value: &bee::NativeToken) -> Self {
         Self {
-            token_id: TokenId(value.token_id().to_vec().into_boxed_slice()),
+            token_id: TokenId(**value.token_id()),
             amount: value.amount().into(),
         }
     }
@@ -111,7 +115,7 @@ impl TryFrom<NativeToken> for bee::NativeToken {
     type Error = crate::db::error::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
-        Ok(Self::new(value.token_id.try_into()?, value.amount.into())?)
+        Ok(Self::new(value.token_id.into(), value.amount.into())?)
     }
 }
 

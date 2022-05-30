@@ -51,7 +51,7 @@ impl TryFrom<OutputId> for bee::OutputId {
     type Error = crate::db::error::Error;
 
     fn try_from(value: OutputId) -> Result<Self, Self::Error> {
-        Ok(bee::OutputId::new(value.transaction_id.try_into()?, value.index)?)
+        Ok(bee::OutputId::new(value.transaction_id.into(), value.index)?)
     }
 }
 
