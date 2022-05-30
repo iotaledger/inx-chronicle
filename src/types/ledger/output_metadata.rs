@@ -38,6 +38,7 @@ pub struct OutputWithMetadata {
     pub metadata: OutputMetadata,
 }
 
+#[cfg(feature = "inx")]
 impl From<inx::LedgerOutput> for OutputWithMetadata {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
@@ -59,6 +60,7 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
     }
 }
 
+#[cfg(feature = "inx")]
 impl From<inx::LedgerSpent> for OutputWithMetadata {
     fn from(value: inx::LedgerSpent) -> Self {
         let mut output_with_metadata = OutputWithMetadata::from(value.output);
