@@ -40,9 +40,9 @@ impl Actor for LedgerUpdateStream {
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
         if *self.range.end() == u32::MAX {
-            format!("Milestone Stream ({}..)", self.range.start()).into()
+            format!("LedgerUpdateStream ({}..)", self.range.start()).into()
         } else {
-            format!("Milestone Stream ({}..={})", self.range.start(), self.range.end()).into()
+            format!("LedgerUpdateStream ({}..={})", self.range.start(), self.range.end()).into()
         }
     }
 }

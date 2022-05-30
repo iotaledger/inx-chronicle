@@ -34,7 +34,6 @@ struct SyncStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct MilestoneDocument {
     /// The milestone index.
-    #[serde(rename = "_id")]
     milestone_index: MilestoneIndex,
     /// The [`MilestoneId`](MilestoneId) of the milestone.
     milestone_id: MilestoneId,
@@ -101,7 +100,11 @@ impl MongoDb {
 
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .insert_one(milestone_document, None)
+            .update_one(
+                doc! { "milestone_index": milestone_index },
+                doc! { "$set": bson::to_document(&milestone_document)? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
             .await?;
 
         Ok(())

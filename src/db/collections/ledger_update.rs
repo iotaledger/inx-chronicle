@@ -65,6 +65,7 @@ impl MongoDb {
         outputs_with_metadata: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
         // TODO: Use `insert_many` and `update_many` to increase write performance.
+
         for OutputWithMetadata { output, metadata } in outputs_with_metadata {
             // Ledger updates
             for owner in output.owning_addresses() {
@@ -75,6 +76,7 @@ impl MongoDb {
                     is_spent: metadata.spent.is_some(),
                 };
 
+                // TODO: This is prone to overwriting and should be fixed in the future (GitHub issue: #218).
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .insert_one(ledger_update_document, None)

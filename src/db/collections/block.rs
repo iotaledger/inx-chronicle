@@ -3,9 +3,9 @@
 
 use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, to_bson, to_document},
     error::Error,
-    options::{FindOneOptions, FindOptions},
+    options::{FindOneOptions, FindOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
@@ -122,7 +122,7 @@ impl MongoDb {
         metadata: BlockMetadata,
     ) -> Result<(), Error> {
         let block_document = BlockDocument {
-            block_id,
+            block_id: block_id.clone(),
             block,
             raw,
             metadata,
@@ -130,7 +130,11 @@ impl MongoDb {
 
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .insert_one(block_document, None)
+            .update_one(
+                doc! { "_id": to_bson(&block_id)? },
+                doc! { "$set": to_document(&block_document)? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
             .await?;
 
         Ok(())

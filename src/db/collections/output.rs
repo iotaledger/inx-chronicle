@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, to_bson, to_document},
     error::Error,
-    options::FindOneOptions,
+    options::{FindOneOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
@@ -40,14 +40,18 @@ impl MongoDb {
         metadata: OutputMetadata,
     ) -> Result<(), Error> {
         let output_document = OutputDocument {
-            output_id,
+            output_id: output_id.clone(),
             output,
             metadata,
         };
 
         self.0
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .insert_one(output_document, None)
+            .update_one(
+                doc! { "_id": to_bson(&output_id)?},
+                doc! {"$set": to_document(&output_document)? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
             .await?;
 
         Ok(())
