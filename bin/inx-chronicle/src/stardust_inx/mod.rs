@@ -24,12 +24,12 @@ pub use milestone_stream::MilestoneStream;
 
 use self::syncer::{SyncNext, Syncer};
 
-pub struct Inx {
+pub struct InxWorker {
     db: MongoDb,
     config: InxConfig,
 }
 
-impl Inx {
+impl InxWorker {
     /// Creates an [`InxClient`] by connecting to the endpoint specified in `inx_config`.
     pub fn new(db: MongoDb, inx_config: InxConfig) -> Self {
         Self { db, config: inx_config }
@@ -75,7 +75,7 @@ impl Inx {
 }
 
 #[async_trait]
-impl Actor for Inx {
+impl Actor for InxWorker {
     type State = InxClient<Channel>;
     type Error = InxError;
 
@@ -90,14 +90,21 @@ impl Actor for Inx {
             .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
             .await?
             .into_inner();
-        cx.spawn_child(MilestoneStream::new(self.db.clone(), inx_client.clone()).with_stream(milestone_stream))
-            .await;
+        cx.spawn_child(
+            MilestoneStream::new(self.db.clone(), inx_client.clone(), latest_ms + 1..=u32::MAX.into())
+                .with_stream(milestone_stream),
+        )
+        .await;
         Ok(inx_client)
+    }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "Inx Worker".into()
     }
 }
 
 #[async_trait]
-impl HandleEvent<Report<MilestoneStream>> for Inx {
+impl HandleEvent<Report<MilestoneStream>> for InxWorker {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
@@ -120,7 +127,7 @@ impl HandleEvent<Report<MilestoneStream>> for Inx {
 }
 
 #[async_trait]
-impl HandleEvent<Report<Syncer>> for Inx {
+impl HandleEvent<Report<Syncer>> for InxWorker {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,

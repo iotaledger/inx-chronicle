@@ -184,6 +184,10 @@ impl Actor for MetricsWorker {
 
         run_result
     }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "Metrics Worker".into()
+    }
 }
 
 #[async_trait]

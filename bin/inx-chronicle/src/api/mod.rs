@@ -131,6 +131,10 @@ impl Actor for ApiWorker {
         log::info!("Stopping API server");
         run_result
     }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "API Worker".into()
+    }
 }
 
 async fn shutdown_signal(recv: oneshot::Receiver<()>) {
