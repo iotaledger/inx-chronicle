@@ -480,7 +480,7 @@ dependencies = [
  "packable",
  "pin-project",
  "prefix-hex 0.4.0",
- "primitive-types 0.10.1",
+ "primitive-types 0.11.1",
  "serde",
  "serde_bytes",
  "serde_json",
