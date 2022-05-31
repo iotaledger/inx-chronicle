@@ -68,7 +68,7 @@ impl Actor for ApiWorker {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
-        log::info!("Starting API server");
+        log::info!("Starting API server on port `{}`", self.config.port);
         let api_handle = cx.handle().clone();
         let port = self.config.port;
         let routes = routes()
@@ -135,6 +135,10 @@ impl Actor for ApiWorker {
         }
         log::info!("Stopping API server");
         run_result
+    }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "API Worker".into()
     }
 }
 

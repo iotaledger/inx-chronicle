@@ -55,17 +55,19 @@ impl Actor for Launcher {
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
-        if let Some(node_status) = db.status().await? {
+        if let Some(node_status) = db.get_network_name().await? {
             log::info!("{:?}", node_status);
         } else {
             log::info!("No node status has been found in the database, it seems like the database is empty.");
         };
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
-        cx.spawn_child(super::stardust_inx::Inx::new(db.clone(), config.inx.clone()))
+        #[allow(clippy::redundant_clone)]
+        cx.spawn_child(super::stardust_inx::InxWorker::new(db.clone(), config.inx.clone()))
             .await;
 
         #[cfg(feature = "api")]
+        #[allow(clippy::redundant_clone)]
         let secret_key = {
             let secret_key = match &cli_args.identity {
                 Some(path) => keypair_from_file(path)?,
@@ -78,7 +80,7 @@ impl Actor for Launcher {
                 }
             };
             cx.spawn_child(super::api::ApiWorker::new(
-                db,
+                db.clone(),
                 (config.api.clone(), secret_key.clone())
                     .try_into()
                     .map_err(ConfigError::Api)?,
@@ -88,7 +90,7 @@ impl Actor for Launcher {
         };
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(super::metrics::MetricsWorker::new(config.metrics.clone()))
+        cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
             .await;
 
         Ok(LauncherState {
@@ -96,6 +98,10 @@ impl Actor for Launcher {
             #[cfg(feature = "api")]
             secret_key,
         })
+    }
+
+    fn name(&self) -> std::borrow::Cow<'static, str> {
+        "Launcher".into()
     }
 }
 
@@ -111,11 +117,11 @@ fn keypair_from_file(path: &str) -> Result<libp2p_core::identity::ed25519::Secre
 
 #[cfg(all(feature = "inx", feature = "stardust"))]
 #[async_trait]
-impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
+impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<super::stardust_inx::Inx>,
+        event: Report<super::stardust_inx::InxWorker>,
         state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
@@ -129,7 +135,7 @@ impl HandleEvent<Report<super::stardust_inx::Inx>> for Launcher {
                         mongodb::error::ErrorKind::Io(_)
                         | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
                             let db = MongoDb::connect(&state.config.mongodb).await?;
-                            cx.spawn_child(super::stardust_inx::Inx::new(db, state.config.inx.clone()))
+                            cx.spawn_child(super::stardust_inx::InxWorker::new(db, state.config.inx.clone()))
                                 .await;
                         }
                         _ => {
@@ -200,7 +206,8 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    cx.spawn_child(super::metrics::MetricsWorker::new(state.config.metrics.clone()))
+                    let db = MongoDb::connect(&state.config.mongodb).await?;
+                    cx.spawn_child(super::metrics::MetricsWorker::new(db, state.config.metrics.clone()))
                         .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {

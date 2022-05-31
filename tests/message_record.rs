@@ -1,13 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_test::rand::block::rand_block;
-use chronicle::db::{
-    model::{
-        ledger::{ConflictReason, LedgerInclusionState, Metadata},
-        stardust::block::{Block, BlockRecord},
+use bee_test::rand::block::{rand_block, rand_block_id};
+use chronicle::{
+    db::{MongoDb, MongoDbConfig},
+    types::{
+        ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
+        stardust::block::{Block, BlockId},
     },
-    MongoDb, MongoDbConfig,
 };
 use packable::PackableExt;
 
@@ -18,10 +18,12 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
     let raw = bee_block.pack_to_vec();
     let block: Block = bee_block.clone().into();
 
-    let block_id = block.block_id.clone();
+    let block_id: BlockId = rand_block_id().into();
 
-    let metadata = Metadata {
+    let metadata = BlockMetadata {
         is_solid: true,
+        block_id: block_id.clone(),
+        parents: block.parents.clone(),
         should_promote: true,
         should_reattach: true,
         referenced_by_milestone_index: 42.into(),
@@ -30,21 +32,16 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
         conflict_reason: ConflictReason::None,
     };
 
-    let record = BlockRecord {
-        inner: block,
-        raw,
-        metadata: Some(metadata),
-    };
-
     let config = MongoDbConfig::default().with_suffix("cargo-test");
     let db = MongoDb::connect(&config).await?;
 
     db.clear().await?;
 
-    db.upsert_block_record(&record).await?;
+    db.insert_block_with_metadata(block_id.clone(), block, raw, metadata)
+        .await?;
 
     let result = db.get_block(&block_id).await?.unwrap();
-    let bee_result: bee_block_stardust::Block = result.inner.try_into().unwrap();
+    let bee_result: bee_block_stardust::Block = result.try_into().unwrap();
     assert_eq!(bee_result, bee_block);
 
     Ok(())

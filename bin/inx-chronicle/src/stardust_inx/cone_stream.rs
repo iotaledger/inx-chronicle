@@ -3,13 +3,11 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{
-        model::{stardust::block::BlockRecord, tangle::MilestoneIndex},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
+    types::tangle::MilestoneIndex,
 };
-use inx::tonic::Status;
+use inx::{tonic::Status, BlockWithMetadata};
 
 use super::InxError;
 
@@ -45,9 +43,11 @@ impl Actor for ConeStream {
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
         if run_result.is_ok() {
-            self.db.upsert_sync_record(self.milestone_index).await?;
+            self.db.set_sync_status_blocks(self.milestone_index).await?;
+            log::debug!("Milestone `{}` synced.", self.milestone_index);
+        } else {
+            log::warn!("Syncing milestone `{}` failed.", self.milestone_index);
         }
-        log::debug!("Milestone {} synced", self.milestone_index);
         run_result
     }
 }
@@ -57,18 +57,20 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        event: Result<inx::proto::BlockWithMetadata, Status>,
+        block_metadata_result: Result<inx::proto::BlockWithMetadata, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Block Event");
-        match BlockRecord::try_from(event?) {
-            Ok(rec) => {
-                self.db.upsert_block_record(&rec).await?;
-            }
-            Err(e) => {
-                log::error!("Could not read block: {:?}", e);
-            }
-        };
+
+        let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata_result?.try_into()?;
+        let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
+
+        self.db
+            .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
+            .await?;
+
+        log::trace!("Inserted block into database.");
+
         Ok(())
     }
 }

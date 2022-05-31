@@ -222,7 +222,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 [[package]]
 name = "bee-block"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -246,7 +246,7 @@ dependencies = [
 [[package]]
 name = "bee-ledger"
 version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-block",
  "packable",
@@ -270,7 +270,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -280,14 +280,13 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-block",
  "bee-ledger",
  "bee-pow",
  "multiaddr",
  "packable",
- "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
  "serde",
  "serde_json",
@@ -297,7 +296,7 @@ dependencies = [
 [[package]]
 name = "bee-runtime"
 version = "0.1.1-alpha"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "async-trait",
  "bee-storage",
@@ -309,7 +308,7 @@ dependencies = [
 [[package]]
 name = "bee-storage"
 version = "0.12.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "packable",
  "serde",
@@ -319,7 +318,7 @@ dependencies = [
 [[package]]
 name = "bee-tangle"
 version = "0.3.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "async-trait",
  "bee-block",
@@ -352,7 +351,7 @@ dependencies = [
 [[package]]
 name = "bee-test"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#5e50ae744436007f78fb9f7f0cdb266ac4eef9fd"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#4bc1ce7c3b1203829b5c54aaa86e34d64ecd64e9"
 dependencies = [
  "bee-block",
  "bee-ledger",
@@ -490,7 +489,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chronicle"
-version = "0.0.1-alpha.1"
+version = "0.1.0-alpha.1"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -532,7 +531,7 @@ dependencies = [
  "tower",
  "tower-http 0.3.3",
  "url",
- "uuid 1.0.0",
+ "uuid 1.1.0",
 ]
 
 [[package]]
@@ -944,13 +943,11 @@ checksum = "279fb028e20b3c4c320317955b77c5e0c9701f05a1d309905d6fc702cdc5053e"
 
 [[package]]
 name = "flate2"
-version = "1.0.23"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39522e96686d38f4bc984b9198e3a0613264abaebaff2c5c918bfa6b6da09af"
+checksum = "f82b0f4c27ad9f8bfd1f3208d882da2b09c301bc1c828fd3a00d0216d2fbbff6"
 dependencies = [
- "cfg-if",
  "crc32fast",
- "libc",
  "miniz_oxide",
 ]
 
@@ -1284,9 +1281,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "0.14.18"
+version = "0.14.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b26ae0a80afebe130861d90abf98e3814a4f28a4c6ffeb5ab8ebb2be311e0ef2"
+checksum = "42dc3c131584288d375f2d07f822b0cb012d8c6fb899a5b9fdb3cb7eb9b6004f"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1366,9 +1363,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.8.1"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f647032dfaa1f8b6dc29bd3edb7bbef4861b8b8007ebb118d6db284fd59f6ee"
+checksum = "e6012d540c5baa3589337a98ce73408de9b5a25ec9fc2c6fd6be8f0d39e0ca5a"
 dependencies = [
  "autocfg",
  "hashbrown 0.11.2",
@@ -1386,7 +1383,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.4.0"
-source = "git+https://github.com/iotaledger/inx#a71880dd53c110831bca8675c46137f93a990f85"
+source = "git+https://github.com/iotaledger/inx#7e2645671025e758edbed156e7ef8e0a94ee80e0"
 dependencies = [
  "bee-block",
  "packable",
@@ -1809,9 +1806,9 @@ dependencies = [
 
 [[package]]
 name = "os_str_bytes"
-version = "6.0.1"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "029d8d0b2f198229de29dca79676f2738ff952edf3fde542eb8bf94d8c21b435"
+checksum = "21326818e99cfe6ce1e524c2a805c189a99b5ae555a35d19f9a284b427d86afa"
 
 [[package]]
 name = "owning_ref"
@@ -1824,9 +1821,9 @@ dependencies = [
 
 [[package]]
 name = "packable"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47762ff3c7cbf55a5b822ce505b97bbcf1617be780f71c3ee43c272dd4a1867"
+checksum = "3ba68b40fa9b816f4bba41799ace47d683ee7c1c8a93b0bf7c449c1acd35ecbe"
 dependencies = [
  "autocfg",
  "packable-derive",
@@ -1836,9 +1833,9 @@ dependencies = [
 
 [[package]]
 name = "packable-derive"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ec4d652900dcba58871e8f421111f1459bee2d40fe0bb43df07008b17598b0"
+checksum = "49ac147a716456f01535d90ead1fa84341886a5ee764c86690937e59335c928d"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",
@@ -1922,9 +1919,9 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
 name = "petgraph"
-version = "0.6.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
+checksum = "e6d5014253a1331579ce62aa67443b4a658c5e7dd03d4bc6d302b94474888143"
 dependencies = [
  "fixedbitset",
  "indexmap",
@@ -2023,9 +2020,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9e07e3a46d0771a8a06b5f4441527802830b43e679ba12f44960f48dd4c6803"
+checksum = "f28f53e8b192565862cf99343194579a022eb9c7dd3a8d03134734803c7b3125"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -2457,12 +2454,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustversion"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2cc38e8fa666e2de3c4aba7edeb5ffc5246c1c2ed0e3d17e560aeeba736b23f"
-
-[[package]]
 name = "rw-stream-sink"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2574,11 +2565,10 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "1.13.0"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b827f2113224f3f19a665136f006709194bdfdcb1fdc1e4b2b5cbac8e0cced54"
+checksum = "678b5a069e50bf00ecd22d0cd8ddf7c236f68581b03db652061ed5eb13a312ff"
 dependencies = [
- "rustversion",
  "serde",
  "serde_with_macros",
 ]
@@ -3276,9 +3266,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cfcd319456c4d6ea10087ed423473267e1a071f3bc0aa89f80d60997843c6f0"
+checksum = "93bbc61e655a4833cf400d0d15bf3649313422fa7572886ad6dab16d79886365"
 dependencies = [
  "getrandom 0.2.6",
 ]

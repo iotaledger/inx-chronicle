@@ -70,10 +70,8 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataResponse> {
-    Ok(SyncDataResponse(
-        database.get_sync_data(0.into()..=u32::MAX.into()).await?,
-    ))
+async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
+    Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
 async fn not_found() -> ApiError {

@@ -7,7 +7,6 @@ use axum::{
     extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
-use chronicle::db::model::ledger::UnexpectedLedgerInclusionState;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -31,8 +30,6 @@ pub enum InternalApiError {
     Jwt(#[from] jsonwebtoken::errors::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
-    #[error(transparent)]
-    UnexpectedLedgerInclusionState(#[from] UnexpectedLedgerInclusionState),
     #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]
@@ -106,8 +103,6 @@ pub enum ParseError {
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
-    #[error(transparent)]
-    Model(#[from] chronicle::db::error::Error),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }
