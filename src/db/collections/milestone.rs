@@ -5,7 +5,7 @@ use std::ops::RangeInclusive;
 
 use futures::{Stream, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, Document},
     error::Error,
     options::{FindOneOptions, FindOptions, UpdateOptions},
 };
@@ -15,7 +15,7 @@ use crate::{
     db::MongoDb,
     types::{
         stardust::{
-            block::{MilestoneId, MilestonePayload, Payload},
+            block::{MilestoneId, MilestonePayload},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
@@ -245,5 +245,50 @@ impl MongoDb {
             sync_data.gaps.push(range);
         }
         Ok(sync_data)
+    }
+
+    /// Returns all [`MilestoneOption`]s stored in the database.
+    pub async fn get_milestone_options(
+        &self,
+    ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+        self
+            .0
+            .collection::<Document>(MilestoneDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "payload.essence.options.receipt.migrated_at": { "$exists": true },
+                    } },
+                    doc! { "$replaceRoot": { "newRoot": {
+                        "milestone_index": "$milestone_index" ,
+                        "milestone_options": "$payload.essence.options" ,
+                    } } },
+                ],
+                None,
+            )
+            .await
+    }
+
+    /// Retrieves those [`Receipt`]s that belong to migrations that happened at a certain milestone index.
+    pub async fn get_milestone_options_migrated_at(
+        &self,
+        migrated_at: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+        self
+            .0
+            .collection::<Document>(MilestoneDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "payload.essence.options.receipt.migrated_at": migrated_at ,
+                    } },
+                    doc! { "$replaceRoot": { "newRoot": {
+                        "milestone_index": "$milestone_index" ,
+                        "milestone_options": "$payload.essence.options" ,
+                    } } },
+                ],
+                None,
+            )
+            .await
     }
 }

@@ -11,11 +11,12 @@ use axum::{
 use chronicle::{
     db::MongoDb,
     types::{
-        stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId, TransactionEssence},
+        stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId, TransactionEssence, MilestoneOption},
         tangle::MilestoneIndex, ledger::LedgerInclusionState,
     },
 };
 use futures::TryStreamExt;
+use mongodb::bson::{self, Document};
 
 use super::responses::{bee, *};
 use crate::api::{
@@ -232,6 +233,7 @@ async fn output_metadata(
 
 async fn transaction_included_block(
     database: Extension<MongoDb>,
+    Path(index): Path<u32>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
@@ -256,15 +258,41 @@ async fn receipts(
     database: Extension<MongoDb>,
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<ReceiptsResponse> {
-    todo!("receipts")
+    let mut milestone_options = database.get_milestone_options().await?;
+    let mut receipts = Vec::new();
+    while let Some(doc) = milestone_options.try_next().await? {
+        // TODO: unwrap
+        let (index, opt): (MilestoneIndex, MilestoneOption) = bson::from_document(doc).unwrap();
+        let opt: &bee::MilestoneOption = &opt.try_into().unwrap();
+        let opt: bee::MilestoneOptionDto = opt.into();
+
+        if let bee::MilestoneOptionDto::Receipt(receipt) = opt {
+            receipts.push(bee::ReceiptDto {
+                receipt,
+                milestone_index: *index,
+            });
+        }
+    }
+    Ok(ReceiptsResponse(bee::ReceiptsResponse { receipts }))
 }
 
-async fn receipts_migrated_at(
-    database: Extension<MongoDb>,
-    Path(index): Path<u32>,
-    Pagination { page_size, page }: Pagination,
-) -> ApiResult<ReceiptsResponse> {
-    todo!("receipts")
+async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
+    let mut milestone_options = database.get_milestone_options_migrated_at(index.into()).await?;
+    let mut receipts = Vec::new();
+    while let Some(doc) = milestone_options.try_next().await? {
+        // TODO: unwrap
+        let (index, opt): (MilestoneIndex, MilestoneOption) = bson::from_document(doc).unwrap();
+        let opt: &bee::MilestoneOption = &opt.try_into().unwrap();
+        let opt: bee::MilestoneOptionDto = opt.into();
+
+        if let bee::MilestoneOptionDto::Receipt(receipt) = opt {
+            receipts.push(bee::ReceiptDto {
+                receipt,
+                milestone_index: *index,
+            });
+        }
+    }
+    Ok(ReceiptsResponse(bee::ReceiptsResponse { receipts }))
 }
 
 async fn treasury(

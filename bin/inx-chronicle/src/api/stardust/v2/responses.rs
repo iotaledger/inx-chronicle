@@ -6,16 +6,24 @@ use chronicle::{types::{stardust::block::Block, ledger::BlockMetadata}};
 pub mod bee {
     pub use bee_block_stardust::{
         output::{dto::OutputDto, Output},
-        payload::{dto::PayloadDto, milestone::dto::MilestonePayloadDto, MilestonePayload, Payload},
+        payload::{
+            dto::PayloadDto,
+            milestone::{
+                dto::MilestonePayloadDto,
+                option::{dto::MilestoneOptionDto, MilestoneOption},
+            },
+            MilestonePayload, Payload,
+        },
         Block, BlockDto,
     };
     pub use bee_rest_api_stardust::types::{
-        dtos::LedgerInclusionStateDto,
+        dtos::{LedgerInclusionStateDto, ReceiptDto},
         responses::{
             BlockChildrenResponse, BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse,
             OutputResponse, ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
         },
     };
+
 }
 
 /// NOTE: this module is only necessary until the PR #1239 is merged into the `shimmer-develop` branch of Bee.
