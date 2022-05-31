@@ -37,7 +37,7 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
 
     db.clear().await?;
 
-    db.insert_block_with_metadata(block_id, block, raw, metadata).await?;
+    db.insert_block_with_metadata(block_id, block, raw, metadata, 0).await?;
 
     let result = db.get_block(&block_id).await?.unwrap();
     let bee_result: bee_block_stardust::Block = result.try_into().unwrap();
