@@ -31,6 +31,8 @@ struct BlockDocument {
     raw: Vec<u8>,
     /// The block's metadata.
     metadata: BlockMetadata,
+    /// The index of this block in white flag order.
+    white_flag_index: u32,
 }
 
 impl BlockDocument {
@@ -120,12 +122,14 @@ impl MongoDb {
         block: Block,
         raw: Vec<u8>,
         metadata: BlockMetadata,
+        white_flag_index: u32,
     ) -> Result<(), Error> {
         let block_document = BlockDocument {
             block_id: block_id.clone(),
             block,
             raw,
             metadata,
+            white_flag_index,
         };
 
         self.0
