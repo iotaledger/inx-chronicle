@@ -183,7 +183,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Retrieves the sync records sorted by [`milestone_index`](SyncRecord::milestone_index).
+    /// Retrieves the sync records sorted by their [`MilestoneIndex`].
     async fn get_sorted_milestone_indices_synced(
         &self,
         range: RangeInclusive<MilestoneIndex>,

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{Stream, StreamExt};
 use mongodb::{
     bson::{self, doc, to_bson, to_document},
     error::Error,
@@ -256,6 +256,8 @@ impl MongoDb {
         start_milestone: MilestoneIndex,
         end_milestone: MilestoneIndex,
     ) -> Result<Option<AddressAnalyticsResult>, Error> {
+        use futures::TryStreamExt;
+
         Ok(self.0.collection::<BlockDocument>(BlockDocument::COLLECTION)
         .aggregate(
             vec![
