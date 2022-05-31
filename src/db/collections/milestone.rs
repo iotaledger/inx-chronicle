@@ -52,7 +52,7 @@ pub struct SyncData {
 }
 
 impl MongoDb {
-    /// Get the [`Payload`] of a milestone.
+    /// Get the [`MilestonePayload`] of a milestone.
     pub async fn get_milestone_payload_by_id(
         &self,
         milestone_id: &MilestoneId,
@@ -76,7 +76,7 @@ impl MongoDb {
         Ok(payload)
     }
 
-    /// Get [`Payload`] of a milestone by the [`MilestoneIndex`].
+    /// Get [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         let payload = self
             .0
