@@ -71,7 +71,7 @@ impl MongoDb {
             for owner in output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
                     owner,
-                    output_id: metadata.output_id.clone(),
+                    output_id: metadata.output_id,
                     at: metadata.spent.clone().map_or(metadata.booked.clone(), |s| s.spent),
                     is_spent: metadata.spent.is_some(),
                 };
@@ -84,7 +84,7 @@ impl MongoDb {
             }
 
             // Upsert outputs
-            self.upsert_output_with_metadata(metadata.output_id.clone(), output, metadata)
+            self.upsert_output_with_metadata(metadata.output_id, output, metadata)
                 .await?;
         }
 

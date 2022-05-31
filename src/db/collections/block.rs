@@ -122,7 +122,7 @@ impl MongoDb {
         metadata: BlockMetadata,
     ) -> Result<(), Error> {
         let block_document = BlockDocument {
-            block_id: block_id.clone(),
+            block_id,
             block,
             raw,
             metadata,

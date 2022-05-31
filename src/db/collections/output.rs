@@ -40,7 +40,7 @@ impl MongoDb {
         metadata: OutputMetadata,
     ) -> Result<(), Error> {
         let output_document = OutputDocument {
-            output_id: output_id.clone(),
+            output_id,
             output,
             metadata,
         };
