@@ -10,7 +10,7 @@ pub enum InxError {
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
     #[error("INX type conversion error: {0:?}")]
-    InxTypeConversion(inx::Error),
+    InxTypeConversion(#[from] inx::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]

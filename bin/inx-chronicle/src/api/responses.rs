@@ -4,7 +4,10 @@
 use std::ops::Deref;
 
 use axum::response::IntoResponse;
-use chronicle::db::model::{ledger::LedgerInclusionState, sync::SyncData, tangle::MilestoneIndex};
+use chronicle::{
+    db::collections::SyncData,
+    types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},
+};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -36,9 +39,9 @@ impl_success_response!(InfoResponse);
 
 /// An aggregation type that represents the ranges of completed milestones and gaps.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SyncDataResponse(pub SyncData);
+pub struct SyncDataDto(pub SyncData);
 
-impl_success_response!(SyncDataResponse);
+impl_success_response!(SyncDataDto);
 
 #[derive(Clone, Debug, Serialize, Deserialize, From)]
 #[serde(untagged)]

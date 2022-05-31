@@ -3,7 +3,7 @@
 
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
-use chronicle::db::model::stardust::milestone::MilestoneTimestamp;
+use chronicle::types::stardust::milestone::MilestoneTimestamp;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 

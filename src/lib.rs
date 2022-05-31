@@ -6,7 +6,9 @@
 
 //! TODO
 
-/// Module that contains the database types and constants.
+/// Module that contains the database and associated models.
 pub mod db;
 /// Module that contains the actor runtime.
 pub mod runtime;
+/// Module that contains the types.
+pub mod types;
