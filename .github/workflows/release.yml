@@ -35,7 +35,7 @@ jobs:
       - name: Build and push to container registry
         uses: docker/build-push-action@v2
         with:
-          file: ./bin/inx-chronicle/docker/Dockerfile
+          file: ./docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
