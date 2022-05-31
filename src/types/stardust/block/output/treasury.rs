@@ -4,7 +4,7 @@
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
     #[serde(with = "crate::types::util::stringify")]
     amount: u64,

@@ -65,7 +65,7 @@ impl MongoDb {
         self.0
             .collection::<Payload>(MilestoneDocument::COLLECTION)
             .find_one(
-                doc! {"milestone_id": bson::to_bson(milestone_id)?},
+                doc! {"milestone_id": milestone_id},
                 FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),
             )
             .await

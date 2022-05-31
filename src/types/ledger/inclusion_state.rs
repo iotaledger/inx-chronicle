@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use bee_rest_api_stardust::types::dtos as bee;
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
 /// A block's ledger inclusion state.
@@ -16,6 +17,13 @@ pub enum LedgerInclusionState {
     /// A block without a transaction
     #[serde(rename = "noTransaction")]
     NoTransaction,
+}
+
+impl From<LedgerInclusionState> for Bson {
+    fn from(val: LedgerInclusionState) -> Self {
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&val).unwrap()
+    }
 }
 
 #[cfg(feature = "stardust")]

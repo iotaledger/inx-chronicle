@@ -4,12 +4,13 @@
 use std::str::FromStr;
 
 use bee_block_stardust::output as bee;
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{feature::Feature, native_token::NativeToken, unlock_condition::UnlockCondition, OutputAmount};
 use crate::types::util::bytify;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
@@ -38,6 +39,16 @@ impl FromStr for AliasId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::AliasId::from_str(s)?.into())
+    }
+}
+
+impl From<AliasId> for Bson {
+    fn from(val: AliasId) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.to_vec(),
+        }
+        .into()
     }
 }
 
@@ -123,6 +134,7 @@ pub(crate) mod test {
     fn test_alias_id_bson() {
         let alias_id = AliasId::from(bee_test::rand::output::rand_alias_id());
         let bson = to_bson(&alias_id).unwrap();
+        assert_eq!(Bson::from(alias_id), bson);
         assert_eq!(alias_id, from_bson::<AliasId>(bson).unwrap());
     }
 

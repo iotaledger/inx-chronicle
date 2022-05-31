@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use mongodb::{
-    bson::{self, doc, to_bson, to_document},
+    bson::{self, doc},
     error::Error,
     options::{FindOneOptions, UpdateOptions},
 };
@@ -40,7 +40,7 @@ impl MongoDb {
         metadata: OutputMetadata,
     ) -> Result<(), Error> {
         let output_document = OutputDocument {
-            output_id: output_id.clone(),
+            output_id,
             output,
             metadata,
         };
@@ -48,8 +48,8 @@ impl MongoDb {
         self.0
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
-                doc! { "_id": to_bson(&output_id)?},
-                doc! {"$set": to_document(&output_document)? },
+                doc! { "_id": &output_id},
+                doc! {"$set": bson::to_document(&output_document)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
@@ -62,7 +62,7 @@ impl MongoDb {
         self.0
             .collection::<Output>(OutputDocument::COLLECTION)
             .find_one(
-                doc! {"_id": bson::to_bson(output_id)?},
+                doc! {"_id": output_id},
                 Some(FindOneOptions::builder().projection(doc! {"output": 1 }).build()),
             )
             .await
@@ -90,7 +90,7 @@ impl MongoDb {
         self.0
             .collection::<OutputMetadata>(OutputDocument::COLLECTION)
             .find_one(
-                doc! {"_id": bson::to_bson(output_id)?},
+                doc! {"_id": output_id},
                 Some(FindOneOptions::builder().projection(doc! {"metadata": 1 }).build()),
             )
             .await

@@ -4,6 +4,7 @@
 use std::str::FromStr;
 
 use bee_block_stardust::address as bee;
+use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
 mod alias;
@@ -12,7 +13,7 @@ mod nft;
 
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Address {
     #[serde(rename = "ed25519")]
     Ed25519(Ed25519Address),
@@ -50,6 +51,13 @@ impl FromStr for Address {
     }
 }
 
+impl From<Address> for Bson {
+    fn from(val: Address) -> Self {
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&val).unwrap()
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test {
     use mongodb::bson::{from_bson, to_bson};
@@ -60,14 +68,17 @@ pub(crate) mod test {
     fn test_address_bson() {
         let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
         let bson = to_bson(&address).unwrap();
+        assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
         let address = Address::from(bee::Address::Alias(bee_test::rand::address::rand_alias_address()));
         let bson = to_bson(&address).unwrap();
+        assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
         let address = Address::from(bee::Address::Nft(bee_test::rand::address::rand_nft_address()));
         let bson = to_bson(&address).unwrap();
+        assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
     }
 }
