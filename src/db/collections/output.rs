@@ -1,10 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOneOptions, UpdateOptions},
+    options::UpdateOptions,
 };
 use serde::{Deserialize, Serialize};
 
@@ -59,13 +60,23 @@ impl MongoDb {
 
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
-        self.0
+        let output = self
+            .0
             .collection::<Output>(OutputDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": output_id},
-                Some(FindOneOptions::builder().projection(doc! {"output": 1 }).build()),
+            .aggregate(
+                vec![
+                    doc! { "$match": { "_id": output_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$output" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(output)
     }
 
     /// Get an [`Output`] together with its [`OutputMetadata`] by [`OutputId`].
@@ -87,12 +98,22 @@ impl MongoDb {
 
     /// Get the metadata of an [`Output`] by its [`OutputId`].
     pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
-        self.0
+        let metadata = self
+            .0
             .collection::<OutputMetadata>(OutputDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": output_id},
-                Some(FindOneOptions::builder().projection(doc! {"metadata": 1 }).build()),
+            .aggregate(
+                vec![
+                    doc! { "$match": { "_id": output_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$metadata" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(metadata)
     }
 }
