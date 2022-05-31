@@ -3,7 +3,7 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{doc, to_bson, Bson},
+    bson::{doc, Bson},
     error::Error,
     options::FindOptions,
 };
@@ -71,7 +71,7 @@ impl MongoDb {
             for owner in output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
                     owner,
-                    output_id: metadata.output_id.clone(),
+                    output_id: metadata.output_id,
                     at: metadata.spent.clone().map_or(metadata.booked.clone(), |s| s.spent),
                     is_spent: metadata.spent.is_some(),
                 };
@@ -84,7 +84,7 @@ impl MongoDb {
             }
 
             // Upsert outputs
-            self.upsert_output_with_metadata(metadata.output_id.clone(), output, metadata)
+            self.upsert_output_with_metadata(metadata.output_id, output, metadata)
                 .await?;
         }
 
@@ -107,9 +107,9 @@ impl MongoDb {
             .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! {
-                    "address": { "$eq": to_bson(&address)? },
-                    "at.milestone_index": { "$gte": to_bson(&cursor.0)? },
-                    "output_id": { "$gte": to_bson(&cursor.1)? },
+                    "address": { "$eq": &address },
+                    "at.milestone_index": { "$gte": &cursor.0 },
+                    "output_id": { "$gte": &cursor.1 },
                 },
                 options,
             )

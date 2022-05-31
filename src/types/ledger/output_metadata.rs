@@ -42,11 +42,10 @@ pub struct OutputWithMetadata {
 impl From<inx::LedgerOutput> for OutputWithMetadata {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
-        let transaction_id = output_id.transaction_id.clone();
         let metadata = OutputMetadata {
             output_id,
             block_id: value.block_id.into(),
-            transaction_id,
+            transaction_id: output_id.transaction_id,
             booked: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_booked.into(),
                 milestone_timestamp: value.milestone_timestamp_booked.into(),
