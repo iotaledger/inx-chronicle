@@ -7,7 +7,7 @@ use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOneOptions, FindOptions, UpdateOptions},
+    options::{FindOptions, UpdateOptions},
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,20 +15,12 @@ use crate::{
     db::MongoDb,
     types::{
         stardust::{
-            block::{MilestoneId, MilestonePayload, Payload},
+            block::{MilestoneId, MilestonePayload},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
     },
 };
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-struct SyncStatus {
-    /// Indicates if all blocks of a milestone were successfully synchronized.
-    has_all_blocks: bool,
-    /// Indicates if all ledger updates of a milestone were successfully synchronized.
-    has_all_ledger_updates: bool,
-}
 
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -42,7 +34,7 @@ struct MilestoneDocument {
     /// The milestone's payload.
     payload: MilestonePayload,
     /// The milestone's sync status.
-    sync_status: SyncStatus,
+    is_synced: bool,
 }
 
 impl MilestoneDocument {
@@ -60,26 +52,49 @@ pub struct SyncData {
 }
 
 impl MongoDb {
-    /// Get the [`Payload`] of a milestone.
-    pub async fn get_milestone_payload_by_id(&self, milestone_id: &MilestoneId) -> Result<Option<Payload>, Error> {
-        self.0
-            .collection::<Payload>(MilestoneDocument::COLLECTION)
-            .find_one(
-                doc! {"milestone_id": milestone_id},
-                FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),
+    /// Get the [`MilestonePayload`] of a milestone.
+    pub async fn get_milestone_payload_by_id(
+        &self,
+        milestone_id: &MilestoneId,
+    ) -> Result<Option<MilestonePayload>, Error> {
+        let payload = self
+            .0
+            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "milestone_id": milestone_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$payload" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(payload)
     }
 
-    /// Get [`Payload`] of a milestone by the [`MilestoneIndex`].
-    pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<Payload>, Error> {
-        self.0
-            .collection::<Payload>(MilestoneDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": index},
-                FindOneOptions::builder().projection(doc! {"payload": 1 }).build(),
+    /// Get [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
+    pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
+        let payload = self
+            .0
+            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "milestone_index": index } },
+                    doc! { "$replaceRoot": { "newRoot": "$payload" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(payload)
     }
 
     /// Inserts the information of a milestone into the database.
@@ -95,7 +110,7 @@ impl MongoDb {
             milestone_index,
             milestone_timestamp,
             payload,
-            sync_status: Default::default(),
+            is_synced: Default::default(),
         };
 
         self.0
@@ -155,15 +170,23 @@ impl MongoDb {
     /// If a milestone is available, returns if of its [`Block`](crate::types::stardust::block::Block)s have been
     /// synchronized.
     pub async fn get_sync_status_blocks(&self, index: MilestoneIndex) -> Result<Option<bool>, Error> {
-        self.0
-            .collection::<bool>(MilestoneDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": index},
-                FindOneOptions::builder()
-                    .projection(doc! {"sync_status.has_all_blocks": 1 })
-                    .build(),
+        let is_synced = self
+            .0
+            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "milestone_index": index } },
+                    doc! { "$replaceRoot": { "newRoot": "$is_synced" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(is_synced)
     }
 
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
@@ -171,9 +194,9 @@ impl MongoDb {
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
-                doc! { "_id": index },
+                doc! { "milestone_index": index },
                 doc! { "$set": {
-                    "sync_status.has_all_blocks": true,
+                    "is_synced": true,
 
                 }},
                 UpdateOptions::builder().upsert(true).build(),
@@ -190,7 +213,6 @@ impl MongoDb {
     ) -> Result<impl Stream<Item = Result<MilestoneIndex, Error>>, Error> {
         #[derive(Deserialize)]
         struct SyncEntry {
-            #[serde(rename = "_id")]
             milestone_index: MilestoneIndex,
         }
 
@@ -198,12 +220,12 @@ impl MongoDb {
             .collection::<SyncEntry>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
-                    "_id": { "$gte": *range.start(), "$lte": *range.end() },
-                    "sync_status.has_all_blocks": { "$eq": true }
+                    "milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
+                    "is_synced": { "$eq": true }
                 },
                 FindOptions::builder()
-                    .sort(doc! {"_id": 1u32})
-                    .projection(doc! {"_id": 1u32})
+                    .sort(doc! {"milestone_index": 1u32})
+                    .projection(doc! {"milestone_index": 1u32})
                     .build(),
             )
             .await

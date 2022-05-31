@@ -15,10 +15,9 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
-use futures::TryStreamExt;
 
 use super::responses::*;
-use crate::api::{error::ApiError, extractors::Pagination, ApiResult};
+use crate::api::{error::ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -27,8 +26,7 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/:block_id", get(block))
                 .route("/:block_id/raw", get(block_raw))
-                .route("/:block_id/metadata", get(block_metadata))
-                .route("/:block_id/children", get(block_children)),
+                .route("/:block_id/metadata", get(block_metadata)),
         )
         .nest(
             "/outputs",
@@ -84,26 +82,6 @@ async fn block_metadata(
         should_reattach: Some(metadata.should_reattach),
         ledger_inclusion_state: Some(metadata.inclusion_state),
         conflict_reason: Some(metadata.conflict_reason as u8),
-    })
-}
-
-async fn block_children(
-    database: Extension<MongoDb>,
-    Path(block_id): Path<String>,
-    Pagination { page_size, page }: Pagination,
-) -> ApiResult<BlockChildrenResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let blocks = database
-        .get_block_children(&block_id_dto, page_size, page)
-        .await?
-        .try_collect::<Vec<_>>()
-        .await?;
-
-    Ok(BlockChildrenResponse {
-        block_id,
-        max_results: page_size,
-        count: blocks.len(),
-        children: blocks,
     })
 }
 
