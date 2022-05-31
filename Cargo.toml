@@ -91,6 +91,7 @@ api = [
     "dep:rust-argon2",
     "dep:axum",
     "dep:ed25519",
+    "dep:hex",
     "derive_more/from",
     "dep:hyper",
     "dep:jsonwebtoken",
