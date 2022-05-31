@@ -83,7 +83,7 @@ impl MongoDb {
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": index } },
+                    doc! { "$match": { "milestone_index": index } },
                     doc! { "$replaceRoot": { "newRoot": "$payload" } },
                 ],
                 None,
@@ -175,7 +175,7 @@ impl MongoDb {
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": index } },
+                    doc! { "$match": { "milestone_index": index } },
                     doc! { "$replaceRoot": { "newRoot": "$is_synced" } },
                 ],
                 None,
@@ -194,7 +194,7 @@ impl MongoDb {
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
-                doc! { "_id": index },
+                doc! { "milestone_index": index },
                 doc! { "$set": {
                     "is_synced": true,
 
@@ -213,7 +213,6 @@ impl MongoDb {
     ) -> Result<impl Stream<Item = Result<MilestoneIndex, Error>>, Error> {
         #[derive(Deserialize)]
         struct SyncEntry {
-            #[serde(rename = "_id")]
             milestone_index: MilestoneIndex,
         }
 
@@ -221,12 +220,12 @@ impl MongoDb {
             .collection::<SyncEntry>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
-                    "_id": { "$gte": *range.start(), "$lte": *range.end() },
+                    "milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
                     "is_synced": { "$eq": true }
                 },
                 FindOptions::builder()
-                    .sort(doc! {"_id": 1u32})
-                    .projection(doc! {"_id": 1u32})
+                    .sort(doc! {"milestone_index": 1u32})
+                    .projection(doc! {"milestone_index": 1u32})
                     .build(),
             )
             .await
