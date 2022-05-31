@@ -30,15 +30,20 @@ pub fn routes() -> Router {
 
 #[derive(Deserialize)]
 struct LoginInfo {
-    #[serde(rename = "passwordHash")]
-    password_hash: String,
+    #[serde(rename = "password")]
+    password: String,
 }
 
 async fn login(
-    Json(LoginInfo { password_hash }): Json<LoginInfo>,
+    Json(LoginInfo { password }): Json<LoginInfo>,
     Extension(config): Extension<ApiData>,
 ) -> Result<String, ApiError> {
-    if password_hash == config.password_hash {
+    if argon2::verify_raw(
+        password.as_bytes(),
+        config.password_salt.as_bytes(),
+        &config.password_hash,
+        &argon2::Config::default(),
+    )? {
         let now = time::OffsetDateTime::now_utc();
         let exp = now + config.jwt_expiration;
         let jwt = jsonwebtoken::encode(

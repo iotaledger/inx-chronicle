@@ -6,7 +6,9 @@ password = "root"
 [api]
 port = 8042
 allow_origins = "0.0.0.0"
-password_hash = "67ae144380e29fe9a4c8dff5d90de916"
+# password = "password"
+password_hash = "c42cf2be3a442a29d8cd827a27099b0c"
+password_salt = "saltines"
 
 [inx]
 connect_url = "http://localhost:9029"

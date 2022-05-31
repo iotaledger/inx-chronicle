@@ -50,6 +50,7 @@ uuid = { version = "1.1", default-features = false, features = ["v4"] }
 # API
 axum = { version = "0.5", default-features = false, features = ["http1", "json", "query", "original-uri", "headers"], optional = true }
 ed25519 = { version = "=1.4.1", default-features = false, features = ["alloc", "pkcs8", "pem"], optional = true }
+hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
 jsonwebtoken = { version = "8.1", default-features = false, optional = true }
 libp2p-core = { version = "0.32", default-features = false, optional = true }

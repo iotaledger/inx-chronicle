@@ -55,7 +55,7 @@ impl ChronicleConfig {
         }
         #[cfg(feature = "api")]
         if let Some(password) = &args.password {
-            self.api.password_hash = prefix_hex::encode(
+            self.api.password_hash = hex::encode(
                 argon2::hash_raw(
                     password.as_bytes(),
                     self.api.jwt_salt.as_bytes(),

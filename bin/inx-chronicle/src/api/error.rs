@@ -31,6 +31,8 @@ pub enum InternalApiError {
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
+    PasswordHash(#[from] argon2::Error),
+    #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]
     ValueAccess(#[from] ValueAccessError),
@@ -43,7 +45,7 @@ pub enum ApiError {
     BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
-    #[error("Invalid password hash provided")]
+    #[error("Invalid password provided")]
     IncorrectPassword,
     #[error("Internal server error")]
     Internal(InternalApiError),
@@ -111,6 +113,8 @@ pub enum ParseError {
 pub enum ConfigError {
     #[error(transparent)]
     InvalidHeader(#[from] InvalidHeaderValue),
+    #[error(transparent)]
+    InvalidHex(#[from] hex::FromHexError),
     #[error("Invalid regex in config: {0}")]
     InvalidRegex(#[from] regex::Error),
     #[error(transparent)]

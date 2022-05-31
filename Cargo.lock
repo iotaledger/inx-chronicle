@@ -506,6 +506,7 @@ dependencies = [
  "ed25519",
  "env_logger",
  "futures",
+ "hex",
  "humantime-serde",
  "hyper",
  "inx",
