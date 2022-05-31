@@ -477,6 +477,7 @@ dependencies = [
  "inx",
  "log",
  "mongodb",
+ "once_cell",
  "packable",
  "pin-project",
  "prefix-hex 0.4.0",
