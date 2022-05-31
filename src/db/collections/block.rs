@@ -3,7 +3,7 @@
 
 use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc, to_document},
+    bson::{self, doc},
     error::Error,
     options::UpdateOptions,
 };
@@ -144,7 +144,7 @@ impl MongoDb {
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
                 doc! { "block_id": block_id },
-                doc! { "$set": to_document(&block_document)? },
+                doc! { "$set": bson::to_document(&block_document)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
