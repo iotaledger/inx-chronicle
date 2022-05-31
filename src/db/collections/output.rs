@@ -20,7 +20,6 @@ use crate::{
 /// Contains all informations related to an output.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDocument {
-    #[serde(rename = "_id")]
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
@@ -49,7 +48,7 @@ impl MongoDb {
         self.0
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
-                doc! { "_id": &output_id},
+                doc! { "output_id": &output_id},
                 doc! {"$set": bson::to_document(&output_document)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -65,7 +64,7 @@ impl MongoDb {
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": output_id } },
+                    doc! { "$match": { "output_id": output_id } },
                     doc! { "$replaceRoot": { "newRoot": "$output" } },
                 ],
                 None,
@@ -103,7 +102,7 @@ impl MongoDb {
             .collection::<OutputMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": output_id } },
+                    doc! { "$match": { "output_id": output_id } },
                     doc! { "$replaceRoot": { "newRoot": "$metadata" } },
                 ],
                 None,

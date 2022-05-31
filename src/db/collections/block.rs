@@ -3,7 +3,7 @@
 
 use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, to_document},
     error::Error,
     options::UpdateOptions,
 };
@@ -88,7 +88,7 @@ impl MongoDb {
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": block_id } },
+                    doc! { "$match": { "block_id": block_id } },
                     doc! { "$replaceRoot": { "newRoot": "$raw" } },
                 ],
                 None,
@@ -109,7 +109,7 @@ impl MongoDb {
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": block_id } },
+                    doc! { "$match": { "block_id": block_id } },
                     doc! { "$replaceRoot": { "newRoot": "$metadata" } },
                 ],
                 None,
@@ -143,8 +143,8 @@ impl MongoDb {
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
-                doc! { "_id": block_id },
-                doc! { "$set": bson::to_document(&block_document)? },
+                doc! { "block_id": block_id },
+                doc! { "$set": to_document(&block_document)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
