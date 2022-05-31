@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
 

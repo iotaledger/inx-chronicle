@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Signature {
     #[serde(rename = "ed25519")]

@@ -4,11 +4,12 @@
 use std::str::FromStr;
 
 use bee_block_stardust::address as bee;
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::NftId;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NftAddress(pub NftId);
 
@@ -29,5 +30,15 @@ impl FromStr for NftAddress {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftAddress::from_str(s)?.into())
+    }
+}
+
+impl From<NftAddress> for Bson {
+    fn from(val: NftAddress) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.0.to_vec(),
+        }
+        .into()
     }
 }

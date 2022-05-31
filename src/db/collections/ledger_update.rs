@@ -3,7 +3,7 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{doc, to_bson, Bson},
+    bson::{doc, Bson},
     error::Error,
     options::FindOptions,
 };
@@ -107,9 +107,9 @@ impl MongoDb {
             .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! {
-                    "address": { "$eq": to_bson(&address)? },
-                    "at.milestone_index": { "$gte": to_bson(&cursor.0)? },
-                    "output_id": { "$gte": to_bson(&cursor.1)? },
+                    "address": { "$eq": &address },
+                    "at.milestone_index": { "$gte": &cursor.0 },
+                    "output_id": { "$gte": &cursor.1 },
                 },
                 options,
             )

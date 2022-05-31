@@ -4,6 +4,7 @@
 use std::str::FromStr;
 
 use bee_block_stardust::{output::InputsCommitment, payload::transaction as bee};
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
@@ -11,7 +12,7 @@ use crate::types::{
     util::bytify,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
@@ -40,6 +41,16 @@ impl FromStr for TransactionId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TransactionId::from_str(s)?.into())
+    }
+}
+
+impl From<TransactionId> for Bson {
+    fn from(val: TransactionId) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.to_vec(),
+        }
+        .into()
     }
 }
 
@@ -163,6 +174,14 @@ pub(crate) mod test {
         },
         OutputId,
     };
+
+    #[test]
+    fn test_transaction_id_bson() {
+        let transaction_id = TransactionId::from(bee_test::rand::transaction::rand_transaction_id());
+        let bson = to_bson(&transaction_id).unwrap();
+        assert_eq!(Bson::from(transaction_id), bson);
+        assert_eq!(transaction_id, from_bson::<TransactionId>(bson).unwrap());
+    }
 
     #[test]
     fn test_transaction_payload_bson() {

@@ -3,7 +3,7 @@
 
 use futures::{Stream, StreamExt};
 use mongodb::{
-    bson::{self, doc, to_bson, to_document},
+    bson::{self, doc},
     error::Error,
     options::{FindOneOptions, FindOptions, UpdateOptions},
 };
@@ -64,7 +64,7 @@ impl MongoDb {
         self.0
             .collection::<Block>(BlockDocument::COLLECTION)
             .find_one(
-                doc! {"_id": bson::to_bson(block_id)?},
+                doc! {"_id": block_id},
                 FindOneOptions::builder().projection(doc! {"block": 1 }).build(),
             )
             .await
@@ -75,7 +75,7 @@ impl MongoDb {
         self.0
             .collection::<Vec<u8>>(BlockDocument::COLLECTION)
             .find_one(
-                doc! {"_id": bson::to_bson(block_id)?},
+                doc! {"_id": block_id},
                 FindOneOptions::builder().projection(doc! {"raw": 1 }).build(),
             )
             .await
@@ -86,7 +86,7 @@ impl MongoDb {
         self.0
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .find_one(
-                doc! {"_id": bson::to_bson(block_id)?},
+                doc! {"_id": block_id},
                 FindOneOptions::builder().projection(doc! {"metadata": 1 }).build(),
             )
             .await
@@ -102,7 +102,7 @@ impl MongoDb {
         self.0
             .collection::<BlockId>(BlockDocument::COLLECTION)
             .find(
-                doc! {"block.parents": bson::to_bson(block_id)?},
+                doc! {"block.parents": block_id},
                 FindOptions::builder()
                     .skip((page_size * page) as u64)
                     .sort(doc! {"metadata.referenced_by_milestone_index": -1})
@@ -131,8 +131,8 @@ impl MongoDb {
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
-                doc! { "_id": to_bson(&block_id)? },
-                doc! { "$set": to_document(&block_document)? },
+                doc! { "_id": block_id },
+                doc! { "$set": bson::to_document(&block_document)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
@@ -146,8 +146,8 @@ impl MongoDb {
             .collection::<Block>(BlockDocument::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?,
-                    "block.payload.transaction_id": bson::to_bson(transaction_id)?,
+                    "inclusion_state": LedgerInclusionState::Included,
+                    "block.payload.transaction_id": transaction_id,
                 },
                 FindOneOptions::builder().projection(doc! {"block": 1 }).build(),
             )
@@ -169,15 +169,15 @@ impl MongoDb {
             // Only outputs for this address
             doc! { "$match": {
                 "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?, 
-                "block.payload.essence.outputs.unlocks": bson::to_bson(&address)?
+                "inclusion_state": LedgerInclusionState::Included, 
+                "block.payload.essence.outputs.unlocks": &address
             } },
             doc! { "$set": {
                 "block.payload.essence.outputs": {
                     "$filter": {
                         "input": "$block.payload.essence.outputs",
                         "as": "output",
-                        "cond": { "$eq": [ "$$output.unlock_conditions", bson::to_bson(&address)? ] }
+                        "cond": { "$eq": [ "$$output.unlock_conditions", &address ] }
                     }
                 }
             } },
@@ -191,7 +191,7 @@ impl MongoDb {
                 "pipeline": [
                     // Match using the output's index
                     { "$match": { 
-                        "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?, 
+                        "inclusion_state": LedgerInclusionState::Included, 
                         "block.payload.essence.inputs.transaction_id": "$$transaction_id",
                         "block.payload.essence.inputs.index": "$$index"
                     } },
@@ -262,7 +262,7 @@ impl MongoDb {
         .aggregate(
             vec![
                 doc! { "$match": {
-                    "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?,
+                    "inclusion_state": LedgerInclusionState::Included,
                     "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                     "block.payload.kind": "transaction",
                 } },
@@ -272,7 +272,7 @@ impl MongoDb {
                     "let": { "transaction_id": "$block.payload.essence.inputs.transaction_id", "index": "$block.payload.essence.inputs.index" },
                     "pipeline": [
                         { "$match": { 
-                            "inclusion_state": bson::to_bson(&LedgerInclusionState::Included)?, 
+                            "inclusion_state": LedgerInclusionState::Included, 
                             "block.payload.transaction_id": "$$transaction_id",
                         } },
                         { "$set": {

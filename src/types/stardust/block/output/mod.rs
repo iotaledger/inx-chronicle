@@ -15,6 +15,7 @@ pub(crate) mod treasury;
 use std::str::FromStr;
 
 use bee_block_stardust::output as bee;
+use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -33,7 +34,7 @@ use crate::types::stardust::block::TransactionId;
 pub type OutputAmount = u64;
 pub type OutputIndex = u16;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputId {
     pub transaction_id: TransactionId,
     pub index: OutputIndex,
@@ -61,6 +62,16 @@ impl FromStr for OutputId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::OutputId::from_str(s)?.into())
+    }
+}
+
+impl From<OutputId> for Bson {
+    fn from(val: OutputId) -> Self {
+        doc! {
+            "transaction_id": &val.transaction_id,
+            "index": &(val.index as i32),
+        }
+        .into()
     }
 }
 

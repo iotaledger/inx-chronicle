@@ -1,7 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::fmt::Display;
+
 use bee_rest_api_stardust::types::dtos as bee;
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
 /// A block's ledger inclusion state.
@@ -16,6 +19,22 @@ pub enum LedgerInclusionState {
     /// A block without a transaction
     #[serde(rename = "noTransaction")]
     NoTransaction,
+}
+
+impl Display for LedgerInclusionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LedgerInclusionState::Conflicting => write!(f, "conflicting"),
+            LedgerInclusionState::Included => write!(f, "included"),
+            LedgerInclusionState::NoTransaction => write!(f, "noTransaction"),
+        }
+    }
+}
+
+impl From<LedgerInclusionState> for Bson {
+    fn from(val: LedgerInclusionState) -> Self {
+        val.to_string().into()
+    }
 }
 
 #[cfg(feature = "stardust")]

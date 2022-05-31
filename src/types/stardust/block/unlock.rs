@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::Signature;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Unlock {
     #[serde(rename = "signature")]

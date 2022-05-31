@@ -168,7 +168,7 @@ impl TryFrom<MilestoneOption> for bee::MilestoneOption {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
     #[serde(with = "bytify")]
     tail_transaction_hash: [u8; Self::TAIL_TRANSACTION_HASH_LENGTH],
@@ -220,7 +220,7 @@ pub(crate) mod test {
     ];
 
     use bee_block_stardust::payload::TreasuryTransactionPayload;
-    use mongodb::bson::{from_bson, to_bson};
+    use mongodb::bson::{from_bson, to_bson, Bson};
 
     use super::*;
     use crate::types::stardust::block::signature::test::get_test_signature;
@@ -229,6 +229,7 @@ pub(crate) mod test {
     fn test_milestone_id_bson() {
         let milestone_id = MilestoneId::from(bee_test::rand::milestone::rand_milestone_id());
         let bson = to_bson(&milestone_id).unwrap();
+        assert_eq!(Bson::from(milestone_id), bson);
         assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
     }
 
