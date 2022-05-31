@@ -1,11 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, StreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOneOptions, FindOptions, UpdateOptions},
+    options::UpdateOptions,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,6 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct BlockDocument {
     /// The id of the current block.
-    #[serde(rename = "_id")]
     block_id: BlockId,
     /// The block.
     block: Block,
@@ -63,56 +62,65 @@ pub struct TransactionHistoryResult {
 impl MongoDb {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
-        self.0
+        let block = self
+            .0
             .collection::<Block>(BlockDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": block_id},
-                FindOneOptions::builder().projection(doc! {"block": 1 }).build(),
+            .aggregate(
+                vec![
+                    doc! { "$match": { "block_id": block_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(block)
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
-        self.0
-            .collection::<Vec<u8>>(BlockDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": block_id},
-                FindOneOptions::builder().projection(doc! {"raw": 1 }).build(),
+        let raw = self
+            .0
+            .collection::<Block>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "block_id": block_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$raw" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(raw)
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
-        self.0
-            .collection::<BlockMetadata>(BlockDocument::COLLECTION)
-            .find_one(
-                doc! {"_id": block_id},
-                FindOneOptions::builder().projection(doc! {"metadata": 1 }).build(),
+        let block = self
+            .0
+            .collection::<Block>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "block_id": block_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$metadata" } },
+                ],
+                None,
             )
-            .await
-    }
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
 
-    /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
-    pub async fn get_block_children(
-        &self,
-        block_id: &BlockId,
-        page_size: usize,
-        page: usize,
-    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-        self.0
-            .collection::<BlockId>(BlockDocument::COLLECTION)
-            .find(
-                doc! {"block.parents": block_id},
-                FindOptions::builder()
-                    .skip((page_size * page) as u64)
-                    .sort(doc! {"metadata.referenced_by_milestone_index": -1})
-                    .limit(page_size as i64)
-                    .projection(doc! {"block_id": 1 })
-                    .build(),
-            )
-            .await
+        Ok(block)
     }
 
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
@@ -135,7 +143,7 @@ impl MongoDb {
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
-                doc! { "_id": block_id },
+                doc! { "block_id": block_id },
                 doc! { "$set": bson::to_document(&block_document)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -146,16 +154,27 @@ impl MongoDb {
 
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
-        self.0
+        let block = self
+            .0
             .collection::<Block>(BlockDocument::COLLECTION)
-            .find_one(
-                doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
-                    "block.payload.transaction_id": transaction_id,
-                },
-                FindOneOptions::builder().projection(doc! {"block": 1 }).build(),
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                    "$and": [
+                        { "inclusion_state": LedgerInclusionState::Included },
+                        { "block.payload.transaction_id": transaction_id },
+                    ] } },
+                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(block)
     }
 
     /// Aggregates the transaction history for an address.
@@ -260,8 +279,6 @@ impl MongoDb {
         start_milestone: MilestoneIndex,
         end_milestone: MilestoneIndex,
     ) -> Result<Option<AddressAnalyticsResult>, Error> {
-        use futures::TryStreamExt;
-
         Ok(self.0.collection::<BlockDocument>(BlockDocument::COLLECTION)
         .aggregate(
             vec![

@@ -122,6 +122,10 @@ impl IntoResponse for ErrorBody {
 
 impl From<ApiError> for ErrorBody {
     fn from(err: ApiError) -> Self {
+        if let ApiError::Internal(e) = &err {
+            log::error!("Internal API error: {}", e);
+        }
+
         Self {
             status: err.status(),
             code: err.code(),
