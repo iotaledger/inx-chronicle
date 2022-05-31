@@ -5,12 +5,13 @@ use std::{collections::VecDeque, ops::RangeInclusive};
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{model::tangle::MilestoneIndex, MongoDb},
+    db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    types::tangle::MilestoneIndex,
 };
 use inx::{client::InxClient, tonic::Channel};
 
-use super::{InxError, MilestoneStream};
+use super::{InxError, LedgerUpdateStream};
 
 // The Syncer starts at a certain milestone index in the past and moves forwards in time trying to sync as many
 // milestones as possible - including their cones.
@@ -61,11 +62,11 @@ impl Actor for Syncer {
 }
 
 #[async_trait]
-impl HandleEvent<Report<MilestoneStream>> for Syncer {
+impl HandleEvent<Report<LedgerUpdateStream>> for Syncer {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<MilestoneStream>,
+        event: Report<LedgerUpdateStream>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         // Start syncing the next milestone range
@@ -101,24 +102,24 @@ impl HandleEvent<SyncNext> for Syncer {
                 milestone_range.start(),
                 milestone_range.end()
             );
-            let milestone_stream = self
+            let ledger_update_stream = self
                 .inx_client
-                .listen_to_confirmed_milestones(inx::proto::MilestoneRangeRequest::from(
+                .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(
                     *milestone_range.start()..=*milestone_range.end(),
                 ))
                 .await?
                 .into_inner();
             cx.spawn_child(
-                MilestoneStream::new(
+                LedgerUpdateStream::new(
                     self.db.clone(),
                     self.inx_client.clone(),
                     *milestone_range.start()..=*milestone_range.end(),
                 )
-                .with_stream(milestone_stream),
+                .with_stream(ledger_update_stream),
             )
             .await;
         } else {
-            log::info!("Sync complete");
+            log::info!("Successfully finished synchronization with node.");
             cx.shutdown();
         }
         Ok(())

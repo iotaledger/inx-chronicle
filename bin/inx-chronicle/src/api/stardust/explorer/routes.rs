@@ -4,7 +4,7 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::db::{model::stardust::block::Address, MongoDb};
+use chronicle::{db::MongoDb, types::stardust::block::Address};
 use futures::TryStreamExt;
 
 use super::responses::{TransactionHistoryResponse, Transfer};
