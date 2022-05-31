@@ -25,11 +25,11 @@ impl ConeStream {
 
 #[async_trait]
 impl Actor for ConeStream {
-    type State = ();
+    type State = u32;
     type Error = InxError;
 
     async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        Ok(())
+        Ok(0)
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -58,7 +58,7 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
         &mut self,
         _cx: &mut ActorContext<Self>,
         block_metadata_result: Result<inx::proto::BlockWithMetadata, Status>,
-        _state: &mut Self::State,
+        white_flag_index: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust Block Event");
 
@@ -66,8 +66,15 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
         let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
 
         self.db
-            .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
+            .insert_block_with_metadata(
+                metadata.block_id.into(),
+                block.into(),
+                raw,
+                metadata.into(),
+                *white_flag_index,
+            )
             .await?;
+        *white_flag_index += 1;
 
         log::trace!("Inserted block into database.");
 
