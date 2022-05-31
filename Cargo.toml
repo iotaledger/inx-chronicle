@@ -78,6 +78,7 @@ default = [
     "api-node",
     "inx",
     "stardust",
+    "metrics",
 ]
 analytics = []
 api = [ 
