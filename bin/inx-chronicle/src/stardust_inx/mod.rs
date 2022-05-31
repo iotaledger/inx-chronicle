@@ -32,8 +32,11 @@ pub struct InxWorker {
 
 impl InxWorker {
     /// Creates an [`InxClient`] by connecting to the endpoint specified in `inx_config`.
-    pub fn new(db: MongoDb, inx_config: InxConfig) -> Self {
-        Self { db, config: inx_config }
+    pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
+        Self {
+            db: db.clone(),
+            config: inx_config.clone(),
+        }
     }
 
     pub async fn connect(inx_config: &InxConfig) -> Result<InxClient<Channel>, InxError> {

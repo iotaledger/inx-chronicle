@@ -47,10 +47,10 @@ pub struct ApiWorker {
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: MongoDb, config: ApiConfig) -> Self {
+    pub fn new(db: &MongoDb, config: &ApiConfig) -> Self {
         Self {
-            db,
-            config,
+            db: db.clone(),
+            config: config.clone(),
             server_handle: None,
         }
     }

@@ -28,8 +28,11 @@ pub struct MetricsWorker {
 }
 
 impl MetricsWorker {
-    pub fn new(db: MongoDb, config: MetricsConfig) -> Self {
-        Self { db, config }
+    pub fn new(db: &MongoDb, config: &MetricsConfig) -> Self {
+        Self {
+            db: db.clone(),
+            config: config.clone(),
+        }
     }
 }
 
