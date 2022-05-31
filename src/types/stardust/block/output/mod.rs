@@ -67,11 +67,8 @@ impl FromStr for OutputId {
 
 impl From<OutputId> for Bson {
     fn from(val: OutputId) -> Self {
-        doc! {
-            "transaction_id": &val.transaction_id,
-            "index": &(val.index as i32),
-        }
-        .into()
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&val).unwrap()
     }
 }
 

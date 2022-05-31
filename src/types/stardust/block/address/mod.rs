@@ -53,12 +53,8 @@ impl FromStr for Address {
 
 impl From<Address> for Bson {
     fn from(val: Address) -> Self {
-        match val {
-            Address::Ed25519(a) => doc! {"ed25519": &a},
-            Address::Alias(a) => doc! {"alias": &a},
-            Address::Nft(a) => doc! {"nft": &a},
-        }
-        .into()
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&val).unwrap()
     }
 }
 

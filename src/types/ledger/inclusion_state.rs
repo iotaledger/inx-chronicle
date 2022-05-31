@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::fmt::Display;
-
 use bee_rest_api_stardust::types::dtos as bee;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
@@ -21,19 +19,10 @@ pub enum LedgerInclusionState {
     NoTransaction,
 }
 
-impl Display for LedgerInclusionState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LedgerInclusionState::Conflicting => write!(f, "conflicting"),
-            LedgerInclusionState::Included => write!(f, "included"),
-            LedgerInclusionState::NoTransaction => write!(f, "noTransaction"),
-        }
-    }
-}
-
 impl From<LedgerInclusionState> for Bson {
     fn from(val: LedgerInclusionState) -> Self {
-        val.to_string().into()
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&val).unwrap()
     }
 }
 

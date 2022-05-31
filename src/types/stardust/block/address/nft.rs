@@ -4,7 +4,7 @@
 use std::str::FromStr;
 
 use bee_block_stardust::address as bee;
-use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::NftId;
@@ -35,10 +35,7 @@ impl FromStr for NftAddress {
 
 impl From<NftAddress> for Bson {
     fn from(val: NftAddress) -> Self {
-        Binary {
-            subtype: BinarySubtype::Generic,
-            bytes: val.0.0.to_vec(),
-        }
-        .into()
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&val).unwrap()
     }
 }
