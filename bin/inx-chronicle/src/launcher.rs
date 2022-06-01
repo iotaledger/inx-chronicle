@@ -28,9 +28,14 @@ pub enum LauncherError {
 /// Supervisor actor
 pub struct Launcher;
 
+pub struct LauncherState {
+    config: ChronicleConfig,
+    db: MongoDb,
+}
+
 #[async_trait]
 impl Actor for Launcher {
-    type State = ChronicleConfig;
+    type State = LauncherState;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -60,13 +65,15 @@ impl Actor for Launcher {
         cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
             .await;
 
-        Ok(config)
+        Ok(LauncherState { config, db })
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
         "Launcher".into()
     }
 }
+
+struct Retry;
 
 #[cfg(all(feature = "inx", feature = "stardust"))]
 #[async_trait]
@@ -75,15 +82,20 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::stardust_inx::InxWorker>,
-        config: &mut Self::State,
+        LauncherState { config, .. }: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        use super::stardust_inx::InxError;
         match event {
             Report::Success(_) => {
                 cx.abort().await;
             }
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
-                    super::stardust_inx::InxError::MongoDb(e) => match e.kind.as_ref() {
+                    InxError::ConnectionError(_) | InxError::TransportFailed(_) => {
+                        cx.delay(Retry, config.inx.connection_retry_interval)?;
+                    }
+
+                    InxError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         mongodb::error::ErrorKind::Io(_)
                         | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
@@ -95,7 +107,7 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
                             cx.abort().await;
                         }
                     },
-                    super::stardust_inx::InxError::Read(_) | super::stardust_inx::InxError::TransportFailed(_) => {
+                    InxError::Read(_) => {
                         cx.spawn_child(report.actor).await;
                     }
                     _ => {
@@ -111,6 +123,21 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
     }
 }
 
+#[cfg(all(feature = "inx", feature = "stardust"))]
+#[async_trait]
+impl HandleEvent<Retry> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        _event: Retry,
+        LauncherState { config, db }: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
+            .await;
+        Ok(())
+    }
+}
+
 #[cfg(feature = "api")]
 #[async_trait]
 impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
@@ -118,7 +145,7 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::api::ApiWorker>,
-        config: &mut Self::State,
+        LauncherState { config, .. }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -145,7 +172,7 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::metrics::MetricsWorker>,
-        config: &mut Self::State,
+        LauncherState { config, .. }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
