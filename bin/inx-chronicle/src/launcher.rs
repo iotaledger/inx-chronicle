@@ -49,6 +49,10 @@ impl Actor for Launcher {
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
+        db.create_block_indexes().await?;
+        db.create_ledger_update_indexes().await?;
+        db.create_milestone_indexes().await?;
+
         if let Some(node_status) = db.get_network_name().await? {
             log::info!("{:?}", node_status);
         } else {

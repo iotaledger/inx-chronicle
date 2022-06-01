@@ -7,7 +7,8 @@ use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOptions, UpdateOptions},
+    options::{FindOptions, IndexOptions, UpdateOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +53,58 @@ pub struct SyncData {
 }
 
 impl MongoDb {
+    /// Creates ledger update indexes.
+    pub async fn create_milestone_indexes(&self) -> Result<(), Error> {
+        let collection = self.0.collection::<MilestoneDocument>(MilestoneDocument::COLLECTION);
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "milestone_index": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("milestone_idx_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "milestone_timestamp": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("milestone_timestamp_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "milestone_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("milestone_id_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
     /// Get the [`MilestonePayload`] of a milestone.
     pub async fn get_milestone_payload_by_id(
         &self,
@@ -113,11 +166,14 @@ impl MongoDb {
             is_synced: Default::default(),
         };
 
+        let mut doc = bson::to_document(&milestone_document)?;
+        doc.insert("_id", milestone_document.milestone_id.to_hex());
+
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
                 doc! { "milestone_index": milestone_index },
-                doc! { "$set": bson::to_document(&milestone_document)? },
+                doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
@@ -197,7 +253,6 @@ impl MongoDb {
                 doc! { "milestone_index": index },
                 doc! { "$set": {
                     "is_synced": true,
-
                 }},
                 UpdateOptions::builder().upsert(true).build(),
             )

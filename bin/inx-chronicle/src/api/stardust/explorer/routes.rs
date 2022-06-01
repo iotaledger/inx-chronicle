@@ -4,14 +4,17 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::{db::MongoDb, types::stardust::block::Address};
+use chronicle::{
+    db::{collections::SortOrder, MongoDb},
+    types::stardust::block::{Address, OutputId},
+};
 use futures::TryStreamExt;
 
-use super::responses::{TransactionHistoryResponse, Transfer};
-use crate::api::{
-    extractors::{Pagination, TimeRange},
-    ApiError, ApiResult,
+use super::{
+    extractors::HistoryPagination,
+    responses::{TransactionHistoryResponse, Transfer},
 };
+use crate::api::{ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().nest(
@@ -23,24 +26,27 @@ pub fn routes() -> Router {
 async fn transaction_history(
     database: Extension<MongoDb>,
     Path(address): Path<String>,
-    Pagination { page_size, page }: Pagination,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
+    HistoryPagination {
+        page_size,
+        start_milestone_index,
+        start_output_id,
+    }: HistoryPagination,
 ) -> ApiResult<TransactionHistoryResponse> {
+    let start_output_id = start_output_id
+        .as_ref()
+        .map(|output_id| OutputId::from_str(output_id).map_err(ApiError::bad_parse))
+        .transpose()?;
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
-    let start_milestone = database
-        .find_first_milestone(start_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    let end_milestone = database
-        .find_last_milestone(end_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
 
     let records = database
-        .get_transaction_history(&address_dto, page_size, page, start_milestone, end_milestone)
+        .get_ledger_updates(
+            &address_dto,
+            page_size,
+            start_milestone_index.map(Into::into),
+            start_output_id,
+            // TODO: Allow specifying sort in query
+            SortOrder::Newest,
+        )
         .await?
         .try_collect::<Vec<_>>()
         .await?;
@@ -49,12 +55,9 @@ async fn transaction_history(
         .into_iter()
         .map(|rec| {
             Ok(Transfer {
-                transaction_id: rec.transaction_id.to_hex(),
-                output_index: rec.output_index,
+                transaction_id: rec.output_id.transaction_id.to_hex(),
+                output_index: rec.output_id.index,
                 is_spent: rec.is_spent,
-                inclusion_state: rec.inclusion_state,
-                block_id: rec.block_id.to_hex(),
-                amount: rec.amount,
                 milestone_index: rec.milestone_index,
             })
         })
