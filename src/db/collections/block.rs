@@ -15,7 +15,6 @@ use crate::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, OutputMetadata, OutputWithMetadata, SpentMetadata},
         stardust::block::{Block, BlockId, Output, OutputId, TransactionId},
-        tangle::MilestoneIndex,
     },
 };
 
@@ -337,8 +336,8 @@ impl MongoDb {
     /// Create aggregate statistics of all addresses.
     pub async fn aggregate_addresses(
         &self,
-        start_milestone: MilestoneIndex,
-        end_milestone: MilestoneIndex,
+        start_milestone: crate::types::tangle::MilestoneIndex,
+        end_milestone: crate::types::tangle::MilestoneIndex,
     ) -> Result<Option<AddressAnalyticsResult>, Error> {
         Ok(self.0.collection::<BlockDocument>(BlockDocument::COLLECTION)
         .aggregate(
