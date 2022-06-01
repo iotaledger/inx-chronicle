@@ -66,6 +66,20 @@ impl InxWorker {
             node_status.confirmed_milestone.milestone_info.milestone_index
         );
 
+        let node_config = inx_client.read_node_configuration(NoParams {}).await?.into_inner();
+
+        let network_name = node_config.protocol_parameters.unwrap().network_name;
+
+        log::debug!("Connected to network {}.", network_name);
+
+        if let Some(prev_network_name) = self.db.get_network_name().await? {
+            if prev_network_name != network_name {
+                return Err(InxError::NetworkChanged(prev_network_name, network_name));
+            }
+        } else {
+            self.db.set_network_name(network_name).await?;
+        }
+
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         let sync_data = self
