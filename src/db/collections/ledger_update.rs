@@ -149,3 +149,75 @@ impl MongoDb {
             .await
     }
 }
+
+#[cfg(feature = "analytics")]
+mod analytics {
+    use futures::TryStreamExt;
+    use mongodb::bson;
+
+    use super::*;
+    use crate::types::tangle::MilestoneIndex;
+
+    /// Address analytics result.
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct AddressAnalyticsResult {
+        /// The number of addresses used in the time period.
+        pub total_addresses: u64,
+        /// The number of addresses that received tokens in the time period.
+        pub recv_addresses: u64,
+        /// The number of addresses that sent tokens in the time period.
+        pub send_addresses: u64,
+    }
+
+    impl MongoDb {
+        /// Create aggregate statistics of all addresses.
+        pub async fn aggregate_addresses(
+            &self,
+            start_milestone: MilestoneIndex,
+            end_milestone: MilestoneIndex,
+        ) -> Result<Option<AddressAnalyticsResult>, Error> {
+            Ok(self
+                .0
+                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "at.milestone_index": { "$gt": start_milestone, "$lt": end_milestone } } },
+                        doc! { "$facet": {
+                            "total": [
+                                { "$group" : {
+                                    "_id": "$address",
+                                    "transfers": { "$count": { } }
+                                }},
+                            ],
+                            "recv": [
+                                { "$match": { "is_spent": false } },
+                                { "$group" : {
+                                    "_id": "$address",
+                                    "transfers": { "$count": { } }
+                                }},
+                            ],
+                            "send": [
+                                { "$match": { "is_spent": true } },
+                                { "$group" : {
+                                    "_id": "$address",
+                                    "transfers": { "$count": { } }
+                                }},
+                            ],
+                        } },
+                        doc! { "$project": {
+                            "total_addresses": { "$size": "$total.transfers" },
+                            "recv_addresses": { "$size": "$recv.transfers" },
+                            "send_addresses": { "$size": "$send.transfers" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?)
+        }
+    }
+}
