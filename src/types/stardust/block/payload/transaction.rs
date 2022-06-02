@@ -56,7 +56,7 @@ impl From<TransactionId> for Bson {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionPayload {
-    pub id: TransactionId,
+    pub transaction_id: TransactionId,
     pub essence: TransactionEssence,
     pub unlocks: Box<[Unlock]>,
 }
@@ -64,7 +64,7 @@ pub struct TransactionPayload {
 impl From<&bee::TransactionPayload> for TransactionPayload {
     fn from(value: &bee::TransactionPayload) -> Self {
         Self {
-            id: value.id().into(),
+            transaction_id: value.id().into(),
             essence: value.essence().into(),
             unlocks: value.unlocks().iter().map(Into::into).collect(),
         }

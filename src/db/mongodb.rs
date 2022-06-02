@@ -53,21 +53,27 @@ impl MongoDb {
 
     /// Returns the storage size of the database.
     pub async fn size(&self) -> Result<u64, Error> {
-        let size = self
-            .0
-            .run_command(
-                doc! {
-                    "dbStats": 1,
-                    "scale": 1,
-                    "freeStorage": 0
-                },
-                None,
-            )
-            .await?
-            .get_i32("storageSize")
-            .unwrap();
-
-        Ok(size.try_into().unwrap())
+        Ok(
+            match self
+                .0
+                .run_command(
+                    doc! {
+                        "dbStats": 1,
+                        "scale": 1,
+                        "freeStorage": 0
+                    },
+                    None,
+                )
+                .await?
+                .get("storageSize")
+                .unwrap()
+            {
+                mongodb::bson::Bson::Int32(i) => *i as u64,
+                mongodb::bson::Bson::Int64(i) => *i as u64,
+                mongodb::bson::Bson::Double(f) => *f as u64,
+                _ => unreachable!(),
+            },
+        )
     }
 
     /// Returns the name of the database.

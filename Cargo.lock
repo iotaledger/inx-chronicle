@@ -481,6 +481,7 @@ dependencies = [
  "pin-project",
  "prefix-hex 0.4.0",
  "primitive-types 0.10.1",
+ "regex",
  "serde",
  "serde_bytes",
  "serde_json",

@@ -40,6 +40,12 @@ pub struct OutputId {
     pub index: OutputIndex,
 }
 
+impl OutputId {
+    pub fn to_hex(&self) -> String {
+        prefix_hex::encode([self.transaction_id.0.as_ref(), &self.index.to_le_bytes()].concat())
+    }
+}
+
 impl From<bee::OutputId> for OutputId {
     fn from(value: bee::OutputId) -> Self {
         Self {

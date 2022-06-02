@@ -15,6 +15,10 @@ pub struct MilestoneId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl MilestoneId {
     const LENGTH: usize = bee::MilestoneId::LENGTH;
+
+    pub fn to_hex(&self) -> String {
+        prefix_hex::encode(self.0.as_ref())
+    }
 }
 
 impl From<bee::MilestoneId> for MilestoneId {
