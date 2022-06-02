@@ -7,10 +7,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use bee_metrics::{
-    metrics::{gauge::Gauge, process::ProcessMetrics},
-    serve_metrics,
-};
+use bee_metrics::{metrics::gauge::Gauge, serve_metrics};
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent, Task, TaskError, TaskReport},
@@ -55,38 +52,6 @@ impl Default for MetricsConfig {
         }
     }
 }
-struct UpdateProcessMetrics {
-    process_metrics: ProcessMetrics,
-}
-
-#[async_trait]
-impl Task for UpdateProcessMetrics {
-    type Error = std::convert::Infallible;
-
-    async fn run(&mut self) -> Result<(), Self::Error> {
-        const MAX_RETRIES: u8 = 5;
-        let mut retries = MAX_RETRIES;
-
-        while retries > 0 {
-            sleep(Duration::from_secs(1)).await;
-
-            match self.process_metrics.update().await {
-                Ok(_) => {
-                    retries = MAX_RETRIES;
-                }
-                Err(e) => {
-                    log::warn!("Cannot update process metrics: {e}");
-                    retries -= 1;
-                }
-            }
-        }
-
-        log::warn!("Could not update process metrics after {MAX_RETRIES} retries");
-
-        Ok(())
-    }
-}
-
 struct UpdateDbMetrics {
     db: MongoDb,
     size: Gauge<u64>,
@@ -129,14 +94,7 @@ impl Actor for MetricsWorker {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let addr = SocketAddr::new(self.config.address, self.config.port);
 
-        let process_metrics = ProcessMetrics::new(std::process::id());
-        let (mem_metric, cpu_metric) = process_metrics.metrics();
-
         let db_size_metric = Gauge::<u64>::default();
-
-        cx.metrics_registry()
-            .register("memory_usage", "Memory usage", mem_metric);
-        cx.metrics_registry().register("cpu_usage", "CPU usage", cpu_metric);
 
         cx.metrics_registry()
             .register("db_size", "DB size", db_size_metric.clone());
@@ -163,7 +121,6 @@ impl Actor for MetricsWorker {
             })
         };
 
-        cx.spawn_child_task(UpdateProcessMetrics { process_metrics }).await;
         cx.spawn_child_task(UpdateDbMetrics {
             db: self.db.clone(),
             size: db_size_metric,
@@ -190,29 +147,6 @@ impl Actor for MetricsWorker {
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
         "Metrics Worker".into()
-    }
-}
-
-#[async_trait]
-impl HandleEvent<TaskReport<UpdateProcessMetrics>> for MetricsWorker {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: TaskReport<UpdateProcessMetrics>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            TaskReport::Success(_) => {}
-            TaskReport::Error(report) => match report.error {
-                TaskError::Aborted => {}
-                TaskError::Panic => {
-                    cx.spawn_child_task(report.take_task()).await;
-                }
-                TaskError::Result(err) => match err {},
-            },
-        }
-
-        Ok(())
     }
 }
 
