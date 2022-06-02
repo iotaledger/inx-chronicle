@@ -74,7 +74,7 @@ pub struct OutputResponse {
     pub transaction_id: String,
     #[serde(rename = "outputIndex")]
     pub output_index: u16,
-    #[serde(rename = "spendingTransaction")]
+    #[serde(rename = "isSpent")]
     pub is_spent: bool,
     #[serde(rename = "milestoneIndexSpent")]
     pub milestone_index_spent: Option<MilestoneIndex>,

@@ -206,7 +206,10 @@ impl MongoDb {
             .collection::<Output>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "block.payload.transaction_id": &output_id.transaction_id } },
+                    doc! { "$match": {
+                        "block.payload.transaction_id": &output_id.transaction_id,
+                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
+                    } },
                     doc! { "$replaceRoot": { "newRoot": { "$arrayElemAt": [ "$block.payload.essence.outputs", &(output_id.index as i64) ] } } },
                 ],
                 None,
@@ -224,17 +227,20 @@ impl MongoDb {
     pub async fn get_output_with_metadata(&self, output_id: &OutputId) -> Result<Option<OutputWithMetadata>, Error> {
         let mut output: Option<OutputWithMetadata> = self
             .0
-            .collection::<Output>(BlockDocument::COLLECTION)
+            .collection::<OutputWithMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "block.payload.transaction_id": &output_id.transaction_id } },
+                    doc! { "$match": {
+                        "block.payload.transaction_id": &output_id.transaction_id,
+                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
+                    } },
                     doc! { "$replaceRoot": { "newRoot": {
                         "output": { "$arrayElemAt": [ "$block.payload.essence.outputs", &(output_id.index as i64) ] } ,
                         "metadata": {
                             "output_id": &output_id,
                             "block_id": "$block_id",
                             "transaction_id": "$block.payload.transaction_id",
-                            "booked": "$metadata.milestone_index",
+                            "booked": "$metadata.referenced_by_milestone_index",
                         }
                     } } },
                 ],
@@ -257,15 +263,18 @@ impl MongoDb {
     pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
         let mut metadata: Option<OutputMetadata> = self
             .0
-            .collection::<Output>(BlockDocument::COLLECTION)
+            .collection::<OutputMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "block.payload.transaction_id": &output_id.transaction_id } },
+                    doc! { "$match": {
+                        "block.payload.transaction_id": &output_id.transaction_id,
+                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
+                    } },
                     doc! { "$replaceRoot": { "newRoot": {
                         "output_id": &output_id,
                         "block_id": "$block_id",
                         "transaction_id": "$block.payload.transaction_id",
-                        "booked": "$metadata.milestone_index",
+                        "booked": "$metadata.referenced_by_milestone_index",
                     } } },
                 ],
                 None,
@@ -312,7 +321,7 @@ impl MongoDb {
                     "block.payload.essence.inputs.index": &(output_id.index as i32),
                 },
                 FindOneOptions::builder().projection(
-                    doc! { "transaction_id": "$block.payload.transaction_id", "spent": "$metadata.milestone_index" },
+                    doc! { "transaction_id": "$block.payload.transaction_id", "spent": "$metadata.referenced_by_milestone_index" },
                 ).build(),
             )
             .await
@@ -344,7 +353,7 @@ impl MongoDb {
             vec![
                 doc! { "$match": {
                     "inclusion_state": LedgerInclusionState::Included,
-                    "metadata.milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
+                    "metadata.referenced_by_milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                     "block.payload.kind": "transaction",
                 } },
                 doc! { "$unwind": { "path": "$block.payload.essence.inputs", "includeArrayIndex": "block.payload.essence.inputs.idx" } },
