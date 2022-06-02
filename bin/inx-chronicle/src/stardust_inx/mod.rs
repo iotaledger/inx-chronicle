@@ -32,8 +32,11 @@ pub struct InxWorker {
 
 impl InxWorker {
     /// Creates an [`InxClient`] by connecting to the endpoint specified in `inx_config`.
-    pub fn new(db: MongoDb, inx_config: InxConfig) -> Self {
-        Self { db, config: inx_config }
+    pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
+        Self {
+            db: db.clone(),
+            config: inx_config.clone(),
+        }
     }
 
     pub async fn connect(inx_config: &InxConfig) -> Result<InxClient<Channel>, InxError> {
@@ -62,6 +65,21 @@ impl InxWorker {
             node_status.tangle_pruning_index,
             node_status.confirmed_milestone.milestone_info.milestone_index
         );
+
+        let node_config = inx_client.read_node_configuration(NoParams {}).await?.into_inner();
+
+        let network_name = node_config.protocol_parameters.unwrap().network_name;
+
+        log::debug!("Connected to network {}.", network_name);
+
+        if let Some(prev_network_name) = self.db.get_network_name().await? {
+            if prev_network_name != network_name {
+                return Err(InxError::NetworkChanged(prev_network_name, network_name));
+            }
+        } else {
+            log::info!("Linking database {} to network {}.", self.db.name(), network_name);
+            self.db.set_network_name(network_name).await?;
+        }
 
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;

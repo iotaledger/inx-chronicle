@@ -51,7 +51,7 @@ impl TryFrom<Block> for bee::Block {
 
 #[cfg(test)]
 mod tests {
-    use mongodb::bson::{from_bson, to_bson};
+    use mongodb::bson::{from_bson, to_bson, Bson};
 
     use super::{
         payload::test::{get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload},
@@ -62,6 +62,7 @@ mod tests {
     fn test_block_id_bson() {
         let block_id = BlockId::from(bee_test::rand::block::rand_block_id());
         let bson = to_bson(&block_id).unwrap();
+        assert_eq!(Bson::from(block_id), bson);
         from_bson::<BlockId>(bson).unwrap();
     }
 

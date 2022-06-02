@@ -25,6 +25,7 @@ use chronicle::{
     runtime::{spawn_task, Actor, ActorContext},
 };
 use hyper::Method;
+use libp2p_core::identity::ed25519::SecretKey;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -51,12 +52,12 @@ pub struct ApiWorker {
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: MongoDb, config: ApiData) -> Self {
-        Self {
-            db,
-            config,
+    pub fn new(db: &MongoDb, config: &ApiConfig, secret_key: &SecretKey) -> Result<Self, ConfigError> {
+        Ok(Self {
+            db: db.clone(),
+            config: (config.clone(), secret_key.clone()).try_into()?,
             server_handle: None,
-        }
+        })
     }
 }
 

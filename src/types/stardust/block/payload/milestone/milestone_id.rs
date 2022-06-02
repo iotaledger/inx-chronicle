@@ -4,16 +4,21 @@
 use std::str::FromStr;
 
 use bee_block_stardust::payload::milestone as bee;
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct MilestoneId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl MilestoneId {
     const LENGTH: usize = bee::MilestoneId::LENGTH;
+
+    pub fn to_hex(&self) -> String {
+        prefix_hex::encode(self.0.as_ref())
+    }
 }
 
 impl From<bee::MilestoneId> for MilestoneId {
@@ -33,5 +38,15 @@ impl FromStr for MilestoneId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::MilestoneId::from_str(s)?.into())
+    }
+}
+
+impl From<MilestoneId> for Bson {
+    fn from(val: MilestoneId) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.to_vec(),
+        }
+        .into()
     }
 }

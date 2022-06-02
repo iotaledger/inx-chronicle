@@ -2,6 +2,7 @@
 connect_url = "mongodb://localhost:27017"
 username = "root"
 password = "root"
+database_name = "chronicle"
 
 [api]
 port = 8042

@@ -7,9 +7,10 @@ mod block;
 mod ledger_update;
 /// Module containing the Milestone document model.
 mod milestone;
-/// Module containing the Output document model.
-mod output;
 /// Module containing information about the network and state of the node.
 mod status;
 
-pub use self::milestone::SyncData;
+pub use self::{
+    ledger_update::{LedgerUpdateDocument, SortOrder},
+    milestone::SyncData,
+};

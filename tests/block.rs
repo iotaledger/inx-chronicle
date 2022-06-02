@@ -13,7 +13,7 @@ use packable::PackableExt;
 
 #[ignore]
 #[tokio::test]
-async fn test_test() -> Result<(), mongodb::error::Error> {
+async fn insert_and_get_block() -> Result<(), mongodb::error::Error> {
     let bee_block = rand_block();
     let raw = bee_block.pack_to_vec();
     let block: Block = bee_block.clone().into();
@@ -22,7 +22,7 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
 
     let metadata = BlockMetadata {
         is_solid: true,
-        block_id: block_id.clone(),
+        block_id,
         parents: block.parents.clone(),
         should_promote: true,
         should_reattach: true,
@@ -32,16 +32,15 @@ async fn test_test() -> Result<(), mongodb::error::Error> {
         conflict_reason: ConflictReason::None,
     };
 
-    let config = MongoDbConfig::default().with_suffix("cargo-test");
+    let config = MongoDbConfig::default().with_database_name("chronicle-cargo-test");
     let db = MongoDb::connect(&config).await?;
 
     db.clear().await?;
 
-    db.insert_block_with_metadata(block_id.clone(), block, raw, metadata)
-        .await?;
+    db.insert_block_with_metadata(block_id, block, raw, metadata, 0).await?;
 
-    let result = db.get_block(&block_id).await?.unwrap();
-    let bee_result: bee_block_stardust::Block = result.try_into().unwrap();
+    let result_block = db.get_block(&block_id).await?.unwrap();
+    let bee_result: bee_block_stardust::Block = result_block.try_into().unwrap();
     assert_eq!(bee_result, bee_block);
 
     Ok(())

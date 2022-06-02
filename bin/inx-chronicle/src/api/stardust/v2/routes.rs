@@ -15,10 +15,9 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
-use futures::TryStreamExt;
 
 use super::responses::*;
-use crate::api::{error::ApiError, extractors::Pagination, ApiResult};
+use crate::api::{error::ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -27,8 +26,7 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/:block_id", get(block))
                 .route("/:block_id/raw", get(block_raw))
-                .route("/:block_id/metadata", get(block_metadata))
-                .route("/:block_id/children", get(block_children)),
+                .route("/:block_id/metadata", get(block_metadata)),
         )
         .nest(
             "/outputs",
@@ -87,43 +85,23 @@ async fn block_metadata(
     })
 }
 
-async fn block_children(
-    database: Extension<MongoDb>,
-    Path(block_id): Path<String>,
-    Pagination { page_size, page }: Pagination,
-) -> ApiResult<BlockChildrenResponse> {
-    let block_id_dto = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let blocks = database
-        .get_block_children(&block_id_dto, page_size, page)
-        .await?
-        .try_collect::<Vec<_>>()
-        .await?;
-
-    Ok(BlockChildrenResponse {
-        block_id,
-        max_results: page_size,
-        count: blocks.len(),
-        children: blocks,
-    })
-}
-
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let (output, metadata) = database
-        .get_output_and_metadata(&output_id)
+    let output = database
+        .get_output_with_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
     Ok(OutputResponse {
-        block_id: metadata.block_id.to_hex(),
-        transaction_id: metadata.transaction_id.to_hex(),
-        output_index: metadata.output_id.index,
-        is_spent: metadata.spent.is_some(),
-        milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
-        milestone_ts_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
-        milestone_index_booked: metadata.booked.milestone_index,
-        milestone_ts_booked: metadata.booked.milestone_timestamp,
-        output,
+        block_id: output.metadata.block_id.to_hex(),
+        transaction_id: output.metadata.transaction_id.to_hex(),
+        output_index: output.metadata.output_id.index,
+        is_spent: output.metadata.spent.is_some(),
+        milestone_index_spent: output.metadata.spent.as_ref().map(|s| s.spent.milestone_index),
+        milestone_ts_spent: output.metadata.spent.as_ref().and_then(|s| s.spent.milestone_timestamp),
+        milestone_index_booked: output.metadata.booked.milestone_index,
+        milestone_ts_booked: output.metadata.booked.milestone_timestamp.unwrap_or_default(),
+        output: output.output,
     })
 }
 
@@ -142,11 +120,11 @@ async fn output_metadata(
         transaction_id: metadata.transaction_id.to_hex(),
         output_index: metadata.output_id.index,
         is_spent: metadata.spent.is_some(),
-        milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
-        milestone_ts_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
         transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex()),
+        milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
+        milestone_ts_spent: metadata.spent.as_ref().and_then(|s| s.spent.milestone_timestamp),
         milestone_index_booked: metadata.booked.milestone_index,
-        milestone_ts_booked: metadata.booked.milestone_timestamp,
+        milestone_ts_booked: metadata.booked.milestone_timestamp.unwrap_or_default(),
     })
 }
 

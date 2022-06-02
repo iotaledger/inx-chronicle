@@ -5,7 +5,7 @@ use axum::response::IntoResponse;
 use chronicle::types::{
     ledger::LedgerInclusionState,
     stardust::{
-        block::{BlockId, Input, Output, Payload},
+        block::{BlockId, Input, MilestonePayload, Output, Payload},
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
@@ -74,7 +74,7 @@ pub struct OutputResponse {
     pub transaction_id: String,
     #[serde(rename = "outputIndex")]
     pub output_index: u16,
-    #[serde(rename = "spendingTransaction")]
+    #[serde(rename = "isSpent")]
     pub is_spent: bool,
     #[serde(rename = "milestoneIndexSpent")]
     pub milestone_index_spent: Option<MilestoneIndex>,
@@ -143,7 +143,7 @@ impl_success_response!(TransactionsResponse);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct MilestoneResponse {
-    pub payload: Payload,
+    pub payload: MilestonePayload,
 }
 
 impl_success_response!(MilestoneResponse);
