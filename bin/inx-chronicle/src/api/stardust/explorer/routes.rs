@@ -6,9 +6,9 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{collections::SortOrder, MongoDb},
-    types::stardust::block::{Address, OutputId},
+    types::stardust::block::Address,
 };
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 
 use super::{
     extractors::HistoryPagination,
@@ -32,24 +32,27 @@ async fn transaction_history(
         start_output_id,
     }: HistoryPagination,
 ) -> ApiResult<TransactionHistoryResponse> {
-    let start_output_id = start_output_id
-        .as_ref()
-        .map(|output_id| OutputId::from_str(output_id).map_err(ApiError::bad_parse))
-        .transpose()?;
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
-    let records = database
+    let mut records_iter = database
         .get_ledger_updates(
             &address_dto,
-            page_size,
+            // Get one extra record so that we can create the paging state.
+            page_size + 1,
             start_milestone_index.map(Into::into),
             start_output_id,
             // TODO: Allow specifying sort in query
             SortOrder::Newest,
         )
-        .await?
-        .try_collect::<Vec<_>>()
         .await?;
+
+    // Take all of the requested records first
+    let records = records_iter.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
+    // If any record is left, use it to make the paging state
+    let paging_state = records_iter
+        .try_next()
+        .await?
+        .map(|doc| format!("{}.{}.{}", doc.at.milestone_index, doc.output_id.to_hex(), page_size));
 
     let transactions = records
         .into_iter()
@@ -58,10 +61,15 @@ async fn transaction_history(
                 transaction_id: rec.output_id.transaction_id.to_hex(),
                 output_index: rec.output_id.index,
                 is_spent: rec.is_spent,
-                milestone_index: rec.milestone_index,
+                milestone_index: rec.at.milestone_index,
+                milestone_timestamp: rec.at.milestone_timestamp,
             })
         })
         .collect::<Result<_, ApiError>>()?;
 
-    Ok(TransactionHistoryResponse { transactions, address })
+    Ok(TransactionHistoryResponse {
+        transactions,
+        address,
+        paging_state,
+    })
 }

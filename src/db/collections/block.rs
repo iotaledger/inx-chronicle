@@ -182,10 +182,9 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                    "$and": [
-                        { "metadata.inclusion_state": LedgerInclusionState::Included },
-                        { "block.payload.transaction_id": transaction_id },
-                    ] } },
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
+                        "block.payload.transaction_id": transaction_id,
+                    } },
                     doc! { "$replaceRoot": { "newRoot": "$block" } },
                 ],
                 None,
@@ -240,7 +239,7 @@ impl MongoDb {
                             "output_id": &output_id,
                             "block_id": "$block_id",
                             "transaction_id": "$block.payload.transaction_id",
-                            "booked": "$metadata.referenced_by_milestone_index",
+                            "booked": { "milestone_index": "$metadata.referenced_by_milestone_index" },
                         }
                     } } },
                 ],
@@ -253,6 +252,9 @@ impl MongoDb {
             .transpose()?;
         let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
         if let Some(output) = output.as_mut() {
+            output.metadata.booked.milestone_timestamp = self
+                .get_milestone_timestamp(output.metadata.booked.milestone_index)
+                .await?;
             output.metadata.spent = spent_metadata;
         }
 
@@ -274,7 +276,7 @@ impl MongoDb {
                         "output_id": &output_id,
                         "block_id": "$block_id",
                         "transaction_id": "$block.payload.transaction_id",
-                        "booked": "$metadata.referenced_by_milestone_index",
+                        "booked": { "milestone_index": "$metadata.referenced_by_milestone_index" },
                     } } },
                 ],
                 None,
@@ -286,6 +288,7 @@ impl MongoDb {
             .transpose()?;
         let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
         if let Some(metadata) = metadata.as_mut() {
+            metadata.booked.milestone_timestamp = self.get_milestone_timestamp(metadata.booked.milestone_index).await?;
             metadata.spent = spent_metadata;
         }
 
@@ -298,7 +301,7 @@ impl MongoDb {
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
                     "block.payload.essence.inputs.index": &(output_id.index as i32)
                 },
@@ -312,19 +315,27 @@ impl MongoDb {
         &self,
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
-        self.0
+        let mut metadata = self
+            .0
             .collection::<SpentMetadata>(BlockDocument::COLLECTION)
             .find_one(
                 doc! {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
                     "block.payload.essence.inputs.index": &(output_id.index as i32),
                 },
-                FindOneOptions::builder().projection(
-                    doc! { "transaction_id": "$block.payload.transaction_id", "spent": "$metadata.referenced_by_milestone_index" },
-                ).build(),
+                FindOneOptions::builder()
+                    .projection(doc! {
+                        "transaction_id": "$block.payload.transaction_id",
+                        "spent": { "milestone_index": "$metadata.referenced_by_milestone_index" }
+                    })
+                    .build(),
             )
-            .await
+            .await?;
+        if let Some(metadata) = metadata.as_mut() {
+            metadata.spent.milestone_timestamp = self.get_milestone_timestamp(metadata.spent.milestone_index).await?;
+        }
+        Ok(metadata)
     }
 }
 
@@ -352,7 +363,7 @@ impl MongoDb {
         .aggregate(
             vec![
                 doc! { "$match": {
-                    "inclusion_state": LedgerInclusionState::Included,
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
                     "metadata.referenced_by_milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
                     "block.payload.kind": "transaction",
                 } },

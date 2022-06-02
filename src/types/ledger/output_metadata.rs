@@ -14,13 +14,22 @@ use crate::types::{
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct MilestoneIndexTimestamp {
     pub milestone_index: MilestoneIndex,
-    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_timestamp: Option<MilestoneTimestamp>,
+}
+
+impl<T: Into<MilestoneIndex>> From<T> for MilestoneIndexTimestamp {
+    fn from(value: T) -> Self {
+        Self {
+            milestone_index: value.into(),
+            milestone_timestamp: None,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct SpentMetadata {
     pub transaction_id: TransactionId,
-    pub spent: MilestoneIndex,
+    pub spent: MilestoneIndexTimestamp,
 }
 
 /// Block metadata.
@@ -29,7 +38,7 @@ pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub transaction_id: TransactionId,
-    pub booked: MilestoneIndex,
+    pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
 }
 
@@ -47,7 +56,10 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
             output_id,
             block_id: value.block_id.into(),
             transaction_id: output_id.transaction_id,
-            booked: value.milestone_index_booked.into(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_booked.into(),
+                milestone_timestamp: Some(value.milestone_timestamp_booked.into()),
+            },
             spent: None,
         };
         Self {
@@ -64,7 +76,10 @@ impl From<inx::LedgerSpent> for OutputWithMetadata {
 
         output_with_metadata.metadata.spent = Some(SpentMetadata {
             transaction_id: value.transaction_id_spent.into(),
-            spent: value.milestone_index_spent.into(),
+            spent: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_spent.into(),
+                milestone_timestamp: Some(value.milestone_timestamp_spent.into()),
+            },
         });
 
         output_with_metadata

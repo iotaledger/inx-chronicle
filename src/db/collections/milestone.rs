@@ -7,7 +7,7 @@ use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOptions, IndexOptions, UpdateOptions},
+    options::{FindOneOptions, FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -150,6 +150,28 @@ impl MongoDb {
         Ok(payload)
     }
 
+    /// Get the timestamp of a milestone by the [`MilestoneIndex`].
+    pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
+        #[derive(Deserialize)]
+        struct TimestampResult {
+            milestone_timestamp: MilestoneTimestamp,
+        }
+
+        let timestamp = self
+            .0
+            .collection::<TimestampResult>(MilestoneDocument::COLLECTION)
+            .find_one(
+                doc! { "milestone_index": index },
+                FindOneOptions::builder()
+                    .projection(doc! { "milestone_timestamp": 1 })
+                    .build(),
+            )
+            .await?
+            .map(|ts| ts.milestone_timestamp);
+
+        Ok(timestamp)
+    }
+
     /// Inserts the information of a milestone into the database.
     pub async fn insert_milestone(
         &self,
@@ -221,28 +243,6 @@ impl MongoDb {
             .try_next()
             .await?
             .map(|d| d.milestone_index))
-    }
-
-    /// If a milestone is available, returns if of its [`Block`](crate::types::stardust::block::Block)s have been
-    /// synchronized.
-    pub async fn get_sync_status_blocks(&self, index: MilestoneIndex) -> Result<Option<bool>, Error> {
-        let is_synced = self
-            .0
-            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "milestone_index": index } },
-                    doc! { "$replaceRoot": { "newRoot": "$is_synced" } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(is_synced)
     }
 
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.

@@ -92,34 +92,15 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let milestone_ts_booked = database
-        .get_milestone_payload(output.metadata.booked)
-        .await?
-        .map(|p| p.essence.timestamp)
-        .ok_or(ApiError::NoResults)?
-        .into();
-    let milestone_ts_spent = if let Some(s) = output.metadata.spent.as_ref() {
-        if s.spent == output.metadata.booked {
-            Some(milestone_ts_booked)
-        } else {
-            database
-                .get_milestone_payload(s.spent)
-                .await?
-                .map(|p| p.essence.timestamp.into())
-        }
-    } else {
-        None
-    };
-
     Ok(OutputResponse {
         block_id: output.metadata.block_id.to_hex(),
         transaction_id: output.metadata.transaction_id.to_hex(),
         output_index: output.metadata.output_id.index,
         is_spent: output.metadata.spent.is_some(),
-        milestone_index_spent: output.metadata.spent.as_ref().map(|s| s.spent),
-        milestone_ts_spent,
-        milestone_index_booked: output.metadata.booked,
-        milestone_ts_booked,
+        milestone_index_spent: output.metadata.spent.as_ref().map(|s| s.spent.milestone_index),
+        milestone_ts_spent: output.metadata.spent.as_ref().and_then(|s| s.spent.milestone_timestamp),
+        milestone_index_booked: output.metadata.booked.milestone_index,
+        milestone_ts_booked: output.metadata.booked.milestone_timestamp.unwrap_or_default(),
         output: output.output,
     })
 }
@@ -133,35 +114,17 @@ async fn output_metadata(
         .get_output_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let milestone_ts_booked = database
-        .get_milestone_payload(metadata.booked)
-        .await?
-        .map(|p| p.essence.timestamp)
-        .ok_or(ApiError::NoResults)?
-        .into();
-    let milestone_ts_spent = if let Some(s) = metadata.spent.as_ref() {
-        if s.spent == metadata.booked {
-            Some(milestone_ts_booked)
-        } else {
-            database
-                .get_milestone_payload(s.spent)
-                .await?
-                .map(|p| p.essence.timestamp.into())
-        }
-    } else {
-        None
-    };
 
     Ok(OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.transaction_id.to_hex(),
         output_index: metadata.output_id.index,
         is_spent: metadata.spent.is_some(),
-        milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent),
-        milestone_ts_spent,
         transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex()),
-        milestone_index_booked: metadata.booked,
-        milestone_ts_booked,
+        milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
+        milestone_ts_spent: metadata.spent.as_ref().and_then(|s| s.spent.milestone_timestamp),
+        milestone_index_booked: metadata.booked.milestone_index,
+        milestone_ts_booked: metadata.booked.milestone_timestamp.unwrap_or_default(),
     })
 }
 

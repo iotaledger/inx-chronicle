@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::ParseBoolError;
+use std::{num::ParseIntError, str::ParseBoolError};
 
 use axum::{extract::rejection::QueryRejection, response::IntoResponse};
 use hyper::{header::InvalidHeaderValue, StatusCode};
@@ -81,11 +81,15 @@ impl IntoResponse for ApiError {
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error(transparent)]
-    Bool(#[from] ParseBoolError),
+    #[error("Invalid paging state")]
+    BadPagingState,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
+    #[error(transparent)]
+    Bool(#[from] ParseBoolError),
+    #[error(transparent)]
+    Int(#[from] ParseIntError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }
@@ -100,7 +104,7 @@ pub struct ErrorBody {
     #[serde(skip_serializing)]
     status: StatusCode,
     code: u16,
-    block: String,
+    message: String,
 }
 
 impl IntoResponse for ErrorBody {
@@ -129,7 +133,7 @@ impl From<ApiError> for ErrorBody {
         Self {
             status: err.status(),
             code: err.code(),
-            block: err.to_string(),
+            message: err.to_string(),
         }
     }
 }

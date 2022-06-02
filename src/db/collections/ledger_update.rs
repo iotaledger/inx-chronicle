@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::OutputWithMetadata,
+        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
         stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
@@ -25,7 +25,7 @@ use crate::{
 pub struct LedgerUpdateDocument {
     pub address: Address,
     pub output_id: OutputId,
-    pub milestone_index: MilestoneIndex,
+    pub at: MilestoneIndexTimestamp,
     pub is_spent: bool,
 }
 
@@ -61,7 +61,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "address": 1, "milestone_index": -1, "output_id": 1 })
+                    .keys(doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 })
                     .options(
                         IndexOptions::builder()
                             .unique(true)
@@ -90,7 +90,7 @@ impl MongoDb {
                 let ledger_update_document = LedgerUpdateDocument {
                     address: owner,
                     output_id: metadata.output_id,
-                    milestone_index: metadata.spent.map_or(metadata.booked, |s| s.spent),
+                    at: metadata.spent.map_or(metadata.booked, |s| s.spent),
                     is_spent: metadata.spent.is_some(),
                 };
 
@@ -116,7 +116,7 @@ impl MongoDb {
     ) -> Result<impl Stream<Item = Result<LedgerUpdateDocument, Error>>, Error> {
         let options = FindOptions::builder()
             .limit(page_size as i64)
-            .sort(doc! {"milestone_index": order, "output_id": order})
+            .sort(doc! {"at.milestone_index": order, "output_id": order})
             .build();
 
         let mut doc = doc! {
@@ -125,20 +125,20 @@ impl MongoDb {
         if let Some(milestone_index) = start_milestone_index {
             match order {
                 SortOrder::Newest => {
-                    doc.insert("milestone_index", doc! { "$lt": milestone_index });
+                    doc.insert("at.milestone_index", doc! { "$lte": milestone_index });
                 }
                 SortOrder::Oldest => {
-                    doc.insert("milestone_index", doc! { "$gt": milestone_index });
+                    doc.insert("at.milestone_index", doc! { "$gte": milestone_index });
                 }
             }
         }
         if let Some(output_id) = start_output_id {
             match order {
                 SortOrder::Newest => {
-                    doc.insert("output_id", doc! { "$lt": output_id });
+                    doc.insert("output_id", doc! { "$lte": output_id });
                 }
                 SortOrder::Oldest => {
-                    doc.insert("output_id", doc! { "$gt": output_id });
+                    doc.insert("output_id", doc! { "$gte": output_id });
                 }
             }
         }
