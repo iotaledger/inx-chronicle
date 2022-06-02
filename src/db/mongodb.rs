@@ -73,6 +73,11 @@ impl MongoDb {
 
         Ok(size.try_into().unwrap())
     }
+
+    /// Returns the name of the database.
+    pub fn name(&self) -> &str {
+        self.0.name()
+    }
 }
 
 /// The [`MongoDb`] config.

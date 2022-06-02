@@ -77,6 +77,7 @@ impl InxWorker {
                 return Err(InxError::NetworkChanged(prev_network_name, network_name));
             }
         } else {
+            log::info!("Linking database {} to network {}.", self.db.name(), network_name);
             self.db.set_network_name(network_name).await?;
         }
 
