@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::{types::{stardust::block::Block, ledger::BlockMetadata}};
+use chronicle::types::{ledger::BlockMetadata, stardust::block::Block};
 
 pub mod bee {
     pub use bee_block_stardust::{
@@ -23,7 +23,6 @@ pub mod bee {
             OutputResponse, ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
         },
     };
-
 }
 
 /// NOTE: this module is only necessary until the PR #1239 is merged into the `shimmer-develop` branch of Bee.

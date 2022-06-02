@@ -61,7 +61,10 @@ pub struct SyncData {
 
 impl MongoDb {
     /// Get the [`Payload`] of a milestone.
-    pub async fn get_milestone_payload_by_id(&self, milestone_id: &MilestoneId) -> Result<Option<MilestonePayload>, Error> {
+    pub async fn get_milestone_payload_by_id(
+        &self,
+        milestone_id: &MilestoneId,
+    ) -> Result<Option<MilestonePayload>, Error> {
         self.0
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .find_one(
@@ -248,11 +251,8 @@ impl MongoDb {
     }
 
     /// Returns all [`MilestoneOption`]s stored in the database.
-    pub async fn get_milestone_options(
-        &self,
-    ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
-        self
-            .0
+    pub async fn get_milestone_options(&self) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+        self.0
             .collection::<Document>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -274,8 +274,7 @@ impl MongoDb {
         &self,
         migrated_at: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
-        self
-            .0
+        self.0
             .collection::<Document>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![

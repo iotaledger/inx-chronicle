@@ -11,8 +11,11 @@ use axum::{
 use chronicle::{
     db::MongoDb,
     types::{
-        stardust::block::{BlockId, MilestoneId, OutputId, Payload, TransactionId, TransactionEssence, MilestoneOption},
-        tangle::MilestoneIndex, ledger::LedgerInclusionState,
+        ledger::LedgerInclusionState,
+        stardust::block::{
+            BlockId, MilestoneId, MilestoneOption, OutputId, Payload, TransactionEssence, TransactionId,
+        },
+        tangle::MilestoneIndex,
     },
 };
 use futures::TryStreamExt;
@@ -130,10 +133,7 @@ async fn block_children(
         block_id: block_id.to_hex(),
         max_results: page_size,
         count: children.len(),
-        children: children
-            .into_iter()
-            .map(|block_id| block_id.to_hex())
-            .collect(),
+        children: children.into_iter().map(|block_id| block_id.to_hex()).collect(),
     }))
 }
 
@@ -168,7 +168,9 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let OutputId { index: output_index, ..} = output_id;
+    let OutputId {
+        index: output_index, ..
+    } = output_id;
 
     let metadata = bee::OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
@@ -176,7 +178,10 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         output_index,
         is_spent: metadata.spent.is_some(),
         milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
-        milestone_timestamp_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_timestamp),
+        milestone_timestamp_spent: metadata
+            .spent
+            .as_ref()
+            .map(|spent_md| *spent_md.spent.milestone_timestamp),
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
@@ -188,10 +193,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
     let output: &bee::Output = &output.try_into().map_err(|_| ApiError::NoResults)?;
     let output: bee::OutputDto = output.into();
 
-    Ok(OutputResponse(bee::OutputResponse {
-        metadata,
-        output,
-    }))
+    Ok(OutputResponse(bee::OutputResponse { metadata, output }))
 }
 
 // Example:
@@ -214,7 +216,9 @@ async fn output_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let OutputId { index: output_index, ..} = output_id;
+    let OutputId {
+        index: output_index, ..
+    } = output_id;
 
     Ok(OutputMetadataResponse(bee::OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
@@ -222,7 +226,10 @@ async fn output_metadata(
         output_index,
         is_spent: metadata.spent.is_some(),
         milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
-        milestone_timestamp_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_timestamp),
+        milestone_timestamp_spent: metadata
+            .spent
+            .as_ref()
+            .map(|spent_md| *spent_md.spent.milestone_timestamp),
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
@@ -332,7 +339,10 @@ async fn milestone_by_index(
         })
 }
 
-async fn utxo_changes(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<UtxoChangesResponse> {
+async fn utxo_changes(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+) -> ApiResult<UtxoChangesResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let payload = database
         .get_milestone_payload_by_id(&milestone_id)
@@ -342,7 +352,10 @@ async fn utxo_changes(database: Extension<MongoDb>, Path(milestone_id): Path<Str
     todo!("utxo_changes")
 }
 
-async fn utxo_changes_by_index(database: Extension<MongoDb>, Path(index): Path<MilestoneIndex>) -> ApiResult<UtxoChangesResponse> {
+async fn utxo_changes_by_index(
+    database: Extension<MongoDb>,
+    Path(index): Path<MilestoneIndex>,
+) -> ApiResult<UtxoChangesResponse> {
     let payload = database
         .get_milestone_payload(index)
         .await?
