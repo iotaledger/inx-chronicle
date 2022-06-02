@@ -32,7 +32,7 @@ async fn insert_and_get_block() -> Result<(), mongodb::error::Error> {
         conflict_reason: ConflictReason::None,
     };
 
-    let config = MongoDbConfig::default().with_suffix("cargo-test");
+    let config = MongoDbConfig::default().with_database_name("chronicle-cargo-test");
     let db = MongoDb::connect(&config).await?;
 
     db.clear().await?;
