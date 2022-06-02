@@ -49,12 +49,6 @@ impl Actor for Launcher {
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
-        if let Some(node_status) = db.get_network_name().await? {
-            log::info!("{:?}", node_status);
-        } else {
-            log::info!("No node status has been found in the database, it seems like the database is empty.");
-        };
-
         #[cfg(all(feature = "inx", feature = "stardust"))]
         cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
             .await;
