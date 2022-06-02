@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{bson::doc, error::Error, options::FindOneOptions};
+use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
 use crate::db::MongoDb;
@@ -21,12 +21,10 @@ impl MongoDb {
     /// Get the name of the network.
     pub async fn get_network_name(&self) -> Result<Option<String>, Error> {
         self.0
-            .collection::<String>(StatusDocument::COLLECTION)
-            .find_one(
-                doc! {},
-                FindOneOptions::builder().projection(doc! {"network_name":1}).build(),
-            )
+            .collection::<StatusDocument>(StatusDocument::COLLECTION)
+            .find_one(doc! {}, None)
             .await
+            .map(|doc| doc.map(|doc| doc.network_name))
     }
 
     /// Sets the name of the network.
