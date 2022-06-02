@@ -53,12 +53,6 @@ impl Actor for Launcher {
         db.create_ledger_update_indexes().await?;
         db.create_milestone_indexes().await?;
 
-        if let Some(node_status) = db.get_network_name().await? {
-            log::info!("{:?}", node_status);
-        } else {
-            log::info!("No node status has been found in the database, it seems like the database is empty.");
-        };
-
         #[cfg(all(feature = "inx", feature = "stardust"))]
         cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
             .await;

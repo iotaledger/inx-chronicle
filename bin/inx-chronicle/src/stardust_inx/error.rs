@@ -13,6 +13,8 @@ pub enum InxError {
     InxTypeConversion(#[from] inx::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
+    #[error("network changed from previous run. old network name: {0}, new network name: {1}")]
+    NetworkChanged(String, String),
     #[error(transparent)]
     ParsingAddressFailed(#[from] url::ParseError),
     #[error(transparent)]
