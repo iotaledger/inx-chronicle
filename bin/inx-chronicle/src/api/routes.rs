@@ -11,7 +11,13 @@ use chronicle::db::MongoDb;
 use jsonwebtoken::{EncodingKey, Header};
 use serde::Deserialize;
 
-use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
+use super::{
+    auth::{Auth, Claims},
+    config::ApiData,
+    error::ApiError,
+    responses::*,
+    ApiResult,
+};
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
@@ -46,16 +52,18 @@ async fn login(
     )? {
         let now = time::OffsetDateTime::now_utc();
         let exp = now + config.jwt_expiration;
+        let now_ts = (now - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64;
+        let claims = Claims {
+            iss: ApiData::ISSUER.into(),
+            sub: uuid::Uuid::new_v4().to_string(),
+            aud: ApiData::AUDIENCE.into(),
+            exp: Some((exp - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64),
+            nbf: now_ts,
+            iat: now_ts,
+        };
         let jwt = jsonwebtoken::encode(
             &Header::default(),
-            &serde_json::json!({
-                "iss": ApiData::ISSUER,
-                "sub": uuid::Uuid::new_v4().to_string(),
-                "aud": ApiData::AUDIENCE,
-                "nbf": (now - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
-                "iat": (now - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
-                "exp": (exp - time::OffsetDateTime::UNIX_EPOCH).whole_seconds() as u64,
-            }),
+            &claims,
             &EncodingKey::from_secret(config.secret_key.as_ref()),
         )?;
 
