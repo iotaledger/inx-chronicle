@@ -32,6 +32,8 @@ pub struct LauncherState {
     config: ChronicleConfig,
     #[allow(dead_code)]
     db: MongoDb,
+    #[cfg(feature = "api")]
+    secret_key: libp2p_core::identity::ed25519::SecretKey,
 }
 
 #[async_trait]
@@ -51,7 +53,7 @@ impl Actor for Launcher {
                 }
             }
         };
-        config.apply_cli_args(cli_args);
+        config.apply_cli_args(&cli_args);
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
@@ -64,18 +66,47 @@ impl Actor for Launcher {
             .await;
 
         #[cfg(feature = "api")]
-        cx.spawn_child(super::api::ApiWorker::new(&db, &config.api)).await;
+        let secret_key = {
+            let secret_key = match &cli_args.identity {
+                Some(path) => keypair_from_file(path)?,
+                None => {
+                    if let Ok(path) = std::env::var("IDENTITY_PATH") {
+                        keypair_from_file(&path)?
+                    } else {
+                        libp2p_core::identity::ed25519::SecretKey::generate()
+                    }
+                }
+            };
+            cx.spawn_child(super::api::ApiWorker::new(&db, &config.api, &secret_key).map_err(ConfigError::Api)?)
+                .await;
+            secret_key
+        };
 
         #[cfg(feature = "metrics")]
         cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
             .await;
 
-        Ok(LauncherState { config, db })
+        Ok(LauncherState {
+            config,
+            db,
+            #[cfg(feature = "api")]
+            secret_key,
+        })
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
         "Launcher".into()
     }
+}
+
+#[cfg(feature = "api")]
+fn keypair_from_file(path: &str) -> Result<libp2p_core::identity::ed25519::SecretKey, ConfigError> {
+    use ed25519::pkcs8::DecodePrivateKey;
+    let mut bytes = ed25519::pkcs8::KeypairBytes::from_pkcs8_pem(
+        &std::fs::read_to_string(std::path::Path::new(path)).map_err(ConfigError::FileRead)?,
+    )
+    .map_err(|_| ConfigError::KeyRead)?;
+    libp2p_core::identity::ed25519::SecretKey::from_bytes(&mut bytes.secret_key).map_err(ConfigError::KeyDecode)
 }
 
 #[cfg(all(feature = "inx", feature = "stardust"))]
@@ -85,7 +116,7 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::stardust_inx::InxWorker>,
-        LauncherState { config, db }: &mut Self::State,
+        LauncherState { config, db, .. }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         use chronicle::runtime::SpawnActor;
 
@@ -139,7 +170,7 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::api::ApiWorker>,
-        LauncherState { config, .. }: &mut Self::State,
+        LauncherState { config, secret_key, .. }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -148,7 +179,8 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(super::api::ApiWorker::new(&db, &config.api)).await;
+                    cx.spawn_child(super::api::ApiWorker::new(&db, &config.api, secret_key).map_err(ConfigError::Api)?)
+                        .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.abort().await;
