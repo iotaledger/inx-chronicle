@@ -64,7 +64,6 @@ impl Actor for Launcher {
             .await;
 
         #[cfg(feature = "api")]
-        #[allow(clippy::redundant_clone)]
         let secret_key = {
             let secret_key = match &cli_args.identity {
                 Some(path) => keypair_from_file(path)?,
