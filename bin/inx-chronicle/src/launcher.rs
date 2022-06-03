@@ -92,6 +92,7 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
                     InxError::ConnectionError(_) | InxError::TransportFailed(_) => {
+                        // TODO: delay `SpawnActor` event instead of custom one.
                         cx.delay(Retry, config.inx.connection_retry_interval)?;
                     }
 
