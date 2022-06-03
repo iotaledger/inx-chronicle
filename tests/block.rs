@@ -27,7 +27,6 @@ impl<'a> MongoDb<'a> {
         let _guard = DB_LOCK.lock().await;
 
         let db = chronicle::db::MongoDb::connect(config).await?;
-        db.clear().await?;
 
         Ok(Self { db, _guard })
     }
@@ -38,6 +37,12 @@ impl<'a> Deref for MongoDb<'a> {
 
     fn deref(&self) -> &Self::Target {
         &self.db
+    }
+}
+
+impl<'a> Drop for MongoDb<'a> {
+    fn drop(&mut self) {
+        futures::executor::block_on(self.db.clear()).unwrap()
     }
 }
 
