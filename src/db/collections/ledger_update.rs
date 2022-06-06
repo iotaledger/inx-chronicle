@@ -167,7 +167,7 @@ mod analytics {
 
     /// Address analytics result.
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
     pub struct AddressAnalyticsResult {
         /// The number of addresses used in the time period.
         pub total_addresses: u64,
@@ -179,7 +179,7 @@ mod analytics {
 
     impl MongoDb {
         /// Create aggregate statistics of all addresses.
-        pub async fn aggregate_addresses(
+        pub async fn get_address_analytics(
             &self,
             start_milestone: MilestoneIndex,
             end_milestone: MilestoneIndex,

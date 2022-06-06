@@ -107,6 +107,16 @@ impl Output {
                 .collect(),
         }
     }
+
+    pub fn amount(&self) -> OutputAmount {
+        match self {
+            Self::Treasury(TreasuryOutput { amount, .. }) => *amount,
+            Self::Basic(BasicOutput { amount, .. }) => *amount,
+            Self::Alias(AliasOutput { amount, .. }) => *amount,
+            Self::Nft(NftOutput { amount, .. }) => *amount,
+            Self::Foundry(FoundryOutput { amount, .. }) => *amount,
+        }
+    }
 }
 
 impl From<&bee::Output> for Output {
