@@ -338,3 +338,54 @@ impl MongoDb {
         Ok(metadata)
     }
 }
+
+#[cfg(feature = "analytics")]
+mod analytics {
+    use super::*;
+    use crate::types::{
+        stardust::block::{Payload, TransactionEssence},
+        tangle::MilestoneIndex,
+    };
+
+    #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+    pub struct TransactionAnalyticsResult {
+        pub count: u64,
+        pub total_value: f64,
+        pub avg_value: f64,
+    }
+
+    impl MongoDb {
+        /// Gathers transaction analytics.
+        pub async fn get_transaction_analytics(
+            &self,
+            start_milestone: MilestoneIndex,
+            end_milestone: MilestoneIndex,
+        ) -> Result<TransactionAnalyticsResult, Error> {
+            let mut res = TransactionAnalyticsResult::default();
+            let mut transactions = self
+                .0
+                .collection::<BlockDocument>(BlockDocument::COLLECTION)
+                .find(
+                    doc! {
+                        "block.payload.kind": "transaction",
+                        "metadata.referenced_by_milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
+                    },
+                    None,
+                )
+                .await?;
+            while let Some(transaction) = transactions.try_next().await? {
+                let outputs = match &transaction.block.payload {
+                    Some(Payload::Transaction(payload)) => {
+                        let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+                        outputs
+                    }
+                    _ => unreachable!(),
+                };
+                res.count += 1;
+                res.total_value += outputs.iter().map(|o| o.amount() as f64).sum::<f64>();
+            }
+            res.avg_value = res.total_value / res.count as f64;
+            Ok(res)
+        }
+    }
+}
