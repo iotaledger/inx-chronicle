@@ -1257,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "inx"
 version = "0.4.0"
-source = "git+https://github.com/iotaledger/inx#7e2645671025e758edbed156e7ef8e0a94ee80e0"
+source = "git+https://github.com/iotaledger/inx#0ad275ae1129e2640c7251c2cc0b8f01525db31c"
 dependencies = [
  "bee-block",
  "packable",
