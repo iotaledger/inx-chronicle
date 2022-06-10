@@ -30,8 +30,10 @@ RUN cargo build --release --bin inx-chronicle
 # using distroless cc "nonroot" image, which includes everything in the base image (glibc, libssl and openssl)
 FROM gcr.io/distroless/cc-debian11:nonroot AS runtime
 
-EXPOSE 8042/tcp # REST API
-EXPOSE 9100/tcp # Metrics
+# REST API
+EXPOSE 8042/tcp
+# Metrics
+EXPOSE 9100/tcp
 
 COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/release/inx-chronicle /app/inx-chronicle
 
