@@ -128,12 +128,12 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2504b827a8bef941ba3dd64bdffe9cf56ca182908a147edd6189c95fbcae7d"
+checksum = "dc47084705629d09d15060d70a8dbfce479c842303d05929ce29c74c995916ae"
 dependencies = [
  "async-trait",
- "axum-core 0.2.4",
+ "axum-core 0.2.5",
  "bitflags",
  "bytes",
  "futures-util",
@@ -173,9 +173,9 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da31c0ed7b4690e2c78fe4b880d21cd7db04a346ebc658b4270251b695437f17"
+checksum = "c2efed1c501becea07ce48118786ebcf229531d0d3b28edf224a720020d9e106"
 dependencies = [
  "async-trait",
  "bytes",
@@ -460,7 +460,7 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "async-recursion",
  "async-trait",
- "axum 0.5.6",
+ "axum 0.5.7",
  "bee-block",
  "bee-metrics",
  "bee-rest-api",
@@ -493,7 +493,7 @@ dependencies = [
  "tower",
  "tower-http 0.3.3",
  "url",
- "uuid 1.1.0",
+ "uuid 1.1.1",
 ]
 
 [[package]]
@@ -2600,7 +2600,7 @@ checksum = "5be9d60db39854b30b835107500cf0aca0b0d14d6e1c3de124217c23a29c2ddb"
 dependencies = [
  "async-stream",
  "async-trait",
- "axum 0.5.6",
+ "axum 0.5.7",
  "base64",
  "bytes",
  "futures-core",
@@ -2906,9 +2906,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93bbc61e655a4833cf400d0d15bf3649313422fa7572886ad6dab16d79886365"
+checksum = "c6d5d669b51467dcf7b2f1a796ce0f955f05f01cafda6c19d6e95f730df29238"
 dependencies = [
  "getrandom 0.2.6",
 ]
