@@ -98,9 +98,9 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         output_index: output.metadata.output_id.index,
         is_spent: output.metadata.spent.is_some(),
         milestone_index_spent: output.metadata.spent.as_ref().map(|s| s.spent.milestone_index),
-        milestone_ts_spent: output.metadata.spent.as_ref().and_then(|s| s.spent.milestone_timestamp),
+        milestone_ts_spent: output.metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
         milestone_index_booked: output.metadata.booked.milestone_index,
-        milestone_ts_booked: output.metadata.booked.milestone_timestamp.unwrap_or_default(),
+        milestone_ts_booked: output.metadata.booked.milestone_timestamp,
         output: output.output,
     })
 }
@@ -122,9 +122,9 @@ async fn output_metadata(
         is_spent: metadata.spent.is_some(),
         transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex()),
         milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
-        milestone_ts_spent: metadata.spent.as_ref().and_then(|s| s.spent.milestone_timestamp),
+        milestone_ts_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
         milestone_index_booked: metadata.booked.milestone_index,
-        milestone_ts_booked: metadata.booked.milestone_timestamp.unwrap_or_default(),
+        milestone_ts_booked: metadata.booked.milestone_timestamp,
     })
 }
 

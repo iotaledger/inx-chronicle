@@ -25,7 +25,7 @@ use crate::{
 
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct MilestoneDocument {
+pub(crate) struct MilestoneDocument {
     /// The milestone index.
     milestone_index: MilestoneIndex,
     /// The [`MilestoneId`](MilestoneId) of the milestone.
@@ -40,7 +40,7 @@ struct MilestoneDocument {
 
 impl MilestoneDocument {
     /// The stardust milestone collection name.
-    const COLLECTION: &'static str = "stardust_milestones";
+    pub(crate) const COLLECTION: &'static str = "stardust_milestones";
 }
 
 /// An aggregation type that represents the ranges of completed milestones and gaps.

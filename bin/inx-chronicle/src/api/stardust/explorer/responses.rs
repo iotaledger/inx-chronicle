@@ -27,5 +27,5 @@ pub struct Transfer {
     #[serde(rename = "milestoneIndex")]
     pub milestone_index: MilestoneIndex,
     #[serde(rename = "milestoneTimestamp")]
-    pub milestone_timestamp: Option<MilestoneTimestamp>,
+    pub milestone_timestamp: MilestoneTimestamp,
 }
