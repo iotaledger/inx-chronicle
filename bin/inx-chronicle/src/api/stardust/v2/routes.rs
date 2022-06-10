@@ -11,23 +11,16 @@ use axum::{
 use chronicle::{
     db::MongoDb,
     types::{
-        ledger::LedgerInclusionState,
-        stardust::block::{
-            BlockId, MilestoneId, MilestoneOption, OutputId, Payload, TransactionEssence, TransactionId,
-        },
+        ledger::{LedgerInclusionState, OutputWithMetadata},
+        stardust::block::{BlockId, MilestoneId, MilestoneOption, OutputId, TransactionId},
         tangle::MilestoneIndex,
     },
 };
 use futures::TryStreamExt;
-use mongodb::bson::{self, Document};
+use mongodb::bson;
 
 use super::responses::{bee, *};
-use crate::api::{
-    error::{ApiError, ParseError},
-    extractors::{Expanded, Pagination},
-    responses::{Expansion, Record},
-    ApiResult,
-};
+use crate::api::{error::ApiError, extractors::Pagination, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -36,8 +29,8 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/:block_id", get(block))
                 .route("/:block_id/raw", get(block_raw))
-                .route("/:block_id/metadata", get(block_metadata))
-                .route("/:block_id/children", get(block_children)),
+                .route("/:block_id/children", get(block_children))
+                .route("/:block_id/metadata", get(block_metadata)),
         )
         .nest(
             "/outputs",
@@ -163,8 +156,8 @@ async fn block_children(
 // }
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let (output, metadata) = database
-        .get_output_and_metadata(&output_id)
+    let OutputWithMetadata { output, metadata } = database
+        .get_output_with_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
@@ -178,13 +171,15 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         output_index,
         is_spent: metadata.spent.is_some(),
         milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
+        // TODO: can assume that the information always exists in Chronicle?
         milestone_timestamp_spent: metadata
             .spent
             .as_ref()
-            .map(|spent_md| *spent_md.spent.milestone_timestamp),
+            .map(|spent_md| *spent_md.spent.milestone_timestamp.unwrap()),
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
-        milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
+        // TODO: can assume that the information always exists in Chronicle?
+        milestone_timestamp_booked: *metadata.booked.milestone_timestamp.unwrap(),
         // TODO: return proper value
         ledger_index: 0,
     };
@@ -226,13 +221,15 @@ async fn output_metadata(
         output_index,
         is_spent: metadata.spent.is_some(),
         milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
+        // TODO: can assume that the information always exists in Chronicle?
         milestone_timestamp_spent: metadata
             .spent
             .as_ref()
-            .map(|spent_md| *spent_md.spent.milestone_timestamp),
+            .map(|spent_md| *spent_md.spent.milestone_timestamp.unwrap()),
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
-        milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
+        // TODO: can assume that the information always exists in Chronicle?
+        milestone_timestamp_booked: *metadata.booked.milestone_timestamp.unwrap(),
         // TODO: return proper value
         ledger_index: 0,
     }))
@@ -240,7 +237,7 @@ async fn output_metadata(
 
 async fn transaction_included_block(
     database: Extension<MongoDb>,
-    Path(index): Path<u32>,
+    Path(_): Path<u32>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
@@ -263,7 +260,7 @@ async fn transaction_included_block(
 
 async fn receipts(
     database: Extension<MongoDb>,
-    Pagination { page_size, page }: Pagination,
+    Pagination { page_size: _, page: _ }: Pagination,
 ) -> ApiResult<ReceiptsResponse> {
     let mut milestone_options = database.get_milestone_options().await?;
     let mut receipts = Vec::new();
@@ -302,11 +299,17 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
     Ok(ReceiptsResponse(bee::ReceiptsResponse { receipts }))
 }
 
-async fn treasury(
-    database: Extension<MongoDb>,
-    Pagination { page_size, page }: Pagination,
-) -> ApiResult<TreasuryResponse> {
-    todo!("treasury")
+async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
+    database
+        .get_treasury()
+        .await?
+        .ok_or(ApiError::NoResults)
+        .map(|treasury| {
+            TreasuryResponse(bee::TreasuryResponse {
+                milestone_id: treasury.milestone_id.to_hex(),
+                amount: treasury.amount.to_string(),
+            })
+        })
 }
 
 async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
@@ -339,27 +342,58 @@ async fn milestone_by_index(
         })
 }
 
+// Example:
+// {
+//     "index": 15465,
+//     "createdOutputs": [
+//       "0x1ee46e19f4219ee65afc10227d0ca22753f76ef32d1e922e5cbe3fbc9b5a52980100",
+//       "0xee3447d088e3e2c53c5b3e56a38fdc859ca2c4b4161cf256c0462ce4d34731820100",
+//       "0xf8bdbfb0f57ade7fbb95d31b11e2dbda9b2a35e9dc0cd3e11cb324e8a6bedc260100"
+//     ],
+//     "consumedOutputs": [
+//       "0x3d36ec4afb2d634b9313f84606b98b69675a3ef6f44dcdecb18c30945b57221e0100"
+//     ]
+// }
 async fn utxo_changes(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
 ) -> ApiResult<UtxoChangesResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
-    let payload = database
+    let milestone_index = database
         .get_milestone_payload_by_id(&milestone_id)
         .await?
-        .ok_or(ApiError::NoResults)?;
-
-    todo!("utxo_changes")
+        .ok_or(ApiError::NoResults)?
+        .essence
+        .index;
+    collect_utxo_changes(database, milestone_index).await
 }
 
 async fn utxo_changes_by_index(
     database: Extension<MongoDb>,
-    Path(index): Path<MilestoneIndex>,
+    Path(milestone_index): Path<MilestoneIndex>,
 ) -> ApiResult<UtxoChangesResponse> {
-    let payload = database
-        .get_milestone_payload(index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    collect_utxo_changes(database, milestone_index).await
+}
 
-    todo!("utxo_changes_by_index")
+async fn collect_utxo_changes(
+    database: Extension<MongoDb>,
+    milestone_index: MilestoneIndex,
+) -> ApiResult<UtxoChangesResponse> {
+    let mut created_outputs = Vec::new();
+    let mut consumed_outputs = Vec::new();
+
+    let mut updates = database.get_ledger_updates_at_index(milestone_index).await?;
+    while let Some(update) = updates.try_next().await? {
+        if update.is_spent {
+            consumed_outputs.push(update.output_id.to_hex());
+        } else {
+            created_outputs.push(update.output_id.to_hex());
+        }
+    }
+
+    Ok(UtxoChangesResponse(bee::UtxoChangesResponse {
+        index: *milestone_index,
+        created_outputs,
+        consumed_outputs,
+    }))
 }

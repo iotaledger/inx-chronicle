@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::types::{ledger::BlockMetadata, stardust::block::Block};
-
 pub mod bee {
     pub use bee_block_stardust::{
         output::{dto::OutputDto, Output},

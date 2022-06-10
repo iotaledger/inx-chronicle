@@ -3,7 +3,6 @@
 
 use std::ops::Deref;
 
-use axum::response::IntoResponse;
 use chronicle::{
     db::collections::SyncData,
     types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},

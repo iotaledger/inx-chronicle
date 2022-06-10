@@ -4,12 +4,13 @@
 use std::str::FromStr;
 
 use bee_block_stardust::output as bee;
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{Feature, NativeToken, OutputAmount, UnlockCondition};
 use crate::types::util::bytify;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
@@ -38,6 +39,16 @@ impl FromStr for NftId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftId::from_str(s)?.into())
+    }
+}
+
+impl From<NftId> for Bson {
+    fn from(val: NftId) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.to_vec(),
+        }
+        .into()
     }
 }
 
@@ -115,6 +126,7 @@ pub(crate) mod test {
     fn test_nft_id_bson() {
         let nft_id = NftId::from(rand_nft_id());
         let bson = to_bson(&nft_id).unwrap();
+        assert_eq!(Bson::from(nft_id), bson);
         assert_eq!(nft_id, from_bson::<NftId>(bson).unwrap());
     }
 

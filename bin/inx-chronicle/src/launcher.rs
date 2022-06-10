@@ -28,9 +28,15 @@ pub enum LauncherError {
 /// Supervisor actor
 pub struct Launcher;
 
+pub struct LauncherState {
+    config: ChronicleConfig,
+    #[cfg(feature = "api")]
+    secret_key: libp2p_core::identity::ed25519::SecretKey,
+}
+
 #[async_trait]
 impl Actor for Launcher {
-    type State = ChronicleConfig;
+    type State = LauncherState;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -45,36 +51,59 @@ impl Actor for Launcher {
                 }
             }
         };
-        config.apply_cli_args(cli_args);
+        config.apply_cli_args(&cli_args);
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
-        if let Some(node_status) = db.get_network_name().await? {
-            log::info!("{:?}", node_status);
-        } else {
-            log::info!("No node status has been found in the database, it seems like the database is empty.");
-        };
+        db.create_block_indexes().await?;
+        db.create_ledger_update_indexes().await?;
+        db.create_milestone_indexes().await?;
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
-        #[allow(clippy::redundant_clone)]
-        cx.spawn_child(super::stardust_inx::InxWorker::new(db.clone(), config.inx.clone()))
+        cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
             .await;
 
         #[cfg(feature = "api")]
-        #[allow(clippy::redundant_clone)]
-        cx.spawn_child(super::api::ApiWorker::new(db.clone(), config.api.clone()))
-            .await;
+        let secret_key = {
+            let secret_key = match &cli_args.identity {
+                Some(path) => keypair_from_file(path)?,
+                None => {
+                    if let Ok(path) = std::env::var("IDENTITY_PATH") {
+                        keypair_from_file(&path)?
+                    } else {
+                        libp2p_core::identity::ed25519::SecretKey::generate()
+                    }
+                }
+            };
+            cx.spawn_child(super::api::ApiWorker::new(&db, &config.api, &secret_key).map_err(ConfigError::Api)?)
+                .await;
+            secret_key
+        };
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
+        cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
             .await;
 
-        Ok(config)
+        Ok(LauncherState {
+            config,
+            #[cfg(feature = "api")]
+            secret_key,
+        })
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
         "Launcher".into()
     }
+}
+
+#[cfg(feature = "api")]
+fn keypair_from_file(path: &str) -> Result<libp2p_core::identity::ed25519::SecretKey, ConfigError> {
+    use ed25519::pkcs8::DecodePrivateKey;
+    let mut bytes = ed25519::pkcs8::KeypairBytes::from_pkcs8_pem(
+        &std::fs::read_to_string(std::path::Path::new(path)).map_err(ConfigError::FileRead)?,
+    )
+    .map_err(|_| ConfigError::KeyRead)?;
+    libp2p_core::identity::ed25519::SecretKey::from_bytes(&mut bytes.secret_key).map_err(ConfigError::KeyDecode)
 }
 
 #[cfg(all(feature = "inx", feature = "stardust"))]
@@ -84,7 +113,7 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::stardust_inx::InxWorker>,
-        config: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -96,8 +125,8 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
                         // Only a few possible errors we could potentially recover from
                         mongodb::error::ErrorKind::Io(_)
                         | mongodb::error::ErrorKind::ServerSelection { message: _, .. } => {
-                            let db = MongoDb::connect(&config.mongodb).await?;
-                            cx.spawn_child(super::stardust_inx::InxWorker::new(db, config.inx.clone()))
+                            let db = MongoDb::connect(&state.config.mongodb).await?;
+                            cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &state.config.inx))
                                 .await;
                         }
                         _ => {
@@ -127,7 +156,7 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::api::ApiWorker>,
-        config: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -135,8 +164,12 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(super::api::ApiWorker::new(db, config.api.clone())).await;
+                    let db = MongoDb::connect(&state.config.mongodb).await?;
+                    cx.spawn_child(
+                        super::api::ApiWorker::new(&db, &state.config.api, &state.secret_key)
+                            .map_err(ConfigError::Api)?,
+                    )
+                    .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.abort().await;
@@ -154,7 +187,7 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::metrics::MetricsWorker>,
-        config: &mut Self::State,
+        state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -162,8 +195,8 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
             }
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
-                    let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(super::metrics::MetricsWorker::new(db, config.metrics.clone()))
+                    let db = MongoDb::connect(&state.config.mongodb).await?;
+                    cx.spawn_child(super::metrics::MetricsWorker::new(&db, &state.config.metrics))
                         .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {

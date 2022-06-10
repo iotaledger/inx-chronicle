@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct MongoDb(pub(crate) mongodb::Database);
 
 impl MongoDb {
-    const NAME: &'static str = "chronicle";
+    const DEFAULT_NAME: &'static str = "chronicle";
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
@@ -35,11 +35,7 @@ impl MongoDb {
 
         let client = Client::with_options(client_options)?;
 
-        let name = match &config.suffix {
-            Some(suffix) => format!("{}-{}", Self::NAME, suffix),
-            None => Self::NAME.to_string(),
-        };
-        let db = client.database(&name);
+        let db = client.database(&config.database_name);
 
         Ok(MongoDb(db))
     }
@@ -57,21 +53,32 @@ impl MongoDb {
 
     /// Returns the storage size of the database.
     pub async fn size(&self) -> Result<u64, Error> {
-        let size = self
-            .0
-            .run_command(
-                doc! {
-                    "dbStats": 1,
-                    "scale": 1,
-                    "freeStorage": 0
-                },
-                None,
-            )
-            .await?
-            .get_i32("storageSize")
-            .unwrap();
+        Ok(
+            match self
+                .0
+                .run_command(
+                    doc! {
+                        "dbStats": 1,
+                        "scale": 1,
+                        "freeStorage": 0
+                    },
+                    None,
+                )
+                .await?
+                .get("storageSize")
+                .unwrap()
+            {
+                mongodb::bson::Bson::Int32(i) => *i as u64,
+                mongodb::bson::Bson::Int64(i) => *i as u64,
+                mongodb::bson::Bson::Double(f) => *f as u64,
+                _ => unreachable!(),
+            },
+        )
+    }
 
-        Ok(size.try_into().unwrap())
+    /// Returns the name of the database.
+    pub fn name(&self) -> &str {
+        self.0.name()
     }
 }
 
@@ -83,7 +90,7 @@ pub struct MongoDbConfig {
     pub(crate) connect_url: String,
     pub(crate) username: Option<String>,
     pub(crate) password: Option<String>,
-    pub(crate) suffix: Option<String>,
+    pub(crate) database_name: String,
 }
 
 impl MongoDbConfig {
@@ -111,8 +118,8 @@ impl MongoDbConfig {
     }
 
     /// Sets the suffix.
-    pub fn with_suffix(mut self, suffix: impl Into<String>) -> Self {
-        self.suffix = Some(suffix.into());
+    pub fn with_database_name(mut self, database_name: impl Into<String>) -> Self {
+        self.database_name = database_name.into();
         self
     }
 }
@@ -123,7 +130,7 @@ impl Default for MongoDbConfig {
             connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
-            suffix: None,
+            database_name: MongoDb::DEFAULT_NAME.to_string(),
         }
     }
 }

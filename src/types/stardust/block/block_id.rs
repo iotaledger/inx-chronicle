@@ -4,11 +4,12 @@
 use std::str::FromStr;
 
 use bee_block_stardust as bee;
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
 #[serde(transparent)]
 pub struct BlockId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
@@ -37,5 +38,15 @@ impl FromStr for BlockId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::BlockId::from_str(s)?.into())
+    }
+}
+
+impl From<BlockId> for Bson {
+    fn from(val: BlockId) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.to_vec(),
+        }
+        .into()
     }
 }

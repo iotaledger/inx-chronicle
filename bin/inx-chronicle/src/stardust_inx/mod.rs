@@ -6,6 +6,7 @@ mod config;
 mod error;
 mod ledger_update_stream;
 mod syncer;
+mod treasury_update_stream;
 
 use async_trait::async_trait;
 use chronicle::{
@@ -22,6 +23,7 @@ use inx::{
     NodeStatus,
 };
 pub use ledger_update_stream::LedgerUpdateStream;
+pub use treasury_update_stream::TreasuryUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
 
@@ -32,8 +34,11 @@ pub struct InxWorker {
 
 impl InxWorker {
     /// Creates an [`InxClient`] by connecting to the endpoint specified in `inx_config`.
-    pub fn new(db: MongoDb, inx_config: InxConfig) -> Self {
-        Self { db, config: inx_config }
+    pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
+        Self {
+            db: db.clone(),
+            config: inx_config.clone(),
+        }
     }
 
     pub async fn connect(inx_config: &InxConfig) -> Result<InxClient<Channel>, InxError> {
@@ -62,6 +67,21 @@ impl InxWorker {
             node_status.tangle_pruning_index,
             node_status.confirmed_milestone.milestone_info.milestone_index
         );
+
+        let node_config = inx_client.read_node_configuration(NoParams {}).await?.into_inner();
+
+        let network_name = node_config.protocol_parameters.unwrap().network_name;
+
+        log::debug!("Connected to network {}.", network_name);
+
+        if let Some(prev_network_name) = self.db.get_network_name().await? {
+            if prev_network_name != network_name {
+                return Err(InxError::NetworkChanged(prev_network_name, network_name));
+            }
+        } else {
+            log::info!("Linking database {} to network {}.", self.db.name(), network_name);
+            self.db.set_network_name(network_name).await?;
+        }
 
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
@@ -103,6 +123,17 @@ impl Actor for InxWorker {
                 .with_stream(ledger_update_stream),
         )
         .await;
+
+        let treasury_update_stream = inx_client
+            .listen_to_treasury_updates(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
+            .await?
+            .into_inner();
+        cx.spawn_child(
+            TreasuryUpdateStream::new(self.db.clone(), latest_ms + 1..=u32::MAX.into())
+                .with_stream(treasury_update_stream),
+        )
+        .await;
+
         Ok(inx_client)
     }
 
@@ -117,6 +148,29 @@ impl HandleEvent<Report<LedgerUpdateStream>> for InxWorker {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<LedgerUpdateStream>,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        match event {
+            Report::Success(_) => (),
+            Report::Error(e) => match e.error {
+                ActorError::Result(e) => {
+                    Err(e)?;
+                }
+                ActorError::Aborted | ActorError::Panic => {
+                    cx.abort().await;
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Report<TreasuryUpdateStream>> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<TreasuryUpdateStream>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {

@@ -9,8 +9,17 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
+    #[cfg(feature = "api")]
+    #[error(transparent)]
+    Api(#[from] crate::api::ConfigError),
     #[error("failed to read file: {0}")]
     FileRead(std::io::Error),
+    #[cfg(feature = "api")]
+    #[error("failed to decode key: {0}")]
+    KeyDecode(libp2p_core::identity::error::DecodingError),
+    #[cfg(feature = "api")]
+    #[error("failed to read key bytes")]
+    KeyRead,
     #[error("toml deserialization failed: {0}")]
     TomlDeserialization(toml::de::Error),
 }
@@ -36,13 +45,24 @@ impl ChronicleConfig {
     }
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
-    pub fn apply_cli_args(&mut self, args: super::cli::CliArgs) {
-        if let Some(connect_url) = args.db {
+    pub fn apply_cli_args(&mut self, args: &super::cli::CliArgs) {
+        if let Some(connect_url) = &args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
-        if let Some(inx) = args.inx {
-            self.inx.connect_url = inx;
+        if let Some(inx) = &args.inx {
+            self.inx.connect_url = inx.clone();
+        }
+        #[cfg(feature = "api")]
+        if let Some(password) = &args.password {
+            self.api.password_hash = hex::encode(
+                argon2::hash_raw(
+                    password.as_bytes(),
+                    self.api.jwt_salt.as_bytes(),
+                    &argon2::Config::default(),
+                )
+                .unwrap_or_default(),
+            );
         }
     }
 }

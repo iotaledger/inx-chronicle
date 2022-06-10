@@ -16,4 +16,10 @@ pub struct CliArgs {
     /// The address of the MongoDB database.
     #[clap(long)]
     pub db: Option<String>,
+    /// The location of the identity file for JWT auth.
+    #[clap(long)]
+    pub identity: Option<String>,
+    /// The password used for authentication.
+    #[clap(long)]
+    pub password: Option<String>,
 }
