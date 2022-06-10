@@ -7,6 +7,8 @@ use axum::{
     extract::{Extension, Path},
     routing::*,
     Router,
+    response::{Response, IntoResponse},
+    http::header::{HeaderMap, HeaderValue},
 };
 use chronicle::{
     db::MongoDb,
@@ -17,10 +19,16 @@ use chronicle::{
     },
 };
 use futures::TryStreamExt;
+use lazy_static::lazy_static;
 use mongodb::bson;
 
 use super::responses::{bee, *};
 use crate::api::{error::ApiError, extractors::Pagination, ApiResult};
+
+lazy_static! {
+    pub(crate) static ref BYTE_CONTENT_HEADER: HeaderValue =
+        HeaderValue::from_str("application/vnd.iota.serializer-v1").unwrap();
+}
 
 pub fn routes() -> Router {
     Router::new()
@@ -28,7 +36,6 @@ pub fn routes() -> Router {
             "/blocks",
             Router::new()
                 .route("/:block_id", get(block))
-                .route("/:block_id/raw", get(block_raw))
                 .route("/:block_id/children", get(block_children))
                 .route("/:block_id/metadata", get(block_metadata)),
         )
@@ -58,9 +65,15 @@ pub fn routes() -> Router {
         )
 }
 
-async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<BlockResponse> {
+async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>, headers: HeaderMap) -> ApiResult<Response> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let block = database.get_block(&block_id).await?.ok_or(ApiError::NoResults)?;
+
+    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        if value.eq(&*BYTE_CONTENT_HEADER) {
+            return block_raw(database, &block_id).await.map(|r| r.into_response());
+        }
+    }
 
     Ok(BlockResponse(bee::BlockResponse(bee::BlockDto {
         protocol_version: block.protocol_version,
@@ -71,12 +84,11 @@ async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>) -> Ap
             bee_payload.into()
         }),
         nonce: block.nonce.to_string(),
-    })))
+    })).into_response())
 }
 
-async fn block_raw(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<Vec<u8>> {
-    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    database.get_block_raw(&block_id).await?.ok_or(ApiError::NoResults)
+async fn block_raw(database: Extension<MongoDb>, block_id: &BlockId) -> ApiResult<Vec<u8>> {
+    database.get_block_raw(block_id).await?.ok_or(ApiError::NoResults)
 }
 
 async fn block_metadata(

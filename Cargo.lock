@@ -511,6 +511,7 @@ dependencies = [
  "hyper",
  "inx",
  "jsonwebtoken",
+ "lazy_static",
  "libp2p-core",
  "log",
  "mongodb",
