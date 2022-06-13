@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError, SpawnActor},
 };
 use clap::Parser;
 use thiserror::Error;
@@ -73,8 +73,6 @@ impl Actor for Launcher {
     }
 }
 
-struct Retry;
-
 #[cfg(all(feature = "inx", feature = "stardust"))]
 #[async_trait]
 impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
@@ -82,7 +80,7 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::stardust_inx::InxWorker>,
-        LauncherState { config, .. }: &mut Self::State,
+        LauncherState { config, db }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         use super::stardust_inx::InxError;
         match event {
@@ -92,10 +90,9 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
                     InxError::ConnectionError(_) | InxError::TransportFailed(_) => {
-                        // TODO: delay `SpawnActor` event instead of custom one.
-                        cx.delay(Retry, config.inx.connection_retry_interval)?;
+                        let inx_worker = super::stardust_inx::InxWorker::new(db, &config.inx);
+                        cx.delay(SpawnActor::new(inx_worker), config.inx.connection_retry_interval)?;
                     }
-
                     InxError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         mongodb::error::ErrorKind::Io(_)
@@ -120,21 +117,6 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
                 }
             },
         }
-        Ok(())
-    }
-}
-
-#[cfg(all(feature = "inx", feature = "stardust"))]
-#[async_trait]
-impl HandleEvent<Retry> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        _event: Retry,
-        LauncherState { config, db }: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
-            .await;
         Ok(())
     }
 }
