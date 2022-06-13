@@ -5,6 +5,8 @@ services:
     image: mongo
     restart: always
     command: --quiet --logpath /dev/null
+    volumes:
+      - ./chronicle_data:/data/db
 
   inx-chronicle:
     build:
@@ -41,7 +43,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ./alphanet:/app/alphanet
+      - ./hornet_data:/app/alphanet
       - ./config.hornet.json:/app/config.json:ro
     command:
       - "-c"
