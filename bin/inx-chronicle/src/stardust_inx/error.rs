@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use chronicle::types::tangle::MilestoneIndex;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -11,6 +12,8 @@ pub enum InxError {
     InvalidAddress(String),
     #[error("INX type conversion error: {0:?}")]
     InxTypeConversion(#[from] inx::Error),
+    #[error("missing milestone id for milestone index `{0}`")]
+    MissingMilestoneId(MilestoneIndex),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: {0}, new network name: {1}")]
