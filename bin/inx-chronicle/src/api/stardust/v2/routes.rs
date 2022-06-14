@@ -87,21 +87,21 @@ async fn block_metadata(
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let (output, metadata) = database
-        .get_output_and_metadata(&output_id)
+    let output = database
+        .get_output_with_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
     Ok(OutputResponse {
-        block_id: metadata.block_id.to_hex(),
-        transaction_id: metadata.transaction_id.to_hex(),
-        output_index: metadata.output_id.index,
-        is_spent: metadata.spent.is_some(),
-        milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
-        milestone_ts_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
-        milestone_index_booked: metadata.booked.milestone_index,
-        milestone_ts_booked: metadata.booked.milestone_timestamp,
-        output,
+        block_id: output.metadata.block_id.to_hex(),
+        transaction_id: output.metadata.transaction_id.to_hex(),
+        output_index: output.metadata.output_id.index,
+        is_spent: output.metadata.spent.is_some(),
+        milestone_index_spent: output.metadata.spent.as_ref().map(|s| s.spent.milestone_index),
+        milestone_ts_spent: output.metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
+        milestone_index_booked: output.metadata.booked.milestone_index,
+        milestone_ts_booked: output.metadata.booked.milestone_timestamp,
+        output: output.output,
     })
 }
 
@@ -120,9 +120,9 @@ async fn output_metadata(
         transaction_id: metadata.transaction_id.to_hex(),
         output_index: metadata.output_id.index,
         is_spent: metadata.spent.is_some(),
+        transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex()),
         milestone_index_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_index),
         milestone_ts_spent: metadata.spent.as_ref().map(|s| s.spent.milestone_timestamp),
-        transaction_id_spent: metadata.spent.as_ref().map(|s| s.transaction_id.to_hex()),
         milestone_index_booked: metadata.booked.milestone_index,
         milestone_ts_booked: metadata.booked.milestone_timestamp,
     })

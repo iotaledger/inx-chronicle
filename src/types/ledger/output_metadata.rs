@@ -11,20 +11,20 @@ use crate::types::{
     tangle::MilestoneIndex,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct MilestoneIndexTimestamp {
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct SpentMetadata {
     pub transaction_id: TransactionId,
     pub spent: MilestoneIndexTimestamp,
 }
 
 /// Block metadata.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
@@ -33,6 +33,7 @@ pub struct OutputMetadata {
     pub spent: Option<SpentMetadata>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputWithMetadata {
     pub output: Output,
     pub metadata: OutputMetadata,

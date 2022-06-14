@@ -1,20 +1,20 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::UpdateOptions,
+    options::{IndexOptions, UpdateOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::MongoDb,
+    db::{collections::milestone::MilestoneDocument, MongoDb},
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{Address, Block, BlockId, TransactionId},
-        tangle::MilestoneIndex,
+        ledger::{BlockMetadata, LedgerInclusionState, OutputMetadata, OutputWithMetadata, SpentMetadata},
+        stardust::block::{Block, BlockId, Output, OutputId, TransactionId},
     },
 };
 
@@ -39,27 +39,46 @@ impl BlockDocument {
     const COLLECTION: &'static str = "stardust_blocks";
 }
 
-/// A single transaction history result row.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionHistoryResult {
-    /// The transaction id.
-    pub transaction_id: TransactionId,
-    /// The index of the output that this transfer represents.
-    pub output_index: u16,
-    /// Whether this is a spent or unspent output.
-    pub is_spent: bool,
-    /// The inclusion state of the output's transaction.
-    pub inclusion_state: Option<LedgerInclusionState>,
-    /// The transaction's block id.
-    pub block_id: BlockId,
-    /// The milestone index that references the transaction.
-    pub milestone_index: Option<MilestoneIndex>,
-    /// The transfer amount.
-    pub amount: u64,
-}
-
 /// Implements the queries for the core API.
 impl MongoDb {
+    /// Creates block indexes.
+    pub async fn create_block_indexes(&self) -> Result<(), Error> {
+        let collection = self.0.collection::<BlockDocument>(BlockDocument::COLLECTION);
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "block_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("block_id_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "block.payload.transaction_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("transaction_id_index".to_string())
+                            .partial_filter_expression(doc! { "block.payload.transaction_id": { "$exists": true } })
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         let block = self
@@ -140,11 +159,14 @@ impl MongoDb {
             white_flag_index,
         };
 
+        let mut doc = bson::to_document(&block_document)?;
+        doc.insert("_id", block_id.to_hex());
+
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
                 doc! { "block_id": block_id },
-                doc! { "$set": bson::to_document(&block_document)? },
+                doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
@@ -160,10 +182,9 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                    "$and": [
-                        { "inclusion_state": LedgerInclusionState::Included },
-                        { "block.payload.transaction_id": transaction_id },
-                    ] } },
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
+                        "block.payload.transaction_id": transaction_id,
+                    } },
                     doc! { "$replaceRoot": { "newRoot": "$block" } },
                 ],
                 None,
@@ -177,173 +198,179 @@ impl MongoDb {
         Ok(block)
     }
 
-    /// Aggregates the transaction history for an address.
-    pub async fn get_transaction_history(
-        &self,
-        address: &Address,
-        page_size: usize,
-        page: usize,
-        start_milestone: MilestoneIndex,
-        end_milestone: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<TransactionHistoryResult, Error>>, Error> {
-        self.0
-        .collection::<BlockDocument>(BlockDocument::COLLECTION)
-        .aggregate(vec![
-            // Only outputs for this address
-            doc! { "$match": {
-                "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                "inclusion_state": LedgerInclusionState::Included, 
-                "block.payload.essence.outputs.unlocks": &address
-            } },
-            doc! { "$set": {
-                "block.payload.essence.outputs": {
-                    "$filter": {
-                        "input": "$block.payload.essence.outputs",
-                        "as": "output",
-                        "cond": { "$eq": [ "$$output.unlock_conditions", &address ] }
-                    }
-                }
-            } },
-            // One result per output
-            doc! { "$unwind": { "path": "$block.payload.essence.outputs", "includeArrayIndex": "block.payload.essence.outputs.idx" } },
-            // Lookup spending inputs for each output, if they exist
-            doc! { "$lookup": {
-                "from": "stardust_blocks",
-                // Keep track of the output id
-                "let": { "transaction_id": "$block.payload.transaction_id", "index": "$block.payload.essence.outputs.idx" },
-                "pipeline": [
-                    // Match using the output's index
-                    { "$match": { 
-                        "inclusion_state": LedgerInclusionState::Included, 
-                        "block.payload.essence.inputs.transaction_id": "$$transaction_id",
-                        "block.payload.essence.inputs.index": "$$index"
+    /// Get an [`Output`] by [`OutputId`].
+    pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
+        let output = self
+            .0
+            .collection::<Output>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "block.payload.transaction_id": &output_id.transaction_id,
+                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
-                    { "$set": {
-                        "block.payload.essence.inputs": {
-                            "$filter": {
-                                "input": "$block.payload.essence.inputs",
-                                "as": "input",
-                                "cond": { "$and": {
-                                    "$eq": [ "$$input.transaction_id", "$$transaction_id" ],
-                                    "$eq": [ "$$input.index", "$$index" ],
-                                } }
-                            }
-                        }
-                    } },
-                    // One result per spending input
-                    { "$unwind": { "path": "$block.payload.essence.outputs", "includeArrayIndex": "block.payload.essence.outputs.idx" } },
+                    doc! { "$replaceRoot": { "newRoot": { "$arrayElemAt": [ "$block.payload.essence.outputs", &(output_id.index as i64) ] } } },
                 ],
-                // Store the result
-                "as": "spending_transaction"
-            } },
-            // Add a null spending transaction so that unwind will create two records
-            doc! { "$set": { "spending_transaction": { "$concatArrays": [ "$spending_transaction", [ null ] ] } } },
-            // Unwind the outputs into one or two results
-            doc! { "$unwind": { "path": "$spending_transaction", "preserveNullAndEmptyArrays": true } },
-            // Project the result
-            doc! { "$project": {
-                "transaction_id": "$block.payload.transaction_id",
-                "output_idx": "$block.payload.essence.outputs.idx",
-                "is_spent": { "$ne": [ "$spending_transaction", null ] },
-                "inclusion_state": "$metadata.inclusion_state",
-                "block_id": "$block.id",
-                "milestone_index": "$metadata.referenced_by_milestone_index",
-                "amount": "$block.payload.essence.outputs.amount",
-            } },
-            doc! { "$sort": { "metadata.referenced_by_milestone_index": -1 } },
-            doc! { "$skip": (page_size * page) as i64 },
-            doc! { "$limit": page_size as i64 },
-        ], None)
-        .await
-        .map(|c| c.then(|r| async { Ok(bson::from_document(r?)?) }))
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(output)
     }
-}
 
-/// Address analytics result.
-#[cfg(feature = "analytics")]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AddressAnalyticsResult {
-    /// The number of addresses used in the time period.
-    pub total_addresses: u64,
-    /// The number of addresses that received tokens in the time period.
-    pub recv_addresses: u64,
-    /// The number of addresses that sent tokens in the time period.
-    pub send_addresses: u64,
-}
+    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    pub async fn get_output_with_metadata(&self, output_id: &OutputId) -> Result<Option<OutputWithMetadata>, Error> {
+        let mut output: Option<OutputWithMetadata> = self
+            .0
+            .collection::<OutputWithMetadata>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "block.payload.transaction_id": &output_id.transaction_id,
+                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
+                    } },
+                    doc! { "$lookup": {
+                        "from": MilestoneDocument::COLLECTION,
+                        "localField": "metadata.referenced_by_milestone_index",
+                        "foreignField": "milestone_index",
+                        "as": "metadata.referenced_by_milestone"
+                    } },
+                    doc! { "$unwind": "$metadata.referenced_by_milestone" },
+                    doc! { "$replaceRoot": { "newRoot": {
+                        "output": { "$arrayElemAt": [ "$block.payload.essence.outputs", &(output_id.index as i64) ] } ,
+                        "metadata": {
+                            "output_id": &output_id,
+                            "block_id": "$block_id",
+                            "transaction_id": "$block.payload.transaction_id",
+                            "booked": {
+                                "milestone_index": "$metadata.referenced_by_milestone_index",
+                                "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
+                            },
+                        }
+                    } } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+        let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
+        if let Some(output) = output.as_mut() {
+            output.metadata.spent = spent_metadata;
+        }
 
-#[cfg(feature = "analytics")]
-impl MongoDb {
-    /// Create aggregate statistics of all addresses.
-    pub async fn aggregate_addresses(
+        Ok(output)
+    }
+
+    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
+        let mut metadata: Option<OutputMetadata> = self
+            .0
+            .collection::<OutputMetadata>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "block.payload.transaction_id": &output_id.transaction_id,
+                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
+                    } },
+                    doc! { "$lookup": {
+                        "from": MilestoneDocument::COLLECTION,
+                        "localField": "metadata.referenced_by_milestone_index",
+                        "foreignField": "milestone_index",
+                        "as": "metadata.referenced_by_milestone"
+                    } },
+                    doc! { "$unwind": "$metadata.referenced_by_milestone" },
+                    doc! { "$replaceRoot": { "newRoot": {
+                        "output_id": &output_id,
+                        "block_id": "$block_id",
+                        "transaction_id": "$block.payload.transaction_id",
+                        "booked": {
+                            "milestone_index": "$metadata.referenced_by_milestone_index",
+                            "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
+                        },
+                    } } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+        let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
+        if let Some(metadata) = metadata.as_mut() {
+            metadata.spent = spent_metadata;
+        }
+
+        Ok(metadata)
+    }
+
+    /// Gets the spending transaction of an [`Output`] by [`OutputId`].
+    pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
+        Ok(self
+            .0
+            .collection::<Block>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
+                        "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
+                        "block.payload.essence.inputs.index": &(output_id.index as i32)
+                    } },
+                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?)
+    }
+
+    /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
+    pub async fn get_spending_transaction_metadata(
         &self,
-        start_milestone: MilestoneIndex,
-        end_milestone: MilestoneIndex,
-    ) -> Result<Option<AddressAnalyticsResult>, Error> {
-        Ok(self.0.collection::<BlockDocument>(BlockDocument::COLLECTION)
-        .aggregate(
-            vec![
-                doc! { "$match": {
-                    "inclusion_state": LedgerInclusionState::Included,
-                    "milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                    "block.payload.kind": "transaction",
-                } },
-                doc! { "$unwind": { "path": "$block.payload.essence.inputs", "includeArrayIndex": "block.payload.essence.inputs.idx" } },
-                doc! { "$lookup": {
-                    "from": "stardust_blocks",
-                    "let": { "transaction_id": "$block.payload.essence.inputs.transaction_id", "index": "$block.payload.essence.inputs.index" },
-                    "pipeline": [
-                        { "$match": { 
-                            "inclusion_state": LedgerInclusionState::Included, 
-                            "block.payload.transaction_id": "$$transaction_id",
-                        } },
-                        { "$set": {
-                            "block.payload.essence.outputs": {
-                                "$arrayElemAt": [
-                                    "$block.payload.essence.outputs",
-                                    "$$index"
-                                ]
-                            }
-                        } },
-                    ],
-                    "as": "spent_transaction"
-                } },
-                doc! { "$set": { "send_address": "$spent_transaction.block.payload.essence.outputs.unlocks" } },
-                doc! { "$unwind": { "path": "$block.payload.essence.outputs", "includeArrayIndex": "block.payload.essence.outputs.idx" } },
-                doc! { "$set": { "recv_address": "$block.payload.essence.outputs.unlocks" } },
-                doc! { "$facet": {
-                    "total": [
-                        { "$set": { "address": ["$send_address", "$recv_address"] } },
-                        { "$unwind": { "path": "$address" } },
-                        { "$group" : {
-                            "_id": "$address",
-                            "addresses": { "$count": { } }
-                        }},
-                    ],
-                    "recv": [
-                        { "$group" : {
-                            "_id": "$recv_address",
-                            "addresses": { "$count": { } }
-                        }},
-                    ],
-                    "send": [
-                        { "$group" : {
-                            "_id": "$send_address",
-                            "addresses": { "$count": { } }
-                        }},
-                    ],
-                } },
-                doc! { "$project": {
-                    "total_addresses": { "$arrayElemAt": ["$total.addresses", 0] },
-                    "recv_addresses": { "$arrayElemAt": ["$recv.addresses", 0] },
-                    "send_addresses": { "$arrayElemAt": ["$send.addresses", 0] },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await?
-        .map(bson::from_document)
-        .transpose()?)
+        output_id: &OutputId,
+    ) -> Result<Option<SpentMetadata>, Error> {
+        let metadata = self
+            .0
+            .collection::<SpentMetadata>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
+                        "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
+                        "block.payload.essence.inputs.index": &(output_id.index as i32),
+                    } },
+                    doc! { "$lookup": {
+                        "from": MilestoneDocument::COLLECTION,
+                        "localField": "metadata.referenced_by_milestone_index",
+                        "foreignField": "milestone_index",
+                        "as": "metadata.referenced_by_milestone"
+                    } },
+                    doc! { "$unwind": "$metadata.referenced_by_milestone" },
+                    doc! { "$replaceRoot": { "newRoot": {
+                        "transaction_id": "$block.payload.transaction_id",
+                        "spent": {
+                            "milestone_index": "$metadata.referenced_by_milestone_index",
+                            "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
+                        },
+                    } } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+        Ok(metadata)
     }
 }

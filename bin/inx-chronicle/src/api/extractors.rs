@@ -52,11 +52,11 @@ pub struct TimeRange {
 
 fn days_ago_utc(days: i64) -> u32 {
     let then = OffsetDateTime::now_utc() - Duration::days(days);
-    (then.unix_timestamp() * 1000) as u32
+    then.unix_timestamp() as u32
 }
 
 fn now_utc() -> u32 {
-    (OffsetDateTime::now_utc().unix_timestamp() * 1000) as u32
+    OffsetDateTime::now_utc().unix_timestamp() as u32
 }
 
 #[async_trait]

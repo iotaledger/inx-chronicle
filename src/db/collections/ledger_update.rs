@@ -5,7 +5,8 @@ use futures::Stream;
 use mongodb::{
     bson::{doc, Bson},
     error::Error,
-    options::FindOptions,
+    options::{FindOptions, IndexOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +19,10 @@ use crate::{
     },
 };
 
-/// Contains all informations related to an output.
+/// Contains all information related to an output.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct LedgerUpdateDocument {
-    owner: Address,
+    address: Address,
     output_id: OutputId,
     at: MilestoneIndexTimestamp,
     is_spent: bool,
@@ -32,6 +33,15 @@ impl LedgerUpdateDocument {
     const COLLECTION: &'static str = "stardust_ledger_updates";
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct LedgerUpdateRecord {
+    pub output_id: OutputId,
+    pub at: MilestoneIndexTimestamp,
+    pub is_spent: bool,
+}
+
+#[allow(missing_docs)]
 #[derive(Copy, Clone, Debug)]
 pub enum SortOrder {
     Newest,
@@ -41,23 +51,38 @@ pub enum SortOrder {
 impl From<SortOrder> for Bson {
     fn from(value: SortOrder) -> Self {
         match value {
-            SortOrder::Newest => Bson::Int32(1),
-            SortOrder::Oldest => Bson::Int32(-1),
+            SortOrder::Newest => Bson::Int32(-1),
+            SortOrder::Oldest => Bson::Int32(1),
         }
     }
 }
 
-// TODO find better name
-/// Contains all informations related to an output.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LedgerUpdateRecord {
-    pub output_id: OutputId,
-    pub at: MilestoneIndexTimestamp,
-    pub is_spent: bool,
-}
-
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
 impl MongoDb {
+    /// Creates ledger update indexes.
+    pub async fn create_ledger_update_indexes(&self) -> Result<(), Error> {
+        let collection = self
+            .0
+            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("ledger_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
     /// Upserts a [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_ledger_updates(
@@ -70,9 +95,9 @@ impl MongoDb {
             // Ledger updates
             for owner in output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
-                    owner,
+                    address: owner,
                     output_id: metadata.output_id,
-                    at: metadata.spent.clone().map_or(metadata.booked.clone(), |s| s.spent),
+                    at: metadata.spent.map_or(metadata.booked, |s| s.spent),
                     is_spent: metadata.spent.is_some(),
                 };
 
@@ -82,10 +107,6 @@ impl MongoDb {
                     .insert_one(ledger_update_document, None)
                     .await?;
             }
-
-            // Upsert outputs
-            self.upsert_output_with_metadata(metadata.output_id, output, metadata)
-                .await?;
         }
 
         Ok(())
@@ -94,25 +115,116 @@ impl MongoDb {
     /// Get updates to the ledger for a given address.
     pub async fn get_ledger_updates(
         &self,
-        address: Address,
-        page_size: Option<i64>,
-        cursor: (MilestoneIndex, OutputId),
+        address: &Address,
+        page_size: usize,
+        start_milestone_index: Option<MilestoneIndex>,
+        start_output_id: Option<OutputId>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdateRecord, Error>>, Error> {
-        let mut options = FindOptions::default();
-        options.limit = page_size;
-        options.sort = Some(doc! {"at.milestone_index": order, "output_id": order});
+        let options = FindOptions::builder()
+            .limit(page_size as i64)
+            .sort(doc! {"at.milestone_index": order, "output_id": order})
+            .build();
+
+        let mut doc = doc! {
+            "address": { "$eq": address },
+        };
+        if let Some(milestone_index) = start_milestone_index {
+            match order {
+                SortOrder::Newest => {
+                    doc.insert("at.milestone_index", doc! { "$lte": milestone_index });
+                }
+                SortOrder::Oldest => {
+                    doc.insert("at.milestone_index", doc! { "$gte": milestone_index });
+                }
+            }
+        }
+        if let Some(output_id) = start_output_id {
+            match order {
+                SortOrder::Newest => {
+                    doc.insert("output_id", doc! { "$lte": output_id });
+                }
+                SortOrder::Oldest => {
+                    doc.insert("output_id", doc! { "$gte": output_id });
+                }
+            }
+        }
 
         self.0
             .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
-            .find(
-                doc! {
-                    "address": { "$eq": &address },
-                    "at.milestone_index": { "$gte": &cursor.0 },
-                    "output_id": { "$gte": &cursor.1 },
-                },
-                options,
-            )
+            .find(doc, options)
             .await
+    }
+}
+
+#[cfg(feature = "analytics")]
+mod analytics {
+    use futures::TryStreamExt;
+    use mongodb::bson;
+
+    use super::*;
+    use crate::types::tangle::MilestoneIndex;
+
+    /// Address analytics result.
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct AddressAnalyticsResult {
+        /// The number of addresses used in the time period.
+        pub total_addresses: u64,
+        /// The number of addresses that received tokens in the time period.
+        pub recv_addresses: u64,
+        /// The number of addresses that sent tokens in the time period.
+        pub send_addresses: u64,
+    }
+
+    impl MongoDb {
+        /// Create aggregate statistics of all addresses.
+        pub async fn aggregate_addresses(
+            &self,
+            start_milestone: MilestoneIndex,
+            end_milestone: MilestoneIndex,
+        ) -> Result<Option<AddressAnalyticsResult>, Error> {
+            Ok(self
+                .0
+                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "at.milestone_index": { "$gt": start_milestone, "$lt": end_milestone } } },
+                        doc! { "$facet": {
+                            "total": [
+                                { "$group" : {
+                                    "_id": "$address",
+                                    "transfers": { "$count": { } }
+                                }},
+                            ],
+                            "recv": [
+                                { "$match": { "is_spent": false } },
+                                { "$group" : {
+                                    "_id": "$address",
+                                    "transfers": { "$count": { } }
+                                }},
+                            ],
+                            "send": [
+                                { "$match": { "is_spent": true } },
+                                { "$group" : {
+                                    "_id": "$address",
+                                    "transfers": { "$count": { } }
+                                }},
+                            ],
+                        } },
+                        doc! { "$project": {
+                            "total_addresses": { "$size": "$total.transfers" },
+                            "recv_addresses": { "$size": "$recv.transfers" },
+                            "send_addresses": { "$size": "$send.transfers" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?)
+        }
     }
 }

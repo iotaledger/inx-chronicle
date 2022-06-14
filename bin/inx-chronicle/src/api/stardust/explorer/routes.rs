@@ -4,14 +4,17 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
-use chronicle::{db::MongoDb, types::stardust::block::Address};
-use futures::TryStreamExt;
-
-use super::responses::{TransactionHistoryResponse, Transfer};
-use crate::api::{
-    extractors::{Pagination, TimeRange},
-    ApiError, ApiResult,
+use chronicle::{
+    db::{collections::SortOrder, MongoDb},
+    types::stardust::block::Address,
 };
+use futures::{StreamExt, TryStreamExt};
+
+use super::{
+    extractors::HistoryPagination,
+    responses::{TransactionHistoryResponse, Transfer},
+};
+use crate::api::{ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().nest(
@@ -23,42 +26,50 @@ pub fn routes() -> Router {
 async fn transaction_history(
     database: Extension<MongoDb>,
     Path(address): Path<String>,
-    Pagination { page_size, page }: Pagination,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
+    HistoryPagination {
+        page_size,
+        start_milestone_index,
+        start_output_id,
+    }: HistoryPagination,
 ) -> ApiResult<TransactionHistoryResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
-    let start_milestone = database
-        .find_first_milestone(start_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    let end_milestone = database
-        .find_last_milestone(end_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
 
-    let records = database
-        .get_transaction_history(&address_dto, page_size, page, start_milestone, end_milestone)
-        .await?
-        .try_collect::<Vec<_>>()
+    let mut records_iter = database
+        .get_ledger_updates(
+            &address_dto,
+            // Get one extra record so that we can create the paging state.
+            page_size + 1,
+            start_milestone_index.map(Into::into),
+            start_output_id,
+            // TODO: Allow specifying sort in query
+            SortOrder::Newest,
+        )
         .await?;
+
+    // Take all of the requested records first
+    let records = records_iter.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
+    // If any record is left, use it to make the paging state
+    let paging_state = records_iter
+        .try_next()
+        .await?
+        .map(|doc| format!("{}.{}.{}", doc.at.milestone_index, doc.output_id.to_hex(), page_size));
 
     let transactions = records
         .into_iter()
         .map(|rec| {
             Ok(Transfer {
-                transaction_id: rec.transaction_id.to_hex(),
-                output_index: rec.output_index,
+                transaction_id: rec.output_id.transaction_id.to_hex(),
+                output_index: rec.output_id.index,
                 is_spent: rec.is_spent,
-                inclusion_state: rec.inclusion_state,
-                block_id: rec.block_id.to_hex(),
-                amount: rec.amount,
-                milestone_index: rec.milestone_index,
+                milestone_index: rec.at.milestone_index,
+                milestone_timestamp: rec.at.milestone_timestamp,
             })
         })
         .collect::<Result<_, ApiError>>()?;
 
-    Ok(TransactionHistoryResponse { transactions, address })
+    Ok(TransactionHistoryResponse {
+        transactions,
+        address,
+        paging_state,
+    })
 }
