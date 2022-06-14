@@ -105,9 +105,12 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
         let milestone_id = milestone
             .milestone_info
             .milestone_id
-            .ok_or(Self::Error::MissingMilestoneId(milestone_index))?
+            .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?
             .into();
-        let payload = (&milestone.milestone).into();
+        let payload = (&milestone
+            .milestone
+            .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?)
+            .into();
 
         self.db
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)

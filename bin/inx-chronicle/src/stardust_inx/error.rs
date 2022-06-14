@@ -13,7 +13,7 @@ pub enum InxError {
     #[error("INX type conversion error: {0:?}")]
     InxTypeConversion(#[from] inx::Error),
     #[error("missing milestone id for milestone index `{0}`")]
-    MissingMilestoneId(MilestoneIndex),
+    MissingMilestoneInfo(MilestoneIndex),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: {0}, new network name: {1}")]
