@@ -89,7 +89,11 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
             }
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
-                    InxError::ConnectionError(_) | InxError::TransportFailed(_) => {
+                    InxError::ConnectionError => {
+                        log::warn!(
+                            "INX connection failed. Retrying in {}s.",
+                            config.inx.connection_retry_interval.as_secs()
+                        );
                         let inx_worker = super::stardust_inx::InxWorker::new(db, &config.inx);
                         cx.delay(SpawnActor::new(inx_worker), config.inx.connection_retry_interval)?;
                     }
