@@ -6,7 +6,7 @@ use std::ops::RangeInclusive;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
     types::{ledger::OutputWithMetadata, tangle::MilestoneIndex},
 };
 use inx::{
@@ -19,13 +19,17 @@ use super::{cone_stream::ConeStream, InxError};
 #[derive(Debug)]
 pub struct LedgerUpdateStream {
     db: MongoDb,
-    inx: InxClient<Channel>,
+    inx_client: InxClient<Channel>,
     range: RangeInclusive<MilestoneIndex>,
 }
 
 impl LedgerUpdateStream {
     pub fn new(db: MongoDb, inx: InxClient<Channel>, range: RangeInclusive<MilestoneIndex>) -> Self {
-        Self { db, inx, range }
+        Self {
+            db,
+            inx_client: inx,
+            range,
+        }
     }
 }
 
@@ -34,7 +38,17 @@ impl Actor for LedgerUpdateStream {
     type State = ();
     type Error = InxError;
 
-    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        let ledger_update_stream = self
+            .inx_client
+            .listen_to_ledger_updates(if *self.range.end() == u32::MAX {
+                inx::proto::MilestoneRangeRequest::from(*self.range.start()..)
+            } else {
+                inx::proto::MilestoneRangeRequest::from(self.range.clone())
+            })
+            .await?
+            .into_inner();
+        cx.add_stream(ledger_update_stream);
         Ok(())
     }
 
@@ -91,11 +105,9 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
 
         self.db.insert_ledger_updates(output_updates_iter).await?;
 
-        let milestone_request = inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index);
-
         let milestone: inx::Milestone = self
-            .inx
-            .read_milestone(milestone_request.clone())
+            .inx_client
+            .read_milestone(inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index))
             .await?
             .into_inner()
             .try_into()?;
@@ -116,10 +128,12 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
-        let cone_stream = self.inx.read_milestone_cone(milestone_request).await?.into_inner();
-
-        cx.spawn_child(ConeStream::new(milestone_index, self.db.clone()).with_stream(cone_stream))
-            .await;
+        cx.spawn_child(ConeStream::new(
+            milestone_index,
+            self.inx_client.clone(),
+            self.db.clone(),
+        ))
+        .await;
 
         Ok(())
     }

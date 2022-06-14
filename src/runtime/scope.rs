@@ -28,7 +28,7 @@ use super::{
         report::{TaskErrorReport, TaskReport, TaskSuccessReport},
         Task,
     },
-    MergeExt, Sender,
+    Sender,
 };
 
 /// A view into a particular scope which provides the user-facing API.
@@ -160,10 +160,7 @@ impl RuntimeScope {
     async fn common_spawn<A>(
         &mut self,
         actor: &A,
-        SpawnConfigInner {
-            stream,
-            add_to_registry,
-        }: SpawnConfigInner<A>,
+        SpawnConfigInner { add_to_registry }: SpawnConfigInner,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration, ShutdownHandle)
     where
         A: 'static + Actor,
@@ -196,14 +193,8 @@ impl RuntimeScope {
             );
             (sender, mpsc::UnboundedReceiverStream::new(receiver))
         };
-        let (receiver, shutdown_handle) = if let Some(stream) = stream {
-            let receiver = receiver.merge(stream);
-            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
-            (receiver, shutdown_handle)
-        } else {
-            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
-            (receiver, shutdown_handle)
-        };
+
+        let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver));
         let scope = self.child(abort_handle).await;
         let handle = Addr::new(scope.scope.clone(), sender);
         if add_to_registry {
