@@ -83,8 +83,9 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         event: Report<super::stardust_inx::InxWorker>,
         LauncherState { config, db }: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        use super::stardust_inx::InxError;
         use chronicle::runtime::SpawnActor;
+
+        use super::stardust_inx::InxError;
         match event {
             Report::Success(_) => {
                 cx.abort().await;
