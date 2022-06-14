@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError, SpawnActor},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
 };
 use clap::Parser;
 use thiserror::Error;
@@ -30,6 +30,7 @@ pub struct Launcher;
 
 pub struct LauncherState {
     config: ChronicleConfig,
+    #[allow(dead_code)]
     db: MongoDb,
 }
 
@@ -83,6 +84,7 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         LauncherState { config, db }: &mut Self::State,
     ) -> Result<(), Self::Error> {
         use super::stardust_inx::InxError;
+        use chronicle::runtime::SpawnActor;
         match event {
             Report::Success(_) => {
                 cx.abort().await;
