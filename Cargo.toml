@@ -70,6 +70,8 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
+futures = { version = "0.3", default-features = false, features = [ "executor" ] }
+once_cell = { version = "1.12.0", default-features = false, features = [ "std" ] }
 packable = { version = "0.3.2", default-features = false }
 
 [features]
@@ -82,7 +84,7 @@ default = [
     "metrics",
 ]
 analytics = []
-api = [ 
+api = [
     "dep:axum",
     "derive_more/from",
     "dep:hyper",
