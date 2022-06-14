@@ -71,7 +71,7 @@ impl MongoDb {
                     .keys(doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 })
                     .options(
                         IndexOptions::builder()
-                            .unique(true)
+                            .unique(false) // An output can be spent within the same milestone that it was created in.
                             .name("ledger_index".to_string())
                             .build(),
                     )
