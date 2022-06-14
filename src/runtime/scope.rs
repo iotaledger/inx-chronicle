@@ -234,7 +234,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::error!(
+                            log::warn!(
                                 "{} exited with error: {}",
                                 format!("Task {:x}", child_scope.id().as_fields().0),
                                 e
@@ -277,7 +277,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::error!("{} exited with error: {}", actor.name(), e);
+                            log::warn!("{} exited with error: {}", actor.name(), e);
                             let err_str = e.to_string();
                             supervisor_addr.send(Report::Error(ErrorReport::new(
                                 actor,
@@ -318,7 +318,7 @@ impl RuntimeScope {
                     Ok(res) => match res {
                         Ok(_) => Ok(()),
                         Err(e) => {
-                            log::error!("{} exited with error: {}", actor.name(), e);
+                            log::warn!("{} exited with error: {}", actor.name(), e);
                             Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },
