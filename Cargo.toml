@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.3"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -35,7 +35,7 @@ log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.4.0", default-features = false, features = [ "primitive-types" ] }
-primitive-types = { version = "0.10", default-features = false }
+primitive-types = { version = "0.11", default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
@@ -70,7 +70,7 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
-packable = { version = "0.3.2", default-features = false }
+packable = { version = "0.4", default-features = false }
 
 [features]
 default = [

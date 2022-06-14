@@ -8,12 +8,12 @@ use clap::Parser;
 #[clap(author, version, about)]
 pub struct CliArgs {
     /// The location of the configuration file.
-    #[clap(short, long)]
+    #[clap(short, value_parser, long)]
     pub config: Option<String>,
     /// The address of the INX interface provided by the node.
-    #[clap(long)]
+    #[clap(value_parser, long)]
     pub inx: Option<String>,
     /// The address of the MongoDB database.
-    #[clap(long)]
+    #[clap(value_parser, long)]
     pub db: Option<String>,
 }
