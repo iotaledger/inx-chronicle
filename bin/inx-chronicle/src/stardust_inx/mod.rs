@@ -46,9 +46,22 @@ impl InxWorker {
             return Err(InxError::InvalidAddress(inx_config.connect_url.clone()));
         }
 
-        InxClient::connect(inx_config.connect_url.clone())
-            .await
-            .map_err(|_| InxError::ConnectionError)
+        let mut retries = inx_config.connection_retry_count;
+
+        while retries > 0 {
+            match InxClient::connect(inx_config.connect_url.clone()).await {
+                Ok(inx_client) => return Ok(inx_client),
+                Err(_) => {
+                    log::warn!(
+                        "INX connection failed. Retrying in {}s.",
+                        inx_config.connection_retry_interval.as_secs()
+                    );
+                    retries -= 1;
+                    tokio::time::sleep(inx_config.connection_retry_interval).await;
+                }
+            }
+        }
+        Err(InxError::ConnectionError)
     }
 
     async fn spawn_syncer(
