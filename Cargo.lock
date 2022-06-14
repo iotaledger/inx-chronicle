@@ -235,7 +235,7 @@ dependencies = [
 [[package]]
 name = "bee-metrics"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#b92a926c44e530fcae1e75141f9c9d3c27cb3a4c"
+source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#54034c80fbabe81b9a7205e3aa902944115c3ebe"
 dependencies = [
  "axum 0.4.8",
  "futures",
