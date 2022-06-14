@@ -235,10 +235,11 @@ dependencies = [
 [[package]]
 name = "bee-metrics"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#54034c80fbabe81b9a7205e3aa902944115c3ebe"
+source = "git+https://github.com/iotaledger/bee?branch=mainnet-develop-0.4#821b8bb37350f4dcd8ce9dd7a56a11f37336f634"
 dependencies = [
  "axum 0.4.8",
  "futures",
+ "hyper",
  "parking_lot",
  "prometheus-client",
  "tokio",
