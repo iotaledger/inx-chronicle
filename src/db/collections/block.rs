@@ -414,7 +414,7 @@ mod analytics {
                     None,
                 )
                 .await?
-                .map_ok(|d| bson::from_document::<TransactionPayload>(d));
+                .map_ok(bson::from_document::<TransactionPayload>);
             while let Some(payload) = transactions.try_next().await?.transpose()? {
                 let TransactionEssence::Regular { outputs, .. } = &payload.essence;
                 res.count += 1;
