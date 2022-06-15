@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "bee-ledger"
 version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#bdc6a94b0248861474817059e15543d5c29b0d72"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#93f1c38a974a4adf8eb5a47723a45646b2c4d3d3"
 dependencies = [
  "bee-block",
  "packable",
@@ -259,7 +259,7 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#bdc6a94b0248861474817059e15543d5c29b0d72"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#93f1c38a974a4adf8eb5a47723a45646b2c4d3d3"
 dependencies = [
  "bee-block",
  "bee-ledger",
@@ -275,7 +275,7 @@ dependencies = [
 [[package]]
 name = "bee-runtime"
 version = "0.1.1-alpha"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#bdc6a94b0248861474817059e15543d5c29b0d72"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#93f1c38a974a4adf8eb5a47723a45646b2c4d3d3"
 dependencies = [
  "async-trait",
  "bee-storage",
@@ -287,7 +287,7 @@ dependencies = [
 [[package]]
 name = "bee-storage"
 version = "0.12.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#bdc6a94b0248861474817059e15543d5c29b0d72"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#93f1c38a974a4adf8eb5a47723a45646b2c4d3d3"
 dependencies = [
  "packable",
  "serde",
@@ -297,7 +297,7 @@ dependencies = [
 [[package]]
 name = "bee-tangle"
 version = "0.3.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#bdc6a94b0248861474817059e15543d5c29b0d72"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#93f1c38a974a4adf8eb5a47723a45646b2c4d3d3"
 dependencies = [
  "async-trait",
  "bee-block",
@@ -330,7 +330,7 @@ dependencies = [
 [[package]]
 name = "bee-test"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#bdc6a94b0248861474817059e15543d5c29b0d72"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#93f1c38a974a4adf8eb5a47723a45646b2c4d3d3"
 dependencies = [
  "bee-block",
  "bee-ledger",
