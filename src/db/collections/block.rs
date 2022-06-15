@@ -63,14 +63,15 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "block.payload.transaction_id": 1, "metadata.inclusion_state": 1 })
+                    .keys(doc! { "block.payload.transaction_id": 1 })
                     .options(
                         IndexOptions::builder()
-                            // There can be multiple blocks that have the same transaction id and a _conflicting_
-                            // inclusion state.
-                            .unique(false)
+                            .unique(true)
                             .name("transaction_id_index".to_string())
-                            .partial_filter_expression(doc! { "block.payload.transaction_id": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "block.payload.transaction_id": { "$exists": true } ,
+                                "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
+                            })
                             .build(),
                     )
                     .build(),
@@ -208,6 +209,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": &output_id.transaction_id,
                         "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
@@ -232,6 +234,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": &output_id.transaction_id,
                         "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
@@ -278,6 +281,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": &output_id.transaction_id,
                         "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
