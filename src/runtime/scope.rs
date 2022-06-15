@@ -30,6 +30,7 @@ use super::{
     },
     Sender,
 };
+use crate::runtime::merge::Merge;
 
 /// A view into a particular scope which provides the user-facing API.
 #[derive(Clone, Debug)]
@@ -160,7 +161,10 @@ impl RuntimeScope {
     async fn common_spawn<A>(
         &mut self,
         actor: &A,
-        SpawnConfigInner { add_to_registry }: SpawnConfigInner,
+        SpawnConfigInner {
+            streams,
+            add_to_registry,
+        }: SpawnConfigInner<A>,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration, ShutdownHandle)
     where
         A: 'static + Actor,
@@ -195,6 +199,13 @@ impl RuntimeScope {
         };
 
         let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver));
+        let receiver = match streams {
+            Some(mut streams) => {
+                streams.merge(receiver);
+                streams
+            }
+            None => Merge::new(receiver),
+        };
         let scope = self.child(abort_handle).await;
         let handle = Addr::new(scope.scope.clone(), sender);
         if add_to_registry {

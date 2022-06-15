@@ -35,15 +35,11 @@ pub struct ActorContext<A: Actor> {
 }
 
 impl<A: Actor> ActorContext<A> {
-    pub(crate) fn new(
-        scope: RuntimeScope,
-        handle: Addr<A>,
-        receiver: impl Stream<Item = Envelope<A>> + Send + 'static,
-    ) -> Self {
+    pub(crate) fn new(scope: RuntimeScope, handle: Addr<A>, receiver: Receiver<A>) -> Self {
         Self {
             handle,
             scope,
-            receiver: Merge::new(receiver),
+            receiver,
         }
     }
 
