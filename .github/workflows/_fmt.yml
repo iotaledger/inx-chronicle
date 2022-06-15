@@ -35,4 +35,5 @@ jobs:
 
       - uses: actions-rs/cargo@v1
         with:
-          command: license-template --template .license_template
+          command: license-template
+          args: --template .license_template
