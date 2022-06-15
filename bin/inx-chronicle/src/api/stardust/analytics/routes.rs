@@ -20,17 +20,8 @@ async fn address_analytics(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let start_milestone = database
-        .find_first_milestone(start_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    let end_milestone = database
-        .find_last_milestone(end_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-
     let res = database
-        .get_address_analytics(start_milestone, end_milestone)
+        .get_address_analytics(start_timestamp, end_timestamp)
         .await?
         .ok_or(ApiError::NoResults)?;
 

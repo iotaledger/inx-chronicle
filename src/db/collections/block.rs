@@ -381,7 +381,7 @@ impl MongoDb {
 mod analytics {
     use super::*;
     use crate::types::{
-        stardust::block::{Payload, TransactionEssence},
+        stardust::block::{TransactionEssence, TransactionPayload},
         tangle::MilestoneIndex,
     };
 
@@ -403,22 +403,20 @@ mod analytics {
             let mut transactions = self
                 .0
                 .collection::<BlockDocument>(BlockDocument::COLLECTION)
-                .find(
-                    doc! {
-                        "block.payload.kind": "transaction",
-                        "metadata.referenced_by_milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
-                    },
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                           "block.payload.kind": "transaction",
+                           "metadata.referenced_by_milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
+                        } },
+                        doc! { "$replaceRoot": { "newRoot": "$block.payload" } },
+                    ],
                     None,
                 )
-                .await?;
-            while let Some(transaction) = transactions.try_next().await? {
-                let outputs = match &transaction.block.payload {
-                    Some(Payload::Transaction(payload)) => {
-                        let TransactionEssence::Regular { outputs, .. } = &payload.essence;
-                        outputs
-                    }
-                    _ => unreachable!(),
-                };
+                .await?
+                .map_ok(|d| bson::from_document::<TransactionPayload>(d));
+            while let Some(payload) = transactions.try_next().await?.transpose()? {
+                let TransactionEssence::Regular { outputs, .. } = &payload.essence;
                 res.count += 1;
                 res.total_value += outputs.iter().map(|o| o.amount() as f64).sum::<f64>();
             }
