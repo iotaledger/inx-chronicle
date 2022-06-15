@@ -66,7 +66,9 @@ impl MongoDb {
                     .keys(doc! { "block.payload.transaction_id": 1, "metadata.inclusion_state": 1 })
                     .options(
                         IndexOptions::builder()
-                            .unique(true)
+                            // There can be multiple blocks that have the same transaction id and a _conflicting_
+                            // inclusion state.
+                            .unique(false)
                             .name("transaction_id_index".to_string())
                             .partial_filter_expression(doc! { "block.payload.transaction_id": { "$exists": true } })
                             .build(),
