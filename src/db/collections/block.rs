@@ -63,7 +63,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "block.payload.transaction_id": 1 })
+                    .keys(doc! { "block.payload.transaction_id": 1, "metadata.inclusion_state": 1 })
                     .options(
                         IndexOptions::builder()
                             .unique(true)
