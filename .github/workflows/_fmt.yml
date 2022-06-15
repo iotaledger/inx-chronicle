@@ -27,3 +27,12 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: ci-fmt
+      
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --force cargo-license-template
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: license-template --template .license_template
