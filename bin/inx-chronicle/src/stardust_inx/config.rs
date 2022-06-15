@@ -15,7 +15,7 @@ pub struct InxConfig {
     /// The time that has to pass until a new connection attempt is made.
     #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
-    pub connection_retry_count: u32,
+    pub connection_retry_count: usize,
     pub sync_start_milestone: MilestoneIndex,
 }
 

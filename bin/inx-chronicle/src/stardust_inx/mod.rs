@@ -46,17 +46,15 @@ impl InxWorker {
             return Err(InxError::InvalidAddress(inx_config.connect_url.clone()));
         }
 
-        let mut retries = inx_config.connection_retry_count;
-
-        while retries > 0 {
+        for i in 0..inx_config.connection_retry_count {
             match InxClient::connect(inx_config.connect_url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
                     log::warn!(
-                        "INX connection failed. Retrying in {}s.",
-                        inx_config.connection_retry_interval.as_secs()
+                        "INX connection failed. Retrying in {}s. {} retries remaining.",
+                        inx_config.connection_retry_interval.as_secs(),
+                        inx_config.connection_retry_count - i
                     );
-                    retries -= 1;
                     tokio::time::sleep(inx_config.connection_retry_interval).await;
                 }
             }
