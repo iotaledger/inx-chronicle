@@ -335,7 +335,8 @@ impl MongoDb {
         Ok(sync_data)
     }
 
-    /// Returns all [`MilestoneOption`]s stored in the database.
+    // TODO: use dedidated type instead of Document
+    /// Returns all `MilestoneOption`s stored in the database.
     pub async fn get_milestone_options(&self) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
         self.0
             .collection::<Document>(MilestoneDocument::COLLECTION)
@@ -354,7 +355,8 @@ impl MongoDb {
             .await
     }
 
-    /// Retrieves those [`Receipt`]s that belong to migrations that happened at a certain milestone index.
+    // TODO: use dedidated type instead of Document
+    /// Retrieves those `Receipt`s that belong to migrations that happened at a certain milestone index.
     pub async fn get_milestone_options_migrated_at(
         &self,
         migrated_at: MilestoneIndex,

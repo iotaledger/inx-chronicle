@@ -22,6 +22,7 @@ impl TreasuryDocument {
 /// Queries that are related to the treasury.
 impl MongoDb {
     /// Inserts or updates treasury data.
+    #[cfg(feature = "inx")]
     pub async fn upsert_treasury(&self, treasury_update: inx::TreasuryUpdate) -> Result<(), Error> {
         let treasury_document = TreasuryDocument {
             milestone_id: treasury_update.created.milestone_id.into(),

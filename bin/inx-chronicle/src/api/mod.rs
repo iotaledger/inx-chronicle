@@ -31,8 +31,10 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+#[allow(unused_imports)]
+use self::responses::impl_success_response;
+use self::routes::routes;
 pub use self::{config::ApiConfig, error::ApiError};
-use self::{responses::impl_success_response, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
