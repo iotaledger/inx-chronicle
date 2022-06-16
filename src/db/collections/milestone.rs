@@ -46,12 +46,12 @@ impl MilestoneDocument {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct MilestoneRecord {
-    pub milestone_index: MilestoneIndex,
-    pub milestone_id: MilestoneId,
-    pub milestone_timestamp: MilestoneTimestamp,
-    pub payload: MilestonePayload,
-    pub is_synced: bool,
+pub(crate) struct MilestoneRecord {
+    pub(crate) milestone_index: MilestoneIndex,
+    pub(crate) milestone_id: MilestoneId,
+    pub(crate) milestone_timestamp: MilestoneTimestamp,
+    pub(crate) payload: MilestonePayload,
+    pub(crate) is_synced: bool,
 }
 
 /// An aggregation type that represents the ranges of completed milestones and gaps.
@@ -379,8 +379,7 @@ impl MongoDb {
             .await
     }
 
-    ///
-    pub async fn milestone_records_sorted_with_receipt(
+    async fn milestone_records_sorted_with_receipt(
         &self,
     ) -> Result<impl Stream<Item = Result<MilestoneRecord, Error>>, Error> {
         self.0
@@ -392,21 +391,7 @@ impl MongoDb {
             .await
     }
 
-    ///
-    pub async fn milestone_records_sorted_with_receipt_migrated_at(
-        &self,
-        migrated_at: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<MilestoneRecord, Error>>, Error> {
-        self.0
-            .collection::<MilestoneRecord>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! { "payload.essence.options.receipt.migrated_at": migrated_at },
-                FindOptions::builder().sort(doc! {"milestone_index": 1u32}).build(),
-            )
-            .await
-    }
-
-    ///
+    /// Returns all stored receipts.
     pub async fn get_receipts(&self) -> Result<Vec<bee::ReceiptDto>, Error> {
         let mut milestone_records = self.milestone_records_sorted_with_receipt().await?;
         let mut receipt_dtos = vec![];
@@ -419,6 +404,7 @@ impl MongoDb {
                     .iter()
                     .cloned()
                     .filter_map(|o| {
+                        // TODO: fix this uglyness
                         let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
                         let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
                         if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(
@@ -438,7 +424,7 @@ impl MongoDb {
         Ok(receipt_dtos)
     }
 
-    ///
+    /// Returns all stored receipts with the given migration index.
     pub async fn get_receipts_migrated_at(&self, migrated_at: MilestoneIndex) -> Result<Vec<bee::ReceiptDto>, Error> {
         let mut milestone_records = self
             .milestone_records_sorted_with_receipt_migrated_at(migrated_at)
@@ -453,6 +439,7 @@ impl MongoDb {
                     .iter()
                     .cloned()
                     .filter_map(|o| {
+                        // TODO: fix this uglyness
                         let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
                         let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
                         if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(
@@ -470,5 +457,18 @@ impl MongoDb {
             );
         }
         Ok(receipt_dtos)
+    }
+
+    async fn milestone_records_sorted_with_receipt_migrated_at(
+        &self,
+        migrated_at: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<MilestoneRecord, Error>>, Error> {
+        self.0
+            .collection::<MilestoneRecord>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! { "payload.essence.options.receipt.migrated_at": migrated_at },
+                FindOptions::builder().sort(doc! {"milestone_index": 1u32}).build(),
+            )
+            .await
     }
 }
