@@ -413,7 +413,7 @@ impl MongoDb {
                     .payload
                     .essence
                     .options
-                    .into_iter()
+                    .iter()
                     .cloned()
                     .filter_map(|o| {
                         let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
@@ -447,7 +447,7 @@ impl MongoDb {
                     .payload
                     .essence
                     .options
-                    .into_iter()
+                    .iter()
                     .cloned()
                     .filter_map(|o| {
                         let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
