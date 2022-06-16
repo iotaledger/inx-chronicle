@@ -5,10 +5,10 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Extension, Path},
+    http::header::{HeaderMap, HeaderValue},
+    response::{IntoResponse, Response},
     routing::*,
     Router,
-    response::{Response, IntoResponse},
-    http::header::{HeaderMap, HeaderValue},
 };
 use chronicle::{
     db::MongoDb,
@@ -84,7 +84,8 @@ async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>, heade
             bee_payload.into()
         }),
         nonce: block.nonce.to_string(),
-    })).into_response())
+    }))
+    .into_response())
 }
 
 async fn block_raw(database: Extension<MongoDb>, block_id: &BlockId) -> ApiResult<Vec<u8>> {

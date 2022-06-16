@@ -408,18 +408,29 @@ impl MongoDb {
         let mut milestone_records = self.milestone_records_sorted_with_receipt().await?;
         let mut receipt_dtos = vec![];
         while let Some(milestone_record) = milestone_records.try_next().await? {
-            receipt_dtos.extend(milestone_record.payload.essence.options.into_iter().cloned().filter_map(|o| {
-                let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
-                let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
-                if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(receipt) = o {
-                    Some(bee::ReceiptDto {
-                        receipt,
-                        milestone_index: *milestone_record.milestone_index,
-                    })
-                } else {
-                    None
-                }
-            }));
+            receipt_dtos.extend(
+                milestone_record
+                    .payload
+                    .essence
+                    .options
+                    .into_iter()
+                    .cloned()
+                    .filter_map(|o| {
+                        let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
+                        let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
+                        if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(
+                            receipt,
+                        ) = o
+                        {
+                            Some(bee::ReceiptDto {
+                                receipt,
+                                milestone_index: *milestone_record.milestone_index,
+                            })
+                        } else {
+                            None
+                        }
+                    }),
+            );
         }
         Ok(receipt_dtos)
     }
@@ -431,18 +442,29 @@ impl MongoDb {
             .await?;
         let mut receipt_dtos = vec![];
         while let Some(milestone_record) = milestone_records.try_next().await? {
-            receipt_dtos.extend(milestone_record.payload.essence.options.into_iter().cloned().filter_map(|o| {
-                let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
-                let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
-                if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(receipt) = o {
-                    Some(bee::ReceiptDto {
-                        receipt,
-                        milestone_index: *milestone_record.milestone_index,
-                    })
-                } else {
-                    None
-                }
-            }));
+            receipt_dtos.extend(
+                milestone_record
+                    .payload
+                    .essence
+                    .options
+                    .into_iter()
+                    .cloned()
+                    .filter_map(|o| {
+                        let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
+                        let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
+                        if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(
+                            receipt,
+                        ) = o
+                        {
+                            Some(bee::ReceiptDto {
+                                receipt,
+                                milestone_index: *milestone_record.milestone_index,
+                            })
+                        } else {
+                            None
+                        }
+                    }),
+            );
         }
         Ok(receipt_dtos)
     }
