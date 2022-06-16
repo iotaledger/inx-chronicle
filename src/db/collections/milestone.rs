@@ -335,8 +335,8 @@ impl MongoDb {
         Ok(sync_data)
     }
 
-    // TODO: use dedidated type instead of Document
-    /// Returns all `MilestoneOption`s stored in the database.
+    // TODO: use dedicated type `MilestoneOptionsWithIndex` instead of Document
+    /// Returns a stream of all available receipt milestone options together with their corresponding `MilestoneIndex`.
     pub async fn get_milestone_options(&self) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
         self.0
             .collection::<Document>(MilestoneDocument::COLLECTION)
@@ -355,8 +355,9 @@ impl MongoDb {
             .await
     }
 
-    // TODO: use dedidated type instead of Document
-    /// Retrieves those `Receipt`s that belong to migrations that happened at a certain milestone index.
+    // TODO: use dedicated type `MilestoneOptionsWithIndex` instead of Document
+    // TODO: might be better to return a Vec right away instead of a Stream.
+    /// Returns a stream of all available receipt milestone options belonging to a given migration index.
     pub async fn get_milestone_options_migrated_at(
         &self,
         migrated_at: MilestoneIndex,
