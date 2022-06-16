@@ -50,7 +50,7 @@ impl InxWorker {
 
         InxClient::connect(inx_config.connect_url.clone())
             .await
-            .map_err(InxError::ConnectionError)
+            .map_err(|_| InxError::ConnectionError)
     }
 
     async fn spawn_syncer(

@@ -19,19 +19,26 @@ use crate::{
     },
 };
 
-/// Contains all informations related to an output.
-#[allow(missing_docs)]
+/// Contains all information related to an output.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LedgerUpdateDocument {
-    pub address: Address,
-    pub output_id: OutputId,
-    pub at: MilestoneIndexTimestamp,
-    pub is_spent: bool,
+struct LedgerUpdateDocument {
+    address: Address,
+    output_id: OutputId,
+    at: MilestoneIndexTimestamp,
+    is_spent: bool,
 }
 
 impl LedgerUpdateDocument {
     /// The stardust outputs collection name.
     const COLLECTION: &'static str = "stardust_ledger_updates";
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct LedgerUpdateRecord {
+    pub output_id: OutputId,
+    pub at: MilestoneIndexTimestamp,
+    pub is_spent: bool,
 }
 
 #[allow(missing_docs)]
@@ -64,7 +71,7 @@ impl MongoDb {
                     .keys(doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 })
                     .options(
                         IndexOptions::builder()
-                            .unique(true)
+                            .unique(false) // An output can be spent within the same milestone that it was created in.
                             .name("ledger_index".to_string())
                             .build(),
                     )
@@ -113,7 +120,7 @@ impl MongoDb {
         start_milestone_index: Option<MilestoneIndex>,
         start_output_id: Option<OutputId>,
         order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdateDocument, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateRecord, Error>>, Error> {
         let options = FindOptions::builder()
             .limit(page_size as i64)
             .sort(doc! {"at.milestone_index": order, "output_id": order})
@@ -144,7 +151,7 @@ impl MongoDb {
         }
 
         self.0
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
             .find(doc, options)
             .await
     }
@@ -153,9 +160,9 @@ impl MongoDb {
     pub async fn get_ledger_updates_at_index(
         &self,
         milestone_index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdateDocument, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateRecord, Error>>, Error> {
         self.0
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! {
                     "at.milestone_index": { "$eq": milestone_index },

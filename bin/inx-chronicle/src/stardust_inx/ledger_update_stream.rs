@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
-    types::{ledger::OutputWithMetadata, tangle::MilestoneIndex},
+    types::tangle::MilestoneIndex,
 };
 use inx::{
     client::InxClient,
@@ -82,12 +82,10 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
 
         let ledger_update = inx::LedgerUpdate::try_from(ledger_update_result?)?;
 
-        let output_updates_iter = ledger_update
-            .created
-            .iter()
-            .cloned()
-            .map(OutputWithMetadata::from)
-            .chain(ledger_update.consumed.iter().cloned().map(OutputWithMetadata::from));
+        let output_updates_iter = Vec::from(ledger_update.created)
+            .into_iter()
+            .map(Into::into)
+            .chain(Vec::from(ledger_update.consumed).into_iter().map(Into::into));
 
         self.db.insert_ledger_updates(output_updates_iter).await?;
 
@@ -102,8 +100,15 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
 
         let milestone_index = milestone.milestone_info.milestone_index.into();
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-        let milestone_id = milestone.milestone_info.milestone_id.into();
-        let payload = (&milestone.milestone).into();
+        let milestone_id = milestone
+            .milestone_info
+            .milestone_id
+            .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?
+            .into();
+        let payload = (&milestone
+            .milestone
+            .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?)
+            .into();
 
         self.db
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)

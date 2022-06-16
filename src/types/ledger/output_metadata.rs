@@ -14,16 +14,7 @@ use crate::types::{
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct MilestoneIndexTimestamp {
     pub milestone_index: MilestoneIndex,
-    pub milestone_timestamp: Option<MilestoneTimestamp>,
-}
-
-impl<T: Into<MilestoneIndex>> From<T> for MilestoneIndexTimestamp {
-    fn from(value: T) -> Self {
-        Self {
-            milestone_index: value.into(),
-            milestone_timestamp: None,
-        }
-    }
+    pub milestone_timestamp: MilestoneTimestamp,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -58,7 +49,7 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
             transaction_id: output_id.transaction_id,
             booked: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_booked.into(),
-                milestone_timestamp: Some(value.milestone_timestamp_booked.into()),
+                milestone_timestamp: value.milestone_timestamp_booked.into(),
             },
             spent: None,
         };
@@ -78,7 +69,7 @@ impl From<inx::LedgerSpent> for OutputWithMetadata {
             transaction_id: value.transaction_id_spent.into(),
             spent: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_spent.into(),
-                milestone_timestamp: Some(value.milestone_timestamp_spent.into()),
+                milestone_timestamp: value.milestone_timestamp_spent.into(),
             },
         });
 

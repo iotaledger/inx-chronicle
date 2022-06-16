@@ -3,6 +3,7 @@
 
 use std::ops::RangeInclusive;
 
+use bee_rest_api_stardust::types::dtos as bee;
 use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc, Document},
@@ -25,7 +26,7 @@ use crate::{
 
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct MilestoneDocument {
+pub(crate) struct MilestoneDocument {
     /// The milestone index.
     milestone_index: MilestoneIndex,
     /// The [`MilestoneId`](MilestoneId) of the milestone.
@@ -40,7 +41,17 @@ struct MilestoneDocument {
 
 impl MilestoneDocument {
     /// The stardust milestone collection name.
-    const COLLECTION: &'static str = "stardust_milestones";
+    pub(crate) const COLLECTION: &'static str = "stardust_milestones";
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct MilestoneRecord {
+    pub milestone_index: MilestoneIndex,
+    pub milestone_id: MilestoneId,
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub payload: MilestonePayload,
+    pub is_synced: bool,
 }
 
 /// An aggregation type that represents the ranges of completed milestones and gaps.
@@ -363,5 +374,76 @@ impl MongoDb {
                 None,
             )
             .await
+    }
+
+    ///
+    pub async fn milestone_records_sorted_with_receipt(
+        &self,
+    ) -> Result<impl Stream<Item = Result<MilestoneRecord, Error>>, Error> {
+        self.0
+            .collection::<MilestoneRecord>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! { "payload.essence.options.receipt.migrated_at": { "$ne": 0} },
+                FindOptions::builder().sort(doc! {"milestone_index": 1u32}).build(),
+            )
+            .await
+    }
+
+    ///
+    pub async fn milestone_records_sorted_with_receipt_migrated_at(
+        &self,
+        migrated_at: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<MilestoneRecord, Error>>, Error> {
+        self.0
+            .collection::<MilestoneRecord>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! { "payload.essence.options.receipt.migrated_at": migrated_at },
+                FindOptions::builder().sort(doc! {"milestone_index": 1u32}).build(),
+            )
+            .await
+    }
+
+    ///
+    pub async fn get_receipts(&self) -> Result<Vec<bee::ReceiptDto>, Error> {
+        let mut milestone_records = self.milestone_records_sorted_with_receipt().await?;
+        let mut receipt_dtos = vec![];
+        while let Some(milestone_record) = milestone_records.try_next().await? {
+            receipt_dtos.extend(milestone_record.payload.essence.options.into_iter().cloned().filter_map(|o| {
+                let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
+                let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
+                if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(receipt) = o {
+                    Some(bee::ReceiptDto {
+                        receipt,
+                        milestone_index: *milestone_record.milestone_index,
+                    })
+                } else {
+                    None
+                }
+            }));
+        }
+        Ok(receipt_dtos)
+    }
+
+    ///
+    pub async fn get_receipts_migrated_at(&self, migrated_at: MilestoneIndex) -> Result<Vec<bee::ReceiptDto>, Error> {
+        let mut milestone_records = self
+            .milestone_records_sorted_with_receipt_migrated_at(migrated_at)
+            .await?;
+        let mut receipt_dtos = vec![];
+        while let Some(milestone_record) = milestone_records.try_next().await? {
+            receipt_dtos.extend(milestone_record.payload.essence.options.into_iter().cloned().filter_map(|o| {
+                let o: &bee_block_stardust::payload::milestone::MilestoneOption = &o.try_into().unwrap();
+                let o: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = o.into();
+                if let bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto::Receipt(receipt) = o {
+                    Some(bee::ReceiptDto {
+                        receipt,
+                        milestone_index: *milestone_record.milestone_index,
+                    })
+                } else {
+                    None
+                }
+            }));
+        }
+        Ok(receipt_dtos)
     }
 }

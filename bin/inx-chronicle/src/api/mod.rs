@@ -12,7 +12,6 @@ pub mod stardust;
 mod error;
 #[macro_use]
 mod responses;
-mod auth;
 mod config;
 #[cfg(feature = "metrics")]
 mod metrics;
@@ -25,7 +24,6 @@ use chronicle::{
     runtime::{spawn_task, Actor, ActorContext},
 };
 use hyper::Method;
-use libp2p_core::identity::ed25519::SecretKey;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -33,11 +31,8 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-pub use self::{
-    config::ApiConfig,
-    error::{ApiError, ConfigError},
-};
-use self::{config::ApiData, responses::impl_success_response, routes::routes};
+pub use self::{config::ApiConfig, error::ApiError};
+use self::{responses::impl_success_response, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -46,18 +41,18 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
-    config: ApiData,
+    config: ApiConfig,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: &MongoDb, config: &ApiConfig, secret_key: &SecretKey) -> Result<Self, ConfigError> {
-        Ok(Self {
+    pub fn new(db: &MongoDb, config: &ApiConfig) -> Self {
+        Self {
             db: db.clone(),
-            config: (config.clone(), secret_key.clone()).try_into()?,
+            config: config.clone(),
             server_handle: None,
-        })
+        }
     }
 }
 
@@ -74,7 +69,6 @@ impl Actor for ApiWorker {
         let port = self.config.port;
         let routes = routes()
             .layer(Extension(self.db.clone()))
-            .layer(Extension(self.config.clone()))
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(

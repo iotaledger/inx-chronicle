@@ -128,44 +128,24 @@ async fn block_children(
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let children = database
+    let mut block_children = database
         .get_block_children(&block_id, page_size, page)
-        .await?
-        .try_collect::<Vec<_>>()
-        .await?;
+        .await
+        .map_err(|_| ApiError::NoResults)?;
+
+    let mut children = Vec::new();
+    while let Some(block_id) = block_children.try_next().await? {
+        children.push(block_id.to_hex());
+    }
 
     Ok(BlockChildrenResponse(bee::BlockChildrenResponse {
         block_id: block_id.to_hex(),
         max_results: page_size,
         count: children.len(),
-        children: children.into_iter().map(|block_id| block_id.to_hex()).collect(),
+        children,
     }))
 }
 
-// {
-//     "metadata": {
-//       "blockId": "0x9cd745ef6800c8e8c80b09174ee4b250b3c43dfa62d7c6a4e61f848febf731a0",
-//       "transactionId": "0x1ee46e19f4219ee65afc10227d0ca22753f76ef32d1e922e5cbe3fbc9b5a5298",
-//       "outputIndex": 1,
-//       "isSpent": false,
-//       "milestoneIndexBooked": 1234567,
-//       "milestoneTimestampBooked": 1643207146,
-//       "ledgerIndex": 946704
-//     },
-//     "output": {
-//       "type": 3,
-//       "amount": "1000",
-//       "unlockConditions": [
-//         {
-//           "type": 0,
-//           "address": {
-//             "type": 0,
-//             "pubKeyHash": "0x8eaf87ac1f52eb05f2c7c0c15502df990a228838dc37bd18de9503d69afd257d"
-//           }
-//         }
-//       ]
-//     }
-// }
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let OutputWithMetadata { output, metadata } = database
@@ -187,11 +167,11 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         milestone_timestamp_spent: metadata
             .spent
             .as_ref()
-            .map(|spent_md| *spent_md.spent.milestone_timestamp.unwrap()),
+            .map(|spent_md| *spent_md.spent.milestone_timestamp),
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         // TODO: can assume that the information always exists in Chronicle?
-        milestone_timestamp_booked: *metadata.booked.milestone_timestamp.unwrap(),
+        milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
         // TODO: return proper value
         ledger_index: 0,
     };
@@ -203,16 +183,6 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
     Ok(OutputResponse(bee::OutputResponse { metadata, output }))
 }
 
-// Example:
-// {
-//     "blockId": "0x9cd745ef6800c8e8c80b09174ee4b250b3c43dfa62d7c6a4e61f848febf731a0",
-//     "transactionId": "0x1ee46e19f4219ee65afc10227d0ca22753f76ef32d1e922e5cbe3fbc9b5a5298",
-//     "outputIndex": 1,
-//     "isSpent": false,
-//     "milestoneIndexBooked": 1234567,
-//     "milestoneTimestampBooked": 1643207146,
-//     "ledgerIndex": 946704
-// }
 async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
@@ -237,11 +207,10 @@ async fn output_metadata(
         milestone_timestamp_spent: metadata
             .spent
             .as_ref()
-            .map(|spent_md| *spent_md.spent.milestone_timestamp.unwrap()),
+            .map(|spent_md| *spent_md.spent.milestone_timestamp),
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
-        // TODO: can assume that the information always exists in Chronicle?
-        milestone_timestamp_booked: *metadata.booked.milestone_timestamp.unwrap(),
+        milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
         // TODO: return proper value
         ledger_index: 0,
     }))
@@ -354,18 +323,6 @@ async fn milestone_by_index(
         })
 }
 
-// Example:
-// {
-//     "index": 15465,
-//     "createdOutputs": [
-//       "0x1ee46e19f4219ee65afc10227d0ca22753f76ef32d1e922e5cbe3fbc9b5a52980100",
-//       "0xee3447d088e3e2c53c5b3e56a38fdc859ca2c4b4161cf256c0462ce4d34731820100",
-//       "0xf8bdbfb0f57ade7fbb95d31b11e2dbda9b2a35e9dc0cd3e11cb324e8a6bedc260100"
-//     ],
-//     "consumedOutputs": [
-//       "0x3d36ec4afb2d634b9313f84606b98b69675a3ef6f44dcdecb18c30945b57221e0100"
-//     ]
-// }
 async fn utxo_changes(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,

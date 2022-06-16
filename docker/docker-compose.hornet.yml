@@ -5,6 +5,8 @@ services:
     image: mongo
     restart: always
     command: --quiet --logpath /dev/null
+    volumes:
+      - ./chronicle_data:/data/db
 
   inx-chronicle:
     build:
@@ -12,7 +14,8 @@ services:
       dockerfile: docker/Dockerfile
     image: inx-chronicle:dev
     ports:
-      - "9092:9092/tcp"
+      - "8042:8042/tcp"   # REST API
+      - "9100:9100/tcp"   # Metrics
     environment:
       - RUST_LOG=warn,inx_chronicle=debug
     tty: true
@@ -23,23 +26,24 @@ services:
       - "mongodb://mongo:27017"
 
   hornet:
-    image: gohornet/hornet:2.0.0-alpha14
+    image: iotaledger/hornet:2.0.0-alpha19
     ulimits:
       nofile:
         soft: 8192
         hard: 8192
     stop_grace_period: 5m
     ports:
-      - "15600:15600/tcp"
-      - "14626:14626/udp"
+      - "15600:15600/tcp" # Gossip
+      - "14626:14626/udp" # Autopeering
       - "14265:14265/tcp" # REST API
-      - "8081:8081/tcp"
-      - "8091:8091/tcp"
-      - "9311:9311/tcp"
+      - "8081:8081/tcp"   # Dashboard
+      - "8091:8091/tcp"   # Faucet
+      - "9311:9311/tcp"   # Prometheus
+      - "9029:9029/tcp"   # INX
     cap_drop:
       - ALL
     volumes:
-      - ./alphanet:/app/alphanet
+      - ./hornet_data:/app/alphanet
       - ./config.hornet.json:/app/config.json:ro
     command:
       - "-c"

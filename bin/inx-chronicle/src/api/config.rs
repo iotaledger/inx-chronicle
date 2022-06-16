@@ -1,11 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Duration;
-
 use derive_more::From;
-use libp2p_core::identity::ed25519::SecretKey;
-use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 use tower_http::cors::AllowOrigin;
 
@@ -17,59 +13,14 @@ use super::error::ConfigError;
 pub struct ApiConfig {
     pub port: u16,
     pub allow_origins: Option<SingleOrMultiple<String>>,
-    pub password_hash: String,
-    pub password_salt: String,
-    pub jwt_salt: String,
-    #[serde(with = "humantime_serde")]
-    pub jwt_expiration: Duration,
-    pub public_routes: Vec<String>,
 }
 
 impl Default for ApiConfig {
     fn default() -> Self {
         Self {
             port: 9092,
-            allow_origins: Some("*".to_string().into()),
-            password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
-            password_salt: "saltines".to_string(),
-            jwt_salt: "Chronicle".to_string(),
-            jwt_expiration: time::Duration::minutes(30).try_into().unwrap(),
-            public_routes: Default::default(),
+            allow_origins: Some(String::from("*").into()),
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ApiData {
-    pub port: u16,
-    pub allow_origins: Option<SingleOrMultiple<String>>,
-    pub password_hash: Vec<u8>,
-    pub password_salt: String,
-    pub jwt_salt: String,
-    pub jwt_expiration: time::Duration,
-    pub public_routes: RegexSet,
-    pub secret_key: SecretKey,
-}
-
-impl ApiData {
-    pub const ISSUER: &'static str = "chronicle";
-    pub const AUDIENCE: &'static str = "api";
-}
-
-impl TryFrom<(ApiConfig, SecretKey)> for ApiData {
-    type Error = ConfigError;
-
-    fn try_from((config, secret_key): (ApiConfig, SecretKey)) -> Result<Self, Self::Error> {
-        Ok(Self {
-            port: config.port,
-            allow_origins: config.allow_origins,
-            password_hash: hex::decode(config.password_hash)?,
-            password_salt: config.password_salt,
-            jwt_salt: config.jwt_salt,
-            jwt_expiration: config.jwt_expiration.try_into()?,
-            public_routes: RegexSet::new(config.public_routes)?,
-            secret_key,
-        })
     }
 }
 

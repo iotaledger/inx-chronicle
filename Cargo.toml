@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.5"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -35,13 +35,13 @@ log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.4.0", default-features = false, features = [ "primitive-types" ] }
-primitive-types = { version = "0.10", default-features = false }
+primitive-types = { version = "0.11", default-features = false }
 serde = { version = "1.0", features = ["derive"], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 thiserror = { version = "1.0", default-features = false }
 time = { version = "0.3", default-features = false, features = ["std"] }
-tokio = { version = "1.17", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
+tokio = { version = "1.19", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
 url = { version = "2.2", default-features = false }
@@ -49,14 +49,9 @@ uuid = { version = "1.1", default-features = false, features = ["v4"] }
 
 # API
 axum = { version = "0.5", default-features = false, features = ["http1", "json", "query", "original-uri", "headers"], optional = true }
-ed25519 = { version = "=1.4.1", default-features = false, features = ["alloc", "pkcs8", "pem"], optional = true }
-hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
-jsonwebtoken = { version = "8.1", default-features = false, optional = true }
-lazy_static = { version = "1.4.0", default-features = false, optional = true }
-libp2p-core = { version = "0.32", default-features = false, optional = true }
+lazy_static = { version = "1.4", default-features = false, optional = true }
 regex = { version = "1.5", default-features = false, features = ["std"], optional = true }
-rust-argon2 = { version = "1.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
 tower-http = { version = "0.3", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
@@ -76,7 +71,7 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
-packable = { version = "0.3.2", default-features = false }
+packable = { version = "0.4", default-features = false }
 
 [features]
 default = [
@@ -89,15 +84,10 @@ default = [
 ]
 analytics = []
 api = [ 
-    "dep:rust-argon2",
     "dep:axum",
-    "dep:ed25519",
-    "dep:hex",
     "derive_more/from",
     "dep:hyper",
-    "dep:jsonwebtoken",
     "dep:lazy_static",
-    "dep:libp2p-core",
     "dep:regex",
     "dep:serde_urlencoded",
     "dep:tower",
