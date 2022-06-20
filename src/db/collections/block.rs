@@ -14,7 +14,7 @@ use crate::{
     db::{collections::milestone::MilestoneDocument, MongoDb},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{Block, BlockId, Output, OutputId, TransactionId},
+        stardust::block::{Block, BlockId, Output, OutputId, Payload, TransactionId},
     },
 };
 
@@ -175,6 +175,13 @@ impl MongoDb {
         metadata: BlockMetadata,
         white_flag_index: u32,
     ) -> Result<(), Error> {
+        if metadata.inclusion_state == LedgerInclusionState::Included {
+            if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
+                self.insert_treasury(metadata.referenced_by_milestone_index, payload.as_ref())
+                    .await?;
+            }
+        }
+
         let block_document = BlockDocument {
             block_id,
             block,

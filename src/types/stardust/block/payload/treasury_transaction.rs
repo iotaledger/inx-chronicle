@@ -8,9 +8,9 @@ use super::MilestoneId;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
-    input_milestone_id: MilestoneId,
+    pub input_milestone_id: MilestoneId,
     #[serde(with = "crate::types::util::stringify")]
-    output_amount: u64,
+    pub output_amount: u64,
 }
 
 impl From<&bee::TreasuryTransactionPayload> for TreasuryTransactionPayload {

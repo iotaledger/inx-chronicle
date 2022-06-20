@@ -283,7 +283,7 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
 
 async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
     database
-        .get_treasury()
+        .get_latest_treasury()
         .await?
         .ok_or(ApiError::NoResults)
         .map(|treasury| {

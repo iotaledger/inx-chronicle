@@ -9,11 +9,11 @@ mod ledger_update;
 mod milestone;
 /// Module containing information about the network and state of the node.
 mod status;
-/// Module containing the TreasuryUpdate model.
-mod treasury_update;
+/// Module containing the treasury model.
+mod treasury;
 
 pub use self::{
     ledger_update::{LedgerUpdateRecord, SortOrder},
     milestone::SyncData,
-    treasury_update::TreasuryDocument,
+    treasury::TreasuryResult,
 };
