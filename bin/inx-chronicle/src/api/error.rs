@@ -42,7 +42,7 @@ pub enum ApiError {
     NoResults,
     #[error("No endpoint found")]
     NotFound,
-    #[error("Endpoint not implented")]
+    #[error("Endpoint not implemented")]
     NotImplemented,
     #[error(transparent)]
     QueryError(#[from] QueryRejection),
