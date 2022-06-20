@@ -112,7 +112,7 @@ impl Actor for MetricsWorker {
                     .await;
 
                 // Stop the actor if the server stops.
-                metrics_handle.shutdown();
+                metrics_handle.shutdown().await;
 
                 res.unwrap()
             })

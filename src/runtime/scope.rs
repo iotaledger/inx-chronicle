@@ -87,8 +87,8 @@ impl ScopeView {
     }
 
     /// Shuts down the scope.
-    pub fn shutdown(&self) {
-        self.0.shutdown();
+    pub async fn shutdown(&self) {
+        self.0.shutdown().await;
     }
 
     /// Aborts the tasks in this runtime's scope. This will shutdown tasks that have
@@ -115,13 +115,9 @@ impl RuntimeScope {
         }
     }
 
-    pub(crate) async fn child(
-        &self,
-        shutdown_handle: Option<ShutdownHandle>,
-        abort_handle: Option<AbortHandle>,
-    ) -> Self {
+    pub(crate) async fn child(&self, abort_handle: AbortHandle) -> Self {
         Self {
-            scope: ScopeView(self.scope.0.child(shutdown_handle, abort_handle).await),
+            scope: ScopeView(self.scope.0.child(abort_handle).await),
             join_handles: Default::default(),
         }
     }
@@ -140,7 +136,7 @@ impl RuntimeScope {
         F: Future<Output = Result<O, Box<dyn Error + Send + Sync>>>,
     {
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let mut child_scope = self.child(None, Some(abort_handle)).await;
+        let mut child_scope = self.child(abort_handle).await;
         let res = Abortable::new(f(&mut child_scope), abort_registration).await;
         if let Ok(Err(_)) = res {
             child_scope.abort().await;
@@ -168,7 +164,7 @@ impl RuntimeScope {
             stream,
             add_to_registry,
         }: SpawnConfigInner<A>,
-    ) -> (Addr<A>, ActorContext<A>, AbortRegistration)
+    ) -> (Addr<A>, ActorContext<A>, AbortRegistration, ShutdownHandle)
     where
         A: 'static + Actor,
     {
@@ -208,14 +204,14 @@ impl RuntimeScope {
             let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
             (receiver, shutdown_handle)
         };
-        let scope = self.child(Some(shutdown_handle), Some(abort_handle)).await;
+        let scope = self.child(abort_handle).await;
         let handle = Addr::new(scope.scope.clone(), sender);
         if add_to_registry {
             self.scope.0.insert_addr(handle.clone()).await;
         }
         let cx = ActorContext::new(scope, handle.clone(), receiver);
         log::debug!("Initializing {}", actor.name());
-        (handle, cx, abort_reg)
+        (handle, cx, abort_reg, shutdown_handle)
     }
 
     /// Spawns a new, plain task.
@@ -225,7 +221,7 @@ impl RuntimeScope {
         Sup: 'static + HandleEvent<TaskReport<T>>,
     {
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let mut child_scope = self.child(None, Some(abort_handle.clone())).await;
+        let mut child_scope = self.child(abort_handle.clone()).await;
         let child_task = spawn_task(task.name().as_ref(), async move {
             let fut = task.run();
             let res = Abortable::new(AssertUnwindSafe(fut).catch_unwind(), abort_registration).await;
@@ -269,10 +265,10 @@ impl RuntimeScope {
         Cfg: Into<SpawnConfig<A>>,
     {
         let SpawnConfig { mut actor, config } = actor.into();
-        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
+        let (handle, mut cx, abort_reg, shutdown_handle) = self.common_spawn(&actor, config).await;
         let child_task = spawn_task(actor.name().as_ref(), async move {
             let mut data = None;
-            let res = cx.start(&mut actor, &mut data, abort_reg).await;
+            let res = cx.start(&mut actor, &mut data, abort_reg, shutdown_handle).await;
             match res {
                 Ok(res) => match res {
                     Ok(res) => match res {
@@ -313,10 +309,10 @@ impl RuntimeScope {
         Cfg: Into<SpawnConfig<A>>,
     {
         let SpawnConfig { mut actor, config } = actor.into();
-        let (handle, mut cx, abort_reg) = self.common_spawn(&actor, config).await;
+        let (handle, mut cx, abort_reg, shutdown_handle) = self.common_spawn(&actor, config).await;
         let child_task = spawn_task(actor.name().as_ref(), async move {
             let mut data = None;
-            let res = cx.start(&mut actor, &mut data, abort_reg).await;
+            let res = cx.start(&mut actor, &mut data, abort_reg, shutdown_handle).await;
             match res {
                 Ok(res) => match res {
                     Ok(res) => match res {

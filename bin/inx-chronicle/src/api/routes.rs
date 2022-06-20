@@ -28,10 +28,14 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
+pub async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
     Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
-async fn not_found() -> ApiError {
+pub async fn not_found() -> ApiError {
     ApiError::NotFound
+}
+
+pub async fn not_implemented() -> ApiError {
+    ApiError::NotImplemented
 }
