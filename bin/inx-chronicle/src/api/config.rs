@@ -33,7 +33,8 @@ impl Default for ApiConfig {
             password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
             password_salt: "saltines".to_string(),
             jwt_salt: "Chronicle".to_string(),
-            jwt_expiration: time::Duration::minutes(30).try_into().unwrap(),
+            // 30 min
+            jwt_expiration: Duration::from_secs(30 * 60),
             public_routes: Default::default(),
         }
     }
@@ -46,7 +47,7 @@ pub struct ApiData {
     pub password_hash: Vec<u8>,
     pub password_salt: String,
     pub jwt_salt: String,
-    pub jwt_expiration: time::Duration,
+    pub jwt_expiration: Duration,
     pub public_routes: RegexSet,
     pub secret_key: SecretKey,
 }
@@ -66,7 +67,7 @@ impl TryFrom<(ApiConfig, SecretKey)> for ApiData {
             password_hash: hex::decode(config.password_hash)?,
             password_salt: config.password_salt,
             jwt_salt: config.jwt_salt,
-            jwt_expiration: config.jwt_expiration.try_into()?,
+            jwt_expiration: config.jwt_expiration,
             public_routes: RegexSet::new(config.public_routes)?,
             secret_key,
         })

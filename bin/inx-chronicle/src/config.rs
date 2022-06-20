@@ -56,12 +56,8 @@ impl ChronicleConfig {
         #[cfg(feature = "api")]
         if let Some(password) = &args.password {
             self.api.password_hash = hex::encode(
-                argon2::hash_raw(
-                    password.as_bytes(),
-                    self.api.jwt_salt.as_bytes(),
-                    &argon2::Config::default(),
-                )
-                .unwrap_or_default(),
+                auth_helper::password::password_hash(password.as_bytes(), self.api.jwt_salt.as_bytes())
+                    .expect("invalid jwt config"),
             );
         }
     }

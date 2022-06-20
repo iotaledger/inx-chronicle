@@ -27,11 +27,11 @@ pub enum InternalApiError {
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
-    Jwt(#[from] jsonwebtoken::errors::Error),
+    Jwt(#[from] auth_helper::jwt::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
-    PasswordHash(#[from] argon2::Error),
+    PasswordHash(#[from] auth_helper::password::Error),
     #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]
@@ -50,7 +50,7 @@ pub enum ApiError {
     #[error("Internal server error")]
     Internal(InternalApiError),
     #[error(transparent)]
-    InvalidJwt(jsonwebtoken::errors::Error),
+    InvalidJwt(auth_helper::jwt::Error),
     #[error(transparent)]
     InvalidAuthHeader(#[from] TypedHeaderRejection),
     #[error("No results returned")]
