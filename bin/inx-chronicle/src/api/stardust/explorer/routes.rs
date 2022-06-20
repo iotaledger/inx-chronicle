@@ -14,12 +14,12 @@ use super::{
     extractors::HistoryPagination,
     responses::{TransactionHistoryResponse, Transfer},
 };
-use crate::api::{ApiError, ApiResult};
+use crate::api::{routes::sync, ApiError, ApiResult};
 
 pub fn routes() -> Router {
-    Router::new().nest(
-        "/transactions",
-        Router::new().route("/history/:address", get(transaction_history)),
+    Router::new().route("/gaps", get(sync)).nest(
+        "/ledger",
+        Router::new().route("/updates/:address", get(transaction_history)),
     )
 }
 

@@ -120,7 +120,7 @@ impl HandleEvent<SyncNext> for Syncer {
             .await;
         } else {
             log::info!("Successfully finished synchronization with node.");
-            cx.shutdown();
+            cx.shutdown().await;
         }
         Ok(())
     }

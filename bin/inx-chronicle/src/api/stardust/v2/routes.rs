@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Extension, Path},
+    handler::Handler,
     http::header::{HeaderMap, HeaderValue},
     response::{IntoResponse, Response},
     routing::*,
@@ -23,7 +24,7 @@ use lazy_static::lazy_static;
 use mongodb::bson;
 
 use super::responses::{bee, *};
-use crate::api::{error::ApiError, extractors::Pagination, ApiResult};
+use crate::api::{error::ApiError, extractors::Pagination, routes::not_implemented, ApiResult};
 
 lazy_static! {
     pub(crate) static ref BYTE_CONTENT_HEADER: HeaderValue =
@@ -32,6 +33,7 @@ lazy_static! {
 
 pub fn routes() -> Router {
     Router::new()
+        .route("/info", not_implemented.into_service())
         .nest(
             "/blocks",
             Router::new()

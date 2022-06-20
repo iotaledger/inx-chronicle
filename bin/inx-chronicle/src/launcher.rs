@@ -28,15 +28,9 @@ pub enum LauncherError {
 /// Supervisor actor
 pub struct Launcher;
 
-pub struct LauncherState {
-    config: ChronicleConfig,
-    #[allow(dead_code)]
-    db: MongoDb,
-}
-
 #[async_trait]
 impl Actor for Launcher {
-    type State = LauncherState;
+    type State = ChronicleConfig;
     type Error = LauncherError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -70,7 +64,7 @@ impl Actor for Launcher {
         cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
             .await;
 
-        Ok(LauncherState { config, db })
+        Ok(config)
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -85,10 +79,8 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::stardust_inx::InxWorker>,
-        LauncherState { config, db }: &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        use chronicle::runtime::SpawnActor;
-
         use super::stardust_inx::InxError;
         match event {
             Report::Success(_) => {
@@ -96,14 +88,6 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
             }
             Report::Error(report) => match report.error {
                 ActorError::Result(e) => match e {
-                    InxError::ConnectionError => {
-                        log::warn!(
-                            "INX connection failed. Retrying in {}s.",
-                            config.inx.connection_retry_interval.as_secs()
-                        );
-                        let inx_worker = super::stardust_inx::InxWorker::new(db, &config.inx);
-                        cx.delay(SpawnActor::new(inx_worker), config.inx.connection_retry_interval)?;
-                    }
                     InxError::MongoDb(e) => match e.kind.as_ref() {
                         // Only a few possible errors we could potentially recover from
                         mongodb::error::ErrorKind::Io(_)
@@ -116,9 +100,17 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
                             cx.abort().await;
                         }
                     },
-                    InxError::Read(_) => {
-                        cx.spawn_child(report.actor).await;
-                    }
+                    InxError::Read(e) => match e.code() {
+                        inx::tonic::Code::DeadlineExceeded
+                        | inx::tonic::Code::ResourceExhausted
+                        | inx::tonic::Code::Aborted
+                        | inx::tonic::Code::Unavailable => {
+                            cx.spawn_child(report.actor).await;
+                        }
+                        _ => {
+                            cx.abort().await;
+                        }
+                    },
                     _ => {
                         cx.abort().await;
                     }
@@ -139,7 +131,7 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::api::ApiWorker>,
-        LauncherState { config, .. }: &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {
@@ -166,7 +158,7 @@ impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::metrics::MetricsWorker>,
-        LauncherState { config, .. }: &mut Self::State,
+        config: &mut Self::State,
     ) -> Result<(), Self::Error> {
         match event {
             Report::Success(_) => {

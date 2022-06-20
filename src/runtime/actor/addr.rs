@@ -41,8 +41,8 @@ impl<A: Actor> Addr<A> {
     }
 
     /// Shuts down the actor. Use with care!
-    pub fn shutdown(&self) {
-        self.scope.shutdown();
+    pub async fn shutdown(&self) {
+        self.scope.shutdown().await;
     }
 
     /// Aborts the actor. Use with care!

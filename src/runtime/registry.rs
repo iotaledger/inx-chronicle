@@ -45,8 +45,8 @@ pub(crate) struct Scope {
 pub(crate) struct ScopeInner {
     pub(crate) id: ScopeId,
     address_registry: RwLock<AddressRegistry>,
-    shutdown_handle: Option<ShutdownHandle>,
-    abort_handle: Option<AbortHandle>,
+    shutdown_handle: RwLock<Option<ShutdownHandle>>,
+    abort_handle: AbortHandle,
     parent: Option<Scope>,
     children: RwLock<HashMap<ScopeId, Scope>>,
 }
@@ -58,7 +58,7 @@ impl Scope {
                 id: ROOT_SCOPE,
                 address_registry: Default::default(),
                 shutdown_handle: Default::default(),
-                abort_handle: Some(abort_handle),
+                abort_handle,
                 parent: None,
                 children: Default::default(),
             }),
@@ -68,11 +68,7 @@ impl Scope {
         }
     }
 
-    pub(crate) async fn child(
-        &self,
-        shutdown_handle: Option<ShutdownHandle>,
-        abort_handle: Option<AbortHandle>,
-    ) -> Self {
+    pub(crate) async fn child(&self, abort_handle: AbortHandle) -> Self {
         log::trace!("Adding child to {:x}", self.id.as_fields().0);
         let id = Uuid::new_v4();
         let parent = self.clone();
@@ -80,7 +76,7 @@ impl Scope {
             inner: Arc::new(ScopeInner {
                 id,
                 address_registry: Default::default(),
-                shutdown_handle,
+                shutdown_handle: Default::default(),
                 abort_handle,
                 parent: Some(parent),
                 children: Default::default(),
@@ -92,6 +88,10 @@ impl Scope {
         self.children.write().await.insert(id, child.clone());
         log::trace!("Added child to {:x}", self.id.as_fields().0);
         child
+    }
+
+    pub(crate) async fn set_shutdown_handle(&self, handle: ShutdownHandle) {
+        self.inner.shutdown_handle.write().await.replace(handle);
     }
 
     /// Finds a scope by id.
@@ -136,13 +136,13 @@ impl Scope {
         log::trace!("Dropped scope {:x}", self.id.as_fields().0);
     }
 
-    pub(crate) fn shutdown(&self) {
+    pub(crate) async fn shutdown(&self) {
         log::trace!("Shutting down scope {:x}", self.id.as_fields().0);
         self.valid.store(false, Ordering::Release);
-        if let Some(handle) = self.shutdown_handle.as_ref() {
+        if let Some(handle) = self.shutdown_handle.read().await.as_ref() {
             handle.shutdown();
-        } else if let Some(abort) = self.abort_handle.as_ref() {
-            abort.abort();
+        } else {
+            self.abort_handle.abort();
         }
         log::trace!("Shut down scope {:x}", self.id.as_fields().0);
     }
@@ -155,7 +155,7 @@ impl Scope {
         for child_scope in children {
             child_scope.abort().await;
         }
-        self.shutdown();
+        self.shutdown().await;
         log::trace!("Aborted scope {:x}", self.id.as_fields().0);
     }
 
