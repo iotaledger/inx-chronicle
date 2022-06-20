@@ -11,6 +11,14 @@ use axum::{
     routing::*,
     Router,
 };
+use bee_block_stardust::{output::dto::OutputDto, payload::milestone::option::dto::MilestoneOptionDto, BlockDto};
+use bee_rest_api_stardust::types::{
+    dtos::{LedgerInclusionStateDto, ReceiptDto},
+    responses::{
+        BlockChildrenResponse, BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse,
+        OutputResponse, ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
+    },
+};
 use chronicle::{
     db::MongoDb,
     types::{
@@ -19,11 +27,12 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
+use derive_more::From;
 use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use mongodb::bson;
+use serde::Serialize;
 
-use super::responses::{bee, *};
 use crate::api::{error::ApiError, extractors::Pagination, routes::not_implemented, ApiResult};
 
 lazy_static! {
@@ -67,31 +76,41 @@ pub fn routes() -> Router {
         )
 }
 
-async fn block(database: Extension<MongoDb>, Path(block_id): Path<String>, headers: HeaderMap) -> ApiResult<Response> {
+#[derive(Debug, Serialize, From)]
+enum BlockOrRawResponse {
+    Block(BlockResponse),
+    Raw(Vec<u8>),
+}
+
+async fn block(
+    database: Extension<MongoDb>,
+    Path(block_id): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<BlockOrRawResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let block = database.get_block(&block_id).await?.ok_or(ApiError::NoResults)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return block_raw(database, &block_id).await.map(|r| r.into_response());
+            return Ok(database
+                .get_block_raw(&block_id)
+                .await?
+                .ok_or(ApiError::NoResults)?
+                .into());
         }
     }
 
-    Ok(BlockResponse(bee::BlockResponse(bee::BlockDto {
+    Ok(BlockResponse(BlockDto {
         protocol_version: block.protocol_version,
         parents: block.parents.iter().map(|b| b.to_hex()).collect(),
         payload: block.payload.map(|p| {
             // TODO: unwrap
-            let bee_payload: &bee::Payload = &p.try_into().unwrap();
+            let bee_payload: &bee_block_stardust::payload::Payload = &p.try_into().unwrap();
             bee_payload.into()
         }),
         nonce: block.nonce.to_string(),
-    }))
-    .into_response())
-}
-
-async fn block_raw(database: Extension<MongoDb>, block_id: &BlockId) -> ApiResult<Vec<u8>> {
-    database.get_block_raw(block_id).await?.ok_or(ApiError::NoResults)
+    })
+    .into())
 }
 
 async fn block_metadata(
@@ -104,7 +123,7 @@ async fn block_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockMetadataResponse(bee::BlockMetadataResponse {
+    Ok(BlockMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         parents: metadata.parents.iter().map(|id| id.to_hex()).collect(),
         is_solid: metadata.is_solid,
@@ -114,14 +133,14 @@ async fn block_metadata(
         conflict_reason: Some(metadata.conflict_reason as u8),
         should_promote: Some(metadata.should_promote),
         should_reattach: Some(metadata.should_reattach),
-    }))
+    })
 }
 
-fn convert_ledger_inclusion_state(s: LedgerInclusionState) -> bee::LedgerInclusionStateDto {
+fn convert_ledger_inclusion_state(s: LedgerInclusionState) -> LedgerInclusionStateDto {
     match s {
-        LedgerInclusionState::Conflicting => bee::LedgerInclusionStateDto::Conflicting,
-        LedgerInclusionState::Included => bee::LedgerInclusionStateDto::Included,
-        LedgerInclusionState::NoTransaction => bee::LedgerInclusionStateDto::NoTransaction,
+        LedgerInclusionState::Conflicting => LedgerInclusionStateDto::Conflicting,
+        LedgerInclusionState::Included => LedgerInclusionStateDto::Included,
+        LedgerInclusionState::NoTransaction => LedgerInclusionStateDto::NoTransaction,
     }
 }
 
@@ -141,12 +160,12 @@ async fn block_children(
         children.push(block_id.to_hex());
     }
 
-    Ok(BlockChildrenResponse(bee::BlockChildrenResponse {
+    Ok(BlockChildrenResponse {
         block_id: block_id.to_hex(),
         max_results: page_size,
         count: children.len(),
         children,
-    }))
+    })
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
@@ -160,7 +179,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         index: output_index, ..
     } = output_id;
 
-    let metadata = bee::OutputMetadataResponse {
+    let metadata = OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.transaction_id.to_hex(),
         output_index,
@@ -180,10 +199,10 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
     };
 
     // TODO: introduce ApiError::Conversion?
-    let output: &bee::Output = &output.try_into().map_err(|_| ApiError::NoResults)?;
-    let output: bee::OutputDto = output.into();
+    let output: &bee_block_stardust::output::Output = &output.try_into().map_err(|_| ApiError::NoResults)?;
+    let output: OutputDto = output.into();
 
-    Ok(OutputResponse(bee::OutputResponse { metadata, output }))
+    Ok(OutputResponse { metadata, output })
 }
 
 async fn output_metadata(
@@ -200,7 +219,7 @@ async fn output_metadata(
         index: output_index, ..
     } = output_id;
 
-    Ok(OutputMetadataResponse(bee::OutputMetadataResponse {
+    Ok(OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.transaction_id.to_hex(),
         output_index,
@@ -216,7 +235,7 @@ async fn output_metadata(
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
         // TODO: return proper value
         ledger_index: 0,
-    }))
+    })
 }
 
 async fn transaction_included_block(
@@ -230,16 +249,16 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse(bee::BlockResponse(bee::BlockDto {
+    Ok(BlockResponse(BlockDto {
         protocol_version: block.protocol_version,
         parents: block.parents.iter().map(|b| b.to_hex()).collect(),
         payload: block.payload.map(|p| {
             // Unwrap: TODO
-            let bee_payload: &bee::Payload = &p.try_into().unwrap();
+            let bee_payload: &bee_block_stardust::payload::Payload = &p.try_into().unwrap();
             bee_payload.into()
         }),
         nonce: block.nonce.to_string(),
-    })))
+    }))
 }
 
 async fn receipts(
@@ -251,17 +270,17 @@ async fn receipts(
     while let Some(doc) = milestone_options.try_next().await? {
         // TODO: unwrap
         let (index, opt): (MilestoneIndex, MilestoneOption) = bson::from_document(doc).unwrap();
-        let opt: &bee::MilestoneOption = &opt.try_into().unwrap();
-        let opt: bee::MilestoneOptionDto = opt.into();
+        let opt: &bee_block_stardust::payload::milestone::MilestoneOption = &opt.try_into().unwrap();
+        let opt: MilestoneOptionDto = opt.into();
 
-        if let bee::MilestoneOptionDto::Receipt(receipt) = opt {
-            receipts.push(bee::ReceiptDto {
+        if let MilestoneOptionDto::Receipt(receipt) = opt {
+            receipts.push(ReceiptDto {
                 receipt,
                 milestone_index: *index,
             });
         }
     }
-    Ok(ReceiptsResponse(bee::ReceiptsResponse { receipts }))
+    Ok(ReceiptsResponse { receipts })
 }
 
 async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
@@ -270,17 +289,17 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
     while let Some(doc) = milestone_options.try_next().await? {
         // TODO: unwrap
         let (index, opt): (MilestoneIndex, MilestoneOption) = bson::from_document(doc).unwrap();
-        let opt: &bee::MilestoneOption = &opt.try_into().unwrap();
-        let opt: bee::MilestoneOptionDto = opt.into();
+        let opt: &bee_block_stardust::payload::milestone::MilestoneOption = &opt.try_into().unwrap();
+        let opt: MilestoneOptionDto = opt.into();
 
-        if let bee::MilestoneOptionDto::Receipt(receipt) = opt {
-            receipts.push(bee::ReceiptDto {
+        if let MilestoneOptionDto::Receipt(receipt) = opt {
+            receipts.push(ReceiptDto {
                 receipt,
                 milestone_index: *index,
             });
         }
     }
-    Ok(ReceiptsResponse(bee::ReceiptsResponse { receipts }))
+    Ok(ReceiptsResponse { receipts })
 }
 
 async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
@@ -288,11 +307,9 @@ async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
         .get_latest_treasury()
         .await?
         .ok_or(ApiError::NoResults)
-        .map(|treasury| {
-            TreasuryResponse(bee::TreasuryResponse {
-                milestone_id: treasury.milestone_id.to_hex(),
-                amount: treasury.amount.to_string(),
-            })
+        .map(|treasury| TreasuryResponse {
+            milestone_id: treasury.milestone_id.to_hex(),
+            amount: treasury.amount.to_string(),
         })
 }
 
@@ -304,9 +321,9 @@ async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String
         .ok_or(ApiError::NoResults)
         .map(|payload| {
             // TODO: unwrap
-            let payload: &bee::MilestonePayload = &payload.try_into().unwrap();
+            let payload: &bee_block_stardust::payload::milestone::MilestonePayload = &payload.try_into().unwrap();
             let payload_dto = payload.into();
-            MilestoneResponse(bee::MilestoneResponse(payload_dto))
+            MilestoneResponse(payload_dto)
         })
 }
 
@@ -320,9 +337,9 @@ async fn milestone_by_index(
         .ok_or(ApiError::NoResults)
         .map(|payload| {
             // TODO: unwrap
-            let payload: &bee::MilestonePayload = &payload.try_into().unwrap();
+            let payload: &bee_block_stardust::payload::milestone::MilestonePayload = &payload.try_into().unwrap();
             let payload_dto = payload.into();
-            MilestoneResponse(bee::MilestoneResponse(payload_dto))
+            MilestoneResponse(payload_dto)
         })
 }
 
@@ -337,20 +354,17 @@ async fn utxo_changes(
         .ok_or(ApiError::NoResults)?
         .essence
         .index;
-    collect_utxo_changes(database, milestone_index).await
+    collect_utxo_changes(&database, milestone_index).await
 }
 
 async fn utxo_changes_by_index(
     database: Extension<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
 ) -> ApiResult<UtxoChangesResponse> {
-    collect_utxo_changes(database, milestone_index).await
+    collect_utxo_changes(&database, milestone_index).await
 }
 
-async fn collect_utxo_changes(
-    database: Extension<MongoDb>,
-    milestone_index: MilestoneIndex,
-) -> ApiResult<UtxoChangesResponse> {
+async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
     let mut created_outputs = Vec::new();
     let mut consumed_outputs = Vec::new();
 
@@ -363,9 +377,9 @@ async fn collect_utxo_changes(
         }
     }
 
-    Ok(UtxoChangesResponse(bee::UtxoChangesResponse {
+    Ok(UtxoChangesResponse {
         index: *milestone_index,
         created_outputs,
         consumed_outputs,
-    }))
+    })
 }
