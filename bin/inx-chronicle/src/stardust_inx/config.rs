@@ -6,8 +6,7 @@ use std::time::Duration;
 use chronicle::types::tangle::MilestoneIndex;
 use serde::{Deserialize, Serialize};
 
-/// A builder to establish a connection to INX.
-#[must_use]
+/// Configuration for an INX connection.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InxConfig {
@@ -16,6 +15,9 @@ pub struct InxConfig {
     /// The time that has to pass until a new connection attempt is made.
     #[serde(with = "humantime_serde")]
     pub connection_retry_interval: Duration,
+    /// The number of retries when connecting fails.
+    pub connection_retry_count: usize,
+    /// The milestone at which synchronization should begin.
     pub sync_start_milestone: MilestoneIndex,
 }
 
@@ -24,6 +26,7 @@ impl Default for InxConfig {
         Self {
             connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
+            connection_retry_count: 5,
             sync_start_milestone: 1.into(),
         }
     }

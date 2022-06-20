@@ -113,7 +113,7 @@ impl Actor for ApiWorker {
                 .with_graceful_shutdown(shutdown_signal(receiver))
                 .await;
             // If the Axum server shuts down, we should also shutdown the API actor
-            api_handle.shutdown();
+            api_handle.shutdown().await;
             res
         });
         self.server_handle = Some((join_handle, sender));

@@ -21,7 +21,11 @@ use super::{
     Actor,
 };
 use crate::runtime::{
-    config::SpawnConfig, error::RuntimeError, scope::RuntimeScope, shutdown::ShutdownStream, Sender, Task, TaskReport,
+    config::SpawnConfig,
+    error::RuntimeError,
+    scope::RuntimeScope,
+    shutdown::{ShutdownHandle, ShutdownStream},
+    Sender, Task, TaskReport,
 };
 
 type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
@@ -95,10 +99,13 @@ impl<A: Actor> ActorContext<A> {
         actor: &mut A,
         actor_state: &mut Option<A::State>,
         abort_reg: AbortRegistration,
+        shutdown_handle: ShutdownHandle,
     ) -> Result<Result<Result<(), A::Error>, Box<dyn Any + Send>>, Aborted> {
         let res = Abortable::new(
             AssertUnwindSafe(async {
                 let mut state = actor.init(self).await?;
+                // Set the shutdown handle before starting the event loop.
+                self.scope.0.set_shutdown_handle(shutdown_handle).await;
                 // Call handle events until shutdown
                 let res = actor.run(self, &mut state).await;
                 let res = actor.shutdown(self, &mut state, res).await;
