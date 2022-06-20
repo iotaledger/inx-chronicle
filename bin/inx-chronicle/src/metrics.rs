@@ -105,14 +105,11 @@ impl Actor for MetricsWorker {
         let server_fut = {
             let registry = cx.metrics_registry().clone();
             tokio::spawn(async move {
-                let fut = serve_metrics(addr, registry);
-
-                // FIXME: use `with_graceful_shutdown` when `bee-metrics` exposes the complete
-                // future type.
-                let res = tokio::select! {
-                    res = fut => { res }
-                    _ = recv => { Ok(()) }
-                };
+                let res = serve_metrics(addr, registry)
+                    .with_graceful_shutdown(async {
+                        recv.await.ok();
+                    })
+                    .await;
 
                 // Stop the actor if the server stops.
                 metrics_handle.shutdown().await;

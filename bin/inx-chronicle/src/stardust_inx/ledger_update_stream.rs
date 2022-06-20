@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
-    types::{ledger::OutputWithMetadata, tangle::MilestoneIndex},
+    types::tangle::MilestoneIndex,
 };
 use inx::{
     client::InxClient,
@@ -96,12 +96,10 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
 
         let ledger_update = inx::LedgerUpdate::try_from(ledger_update_result?)?;
 
-        let output_updates_iter = ledger_update
-            .created
-            .iter()
-            .cloned()
-            .map(OutputWithMetadata::from)
-            .chain(ledger_update.consumed.iter().cloned().map(OutputWithMetadata::from));
+        let output_updates_iter = Vec::from(ledger_update.created)
+            .into_iter()
+            .map(Into::into)
+            .chain(Vec::from(ledger_update.consumed).into_iter().map(Into::into));
 
         self.db.insert_ledger_updates(output_updates_iter).await?;
 

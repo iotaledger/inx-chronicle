@@ -68,7 +68,10 @@ impl MongoDb {
                         IndexOptions::builder()
                             .unique(true)
                             .name("transaction_id_index".to_string())
-                            .partial_filter_expression(doc! { "block.payload.transaction_id": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "block.payload.transaction_id": { "$exists": true } ,
+                                "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
+                            })
                             .build(),
                     )
                     .build(),
@@ -206,6 +209,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": &output_id.transaction_id,
                         "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
@@ -230,6 +234,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": &output_id.transaction_id,
                         "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
@@ -276,6 +281,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": &output_id.transaction_id,
                         "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
                     } },
