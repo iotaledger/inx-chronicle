@@ -42,6 +42,8 @@ pub enum ApiError {
     NoResults,
     #[error("No endpoint found")]
     NotFound,
+    #[error("Endpoint not implented")]
+    NotImplemented,
     #[error(transparent)]
     QueryError(#[from] QueryRejection),
 }
@@ -53,6 +55,7 @@ impl ApiError {
             ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadTimeRange | ApiError::BadParse(_) | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::NotImplemented => StatusCode::NOT_IMPLEMENTED,
         }
     }
 

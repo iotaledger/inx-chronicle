@@ -21,12 +21,12 @@ pub fn routes() -> Router {
 
     #[cfg(feature = "api-explorer")]
     {
-        router = router.nest("/explorer", explorer::routes());
+        router = router.nest("/history/v1", explorer::routes());
     }
 
     #[cfg(feature = "api-node")]
     {
-        router = router.nest("/v2", v2::routes());
+        router = router.nest("/core/v2", v2::routes());
     }
 
     router

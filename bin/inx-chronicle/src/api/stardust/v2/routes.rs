@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Extension, Path},
+    handler::Handler,
     routing::*,
     Router,
 };
@@ -17,10 +18,11 @@ use chronicle::{
 };
 
 use super::responses::*;
-use crate::api::{error::ApiError, ApiResult};
+use crate::api::{error::ApiError, routes::not_implemented, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
+        .route("/info", not_implemented.into_service())
         .nest(
             "/blocks",
             Router::new()
