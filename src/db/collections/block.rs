@@ -380,10 +380,7 @@ impl MongoDb {
 #[cfg(feature = "analytics")]
 mod analytics {
     use super::*;
-    use crate::types::{
-        stardust::block::{TransactionEssence, TransactionPayload},
-        tangle::MilestoneIndex,
-    };
+    use crate::types::tangle::MilestoneIndex;
 
     #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
     pub struct TransactionAnalyticsResult {
@@ -399,29 +396,31 @@ mod analytics {
             start_milestone: MilestoneIndex,
             end_milestone: MilestoneIndex,
         ) -> Result<TransactionAnalyticsResult, Error> {
-            let mut res = TransactionAnalyticsResult::default();
-            let mut transactions = self
+            Ok(self
                 .0
-                .collection::<BlockDocument>(BlockDocument::COLLECTION)
+                .collection::<TransactionAnalyticsResult>(BlockDocument::COLLECTION)
                 .aggregate(
                     vec![
                         doc! { "$match": {
                            "block.payload.kind": "transaction",
-                           "metadata.referenced_by_milestone_index": { "$gt": start_milestone, "$lt": end_milestone },
+                           "metadata.referenced_by_milestone_index": { "$gte": start_milestone, "$lte": end_milestone },
                         } },
-                        doc! { "$replaceRoot": { "newRoot": "$block.payload" } },
+                        doc! { "$unwind": "$block.payload.essence.outputs" },
+                        doc! { "$group": {
+                            "_id": "null",
+                            "count": { "$sum": 1 },
+                            "total_value": { "$sum": { "$toDouble": "$block.payload.essence.outputs.amount" } },
+                            "avg_value": { "$avg": { "$toDouble": "$block.payload.essence.outputs.amount" } },
+                        } },
                     ],
                     None,
                 )
                 .await?
-                .map_ok(bson::from_document::<TransactionPayload>);
-            while let Some(payload) = transactions.try_next().await?.transpose()? {
-                let TransactionEssence::Regular { outputs, .. } = &payload.essence;
-                res.count += 1;
-                res.total_value += outputs.iter().map(|o| o.amount() as f64).sum::<f64>();
-            }
-            res.avg_value = res.total_value / res.count as f64;
-            Ok(res)
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?
+                .unwrap_or_default())
         }
     }
 }
