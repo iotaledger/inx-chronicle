@@ -19,7 +19,7 @@ impl<B: Send> FromRequest<B> for Auth {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        // Unwrap: Infallable
+        // Unwrap: <OriginalUri as FromRequest>::Rejection = Infallable
         let OriginalUri(uri) = OriginalUri::from_request(req).await.unwrap();
 
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;

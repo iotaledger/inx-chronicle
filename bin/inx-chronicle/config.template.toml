@@ -7,8 +7,7 @@ database_name = "chronicle"
 [api]
 port = 8042
 allow_origins = "0.0.0.0"
-# password = "password"
-password_hash = "c42cf2be3a442a29d8cd827a27099b0c"
+password_hash = "c42cf2be3a442a29d8cd827a27099b0c" # "password"
 password_salt = "saltines"
 
 [inx]
