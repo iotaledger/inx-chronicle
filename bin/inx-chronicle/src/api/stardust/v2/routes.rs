@@ -75,7 +75,7 @@ pub fn routes() -> Router {
                 .route("/:milestone_id/utxo-changes", get(utxo_changes))
                 .route("/by-index/:index", get(milestone_by_index))
                 .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
-        .route(path "/peers", not_implemented.into_service()
+        .route(path "/peers", not_implemented.into_service())
         .nest(
             "/peers",
             Router::new()
