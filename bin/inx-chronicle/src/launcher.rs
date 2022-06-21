@@ -31,7 +31,7 @@ pub struct Launcher;
 pub struct LauncherState {
     config: ChronicleConfig,
     #[cfg(feature = "api")]
-    secret_key: libp2p_core::identity::ed25519::SecretKey,
+    secret_key: crate::api::SecretKey,
 }
 
 #[async_trait]
@@ -71,7 +71,7 @@ impl Actor for Launcher {
                     if let Ok(path) = std::env::var("IDENTITY_PATH") {
                         keypair_from_file(&path)?
                     } else {
-                        libp2p_core::identity::ed25519::SecretKey::generate()
+                        crate::api::SecretKey::generate()
                     }
                 }
             };
@@ -97,13 +97,13 @@ impl Actor for Launcher {
 }
 
 #[cfg(feature = "api")]
-fn keypair_from_file(path: &str) -> Result<libp2p_core::identity::ed25519::SecretKey, ConfigError> {
+fn keypair_from_file(path: &str) -> Result<crate::api::SecretKey, ConfigError> {
     use ed25519::pkcs8::DecodePrivateKey;
     let mut bytes = ed25519::pkcs8::KeypairBytes::from_pkcs8_pem(
         &std::fs::read_to_string(std::path::Path::new(path)).map_err(ConfigError::FileRead)?,
     )
-    .map_err(|_| ConfigError::KeyRead)?;
-    libp2p_core::identity::ed25519::SecretKey::from_bytes(&mut bytes.secret_key).map_err(ConfigError::KeyDecode)
+    .map_err(|_| crate::api::ConfigError::KeyRead)?;
+    Ok(crate::api::SecretKey::from_bytes(&mut bytes.secret_key).map_err(crate::api::ConfigError::KeyDecode)?)
 }
 
 #[cfg(all(feature = "inx", feature = "stardust"))]

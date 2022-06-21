@@ -30,7 +30,6 @@ pub fn routes() -> Router {
 
 #[derive(Deserialize)]
 struct LoginInfo {
-    #[serde(rename = "password")]
     password: String,
 }
 

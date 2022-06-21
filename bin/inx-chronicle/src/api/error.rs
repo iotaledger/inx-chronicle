@@ -122,6 +122,10 @@ pub enum ConfigError {
     InvalidHex(#[from] hex::FromHexError),
     #[error("Invalid regex in config: {0}")]
     InvalidRegex(#[from] regex::Error),
+    #[error("failed to decode key: {0}")]
+    KeyDecode(ed25519_dalek::SignatureError),
+    #[error("failed to read key bytes")]
+    KeyRead,
     #[error(transparent)]
     TimeConversion(#[from] time::error::ConversionRange),
 }

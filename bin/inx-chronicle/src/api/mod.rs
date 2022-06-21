@@ -25,7 +25,6 @@ use chronicle::{
     runtime::{spawn_task, Actor, ActorContext},
 };
 use hyper::Method;
-use libp2p_core::identity::ed25519::SecretKey;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -46,7 +45,7 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
-    config: ApiData,
+    api_data: ApiData,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
@@ -55,7 +54,7 @@ impl ApiWorker {
     pub fn new(db: &MongoDb, config: &ApiConfig, secret_key: &SecretKey) -> Result<Self, ConfigError> {
         Ok(Self {
             db: db.clone(),
-            config: (config.clone(), secret_key.clone()).try_into()?,
+            api_data: (config.clone(), secret_key.clone()).try_into()?,
             server_handle: None,
         })
     }
@@ -69,18 +68,18 @@ impl Actor for ApiWorker {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
-        log::info!("Starting API server on port `{}`", self.config.port);
+        log::info!("Starting API server on port `{}`", self.api_data.port);
         let api_handle = cx.handle().clone();
-        let port = self.config.port;
+        let port = self.api_data.port;
         let routes = routes()
             .layer(Extension(self.db.clone()))
-            .layer(Extension(self.config.clone()))
+            .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(
                 CorsLayer::new()
                     .allow_origin(
-                        self.config
+                        self.api_data
                             .allow_origins
                             .clone()
                             .map(AllowOrigin::try_from)
@@ -146,5 +145,49 @@ impl Actor for ApiWorker {
 async fn shutdown_signal(recv: oneshot::Receiver<()>) {
     if let Err(e) = recv.await {
         log::error!("Error receiving shutdown signal: {}", e);
+    }
+}
+
+/// An Ed25519 secret key.
+pub struct SecretKey(ed25519_dalek::SecretKey);
+
+/// View the bytes of the secret key.
+impl AsRef<[u8]> for SecretKey {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
+
+impl Clone for SecretKey {
+    fn clone(&self) -> SecretKey {
+        let mut sk_bytes = self.0.to_bytes();
+        Self::from_bytes(&mut sk_bytes).expect("ed25519_dalek::SecretKey::from_bytes(to_bytes(k)) != k")
+    }
+}
+
+impl std::fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SecretKey")
+    }
+}
+
+impl SecretKey {
+    /// Generate a new Ed25519 secret key.
+    pub fn generate() -> SecretKey {
+        use rand::RngCore;
+        let mut bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        SecretKey(ed25519_dalek::SecretKey::from_bytes(&bytes).unwrap())
+    }
+
+    /// Create an Ed25519 secret key from a byte slice, zeroing the input on success.
+    /// If the bytes do not constitute a valid Ed25519 secret key, an error is
+    /// returned.
+    pub fn from_bytes(mut sk_bytes: impl AsMut<[u8]>) -> Result<SecretKey, ed25519_dalek::SignatureError> {
+        use zeroize::Zeroize;
+        let sk_bytes = sk_bytes.as_mut();
+        let secret = ed25519_dalek::SecretKey::from_bytes(&*sk_bytes)?;
+        sk_bytes.zeroize();
+        Ok(SecretKey(secret))
     }
 }

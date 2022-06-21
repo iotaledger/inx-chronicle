@@ -14,12 +14,6 @@ pub enum ConfigError {
     Api(#[from] crate::api::ConfigError),
     #[error("failed to read file: {0}")]
     FileRead(std::io::Error),
-    #[cfg(feature = "api")]
-    #[error("failed to decode key: {0}")]
-    KeyDecode(libp2p_core::identity::error::DecodingError),
-    #[cfg(feature = "api")]
-    #[error("failed to read key bytes")]
-    KeyRead,
     #[error("toml deserialization failed: {0}")]
     TomlDeserialization(toml::de::Error),
 }
@@ -56,7 +50,7 @@ impl ChronicleConfig {
         #[cfg(feature = "api")]
         if let Some(password) = &args.password {
             self.api.password_hash = hex::encode(
-                auth_helper::password::password_hash(password.as_bytes(), self.api.jwt_salt.as_bytes())
+                auth_helper::password::password_hash(password.as_bytes(), self.api.password_salt.as_bytes())
                     .expect("invalid jwt config"),
             );
         }
