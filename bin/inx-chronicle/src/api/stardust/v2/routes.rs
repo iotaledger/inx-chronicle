@@ -43,6 +43,8 @@ lazy_static! {
 pub fn routes() -> Router {
     Router::new()
         .route("/info", not_implemented.into_service())
+        .route("/tips", not_implemented.into_service())
+        .route("/blocks", not_implemented.into_service())
         .nest(
             "/blocks",
             Router::new()
@@ -70,10 +72,17 @@ pub fn routes() -> Router {
             "/milestones",
             Router::new()
                 .route("/:milestone_id", get(milestone))
-                .route("/by-index/:index", get(milestone_by_index))
                 .route("/:milestone_id/utxo-changes", get(utxo_changes))
+                .route("/by-index/:index", get(milestone_by_index))
                 .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
+        .route(path "/peers", not_implemented.into_service()
+        .nest(
+            "/peers",
+            Router::new()
+                .route("/:peer_id", not_implemented.into_service()),
         )
+        .route("/control/database/prune", not_implemented.into_service()),
+        .route("/control/snapshot/create", not_implemented.into_service()),
 }
 
 #[derive(Debug, Serialize, From)]
