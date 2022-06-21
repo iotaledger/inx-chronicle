@@ -9,13 +9,14 @@ use axum::{
     Extension, Json, Router,
 };
 use chronicle::db::MongoDb;
+use hyper::StatusCode;
 use serde::Deserialize;
 
 use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new().route("/info", get(info)).route("/sync", get(sync));
+    let mut router = Router::new().route("/info", get(info)).route("/health", get(health));
 
     #[cfg(feature = "stardust")]
     {
@@ -54,9 +55,13 @@ async fn login(
     }
 }
 
+fn is_healthy() -> bool {
+    true
+}
+
 async fn info() -> InfoResponse {
     let version = std::env!("CARGO_PKG_VERSION").to_string();
-    let is_healthy = true;
+    let is_healthy = is_healthy();
     InfoResponse {
         name: "Chronicle".into(),
         version,
@@ -64,10 +69,22 @@ async fn info() -> InfoResponse {
     }
 }
 
-async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
+pub async fn health() -> StatusCode {
+    match is_healthy() {
+        true => StatusCode::OK,
+        false => StatusCode::SERVICE_UNAVAILABLE,
+    }
+}
+
+#[cfg(feature = "api-history")]
+pub async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
     Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
-async fn not_found() -> ApiError {
+pub async fn not_found() -> ApiError {
     ApiError::NotFound
+}
+
+pub async fn not_implemented() -> ApiError {
+    ApiError::NotImplemented
 }

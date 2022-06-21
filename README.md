@@ -4,6 +4,14 @@
 [![Canary](https://github.com/iotaledger/inx-chronicle/actions/workflows/canary.yml/badge.svg)](https://github.com/iotaledger/inx-chronicle/actions/workflows/canary.yml)
 [![Coverage Status](https://coveralls.io/repos/github/iotaledger/inx-chronicle/badge.svg?branch=main)](https://coveralls.io/github/iotaledger/inx-chronicle?branch=main)
 
+## APIs
+
+The data within Chronicle can be accessed through the following APIs:
+
+* [Core Node API](https://editor.swagger.io/?url=https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml) `api/core/v2/…`
+* [History API](https://editor.swagger.io/?url=https://raw.githubusercontent.com/iotaledger/tips/explorer-api/tips/TIP-0036/tx-history-rest-api.yaml) `api/history/v2/…`
+* Analytics API `api/history/v2/…`
+
 ## Usage
 
 The easiest way to start Chronicle is by using our supplied Dockerfile.
