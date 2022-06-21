@@ -53,10 +53,10 @@ impl<I> Stream for Merge<I> {
 
         let n = me.streams.len();
         let idx = *me.idx;
-        *me.idx += 1;
-        *me.idx %= n;
+        *me.idx = (idx + 1) % n;
         let streams = me.streams.get_mut();
         for i in (0..n).cycle().skip(idx).take(n) {
+            // Safe because we can guarantee the data is pinned as it came from a pinned source and has not been moved.
             let stream = unsafe { Pin::new_unchecked(streams.get_mut(i).unwrap().as_mut()) };
             match stream.poll_next(cx) {
                 Ready(Some(val)) => return Ready(Some(val)),
