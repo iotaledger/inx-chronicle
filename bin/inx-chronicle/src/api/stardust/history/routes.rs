@@ -58,8 +58,7 @@ async fn transaction_history(
         .into_iter()
         .map(|rec| {
             Ok(Transfer {
-                transaction_id: rec.output_id.transaction_id.to_hex(),
-                output_index: rec.output_id.index,
+                output_id: rec.output_id.to_hex(),
                 is_spent: rec.is_spent,
                 milestone_index: rec.at.milestone_index,
                 milestone_timestamp: rec.at.milestone_timestamp,
@@ -68,8 +67,8 @@ async fn transaction_history(
         .collect::<Result<_, ApiError>>()?;
 
     Ok(TransactionHistoryResponse {
-        transactions,
+        items: transactions,
         address,
-        paging_state,
+        cursor: paging_state,
     })
 }

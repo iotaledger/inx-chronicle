@@ -10,18 +10,16 @@ use crate::api::impl_success_response;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionHistoryResponse {
     pub address: String,
-    pub transactions: Vec<Transfer>,
-    pub paging_state: Option<String>,
+    pub items: Vec<Transfer>,
+    pub cursor: Option<String>,
 }
 
 impl_success_response!(TransactionHistoryResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Transfer {
-    #[serde(rename = "transactionId")]
-    pub transaction_id: String,
-    #[serde(rename = "outputIndex")]
-    pub output_index: u16,
+    #[serde(rename = "outputId")]
+    pub output_id: String,
     #[serde(rename = "isSpent")]
     pub is_spent: bool,
     #[serde(rename = "milestoneIndex")]
