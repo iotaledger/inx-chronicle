@@ -5,7 +5,7 @@
 pub mod analytics;
 #[cfg(feature = "api-node")]
 pub mod core;
-#[cfg(feature = "api-explorer")]
+#[cfg(feature = "api-history")]
 pub mod explorer;
 
 use axum::Router;
@@ -19,7 +19,7 @@ pub fn routes() -> Router {
         router = router.nest("/analytics/v2", analytics::routes());
     }
 
-    #[cfg(feature = "api-explorer")]
+    #[cfg(feature = "api-history")]
     {
         router = router.nest("/history/v2", explorer::routes());
     }
