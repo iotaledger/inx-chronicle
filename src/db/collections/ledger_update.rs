@@ -163,11 +163,11 @@ mod analytics {
     use mongodb::bson;
 
     use super::*;
-    use crate::types::tangle::MilestoneIndex;
+    use crate::types::stardust::milestone::MilestoneTimestamp;
 
     /// Address analytics result.
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
     pub struct AddressAnalyticsResult {
         /// The number of addresses used in the time period.
         pub total_addresses: u64,
@@ -179,17 +179,17 @@ mod analytics {
 
     impl MongoDb {
         /// Create aggregate statistics of all addresses.
-        pub async fn aggregate_addresses(
+        pub async fn get_address_analytics(
             &self,
-            start_milestone: MilestoneIndex,
-            end_milestone: MilestoneIndex,
+            start_timestamp: MilestoneTimestamp,
+            end_timestamp: MilestoneTimestamp,
         ) -> Result<Option<AddressAnalyticsResult>, Error> {
             Ok(self
                 .0
                 .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                 .aggregate(
                     vec![
-                        doc! { "$match": { "at.milestone_index": { "$gt": start_milestone, "$lt": end_milestone } } },
+                        doc! { "$match": { "at.milestone_timestamp": { "$gt": start_timestamp, "$lt": end_timestamp } } },
                         doc! { "$facet": {
                             "total": [
                                 { "$group" : {
