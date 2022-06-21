@@ -4,10 +4,12 @@
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
+use super::OutputAmount;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
     #[serde(with = "crate::types::util::stringify")]
-    amount: u64,
+    pub amount: OutputAmount,
 }
 
 impl From<&bee::TreasuryOutput> for TreasuryOutput {

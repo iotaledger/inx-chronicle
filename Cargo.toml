@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "0.1.0-alpha.5"
+version = "0.1.0-alpha.6"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -76,8 +76,8 @@ packable = { version = "0.4", default-features = false }
 [features]
 default = [
     "analytics",
-    "api-explorer",
-    "api-node",
+    "api-history",
+    "api-core",
     "inx",
     "stardust",
     "metrics",
@@ -93,10 +93,10 @@ api = [
     "dep:tower",
     "dep:tower-http",
 ]
-api-explorer = [
+api-history = [
     "api",
 ]
-api-node = [
+api-core = [
     "api",
 ]
 console = [
