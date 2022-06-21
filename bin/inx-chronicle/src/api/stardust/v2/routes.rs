@@ -7,7 +7,6 @@ use axum::{
     extract::{Extension, Path},
     handler::Handler,
     http::header::{HeaderMap, HeaderValue},
-    response::{IntoResponse, Response},
     routing::*,
     Router,
 };
@@ -15,8 +14,8 @@ use bee_block_stardust::{output::dto::OutputDto, payload::milestone::option::dto
 use bee_rest_api_stardust::types::{
     dtos::{LedgerInclusionStateDto, ReceiptDto},
     responses::{
-        BlockChildrenResponse, BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse,
-        OutputResponse, ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
+        BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
+        ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
     },
 };
 use chronicle::{
@@ -27,12 +26,11 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
-use derive_more::From;
 use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use mongodb::bson;
-use serde::Serialize;
 
+use super::responses::BlockChildrenResponse;
 use crate::api::{error::ApiError, extractors::Pagination, routes::not_implemented, ApiResult};
 
 lazy_static! {
@@ -76,31 +74,23 @@ pub fn routes() -> Router {
         )
 }
 
-#[derive(Debug, Serialize, From)]
-enum BlockOrRawResponse {
-    Block(BlockResponse),
-    Raw(Vec<u8>),
-}
-
 async fn block(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
     headers: HeaderMap,
-) -> ApiResult<BlockOrRawResponse> {
+) -> ApiResult<BlockResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let block = database.get_block(&block_id).await?.ok_or(ApiError::NoResults)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(database
-                .get_block_raw(&block_id)
-                .await?
-                .ok_or(ApiError::NoResults)?
-                .into());
+            return Ok(BlockResponse::Raw(
+                database.get_block_raw(&block_id).await?.ok_or(ApiError::NoResults)?,
+            ));
         }
     }
 
-    Ok(BlockResponse(BlockDto {
+    Ok(BlockResponse::Json(BlockDto {
         protocol_version: block.protocol_version,
         parents: block.parents.iter().map(|b| b.to_hex()).collect(),
         payload: block.payload.map(|p| {
@@ -109,8 +99,7 @@ async fn block(
             bee_payload.into()
         }),
         nonce: block.nonce.to_string(),
-    })
-    .into())
+    }))
 }
 
 async fn block_metadata(
@@ -249,7 +238,7 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse(BlockDto {
+    Ok(BlockResponse::Json(BlockDto {
         protocol_version: block.protocol_version,
         parents: block.parents.iter().map(|b| b.to_hex()).collect(),
         payload: block.payload.map(|p| {
@@ -323,7 +312,7 @@ async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String
             // TODO: unwrap
             let payload: &bee_block_stardust::payload::milestone::MilestonePayload = &payload.try_into().unwrap();
             let payload_dto = payload.into();
-            MilestoneResponse(payload_dto)
+            MilestoneResponse::Json(payload_dto)
         })
 }
 
@@ -339,7 +328,7 @@ async fn milestone_by_index(
             // TODO: unwrap
             let payload: &bee_block_stardust::payload::milestone::MilestonePayload = &payload.try_into().unwrap();
             let payload_dto = payload.into();
-            MilestoneResponse(payload_dto)
+            MilestoneResponse::Json(payload_dto)
         })
 }
 

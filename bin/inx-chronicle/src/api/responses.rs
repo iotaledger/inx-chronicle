@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::Deref;
-
 use chronicle::{
     db::collections::SyncData,
     types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},
@@ -15,7 +13,7 @@ macro_rules! impl_success_response {
         $(
             impl axum::response::IntoResponse for $type {
                 fn into_response(self) -> axum::response::Response {
-                    crate::api::responses::SuccessBody::from(self).into_response()
+                    axum::Json(self).into_response()
                 }
             }
         )*
@@ -25,7 +23,7 @@ macro_rules! impl_success_response {
 pub(crate) use impl_success_response;
 use serde_json::Value;
 
-/// Response of `GET /api/<api_version>/info`.
+/// Response of `GET /api/info`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InfoResponse {
     pub name: String,
@@ -102,37 +100,4 @@ pub struct Unlock {
     #[serde(rename = "blockId")]
     pub block_id: String,
     pub block: Value,
-}
-
-/// A success wrapper for API responses.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SuccessBody<T> {
-    data: T,
-}
-
-impl<T> Deref for SuccessBody<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
-}
-
-impl<T> SuccessBody<T> {
-    /// Create a new [`SuccessBody`] from any inner type.
-    pub fn new(data: T) -> Self {
-        Self { data }
-    }
-}
-
-impl<T> From<T> for SuccessBody<T> {
-    fn from(data: T) -> Self {
-        Self::new(data)
-    }
-}
-
-impl<T: Serialize> axum::response::IntoResponse for SuccessBody<T> {
-    fn into_response(self) -> axum::response::Response {
-        axum::Json(self).into_response()
-    }
 }

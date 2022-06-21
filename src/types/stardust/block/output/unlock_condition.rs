@@ -18,13 +18,9 @@ pub enum UnlockCondition {
         amount: u64,
     },
     #[serde(rename = "timelock")]
-    Timelock { milestone_index: u32, timestamp: u32 },
+    Timelock { timestamp: u32 },
     #[serde(rename = "expiration")]
-    Expiration {
-        return_address: Address,
-        milestone_index: u32,
-        timestamp: u32,
-    },
+    Expiration { return_address: Address, timestamp: u32 },
     #[serde(rename = "state_controller_address")]
     StateControllerAddress { address: Address },
     #[serde(rename = "governor_address")]
@@ -58,12 +54,10 @@ impl From<&bee::UnlockCondition> for UnlockCondition {
                 amount: c.amount(),
             },
             bee::UnlockCondition::Timelock(c) => Self::Timelock {
-                milestone_index: c.milestone_index().0,
                 timestamp: c.timestamp(),
             },
             bee::UnlockCondition::Expiration(c) => Self::Expiration {
                 return_address: (*c.return_address()).into(),
-                milestone_index: c.milestone_index().0,
                 timestamp: c.timestamp(),
             },
             bee::UnlockCondition::StateControllerAddress(a) => Self::StateControllerAddress {
@@ -88,19 +82,11 @@ impl TryFrom<UnlockCondition> for bee::UnlockCondition {
             UnlockCondition::StorageDepositReturn { return_address, amount } => Self::StorageDepositReturn(
                 bee::StorageDepositReturnUnlockCondition::new(return_address.into(), amount)?,
             ),
-            UnlockCondition::Timelock {
-                milestone_index,
-                timestamp,
-            } => Self::Timelock(bee::TimelockUnlockCondition::new(milestone_index.into(), timestamp)?),
+            UnlockCondition::Timelock { timestamp } => Self::Timelock(bee::TimelockUnlockCondition::new(timestamp)?),
             UnlockCondition::Expiration {
                 return_address,
-                milestone_index,
                 timestamp,
-            } => Self::Expiration(bee::ExpirationUnlockCondition::new(
-                return_address.into(),
-                milestone_index.into(),
-                timestamp,
-            )?),
+            } => Self::Expiration(bee::ExpirationUnlockCondition::new(return_address.into(), timestamp)?),
             UnlockCondition::StateControllerAddress { address } => {
                 Self::StateControllerAddress(bee::StateControllerAddressUnlockCondition::new(address.into()))
             }
@@ -136,11 +122,11 @@ pub(crate) mod test {
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_timelock_condition(1, 1);
+        let block = get_test_timelock_condition(1);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
-        let block = get_test_expiration_condition(bee_test::rand::address::rand_address().into(), 1, 1);
+        let block = get_test_expiration_condition(bee_test::rand::address::rand_address().into(), 1);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<UnlockCondition>(bson).unwrap());
 
@@ -170,21 +156,13 @@ pub(crate) mod test {
         UnlockCondition::StorageDepositReturn { return_address, amount }
     }
 
-    pub(crate) fn get_test_timelock_condition(milestone_index: u32, timestamp: u32) -> UnlockCondition {
-        UnlockCondition::Timelock {
-            milestone_index,
-            timestamp,
-        }
+    pub(crate) fn get_test_timelock_condition(timestamp: u32) -> UnlockCondition {
+        UnlockCondition::Timelock { timestamp }
     }
 
-    pub(crate) fn get_test_expiration_condition(
-        return_address: Address,
-        milestone_index: u32,
-        timestamp: u32,
-    ) -> UnlockCondition {
+    pub(crate) fn get_test_expiration_condition(return_address: Address, timestamp: u32) -> UnlockCondition {
         UnlockCondition::Expiration {
             return_address,
-            milestone_index,
             timestamp,
         }
     }

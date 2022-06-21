@@ -64,8 +64,7 @@ bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-dev
 
 # Stardust types
 bee-block-stardust = { package = "bee-block", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
-#bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
-bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/samuel-rufi/bee.git", branch = "shimmer-axum", default-features = false, features = ["axum"], optional = true }
+bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }

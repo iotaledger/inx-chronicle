@@ -195,34 +195,10 @@ checksum = "c5738be7561b0eeb501ef1d5c5db3f24e01ceb55fededd9b00039aada34966ad"
 [[package]]
 name = "bee-block"
 version = "0.1.0"
-source = "git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum#60b8e08cfe5c8ad9dc386099a6360aa8df778422"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
  "bech32",
- "bee-pow 0.2.0 (git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum)",
- "bee-ternary",
- "bitflags",
- "bytemuck",
- "derive_more",
- "hashbrown",
- "hex",
- "iota-crypto",
- "iterator-sorted",
- "packable",
- "prefix-hex",
- "primitive-types",
- "serde",
- "serde-big-array",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "bee-block"
-version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
-dependencies = [
- "bech32",
- "bee-pow 0.2.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
+ "bee-pow",
  "bee-ternary",
  "bitflags",
  "bytemuck",
@@ -243,20 +219,9 @@ dependencies = [
 [[package]]
 name = "bee-ledger"
 version = "0.7.0"
-source = "git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum#60b8e08cfe5c8ad9dc386099a6360aa8df778422"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
- "bee-block 0.1.0 (git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum)",
- "packable",
- "thiserror",
- "time-helper",
-]
-
-[[package]]
-name = "bee-ledger"
-version = "0.7.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
-dependencies = [
- "bee-block 0.1.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
+ "bee-block",
  "packable",
  "thiserror",
  "time-helper",
@@ -279,17 +244,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "0.2.0"
-source = "git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum#60b8e08cfe5c8ad9dc386099a6360aa8df778422"
-dependencies = [
- "bee-ternary",
- "iota-crypto",
- "thiserror",
-]
-
-[[package]]
-name = "bee-pow"
-version = "0.2.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -299,11 +254,11 @@ dependencies = [
 [[package]]
 name = "bee-rest-api"
 version = "0.2.2"
-source = "git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum#60b8e08cfe5c8ad9dc386099a6360aa8df778422"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
  "axum 0.5.9",
- "bee-block 0.1.0 (git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum)",
- "bee-ledger 0.7.0 (git+https://github.com/samuel-rufi/bee.git?branch=shimmer-axum)",
+ "bee-block",
+ "bee-ledger",
  "serde",
  "thiserror",
 ]
@@ -311,7 +266,7 @@ dependencies = [
 [[package]]
 name = "bee-runtime"
 version = "0.1.1-alpha"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
  "async-trait",
  "bee-storage",
@@ -323,7 +278,7 @@ dependencies = [
 [[package]]
 name = "bee-storage"
 version = "0.12.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
  "packable",
  "serde",
@@ -333,10 +288,10 @@ dependencies = [
 [[package]]
 name = "bee-tangle"
 version = "0.3.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
  "async-trait",
- "bee-block 0.1.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
+ "bee-block",
  "bee-runtime",
  "bee-storage",
  "bitflags",
@@ -366,10 +321,10 @@ dependencies = [
 [[package]]
 name = "bee-test"
 version = "0.1.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#3059ab54610071417bb112a112662dadeea7c87d"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#f97e1c0e2333c476c3fb71d8f6459417ce0ac8a6"
 dependencies = [
- "bee-block 0.1.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
- "bee-ledger 0.7.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
+ "bee-block",
+ "bee-ledger",
  "bee-tangle",
  "bee-ternary",
  "bytemuck",
@@ -490,7 +445,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "axum 0.5.9",
- "bee-block 0.1.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
+ "bee-block",
  "bee-metrics",
  "bee-rest-api",
  "bee-test",
@@ -1293,7 +1248,7 @@ name = "inx"
 version = "0.4.0"
 source = "git+https://github.com/iotaledger/inx#f64096762c65e29f5a60aaf3090868e3b13547ca"
 dependencies = [
- "bee-block 0.1.0 (git+https://github.com/iotaledger/bee.git?branch=shimmer-develop)",
+ "bee-block",
  "packable",
  "prost",
  "thiserror",
