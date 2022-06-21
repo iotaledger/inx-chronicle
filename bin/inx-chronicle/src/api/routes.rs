@@ -9,9 +9,7 @@ use super::{error::ApiError, responses::*, ApiResult};
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new()
-        .route("/info", get(info))
-        .route("/health", get(health));
+    let mut router = Router::new().route("/info", get(info)).route("/health", get(health));
 
     #[cfg(feature = "stardust")]
     {

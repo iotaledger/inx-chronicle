@@ -3,10 +3,10 @@
 
 #[cfg(feature = "analytics")]
 pub mod analytics;
-#[cfg(feature = "api-explorer")]
-pub mod explorer;
 #[cfg(feature = "api-node")]
 pub mod core;
+#[cfg(feature = "api-explorer")]
+pub mod explorer;
 
 use axum::Router;
 
