@@ -42,10 +42,10 @@ pub fn routes() -> Router {
     Router::new()
         .route("/info", not_implemented.into_service())
         .route("/tips", not_implemented.into_service())
-        .route("/blocks", not_implemented.into_service())
         .nest(
             "/blocks",
             Router::new()
+                .route("/", not_implemented.into_service())
                 .route("/:block_id", get(block))
                 .route("/:block_id/children", get(block_children))
                 .route("/:block_id/metadata", get(block_metadata)),
@@ -56,10 +56,11 @@ pub fn routes() -> Router {
                 .route("/:output_id", get(output))
                 .route("/:output_id/metadata", get(output_metadata)),
         )
-        .route("/receipts", get(receipts))
         .nest(
             "/receipts",
-            Router::new().route("/:migrated_at", get(receipts_migrated_at)),
+            Router::new()
+                .route("/", get(receipts))
+                .route("/:migrated_at", get(receipts_migrated_at)),
         )
         .route("/treasury", get(treasury))
         .nest(
@@ -73,14 +74,15 @@ pub fn routes() -> Router {
                 .route("/:milestone_id/utxo-changes", get(utxo_changes))
                 .route("/by-index/:index", get(milestone_by_index))
                 .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
-        .route(path "/peers", not_implemented.into_service())
+        )
         .nest(
             "/peers",
             Router::new()
+                .route("/", not_implemented.into_service())
                 .route("/:peer_id", not_implemented.into_service()),
         )
-        .route("/control/database/prune", not_implemented.into_service()),
-        .route("/control/snapshot/create", not_implemented.into_service()),
+        .route("/control/database/prune", not_implemented.into_service())
+        .route("/control/snapshot/create", not_implemented.into_service())
 }
 
 async fn block(
