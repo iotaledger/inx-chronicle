@@ -19,7 +19,7 @@ use crate::api::{routes::sync, ApiError, ApiResult};
 pub fn routes() -> Router {
     Router::new().route("/gaps", get(sync)).nest(
         "/ledger",
-        Router::new().route("/updates/:address", get(transaction_history)),
+        Router::new().route("/updates/by-address/:address", get(transaction_history)),
     )
 }
 
