@@ -76,7 +76,7 @@ packable = { version = "0.4", default-features = false }
 default = [
     "analytics",
     "api-history",
-    "api-node",
+    "api-core",
     "inx",
     "stardust",
     "metrics",
@@ -94,7 +94,7 @@ api = [
 api-history = [
     "api",
 ]
-api-node = [
+api-core = [
     "api",
 ]
 console = [

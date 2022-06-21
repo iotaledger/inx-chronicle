@@ -3,7 +3,7 @@
 
 #[cfg(feature = "analytics")]
 pub mod analytics;
-#[cfg(feature = "api-node")]
+#[cfg(feature = "api-core")]
 pub mod core;
 #[cfg(feature = "api-history")]
 pub mod explorer;
@@ -24,7 +24,7 @@ pub fn routes() -> Router {
         router = router.nest("/history/v2", explorer::routes());
     }
 
-    #[cfg(feature = "api-node")]
+    #[cfg(feature = "api-core")]
     {
         router = router.nest("/core/v2", core::routes());
     }
