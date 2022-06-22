@@ -49,6 +49,15 @@ impl TryFrom<Block> for bee::Block {
     }
 }
 
+impl TryFrom<Block> for bee::BlockDto {
+    type Error = bee_block_stardust::Error;
+
+    fn try_from(value: Block) -> Result<Self, Self::Error> {
+        let stardust = bee::Block::try_from(value)?;
+        Ok(Self::from(&stardust))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use mongodb::bson::{from_bson, to_bson, Bson};

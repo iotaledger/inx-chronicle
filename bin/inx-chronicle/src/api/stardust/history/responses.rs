@@ -1,11 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::response::IntoResponse;
 use chronicle::types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex};
 use serde::{Deserialize, Serialize};
 
-use crate::api::impl_success_response;
+use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionHistoryResponse {

@@ -155,6 +155,22 @@ impl MongoDb {
             .find(doc, options)
             .await
     }
+
+    /// Get updates to the ledger for a given milestone index.
+    pub async fn get_ledger_updates_at_index(
+        &self,
+        milestone_index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateRecord, Error>>, Error> {
+        self.0
+            .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
+            .find(
+                doc! {
+                    "at.milestone_index": { "$eq": milestone_index },
+                },
+                None,
+            )
+            .await
+    }
 }
 
 #[cfg(feature = "analytics")]

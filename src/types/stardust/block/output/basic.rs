@@ -86,8 +86,8 @@ pub(crate) mod test {
                     get_test_storage_deposit_return_condition(bee_test::rand::address::rand_address().into(), 1)
                         .try_into()
                         .unwrap(),
-                    get_test_timelock_condition(1, 1).try_into().unwrap(),
-                    get_test_expiration_condition(bee_test::rand::address::rand_address().into(), 1, 1)
+                    get_test_timelock_condition(1).try_into().unwrap(),
+                    get_test_expiration_condition(bee_test::rand::address::rand_address().into(), 1)
                         .try_into()
                         .unwrap(),
                 ])

@@ -132,6 +132,7 @@ impl Actor for InxWorker {
                 .with_stream(ledger_update_stream),
         )
         .await;
+
         Ok(inx_client)
     }
 
