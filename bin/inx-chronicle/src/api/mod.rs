@@ -36,7 +36,7 @@ pub use self::{
     config::ApiConfig,
     error::{ApiError, ConfigError},
 };
-use self::{config::ApiData, responses::impl_success_response, routes::routes};
+use self::{config::ApiData, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;

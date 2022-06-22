@@ -1,11 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, UpdateOptions},
+    options::{FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use crate::{
     db::{collections::milestone::MilestoneDocument, MongoDb},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{Block, BlockId, Output, OutputId, TransactionId},
+        stardust::block::{Block, BlockId, Output, OutputId, Payload, TransactionId},
     },
 };
 
@@ -145,6 +145,27 @@ impl MongoDb {
         Ok(block)
     }
 
+    /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
+    pub async fn get_block_children(
+        &self,
+        block_id: &BlockId,
+        page_size: usize,
+        page: usize,
+    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
+        self.0
+            .collection::<BlockId>(BlockDocument::COLLECTION)
+            .find(
+                doc! {"block.parents": bson::to_bson(block_id)?},
+                FindOptions::builder()
+                    .skip((page_size * page) as u64)
+                    .sort(doc! {"metadata.referenced_by_milestone_index": -1})
+                    .limit(page_size as i64)
+                    .projection(doc! {"block_id": 1 })
+                    .build(),
+            )
+            .await
+    }
+
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
     pub async fn insert_block_with_metadata(
         &self,
@@ -154,6 +175,13 @@ impl MongoDb {
         metadata: BlockMetadata,
         white_flag_index: u32,
     ) -> Result<(), Error> {
+        if metadata.inclusion_state == LedgerInclusionState::Included {
+            if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
+                self.insert_treasury(metadata.referenced_by_milestone_index, payload.as_ref())
+                    .await?;
+            }
+        }
+
         let block_document = BlockDocument {
             block_id,
             block,
