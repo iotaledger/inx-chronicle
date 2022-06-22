@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::api::impl_success_response;
+use crate::api::responses::impl_success_response;
 
 /// Response of `GET /api/analytics/addresses[?start_timestamp=<i64>&end_timestamp=<i64>]`.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
