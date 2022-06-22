@@ -268,6 +268,15 @@ impl MongoDb {
                     } },
                     doc! { "$lookup": {
                         "from": MilestoneDocument::COLLECTION,
+                        "pipeline": [
+                            { "$sort": { "milestone_timestamp": -1 } },
+                            { "$limit": 1 }
+                        ],
+                        "as": "latest_milestone"
+                    } },
+                    doc! { "$set": { "latest_milestone": { "$first": "$latest_milestone" } } },
+                    doc! { "$lookup": {
+                        "from": MilestoneDocument::COLLECTION,
                         "localField": "metadata.referenced_by_milestone_index",
                         "foreignField": "milestone_index",
                         "as": "metadata.referenced_by_milestone"
@@ -279,10 +288,8 @@ impl MongoDb {
                             "output_id": &output_id,
                             "block_id": "$block_id",
                             "transaction_id": "$block.payload.transaction_id",
-                            "booked": {
-                                "milestone_index": "$metadata.referenced_by_milestone_index",
-                                "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
-                            },
+                            "booked": "$metadata.referenced_by_milestone",
+                            "latest_milestone": "$latest_milestone"
                         }
                     } } },
                 ],
@@ -315,6 +322,15 @@ impl MongoDb {
                     } },
                     doc! { "$lookup": {
                         "from": MilestoneDocument::COLLECTION,
+                        "pipeline": [
+                            { "$sort": { "milestone_timestamp": -1 } },
+                            { "$limit": 1 }
+                        ],
+                        "as": "latest_milestone"
+                    } },
+                    doc! { "$set": { "latest_milestone": { "$first": "$latest_milestone" } } },
+                    doc! { "$lookup": {
+                        "from": MilestoneDocument::COLLECTION,
                         "localField": "metadata.referenced_by_milestone_index",
                         "foreignField": "milestone_index",
                         "as": "metadata.referenced_by_milestone"
@@ -324,10 +340,8 @@ impl MongoDb {
                         "output_id": &output_id,
                         "block_id": "$block_id",
                         "transaction_id": "$block.payload.transaction_id",
-                        "booked": {
-                            "milestone_index": "$metadata.referenced_by_milestone_index",
-                            "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
-                        },
+                        "booked": "$metadata.referenced_by_milestone",
+                        "latest_milestone": "$latest_milestone"
                     } } },
                 ],
                 None,

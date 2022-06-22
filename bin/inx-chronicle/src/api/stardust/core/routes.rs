@@ -162,11 +162,7 @@ async fn block_children(
     })
 }
 
-fn create_output_metadata_response(
-    output_index: u16,
-    metadata: OutputMetadata,
-    _ledger_index: MilestoneIndex,
-) -> OutputMetadataResponse {
+fn create_output_metadata_response(output_index: u16, metadata: OutputMetadata) -> OutputMetadataResponse {
     OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.transaction_id.to_hex(),
@@ -180,8 +176,10 @@ fn create_output_metadata_response(
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
-        // TODO: return proper value
-        ledger_index: 0,
+        ledger_index: *metadata
+            .latest_milestone
+            .map(|ms| ms.milestone_index)
+            .unwrap_or_default(),
     }
 }
 
@@ -192,7 +190,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let metadata = create_output_metadata_response(output_id.index, metadata, MilestoneIndex(0));
+    let metadata = create_output_metadata_response(output_id.index, metadata);
 
     Ok(OutputResponse {
         metadata,
@@ -210,11 +208,7 @@ async fn output_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(create_output_metadata_response(
-        output_id.index,
-        metadata,
-        MilestoneIndex(0),
-    ))
+    Ok(create_output_metadata_response(output_id.index, metadata))
 }
 
 async fn transaction_included_block(

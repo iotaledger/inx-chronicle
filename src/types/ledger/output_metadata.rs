@@ -31,6 +31,7 @@ pub struct OutputMetadata {
     pub transaction_id: TransactionId,
     pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
+    pub latest_milestone: Option<MilestoneIndexTimestamp>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -52,6 +53,7 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
                 milestone_timestamp: value.milestone_timestamp_booked.into(),
             },
             spent: None,
+            latest_milestone: None,
         };
         Self {
             output: (&value.output).into(),
