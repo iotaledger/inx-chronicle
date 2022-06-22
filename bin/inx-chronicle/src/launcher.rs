@@ -45,7 +45,7 @@ impl Actor for Launcher {
                 }
             }
         };
-        config.apply_cli_args(cli_args);
+        config.apply_cli_args(&cli_args);
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
@@ -58,7 +58,8 @@ impl Actor for Launcher {
             .await;
 
         #[cfg(feature = "api")]
-        cx.spawn_child(super::api::ApiWorker::new(&db, &config.api)).await;
+        cx.spawn_child(super::api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?)
+            .await;
 
         #[cfg(feature = "metrics")]
         cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
@@ -140,7 +141,8 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
             Report::Error(e) => match e.error {
                 ActorError::Result(_) => {
                     let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(super::api::ApiWorker::new(&db, &config.api)).await;
+                    cx.spawn_child(super::api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?)
+                        .await;
                 }
                 ActorError::Panic | ActorError::Aborted => {
                     cx.abort().await;
