@@ -105,30 +105,36 @@ impl MongoDb {
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
+        #[derive(Deserialize)]
+        struct RawResult {
+            #[serde(with = "serde_bytes")]
+            data: Vec<u8>,
+        }
+
         let raw = self
             .0
-            .collection::<Block>(BlockDocument::COLLECTION)
+            .collection::<RawResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$raw" } },
+                    doc! { "$replaceRoot": { "newRoot": { "data": "$raw" } } },
                 ],
                 None,
             )
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
+            .map(bson::from_document::<RawResult>)
             .transpose()?;
 
-        Ok(raw)
+        Ok(raw.map(|i| i.data))
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         let block = self
             .0
-            .collection::<Block>(BlockDocument::COLLECTION)
+            .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
