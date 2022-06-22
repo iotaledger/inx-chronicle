@@ -42,6 +42,15 @@ impl TryFrom<MilestonePayload> for bee::MilestonePayload {
     }
 }
 
+impl TryFrom<MilestonePayload> for bee::dto::MilestonePayloadDto {
+    type Error = bee_block_stardust::Error;
+
+    fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
+        let stardust = bee::MilestonePayload::try_from(value)?;
+        Ok(Self::from(&stardust))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestoneEssence {
     pub index: MilestoneIndex,

@@ -129,6 +129,7 @@ impl Actor for InxWorker {
             latest_ms + 1..=u32::MAX.into(),
         ))
         .await;
+
         Ok(inx_client)
     }
 

@@ -85,7 +85,7 @@ impl IntoResponse for ApiError {
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[allow(dead_code)]
-    #[error("Invalid paging state")]
+    #[error("Invalid cursor")]
     BadPagingState,
     #[cfg(feature = "stardust")]
     #[error(transparent)]

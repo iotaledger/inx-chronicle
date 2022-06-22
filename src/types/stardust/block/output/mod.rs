@@ -14,7 +14,7 @@ pub(crate) mod treasury;
 
 use std::str::FromStr;
 
-use bee_block_stardust::output as bee;
+use bee_block_stardust::output::{self as bee};
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -142,6 +142,15 @@ impl TryFrom<Output> for bee::Output {
             Output::Foundry(o) => bee::Output::Foundry(o.try_into()?),
             Output::Nft(o) => bee::Output::Nft(o.try_into()?),
         })
+    }
+}
+
+impl TryFrom<Output> for bee::dto::OutputDto {
+    type Error = bee_block_stardust::Error;
+
+    fn try_from(value: Output) -> Result<Self, Self::Error> {
+        let stardust = bee::Output::try_from(value)?;
+        Ok(bee::dto::OutputDto::from(&stardust))
     }
 }
 
