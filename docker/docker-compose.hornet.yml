@@ -26,7 +26,7 @@ services:
       - "mongodb://mongo:27017"
 
   hornet:
-    image: iotaledger/hornet:2.0.0-alpha21
+    image: iotaledger/hornet:2.0.0-alpha.21
     ulimits:
       nofile:
         soft: 8192
