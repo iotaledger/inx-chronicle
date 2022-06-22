@@ -24,6 +24,7 @@ use inx::{
 pub use ledger_update_stream::LedgerUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
+use crate::util::IsHealthy;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -189,6 +190,21 @@ impl HandleEvent<Report<Syncer>> for InxWorker {
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<IsHealthy> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        IsHealthy(sender): IsHealthy,
+        inx_client: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
+            .map_err(InxError::InxTypeConversion)?;
+        sender.send(node_status.is_healthy).ok();
         Ok(())
     }
 }

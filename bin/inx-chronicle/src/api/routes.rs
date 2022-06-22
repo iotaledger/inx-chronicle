@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{handler::Handler, routing::get, Extension, Router};
-use chronicle::db::MongoDb;
+use chronicle::{db::MongoDb, runtime::ScopeView};
 use hyper::StatusCode;
 
 use super::{error::ApiError, responses::*, ApiResult};
@@ -19,13 +19,23 @@ pub fn routes() -> Router {
     Router::new().nest("/api", router).fallback(not_found.into_service())
 }
 
-fn is_healthy() -> bool {
-    true
+async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
+    #[allow(unused_mut)]
+    let mut is_healthy = true;
+    #[cfg(feature = "inx")]
+    {
+        use crate::util::CheckHealth;
+        is_healthy &= scope
+            .is_healthy::<crate::stardust_inx::InxWorker>()
+            .await
+            .unwrap_or(false);
+    }
+    is_healthy
 }
 
-async fn info() -> InfoResponse {
+async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {
     let version = std::env!("CARGO_PKG_VERSION").to_string();
-    let is_healthy = is_healthy();
+    let is_healthy = is_healthy(&scope).await;
     InfoResponse {
         name: "Chronicle".into(),
         version,
@@ -33,8 +43,8 @@ async fn info() -> InfoResponse {
     }
 }
 
-pub async fn health() -> StatusCode {
-    match is_healthy() {
+pub async fn health(Extension(scope): Extension<ScopeView>) -> StatusCode {
+    match is_healthy(&scope).await {
         true => StatusCode::OK,
         false => StatusCode::SERVICE_UNAVAILABLE,
     }
