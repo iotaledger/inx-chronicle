@@ -5,7 +5,6 @@ use chronicle::{
     db::collections::SyncData,
     types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},
 };
-use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_success_response {
@@ -39,30 +38,6 @@ impl_success_response!(InfoResponse);
 pub struct SyncDataDto(pub SyncData);
 
 impl_success_response!(SyncDataDto);
-
-#[derive(Clone, Debug, Serialize, Deserialize, From)]
-#[serde(untagged)]
-pub enum Expansion {
-    Simple(String),
-    Expanded(Record),
-}
-
-impl std::fmt::Display for Expansion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            Expansion::Simple(s) => write!(f, "{}", s),
-            Expansion::Expanded(rec) => write!(
-                f,
-                "id:{}{}{}",
-                rec.id,
-                rec.inclusion_state
-                    .map_or(String::new(), |s| format!(";inclusion_state:{}", s as u8)),
-                rec.milestone_index
-                    .map_or(String::new(), |i| format!(";milestone_index:{}", i)),
-            ),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Record {
