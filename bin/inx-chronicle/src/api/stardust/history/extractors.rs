@@ -25,7 +25,7 @@ pub struct HistoryPagination {
 pub struct HistoryPaginationQuery {
     pub page_size: Option<usize>,
     pub start_milestone_index: Option<u32>,
-    pub paging_state: Option<String>,
+    pub cursor: Option<String>,
 }
 
 #[async_trait]
@@ -36,15 +36,15 @@ impl<B: Send> FromRequest<B> for HistoryPagination {
         let Query(HistoryPaginationQuery {
             mut page_size,
             mut start_milestone_index,
-            paging_state,
+            cursor,
         }) = Query::<HistoryPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
         let mut start_output_id = None;
-        if let Some(paging_state) = paging_state {
+        if let Some(cursor) = cursor {
             // Unwrap: Infallable as long as the regex is valid
             let regex = Regex::new(HISTORY_PAGING_REGEX).unwrap();
-            let captures = regex.captures(&paging_state).ok_or(ParseError::BadPagingState)?;
+            let captures = regex.captures(&cursor).ok_or(ParseError::BadPagingState)?;
             start_milestone_index.replace(captures.get(1).unwrap().as_str().parse().map_err(ApiError::bad_parse)?);
             start_output_id
                 .replace(OutputId::from_str(captures.get(2).unwrap().as_str()).map_err(ApiError::bad_parse)?);

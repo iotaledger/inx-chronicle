@@ -19,7 +19,7 @@ use crate::api::{routes::sync, ApiError, ApiResult};
 pub fn routes() -> Router {
     Router::new().route("/gaps", get(sync)).nest(
         "/ledger",
-        Router::new().route("/updates/:address", get(transaction_history)),
+        Router::new().route("/updates/by-address/:address", get(transaction_history)),
     )
 }
 
@@ -37,7 +37,7 @@ async fn transaction_history(
     let mut records_iter = database
         .get_ledger_updates(
             &address_dto,
-            // Get one extra record so that we can create the paging state.
+            // Get one extra record so that we can create the cursor.
             page_size + 1,
             start_milestone_index.map(Into::into),
             start_output_id,
@@ -48,8 +48,8 @@ async fn transaction_history(
 
     // Take all of the requested records first
     let records = records_iter.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
-    // If any record is left, use it to make the paging state
-    let paging_state = records_iter
+    // If any record is left, use it to make the cursor
+    let cursor = records_iter
         .try_next()
         .await?
         .map(|doc| format!("{}.{}.{}", doc.at.milestone_index, doc.output_id.to_hex(), page_size));
@@ -58,8 +58,7 @@ async fn transaction_history(
         .into_iter()
         .map(|rec| {
             Ok(Transfer {
-                transaction_id: rec.output_id.transaction_id.to_hex(),
-                output_index: rec.output_id.index,
+                output_id: rec.output_id.to_hex(),
                 is_spent: rec.is_spent,
                 milestone_index: rec.at.milestone_index,
                 milestone_timestamp: rec.at.milestone_timestamp,
@@ -68,8 +67,8 @@ async fn transaction_history(
         .collect::<Result<_, ApiError>>()?;
 
     Ok(TransactionHistoryResponse {
-        transactions,
+        items: transactions,
         address,
-        paging_state,
+        cursor,
     })
 }
