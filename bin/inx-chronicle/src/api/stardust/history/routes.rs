@@ -37,7 +37,7 @@ async fn transaction_history(
     let mut records_iter = database
         .get_ledger_updates(
             &address_dto,
-            // Get one extra record so that we can create the paging state.
+            // Get one extra record so that we can create the cursor.
             page_size + 1,
             start_milestone_index.map(Into::into),
             start_output_id,
@@ -48,8 +48,8 @@ async fn transaction_history(
 
     // Take all of the requested records first
     let records = records_iter.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
-    // If any record is left, use it to make the paging state
-    let paging_state = records_iter
+    // If any record is left, use it to make the cursor
+    let cursor = records_iter
         .try_next()
         .await?
         .map(|doc| format!("{}.{}.{}", doc.at.milestone_index, doc.output_id.to_hex(), page_size));
@@ -69,6 +69,6 @@ async fn transaction_history(
     Ok(TransactionHistoryResponse {
         items: transactions,
         address,
-        cursor: paging_state,
+        cursor,
     })
 }
