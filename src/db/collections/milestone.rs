@@ -116,7 +116,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Get the [`MilestonePayload`] of a milestone.
+    /// Gets the [`MilestonePayload`] of a milestone.
     pub async fn get_milestone_payload_by_id(
         &self,
         milestone_id: &MilestoneId,
@@ -140,7 +140,28 @@ impl MongoDb {
         Ok(payload)
     }
 
-    /// Get [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
+    /// Gets the [`MilestoneIndex`] of a milestone by its [`MilestoneId`].
+    pub async fn get_milestone_index_by_id(&self, id: MilestoneId) -> Result<Option<MilestoneIndex>, Error> {
+        let milestone_index = self
+            .0
+            .collection::<MilestoneIndex>(MilestoneDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "milestone_id": id } },
+                    doc! { "$replaceWith": "$milestone_index" },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(milestone_index)
+    }
+
+    /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         let payload = self
             .0
@@ -161,7 +182,7 @@ impl MongoDb {
         Ok(payload)
     }
 
-    /// Get the timestamp of a milestone by the [`MilestoneIndex`].
+    /// Gets the timestamp of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
         #[derive(Deserialize)]
         struct TimestampResult {

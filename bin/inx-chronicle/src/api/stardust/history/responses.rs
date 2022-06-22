@@ -7,13 +7,22 @@ use serde::{Deserialize, Serialize};
 use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionHistoryResponse {
+pub struct TransactionsPerAddressResponse {
     pub address: String,
     pub items: Vec<Transfer>,
     pub cursor: Option<String>,
 }
 
-impl_success_response!(TransactionHistoryResponse);
+impl_success_response!(TransactionsPerAddressResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransactionsPerMilestoneResponse {
+    pub id: String,
+    pub items: Vec<Transfer>,
+    pub cursor: Option<String>,
+}
+
+impl_success_response!(TransactionsPerMilestoneResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Transfer {

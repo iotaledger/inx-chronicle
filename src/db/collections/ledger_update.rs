@@ -171,6 +171,39 @@ impl MongoDb {
             )
             .await
     }
+
+    /// Gets updates to the ledger for a given milestone index (sorted by [`OutputId`]).
+    pub async fn get_ledger_updates_at_index_paginated(
+        &self,
+        milestone_index: MilestoneIndex,
+        page_size: usize,
+        start_output_id: Option<OutputId>,
+        order: SortOrder,
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateRecord, Error>>, Error> {
+        let options = FindOptions::builder()
+            .limit(page_size as i64)
+            .sort(doc! {"output_id": order})
+            .build();
+
+        let mut filter = doc! {
+            "at.milestone_index": { "$eq": milestone_index }
+        };
+        if let Some(output_id) = start_output_id {
+            match order {
+                SortOrder::Newest => {
+                    filter.insert("output_id", doc! { "$lte": output_id });
+                }
+                SortOrder::Oldest => {
+                    filter.insert("output_id", doc! { "$gte": output_id });
+                }
+            }
+        }
+
+        self.0
+            .collection::<LedgerUpdateRecord>(LedgerUpdateDocument::COLLECTION)
+            .find(filter, options)
+            .await
+    }
 }
 
 #[cfg(feature = "analytics")]
