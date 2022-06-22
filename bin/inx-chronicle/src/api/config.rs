@@ -21,6 +21,7 @@ pub struct ApiConfig {
     #[serde(with = "humantime_serde")]
     pub jwt_expiration: Duration,
     pub public_routes: Vec<String>,
+    pub identity_path: Option<String>,
 }
 
 impl Default for ApiConfig {
@@ -33,6 +34,7 @@ impl Default for ApiConfig {
             // 72 hours
             jwt_expiration: Duration::from_secs(72 * 60 * 60),
             public_routes: Default::default(),
+            identity_path: None,
         }
     }
 }
@@ -53,10 +55,10 @@ impl ApiData {
     pub const AUDIENCE: &'static str = "api";
 }
 
-impl TryFrom<(ApiConfig, SecretKey)> for ApiData {
+impl TryFrom<ApiConfig> for ApiData {
     type Error = ConfigError;
 
-    fn try_from((config, secret_key): (ApiConfig, SecretKey)) -> Result<Self, Self::Error> {
+    fn try_from(config: ApiConfig) -> Result<Self, Self::Error> {
         Ok(Self {
             port: config.port,
             allow_origins: config.allow_origins,
@@ -64,7 +66,16 @@ impl TryFrom<(ApiConfig, SecretKey)> for ApiData {
             password_salt: config.password_salt,
             jwt_expiration: config.jwt_expiration,
             public_routes: RegexSet::new(config.public_routes.iter().map(route_to_regex).collect::<Vec<_>>())?,
-            secret_key,
+            secret_key: match &config.identity_path {
+                Some(path) => SecretKey::from_file(path)?,
+                None => {
+                    if let Ok(path) = std::env::var("IDENTITY_PATH") {
+                        SecretKey::from_file(&path)?
+                    } else {
+                        SecretKey::generate()
+                    }
+                }
+            },
         })
     }
 }

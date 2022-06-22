@@ -51,8 +51,12 @@ impl ChronicleConfig {
         if let Some(password) = &args.password {
             self.api.password_hash = hex::encode(
                 auth_helper::password::password_hash(password.as_bytes(), self.api.password_salt.as_bytes())
-                    .expect("invalid jwt config"),
+                    .expect("invalid JWT config"),
             );
+        }
+        #[cfg(feature = "api")]
+        if let Some(path) = &args.identity {
+            self.api.identity_path.replace(path.clone());
         }
     }
 }
