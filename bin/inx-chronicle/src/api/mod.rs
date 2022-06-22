@@ -29,7 +29,7 @@ use hyper::Method;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
-    cors::{AllowOrigin, Any, CorsLayer},
+    cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
 
@@ -80,14 +80,7 @@ impl Actor for ApiWorker {
             .layer(TraceLayer::new_for_http())
             .layer(
                 CorsLayer::new()
-                    .allow_origin(
-                        self.api_data
-                            .allow_origins
-                            .clone()
-                            .map(AllowOrigin::try_from)
-                            .transpose()?
-                            .unwrap_or_else(AllowOrigin::any),
-                    )
+                    .allow_origin(self.api_data.allow_origins.clone())
                     .allow_methods(vec![Method::GET, Method::OPTIONS])
                     .allow_headers(Any)
                     .allow_credentials(false),

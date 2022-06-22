@@ -15,7 +15,7 @@ use super::{error::ConfigError, SecretKey};
 #[serde(default)]
 pub struct ApiConfig {
     pub port: u16,
-    pub allow_origins: Option<SingleOrMultiple<String>>,
+    pub allow_origins: SingleOrMultiple<String>,
     pub password_hash: String,
     pub password_salt: String,
     #[serde(with = "humantime_serde")]
@@ -28,7 +28,7 @@ impl Default for ApiConfig {
     fn default() -> Self {
         Self {
             port: 8042,
-            allow_origins: Some("*".to_string().into()),
+            allow_origins: "*".to_string().into(),
             password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
             password_salt: "saltines".to_string(),
             // 72 hours
@@ -42,7 +42,7 @@ impl Default for ApiConfig {
 #[derive(Clone, Debug)]
 pub struct ApiData {
     pub port: u16,
-    pub allow_origins: Option<SingleOrMultiple<String>>,
+    pub allow_origins: AllowOrigin,
     pub password_hash: Vec<u8>,
     pub password_salt: String,
     pub jwt_expiration: Duration,
@@ -61,7 +61,7 @@ impl TryFrom<ApiConfig> for ApiData {
     fn try_from(config: ApiConfig) -> Result<Self, Self::Error> {
         Ok(Self {
             port: config.port,
-            allow_origins: config.allow_origins,
+            allow_origins: AllowOrigin::try_from(config.allow_origins)?,
             password_hash: hex::decode(config.password_hash)?,
             password_salt: config.password_salt,
             jwt_expiration: config.jwt_expiration,
