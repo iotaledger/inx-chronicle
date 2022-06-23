@@ -117,7 +117,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
-                    doc! { "$replaceRoot": { "newRoot": { "data": "$raw" } } },
+                    doc! { "$replaceWith": { "data": "$raw" } },
                 ],
                 None,
             )
