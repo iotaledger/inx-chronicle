@@ -212,6 +212,14 @@ impl HandleEvent<IsHealthy> for InxWorker {
         } else {
             false
         };
+        let first_ms = node_status.tangle_pruning_index + 1;
+        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
+        healthy &= self
+            .db
+            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
+            .await?
+            .gaps
+            .is_empty();
         sender.send(healthy).ok();
         Ok(())
     }
