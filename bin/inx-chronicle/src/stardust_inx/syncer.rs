@@ -6,7 +6,7 @@ use std::{collections::VecDeque, ops::RangeInclusive};
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
     types::tangle::MilestoneIndex,
 };
 use inx::{client::InxClient, tonic::Channel};
@@ -102,21 +102,11 @@ impl HandleEvent<SyncNext> for Syncer {
                 milestone_range.start(),
                 milestone_range.end()
             );
-            let ledger_update_stream = self
-                .inx_client
-                .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(
-                    *milestone_range.start()..=*milestone_range.end(),
-                ))
-                .await?
-                .into_inner();
-            cx.spawn_child(
-                LedgerUpdateStream::new(
-                    self.db.clone(),
-                    self.inx_client.clone(),
-                    *milestone_range.start()..=*milestone_range.end(),
-                )
-                .with_stream(ledger_update_stream),
-            )
+            cx.spawn_child(LedgerUpdateStream::new(
+                self.db.clone(),
+                self.inx_client.clone(),
+                *milestone_range.start()..=*milestone_range.end(),
+            ))
             .await;
         } else {
             log::info!("Successfully finished synchronization with node.");

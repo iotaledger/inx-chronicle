@@ -28,8 +28,9 @@ use super::{
         report::{TaskErrorReport, TaskReport, TaskSuccessReport},
         Task,
     },
-    MergeExt, Sender,
+    Sender,
 };
+use crate::runtime::merge::Merge;
 
 /// A view into a particular scope which provides the user-facing API.
 #[derive(Clone, Debug)]
@@ -161,7 +162,7 @@ impl RuntimeScope {
         &mut self,
         actor: &A,
         SpawnConfigInner {
-            stream,
+            streams,
             add_to_registry,
         }: SpawnConfigInner<A>,
     ) -> (Addr<A>, ActorContext<A>, AbortRegistration, ShutdownHandle)
@@ -196,13 +197,14 @@ impl RuntimeScope {
             );
             (sender, mpsc::UnboundedReceiverStream::new(receiver))
         };
-        let (receiver, shutdown_handle) = if let Some(stream) = stream {
-            let receiver = receiver.merge(stream);
-            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
-            (receiver, shutdown_handle)
-        } else {
-            let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver) as _);
-            (receiver, shutdown_handle)
+
+        let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver));
+        let receiver = match streams {
+            Some(mut streams) => {
+                streams.merge(receiver);
+                streams
+            }
+            None => Merge::new(receiver),
         };
         let scope = self.child(abort_handle).await;
         let handle = Addr::new(scope.scope.clone(), sender);

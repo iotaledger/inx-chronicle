@@ -10,25 +10,22 @@ use std::{
 
 use futures::{
     future::{AbortHandle, AbortRegistration, Abortable, Aborted},
-    FutureExt,
+    FutureExt, Stream, StreamExt,
 };
 
 use super::{
     addr::Addr,
-    event::{DynEvent, EnvelopeStream, HandleEvent},
+    event::{DynEvent, Envelope, HandleEvent},
     report::Report,
     util::DelayedEvent,
     Actor,
 };
 use crate::runtime::{
-    config::SpawnConfig,
-    error::RuntimeError,
-    scope::RuntimeScope,
-    shutdown::{ShutdownHandle, ShutdownStream},
-    Sender, Task, TaskReport,
+    config::SpawnConfig, error::RuntimeError, merge::Merge, scope::RuntimeScope, shutdown::ShutdownHandle, Sender,
+    Task, TaskReport,
 };
 
-type Receiver<A> = ShutdownStream<EnvelopeStream<A>>;
+type Receiver<A> = Merge<Envelope<A>>;
 
 /// The context that an actor can use to interact with the runtime.
 pub struct ActorContext<A: Actor> {
@@ -73,8 +70,18 @@ impl<A: Actor> ActorContext<A> {
     }
 
     /// Get the inbox.
-    pub fn inbox(&mut self) -> &mut Receiver<A> {
+    pub fn inbox(&mut self) -> &mut (impl Stream<Item = Envelope<A>> + Send) {
         &mut self.receiver
+    }
+
+    /// Add an additional stream of events to the inbox.
+    pub fn add_stream<S>(&mut self, stream: S)
+    where
+        S: 'static + Stream + Unpin + Send,
+        S::Item: 'static + DynEvent<A>,
+    {
+        self.receiver
+            .merge(Box::new(stream.map(|e| Box::new(e) as Envelope<A>)));
     }
 
     /// Delay the processing of an event by re-sending it to self.
