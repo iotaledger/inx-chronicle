@@ -20,7 +20,7 @@ use crate::{
 };
 
 /// Contains all information related to an output.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LedgerUpdateDocument {
     address: Address,
     output_id: OutputId,
@@ -119,17 +119,21 @@ impl MongoDb {
         // TODO: Use `insert_many` and `update_many` to increase write performance.
 
         for OutputWithMetadata { output, metadata } in outputs_with_metadata {
+            let at = metadata.spent.map_or(metadata.booked, |s| s.spent);
+            let is_spent = metadata.spent.is_some();
+
             // Ledger updates
             for owner in output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
                     address: owner,
                     output_id: metadata.output_id,
-                    at: metadata.spent.map_or(metadata.booked, |s| s.spent),
-                    is_spent: metadata.spent.is_some(),
+                    at,
+                    is_spent,
                 };
 
                 // TODO: This is prone to overwriting and should be fixed in the future (GitHub issue: #218).
-                self.0
+                let _ = self
+                    .0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .insert_one(ledger_update_document, None)
                     .await?;
@@ -148,11 +152,6 @@ impl MongoDb {
         start_output_id: Option<OutputId>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(if order.is_newest() { inverse_index() } else { index() })
-            .build();
-
         let mut filter = doc! {
             "address": { "$eq": address },
         };
@@ -176,6 +175,11 @@ impl MongoDb {
                 }
             }
         }
+
+        let options = FindOptions::builder()
+            .limit(page_size as i64)
+            .sort(if order.is_newest() { inverse_index() } else { index() })
+            .build();
 
         self.0
             .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
@@ -207,11 +211,6 @@ impl MongoDb {
         start_output_id: Option<OutputId>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(if order.is_newest() { inverse_index() } else { index() })
-            .build();
-
         let mut filter = doc! {
             "at.milestone_index": { "$eq": milestone_index }
         };
@@ -225,6 +224,11 @@ impl MongoDb {
                 }
             }
         }
+
+        let options = FindOptions::builder()
+            .limit(page_size as i64)
+            .sort(if order.is_newest() { inverse_index() } else { index() })
+            .build();
 
         self.0
             .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
