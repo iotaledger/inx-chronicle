@@ -176,10 +176,7 @@ fn create_output_metadata_response(output_index: u16, metadata: OutputMetadata) 
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
-        ledger_index: *metadata
-            .latest_milestone
-            .map(|ms| ms.milestone_index)
-            .unwrap_or_default(),
+        ledger_index: *metadata.latest_milestone.milestone_index,
     }
 }
 

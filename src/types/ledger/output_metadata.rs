@@ -31,7 +31,7 @@ pub struct OutputMetadata {
     pub transaction_id: TransactionId,
     pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
-    pub latest_milestone: Option<MilestoneIndexTimestamp>,
+    pub latest_milestone: MilestoneIndexTimestamp,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,41 +40,41 @@ pub struct OutputWithMetadata {
     pub metadata: OutputMetadata,
 }
 
+pub struct LedgerUpdate {
+    pub output_id: OutputId,
+    pub output: Output,
+    pub block_id: BlockId,
+    pub booked: MilestoneIndexTimestamp,
+    pub spent: Option<MilestoneIndexTimestamp>,
+}
+
 #[cfg(feature = "inx")]
-impl From<inx::LedgerOutput> for OutputWithMetadata {
+impl From<inx::LedgerOutput> for LedgerUpdate {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
-        let metadata = OutputMetadata {
+        Self {
             output_id,
+            output: (&value.output).into(),
             block_id: value.block_id.into(),
-            transaction_id: output_id.transaction_id,
             booked: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_booked.into(),
                 milestone_timestamp: value.milestone_timestamp_booked.into(),
             },
             spent: None,
-            latest_milestone: None,
-        };
-        Self {
-            output: (&value.output).into(),
-            metadata,
         }
     }
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::LedgerSpent> for OutputWithMetadata {
+impl From<inx::LedgerSpent> for LedgerUpdate {
     fn from(value: inx::LedgerSpent) -> Self {
-        let mut output_with_metadata = OutputWithMetadata::from(value.output);
+        let mut delta = LedgerUpdate::from(value.output);
 
-        output_with_metadata.metadata.spent = Some(SpentMetadata {
-            transaction_id: value.transaction_id_spent.into(),
-            spent: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_spent.into(),
-                milestone_timestamp: value.milestone_timestamp_spent.into(),
-            },
+        delta.spent.replace(MilestoneIndexTimestamp {
+            milestone_index: value.milestone_index_spent.into(),
+            milestone_timestamp: value.milestone_timestamp_spent.into(),
         });
 
-        output_with_metadata
+        delta
     }
 }

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        ledger::{LedgerUpdate, MilestoneIndexTimestamp},
         stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
@@ -85,20 +85,17 @@ impl MongoDb {
 
     /// Upserts a [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_ledger_updates(
-        &self,
-        outputs_with_metadata: impl IntoIterator<Item = OutputWithMetadata>,
-    ) -> Result<(), Error> {
+    pub async fn insert_ledger_updates(&self, deltas: impl IntoIterator<Item = LedgerUpdate>) -> Result<(), Error> {
         // TODO: Use `insert_many` and `update_many` to increase write performance.
 
-        for OutputWithMetadata { output, metadata } in outputs_with_metadata {
+        for delta in deltas {
             // Ledger updates
-            for owner in output.owning_addresses() {
+            for owner in delta.output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
                     address: owner,
-                    output_id: metadata.output_id,
-                    at: metadata.spent.map_or(metadata.booked, |s| s.spent),
-                    is_spent: metadata.spent.is_some(),
+                    output_id: delta.output_id,
+                    at: delta.spent.unwrap_or(delta.booked),
+                    is_spent: delta.spent.is_some(),
                 };
 
                 // TODO: This is prone to overwriting and should be fixed in the future (GitHub issue: #218).
