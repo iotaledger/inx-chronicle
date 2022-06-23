@@ -3,9 +3,9 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{doc, Bson, Document},
+    bson::{doc, Bson, Document, self},
     error::Error,
-    options::{FindOptions, IndexOptions},
+    options::{FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -131,11 +131,20 @@ impl MongoDb {
                     is_spent,
                 };
 
+
+                let mut doc = bson::to_document(&ledger_update_document)?;
+                doc.insert("_id", ledger_update_document.output_id.to_hex());
+
                 // TODO: This is prone to overwriting and should be fixed in the future (GitHub issue: #218).
                 let _ = self
                     .0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .insert_one(ledger_update_document, None)
+                    // .insert_one(ledger_update_document, None)
+                    .update_one(
+                        doc! {"_id": metadata.output_id },
+                        doc! { "$setOnInsert": doc },
+                        UpdateOptions::builder().upsert(true).build(),
+                    )
                     .await?;
             }
         }
