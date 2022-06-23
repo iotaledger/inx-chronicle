@@ -33,14 +33,10 @@ use chronicle::{
 use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use mongodb::bson;
+use packable::PackableExt;
 
 use super::responses::BlockChildrenResponse;
-use crate::api::{
-    error::{ApiError, InternalApiError},
-    extractors::Pagination,
-    routes::not_implemented,
-    ApiResult,
-};
+use crate::api::{error::ApiError, extractors::Pagination, routes::not_implemented, ApiResult};
 
 lazy_static! {
     pub(crate) static ref BYTE_CONTENT_HEADER: HeaderValue =
@@ -110,9 +106,7 @@ async fn block(
     }
 
     let block = database.get_block(&block_id).await?.ok_or(ApiError::NoResults)?;
-    Ok(BlockResponse::Json(
-        BlockDto::try_from(block).map_err(InternalApiError::BeeStardust)?,
-    ))
+    Ok(BlockResponse::Json(BlockDto::try_from(block)?))
 }
 
 async fn block_metadata(
@@ -196,7 +190,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
 
     Ok(OutputResponse {
         metadata,
-        output: OutputDto::try_from(output).map_err(InternalApiError::BeeStardust)?,
+        output: OutputDto::try_from(output)?,
     })
 }
 
@@ -228,9 +222,7 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(
-        BlockDto::try_from(block).map_err(InternalApiError::BeeStardust)?,
-    ))
+    Ok(BlockResponse::Json(BlockDto::try_from(block)?))
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
@@ -282,30 +274,49 @@ async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
         })
 }
 
-async fn milestone(database: Extension<MongoDb>, Path(milestone_id): Path<String>) -> ApiResult<MilestoneResponse> {
+async fn milestone(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<MilestoneResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let milestone_payload = database
         .get_milestone_payload_by_id(&milestone_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(MilestoneResponse::Json(
-        MilestonePayloadDto::try_from(milestone_payload).map_err(InternalApiError::BeeStardust)?,
-    ))
+    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        if value.eq(&*BYTE_CONTENT_HEADER) {
+            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from(milestone_payload)?;
+            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
+        }
+    }
+
+    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from(
+        milestone_payload,
+    )?))
 }
 
 async fn milestone_by_index(
     database: Extension<MongoDb>,
     Path(index): Path<MilestoneIndex>,
+    headers: HeaderMap,
 ) -> ApiResult<MilestoneResponse> {
     let milestone_payload = database
         .get_milestone_payload(index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(MilestoneResponse::Json(
-        MilestonePayloadDto::try_from(milestone_payload).map_err(InternalApiError::BeeStardust)?,
-    ))
+    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        if value.eq(&*BYTE_CONTENT_HEADER) {
+            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from(milestone_payload)?;
+            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
+        }
+    }
+
+    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from(
+        milestone_payload,
+    )?))
 }
 
 async fn utxo_changes(
