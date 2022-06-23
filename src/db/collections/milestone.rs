@@ -339,14 +339,14 @@ impl MongoDb {
         &self,
     ) -> Result<impl Stream<Item = Result<(MilestoneOption, MilestoneIndex), Error>>, Error> {
         #[derive(Deserialize)]
-        struct MilestoneOptionsAtIndex {
+        struct ReceiptAtIndex {
             receipt: MilestoneOption,
             at: MilestoneIndex,
         }
 
         Ok(self
             .0
-            .collection::<MilestoneOptionsAtIndex>(MilestoneDocument::COLLECTION)
+            .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$unwind": "payload.essence.options"},
@@ -364,8 +364,8 @@ impl MongoDb {
             .await?
             .map_ok(|doc| {
                 // Panic: we made sure that this is infallible.
-                let MilestoneOptionsAtIndex { receipt, at } =
-                    bson::from_document::<MilestoneOptionsAtIndex>(doc).unwrap();
+                let ReceiptAtIndex { receipt, at } =
+                    bson::from_document::<ReceiptAtIndex>(doc).unwrap();
 
                 (receipt, at)
             }))
@@ -378,14 +378,14 @@ impl MongoDb {
         migrated_at: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<(MilestoneOption, MilestoneIndex), Error>>, Error> {
         #[derive(Deserialize)]
-        struct MilestoneOptionsAtIndex {
+        struct ReceiptAtIndex {
             receipt: MilestoneOption,
             at: MilestoneIndex,
         }
 
         Ok(self
             .0
-            .collection::<MilestoneOptionsAtIndex>(MilestoneDocument::COLLECTION)
+            .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$unwind": "payload.essence.options"},
@@ -403,8 +403,8 @@ impl MongoDb {
             .await?
             .map_ok(|doc| {
                 // Panic: we made sure that this is infallible.
-                let MilestoneOptionsAtIndex { receipt, at } =
-                    bson::from_document::<MilestoneOptionsAtIndex>(doc).unwrap();
+                let ReceiptAtIndex { receipt, at } =
+                    bson::from_document::<ReceiptAtIndex>(doc).unwrap();
 
                 (receipt, at)
             }))
