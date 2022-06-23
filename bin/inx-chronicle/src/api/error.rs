@@ -3,7 +3,10 @@
 
 use std::{num::ParseIntError, str::ParseBoolError};
 
-use axum::{extract::rejection::QueryRejection, response::IntoResponse};
+use axum::{
+    extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
+    response::IntoResponse,
+};
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -12,17 +15,23 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum InternalApiError {
+    #[cfg(feature = "stardust")]
+    #[error(transparent)]
+    BeeStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     BsonDeserialize(#[from] mongodb::bson::de::Error),
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
+    ExtensionRejection(#[from] ExtensionRejection),
+    #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
-    MongoDb(#[from] mongodb::error::Error),
-    #[cfg(feature = "stardust")]
+    Jwt(#[from] auth_helper::jwt::Error),
     #[error(transparent)]
-    BeeStardust(#[from] bee_block_stardust::Error),
+    MongoDb(#[from] mongodb::error::Error),
+    #[error(transparent)]
+    PasswordHash(#[from] auth_helper::password::Error),
     #[error(transparent)]
     UrlEncoding(#[from] serde_urlencoded::de::Error),
     #[error(transparent)]
@@ -36,8 +45,14 @@ pub enum ApiError {
     BadParse(#[from] ParseError),
     #[error("Invalid time range")]
     BadTimeRange,
+    #[error("Invalid password provided")]
+    IncorrectPassword,
     #[error("Internal server error")]
     Internal(InternalApiError),
+    #[error(transparent)]
+    InvalidJwt(auth_helper::jwt::Error),
+    #[error(transparent)]
+    InvalidAuthHeader(#[from] TypedHeaderRejection),
     #[error("No results returned")]
     NoResults,
     #[error("No endpoint found")]
@@ -53,8 +68,12 @@ impl ApiError {
     pub fn status(&self) -> StatusCode {
         match self {
             ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
-            ApiError::BadTimeRange | ApiError::BadParse(_) | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
+            ApiError::BadTimeRange
+            | ApiError::BadParse(_)
+            | ApiError::InvalidAuthHeader(_)
+            | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::IncorrectPassword | ApiError::InvalidJwt(_) => StatusCode::UNAUTHORIZED,
             ApiError::NotImplemented => StatusCode::NOT_IMPLEMENTED,
         }
     }
@@ -102,6 +121,14 @@ pub enum ParseError {
 pub enum ConfigError {
     #[error(transparent)]
     InvalidHeader(#[from] InvalidHeaderValue),
+    #[error(transparent)]
+    InvalidHex(#[from] hex::FromHexError),
+    #[error("Invalid regex in config: {0}")]
+    InvalidRegex(#[from] regex::Error),
+    #[error(transparent)]
+    SecretKey(#[from] super::secret_key::SecretKeyError),
+    #[error(transparent)]
+    TimeConversion(#[from] time::error::ConversionRange),
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {

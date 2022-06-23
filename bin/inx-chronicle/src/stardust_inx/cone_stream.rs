@@ -7,19 +7,28 @@ use chronicle::{
     runtime::{Actor, ActorContext, HandleEvent},
     types::tangle::MilestoneIndex,
 };
-use inx::{tonic::Status, BlockWithMetadata};
+use inx::{
+    client::InxClient,
+    tonic::{Channel, Status},
+    BlockWithMetadata,
+};
 
 use super::InxError;
 
 #[derive(Debug)]
 pub struct ConeStream {
     pub milestone_index: MilestoneIndex,
+    inx_client: InxClient<Channel>,
     db: MongoDb,
 }
 
 impl ConeStream {
-    pub fn new(milestone_index: MilestoneIndex, db: MongoDb) -> Self {
-        Self { milestone_index, db }
+    pub fn new(milestone_index: MilestoneIndex, inx_client: InxClient<Channel>, db: MongoDb) -> Self {
+        Self {
+            milestone_index,
+            inx_client,
+            db,
+        }
     }
 }
 
@@ -28,7 +37,13 @@ impl Actor for ConeStream {
     type State = u32;
     type Error = InxError;
 
-    async fn init(&mut self, _cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+        let cone_stream = self
+            .inx_client
+            .read_milestone_cone(inx::proto::MilestoneRequest::from_index(self.milestone_index.0))
+            .await?
+            .into_inner();
+        cx.add_stream(cone_stream);
         Ok(0)
     }
 

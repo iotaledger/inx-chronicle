@@ -9,6 +9,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
+    #[cfg(feature = "api")]
+    #[error(transparent)]
+    Api(#[from] crate::api::ConfigError),
     #[error("failed to read file: {0}")]
     FileRead(std::io::Error),
     #[error("toml deserialization failed: {0}")]
@@ -36,13 +39,24 @@ impl ChronicleConfig {
     }
 
     /// Applies the appropriate command line arguments to the [`ChronicleConfig`].
-    pub fn apply_cli_args(&mut self, args: super::cli::CliArgs) {
-        if let Some(connect_url) = args.db {
+    pub fn apply_cli_args(&mut self, args: &super::cli::CliArgs) {
+        if let Some(connect_url) = &args.db {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
-        if let Some(inx) = args.inx {
-            self.inx.connect_url = inx;
+        if let Some(inx) = &args.inx {
+            self.inx.connect_url = inx.clone();
+        }
+        #[cfg(feature = "api")]
+        if let Some(password) = &args.password {
+            self.api.password_hash = hex::encode(
+                auth_helper::password::password_hash(password.as_bytes(), self.api.password_salt.as_bytes())
+                    .expect("invalid JWT config"),
+            );
+        }
+        #[cfg(feature = "api")]
+        if let Some(path) = &args.identity {
+            self.api.identity_path.replace(path.clone());
         }
     }
 }
