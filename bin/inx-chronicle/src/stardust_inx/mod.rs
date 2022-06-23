@@ -24,7 +24,7 @@ use inx::{
 pub use ledger_update_stream::LedgerUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
-use crate::util::IsHealthy;
+use crate::check_health::IsHealthy;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -204,7 +204,15 @@ impl HandleEvent<IsHealthy> for InxWorker {
     ) -> Result<(), Self::Error> {
         let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
             .map_err(InxError::InxTypeConversion)?;
-        sender.send(node_status.is_healthy).ok();
+        let mut healthy = true;
+        healthy &= node_status.is_healthy;
+        let latest_inserted_ms = self.db.get_latest_milestone().await?;
+        healthy &= if let Some(latest_inserted_ms) = latest_inserted_ms {
+            node_status.confirmed_milestone.milestone_info.milestone_index == latest_inserted_ms
+        } else {
+            false
+        };
+        sender.send(healthy).ok();
         Ok(())
     }
 }

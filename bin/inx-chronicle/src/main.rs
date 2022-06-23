@@ -6,6 +6,7 @@
 /// Module containing the API.
 #[cfg(feature = "api")]
 mod api;
+mod check_health;
 mod cli;
 mod config;
 mod launcher;
@@ -13,7 +14,6 @@ mod launcher;
 mod metrics;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
-mod util;
 
 use std::error::Error;
 

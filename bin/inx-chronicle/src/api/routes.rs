@@ -24,7 +24,7 @@ async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
     let mut is_healthy = true;
     #[cfg(feature = "inx")]
     {
-        use crate::util::CheckHealth;
+        use crate::check_health::CheckHealth;
         is_healthy &= scope
             .is_healthy::<crate::stardust_inx::InxWorker>()
             .await
