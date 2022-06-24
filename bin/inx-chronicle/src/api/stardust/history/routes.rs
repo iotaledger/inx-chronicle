@@ -39,7 +39,7 @@ async fn transactions_by_address_history(
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
-        .stream_ledger_updates(
+        .stream_ledger_updates_for_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
             page_size + 1,
