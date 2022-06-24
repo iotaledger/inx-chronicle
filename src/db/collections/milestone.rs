@@ -140,27 +140,6 @@ impl MongoDb {
         Ok(payload)
     }
 
-    /// Gets the [`MilestoneIndex`] of a milestone by its [`MilestoneId`].
-    pub async fn get_milestone_index_by_id(&self, id: MilestoneId) -> Result<Option<MilestoneIndex>, Error> {
-        let milestone_index = self
-            .0
-            .collection::<MilestoneIndex>(MilestoneDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "milestone_id": id } },
-                    doc! { "$replaceWith": "$milestone_index" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(milestone_index)
-    }
-
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         let payload = self

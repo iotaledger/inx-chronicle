@@ -3,7 +3,7 @@
 
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
-use chronicle::types::{stardust::block::OutputId};
+use chronicle::types::stardust::block::OutputId;
 use serde::Deserialize;
 
 use crate::api::{error::ParseError, ApiError};

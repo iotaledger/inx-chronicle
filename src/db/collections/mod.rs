@@ -13,7 +13,7 @@ mod status;
 mod treasury;
 
 pub use self::{
-    ledger_update::{LedgerUpdateRecord, SortOrder},
+    ledger_update::{LedgerUpdateByAddressRecord, SortOrder},
     milestone::SyncData,
     treasury::TreasuryResult,
 };
