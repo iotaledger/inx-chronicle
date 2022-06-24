@@ -364,8 +364,7 @@ impl MongoDb {
             .await?
             .map_ok(|doc| {
                 // Panic: we made sure that this is infallible.
-                let ReceiptAtIndex { receipt, at } =
-                    bson::from_document::<ReceiptAtIndex>(doc).unwrap();
+                let ReceiptAtIndex { receipt, at } = bson::from_document::<ReceiptAtIndex>(doc).unwrap();
 
                 (receipt, at)
             }))
@@ -403,8 +402,7 @@ impl MongoDb {
             .await?
             .map_ok(|doc| {
                 // Panic: we made sure that this is infallible.
-                let ReceiptAtIndex { receipt, at } =
-                    bson::from_document::<ReceiptAtIndex>(doc).unwrap();
+                let ReceiptAtIndex { receipt, at } = bson::from_document::<ReceiptAtIndex>(doc).unwrap();
 
                 (receipt, at)
             }))
