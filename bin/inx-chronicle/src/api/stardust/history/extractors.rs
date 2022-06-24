@@ -1,18 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
-use chronicle::types::stardust::block::OutputId;
-use regex::Regex;
+use chronicle::types::{stardust::block::OutputId};
 use serde::Deserialize;
 
 use crate::api::{error::ParseError, ApiError};
 
-const BY_ADDRESS_HISTORY_CURSOR_REGEX: &str = r"^([0-9]+)\.(0x(?:[0-9a-fA-F]{2})+)\.([0-9]+)$";
-const BY_MILESTONE_HISTORY_CURSOR_REGEX: &str = r"^(0x(?:[0-9a-fA-F]{2})+)\.([0-9]+)$";
+const DEFAULT_PAGE_SIZE: usize = 100;
 
 #[derive(Clone)]
 pub struct HistoryByAddressPagination {
@@ -43,16 +39,17 @@ impl<B: Send> FromRequest<B> for HistoryByAddressPagination {
             .map_err(ApiError::QueryError)?;
         let mut start_output_id = None;
         if let Some(cursor) = cursor {
-            // Unwrap: Infallable as long as the regex is valid
-            let regex = Regex::new(BY_ADDRESS_HISTORY_CURSOR_REGEX).unwrap();
-            let captures = regex.captures(&cursor).ok_or(ParseError::BadPagingState)?;
-            start_milestone_index.replace(captures.get(1).unwrap().as_str().parse().map_err(ApiError::bad_parse)?);
-            start_output_id
-                .replace(OutputId::from_str(captures.get(2).unwrap().as_str()).map_err(ApiError::bad_parse)?);
-            page_size.replace(captures.get(3).unwrap().as_str().parse().map_err(ApiError::bad_parse)?);
+            let parts = cursor.split('.').collect::<Vec<_>>();
+            if parts.len() != 3 {
+                return Err(ApiError::bad_parse(ParseError::BadPagingState));
+            } else {
+                start_milestone_index.replace(parts[0].parse().map_err(ApiError::bad_parse)?);
+                start_output_id.replace(parts[1].parse().map_err(ApiError::bad_parse)?);
+                page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
+            }
         }
         Ok(HistoryByAddressPagination {
-            page_size: page_size.unwrap_or(100),
+            page_size: page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             start_milestone_index,
             start_output_id,
         })
@@ -83,15 +80,16 @@ impl<B: Send> FromRequest<B> for HistoryByMilestonePagination {
                 .map_err(ApiError::QueryError)?;
         let mut start_output_id = None;
         if let Some(cursor) = cursor {
-            // Unwrap: Infallable as long as the regex is valid
-            let regex = Regex::new(BY_MILESTONE_HISTORY_CURSOR_REGEX).unwrap();
-            let captures = regex.captures(&cursor).ok_or(ParseError::BadPagingState)?;
-            start_output_id
-                .replace(OutputId::from_str(captures.get(1).unwrap().as_str()).map_err(ApiError::bad_parse)?);
-            page_size.replace(captures.get(2).unwrap().as_str().parse().map_err(ApiError::bad_parse)?);
+            let parts = cursor.split('.').collect::<Vec<_>>();
+            if parts.len() != 2 {
+                return Err(ApiError::bad_parse(ParseError::BadPagingState));
+            } else {
+                start_output_id.replace(parts[0].parse().map_err(ApiError::bad_parse)?);
+                page_size.replace(parts[1].parse().map_err(ApiError::bad_parse)?);
+            }
         }
         Ok(HistoryByMilestonePagination {
-            page_size: page_size.unwrap_or(100),
+            page_size: page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             start_output_id,
         })
     }

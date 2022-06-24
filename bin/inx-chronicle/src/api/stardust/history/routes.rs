@@ -99,7 +99,7 @@ async fn transactions_by_milestone_history(
     let cursor = records_iter
         .try_next()
         .await?
-        .map(|doc| format!("{}.{}.{}", doc.at.milestone_index, doc.output_id.to_hex(), page_size));
+        .map(|doc| format!("{}.{}", doc.output_id.to_hex(), page_size));
 
     let transactions = records
         .into_iter()
