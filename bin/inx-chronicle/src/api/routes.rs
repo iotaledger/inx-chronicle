@@ -1,11 +1,18 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{handler::Handler, routing::get, Extension, Router};
+use auth_helper::jwt::{Claims, JsonWebToken};
+use axum::{
+    handler::Handler,
+    middleware::from_extractor,
+    routing::{get, post},
+    Extension, Json, Router,
+};
 use chronicle::db::MongoDb;
 use hyper::StatusCode;
+use serde::Deserialize;
 
-use super::{error::ApiError, responses::*, ApiResult};
+use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
@@ -16,7 +23,36 @@ pub fn routes() -> Router {
         router = router.merge(super::stardust::routes())
     }
 
-    Router::new().nest("/api", router).fallback(not_found.into_service())
+    Router::new()
+        .route("/login", post(login))
+        .nest("/api", router.route_layer(from_extractor::<Auth>()))
+        .fallback(not_found.into_service())
+}
+
+#[derive(Deserialize)]
+struct LoginInfo {
+    password: String,
+}
+
+async fn login(
+    Json(LoginInfo { password }): Json<LoginInfo>,
+    Extension(config): Extension<ApiData>,
+) -> Result<String, ApiError> {
+    if auth_helper::password::password_verify(
+        password.as_bytes(),
+        config.password_salt.as_bytes(),
+        &config.password_hash,
+    )? {
+        let jwt = JsonWebToken::new(
+            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)?
+                .expires_after_duration(config.jwt_expiration)?,
+            config.secret_key.as_ref(),
+        )?;
+
+        Ok(format!("Bearer {}", jwt))
+    } else {
+        Err(ApiError::IncorrectPassword)
+    }
 }
 
 fn is_healthy() -> bool {
