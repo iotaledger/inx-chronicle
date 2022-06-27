@@ -204,14 +204,15 @@ impl HandleEvent<IsHealthy> for InxWorker {
     ) -> Result<(), Self::Error> {
         let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
             .map_err(InxError::InxTypeConversion)?;
+
         let mut healthy = true;
         healthy &= node_status.is_healthy;
+
         let latest_inserted_ms = self.db.get_latest_milestone().await?;
-        healthy &= if let Some(latest_inserted_ms) = latest_inserted_ms {
+        healthy &= latest_inserted_ms.map_or(false, |latest_inserted_ms| {
             node_status.confirmed_milestone.milestone_info.milestone_index == latest_inserted_ms
-        } else {
-            false
-        };
+        });
+
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         healthy &= self
@@ -220,6 +221,7 @@ impl HandleEvent<IsHealthy> for InxWorker {
             .await?
             .gaps
             .is_empty();
+
         sender.send(healthy).ok();
         Ok(())
     }

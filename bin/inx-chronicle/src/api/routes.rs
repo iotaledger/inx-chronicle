@@ -34,19 +34,18 @@ async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
 }
 
 async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {
-    let version = std::env!("CARGO_PKG_VERSION").to_string();
-    let is_healthy = is_healthy(&scope).await;
     InfoResponse {
         name: "Chronicle".into(),
-        version,
-        is_healthy,
+        version: std::env!("CARGO_PKG_VERSION").to_string(),
+        is_healthy: is_healthy(&scope).await,
     }
 }
 
 pub async fn health(Extension(scope): Extension<ScopeView>) -> StatusCode {
-    match is_healthy(&scope).await {
-        true => StatusCode::OK,
-        false => StatusCode::SERVICE_UNAVAILABLE,
+    if is_healthy(&scope).await {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
     }
 }
 
