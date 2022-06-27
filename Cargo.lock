@@ -498,6 +498,7 @@ dependencies = [
  "hex",
  "humantime-serde",
  "hyper",
+ "indexmap",
  "inx",
  "lazy_static",
  "log",

@@ -31,6 +31,7 @@ dyn-clone = { version = "1.0", default-features = false }
 env_logger = { version = "0.9", default-features = false, features = ["termcolor", "atty", "humantime"] }
 futures = { version = "0.3", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
+indexmap = { version = "1.5.2", features = ["std"] } # This is only required for `-D warnings` in CI
 log = { version = "0.4", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
 pin-project = { version = "1.0", default-features = false }
