@@ -25,11 +25,7 @@ pub struct LedgerUpdateStream {
 
 impl LedgerUpdateStream {
     pub fn new(db: MongoDb, inx: InxClient<Channel>, range: RangeInclusive<MilestoneIndex>) -> Self {
-        Self {
-            db,
-            inx,
-            range,
-        }
+        Self { db, inx, range }
     }
 }
 
@@ -105,14 +101,10 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
 
         let milestone_request = inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index);
 
-        let milestone_proto = self
-            .inx
-            .read_milestone(milestone_request.clone())
-            .await?
-            .into_inner();
+        let milestone_proto = self.inx.read_milestone(milestone_request.clone()).await?.into_inner();
 
         log::trace!("Received milestone: `{:?}`", milestone_proto);
-        
+
         let milestone: inx::Milestone = milestone_proto.try_into()?;
 
         let milestone_index = milestone.milestone_info.milestone_index.into();
@@ -131,12 +123,8 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
-        cx.spawn_child(ConeStream::new(
-            milestone_index,
-            self.inx.clone(),
-            self.db.clone(),
-        ))
-        .await;
+        cx.spawn_child(ConeStream::new(milestone_index, self.inx.clone(), self.db.clone()))
+            .await;
 
         Ok(())
     }
