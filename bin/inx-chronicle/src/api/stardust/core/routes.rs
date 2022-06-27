@@ -26,13 +26,12 @@ use chronicle::{
     db::MongoDb,
     types::{
         ledger::{OutputMetadata, OutputWithMetadata},
-        stardust::block::{BlockId, MilestoneId, MilestoneOption, OutputId, TransactionId},
+        stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
         tangle::MilestoneIndex,
     },
 };
 use futures::TryStreamExt;
 use lazy_static::lazy_static;
-use mongodb::bson;
 use packable::PackableExt;
 
 use super::responses::BlockChildrenResponse;
@@ -226,38 +225,38 @@ async fn transaction_included_block(
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
-    let mut milestone_options = database.get_milestone_options().await?;
+    let mut receipts_at = database.stream_all_receipts().await?;
     let mut receipts = Vec::new();
-    while let Some(doc) = milestone_options.try_next().await? {
-        // TODO: unwrap
-        let (index, opt): (MilestoneIndex, MilestoneOption) = bson::from_document(doc).unwrap();
-        let opt: &bee_block_stardust::payload::milestone::MilestoneOption = &opt.try_into().unwrap();
-        let opt: MilestoneOptionDto = opt.into();
+    while let Some((receipt, at)) = receipts_at.try_next().await? {
+        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
+        let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
 
-        if let MilestoneOptionDto::Receipt(receipt) = opt {
+        if let MilestoneOptionDto::Receipt(receipt) = receipt {
             receipts.push(ReceiptDto {
                 receipt,
-                milestone_index: *index,
+                milestone_index: *at,
             });
+        } else {
+            unreachable!("the query only returns receipt milestone options");
         }
     }
     Ok(ReceiptsResponse { receipts })
 }
 
 async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
-    let mut milestone_options = database.get_milestone_options_migrated_at(index.into()).await?;
+    let mut receipts_at = database.stream_receipts_migrated_at(index.into()).await?;
     let mut receipts = Vec::new();
-    while let Some(doc) = milestone_options.try_next().await? {
-        // TODO: unwrap
-        let (index, opt): (MilestoneIndex, MilestoneOption) = bson::from_document(doc).unwrap();
-        let opt: &bee_block_stardust::payload::milestone::MilestoneOption = &opt.try_into().unwrap();
-        let opt: MilestoneOptionDto = opt.into();
+    while let Some((receipt, at)) = receipts_at.try_next().await? {
+        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
+        let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
 
-        if let MilestoneOptionDto::Receipt(receipt) = opt {
+        if let MilestoneOptionDto::Receipt(receipt) = receipt {
             receipts.push(ReceiptDto {
                 receipt,
-                milestone_index: *index,
+                milestone_index: *at,
             });
+        } else {
+            unreachable!("the query only returns receipt milestone options");
         }
     }
     Ok(ReceiptsResponse { receipts })
