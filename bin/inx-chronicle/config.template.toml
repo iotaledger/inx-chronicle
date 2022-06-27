@@ -14,7 +14,7 @@ database_name = "chronicle"
 ### API listening port. 
 port = 8042
 
-### CORS
+### CORS.
 allow_origins = "0.0.0.0"
 
 ### JsonWebToken (JWT) credentials.
@@ -44,5 +44,5 @@ sync_start_milestone = 1
 ### Bind address of the metrics server.
 address = "0.0.0.0"
 
-### Port
+### Bind port of the metrics server.
 port = 9100
