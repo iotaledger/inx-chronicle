@@ -19,17 +19,13 @@ use super::{cone_stream::ConeStream, InxError};
 #[derive(Debug)]
 pub struct LedgerUpdateStream {
     db: MongoDb,
-    inx_client: InxClient<Channel>,
+    inx: InxClient<Channel>,
     range: RangeInclusive<MilestoneIndex>,
 }
 
 impl LedgerUpdateStream {
     pub fn new(db: MongoDb, inx: InxClient<Channel>, range: RangeInclusive<MilestoneIndex>) -> Self {
-        Self {
-            db,
-            inx_client: inx,
-            range,
-        }
+        Self { db, inx, range }
     }
 }
 
@@ -40,7 +36,7 @@ impl Actor for LedgerUpdateStream {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let ledger_update_stream = self
-            .inx_client
+            .inx
             .listen_to_ledger_updates(if *self.range.end() == u32::MAX {
                 inx::proto::MilestoneRangeRequest::from(*self.range.start()..)
             } else {
@@ -103,12 +99,13 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
 
         self.db.insert_ledger_updates(output_updates_iter).await?;
 
-        let milestone: inx::Milestone = self
-            .inx_client
-            .read_milestone(inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index))
-            .await?
-            .into_inner()
-            .try_into()?;
+        let milestone_request = inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index);
+
+        let milestone_proto = self.inx.read_milestone(milestone_request.clone()).await?.into_inner();
+
+        log::trace!("Received milestone: `{:?}`", milestone_proto);
+
+        let milestone: inx::Milestone = milestone_proto.try_into()?;
 
         let milestone_index = milestone.milestone_info.milestone_index.into();
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
@@ -126,12 +123,8 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
-        cx.spawn_child(ConeStream::new(
-            milestone_index,
-            self.inx_client.clone(),
-            self.db.clone(),
-        ))
-        .await;
+        cx.spawn_child(ConeStream::new(milestone_index, self.inx.clone(), self.db.clone()))
+            .await;
 
         Ok(())
     }

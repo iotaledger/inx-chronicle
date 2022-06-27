@@ -75,9 +75,10 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
         block_metadata_result: Result<inx::proto::BlockWithMetadata, Status>,
         white_flag_index: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Received Stardust Block Event");
-
-        let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata_result?.try_into()?;
+        log::trace!("Received Stardust block event");
+        let block_metadata = block_metadata_result?;
+        log::trace!("Block data: {:?}", block_metadata);
+        let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata.try_into()?;
         let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
 
         self.db
