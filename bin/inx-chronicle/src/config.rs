@@ -12,8 +12,8 @@ pub enum ConfigError {
     #[cfg(feature = "api")]
     #[error(transparent)]
     Api(#[from] crate::api::ConfigError),
-    #[error("failed to read file: {0}")]
-    FileRead(std::io::Error),
+    #[error("failed to read config at '{0}': {1}")]
+    FileRead(String, std::io::Error),
     #[error("toml deserialization failed: {0}")]
     TomlDeserialization(toml::de::Error),
 }
@@ -34,7 +34,7 @@ pub struct ChronicleConfig {
 impl ChronicleConfig {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         fs::read_to_string(&path)
-            .map_err(ConfigError::FileRead)
+            .map_err(|e| ConfigError::FileRead(path.as_ref().display().to_string(), e))
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))
     }
 
