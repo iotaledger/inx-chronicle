@@ -343,7 +343,7 @@ async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneInde
     let mut created_outputs = Vec::new();
     let mut consumed_outputs = Vec::new();
 
-    let mut updates = database.get_ledger_updates_at_index(milestone_index).await?;
+    let mut updates = database.stream_ledger_updates_for_index(milestone_index).await?;
     while let Some(update) = updates.try_next().await? {
         if update.is_spent {
             consumed_outputs.push(update.output_id.to_hex());

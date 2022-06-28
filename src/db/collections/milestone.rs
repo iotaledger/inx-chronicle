@@ -115,7 +115,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Get the [`MilestonePayload`] of a milestone.
+    /// Gets the [`MilestonePayload`] of a milestone.
     pub async fn get_milestone_payload_by_id(
         &self,
         milestone_id: &MilestoneId,
@@ -139,7 +139,7 @@ impl MongoDb {
         Ok(payload)
     }
 
-    /// Get [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
+    /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         let payload = self
             .0
@@ -160,7 +160,7 @@ impl MongoDb {
         Ok(payload)
     }
 
-    /// Get the timestamp of a milestone by the [`MilestoneIndex`].
+    /// Gets the timestamp of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
         #[derive(Deserialize)]
         struct TimestampResult {
