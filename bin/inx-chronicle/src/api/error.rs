@@ -106,6 +106,8 @@ pub enum ParseError {
     #[allow(dead_code)]
     #[error("Invalid cursor")]
     BadPagingState,
+    #[error("Invalid sort order descriptor")]
+    BadSortDescriptor,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
