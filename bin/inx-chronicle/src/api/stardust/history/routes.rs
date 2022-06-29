@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
-    db::{collections::SortOrder, MongoDb},
+    db::MongoDb,
     types::{stardust::block::Address, tangle::MilestoneIndex},
 };
 use futures::{StreamExt, TryStreamExt};
@@ -32,6 +32,7 @@ async fn transactions_by_address_history(
     Path(address): Path<String>,
     HistoryByAddressPagination {
         page_size,
+        sort,
         start_milestone_index,
         start_output_id,
     }: HistoryByAddressPagination,
@@ -45,8 +46,7 @@ async fn transactions_by_address_history(
             page_size + 1,
             start_milestone_index.map(Into::into),
             start_output_id,
-            // TODO: Allow specifying sort in query
-            SortOrder::Newest,
+            sort.into(),
         )
         .await?;
 
@@ -83,13 +83,14 @@ async fn transactions_by_milestone_history(
     Path(milestone_index): Path<String>,
     HistoryByMilestonePagination {
         page_size,
+        sort,
         start_output_id,
     }: HistoryByMilestonePagination,
 ) -> ApiResult<TransactionsPerMilestoneResponse> {
     let milestone_index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
-        .stream_ledger_updates_at_index_paginated(milestone_index, page_size + 1, start_output_id, SortOrder::Newest)
+        .stream_ledger_updates_at_index_paginated(milestone_index, page_size + 1, start_output_id, sort.into())
         .await?;
 
     // Take all of the requested records first
