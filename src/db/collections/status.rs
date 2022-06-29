@@ -20,7 +20,7 @@ impl StatusDocument {
 impl MongoDb {
     /// Get the name of the network.
     pub async fn get_network_name(&self) -> Result<Option<String>, Error> {
-        self.0
+        self.db
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .find_one(doc! {}, None)
             .await
@@ -29,7 +29,7 @@ impl MongoDb {
 
     /// Sets the name of the network.
     pub async fn set_network_name(&self, network_name: String) -> Result<(), Error> {
-        self.0
+        self.db
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .insert_one(StatusDocument { network_name }, None)
             .await?;

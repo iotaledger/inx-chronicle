@@ -65,7 +65,7 @@ pub struct SyncData {
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_milestone_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<MilestoneDocument>(MilestoneDocument::COLLECTION);
+        let collection = self.db.collection::<MilestoneDocument>(MilestoneDocument::COLLECTION);
 
         collection
             .create_index(
@@ -121,7 +121,7 @@ impl MongoDb {
         milestone_id: &MilestoneId,
     ) -> Result<Option<MilestonePayload>, Error> {
         let payload = self
-            .0
+            .db
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -142,7 +142,7 @@ impl MongoDb {
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         let payload = self
-            .0
+            .db
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -168,7 +168,7 @@ impl MongoDb {
         }
 
         let timestamp = self
-            .0
+            .db
             .collection::<TimestampResult>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! { "milestone_index": index },
@@ -185,6 +185,7 @@ impl MongoDb {
     /// Inserts the information of a milestone into the database.
     pub async fn insert_milestone(
         &self,
+        session: &mut mongodb::ClientSession,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
@@ -201,12 +202,13 @@ impl MongoDb {
         let mut doc = bson::to_document(&milestone_document)?;
         doc.insert("_id", milestone_document.milestone_id.to_hex());
 
-        self.0
+        self.db
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .update_one(
+            .update_one_with_session(
                 doc! { "milestone_index": milestone_index },
                 doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
+                session,
             )
             .await?;
 
@@ -219,7 +221,7 @@ impl MongoDb {
         start_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndex>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {"milestone_timestamp": { "$gte": start_timestamp }},
@@ -240,7 +242,7 @@ impl MongoDb {
         end_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndex>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {"milestone_timestamp": { "$lte": end_timestamp }},
@@ -275,7 +277,7 @@ impl MongoDb {
 
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
     pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.0
+        self.db
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
                 doc! { "milestone_index": index },
@@ -299,7 +301,7 @@ impl MongoDb {
             milestone_index: MilestoneIndex,
         }
 
-        self.0
+        self.db
             .collection::<SyncEntry>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
@@ -363,7 +365,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .0
+            .db
             .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -401,7 +403,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .0
+            .db
             .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![

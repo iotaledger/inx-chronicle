@@ -6,15 +6,17 @@ use std::ops::RangeInclusive;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
+    runtime::{Actor, ActorContext, HandleEvent},
     types::tangle::MilestoneIndex,
 };
+use futures::StreamExt;
 use inx::{
     client::InxClient,
     tonic::{Channel, Status},
+    BlockWithMetadata,
 };
 
-use super::{cone_stream::ConeStream, InxError};
+use super::InxError;
 
 #[derive(Debug)]
 pub struct LedgerUpdateStream {
@@ -58,33 +60,10 @@ impl Actor for LedgerUpdateStream {
 }
 
 #[async_trait]
-impl HandleEvent<Report<ConeStream>> for LedgerUpdateStream {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<ConeStream>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => (),
-            Report::Error(report) => match report.error {
-                ActorError::Result(e) => {
-                    Err(e)?;
-                }
-                ActorError::Aborted | ActorError::Panic => {
-                    cx.abort().await;
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
 impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStream {
     async fn handle_event(
         &mut self,
-        cx: &mut ActorContext<Self>,
+        _cx: &mut ActorContext<Self>,
         ledger_update_result: Result<inx::proto::LedgerUpdate, Status>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
@@ -97,7 +76,12 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             .map(Into::into)
             .chain(Vec::from(ledger_update.consumed).into_iter().map(Into::into));
 
-        self.db.insert_ledger_updates(output_updates_iter).await?;
+        let mut session = self.db.create_session().await?;
+        session.start_transaction(None).await?;
+
+        self.db
+            .insert_ledger_updates_with_session(&mut session, output_updates_iter)
+            .await?;
 
         let milestone_request = inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index);
 
@@ -119,12 +103,43 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?)
             .into();
 
+        let mut cone_stream = self
+            .inx
+            .read_milestone_cone(inx::proto::MilestoneRequest::from_index(milestone_index.0))
+            .await?
+            .into_inner()
+            .enumerate();
+
         self.db
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+            .insert_milestone(
+                &mut session,
+                milestone_id,
+                milestone_index,
+                milestone_timestamp,
+                payload,
+            )
             .await?;
 
-        cx.spawn_child(ConeStream::new(milestone_index, self.inx.clone(), self.db.clone()))
-            .await;
+        while let Some((white_flag_index, block_metadata_result)) = cone_stream.next().await {
+            log::trace!("Received Stardust block event");
+            let block_metadata = block_metadata_result?;
+            log::trace!("Block data: {:?}", block_metadata);
+            let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata.try_into()?;
+            let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
+
+            self.db
+                .insert_block_with_metadata_with_session(
+                    &mut session,
+                    metadata.block_id.into(),
+                    block.into(),
+                    raw,
+                    metadata.into(),
+                    white_flag_index as u32,
+                )
+                .await?;
+        }
+
+        session.commit_transaction().await?;
 
         Ok(())
     }

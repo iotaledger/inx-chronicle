@@ -43,7 +43,7 @@ impl BlockDocument {
 impl MongoDb {
     /// Creates block indexes.
     pub async fn create_block_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<BlockDocument>(BlockDocument::COLLECTION);
+        let collection = self.db.collection::<BlockDocument>(BlockDocument::COLLECTION);
 
         collection
             .create_index(
@@ -85,7 +85,7 @@ impl MongoDb {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         let block = self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -112,7 +112,7 @@ impl MongoDb {
         }
 
         let raw = self
-            .0
+            .db
             .collection::<RawResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -133,7 +133,7 @@ impl MongoDb {
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         let block = self
-            .0
+            .db
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -158,7 +158,7 @@ impl MongoDb {
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-        self.0
+        self.db
             .collection::<BlockId>(BlockDocument::COLLECTION)
             .find(
                 doc! {"block.parents": bson::to_bson(block_id)?},
@@ -173,8 +173,9 @@ impl MongoDb {
     }
 
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
-    pub async fn insert_block_with_metadata(
+    pub async fn insert_block_with_metadata_with_session(
         &self,
+        session: &mut mongodb::ClientSession,
         block_id: BlockId,
         block: Block,
         raw: Vec<u8>,
@@ -199,12 +200,13 @@ impl MongoDb {
         let mut doc = bson::to_document(&block_document)?;
         doc.insert("_id", block_id.to_hex());
 
-        self.0
+        self.db
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .update_one(
+            .update_one_with_session(
                 doc! { "block_id": block_id },
                 doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
+                session,
             )
             .await?;
 
@@ -214,7 +216,7 @@ impl MongoDb {
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
         let block = self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -238,7 +240,7 @@ impl MongoDb {
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         let output = self
-            .0
+            .db
             .collection::<Output>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -263,7 +265,7 @@ impl MongoDb {
     /// Get an [`OutputWithMetadata`] by [`OutputId`].
     pub async fn get_output_with_metadata(&self, output_id: &OutputId) -> Result<Option<OutputWithMetadata>, Error> {
         let mut output: Option<OutputWithMetadata> = self
-            .0
+            .db
             .collection::<OutputWithMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -310,7 +312,7 @@ impl MongoDb {
     /// Get an [`OutputWithMetadata`] by [`OutputId`].
     pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
         let mut metadata: Option<OutputMetadata> = self
-            .0
+            .db
             .collection::<OutputMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -354,7 +356,7 @@ impl MongoDb {
     /// Gets the spending transaction of an [`Output`] by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -380,7 +382,7 @@ impl MongoDb {
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
         let metadata = self
-            .0
+            .db
             .collection::<SpentMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -435,7 +437,7 @@ mod analytics {
             end_milestone: MilestoneIndex,
         ) -> Result<TransactionAnalyticsResult, Error> {
             Ok(self
-                .0
+                .db
                 .collection::<TransactionAnalyticsResult>(BlockDocument::COLLECTION)
                 .aggregate(
                     vec![

@@ -13,7 +13,10 @@ use serde::{Deserialize, Serialize};
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
-pub struct MongoDb(pub(crate) mongodb::Database);
+pub struct MongoDb {
+    pub(crate) db: mongodb::Database,
+    pub(crate) client: mongodb::Client,
+}
 
 impl MongoDb {
     const DEFAULT_NAME: &'static str = "chronicle";
@@ -37,15 +40,20 @@ impl MongoDb {
 
         let db = client.database(&config.database_name);
 
-        Ok(MongoDb(db))
+        Ok(MongoDb { db, client })
+    }
+
+    /// Creates a new session.
+    pub async fn create_session(&self) -> Result<mongodb::ClientSession, Error> {
+        self.client.start_session(None).await
     }
 
     /// Clears all the collections from the database.
     pub async fn clear(&self) -> Result<(), Error> {
-        let collections = self.0.list_collection_names(None).await?;
+        let collections = self.db.list_collection_names(None).await?;
 
         for c in collections {
-            self.0.collection::<Document>(&c).drop(None).await?;
+            self.db.collection::<Document>(&c).drop(None).await?;
         }
 
         Ok(())
@@ -55,7 +63,7 @@ impl MongoDb {
     pub async fn size(&self) -> Result<u64, Error> {
         Ok(
             match self
-                .0
+                .db
                 .run_command(
                     doc! {
                         "dbStats": 1,
@@ -78,7 +86,7 @@ impl MongoDb {
 
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
-        self.0.name()
+        self.db.name()
     }
 }
 

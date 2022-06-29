@@ -89,7 +89,7 @@ impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_ledger_update_indexes(&self) -> Result<(), Error> {
         let collection = self
-            .0
+            .db
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
 
         collection
@@ -129,8 +129,9 @@ impl MongoDb {
 
     /// Upserts a [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_ledger_updates(
+    pub async fn insert_ledger_updates_with_session(
         &self,
+        session: &mut mongodb::ClientSession,
         outputs_with_metadata: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
         // TODO: Use `insert_many` and `update_many` to increase write performance.
@@ -151,10 +152,11 @@ impl MongoDb {
                 let _ = self
                     .0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .update_one(
+                    .update_one_with_session(
                         doc! { "output_id": metadata.output_id, "is_spent": is_spent },
                         doc! { "$setOnInsert": bson::to_document(&ledger_update_document)? },
                         UpdateOptions::builder().upsert(true).build(),
+                        session
                     )
                     .await?;
             }
@@ -205,7 +207,7 @@ impl MongoDb {
             })
             .build();
 
-        self.0
+        self.db
             .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
             .find(filter, options)
             .await
@@ -216,7 +218,7 @@ impl MongoDb {
         &self,
         milestone_index: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
-        self.0
+        self.db
             .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! {
@@ -258,7 +260,7 @@ impl MongoDb {
             })
             .build();
 
-        self.0
+        self.db
             .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
             .find(filter, options)
             .await
@@ -292,8 +294,7 @@ mod analytics {
             start_timestamp: MilestoneTimestamp,
             end_timestamp: MilestoneTimestamp,
         ) -> Result<Option<AddressAnalyticsResult>, Error> {
-            Ok(self
-                .0
+            Ok(self.db
                 .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                 .aggregate(
                     vec![
