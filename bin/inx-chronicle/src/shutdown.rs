@@ -55,7 +55,7 @@ pub(crate) fn shutdown_listener() -> ShutdownRx {
 }
 
 fn shutdown_procedure(shutdown_tx: ShutdownTx) {
-    warn!("Gracefully shutting down the node, this may take some time.");
+    warn!("Gracefully shutting down Chronicle, this may take some time.");
 
     if let Err(e) = shutdown_tx.send(()) {
         panic!("Failed to send the shutdown signal: {:?}", e);
