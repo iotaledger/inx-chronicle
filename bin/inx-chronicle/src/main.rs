@@ -11,6 +11,7 @@ mod config;
 mod launcher;
 #[cfg(feature = "metrics")]
 mod metrics;
+mod shutdown;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
 
@@ -38,8 +39,19 @@ async fn main() {
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
     let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
-    spawn_task("ctrl-c listener", async move {
-        tokio::signal::ctrl_c().await.ok();
+    #[cfg(unix)]
+    let shutdown_rx = shutdown::shutdown_listener(vec![
+        tokio::signal::unix::SignalKind::interrupt(),
+        tokio::signal::unix::SignalKind::terminate(),
+    ]);
+
+    #[cfg(not(unix))]
+    let shutdown_rx = shutdown::shutdown_listener();
+
+    spawn_task("shutdown listener", async move {
+        if let Err(e) = shutdown_rx.await {
+            log::warn!("awaiting shutdown failed: {:?}", e);
+        }
         launcher_addr.abort().await;
     });
 
