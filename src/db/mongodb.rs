@@ -36,6 +36,10 @@ impl MongoDb {
             client_options.credential = Some(credential);
         }
 
+        // This is required for transactions to work.
+        client_options.retry_reads = Some(true);
+        client_options.retry_writes = Some(true);
+
         let client = Client::with_options(client_options)?;
 
         let db = client.database(&config.database_name);
