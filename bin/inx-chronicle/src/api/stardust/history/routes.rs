@@ -90,7 +90,7 @@ async fn transactions_by_milestone_history(
     let milestone_index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
-        .stream_ledger_updates_at_index_paginated(milestone_index, page_size + 1, start_output_id, sort.into())
+        .stream_ledger_updates_for_index_paginated(milestone_index, page_size + 1, start_output_id, sort.into())
         .await?;
 
     // Take all of the requested records first
