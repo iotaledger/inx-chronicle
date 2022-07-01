@@ -1,7 +1,7 @@
 ---
 name: Report a bug in Chronicle
 about: Create a report to help us improve
-labels: c-bug
+labels: bug
 ---
 
 ### Bug description
