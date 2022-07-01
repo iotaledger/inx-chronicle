@@ -4,7 +4,6 @@
 use std::pin::Pin;
 
 use async_trait::async_trait;
-use futures::Stream;
 
 use super::{context::ActorContext, Actor};
 
@@ -53,5 +52,3 @@ where
 
 /// Convenience type for boxed dynamic events.
 pub(crate) type Envelope<A> = Box<dyn DynEvent<A>>;
-/// Convenience type for streams of dynamic events.
-pub(crate) type EnvelopeStream<A> = Box<dyn Stream<Item = Envelope<A>> + Unpin + Send>;

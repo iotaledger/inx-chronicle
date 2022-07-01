@@ -10,7 +10,7 @@ mod syncer;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report, Sender},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Sender},
     types::tangle::MilestoneIndex,
 };
 pub use config::InxConfig;
@@ -124,14 +124,11 @@ impl Actor for InxWorker {
 
         let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
 
-        let ledger_update_stream = inx_client
-            .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
-            .await?
-            .into_inner();
-        cx.spawn_child(
-            LedgerUpdateStream::new(self.db.clone(), inx_client.clone(), latest_ms + 1..=u32::MAX.into())
-                .with_stream(ledger_update_stream),
-        )
+        cx.spawn_child(LedgerUpdateStream::new(
+            self.db.clone(),
+            inx_client.clone(),
+            latest_ms + 1..=u32::MAX.into(),
+        ))
         .await;
 
         Ok(inx_client)

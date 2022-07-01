@@ -5,9 +5,12 @@ use std::fmt::Debug;
 
 use futures::{Stream, StreamExt};
 
-use super::actor::{
-    event::{DynEvent, Envelope, EnvelopeStream},
-    Actor,
+use super::{
+    actor::{
+        event::{DynEvent, Envelope},
+        Actor,
+    },
+    merge::Merge,
 };
 
 /// Spawn configuration for an actor.
@@ -33,7 +36,7 @@ impl<A> SpawnConfig<A> {
         S: 'static + Stream<Item = E> + Unpin + Send,
         E: 'static + DynEvent<A>,
     {
-        self.config.set_stream(stream);
+        self.config.add_stream(stream);
         self
     }
 
@@ -51,7 +54,7 @@ impl<A: Actor> From<A> for SpawnConfig<A> {
 }
 
 pub(crate) struct SpawnConfigInner<A> {
-    pub(crate) stream: Option<EnvelopeStream<A>>,
+    pub(crate) streams: Option<Merge<Envelope<A>>>,
     pub(crate) add_to_registry: bool,
 }
 
@@ -59,8 +62,11 @@ impl<A: Debug> Debug for SpawnConfigInner<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SpawnConfigInner")
             .field(
-                "stream",
-                &self.stream.as_ref().map(|_| std::any::type_name::<EnvelopeStream<A>>()),
+                "streams",
+                &self
+                    .streams
+                    .as_ref()
+                    .map(|_| std::any::type_name::<Merge<Envelope<A>>>()),
             )
             .field("add_to_registry", &self.add_to_registry)
             .finish()
@@ -70,7 +76,7 @@ impl<A: Debug> Debug for SpawnConfigInner<A> {
 impl<A> Default for SpawnConfigInner<A> {
     fn default() -> Self {
         Self {
-            stream: None,
+            streams: None,
             add_to_registry: true,
         }
     }
@@ -78,13 +84,20 @@ impl<A> Default for SpawnConfigInner<A> {
 
 impl<A> SpawnConfigInner<A> {
     /// Merges a custom stream in addition to the event stream.
-    pub(crate) fn set_stream<S, E>(&mut self, stream: S)
+    pub(crate) fn add_stream<S, E>(&mut self, stream: S)
     where
         A: Actor,
         S: 'static + Stream<Item = E> + Unpin + Send,
         E: 'static + DynEvent<A>,
     {
-        self.stream = Some(Box::new(stream.map(|e| Box::new(e) as Envelope<A>)));
+        match self.streams.as_mut() {
+            Some(streams) => {
+                streams.merge(stream.map(|e| Box::new(e) as Envelope<A>));
+            }
+            None => {
+                self.streams = Some(Merge::new(stream.map(|e| Box::new(e) as Envelope<A>)));
+            }
+        }
     }
 
     /// Sets whether the actor's address should be added to the registry.

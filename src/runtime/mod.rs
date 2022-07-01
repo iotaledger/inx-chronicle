@@ -24,7 +24,6 @@ use futures::{
     Future,
 };
 
-pub(crate) use self::merge::MergeExt;
 pub use self::{
     actor::{
         addr::Addr,
