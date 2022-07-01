@@ -498,7 +498,6 @@ dependencies = [
  "hex",
  "humantime-serde",
  "hyper",
- "indexmap",
  "inx",
  "lazy_static",
  "log",
@@ -1315,8 +1314,7 @@ dependencies = [
 [[package]]
 name = "indexmap"
 version = "1.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
+source = "git+https://github.com/bluss/indexmap.git?rev=a638b99#a638b9910b08f45d2e5f90536855789a90fcbbe6"
 dependencies = [
  "autocfg",
  "hashbrown",
