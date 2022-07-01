@@ -39,19 +39,8 @@ async fn main() {
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
     let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
-    #[cfg(unix)]
-    let shutdown_rx = shutdown::shutdown_listener(vec![
-        tokio::signal::unix::SignalKind::interrupt(),
-        tokio::signal::unix::SignalKind::terminate(),
-    ]);
-
-    #[cfg(not(unix))]
-    let shutdown_rx = shutdown::shutdown_listener();
-
     spawn_task("shutdown listener", async move {
-        if let Err(e) = shutdown_rx.await {
-            log::warn!("awaiting shutdown failed: {:?}", e);
-        }
+        shutdown::shutdown_signal_listener().await;
         launcher_addr.abort().await;
     });
 

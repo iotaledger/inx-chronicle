@@ -1,25 +1,18 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use log::warn;
 use tokio::sync::oneshot;
 
-pub(crate) type ShutdownTx = oneshot::Sender<()>;
-pub(crate) type ShutdownRx = oneshot::Receiver<()>;
-
-#[cfg(unix)]
-pub(crate) use tokio::signal::unix::SignalKind;
-
-/// Creates a shutdown listener for Unix platforms.
-#[cfg(unix)]
-pub(crate) fn shutdown_listener(signals: Vec<SignalKind>) -> ShutdownRx {
-    use futures::future;
-    use tokio::signal::unix::{signal, Signal};
-
+pub(crate) async fn shutdown_signal_listener() {
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
+    #[cfg(unix)]
     tokio::spawn(async move {
-        let mut signals = signals
+        use futures::future;
+        use tokio::signal::unix::{signal, Signal, SignalKind};
+
+        // Panic: none of the possible error conditions should happen.
+        let mut signals = vec![SignalKind::interrupt(), SignalKind::terminate()]
             .iter()
             .map(|kind| signal(*kind).unwrap())
             .collect::<Vec<Signal>>();
@@ -31,31 +24,26 @@ pub(crate) fn shutdown_listener(signals: Vec<SignalKind>) -> ShutdownRx {
         if signal_event.is_none() {
             panic!("Shutdown signal stream failed, channel may have closed.");
         } else {
-            shutdown_procedure(shutdown_tx);
+            send_shutdown_signal(shutdown_tx);
         }
     });
 
-    shutdown_rx
-}
-
-/// Creates a shutdown listener for Non-Unix platforms.
-#[cfg(not(unix))]
-pub(crate) fn shutdown_listener() -> ShutdownRx {
-    let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
+    #[cfg(not(unix))]
     tokio::spawn(async move {
         if let Err(e) = tokio::signal::ctrl_c().await {
             panic!("Failed to intercept CTRL-C: {:?}.", e);
         } else {
-            shutdown_procedure(shutdown_tx);
+            send_shutdown_signal(shutdown_tx);
         }
     });
 
-    shutdown_rx
+    if let Err(e) = shutdown_rx.await {
+        log::warn!("awaiting shutdown failed: {:?}", e);
+    }
 }
 
-fn shutdown_procedure(shutdown_tx: ShutdownTx) {
-    warn!("Gracefully shutting down Chronicle, this may take some time.");
+fn send_shutdown_signal(shutdown_tx: oneshot::Sender<()>) {
+    log::warn!("Gracefully shutting down Chronicle, this may take some time.");
 
     if let Err(e) = shutdown_tx.send(()) {
         panic!("Failed to send the shutdown signal: {:?}", e);
