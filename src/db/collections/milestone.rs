@@ -260,7 +260,7 @@ impl MongoDb {
     /// Find the latest milestone inserted.
     pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndex>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {},
