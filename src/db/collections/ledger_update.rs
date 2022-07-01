@@ -57,11 +57,12 @@ pub enum SortOrder {
 }
 
 impl SortOrder {
-    pub fn is_newest(&self) -> bool {
+    fn is_newest(&self) -> bool {
         matches!(self, SortOrder::Newest)
     }
 
-    pub fn is_oldest(&self) -> bool {
+    #[allow(dead_code)]
+    fn is_oldest(&self) -> bool {
         matches!(self, SortOrder::Oldest)
     }
 }
