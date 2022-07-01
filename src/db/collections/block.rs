@@ -232,7 +232,8 @@ impl MongoDb {
 
         self.db
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .insert_many_with_session(docs, None, session).await?;
+            .insert_many_with_session(docs, None, session)
+            .await?;
 
         Ok(())
     }

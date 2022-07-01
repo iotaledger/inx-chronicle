@@ -7,7 +7,11 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
-    types::tangle::MilestoneIndex,
+    types::{
+        ledger::BlockMetadata,
+        stardust::block::{Block, BlockId},
+        tangle::MilestoneIndex,
+    },
 };
 use futures::StreamExt;
 use inx::{
@@ -120,20 +124,7 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             )
             .await?;
 
-            cone_stream.map(|(white_flag_index, block_metadata_result)| {
-                log::trace!("Received Stardust block event");
-                let block_metadata = block_metadata_result?;
-                log::trace!("Block data: {:?}", block_metadata);
-                let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata.try_into()?;
-                let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
-    
-                (metadata.block_id.into(),
-                        block.into(),
-                        raw,
-                        metadata.into(),
-                        white_flag_index as u32)
-            });
-
+        let mut blocks: Vec<(BlockId, Block, Vec<u8>, BlockMetadata, u32)> = Vec::new();
         while let Some((white_flag_index, block_metadata_result)) = cone_stream.next().await {
             log::trace!("Received Stardust block event");
             let block_metadata = block_metadata_result?;
@@ -141,17 +132,18 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata.try_into()?;
             let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
 
-            self.db
-                .insert_block_with_metadata_with_session(
-                    &mut session,
-                    metadata.block_id.into(),
-                    block.into(),
-                    raw,
-                    metadata.into(),
-                    white_flag_index as u32,
-                )
-                .await?;
+            blocks.push((
+                metadata.block_id.into(),
+                block.into(),
+                raw,
+                metadata.into(),
+                white_flag_index as u32,
+            ))
         }
+
+        self.db
+            .insert_stream_block_with_metadata_with_session(&mut session, blocks)
+            .await?;
 
         session.commit_transaction().await?;
 
