@@ -255,6 +255,24 @@ impl MongoDb {
             .map(|d| d.milestone_index))
     }
 
+    /// Find the latest milestone inserted.
+    pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndex>, Error> {
+        Ok(self
+            .0
+            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! {},
+                FindOptions::builder()
+                    .sort(doc! {"milestone_index": -1})
+                    .limit(1)
+                    .build(),
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|d| d.milestone_index))
+    }
+
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
     pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
         self.0

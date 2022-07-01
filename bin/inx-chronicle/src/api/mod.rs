@@ -74,6 +74,7 @@ impl Actor for ApiWorker {
         let api_handle = cx.handle().clone();
         let port = self.api_data.port;
         let routes = routes()
+            .layer(Extension((&***cx).clone())) // Pull ScopeView from the context
             .layer(Extension(self.db.clone()))
             .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())

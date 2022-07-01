@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::db::MongoDb;
+use chronicle::{db::MongoDb, runtime::ScopeView};
 use hyper::StatusCode;
 use serde::Deserialize;
 
@@ -55,24 +55,33 @@ async fn login(
     }
 }
 
-fn is_healthy() -> bool {
-    true
+async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
+    #[allow(unused_mut)]
+    let mut is_healthy = true;
+    #[cfg(feature = "inx")]
+    {
+        use crate::check_health::CheckHealth;
+        is_healthy &= scope
+            .is_healthy::<crate::stardust_inx::InxWorker>()
+            .await
+            .unwrap_or(false);
+    }
+    is_healthy
 }
 
-async fn info() -> InfoResponse {
-    let version = std::env!("CARGO_PKG_VERSION").to_string();
-    let is_healthy = is_healthy();
+async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {
     InfoResponse {
         name: "Chronicle".into(),
-        version,
-        is_healthy,
+        version: std::env!("CARGO_PKG_VERSION").to_string(),
+        is_healthy: is_healthy(&scope).await,
     }
 }
 
-pub async fn health() -> StatusCode {
-    match is_healthy() {
-        true => StatusCode::OK,
-        false => StatusCode::SERVICE_UNAVAILABLE,
+pub async fn health(Extension(scope): Extension<ScopeView>) -> StatusCode {
+    if is_healthy(&scope).await {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
     }
 }
 
