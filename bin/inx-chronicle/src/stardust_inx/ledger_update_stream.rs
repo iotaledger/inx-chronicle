@@ -108,7 +108,7 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             .read_milestone_cone(inx::proto::MilestoneRequest::from_index(milestone_index.0))
             .await?
             .into_inner()
-            .enumerate();
+            .enumerate(); // We enumerate the stream to retreive the white flag index.
 
         self.db
             .insert_milestone(
@@ -119,6 +119,20 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
                 payload,
             )
             .await?;
+
+            cone_stream.map(|(white_flag_index, block_metadata_result)| {
+                log::trace!("Received Stardust block event");
+                let block_metadata = block_metadata_result?;
+                log::trace!("Block data: {:?}", block_metadata);
+                let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata.try_into()?;
+                let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
+    
+                (metadata.block_id.into(),
+                        block.into(),
+                        raw,
+                        metadata.into(),
+                        white_flag_index as u32)
+            });
 
         while let Some((white_flag_index, block_metadata_result)) = cone_stream.next().await {
             log::trace!("Received Stardust block event");

@@ -173,6 +173,7 @@ impl MongoDb {
     }
 
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
+    #[deprecated(note = "Use the streaming variant of this function.")]
     pub async fn insert_block_with_metadata_with_session(
         &self,
         session: &mut mongodb::ClientSession,
@@ -209,6 +210,29 @@ impl MongoDb {
                 session,
             )
             .await?;
+
+        Ok(())
+    }
+
+    /// Inserts a stream of [`Block`]s together with their associated [`BlockMetadata`].
+    pub async fn insert_stream_block_with_metadata_with_session(
+        &self,
+        session: &mut mongodb::ClientSession,
+        stream: impl IntoIterator<Item = (BlockId, Block, Vec<u8>, BlockMetadata, u32)>,
+    ) -> Result<(), Error> {
+        let docs = stream
+            .into_iter()
+            .map(|(block_id, block, raw, metadata, white_flag_index)| BlockDocument {
+                block_id,
+                block,
+                raw,
+                metadata,
+                white_flag_index,
+            });
+
+        self.db
+            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .insert_many_with_session(docs, None, session).await?;
 
         Ok(())
     }
