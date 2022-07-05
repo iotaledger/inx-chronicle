@@ -3,7 +3,7 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{doc, Bson, Document, self},
+    bson::{self, doc, Bson, Document},
     error::Error,
     options::{FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
@@ -130,7 +130,6 @@ impl MongoDb {
                     at,
                     is_spent,
                 };
-
 
                 let mut doc = bson::to_document(&ledger_update_document)?;
                 doc.insert("_id", ledger_update_document.output_id.to_hex());
