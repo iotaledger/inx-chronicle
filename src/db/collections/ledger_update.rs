@@ -76,11 +76,11 @@ impl From<SortOrder> for Bson {
     }
 }
 
-fn index() -> Document {
+fn ledger_index() -> Document {
     doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 }
 }
 
-fn inverse_index() -> Document {
+fn inverse_ledger_index() -> Document {
     doc! { "address": -1, "at.milestone_index": 1, "output_id": -1 }
 }
 
@@ -95,11 +95,28 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(index())
+                    .keys(ledger_index())
                     .options(
                         IndexOptions::builder()
-                            .unique(false) // An output can be spent within the same milestone that it was created in.
+                            // An output can be spent within the same milestone that it was created in.
+                            .unique(false)
                             .name("ledger_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "output_id": 1, "is_spent": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            // An output can be spent and unspent only once.
+                            .unique(true)
+                            .name("id_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -131,17 +148,12 @@ impl MongoDb {
                     is_spent,
                 };
 
-                let mut doc = bson::to_document(&ledger_update_document)?;
-                doc.insert("_id", ledger_update_document.output_id.to_hex());
-
-                // TODO: This is prone to overwriting and should be fixed in the future (GitHub issue: #218).
                 let _ = self
                     .0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    // .insert_one(ledger_update_document, None)
                     .update_one(
-                        doc! {"_id": metadata.output_id },
-                        doc! { "$setOnInsert": doc },
+                        doc! { "output_id": metadata.output_id, "is_spent": is_spent },
+                        doc! { "$setOnInsert": bson::to_document(&ledger_update_document)? },
                         UpdateOptions::builder().upsert(true).build(),
                     )
                     .await?;
@@ -186,7 +198,11 @@ impl MongoDb {
 
         let options = FindOptions::builder()
             .limit(page_size as i64)
-            .sort(if order.is_newest() { inverse_index() } else { index() })
+            .sort(if order.is_newest() {
+                inverse_ledger_index()
+            } else {
+                ledger_index()
+            })
             .build();
 
         self.0
@@ -235,7 +251,11 @@ impl MongoDb {
 
         let options = FindOptions::builder()
             .limit(page_size as i64)
-            .sort(if order.is_newest() { inverse_index() } else { index() })
+            .sort(if order.is_newest() {
+                inverse_ledger_index()
+            } else {
+                ledger_index()
+            })
             .build();
 
         self.0
