@@ -4,9 +4,17 @@ services:
   mongo:
     image: mongo
     restart: always
-    command: --quiet --logpath /dev/null
+    command: --quiet --logpath /dev/null --replSet rs0
+    environment:
+      - MONGO_REPLICA_SET_NAME=rs0 
     volumes:
       - ./chronicle_data:/data/db
+    # This is taken from: https://stackoverflow.com/questions/61486024/mongo-container-with-a-replica-set-with-only-one-node-in-docker-compose
+    # It sneaks in the `rs.initiate()` command that is required to setup a replica set.
+    healthcheck:
+      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo -u $${MONGO_INITDB_ROOT_USERNAME} -p $${MONGO_INITDB_ROOT_PASSWORD} --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
 
   inx-chronicle:
     build:
@@ -27,6 +35,7 @@ services:
 
   hornet:
     image: iotaledger/hornet:2.0.0-alpha.22
+    network_mode: "host"
     ulimits:
       nofile:
         soft: 8192
