@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
+        ledger::MilestoneIndexTimestamp,
         stardust::{
             block::{MilestoneId, MilestoneOption, MilestonePayload},
             milestone::MilestoneTimestamp,
@@ -256,10 +257,9 @@ impl MongoDb {
     }
 
     /// Find the latest milestone inserted.
-    pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndex>, Error> {
-        Ok(self
-            .0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+    pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        self.0
+            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {},
                 FindOptions::builder()
@@ -269,8 +269,35 @@ impl MongoDb {
             )
             .await?
             .try_next()
-            .await?
-            .map(|d| d.milestone_index))
+            .await
+    }
+
+    /// Find the latest inserted milestone in the range the provided milestone index is included.
+    pub async fn get_latest_milestone_in_range(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        let mut stream = self
+            .0
+            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! { "milestone_index": { "$gte": index } },
+                FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
+            )
+            .await?;
+        let mut end: Option<MilestoneIndexTimestamp> = None;
+        while let Some(doc) = stream.try_next().await? {
+            if let Some(end) = end.as_mut() {
+                if doc.milestone_index == end.milestone_index + 1 {
+                    *end = doc;
+                } else {
+                    break;
+                }
+            } else {
+                end.replace(doc);
+            }
+        }
+        Ok(end)
     }
 
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.

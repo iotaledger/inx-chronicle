@@ -274,15 +274,6 @@ impl MongoDb {
                     } },
                     doc! { "$lookup": {
                         "from": MilestoneDocument::COLLECTION,
-                        "pipeline": [
-                            { "$sort": { "milestone_timestamp": -1 } },
-                            { "$limit": 1 }
-                        ],
-                        "as": "latest_milestone"
-                    } },
-                    doc! { "$set": { "latest_milestone": { "$first": "$latest_milestone" } } },
-                    doc! { "$lookup": {
-                        "from": MilestoneDocument::COLLECTION,
                         "localField": "metadata.referenced_by_milestone_index",
                         "foreignField": "milestone_index",
                         "as": "metadata.referenced_by_milestone"
@@ -295,7 +286,7 @@ impl MongoDb {
                             "block_id": "$block_id",
                             "transaction_id": "$block.payload.transaction_id",
                             "booked": "$metadata.referenced_by_milestone",
-                            "latest_milestone": "$latest_milestone"
+                            "latest_milestone": "$metadata.referenced_by_milestone"
                         }
                     } } },
                 ],
@@ -306,8 +297,26 @@ impl MongoDb {
             .await?
             .map(bson::from_document)
             .transpose()?;
-        let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
         if let Some(output) = output.as_mut() {
+            // Get the latest milestone in the range BEFORE we get the spent metadata
+            // because otherwise it could be inserted along with the milestone after we
+            // failed to select it.
+            let latest_in_range = self
+                .get_latest_milestone_in_range(output.metadata.booked.milestone_index)
+                .await?;
+            let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
+            if spent_metadata.is_some() {
+                // Since we found the spending transaction, we know it's safe to use the
+                // actual latest milestone as the ledger index.
+                if let Some(latest_milestone) = self.get_latest_milestone().await? {
+                    output.metadata.latest_milestone = latest_milestone;
+                }
+            } else {
+                // Otherwise, we use the highest milestone in the range we found earlier.
+                if let Some(latest_milestone) = latest_in_range {
+                    output.metadata.latest_milestone = latest_milestone;
+                }
+            }
             output.metadata.spent = spent_metadata;
         }
 
@@ -328,15 +337,6 @@ impl MongoDb {
                     } },
                     doc! { "$lookup": {
                         "from": MilestoneDocument::COLLECTION,
-                        "pipeline": [
-                            { "$sort": { "milestone_timestamp": -1 } },
-                            { "$limit": 1 }
-                        ],
-                        "as": "latest_milestone"
-                    } },
-                    doc! { "$set": { "latest_milestone": { "$first": "$latest_milestone" } } },
-                    doc! { "$lookup": {
-                        "from": MilestoneDocument::COLLECTION,
                         "localField": "metadata.referenced_by_milestone_index",
                         "foreignField": "milestone_index",
                         "as": "metadata.referenced_by_milestone"
@@ -347,7 +347,7 @@ impl MongoDb {
                         "block_id": "$block_id",
                         "transaction_id": "$block.payload.transaction_id",
                         "booked": "$metadata.referenced_by_milestone",
-                        "latest_milestone": "$latest_milestone"
+                        "latest_milestone": "$metadata.referenced_by_milestone"
                     } } },
                 ],
                 None,
@@ -357,8 +357,26 @@ impl MongoDb {
             .await?
             .map(bson::from_document)
             .transpose()?;
-        let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
         if let Some(metadata) = metadata.as_mut() {
+            // Get the latest milestone in the range BEFORE we get the spent metadata
+            // because otherwise it could be inserted along with the milestone after we
+            // failed to select it.
+            let latest_in_range = self
+                .get_latest_milestone_in_range(metadata.booked.milestone_index)
+                .await?;
+            let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
+            if spent_metadata.is_some() {
+                // Since we found the spending transaction, we know it's safe to use the
+                // actual latest milestone as the ledger index.
+                if let Some(latest_milestone) = self.get_latest_milestone().await? {
+                    metadata.latest_milestone = latest_milestone;
+                }
+            } else {
+                // Otherwise, we use the highest milestone in the range we found earlier.
+                if let Some(latest_milestone) = latest_in_range {
+                    metadata.latest_milestone = latest_milestone;
+                }
+            }
             metadata.spent = spent_metadata;
         }
 

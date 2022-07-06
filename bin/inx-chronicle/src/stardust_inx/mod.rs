@@ -205,8 +205,8 @@ impl HandleEvent<IsHealthy> for InxWorker {
         let mut healthy = true;
         healthy &= node_status.is_healthy;
 
-        let latest_inserted_ms = self.db.get_latest_milestone().await?;
-        healthy &= latest_inserted_ms.map_or(false, |MilestoneIndex(latest_inserted_ms)| {
+        let latest_inserted_ms = self.db.get_latest_milestone().await?.map(|ms| ms.milestone_index.0);
+        healthy &= latest_inserted_ms.map_or(false, |latest_inserted_ms| {
             // If the latest confirmed ms from the node is either the last ms we inserted or the next one
             // (because we are still working on it) then we are healthy
             (latest_inserted_ms..=latest_inserted_ms + 1)
