@@ -9,8 +9,16 @@ services:
       - MONGO_REPLICA_SET_NAME=rs0 
     volumes:
       - ./chronicle_data:/data/db
+    # The following is a hack to sneak in `rs.initiate()` to enable replica sets.
+    healthcheck:
+      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo -u admin -p pass --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
 
   inx-chronicle:
+    depends_on:
+      - mongo
+      - hornet
     build:
       context: ..
       dockerfile: docker/Dockerfile
