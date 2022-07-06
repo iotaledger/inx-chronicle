@@ -156,7 +156,7 @@ impl MongoDb {
                         doc! { "output_id": metadata.output_id, "is_spent": is_spent },
                         doc! { "$setOnInsert": bson::to_document(&ledger_update_document)? },
                         UpdateOptions::builder().upsert(true).build(),
-                        session
+                        session,
                     )
                     .await?;
             }

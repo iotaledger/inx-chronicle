@@ -141,15 +141,20 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             ))
         }
 
+        log::trace!("Inserting {} blocks into database.", blocks.len());
+
         if !blocks.is_empty() {
             self.db
-            .insert_stream_block_with_metadata_with_session(&mut session, blocks)
-            .await?;
+                .insert_stream_block_with_metadata_with_session(&mut session, blocks)
+                .await?;
         } else {
-            log::debug!("Recived empty milestone cone.");
+            log::debug!("Received empty milestone cone.");
         }
 
         session.commit_transaction().await?;
+
+        self.db.set_sync_status_blocks(milestone_index).await?;
+        log::debug!("Milestone `{}` synced.", milestone_index);
 
         Ok(())
     }
