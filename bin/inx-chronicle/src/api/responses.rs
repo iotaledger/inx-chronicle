@@ -24,10 +24,10 @@ use serde_json::Value;
 
 /// Response of `GET /api/info`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InfoResponse {
     pub name: String,
     pub version: String,
-    #[serde(rename = "isHealthy")]
     pub is_healthy: bool,
 }
 
@@ -40,39 +40,34 @@ pub struct SyncDataDto(pub SyncData);
 impl_success_response!(SyncDataDto);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Record {
     pub id: String,
-    #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "milestoneIndex")]
     pub milestone_index: Option<MilestoneIndex>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Transfer {
-    #[serde(rename = "transactionId")]
     pub transaction_id: String,
-    #[serde(rename = "outputIndex")]
     pub output_index: u16,
-    #[serde(rename = "isSpending")]
     pub is_spending: bool,
-    #[serde(rename = "inclusionState")]
     pub inclusion_state: Option<LedgerInclusionState>,
-    #[serde(rename = "blockId")]
     pub block_id: String,
     pub amount: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MaybeSpentOutput {
     pub output: Value,
-    #[serde(rename = "spendingBlockId")]
     pub spending_block_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Unlock {
-    #[serde(rename = "blockId")]
     pub block_id: String,
     pub block: Value,
 }

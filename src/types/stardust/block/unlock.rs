@@ -7,15 +7,11 @@ use serde::{Deserialize, Serialize};
 use super::Signature;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Unlock {
-    #[serde(rename = "signature")]
     Signature { signature: Signature },
-    #[serde(rename = "reference")]
     Reference { index: u16 },
-    #[serde(rename = "alias")]
     Alias { index: u16 },
-    #[serde(rename = "nft")]
     Nft { index: u16 },
 }
 

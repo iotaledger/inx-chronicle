@@ -17,15 +17,11 @@ pub use self::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Payload {
-    #[serde(rename = "transaction")]
     Transaction(Box<TransactionPayload>),
-    #[serde(rename = "milestone")]
     Milestone(Box<MilestonePayload>),
-    #[serde(rename = "treasury_transaction")]
     TreasuryTransaction(Box<TreasuryTransactionPayload>),
-    #[serde(rename = "tagged_data")]
     TaggedData(Box<TaggedDataPayload>),
 }
 

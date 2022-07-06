@@ -79,17 +79,12 @@ impl From<OutputId> for Bson {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Output {
-    #[serde(rename = "treasury")]
     Treasury(TreasuryOutput),
-    #[serde(rename = "basic")]
     Basic(BasicOutput),
-    #[serde(rename = "alias")]
     Alias(AliasOutput),
-    #[serde(rename = "foundry")]
     Foundry(FoundryOutput),
-    #[serde(rename = "nft")]
     Nft(NftOutput),
 }
 

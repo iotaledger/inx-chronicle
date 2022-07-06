@@ -19,14 +19,11 @@ pub struct TransactionsPerAddressResponse {
 impl_success_response!(TransactionsPerAddressResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransferByAddress {
-    #[serde(rename = "outputId")]
     pub output_id: String,
-    #[serde(rename = "isSpent")]
     pub is_spent: bool,
-    #[serde(rename = "milestoneIndex")]
     pub milestone_index: MilestoneIndex,
-    #[serde(rename = "milestoneTimestamp")]
     pub milestone_timestamp: MilestoneTimestamp,
 }
 
@@ -40,10 +37,9 @@ pub struct TransactionsPerMilestoneResponse {
 impl_success_response!(TransactionsPerMilestoneResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransferByMilestone {
     pub address: Address,
-    #[serde(rename = "outputId")]
     pub output_id: String,
-    #[serde(rename = "isSpent")]
     pub is_spent: bool,
 }
