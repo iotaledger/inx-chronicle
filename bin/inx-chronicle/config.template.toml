@@ -35,7 +35,7 @@ connect_url = "http://localhost:9029"
 connection_retry_interval = "5s"
 
 ### Maximum number of tries to establish an INX connection.
-connection_retry_count = 5
+connection_retry_count = 10
 
 ### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
 sync_start_milestone = 1 
