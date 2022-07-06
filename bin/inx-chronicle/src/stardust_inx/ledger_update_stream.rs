@@ -145,6 +145,8 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             self.db
             .insert_stream_block_with_metadata_with_session(&mut session, blocks)
             .await?;
+        } else {
+            log::debug!("Recived empty milestone cone.");
         }
 
         session.commit_transaction().await?;
