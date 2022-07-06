@@ -11,17 +11,30 @@ use crate::types::stardust::block::Address;
 #[serde(tag = "kind")]
 #[serde(rename_all = "snake_case")]
 pub enum UnlockCondition {
-    Address { address: Address },
+    Address {
+        address: Address,
+    },
     StorageDepositReturn {
         return_address: Address,
         #[serde(with = "crate::types::util::stringify")]
         amount: u64,
     },
-    Timelock { timestamp: u32 },
-    Expiration { return_address: Address, timestamp: u32 },
-    StateControllerAddress { address: Address },
-    GovernorAddress { address: Address },
-    ImmutableAliasAddress { address: Address },
+    Timelock {
+        timestamp: u32,
+    },
+    Expiration {
+        return_address: Address,
+        timestamp: u32,
+    },
+    StateControllerAddress {
+        address: Address,
+    },
+    GovernorAddress {
+        address: Address,
+    },
+    ImmutableAliasAddress {
+        address: Address,
+    },
 }
 
 impl UnlockCondition {

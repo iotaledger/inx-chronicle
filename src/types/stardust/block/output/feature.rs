@@ -11,8 +11,12 @@ use crate::types::stardust::block::Address;
 #[serde(tag = "kind")]
 #[serde(rename_all = "snake_case")]
 pub enum Feature {
-    Sender { address: Address },
-    Issuer { address: Address },
+    Sender {
+        address: Address,
+    },
+    Issuer {
+        address: Address,
+    },
     Metadata {
         #[serde(with = "serde_bytes")]
         data: Box<[u8]>,
