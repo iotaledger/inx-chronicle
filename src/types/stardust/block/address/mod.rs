@@ -13,7 +13,6 @@ mod nft;
 
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
-// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Address {

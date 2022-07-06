@@ -109,10 +109,8 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
     }
 }
 
-// TODO: use camel case? (makes in fact no difference with current variants)
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum MilestoneOption {
     Receipt {
         migrated_at: MilestoneIndex,

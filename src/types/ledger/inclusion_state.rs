@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// A block's ledger inclusion state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum LedgerInclusionState {
     /// A conflicting block, ex. a double spend
     Conflicting,

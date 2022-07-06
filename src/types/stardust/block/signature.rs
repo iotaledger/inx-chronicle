@@ -6,10 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
-// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Signature {
     Ed25519 {
         #[serde(with = "bytify")]

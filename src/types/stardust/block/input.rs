@@ -6,10 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{MilestoneId, OutputId};
 
-// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Input {
     Utxo(OutputId),
     Treasury { milestone_id: MilestoneId },

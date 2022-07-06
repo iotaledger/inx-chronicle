@@ -87,10 +87,8 @@ impl TryFrom<TransactionPayload> for bee::TransactionPayload {
     }
 }
 
-// TODO: use camel case? (makes in fact no difference with current variant)
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TransactionEssence {
     Regular {
         #[serde(with = "crate::types::util::stringify")]

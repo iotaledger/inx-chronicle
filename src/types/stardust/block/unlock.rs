@@ -6,10 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use super::Signature;
 
-// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Unlock {
     Signature { signature: Signature },
     Reference { index: u16 },

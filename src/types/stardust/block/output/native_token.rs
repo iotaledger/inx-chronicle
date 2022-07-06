@@ -55,10 +55,8 @@ impl FromStr for TokenId {
     }
 }
 
-// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TokenScheme {
     Simple {
         minted_tokens: TokenAmount,
