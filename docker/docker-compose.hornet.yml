@@ -10,6 +10,7 @@ services:
     volumes:
       - ./chronicle_data:/data/db
     # The following is a hack to sneak in `rs.initiate()` to enable replica sets.
+    # In a production setting, the MongoDB instance has to be properly configured with replica sets activated.
     healthcheck:
       test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo --quiet) -eq 1
       interval: 10s

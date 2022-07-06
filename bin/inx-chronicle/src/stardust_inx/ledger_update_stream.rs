@@ -141,9 +141,11 @@ impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStrea
             ))
         }
 
-        self.db
+        if !blocks.is_empty() {
+            self.db
             .insert_stream_block_with_metadata_with_session(&mut session, blocks)
             .await?;
+        }
 
         session.commit_transaction().await?;
 
