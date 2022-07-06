@@ -3,9 +3,9 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{doc, Bson, Document},
+    bson::{self, doc, Bson, Document},
     error::Error,
-    options::{FindOptions, IndexOptions},
+    options::{FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ use crate::{
 };
 
 /// Contains all information related to an output.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LedgerUpdateDocument {
     address: Address,
     output_id: OutputId,
@@ -76,11 +76,11 @@ impl From<SortOrder> for Bson {
     }
 }
 
-fn index() -> Document {
+fn ledger_index() -> Document {
     doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 }
 }
 
-fn inverse_index() -> Document {
+fn inverse_ledger_index() -> Document {
     doc! { "address": -1, "at.milestone_index": 1, "output_id": -1 }
 }
 
@@ -95,11 +95,28 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(index())
+                    .keys(ledger_index())
                     .options(
                         IndexOptions::builder()
-                            .unique(false) // An output can be spent within the same milestone that it was created in.
+                            // An output can be spent within the same milestone that it was created in.
+                            .unique(false)
                             .name("ledger_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "output_id": 1, "is_spent": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            // An output can be spent and unspent only once.
+                            .unique(true)
+                            .name("id_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -119,19 +136,26 @@ impl MongoDb {
         // TODO: Use `insert_many` and `update_many` to increase write performance.
 
         for OutputWithMetadata { output, metadata } in outputs_with_metadata {
+            let at = metadata.spent.map_or(metadata.booked, |s| s.spent);
+            let is_spent = metadata.spent.is_some();
+
             // Ledger updates
             for owner in output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
                     address: owner,
                     output_id: metadata.output_id,
-                    at: metadata.spent.map_or(metadata.booked, |s| s.spent),
-                    is_spent: metadata.spent.is_some(),
+                    at,
+                    is_spent,
                 };
 
-                // TODO: This is prone to overwriting and should be fixed in the future (GitHub issue: #218).
-                self.0
+                let _ = self
+                    .0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .insert_one(ledger_update_document, None)
+                    .update_one(
+                        doc! { "output_id": metadata.output_id, "is_spent": is_spent },
+                        doc! { "$setOnInsert": bson::to_document(&ledger_update_document)? },
+                        UpdateOptions::builder().upsert(true).build(),
+                    )
                     .await?;
             }
         }
@@ -148,11 +172,6 @@ impl MongoDb {
         start_output_id: Option<OutputId>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(if order.is_newest() { inverse_index() } else { index() })
-            .build();
-
         let mut filter = doc! {
             "address": { "$eq": address },
         };
@@ -176,6 +195,15 @@ impl MongoDb {
                 }
             }
         }
+
+        let options = FindOptions::builder()
+            .limit(page_size as i64)
+            .sort(if order.is_newest() {
+                inverse_ledger_index()
+            } else {
+                ledger_index()
+            })
+            .build();
 
         self.0
             .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
@@ -207,11 +235,6 @@ impl MongoDb {
         start_output_id: Option<OutputId>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(if order.is_newest() { inverse_index() } else { index() })
-            .build();
-
         let mut filter = doc! {
             "at.milestone_index": { "$eq": milestone_index }
         };
@@ -225,6 +248,15 @@ impl MongoDb {
                 }
             }
         }
+
+        let options = FindOptions::builder()
+            .limit(page_size as i64)
+            .sort(if order.is_newest() {
+                inverse_ledger_index()
+            } else {
+                ledger_index()
+            })
+            .build();
 
         self.0
             .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
