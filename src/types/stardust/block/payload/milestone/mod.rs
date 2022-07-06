@@ -109,17 +109,17 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
     }
 }
 
+// TODO: use camel case? (makes in fact no difference with current variants)
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[serde(rename_all = "snake_case")]
 pub enum MilestoneOption {
-    #[serde(rename = "receipt")]
     Receipt {
         migrated_at: MilestoneIndex,
         last: bool,
         funds: Box<[MigratedFundsEntry]>,
         transaction: TreasuryTransactionPayload,
     },
-    #[serde(rename = "parameters")]
     Parameters {
         target_milestone_index: MilestoneIndex,
         protocol_version: u8,

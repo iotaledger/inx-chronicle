@@ -78,18 +78,15 @@ impl From<OutputId> for Bson {
     }
 }
 
+// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[serde(rename_all = "snake_case")]
 pub enum Output {
-    #[serde(rename = "treasury")]
     Treasury(TreasuryOutput),
-    #[serde(rename = "basic")]
     Basic(BasicOutput),
-    #[serde(rename = "alias")]
     Alias(AliasOutput),
-    #[serde(rename = "foundry")]
     Foundry(FoundryOutput),
-    #[serde(rename = "nft")]
     Nft(NftOutput),
 }
 

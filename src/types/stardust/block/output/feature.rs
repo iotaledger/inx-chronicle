@@ -6,19 +6,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
+// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[serde(rename_all = "snake_case")]
 pub enum Feature {
-    #[serde(rename = "sender")]
     Sender { address: Address },
-    #[serde(rename = "issuer")]
     Issuer { address: Address },
-    #[serde(rename = "metadata")]
     Metadata {
         #[serde(with = "serde_bytes")]
         data: Box<[u8]>,
     },
-    #[serde(rename = "tag")]
     Tag {
         #[serde(with = "serde_bytes")]
         data: Box<[u8]>,

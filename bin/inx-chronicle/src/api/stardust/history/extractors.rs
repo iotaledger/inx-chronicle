@@ -55,11 +55,10 @@ pub struct HistoryByAddressPagination {
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default)]
+#[serde(rename_all = "camelCase")]
 pub struct HistoryByAddressPaginationQuery {
-    #[serde(rename = "pageSize")]
     pub page_size: Option<usize>,
     pub sort: Option<String>,
-    #[serde(rename = "startMilestoneIndex")]
     pub start_milestone_index: Option<u32>,
     pub cursor: Option<String>,
 }
@@ -110,8 +109,8 @@ pub struct HistoryByMilestonePagination {
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default)]
+#[serde(rename_all = "camelCase")]
 pub struct HistoryByMilestonePaginationQuery {
-    #[serde(rename = "pageSize")]
     pub page_size: Option<usize>,
     pub sort: Option<String>,
     pub cursor: Option<String>,

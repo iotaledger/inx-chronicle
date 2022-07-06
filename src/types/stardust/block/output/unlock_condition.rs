@@ -6,26 +6,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
+// TODO: are we sure about snake case here? Why not consistently use 'camelCase'?
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[serde(rename_all = "snake_case")]
 pub enum UnlockCondition {
-    #[serde(rename = "address")]
     Address { address: Address },
-    #[serde(rename = "storage_deposit_return")]
     StorageDepositReturn {
         return_address: Address,
         #[serde(with = "crate::types::util::stringify")]
         amount: u64,
     },
-    #[serde(rename = "timelock")]
     Timelock { timestamp: u32 },
-    #[serde(rename = "expiration")]
     Expiration { return_address: Address, timestamp: u32 },
-    #[serde(rename = "state_controller_address")]
     StateControllerAddress { address: Address },
-    #[serde(rename = "governor_address")]
     GovernorAddress { address: Address },
-    #[serde(rename = "immutable_alias_address")]
     ImmutableAliasAddress { address: Address },
 }
 

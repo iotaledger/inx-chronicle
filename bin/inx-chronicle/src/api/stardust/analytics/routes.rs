@@ -27,8 +27,8 @@ async fn address_analytics(
 
     Ok(AddressAnalyticsResponse {
         total_addresses: res.total_addresses,
-        recv_addresses: res.recv_addresses,
-        send_addresses: res.send_addresses,
+        receiving_addresses: res.recv_addresses,
+        sending_addresses: res.send_addresses,
     })
 }
 
@@ -55,6 +55,6 @@ async fn transaction_analytics(
     Ok(TransactionsAnalyticsResponse {
         count: res.count,
         total_value: res.total_value,
-        avg_value: res.avg_value,
+        average_value: res.avg_value,
     })
 }
