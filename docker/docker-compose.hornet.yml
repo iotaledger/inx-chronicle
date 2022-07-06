@@ -37,7 +37,6 @@ services:
 
   hornet:
     image: iotaledger/hornet:2.0.0-alpha.22
-    network_mode: "host"
     ulimits:
       nofile:
         soft: 8192
