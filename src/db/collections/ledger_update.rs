@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::Stream;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc, Document},
     error::Error,
@@ -10,6 +10,7 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::block::BlockDocument;
 use crate::{
     db::MongoDb,
     types::{
@@ -207,6 +208,49 @@ impl MongoDb {
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
             .await
+    }
+
+    /// Calculates the balance of the given `address`.
+    pub async fn calculate_balance_for_address(&self, address: Address) -> Result<u64, Error> {
+        Ok(self
+            .0
+            .collection::<u64>(LedgerUpdateDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    // Find all unspent outputs for `address`.
+                    doc! { "$match": {
+                        "address": address, "is_spent": false,
+                    } },
+                    // Split the output into its `transaction_id` and its `index` within the transaction.
+                    doc! { "$replaceWith": { 
+                        "transaction_id": "$output_id.transaction_id",
+                        "index": "$output_id.index" 
+                    } },
+                    // Get the transaction essence from the block collection.
+                    doc! { "$lookup": {
+                        "from": BlockDocument::COLLECTION,
+                        "localField": "transaction_id",
+                        "foreignField": "block.payload.transaction_id",
+                        "as": "essence"
+                    } },
+                    // TODO: do we need this?
+                    doc! { "$unwind": "essence" },
+                    // Get the actual `Output`.
+                    doc! { "$replaceWith": { "output_at_index": { "$arrayElemAt": [ "$essence.outputs", "$index" ] } } },
+                    // Sum their balances.
+                    doc! { "$group": {
+                        "_id": "null",
+                        "total": { "$sum": { "$toDouble": "$output_at_index.amount" } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
     }
 }
 
