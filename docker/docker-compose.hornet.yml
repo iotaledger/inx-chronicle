@@ -4,7 +4,13 @@ services:
   mongo:
     image: mongo
     restart: always
-    command: --quiet --logpath /dev/null
+    command: 
+      - "--port 27017"
+      - "--dbpath /db0"
+      - "--replSet rs0"
+      - "--bind_ip localhost"
+      - "--quiet"
+      - "--logpath /dev/null"
     volumes:
       - ./chronicle_data:/data/db
 
