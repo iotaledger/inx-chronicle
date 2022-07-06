@@ -150,7 +150,7 @@ impl MongoDb {
                 };
 
                 let _ = self
-                    .0
+                    .db
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one_with_session(
                         doc! { "output_id": metadata.output_id, "is_spent": is_spent },
