@@ -32,13 +32,13 @@ impl ShutdownFlag {
 
 /// A handle which can be invoked to shutdown an actor.
 #[derive(Clone, Default, Debug)]
-pub struct ShutdownHandle {
+pub(crate) struct ShutdownHandle {
     flag: Arc<ShutdownFlag>,
 }
 
 impl ShutdownHandle {
     /// Notifies the listener of this handle that it should shut down.
-    pub fn shutdown(&self) {
+    pub(crate) fn shutdown(&self) {
         self.flag.signal()
     }
 }
@@ -69,7 +69,7 @@ impl Future for ShutdownHandle {
 /// This type wraps a shutdown receiver and a stream to produce a new stream that ends when the
 /// shutdown receiver is triggered or when the stream ends.
 #[derive(Debug)]
-pub struct ShutdownStream<S> {
+pub(crate) struct ShutdownStream<S> {
     shutdown: future::Fuse<ShutdownHandle>,
     stream: stream::Fuse<S>,
 }
@@ -80,7 +80,7 @@ impl<S: Stream> ShutdownStream<S> {
     /// This method receives the stream to be wrapped and a `oneshot::Receiver` for the shutdown.
     /// Both the stream and the shutdown receiver are fused to avoid polling already completed
     /// futures.
-    pub fn new(stream: S) -> (Self, ShutdownHandle) {
+    pub(crate) fn new(stream: S) -> (Self, ShutdownHandle) {
         let handle = ShutdownHandle::default();
         (
             Self {

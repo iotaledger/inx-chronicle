@@ -7,11 +7,9 @@ use serde::{Deserialize, Serialize};
 use super::{MilestoneId, OutputId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Input {
-    #[serde(rename = "utxo")]
     Utxo(OutputId),
-    #[serde(rename = "treasury")]
     Treasury { milestone_id: MilestoneId },
 }
 

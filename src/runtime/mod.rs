@@ -24,7 +24,6 @@ use futures::{
     Future,
 };
 
-pub(crate) use self::merge::MergeExt;
 pub use self::{
     actor::{
         addr::Addr,
@@ -38,7 +37,7 @@ pub use self::{
     },
     config::{ConfigureActor, SpawnConfig},
     error::RuntimeError,
-    scope::RuntimeScope,
+    scope::{RuntimeScope, ScopeView},
     task::{error::TaskError, report::TaskReport, Task},
 };
 

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fmt, ops};
+use std::{fmt, num::ParseIntError, ops, str::FromStr};
 
 use bee_block_stardust::payload::milestone as bee;
 use derive_more::{Add, Deref, DerefMut, Sub};
@@ -81,6 +81,14 @@ impl From<MilestoneIndex> for bee::MilestoneIndex {
 impl From<MilestoneIndex> for Bson {
     fn from(value: MilestoneIndex) -> Self {
         Bson::from(value.0)
+    }
+}
+
+impl FromStr for MilestoneIndex {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(u32::from_str(s)?.into())
     }
 }
 

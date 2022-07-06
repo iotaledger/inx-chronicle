@@ -56,9 +56,8 @@ impl FromStr for TokenId {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TokenScheme {
-    #[serde(rename = "simple")]
     Simple {
         minted_tokens: TokenAmount,
         melted_tokens: TokenAmount,

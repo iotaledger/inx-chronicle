@@ -10,7 +10,7 @@ mod syncer;
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, ConfigureActor, HandleEvent, Report, Sender},
+    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Sender},
     types::tangle::MilestoneIndex,
 };
 pub use config::InxConfig;
@@ -24,6 +24,7 @@ use inx::{
 pub use ledger_update_stream::LedgerUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
+use crate::check_health::IsHealthy;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -123,14 +124,11 @@ impl Actor for InxWorker {
 
         let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
 
-        let ledger_update_stream = inx_client
-            .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(latest_ms + 1..))
-            .await?
-            .into_inner();
-        cx.spawn_child(
-            LedgerUpdateStream::new(self.db.clone(), inx_client.clone(), latest_ms + 1..=u32::MAX.into())
-                .with_stream(ledger_update_stream),
-        )
+        cx.spawn_child(LedgerUpdateStream::new(
+            self.db.clone(),
+            inx_client.clone(),
+            latest_ms + 1..=u32::MAX.into(),
+        ))
         .await;
 
         Ok(inx_client)
@@ -189,6 +187,42 @@ impl HandleEvent<Report<Syncer>> for InxWorker {
                 }
             },
         }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl HandleEvent<IsHealthy> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        IsHealthy(sender): IsHealthy,
+        inx_client: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
+            .map_err(InxError::InxTypeConversion)?;
+
+        let mut healthy = true;
+        healthy &= node_status.is_healthy;
+
+        let latest_inserted_ms = self.db.get_latest_milestone().await?;
+        healthy &= latest_inserted_ms.map_or(false, |MilestoneIndex(latest_inserted_ms)| {
+            // If the latest confirmed ms from the node is either the last ms we inserted or the next one
+            // (because we are still working on it) then we are healthy
+            (latest_inserted_ms..=latest_inserted_ms + 1)
+                .contains(&node_status.confirmed_milestone.milestone_info.milestone_index)
+        });
+
+        let first_ms = node_status.tangle_pruning_index + 1;
+        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
+        healthy &= self
+            .db
+            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
+            .await?
+            .gaps
+            .is_empty();
+
+        sender.send(healthy).ok();
         Ok(())
     }
 }

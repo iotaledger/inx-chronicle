@@ -10,8 +10,10 @@ mod extractors;
 pub mod stardust;
 
 mod error;
+mod secret_key;
 #[macro_use]
 mod responses;
+mod auth;
 mod config;
 #[cfg(feature = "metrics")]
 mod metrics;
@@ -27,12 +29,16 @@ use hyper::Method;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
-    cors::{AllowOrigin, Any, CorsLayer},
+    cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
 
-use self::routes::routes;
-pub use self::{config::ApiConfig, error::ApiError};
+pub use self::{
+    config::ApiConfig,
+    error::{ApiError, ConfigError},
+    secret_key::SecretKey,
+};
+use self::{config::ApiData, routes::routes};
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -41,18 +47,18 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
-    config: ApiConfig,
+    api_data: ApiData,
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: &MongoDb, config: &ApiConfig) -> Self {
-        Self {
+    pub fn new(db: &MongoDb, config: &ApiConfig) -> Result<Self, ConfigError> {
+        Ok(Self {
             db: db.clone(),
-            config: config.clone(),
+            api_data: config.clone().try_into()?,
             server_handle: None,
-        }
+        })
     }
 }
 
@@ -64,23 +70,18 @@ impl Actor for ApiWorker {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
-        log::info!("Starting API server on port `{}`", self.config.port);
+        log::info!("Starting API server on port `{}`", self.api_data.port);
         let api_handle = cx.handle().clone();
-        let port = self.config.port;
+        let port = self.api_data.port;
         let routes = routes()
+            .layer(Extension((&***cx).clone())) // Pull ScopeView from the context
             .layer(Extension(self.db.clone()))
+            .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(
                 CorsLayer::new()
-                    .allow_origin(
-                        self.config
-                            .allow_origins
-                            .clone()
-                            .map(AllowOrigin::try_from)
-                            .transpose()?
-                            .unwrap_or_else(AllowOrigin::any),
-                    )
+                    .allow_origin(self.api_data.allow_origins.clone())
                     .allow_methods(vec![Method::GET, Method::OPTIONS])
                     .allow_headers(Any)
                     .allow_credentials(false),

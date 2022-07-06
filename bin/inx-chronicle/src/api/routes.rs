@@ -1,11 +1,18 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{handler::Handler, routing::get, Extension, Router};
-use chronicle::db::MongoDb;
+use auth_helper::jwt::{Claims, JsonWebToken};
+use axum::{
+    handler::Handler,
+    middleware::from_extractor,
+    routing::{get, post},
+    Extension, Json, Router,
+};
+use chronicle::{db::MongoDb, runtime::ScopeView};
 use hyper::StatusCode;
+use serde::Deserialize;
 
-use super::{error::ApiError, responses::*, ApiResult};
+use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
@@ -16,27 +23,65 @@ pub fn routes() -> Router {
         router = router.merge(super::stardust::routes())
     }
 
-    Router::new().nest("/api", router).fallback(not_found.into_service())
+    Router::new()
+        .route("/login", post(login))
+        .nest("/api", router.route_layer(from_extractor::<Auth>()))
+        .fallback(not_found.into_service())
 }
 
-fn is_healthy() -> bool {
-    true
+#[derive(Deserialize)]
+struct LoginInfo {
+    password: String,
 }
 
-async fn info() -> InfoResponse {
-    let version = std::env!("CARGO_PKG_VERSION").to_string();
-    let is_healthy = is_healthy();
-    InfoResponse {
-        name: "Chronicle".into(),
-        version,
-        is_healthy,
+async fn login(
+    Json(LoginInfo { password }): Json<LoginInfo>,
+    Extension(config): Extension<ApiData>,
+) -> Result<String, ApiError> {
+    if auth_helper::password::password_verify(
+        password.as_bytes(),
+        config.password_salt.as_bytes(),
+        &config.password_hash,
+    )? {
+        let jwt = JsonWebToken::new(
+            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)?
+                .expires_after_duration(config.jwt_expiration)?,
+            config.secret_key.as_ref(),
+        )?;
+
+        Ok(format!("Bearer {}", jwt))
+    } else {
+        Err(ApiError::IncorrectPassword)
     }
 }
 
-pub async fn health() -> StatusCode {
-    match is_healthy() {
-        true => StatusCode::OK,
-        false => StatusCode::SERVICE_UNAVAILABLE,
+async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
+    #[allow(unused_mut)]
+    let mut is_healthy = true;
+    #[cfg(feature = "inx")]
+    {
+        use crate::check_health::CheckHealth;
+        is_healthy &= scope
+            .is_healthy::<crate::stardust_inx::InxWorker>()
+            .await
+            .unwrap_or(false);
+    }
+    is_healthy
+}
+
+async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {
+    InfoResponse {
+        name: "Chronicle".into(),
+        version: std::env!("CARGO_PKG_VERSION").to_string(),
+        is_healthy: is_healthy(&scope).await,
+    }
+}
+
+pub async fn health(Extension(scope): Extension<ScopeView>) -> StatusCode {
+    if is_healthy(&scope).await {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
     }
 }
 

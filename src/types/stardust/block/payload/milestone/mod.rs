@@ -110,16 +110,14 @@ impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum MilestoneOption {
-    #[serde(rename = "receipt")]
     Receipt {
         migrated_at: MilestoneIndex,
         last: bool,
         funds: Box<[MigratedFundsEntry]>,
         transaction: TreasuryTransactionPayload,
     },
-    #[serde(rename = "parameters")]
     Parameters {
         target_milestone_index: MilestoneIndex,
         protocol_version: u8,
@@ -292,25 +290,23 @@ pub(crate) mod test {
                 bee_test::rand::milestone::rand_merkle_root(),
                 bee_test::rand::milestone::rand_merkle_root(),
                 "Foo".as_bytes().to_vec(),
-                bee::MilestoneOptions::new(vec![
-                    bee::option::MilestoneOption::Receipt(
-                        bee::option::ReceiptMilestoneOption::new(
-                            1.into(),
-                            false,
-                            vec![
-                                get_test_ed25519_migrated_funds_entry().try_into().unwrap(),
-                                get_test_alias_migrated_funds_entry().try_into().unwrap(),
-                                get_test_nft_migrated_funds_entry().try_into().unwrap(),
-                            ],
-                            TreasuryTransactionPayload::new(
-                                bee_test::rand::input::rand_treasury_input(),
-                                bee_test::rand::output::rand_treasury_output(),
-                            )
-                            .unwrap(),
+                bee::MilestoneOptions::new(vec![bee::option::MilestoneOption::Receipt(
+                    bee::option::ReceiptMilestoneOption::new(
+                        1.into(),
+                        false,
+                        vec![
+                            get_test_ed25519_migrated_funds_entry().try_into().unwrap(),
+                            get_test_alias_migrated_funds_entry().try_into().unwrap(),
+                            get_test_nft_migrated_funds_entry().try_into().unwrap(),
+                        ],
+                        TreasuryTransactionPayload::new(
+                            bee_test::rand::input::rand_treasury_input(),
+                            bee_test::rand::output::rand_treasury_output(),
                         )
                         .unwrap(),
-                    ),
-                ])
+                    )
+                    .unwrap(),
+                )])
                 .unwrap(),
             )
             .unwrap(),

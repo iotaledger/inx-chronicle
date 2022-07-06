@@ -11,7 +11,7 @@ use crate::types::{
     tangle::MilestoneIndex,
 };
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MilestoneIndexTimestamp {
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,

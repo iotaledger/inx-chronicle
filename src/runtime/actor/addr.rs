@@ -72,7 +72,6 @@ impl<A: Actor> std::fmt::Debug for Addr<A> {
 }
 
 /// An optional address, which allows sending events.
-#[derive(Debug, Clone)]
 pub struct OptionalAddr<A: Actor>(pub(crate) Option<Addr<A>>);
 
 impl<A: Actor> OptionalAddr<A> {
@@ -93,5 +92,17 @@ impl<A: Actor> Deref for OptionalAddr<A> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<A: Actor> Clone for OptionalAddr<A> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<A: Actor> std::fmt::Debug for OptionalAddr<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("OptionalAddr").field(&self.0).finish()
     }
 }

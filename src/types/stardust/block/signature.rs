@@ -7,9 +7,8 @@ use serde::{Deserialize, Serialize};
 use crate::types::util::bytify;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Signature {
-    #[serde(rename = "ed25519")]
     Ed25519 {
         #[serde(with = "bytify")]
         public_key: [u8; Self::PUBLIC_KEY_LENGTH],
