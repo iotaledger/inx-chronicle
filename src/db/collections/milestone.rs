@@ -272,34 +272,6 @@ impl MongoDb {
             .await
     }
 
-    /// Find the latest inserted milestone in the range the provided milestone index is included.
-    pub async fn get_latest_milestone_in_range(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        let mut stream = self
-            .0
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! { "milestone_index": { "$gte": index } },
-                FindOptions::builder().sort(doc! {"milestone_index": 1}).build(),
-            )
-            .await?;
-        let mut end: Option<MilestoneIndexTimestamp> = None;
-        while let Some(doc) = stream.try_next().await? {
-            if let Some(end) = end.as_mut() {
-                if doc.milestone_index == end.milestone_index + 1 {
-                    *end = doc;
-                } else {
-                    break;
-                }
-            } else {
-                end.replace(doc);
-            }
-        }
-        Ok(end)
-    }
-
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
     pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
         self.0
