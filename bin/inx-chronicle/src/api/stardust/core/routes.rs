@@ -130,6 +130,7 @@ async fn block_metadata(
         conflict_reason: Some(metadata.conflict_reason as u8),
         should_promote: Some(metadata.should_promote),
         should_reattach: Some(metadata.should_reattach),
+        white_flag_index: Some(metadata.white_flag_index),
     })
 }
 

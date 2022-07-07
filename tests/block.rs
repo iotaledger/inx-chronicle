@@ -30,6 +30,7 @@ async fn insert_and_get_block() -> Result<(), mongodb::error::Error> {
         milestone_index: 0.into(),
         inclusion_state: LedgerInclusionState::Included,
         conflict_reason: ConflictReason::None,
+        white_flag_index: 0,
     };
 
     let config = MongoDbConfig::default().with_database_name("chronicle-cargo-test");
@@ -37,7 +38,7 @@ async fn insert_and_get_block() -> Result<(), mongodb::error::Error> {
 
     db.clear().await?;
 
-    db.insert_block_with_metadata(block_id, block, raw, metadata, 0).await?;
+    db.insert_block_with_metadata(block_id, block, raw, metadata).await?;
 
     let result_block = db.get_block(&block_id).await?.unwrap();
     let bee_result: bee_block_stardust::Block = result_block.try_into().unwrap();

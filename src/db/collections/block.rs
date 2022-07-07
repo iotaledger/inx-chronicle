@@ -30,8 +30,6 @@ struct BlockDocument {
     raw: Vec<u8>,
     /// The block's metadata.
     metadata: BlockMetadata,
-    /// The index of this block in white flag order.
-    white_flag_index: u32,
 }
 
 impl BlockDocument {
@@ -179,7 +177,6 @@ impl MongoDb {
         block: Block,
         raw: Vec<u8>,
         metadata: BlockMetadata,
-        white_flag_index: u32,
     ) -> Result<(), Error> {
         if metadata.inclusion_state == LedgerInclusionState::Included {
             if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
@@ -193,7 +190,6 @@ impl MongoDb {
             block,
             raw,
             metadata,
-            white_flag_index,
         };
 
         let mut doc = bson::to_document(&block_document)?;

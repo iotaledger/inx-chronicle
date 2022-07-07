@@ -27,6 +27,8 @@ pub struct BlockMetadata {
     pub inclusion_state: LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
     pub conflict_reason: ConflictReason,
+    /// The index of this block in white flag order.
+    pub white_flag_index: u32,
 }
 
 #[cfg(feature = "inx")]
@@ -42,6 +44,7 @@ impl From<inx::BlockMetadata> for BlockMetadata {
             milestone_index: metadata.milestone_index.into(),
             inclusion_state: metadata.ledger_inclusion_state.into(),
             conflict_reason: metadata.conflict_reason.into(),
+            white_flag_index: metadata.white_flag_index,
         }
     }
 }
