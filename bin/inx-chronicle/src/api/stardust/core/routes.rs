@@ -23,9 +23,11 @@ use bee_rest_api_stardust::types::{
     },
 };
 use chronicle::{
-    db::MongoDb,
+    db::{
+        collections::{OutputMetadataResult, OutputWithMetadataResult},
+        MongoDb,
+    },
     types::{
-        ledger::{OutputMetadata, OutputWithMetadata},
         stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
         tangle::MilestoneIndex,
     },
@@ -155,11 +157,11 @@ async fn block_children(
     })
 }
 
-fn create_output_metadata_response(output_index: u16, metadata: OutputMetadata) -> OutputMetadataResponse {
+fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMetadataResponse {
     OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
-        transaction_id: metadata.transaction_id.to_hex(),
-        output_index,
+        transaction_id: metadata.output_id.transaction_id.to_hex(),
+        output_index: metadata.output_id.index,
         is_spent: metadata.spent.is_some(),
         milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
         milestone_timestamp_spent: metadata
@@ -169,18 +171,18 @@ fn create_output_metadata_response(output_index: u16, metadata: OutputMetadata) 
         transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
-        ledger_index: *metadata.latest_milestone.milestone_index,
+        ledger_index: metadata.ledger_index.0,
     }
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let OutputWithMetadata { output, metadata } = database
+    let OutputWithMetadataResult { output, metadata } = database
         .get_output_with_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let metadata = create_output_metadata_response(output_id.index, metadata);
+    let metadata = create_output_metadata_response(metadata);
 
     Ok(OutputResponse {
         metadata,
@@ -198,7 +200,7 @@ async fn output_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(create_output_metadata_response(output_id.index, metadata))
+    Ok(create_output_metadata_response(metadata))
 }
 
 async fn transaction_included_block(

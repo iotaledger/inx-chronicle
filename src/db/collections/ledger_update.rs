@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{LedgerUpdate, MilestoneIndexTimestamp},
+        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
         stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
@@ -108,46 +108,30 @@ impl MongoDb {
             )
             .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output_id": 1, "is_spent": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            // An output can be spent and unspent only once.
-                            .unique(true)
-                            .name("id_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
         Ok(())
     }
 
     /// Upserts a [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_ledger_updates(&self, deltas: impl IntoIterator<Item = LedgerUpdate>) -> Result<(), Error> {
-        // TODO: Use `insert_many` and `update_many` to increase write performance.
-
+    pub async fn insert_ledger_updates(
+        &self,
+        deltas: impl IntoIterator<Item = OutputWithMetadata>,
+    ) -> Result<(), Error> {
         for delta in deltas {
+            self.insert_output(delta.clone()).await?;
             // Ledger updates
             for owner in delta.output.owning_addresses() {
-                let ledger_update_document = LedgerUpdateDocument {
+                let doc = bson::to_document(&LedgerUpdateDocument {
                     address: owner,
-                    output_id: delta.output_id,
-                    at: delta.spent.unwrap_or(delta.booked),
-                    is_spent: delta.spent.is_some(),
-                };
-
-                let _ = self
-                    .0
+                    output_id: delta.metadata.output_id,
+                    at: delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked),
+                    is_spent: delta.metadata.spent.is_some(),
+                })?;
+                self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
-                        doc! { "output_id": delta.output_id, "is_spent": delta.spent.is_some() },
-                        doc! { "$setOnInsert": bson::to_document(&ledger_update_document)? },
+                        doc.clone(),
+                        doc! { "$setOnInsert": doc },
                         UpdateOptions::builder().upsert(true).build(),
                     )
                     .await?;

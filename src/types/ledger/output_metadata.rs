@@ -28,10 +28,8 @@ pub struct SpentMetadata {
 pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
-    pub transaction_id: TransactionId,
     pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
-    pub latest_milestone: MilestoneIndexTimestamp,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,39 +38,36 @@ pub struct OutputWithMetadata {
     pub metadata: OutputMetadata,
 }
 
-pub struct LedgerUpdate {
-    pub output_id: OutputId,
-    pub output: Output,
-    pub block_id: BlockId,
-    pub booked: MilestoneIndexTimestamp,
-    pub spent: Option<MilestoneIndexTimestamp>,
-}
-
 #[cfg(feature = "inx")]
-impl From<inx::LedgerOutput> for LedgerUpdate {
+impl From<inx::LedgerOutput> for OutputWithMetadata {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
         Self {
-            output_id,
             output: (&value.output).into(),
-            block_id: value.block_id.into(),
-            booked: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_booked.into(),
-                milestone_timestamp: value.milestone_timestamp_booked.into(),
+            metadata: OutputMetadata {
+                output_id,
+                block_id: value.block_id.into(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: value.milestone_index_booked.into(),
+                    milestone_timestamp: value.milestone_timestamp_booked.into(),
+                },
+                spent: None,
             },
-            spent: None,
         }
     }
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::LedgerSpent> for LedgerUpdate {
+impl From<inx::LedgerSpent> for OutputWithMetadata {
     fn from(value: inx::LedgerSpent) -> Self {
-        let mut delta = LedgerUpdate::from(value.output);
+        let mut delta = OutputWithMetadata::from(value.output);
 
-        delta.spent.replace(MilestoneIndexTimestamp {
-            milestone_index: value.milestone_index_spent.into(),
-            milestone_timestamp: value.milestone_timestamp_spent.into(),
+        delta.metadata.spent.replace(SpentMetadata {
+            transaction_id: value.transaction_id_spent.into(),
+            spent: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_spent.into(),
+                milestone_timestamp: value.milestone_timestamp_spent.into(),
+            },
         });
 
         delta
