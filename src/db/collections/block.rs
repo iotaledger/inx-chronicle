@@ -307,7 +307,7 @@ impl MongoDb {
         Ok(output)
     }
 
-    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    /// Get an [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
         let mut metadata: Option<OutputMetadata> = self
             .0
