@@ -1,4 +1,5 @@
 [mongodb]
+
 ### Listening address of the MongoDB instance.
 connect_url = "mongodb://localhost:27017"
 
@@ -11,6 +12,7 @@ password = "root"
 database_name = "chronicle"
 
 [api]
+
 ### Whether API requests will be served.
 enabled = true
 
@@ -37,6 +39,10 @@ public_routes = [
 ]
 
 [inx]
+
+### Whether INX is used (online mode).
+enabled = true
+
 ### Listening address of the node's INX interface.
 connect_url = "http://localhost:9029"
 
@@ -46,18 +52,16 @@ connection_retry_interval = "5s"
 ### Maximum number of tries to establish an INX connection.
 connection_retry_count = 10
 
-### Whether INX is used (online mode).
-enabled = true
-
 ### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
 sync_start_milestone = 1 
 
 [metrics]
-### Bind address of the metrics server.
-address = "0.0.0.0"
 
 ### Whether metrics will be served.
 enabled = true
+
+### Bind address of the metrics server.
+address = "0.0.0.0"
 
 ### Bind port of the metrics server.
 port = 9100
