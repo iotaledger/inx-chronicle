@@ -96,7 +96,9 @@ impl InxWorker {
         }
 
         let first_ms = node_status.tangle_pruning_index + 1;
-        let latest_ms = ledger_index.unwrap_or(node_status.confirmed_milestone.milestone_info.milestone_index.into());
+        let latest_ms = ledger_index.unwrap_or(MilestoneIndex(
+            node_status.confirmed_milestone.milestone_info.milestone_index,
+        ));
         let sync_data = self
             .db
             .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms)
