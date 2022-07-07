@@ -54,16 +54,22 @@ impl Actor for Launcher {
         db.create_milestone_indexes().await?;
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
-        cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
-            .await;
+        if config.inx.enabled {
+            cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
+                .await;
+        }
 
         #[cfg(feature = "api")]
-        cx.spawn_child(super::api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?)
-            .await;
+        if config.api.enabled {
+            cx.spawn_child(super::api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?)
+                .await;
+        }
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-            .await;
+        if config.metrics.enabled {
+            cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
+                .await;
+        }
 
         Ok(config)
     }

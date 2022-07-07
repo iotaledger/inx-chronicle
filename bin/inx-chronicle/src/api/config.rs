@@ -14,6 +14,7 @@ use super::{error::ConfigError, SecretKey};
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ApiConfig {
+    pub enabled: bool,
     pub port: u16,
     pub allow_origins: SingleOrMultiple<String>,
     pub password_hash: String,
@@ -27,6 +28,7 @@ pub struct ApiConfig {
 impl Default for ApiConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             port: 8042,
             allow_origins: "*".to_string().into(),
             password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
