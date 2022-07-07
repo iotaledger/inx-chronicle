@@ -24,9 +24,13 @@ jwt_expiration = "72h"
 
 ### Public API routes.
 public_routes = [
+    # General API routes that provide information about Chronicle.
     "api/health",
-    "api/core/*",
-    "api/history/*",
+    "api/info",
+
+    # Activated APIs.
+    "api/core/v2/*",
+    "api/history/v2/*",
 ]
 
 [inx]
