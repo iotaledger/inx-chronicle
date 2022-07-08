@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
+    runtime::{Actor, ActorContext, ActorError, ErrorLevel, HandleEvent, Report, RuntimeError},
 };
 use clap::Parser;
 use thiserror::Error;
@@ -24,6 +24,15 @@ pub enum LauncherError {
     MongoDb(#[from] mongodb::error::Error),
     #[error(transparent)]
     Runtime(#[from] RuntimeError),
+}
+
+impl ErrorLevel for LauncherError {
+    fn level(&self) -> log::Level {
+        match self {
+            LauncherError::Config(_) | LauncherError::MongoDb(_) => log::Level::Error,
+            LauncherError::Runtime(_) => log::Level::Warn,
+        }
+    }
 }
 
 #[derive(Debug)]

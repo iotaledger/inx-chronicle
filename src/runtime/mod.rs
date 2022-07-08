@@ -36,7 +36,7 @@ pub use self::{
         Actor,
     },
     config::{ConfigureActor, SpawnConfig},
-    error::RuntimeError,
+    error::{ErrorLevel, RuntimeError},
     scope::{RuntimeScope, ScopeView},
     task::{error::TaskError, report::TaskReport, Task},
 };

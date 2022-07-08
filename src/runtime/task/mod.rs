@@ -4,16 +4,18 @@
 pub(super) mod error;
 pub(super) mod report;
 
-use std::{borrow::Cow, error::Error};
+use std::borrow::Cow;
 
 use async_trait::async_trait;
+
+use super::error::ErrorLevel;
 
 /// The task trait, which defines a task that is managed by the runtime and requires little to no
 /// external comunication.
 #[async_trait]
 pub trait Task: Send + Sync + Sized {
     /// Custom error type that is returned by all task methods.
-    type Error: Error + Send;
+    type Error: ErrorLevel + Send;
 
     /// Set this task's name, primarily for debugging purposes.
     fn name(&self) -> Cow<'static, str> {

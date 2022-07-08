@@ -30,7 +30,7 @@ use super::{
     },
     Sender,
 };
-use crate::runtime::merge::Merge;
+use crate::runtime::{error::ErrorLevel, merge::Merge};
 
 /// A view into a particular scope which provides the user-facing API.
 #[derive(Clone, Debug)]
@@ -236,7 +236,8 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::warn!(
+                            log::log!(
+                                e.level(),
                                 "{} exited with error: {}",
                                 format!("Task {:x}", child_scope.id().as_fields().0),
                                 e
@@ -279,7 +280,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::warn!("{} exited with error: {}", actor.name(), e);
+                            log::log!(e.level(), "{} exited with error: {}", actor.name(), e);
                             let err_str = e.to_string();
                             supervisor_addr.send(Report::Error(ErrorReport::new(
                                 actor,
@@ -320,7 +321,7 @@ impl RuntimeScope {
                     Ok(res) => match res {
                         Ok(_) => Ok(()),
                         Err(e) => {
-                            log::warn!("{} exited with error: {}", actor.name(), e);
+                            log::log!(e.level(), "{} exited with error: {}", actor.name(), e);
                             Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },
