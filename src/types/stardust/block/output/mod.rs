@@ -26,7 +26,7 @@ pub use self::{
     native_token::{NativeToken, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
-    unlock_condition::UnlockCondition,
+    unlock_condition::{UnlockCondition, UnlockConditionDescription},
 };
 use super::Address;
 use crate::types::stardust::block::TransactionId;
@@ -89,7 +89,7 @@ pub enum Output {
 }
 
 impl Output {
-    pub fn owning_addresses(&self) -> Vec<Address> {
+    pub fn owning_addresses(&self) -> Vec<(Address, UnlockConditionDescription)> {
         match self {
             Self::Treasury(_) => Vec::new(),
             Self::Basic(BasicOutput { unlock_conditions, .. })
@@ -98,7 +98,6 @@ impl Output {
             | Self::Foundry(FoundryOutput { unlock_conditions, .. }) => unlock_conditions
                 .iter()
                 .filter_map(UnlockCondition::owning_address)
-                .cloned()
                 .collect(),
         }
     }

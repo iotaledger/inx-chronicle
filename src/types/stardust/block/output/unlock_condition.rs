@@ -35,16 +35,44 @@ pub enum UnlockCondition {
     },
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum UnlockConditionDescription {
+    Address,
+    StorageDepositReturn { amount: u64 },
+    Timelock { timestamp: u32 },
+    Expiration { timestamp: u32 },
+    StateControllerAddress,
+    GovernorAddress,
+    ImmutableAliasAddress,
+}
+
+impl From<&UnlockCondition> for UnlockConditionDescription {
+    fn from(value: &UnlockCondition) -> Self {
+        match *value {
+            UnlockCondition::Address { .. } => UnlockConditionDescription::Address,
+            UnlockCondition::StorageDepositReturn { amount, .. } => {
+                UnlockConditionDescription::StorageDepositReturn { amount }
+            }
+            UnlockCondition::Timelock { timestamp } => UnlockConditionDescription::Timelock { timestamp },
+            UnlockCondition::Expiration { timestamp, .. } => UnlockConditionDescription::Expiration { timestamp },
+            UnlockCondition::StateControllerAddress { .. } => UnlockConditionDescription::StateControllerAddress,
+            UnlockCondition::GovernorAddress { .. } => UnlockConditionDescription::GovernorAddress,
+            UnlockCondition::ImmutableAliasAddress { .. } => UnlockConditionDescription::ImmutableAliasAddress,
+        }
+    }
+}
+
 impl UnlockCondition {
-    pub fn owning_address(&self) -> Option<&Address> {
-        match self {
-            Self::Address { address } => Some(address),
-            Self::StorageDepositReturn { return_address, .. } => Some(return_address),
+    pub fn owning_address(&self) -> Option<(Address, UnlockConditionDescription)> {
+        match *self {
+            Self::Address { address } => Some((address, self.into())),
+            Self::StorageDepositReturn { return_address, .. } => Some((return_address, self.into())),
             Self::Timelock { .. } => None,
-            Self::Expiration { return_address, .. } => Some(return_address),
-            Self::StateControllerAddress { address } => Some(address),
-            Self::GovernorAddress { address } => Some(address),
-            Self::ImmutableAliasAddress { address } => Some(address),
+            Self::Expiration { return_address, .. } => Some((return_address, self.into())),
+            Self::StateControllerAddress { address } => Some((address, self.into())),
+            Self::GovernorAddress { address } => Some((address, self.into())),
+            Self::ImmutableAliasAddress { address } => Some((address, self.into())),
         }
     }
 }
