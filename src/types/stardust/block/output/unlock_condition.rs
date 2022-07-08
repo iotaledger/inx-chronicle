@@ -37,7 +37,7 @@ pub enum UnlockCondition {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
-pub enum UnlockConditionDescription {
+pub enum UnlockConditionType {
     Address,
     StorageDepositReturn { amount: u64 },
     Timelock { timestamp: u32 },
@@ -47,24 +47,24 @@ pub enum UnlockConditionDescription {
     ImmutableAliasAddress,
 }
 
-impl From<&UnlockCondition> for UnlockConditionDescription {
+impl From<&UnlockCondition> for UnlockConditionType {
     fn from(value: &UnlockCondition) -> Self {
         match *value {
-            UnlockCondition::Address { .. } => UnlockConditionDescription::Address,
+            UnlockCondition::Address { .. } => UnlockConditionType::Address,
             UnlockCondition::StorageDepositReturn { amount, .. } => {
-                UnlockConditionDescription::StorageDepositReturn { amount }
+                UnlockConditionType::StorageDepositReturn { amount }
             }
-            UnlockCondition::Timelock { timestamp } => UnlockConditionDescription::Timelock { timestamp },
-            UnlockCondition::Expiration { timestamp, .. } => UnlockConditionDescription::Expiration { timestamp },
-            UnlockCondition::StateControllerAddress { .. } => UnlockConditionDescription::StateControllerAddress,
-            UnlockCondition::GovernorAddress { .. } => UnlockConditionDescription::GovernorAddress,
-            UnlockCondition::ImmutableAliasAddress { .. } => UnlockConditionDescription::ImmutableAliasAddress,
+            UnlockCondition::Timelock { timestamp } => UnlockConditionType::Timelock { timestamp },
+            UnlockCondition::Expiration { timestamp, .. } => UnlockConditionType::Expiration { timestamp },
+            UnlockCondition::StateControllerAddress { .. } => UnlockConditionType::StateControllerAddress,
+            UnlockCondition::GovernorAddress { .. } => UnlockConditionType::GovernorAddress,
+            UnlockCondition::ImmutableAliasAddress { .. } => UnlockConditionType::ImmutableAliasAddress,
         }
     }
 }
 
 impl UnlockCondition {
-    pub fn owning_address(&self) -> Option<(Address, UnlockConditionDescription)> {
+    pub fn owning_address(&self) -> Option<(Address, UnlockConditionType)> {
         match *self {
             Self::Address { address } => Some((address, self.into())),
             Self::StorageDepositReturn { return_address, .. } => Some((return_address, self.into())),

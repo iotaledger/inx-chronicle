@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::block::{Address, OutputId, UnlockConditionDescription},
+        stardust::block::{Address, OutputId, UnlockConditionType},
         tangle::MilestoneIndex,
     },
 };
@@ -27,7 +27,7 @@ struct LedgerUpdateDocument {
     at: MilestoneIndexTimestamp,
     #[serde(with = "crate::types::util::stringify")]
     amount: u64,
-    unlock_condition: UnlockConditionDescription,
+    unlock_condition_type: UnlockConditionType,
     is_spent: bool,
 }
 
@@ -150,7 +150,7 @@ impl MongoDb {
                     at,
                     is_spent,
                     amount: output.amount(),
-                    unlock_condition,
+                    unlock_condition_type: unlock_condition,
                 };
 
                 let _ = self
