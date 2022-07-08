@@ -68,7 +68,6 @@ impl InxWorker {
         &self,
         cx: &mut ActorContext<Self>,
         inx_client: &mut InxClient<Channel>,
-        ledger_index: Option<MilestoneIndex>,
     ) -> Result<MilestoneIndex, InxError> {
         // Request the node status so we can get the pruning index and latest confirmed milestone
         let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
@@ -96,12 +95,10 @@ impl InxWorker {
         }
 
         let first_ms = node_status.tangle_pruning_index + 1;
-        let latest_ms = ledger_index.unwrap_or(MilestoneIndex(
-            node_status.confirmed_milestone.milestone_info.milestone_index,
-        ));
+        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
         let sync_data = self
             .db
-            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms)
+            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
             .await?
             .gaps;
         if !sync_data.is_empty() {
@@ -112,7 +109,7 @@ impl InxWorker {
         } else {
             cx.abort().await;
         }
-        Ok(latest_ms)
+        Ok(latest_ms.into())
     }
 }
 
@@ -126,20 +123,18 @@ impl Actor for InxWorker {
         let mut inx_client = Self::connect(&self.config).await?;
         log::info!("Connected to INX.");
 
-        let ledger_index = self.db.get_ledger_index().await?;
+        log::info!("Reading unspent outputs.");
+        let mut unspent_output_stream = inx_client.read_unspent_outputs(NoParams {}).await?.into_inner();
 
-        if ledger_index.is_none() {
-            let mut unspent_output_stream = inx_client.read_unspent_outputs(NoParams {}).await?.into_inner();
-
-            let mut updates = Vec::new();
-            while let Some(unspent_output) = unspent_output_stream.try_next().await? {
-                let ledger_output: inx::LedgerOutput = unspent_output.output.unwrap().try_into()?;
-                updates.push(ledger_output.into());
-            }
-            self.db.insert_ledger_updates(updates).await?;
+        let mut updates = Vec::new();
+        while let Some(unspent_output) = unspent_output_stream.try_next().await? {
+            let ledger_output: inx::LedgerOutput = unspent_output.output.unwrap().try_into()?;
+            updates.push(ledger_output.into());
         }
+        log::info!("Inserting {} unspent outputs.", updates.len());
+        self.db.insert_ledger_updates(updates).await?;
 
-        let latest_ms = self.spawn_syncer(cx, &mut inx_client, ledger_index).await?;
+        let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
 
         cx.spawn_child(LedgerUpdateStream::new(
             self.db.clone(),
@@ -193,8 +188,7 @@ impl HandleEvent<Report<Syncer>> for InxWorker {
                 ActorError::Result(e) => match &e {
                     InxError::Read(s) => match s.code() {
                         Code::InvalidArgument => {
-                            self.spawn_syncer(cx, inx_client, self.db.get_ledger_index().await?)
-                                .await?;
+                            self.spawn_syncer(cx, inx_client).await?;
                         }
                         _ => Err(e)?,
                     },
