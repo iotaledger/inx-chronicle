@@ -49,7 +49,7 @@ impl ChronicleConfig {
             if let Some(inx) = &args.inx_addr {
                 self.inx.connect_url = inx.clone();
             }
-            self.inx.enabled = args.toggle_inx;
+            self.inx.enabled = args.enable_inx;
         }
         #[cfg(feature = "api")]
         {
@@ -62,11 +62,11 @@ impl ChronicleConfig {
             if let Some(path) = &args.identity {
                 self.api.identity_path.replace(path.clone());
             }
-            self.api.enabled = args.toggle_api;
+            self.api.enabled = args.enable_api;
         }
         #[cfg(feature = "metrics")]
         {
-            self.metrics.enabled = args.toggle_metrics;
+            self.metrics.enabled = args.enable_metrics;
         }
     }
 }
