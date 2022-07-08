@@ -3,12 +3,14 @@ services:
 
   mongo:
     image: mongo
+    container_name: mongodb
     restart: always
     command: --quiet --logpath /dev/null
     volumes:
       - ./chronicle_data:/data/db
 
   inx-chronicle:
+    container_name: inx-chronicle
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -30,7 +32,8 @@ services:
       - ../bin/inx-chronicle/config.template.toml:/app/config.toml:ro
 
   hornet:
-    image: iotaledger/hornet:2.0.0-alpha.22
+    image: iotaledger/hornet:2.0.0-alpha.23
+    container_name: hornet
     ulimits:
       nofile:
         soft: 8192
