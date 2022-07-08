@@ -1,5 +1,4 @@
 [mongodb]
-
 ### Listening address of the MongoDB instance.
 connect_url = "mongodb://localhost:27017"
 
@@ -12,7 +11,6 @@ password = "root"
 database_name = "chronicle"
 
 [api]
-
 ### Whether API requests will be served.
 enabled = true
 
@@ -39,7 +37,6 @@ public_routes = [
 ]
 
 [inx]
-
 ### Whether INX is used (online mode).
 enabled = true
 
@@ -56,7 +53,6 @@ connection_retry_count = 10
 sync_start_milestone = 1 
 
 [metrics]
-
 ### Whether metrics will be served.
 enabled = true
 

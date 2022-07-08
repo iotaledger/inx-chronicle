@@ -18,6 +18,7 @@ pub struct ClArgs {
     pub inx_addr: Option<String>,
     /// Toggle INX (offline mode).
     #[clap(long, value_parser, env = "INX", default_value = "true")]
+    #[cfg(feature = "inx")]
     pub toggle_inx: bool,
     /// The location of the identity file for JWT auth.
     #[clap(long)]
@@ -27,8 +28,10 @@ pub struct ClArgs {
     pub password: Option<String>,
     /// Toggle REST API.
     #[clap(long, value_parser, env = "API", default_value = "true")]
+    #[cfg(feature = "api")]
     pub toggle_api: bool,
     /// Toggle the metrics server.
     #[clap(long, value_parser, env = "METRICS", default_value = "true")]
+    #[cfg(feature = "metrics")]
     pub toggle_metrics: bool,
 }

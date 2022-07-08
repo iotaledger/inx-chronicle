@@ -45,19 +45,28 @@ impl ChronicleConfig {
             self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
-        if let Some(inx) = &args.inx_addr {
-            self.inx.connect_url = inx.clone();
+        {
+            if let Some(inx) = &args.inx_addr {
+                self.inx.connect_url = inx.clone();
+            }
+            self.inx.enabled = args.toggle_inx;
         }
         #[cfg(feature = "api")]
-        if let Some(password) = &args.password {
-            self.api.password_hash = hex::encode(
-                auth_helper::password::password_hash(password.as_bytes(), self.api.password_salt.as_bytes())
-                    .expect("invalid JWT config"),
-            );
+        {
+            if let Some(password) = &args.password {
+                self.api.password_hash = hex::encode(
+                    auth_helper::password::password_hash(password.as_bytes(), self.api.password_salt.as_bytes())
+                        .expect("invalid JWT config"),
+                );
+            }
+            if let Some(path) = &args.identity {
+                self.api.identity_path.replace(path.clone());
+            }
+            self.api.enabled = args.toggle_api;
         }
-        #[cfg(feature = "api")]
-        if let Some(path) = &args.identity {
-            self.api.identity_path.replace(path.clone());
+        #[cfg(feature = "metrics")]
+        {
+            self.metrics.enabled = args.toggle_metrics;
         }
     }
 }
