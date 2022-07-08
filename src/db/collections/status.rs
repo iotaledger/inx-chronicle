@@ -58,15 +58,7 @@ impl MongoDb {
             .update_one(
                 doc! {},
                 vec![doc! { "$set": {
-                    "ledger_index": {
-                        "$cond": {
-                            "if": {
-                                "$lt": [ "$ledger_index", ledger_index ]
-                            },
-                            "then": ledger_index,
-                            "else": "$ledger_index"
-                        }
-                    }
+                    "ledger_index": { "$max": [ "$ledger_index", ledger_index ] }
                 } }],
                 UpdateOptions::builder().upsert(true).build(),
             )

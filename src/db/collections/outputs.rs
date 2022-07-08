@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{BlockId, Output, OutputId, TransactionId},
+        stardust::block::{BlockId, Output, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -49,14 +49,6 @@ pub struct OutputMetadataResult {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
-    pub ledger_index: MilestoneIndex,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[allow(missing_docs)]
-pub struct SpentMetadataResult {
-    pub transaction_id: TransactionId,
-    pub spent: MilestoneIndexTimestamp,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -144,16 +136,9 @@ impl MongoDb {
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
                         doc! { "$set": {
-                            "metadata.spent": {
-                                "$cond": {
-                                    "if": {
-                                        "$lte": [ "$metadata.spent.milestone_index", ledger_index ]
-                                    },
-                                    "then": "$metadata.spent",
-                                    "else": "null",
-                                }
-                            },
-                            "metadata.ledger_index": ledger_index
+                            // The max fn will not consider the spent milestone index if it is null,
+                            // thus always setting the ledger index to our provided value
+                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
                         } },
                     ],
                     None,
@@ -184,16 +169,9 @@ impl MongoDb {
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
                         doc! { "$set": {
-                            "metadata.spent": {
-                                "$cond": {
-                                    "if": {
-                                        "$lte": [ "$metadata.spent.milestone_index", ledger_index ]
-                                    },
-                                    "then": "$metadata.spent",
-                                    "else": "null",
-                                }
-                            },
-                            "metadata.ledger_index": ledger_index
+                            // The max fn will not consider the spent milestone index if it is null,
+                            // thus always setting the ledger index to our provided value
+                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
                         } },
                         doc! { "$replaceRoot": { "newRoot": "$metadata" } },
                     ],
@@ -215,32 +193,23 @@ impl MongoDb {
     pub async fn get_spending_transaction_metadata(
         &self,
         output_id: &OutputId,
-    ) -> Result<Option<SpentMetadataResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            let metadata = self
-                .0
-                .collection::<SpentMetadataResult>(OutputDocument::COLLECTION)
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "output_id": &output_id,
-                            "metadata.spent.milestone_index": { "$lte": ledger_index },
-                        } },
-                        doc! { "$replaceRoot": { "newRoot": "$metadata.spent" } },
-                        doc! { "$set": { "ledger_index": ledger_index } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .map(bson::from_document)
-                .transpose()?;
+    ) -> Result<Option<SpentMetadata>, Error> {
+        let metadata = self
+            .0
+            .collection::<SpentMetadata>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "output_id": &output_id } },
+                    doc! { "$replaceRoot": { "newRoot": "$metadata.spent" } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
 
-            Ok(metadata)
-        } else {
-            Ok(None)
-        }
+        Ok(metadata)
     }
 }
