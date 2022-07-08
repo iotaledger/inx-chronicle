@@ -19,6 +19,8 @@ use tokio::{
     time::{sleep, Duration},
 };
 
+const METRICS_UPDATE_INTERVAL_DEFAULT: Duration = Duration::from_secs(60);
+
 pub struct MetricsWorker {
     db: MongoDb,
     config: MetricsConfig,
@@ -40,13 +42,15 @@ pub struct MetricsState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MetricsConfig {
-    address: IpAddr,
-    port: u16,
+    pub enabled: bool,
+    pub address: IpAddr,
+    pub port: u16,
 }
 
 impl Default for MetricsConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             address: [0, 0, 0, 0].into(),
             port: 9100,
         }
@@ -63,19 +67,19 @@ impl Task for UpdateDbMetrics {
 
     async fn run(&mut self) -> Result<(), Self::Error> {
         const MAX_RETRIES: u8 = 5;
-        let mut retries = MAX_RETRIES;
+        let mut remaining_retries = MAX_RETRIES;
 
-        while retries > 0 {
-            sleep(Duration::from_secs(60)).await;
+        while remaining_retries > 0 {
+            sleep(METRICS_UPDATE_INTERVAL_DEFAULT).await;
 
             match self.db.size().await {
                 Ok(size) => {
                     self.size.set(size);
-                    retries = MAX_RETRIES;
+                    remaining_retries = MAX_RETRIES;
                 }
                 Err(e) => {
                     log::warn!("Cannot update database metrics: {e}");
-                    retries -= 1;
+                    remaining_retries -= 1;
                 }
             }
         }
