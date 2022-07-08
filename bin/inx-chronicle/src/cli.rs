@@ -6,20 +6,29 @@ use clap::Parser;
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
-pub struct CliArgs {
+pub struct ClArgs {
     /// The location of the configuration file.
-    #[clap(short, value_parser, long)]
+    #[clap(short, long)]
     pub config: Option<String>,
-    /// The address of the INX interface provided by the node.
-    #[clap(value_parser, long)]
-    pub inx: Option<String>,
     /// The address of the MongoDB database.
-    #[clap(value_parser, long)]
-    pub db: Option<String>,
+    #[clap(long = "db")]
+    pub db_addr: Option<String>,
+    /// The address of the INX interface provided by the node.
+    #[clap(long = "inx")]
+    pub inx_addr: Option<String>,
+    /// Toggle INX (offline mode).
+    #[clap(long, value_parser, env = "INX", default_value = "true")]
+    pub toggle_inx: bool,
     /// The location of the identity file for JWT auth.
-    #[clap(value_parser, long)]
+    #[clap(long)]
     pub identity: Option<String>,
     /// The password used for authentication.
-    #[clap(value_parser, long)]
+    #[clap(long)]
     pub password: Option<String>,
+    /// Toggle REST API.
+    #[clap(long, value_parser, env = "API", default_value = "true")]
+    pub toggle_api: bool,
+    /// Toggle the metrics server.
+    #[clap(long, value_parser, env = "METRICS", default_value = "true")]
+    pub toggle_metrics: bool,
 }
