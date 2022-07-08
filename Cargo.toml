@@ -123,6 +123,10 @@ inx = [
 metrics = [
     "dep:bee-metrics",
 ]
+# The following feature enables metrics that can be used to debug the runtime.
+metrics-debug = [
+    "metrics"
+]
 stardust = [
     "dep:bee-block-stardust",
     "dep:bee-rest-api-stardust",
