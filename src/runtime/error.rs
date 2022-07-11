@@ -14,16 +14,24 @@ pub enum RuntimeError {
     AbortedScope(ScopeId),
     #[error("Actor exited with error: {0}")]
     ActorError(String),
-    #[error("Dependency notification canceled")]
-    CanceledDepNotification,
-    #[error("Invalid scope")]
-    InvalidScope,
-    #[error("Missing dependency: {0}")]
-    MissingDependency(String),
     #[error("Error launching scope: {0}")]
     ScopeLaunchError(Box<dyn Error + Send + Sync>),
     #[error(transparent)]
     SendError(#[from] SendError),
-    #[error("Task exited with error: {0}")]
-    TaskError(Box<dyn Error + Send + Sync>),
 }
+
+/// Defines an error's log level.
+pub trait ErrorLevel: Error {
+    /// Returns the log level for this error.
+    fn level(&self) -> log::Level {
+        log::Level::Error
+    }
+}
+
+impl ErrorLevel for RuntimeError {
+    fn level(&self) -> log::Level {
+        log::Level::Warn
+    }
+}
+
+impl ErrorLevel for std::convert::Infallible {}

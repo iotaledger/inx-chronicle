@@ -16,12 +16,13 @@ pub(crate) mod sender;
 /// Module containing utilities.
 pub(crate) mod util;
 
-use std::{borrow::Cow, error::Error};
+use std::borrow::Cow;
 
 use async_trait::async_trait;
 use futures::StreamExt;
 
 use self::context::ActorContext;
+use super::error::ErrorLevel;
 
 /// The actor trait, which defines a task that is managed by the runtime.
 #[async_trait]
@@ -29,7 +30,7 @@ pub trait Actor: Send + Sync + Sized {
     /// Custom data that is passed to all actor methods.
     type State: Send;
     /// Custom error type that is returned by all actor methods.
-    type Error: Error + Send;
+    type Error: ErrorLevel + Send;
 
     /// Set this actor's name, primarily for debugging purposes.
     fn name(&self) -> Cow<'static, str> {

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::types::tangle::MilestoneIndex;
+use chronicle::{runtime::ErrorLevel, types::tangle::MilestoneIndex};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -26,4 +26,17 @@ pub enum InxError {
     Runtime(#[from] chronicle::runtime::RuntimeError),
     #[error(transparent)]
     Tonic(#[from] inx::tonic::Error),
+}
+
+impl ErrorLevel for InxError {
+    fn level(&self) -> log::Level {
+        match self {
+            Self::InvalidAddress(_)
+            | Self::InxTypeConversion(_)
+            | Self::MongoDb(_)
+            | Self::NetworkChanged(_, _)
+            | Self::ParsingAddressFailed(_) => log::Level::Error,
+            _ => log::Level::Warn,
+        }
+    }
 }
