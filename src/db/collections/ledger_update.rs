@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::block::{Address, OutputId},
+        stardust::block::{Address, OutputId, UnlockConditionType},
         tangle::MilestoneIndex,
     },
 };
@@ -25,6 +25,9 @@ struct LedgerUpdateDocument {
     address: Address,
     output_id: OutputId,
     at: MilestoneIndexTimestamp,
+    #[serde(with = "crate::types::util::stringify")]
+    amount: u64,
+    unlock_condition_type: UnlockConditionType,
     is_spent: bool,
 }
 
@@ -111,7 +114,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "output_id": 1, "is_spent": 1 })
+                    .keys(doc! { "output_id": 1, "is_spent": 1, "unlock_condition": 1 })
                     .options(
                         IndexOptions::builder()
                             // An output can be spent and unspent only once.
@@ -140,12 +143,14 @@ impl MongoDb {
             let is_spent = metadata.spent.is_some();
 
             // Ledger updates
-            for owner in output.owning_addresses() {
+            for (address, unlock_condition) in output.owning_addresses() {
                 let ledger_update_document = LedgerUpdateDocument {
-                    address: owner,
+                    address,
                     output_id: metadata.output_id,
                     at,
                     is_spent,
+                    amount: output.amount(),
+                    unlock_condition_type: unlock_condition,
                 };
 
                 let _ = self
