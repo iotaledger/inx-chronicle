@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.11"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
