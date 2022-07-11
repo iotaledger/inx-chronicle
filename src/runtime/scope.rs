@@ -170,12 +170,12 @@ impl RuntimeScope {
         A: 'static + Actor,
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
-        #[cfg(not(feature = "metrics"))]
+        #[cfg(not(feature = "metrics-debug"))]
         let (sender, receiver) = {
             let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
             (sender, tokio_stream::wrappers::UnboundedReceiverStream::new(receiver))
         };
-        #[cfg(feature = "metrics")]
+        #[cfg(feature = "metrics-debug")]
         let (sender, receiver) = {
             use bee_metrics::metrics::sync::mpsc;
             let (sender, receiver) = mpsc::unbounded_channel::<Envelope<A>>();

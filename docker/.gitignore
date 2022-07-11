@@ -1,2 +1,5 @@
 chronicle_data/
 hornet_data/
+
+monitoring/prometheus
+monitoring/grafana

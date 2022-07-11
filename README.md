@@ -97,3 +97,12 @@ The `sub` (subject) claim is filled using a unique UUID, however it is not curre
 ### Providing a Token
 
 To provide a token when making a request, include it in an `Authorization` header using the `Bearer` authentication scheme.
+
+### Environment Variables
+
+Currently Chronicle supports the following environment variables:
+
+CONFIG_PATH="<FILE_PATH>": sets the file path to the `config.toml` file;
+INX=<true|false>: enables/disables INX;
+API=<true|false>: enables/disables the REST API;
+METRICS=<true|false>: enables/disables the Metrics Server;

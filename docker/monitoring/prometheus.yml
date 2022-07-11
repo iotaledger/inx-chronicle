@@ -1,0 +1,11 @@
+scrape_configs:
+
+  - job_name: inx-chronicle
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['inx-chronicle:9100']
+
+  - job_name: hornet
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['hornet:9311']
