@@ -88,7 +88,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )
@@ -136,7 +136,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$metadata" } },
+                    doc! { "$replaceWith": "$metadata" },
                 ],
                 None,
             )
@@ -218,7 +218,7 @@ impl MongoDb {
                         "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": transaction_id,
                     } },
-                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )
@@ -243,7 +243,7 @@ impl MongoDb {
                         "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
                         "block.payload.essence.inputs.index": &(output_id.index as i32)
                     } },
-                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )

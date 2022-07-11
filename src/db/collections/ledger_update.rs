@@ -121,17 +121,17 @@ impl MongoDb {
             self.insert_output(delta.clone()).await?;
             // Ledger updates
             for owner in delta.output.owning_addresses() {
-                let doc = bson::to_document(&LedgerUpdateDocument {
+                let doc = LedgerUpdateDocument {
                     address: owner,
                     output_id: delta.metadata.output_id,
                     at: delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked),
                     is_spent: delta.metadata.spent.is_some(),
-                })?;
+                };
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
-                        doc.clone(),
-                        doc! { "$setOnInsert": doc },
+                        doc! { "address": &doc.address, "output_id": &doc.output_id, "at.milestone_index": &doc.at.milestone_index },
+                        doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
                     )
                     .await?;

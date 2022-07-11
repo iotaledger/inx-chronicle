@@ -128,7 +128,11 @@ impl Actor for InxWorker {
 
         let mut updates = Vec::new();
         while let Some(unspent_output) = unspent_output_stream.try_next().await? {
-            let ledger_output: inx::LedgerOutput = unspent_output.output.unwrap().try_into()?;
+            // TODO: Replace this once inx lib adds UnspentOutput type
+            let ledger_output: inx::LedgerOutput = unspent_output
+                .output
+                .ok_or(inx::Error::MissingField("output"))?
+                .try_into()?;
             updates.push(ledger_output.into());
         }
         log::info!("Inserting {} unspent outputs.", updates.len());

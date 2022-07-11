@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-/// Chronicle Block record.
+/// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDocument {
     output_id: OutputId,
@@ -105,8 +105,8 @@ impl MongoDb {
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "output_id": &output_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$output" } },
+                    doc! { "$match": { "output_id": output_id } },
+                    doc! { "$replaceWith": "$output" },
                 ],
                 None,
             )
@@ -173,7 +173,7 @@ impl MongoDb {
                             // thus always setting the ledger index to our provided value
                             "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
                         } },
-                        doc! { "$replaceRoot": { "newRoot": "$metadata" } },
+                        doc! { "$replaceWith": "$metadata" },
                     ],
                     None,
                 )
@@ -200,7 +200,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "output_id": &output_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$metadata.spent" } },
+                    doc! { "$replaceWith": "$metadata.spent" },
                 ],
                 None,
             )

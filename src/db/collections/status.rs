@@ -51,8 +51,8 @@ impl MongoDb {
             .map(|doc| doc.and_then(|doc| doc.ledger_index))
     }
 
-    /// Sets the current ledger index.
-    pub async fn set_ledger_index(&self, ledger_index: MilestoneIndex) -> Result<(), Error> {
+    /// Sets the current ledger index if it is greater than the current one.
+    pub async fn update_ledger_index(&self, ledger_index: MilestoneIndex) -> Result<(), Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .update_one(
