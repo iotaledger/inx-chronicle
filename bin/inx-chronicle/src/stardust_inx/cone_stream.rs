@@ -34,7 +34,7 @@ impl ConeStream {
 
 #[async_trait]
 impl Actor for ConeStream {
-    type State = u32;
+    type State = ();
     type Error = InxError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -44,7 +44,7 @@ impl Actor for ConeStream {
             .await?
             .into_inner();
         cx.add_stream(cone_stream);
-        Ok(0)
+        Ok(())
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -59,6 +59,7 @@ impl Actor for ConeStream {
     ) -> Result<(), Self::Error> {
         if run_result.is_ok() {
             self.db.set_sync_status_blocks(self.milestone_index).await?;
+            self.db.update_ledger_index(self.milestone_index).await?;
             log::debug!("Milestone `{}` synced.", self.milestone_index);
         } else {
             log::warn!("Syncing milestone `{}` failed.", self.milestone_index);
@@ -73,7 +74,7 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
         &mut self,
         _cx: &mut ActorContext<Self>,
         block_metadata_result: Result<inx::proto::BlockWithMetadata, Status>,
-        white_flag_index: &mut Self::State,
+        _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust block event");
         let block_metadata = block_metadata_result?;
@@ -82,15 +83,8 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
         let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
 
         self.db
-            .insert_block_with_metadata(
-                metadata.block_id.into(),
-                block.into(),
-                raw,
-                metadata.into(),
-                *white_flag_index,
-            )
+            .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
             .await?;
-        *white_flag_index += 1;
 
         log::trace!("Inserted block into database.");
 

@@ -7,6 +7,8 @@ mod block;
 mod ledger_update;
 /// Module containing the Milestone document model.
 mod milestone;
+/// Module containing Block outputs.
+mod outputs;
 /// Module containing information about the network and state of the node.
 mod status;
 /// Module containing the treasury model.
@@ -15,5 +17,6 @@ mod treasury;
 pub use self::{
     ledger_update::{LedgerUpdatePerAddressRecord, SortOrder},
     milestone::SyncData,
+    outputs::{OutputMetadataResult, OutputWithMetadataResult},
     treasury::TreasuryResult,
 };

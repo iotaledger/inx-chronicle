@@ -11,10 +11,10 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{collections::milestone::MilestoneDocument, MongoDb},
+    db::MongoDb,
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{Block, BlockId, Output, OutputId, Payload, TransactionId},
+        ledger::{BlockMetadata, LedgerInclusionState},
+        stardust::block::{Block, BlockId, OutputId, Payload, TransactionId},
     },
 };
 
@@ -30,8 +30,6 @@ struct BlockDocument {
     raw: Vec<u8>,
     /// The block's metadata.
     metadata: BlockMetadata,
-    /// The index of this block in white flag order.
-    white_flag_index: u32,
 }
 
 impl BlockDocument {
@@ -90,7 +88,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )
@@ -138,7 +136,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "block_id": block_id } },
-                    doc! { "$replaceRoot": { "newRoot": "$metadata" } },
+                    doc! { "$replaceWith": "$metadata" },
                 ],
                 None,
             )
@@ -179,7 +177,6 @@ impl MongoDb {
         block: Block,
         raw: Vec<u8>,
         metadata: BlockMetadata,
-        white_flag_index: u32,
     ) -> Result<(), Error> {
         if metadata.inclusion_state == LedgerInclusionState::Included {
             if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
@@ -193,7 +190,6 @@ impl MongoDb {
             block,
             raw,
             metadata,
-            white_flag_index,
         };
 
         let mut doc = bson::to_document(&block_document)?;
@@ -222,7 +218,7 @@ impl MongoDb {
                         "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": transaction_id,
                     } },
-                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )
@@ -235,123 +231,7 @@ impl MongoDb {
         Ok(block)
     }
 
-    /// Get an [`Output`] by [`OutputId`].
-    pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
-        let output = self
-            .0
-            .collection::<Output>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.transaction_id": &output_id.transaction_id,
-                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
-                    } },
-                    doc! { "$replaceRoot": { "newRoot": { "$arrayElemAt": [ "$block.payload.essence.outputs", &(output_id.index as i64) ] } } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(output)
-    }
-
-    /// Get an [`OutputWithMetadata`] by [`OutputId`].
-    pub async fn get_output_with_metadata(&self, output_id: &OutputId) -> Result<Option<OutputWithMetadata>, Error> {
-        let mut output: Option<OutputWithMetadata> = self
-            .0
-            .collection::<OutputWithMetadata>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.transaction_id": &output_id.transaction_id,
-                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
-                    } },
-                    doc! { "$lookup": {
-                        "from": MilestoneDocument::COLLECTION,
-                        "localField": "metadata.referenced_by_milestone_index",
-                        "foreignField": "milestone_index",
-                        "as": "metadata.referenced_by_milestone"
-                    } },
-                    doc! { "$unwind": "$metadata.referenced_by_milestone" },
-                    doc! { "$replaceRoot": { "newRoot": {
-                        "output": { "$arrayElemAt": [ "$block.payload.essence.outputs", &(output_id.index as i64) ] } ,
-                        "metadata": {
-                            "output_id": &output_id,
-                            "block_id": "$block_id",
-                            "transaction_id": "$block.payload.transaction_id",
-                            "booked": {
-                                "milestone_index": "$metadata.referenced_by_milestone_index",
-                                "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
-                            },
-                        }
-                    } } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-        let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
-        if let Some(output) = output.as_mut() {
-            output.metadata.spent = spent_metadata;
-        }
-
-        Ok(output)
-    }
-
-    /// Get an [`OutputMetadata`] by [`OutputId`].
-    pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadata>, Error> {
-        let mut metadata: Option<OutputMetadata> = self
-            .0
-            .collection::<OutputMetadata>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.transaction_id": &output_id.transaction_id,
-                        "$expr": { "$gt": [{ "$size": "$block.payload.essence.outputs" }, &(output_id.index as i64)] }
-                    } },
-                    doc! { "$lookup": {
-                        "from": MilestoneDocument::COLLECTION,
-                        "localField": "metadata.referenced_by_milestone_index",
-                        "foreignField": "milestone_index",
-                        "as": "metadata.referenced_by_milestone"
-                    } },
-                    doc! { "$unwind": "$metadata.referenced_by_milestone" },
-                    doc! { "$replaceRoot": { "newRoot": {
-                        "output_id": &output_id,
-                        "block_id": "$block_id",
-                        "transaction_id": "$block.payload.transaction_id",
-                        "booked": {
-                            "milestone_index": "$metadata.referenced_by_milestone_index",
-                            "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
-                        },
-                    } } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-        let spent_metadata = self.get_spending_transaction_metadata(output_id).await?;
-        if let Some(metadata) = metadata.as_mut() {
-            metadata.spent = spent_metadata;
-        }
-
-        Ok(metadata)
-    }
-
-    /// Gets the spending transaction of an [`Output`] by [`OutputId`].
+    /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         Ok(self
             .0
@@ -363,7 +243,7 @@ impl MongoDb {
                         "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
                         "block.payload.essence.inputs.index": &(output_id.index as i32)
                     } },
-                    doc! { "$replaceRoot": { "newRoot": "$block" } },
+                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )
@@ -372,46 +252,6 @@ impl MongoDb {
             .await?
             .map(bson::from_document)
             .transpose()?)
-    }
-
-    /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
-    pub async fn get_spending_transaction_metadata(
-        &self,
-        output_id: &OutputId,
-    ) -> Result<Option<SpentMetadata>, Error> {
-        let metadata = self
-            .0
-            .collection::<SpentMetadata>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
-                        "block.payload.essence.inputs.index": &(output_id.index as i32),
-                    } },
-                    doc! { "$lookup": {
-                        "from": MilestoneDocument::COLLECTION,
-                        "localField": "metadata.referenced_by_milestone_index",
-                        "foreignField": "milestone_index",
-                        "as": "metadata.referenced_by_milestone"
-                    } },
-                    doc! { "$unwind": "$metadata.referenced_by_milestone" },
-                    doc! { "$replaceRoot": { "newRoot": {
-                        "transaction_id": "$block.payload.transaction_id",
-                        "spent": {
-                            "milestone_index": "$metadata.referenced_by_milestone_index",
-                            "milestone_timestamp": "$metadata.referenced_by_milestone.milestone_timestamp",
-                        },
-                    } } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-        Ok(metadata)
     }
 }
 

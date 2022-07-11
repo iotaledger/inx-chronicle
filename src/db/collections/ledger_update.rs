@@ -134,31 +134,25 @@ impl MongoDb {
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_ledger_updates(
         &self,
-        outputs_with_metadata: impl IntoIterator<Item = OutputWithMetadata>,
+        deltas: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
-        // TODO: Use `insert_many` and `update_many` to increase write performance.
-
-        for OutputWithMetadata { output, metadata } in outputs_with_metadata {
-            let at = metadata.spent.map_or(metadata.booked, |s| s.spent);
-            let is_spent = metadata.spent.is_some();
-
+        for delta in deltas {
+            self.insert_output(delta.clone()).await?;
             // Ledger updates
-            for (address, unlock_condition) in output.owning_addresses() {
-                let ledger_update_document = LedgerUpdateDocument {
+            for (address, unlock_condition) in delta.output.owning_addresses() {
+                let doc = LedgerUpdateDocument {
                     address,
-                    output_id: metadata.output_id,
-                    at,
-                    is_spent,
-                    amount: output.amount(),
+                    output_id: delta.metadata.output_id,
+                    at: delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked),
+                    is_spent: delta.metadata.spent.is_some(),
+                    amount: delta.output.amount(),
                     unlock_condition_type: unlock_condition,
                 };
-
-                let _ = self
-                    .0
+                self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
-                        doc! { "output_id": metadata.output_id, "is_spent": is_spent },
-                        doc! { "$setOnInsert": bson::to_document(&ledger_update_document)? },
+                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent, "unlock_condition": bson::to_document(&doc.unlock_condition_type)? },
+                        doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
                     )
                     .await?;

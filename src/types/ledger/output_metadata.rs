@@ -28,7 +28,6 @@ pub struct SpentMetadata {
 pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
-    pub transaction_id: TransactionId,
     pub booked: MilestoneIndexTimestamp,
     pub spent: Option<SpentMetadata>,
 }
@@ -43,19 +42,17 @@ pub struct OutputWithMetadata {
 impl From<inx::LedgerOutput> for OutputWithMetadata {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
-        let metadata = OutputMetadata {
-            output_id,
-            block_id: value.block_id.into(),
-            transaction_id: output_id.transaction_id,
-            booked: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_booked.into(),
-                milestone_timestamp: value.milestone_timestamp_booked.into(),
-            },
-            spent: None,
-        };
         Self {
             output: (&value.output).into(),
-            metadata,
+            metadata: OutputMetadata {
+                output_id,
+                block_id: value.block_id.into(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: value.milestone_index_booked.into(),
+                    milestone_timestamp: value.milestone_timestamp_booked.into(),
+                },
+                spent: None,
+            },
         }
     }
 }
@@ -63,9 +60,9 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
 #[cfg(feature = "inx")]
 impl From<inx::LedgerSpent> for OutputWithMetadata {
     fn from(value: inx::LedgerSpent) -> Self {
-        let mut output_with_metadata = OutputWithMetadata::from(value.output);
+        let mut delta = OutputWithMetadata::from(value.output);
 
-        output_with_metadata.metadata.spent = Some(SpentMetadata {
+        delta.metadata.spent.replace(SpentMetadata {
             transaction_id: value.transaction_id_spent.into(),
             spent: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_spent.into(),
@@ -73,6 +70,6 @@ impl From<inx::LedgerSpent> for OutputWithMetadata {
             },
         });
 
-        output_with_metadata
+        delta
     }
 }

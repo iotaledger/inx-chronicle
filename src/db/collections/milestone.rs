@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::MongoDb,
     types::{
+        ledger::MilestoneIndexTimestamp,
         stardust::{
             block::{MilestoneId, MilestoneOption, MilestonePayload},
             milestone::MilestoneTimestamp,
@@ -256,10 +257,9 @@ impl MongoDb {
     }
 
     /// Find the latest milestone inserted.
-    pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndex>, Error> {
-        Ok(self
-            .0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+    pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        self.0
+            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {},
                 FindOptions::builder()
@@ -269,8 +269,7 @@ impl MongoDb {
             )
             .await?
             .try_next()
-            .await?
-            .map(|d| d.milestone_index))
+            .await
     }
 
     /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.

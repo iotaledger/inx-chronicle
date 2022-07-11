@@ -15,6 +15,7 @@ use chronicle::{
 };
 pub use config::InxConfig;
 pub use error::InxError;
+use futures::TryStreamExt;
 use inx::{
     client::InxClient,
     proto::NoParams,
@@ -122,6 +123,21 @@ impl Actor for InxWorker {
         let mut inx_client = Self::connect(&self.config).await?;
         log::info!("Connected to INX.");
 
+        log::info!("Reading unspent outputs.");
+        let mut unspent_output_stream = inx_client.read_unspent_outputs(NoParams {}).await?.into_inner();
+
+        let mut updates = Vec::new();
+        while let Some(unspent_output) = unspent_output_stream.try_next().await? {
+            // TODO: Replace this once inx lib adds UnspentOutput type
+            let ledger_output: inx::LedgerOutput = unspent_output
+                .output
+                .ok_or(inx::Error::MissingField("output"))?
+                .try_into()?;
+            updates.push(ledger_output.into());
+        }
+        log::info!("Inserting {} unspent outputs.", updates.len());
+        self.db.insert_ledger_updates(updates).await?;
+
         let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
 
         cx.spawn_child(LedgerUpdateStream::new(
@@ -205,8 +221,8 @@ impl HandleEvent<IsHealthy> for InxWorker {
         let mut healthy = true;
         healthy &= node_status.is_healthy;
 
-        let latest_inserted_ms = self.db.get_latest_milestone().await?;
-        healthy &= latest_inserted_ms.map_or(false, |MilestoneIndex(latest_inserted_ms)| {
+        let latest_inserted_ms = self.db.get_latest_milestone().await?.map(|ms| ms.milestone_index.0);
+        healthy &= latest_inserted_ms.map_or(false, |latest_inserted_ms| {
             // If the latest confirmed ms from the node is either the last ms we inserted or the next one
             // (because we are still working on it) then we are healthy
             (latest_inserted_ms..=latest_inserted_ms + 1)
