@@ -63,9 +63,10 @@ async fn is_healthy(database: Extension<MongoDb>) -> bool {
     let last = database.find_last_milestone(u32::MAX.into()).await;
 
     if let (Ok(Some(start)), Ok(Some(end))) = (first, last) {
-        let stale_time = OffsetDateTime::now_utc() - STALE_MILESTONE_DURATION;
+        // Panic: The milestone_timestamp is guaranteeed to be valid.
+        let ms_time = OffsetDateTime::from_unix_timestamp(end.milestone_timestamp.0 as i64).unwrap();
 
-        if !end.milestone_timestamp.0 as i64 > stale_time.unix_timestamp() {
+        if OffsetDateTime::now_utc() - ms_time > STALE_MILESTONE_DURATION {
             return false;
         }
 
