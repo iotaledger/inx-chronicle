@@ -16,7 +16,10 @@ use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResul
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new().route("/info", get(info)).route("/health", get(health));
+    let mut router = Router::new()
+        .route("/info", get(info))
+        .route("/health", get(health))
+        .route("/routes", get(list_routes));
 
     #[cfg(feature = "stardust")]
     {
@@ -67,6 +70,21 @@ async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
             .unwrap_or(false);
     }
     is_healthy
+}
+
+async fn list_routes(Extension(config): Extension<ApiData>) -> RoutesResponse {
+    RoutesResponse {
+        // TODO: We should look at information from `axum::Router` to do this in a safer way. Also, we need a way to add
+        // protected routes too, ideally while respecting the JWT. The problem is that there is currently no way to
+        // access the list of routes from `axum::Router` programmatically.
+        // Here is more information about that: https://github.com/tokio-rs/axum/discussions/860
+        routes: config
+            .public_routes
+            .patterns()
+            .iter()
+            .map(|pattern| pattern.strip_suffix("/*").unwrap_or(pattern).to_owned())
+            .collect(),
+    }
 }
 
 async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {

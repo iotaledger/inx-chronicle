@@ -33,6 +33,15 @@ pub struct InfoResponse {
 
 impl_success_response!(InfoResponse);
 
+/// Response of `GET /api/routes`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoutesResponse {
+    pub routes: Vec<String>,
+}
+
+impl_success_response!(RoutesResponse);
+
 /// An aggregation type that represents the ranges of completed milestones and gaps.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncDataDto(pub SyncData);
