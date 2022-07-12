@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::{db::MongoDb, runtime::ScopeView};
+use chronicle::{db::MongoDb, runtime::ScopeView, types::stardust::milestone::MilestoneTimestamp};
 use hyper::StatusCode;
 use serde::Deserialize;
 
@@ -55,30 +55,34 @@ async fn login(
     }
 }
 
-async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
-    #[allow(unused_mut)]
-    let mut is_healthy = true;
-    #[cfg(feature = "inx")]
-    {
-        use crate::check_health::CheckHealth;
-        is_healthy &= scope
-            .is_healthy::<crate::stardust_inx::InxWorker>()
+async fn is_healthy(database: Extension<MongoDb>) -> bool {
+    let first = database.find_first_milestone(0.into()).await;
+    let last = database.find_last_milestone(u32::MAX.into()).await;
+
+    if let (Ok(Some(start)), Ok(Some(end))) = (first, last) {
+        if let Ok(sync) = database
+            .get_sync_data(start.milestone_index..=end.milestone_index)
             .await
-            .unwrap_or(false);
+        {
+            sync.gaps.len() == 0
+        } else {
+            false
+        }
+    } else {
+        false
     }
-    is_healthy
 }
 
-async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {
+async fn info(database: Extension<MongoDb>) -> InfoResponse {
     InfoResponse {
         name: "Chronicle".into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
-        is_healthy: is_healthy(&scope).await,
+        is_healthy: is_healthy(database).await,
     }
 }
 
-pub async fn health(Extension(scope): Extension<ScopeView>) -> StatusCode {
-    if is_healthy(&scope).await {
+pub async fn health(database: Extension<MongoDb>) -> StatusCode {
+    if is_healthy(database).await {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
