@@ -16,7 +16,7 @@ use super::{
         LedgerUpdatesByMilestonePagination,
     },
     responses::{
-        BalancePerAddressResponse,
+        BalanceResponse,
         LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
         LedgerUpdatesByMilestoneResponse,
     },
@@ -26,10 +26,7 @@ use crate::api::{responses::SyncDataDto, ApiError, ApiResult};
 pub fn routes() -> Router {
     Router::new()
         .route("/gaps", get(sync))
-        .nest(
-            "/balance",
-            Router::new().route("/by-address/:address", get(balance_by_address)),
-        )
+        .route("/balance/:address", get(balance))
         .nest(
         "/ledger/updates",
         Router::new()
@@ -121,12 +118,12 @@ async fn ledger_updates_by_milestone(
     })
 }
 
-async fn balance_by_address(
-    database: Extension<MongoDb>,
-    Path(address): Path<String>,
-) -> ApiResult<BalancePerAddressResponse> {
+async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
-    let balance = database.calculate_balance_for_address(address).await?;
+    let (total_balance, locked_balance) = database.calc_updated_balances_for_address(address).await?;
 
-    Ok(BalancePerAddressResponse { balance: balance.into() })
+    Ok(BalanceResponse {
+        total_balance,
+        locked_balance,
+    })
 }
