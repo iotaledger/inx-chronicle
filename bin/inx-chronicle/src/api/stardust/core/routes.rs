@@ -46,7 +46,7 @@ lazy_static! {
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/info", not_implemented.into_service())
+        .route("/info", get(crate::api::routes::info))
         .route("/tips", not_implemented.into_service())
         .nest(
             "/blocks",

@@ -218,7 +218,7 @@ impl MongoDb {
     pub async fn find_first_milestone(
         &self,
         start_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<MilestoneIndex>, Error> {
+    ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
         Ok(self
             .0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
@@ -232,14 +232,17 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(|d| d.milestone_index))
+            .map(|d| MilestoneIndexTimestamp {
+                milestone_index: d.milestone_index,
+                milestone_timestamp: d.milestone_timestamp,
+            }))
     }
 
     /// Find the end milestone.
     pub async fn find_last_milestone(
         &self,
         end_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<MilestoneIndex>, Error> {
+    ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
         Ok(self
             .0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
@@ -253,7 +256,10 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(|d| d.milestone_index))
+            .map(|d| MilestoneIndexTimestamp {
+                milestone_index: d.milestone_index,
+                milestone_timestamp: d.milestone_timestamp,
+            }))
     }
 
     /// Find the latest milestone inserted.
