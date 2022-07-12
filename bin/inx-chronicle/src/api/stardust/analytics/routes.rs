@@ -4,13 +4,14 @@
 use axum::{routing::get, Extension, Router};
 use chronicle::db::MongoDb;
 
-use super::responses::{AddressAnalyticsResponse, TransactionsAnalyticsResponse};
+use super::responses::{AddressAnalyticsResponse, StorageDepositAnalyticsResponse, TransactionsAnalyticsResponse};
 use crate::api::{extractors::TimeRange, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
         .route("/addresses", get(address_analytics))
-        .route("/transactions", get(transaction_analytics))
+        .route("/token-transfers", get(token_transfer_analytics))
+        .route("/storage-deposit", get(storage_deposit_analytics))
 }
 
 async fn address_analytics(
@@ -32,29 +33,36 @@ async fn address_analytics(
     })
 }
 
-async fn transaction_analytics(
+async fn token_transfer_analytics(
     database: Extension<MongoDb>,
     TimeRange {
         start_timestamp,
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionsAnalyticsResponse> {
-    let start = database
-        .find_first_milestone(start_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    let end = database
-        .find_last_milestone(end_timestamp)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-
     let res = database
-        .get_transaction_analytics(start.milestone_index, end.milestone_index)
+        .get_transaction_analytics(start_timestamp, end_timestamp)
         .await?;
 
     Ok(TransactionsAnalyticsResponse {
         count: res.count,
         total_value: res.total_value,
         average_value: res.avg_value,
+    })
+}
+
+async fn storage_deposit_analytics(
+    database: Extension<MongoDb>,
+    TimeRange {
+        start_timestamp,
+        end_timestamp,
+    }: TimeRange,
+) -> ApiResult<StorageDepositAnalyticsResponse> {
+    let res = database
+        .get_storage_deposit_analytics(start_timestamp, end_timestamp)
+        .await?;
+
+    Ok(StorageDepositAnalyticsResponse {
+        total_value: res.total_value,
     })
 }

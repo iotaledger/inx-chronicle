@@ -102,6 +102,22 @@ impl MongoDb {
             )
             .await?;
 
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "at.milestone_timestamp": 1, })
+                    .options(
+                        IndexOptions::builder()
+                            // An output can be spent and unspent only once.
+                            .unique(false)
+                            .name("timestamp_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -225,6 +241,18 @@ mod analytics {
         pub send_addresses: u64,
     }
 
+    #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+    pub struct TransactionAnalyticsResult {
+        pub count: u64,
+        pub total_value: f64,
+        pub avg_value: f64,
+    }
+
+    #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+    pub struct StorageDepositAnalyticsResult {
+        pub total_value: f64,
+    }
+
     impl MongoDb {
         /// Create aggregate statistics of all addresses.
         pub async fn get_address_analytics(
@@ -237,7 +265,7 @@ mod analytics {
                 .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                 .aggregate(
                     vec![
-                        doc! { "$match": { "at.milestone_timestamp": { "$gt": start_timestamp, "$lt": end_timestamp } } },
+                        doc! { "$match": { "at.milestone_timestamp": { "$gte": start_timestamp, "$lte": end_timestamp } } },
                         doc! { "$facet": {
                             "total": [
                                 { "$group" : {
@@ -273,6 +301,65 @@ mod analytics {
                 .await?
                 .map(bson::from_document)
                 .transpose()?)
+        }
+
+        /// Gathers transaction analytics.
+        pub async fn get_transaction_analytics(
+            &self,
+            start_timestamp: MilestoneTimestamp,
+            end_timestamp: MilestoneTimestamp,
+        ) -> Result<TransactionAnalyticsResult, Error> {
+            Ok(self
+                .0
+                .collection::<TransactionAnalyticsResult>(LedgerUpdateDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "at.milestone_timestamp": { "$gte": start_timestamp, "$lte": end_timestamp } } },
+                        doc! { "$group": {
+                            "_id": "null",
+                            "count": { "$sum": 1 },
+                            "total_value": { "$sum": { "$toDouble": "$amount" } },
+                            "avg_value": { "$avg": { "$toDouble": "$amount" } },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?
+                .unwrap_or_default())
+        }
+
+        /// Create aggregate statistics of all storage deposits.
+        pub async fn get_storage_deposit_analytics(
+            &self,
+            start_timestamp: MilestoneTimestamp,
+            end_timestamp: MilestoneTimestamp,
+        ) -> Result<StorageDepositAnalyticsResult, Error> {
+            Ok(self
+                .0
+                .collection::<TransactionAnalyticsResult>(LedgerUpdateDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "at.milestone_timestamp": { "$gte": start_timestamp, "$lte": end_timestamp },
+                            "unlock_condition_type.kind": "storage_deposit_return",
+                        } },
+                        doc! { "$group": {
+                            "_id": "null",
+                            "total_value": { "$sum": { "$toDouble": "$unlock_condition_type.amount" } },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?
+                .unwrap_or_default())
         }
     }
 }
