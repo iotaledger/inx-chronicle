@@ -15,7 +15,9 @@ use time::{Duration, OffsetDateTime};
 
 use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
-const STALE_MILESTONE_DURATION: Duration = Duration::minutes(1);
+// Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
+// sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
+const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
