@@ -14,7 +14,7 @@ mod nft;
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "kind")]
+#[serde(rename_all = "snake_case")]
 pub enum Address {
     Ed25519(Ed25519Address),
     Alias(AliasAddress),
