@@ -105,7 +105,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts a [`Output`](crate::types::stardust::block::Output) together with its associated
+    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_ledger_updates(
         &self,
@@ -209,8 +209,8 @@ impl MongoDb {
             .await
     }
 
-    /// Calculates the balance of the given `address`.
-    pub async fn calc_updated_balances_for_address(&self, address: Address) -> Result<(u64, u64), Error> {
+    /// Calculates the current balances associated with the given [`Address`](crate::types::stardust::block::Address).
+    pub async fn calc_balances_for_address(&self, address: Address) -> Result<(u64, u64), Error> {
         #[derive(Deserialize, Default)]
         struct Amount {
             amount: f64,
