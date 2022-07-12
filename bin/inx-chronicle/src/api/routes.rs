@@ -19,7 +19,7 @@ const STALE_MILESTONE_DURATION: Duration = Duration::minutes(1);
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new().route("/info", get(info)).route("/health", get(health));
+    let mut router = Router::new().route("/info", get(info));
 
     #[cfg(feature = "stardust")]
     {
@@ -27,6 +27,7 @@ pub fn routes() -> Router {
     }
 
     Router::new()
+        .route("/health", get(health))
         .route("/login", post(login))
         .nest("/api", router.route_layer(from_extractor::<Auth>()))
         .fallback(not_found.into_service())
@@ -84,7 +85,7 @@ async fn is_healthy(database: Extension<MongoDb>) -> bool {
     }
 }
 
-async fn info(database: Extension<MongoDb>) -> InfoResponse {
+pub async fn info(database: Extension<MongoDb>) -> InfoResponse {
     InfoResponse {
         name: "Chronicle".into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
