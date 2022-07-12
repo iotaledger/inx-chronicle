@@ -75,7 +75,7 @@ async fn is_healthy(database: Extension<MongoDb>) -> bool {
             .get_sync_data(start.milestone_index..=end.milestone_index)
             .await
         {
-            sync.gaps.len() == 0
+            sync.gaps.is_empty()
         } else {
             false
         }
