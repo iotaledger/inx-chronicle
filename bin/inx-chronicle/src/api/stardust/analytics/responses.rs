@@ -31,7 +31,7 @@ impl_success_response!(TransactionsAnalyticsResponse);
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageDepositAnalyticsResponse {
-    pub total_value: f64,
+    pub total_amount: f64,
 }
 
 impl_success_response!(StorageDepositAnalyticsResponse);
