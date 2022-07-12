@@ -39,17 +39,17 @@ async fn transaction_analytics(
         end_timestamp,
     }: TimeRange,
 ) -> ApiResult<TransactionsAnalyticsResponse> {
-    let start_milestone = database
+    let start = database
         .find_first_milestone(start_timestamp)
         .await?
         .ok_or(ApiError::NoResults)?;
-    let end_milestone = database
+    let end = database
         .find_last_milestone(end_timestamp)
         .await?
         .ok_or(ApiError::NoResults)?;
 
     let res = database
-        .get_transaction_analytics(start_milestone, end_milestone)
+        .get_transaction_analytics(start.milestone_index, end.milestone_index)
         .await?;
 
     Ok(TransactionsAnalyticsResponse {

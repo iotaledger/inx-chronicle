@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::{db::MongoDb, runtime::ScopeView, types::stardust::milestone::MilestoneTimestamp};
+use chronicle::{db::MongoDb};
 use hyper::StatusCode;
 use serde::Deserialize;
 
