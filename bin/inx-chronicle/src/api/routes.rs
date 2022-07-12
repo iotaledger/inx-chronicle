@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use time::{Instant, Duration, OffsetDateTime};
-
 use auth_helper::jwt::{Claims, JsonWebToken};
 use axum::{
     handler::Handler,
@@ -10,9 +8,10 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::{db::MongoDb};
+use chronicle::db::MongoDb;
 use hyper::StatusCode;
 use serde::Deserialize;
+use time::{Duration, Instant, OffsetDateTime};
 
 use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
