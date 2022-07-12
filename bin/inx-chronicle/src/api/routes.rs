@@ -11,7 +11,7 @@ use axum::{
 use chronicle::db::MongoDb;
 use hyper::StatusCode;
 use serde::Deserialize;
-use time::{Duration, Instant, OffsetDateTime};
+use time::{Duration, OffsetDateTime};
 
 use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
 
