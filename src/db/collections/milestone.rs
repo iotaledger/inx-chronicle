@@ -63,6 +63,29 @@ pub struct SyncData {
     pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
 }
 
+impl std::fmt::Display for SyncData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sync Data")
+            .field(
+                "completed",
+                &self
+                    .completed
+                    .iter()
+                    .map(|r| format!("{}..={}", r.start(), r.end()))
+                    .collect::<Vec<_>>(),
+            )
+            .field(
+                "gaps",
+                &self
+                    .gaps
+                    .iter()
+                    .map(|r| format!("{}..={}", r.start(), r.end()))
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
+}
+
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_milestone_indexes(&self) -> Result<(), Error> {

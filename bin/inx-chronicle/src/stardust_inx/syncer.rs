@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::VecDeque, ops::RangeInclusive};
+use std::{collections::VecDeque, ops::RangeInclusive, time::Duration};
 
 use async_trait::async_trait;
 use chronicle::{
@@ -111,6 +111,32 @@ impl HandleEvent<SyncNext> for Syncer {
         } else {
             log::info!("Successfully finished synchronization with node.");
             cx.shutdown().await;
+        }
+        Ok(())
+    }
+}
+
+pub struct SyncProgress(pub Duration);
+
+#[async_trait]
+impl HandleEvent<SyncProgress> for Syncer {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        SyncProgress(delay): SyncProgress,
+        _state: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        let first = self.db.find_first_milestone(0.into()).await?;
+        let last = self.db.get_latest_milestone().await?;
+        if let (Some(first), Some(last)) = (first, last) {
+            let sync_data = self
+                .db
+                .get_sync_data(first.milestone_index..=last.milestone_index)
+                .await?;
+            log::info!("{:#}", sync_data);
+            if !sync_data.gaps.is_empty() {
+                cx.delay(SyncProgress(delay), delay)?;
+            }
         }
         Ok(())
     }
