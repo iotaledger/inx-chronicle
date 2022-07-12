@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use time::{Instant, Duration, OffsetDateTime};
+
 use auth_helper::jwt::{Claims, JsonWebToken};
 use axum::{
     handler::Handler,
@@ -13,6 +15,8 @@ use hyper::StatusCode;
 use serde::Deserialize;
 
 use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
+
+const STALE_MILESTONE_DURATION: Duration = Duration::minutes(1);
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
@@ -60,6 +64,13 @@ async fn is_healthy(database: Extension<MongoDb>) -> bool {
     let last = database.find_last_milestone(u32::MAX.into()).await;
 
     if let (Ok(Some(start)), Ok(Some(end))) = (first, last) {
+        let stale_time = OffsetDateTime::now_utc() - STALE_MILESTONE_DURATION;
+
+        if !end.milestone_timestamp.0 as i64 > stale_time.unix_timestamp() {
+            return false;
+        }
+
+        // Check if there are no gaps in the sync status.
         if let Ok(sync) = database
             .get_sync_data(start.milestone_index..=end.milestone_index)
             .await
