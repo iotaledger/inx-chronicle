@@ -10,7 +10,6 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::block::BlockDocument;
 use crate::{
     db::MongoDb,
     types::{
@@ -211,36 +210,40 @@ impl MongoDb {
     }
 
     /// Calculates the balance of the given `address`.
-    pub async fn calculate_balance_for_address(&self, address: Address) -> Result<u64, Error> {
-        Ok(self
+    pub async fn calc_updated_balances_for_address(&self, address: Address) -> Result<(u64, u64), Error> {
+        #[derive(Deserialize, Default)]
+        struct Amount {
+            amount: f64,
+        }
+
+        #[derive(Deserialize, Default)]
+        struct Balances {
+            total_balance: Amount,
+            locked_balance: Amount,
+        }
+
+        let balances = self
             .0
-            .collection::<u64>(LedgerUpdateDocument::COLLECTION)
+            .collection::<Balances>(LedgerUpdateDocument::COLLECTION)
             .aggregate(
                 vec![
-                    // Find all unspent outputs for `address`.
                     doc! { "$match": {
-                        "address": address, "is_spent": false,
+                        "address": &address, "is_spent": false,
                     } },
-                    // Split the output into its `transaction_id` and its `index` within the transaction.
-                    doc! { "$replaceWith": { 
-                        "transaction_id": "$output_id.transaction_id",
-                        "index": "$output_id.index" 
-                    } },
-                    // Get the transaction essence from the block collection.
-                    doc! { "$lookup": {
-                        "from": BlockDocument::COLLECTION,
-                        "localField": "transaction_id",
-                        "foreignField": "block.payload.transaction_id",
-                        "as": "essence"
-                    } },
-                    // TODO: do we need this?
-                    doc! { "$unwind": "essence" },
-                    // Get the actual `Output`.
-                    doc! { "$replaceWith": { "output_at_index": { "$arrayElemAt": [ "$essence.outputs", "$index" ] } } },
-                    // Sum their balances.
-                    doc! { "$group": {
-                        "_id": "null",
-                        "total": { "$sum": { "$toDouble": "$output_at_index.amount" } },
+                    doc! { "$facet": {
+                        "total_balance": [
+                            { "$group" : {
+                                "_id": "null",
+                                "amount": { "$sum": { "$toDouble": "$amount" } },
+                            }},
+                        ],
+                        "locked_balance": [
+                            { "$match": { "$neq": {"$unlock_condition_type.kind": "address" } } },
+                            { "$group" : {
+                                "_id": "null",
+                                "amount": { "$sum": { "$toDouble": "$amount" } },
+                            }},
+                        ],
                     } },
                 ],
                 None,
@@ -248,9 +251,14 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
+            .map(bson::from_document::<Balances>)
             .transpose()?
-            .unwrap_or_default())
+            .unwrap_or_default();
+
+        Ok((
+            balances.total_balance.amount as u64,
+            balances.locked_balance.amount as u64,
+        ))
     }
 }
 

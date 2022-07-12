@@ -4,7 +4,7 @@
 use chronicle::{
     db::collections::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord},
     types::{
-        stardust::{block::{Address, OutputAmount}, milestone::MilestoneTimestamp},
+        stardust::{block::Address, milestone::MilestoneTimestamp},
         tangle::MilestoneIndex,
     },
 };
@@ -71,8 +71,10 @@ impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BalancePerAddressResponse {
-    pub balance: OutputAmount,
+#[serde(rename_all = "camelCase")]
+pub struct BalanceResponse {
+    pub total_balance: u64,
+    pub locked_balance: u64,
 }
 
-impl_success_response!(BalancePerAddressResponse);
+impl_success_response!(BalanceResponse);
