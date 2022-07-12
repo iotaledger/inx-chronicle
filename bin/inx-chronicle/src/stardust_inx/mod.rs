@@ -103,7 +103,12 @@ impl InxWorker {
             .gaps;
         if !sync_data.is_empty() {
             let syncer = cx
-                .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
+                .spawn_child(Syncer::new(
+                    sync_data,
+                    self.db.clone(),
+                    inx_client.clone(),
+                    &self.config,
+                ))
                 .await;
             syncer.send(SyncNext)?;
         } else {
