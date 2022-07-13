@@ -46,11 +46,11 @@ pub struct Unlock {
 /// An aggregation type that represents the ranges of completed milestones and gaps.
 #[cfg(feature = "stardust")]
 mod stardust {
-    use serde::{Deserialize, Serialize};
     use chronicle::{
         db::collections::SyncData,
         types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},
     };
+    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Clone, Default, Serialize, Deserialize)]
     pub struct SyncDataDto(pub SyncData);

@@ -3,7 +3,6 @@
 
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
-
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
@@ -46,8 +45,9 @@ pub struct TimeRangeQuery {
 
 #[cfg(feature = "stardust")]
 mod stardust {
-    use super::*;
     use chronicle::types::stardust::milestone::MilestoneTimestamp;
+
+    use super::*;
 
     #[derive(Copy, Clone)]
     pub struct TimeRange {
