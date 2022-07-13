@@ -62,10 +62,11 @@ impl Actor for Launcher {
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
-        db.create_output_indexes().await?;
         db.create_block_indexes().await?;
         db.create_ledger_update_indexes().await?;
         db.create_milestone_indexes().await?;
+        db.create_output_indexes().await?;
+        db.create_protocol_parameter_indexes().await?;
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
         if config.inx.enabled {

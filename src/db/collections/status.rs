@@ -20,6 +20,7 @@ impl StatusDocument {
 
 impl MongoDb {
     /// Get the name of the network.
+    #[deprecated(note = "Use `ProtocolParameterDocument` instead.")]
     pub async fn get_network_name(&self) -> Result<Option<String>, Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
@@ -29,6 +30,7 @@ impl MongoDb {
     }
 
     /// Sets the name of the network.
+    #[deprecated(note = "Use `ProtocolParameterDocument` instead.")]
     pub async fn set_network_name(&self, network_name: String) -> Result<(), Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)

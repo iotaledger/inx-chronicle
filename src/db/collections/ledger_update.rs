@@ -103,7 +103,6 @@ impl MongoDb {
                         IndexOptions::builder()
                             // An output can be spent within the same milestone that it was created in.
                             .unique(false)
-                            .name("ledger_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -119,7 +118,6 @@ impl MongoDb {
                         IndexOptions::builder()
                             // An output can be spent and unspent only once.
                             .unique(true)
-                            .name("id_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -135,7 +133,6 @@ impl MongoDb {
                         IndexOptions::builder()
                             // An output can be spent and unspent only once.
                             .unique(false)
-                            .name("timestamp_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -309,7 +306,7 @@ mod analytics {
 
     #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
     pub struct StorageDepositAnalyticsResult {
-        pub total_value: f64,
+        pub sdruc_amount: f64,
     }
 
     impl MongoDb {
@@ -408,7 +405,7 @@ mod analytics {
                         } },
                         doc! { "$group": {
                             "_id": "null",
-                            "total_value": { "$sum": { "$toDouble": "$unlock_condition_type.amount" } },
+                            "sdruc_amount": { "$sum": { "$toDouble": "$unlock_condition_type.amount" } },
                         } },
                     ],
                     None,

@@ -47,12 +47,7 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "block_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("block_id_index".to_string())
-                            .build(),
-                    )
+                    .options(IndexOptions::builder().unique(true).build())
                     .build(),
                 None,
             )
@@ -65,7 +60,6 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .unique(true)
-                            .name("transaction_id_index".to_string())
                             .partial_filter_expression(doc! {
                                 "block.payload.transaction_id": { "$exists": true } ,
                                 "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },

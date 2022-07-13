@@ -14,7 +14,9 @@ pub(crate) mod treasury;
 
 use std::str::FromStr;
 
-use bee_block_stardust::output::{self as bee};
+use bee_block_stardust::output::{
+    ByteCost, ByteCostConfigBuilder, {self as bee},
+};
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -88,6 +90,15 @@ pub enum Output {
     Nft(NftOutput),
 }
 
+/// Describes the number of bytes in key and data fields for a given [`Output`].
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct RentStructureBytes {
+    #[serde(with = "crate::types::util::stringify")]
+    pub key_bytes: u64,
+    #[serde(with = "crate::types::util::stringify")]
+    pub data_bytes: u64,
+}
+
 impl Output {
     pub fn owning_addresses(&self) -> Vec<(Address, UnlockConditionType)> {
         match self {
@@ -102,6 +113,7 @@ impl Output {
         }
     }
 
+    /// Computes the amount of tokens in the [`Output`].
     pub fn amount(&self) -> OutputAmount {
         match self {
             Self::Treasury(TreasuryOutput { amount, .. }) => *amount,
@@ -109,6 +121,44 @@ impl Output {
             Self::Alias(AliasOutput { amount, .. }) => *amount,
             Self::Nft(NftOutput { amount, .. }) => *amount,
             Self::Foundry(FoundryOutput { amount, .. }) => *amount,
+        }
+    }
+
+    /// Computes the [`RentStructure`] for the [`Output`].
+    pub fn rent_structure(&self) -> RentStructureBytes {
+        match self {
+            output @ (Self::Basic(_) | Self::Alias(_) | Self::Foundry(_) | Self::Nft(_)) => {
+                let bee_output =
+                    bee::Output::try_from(output.clone()).expect("`Output` has to be convertible to `bee::Output`");
+
+                // The following computations of `data_bytes` and `key_bytes` makec use of the fact that the byte cost
+                // computation is a linear combination with respect to the type of the fields and their weight.
+
+                let data_bytes = {
+                    let config = ByteCostConfigBuilder::new()
+                        .byte_cost(1)
+                        .data_factor(1)
+                        .key_factor(0)
+                        .finish();
+                    bee_output.byte_cost(&config)
+                };
+
+                let key_bytes = {
+                    let config = ByteCostConfigBuilder::new()
+                        .byte_cost(1)
+                        .data_factor(0)
+                        .key_factor(1)
+                        .finish();
+                    bee_output.byte_cost(&config)
+                };
+
+                RentStructureBytes { data_bytes, key_bytes }
+            }
+            // The treasury output does not have an associated byte cost.
+            Self::Treasury(_) => RentStructureBytes {
+                key_bytes: 0,
+                data_bytes: 0,
+            },
         }
     }
 }

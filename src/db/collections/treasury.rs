@@ -42,18 +42,12 @@ pub struct TreasuryResult {
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_treasury_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
-
-        collection
+        self.0
+            .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "milestone_index": -1, "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("treasury_index".to_string())
-                            .build(),
-                    )
+                    .options(IndexOptions::builder().unique(true).build())
                     .build(),
                 None,
             )
