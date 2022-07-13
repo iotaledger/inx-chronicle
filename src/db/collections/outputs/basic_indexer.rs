@@ -1,7 +1,24 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::*;
+use futures::TryStreamExt;
+use mongodb::{
+    bson::{self, doc},
+    error::Error,
+    options::IndexOptions,
+    IndexModel,
+};
+use primitive_types::U256;
+use serde::Deserialize;
+
+use super::OutputDocument;
+use crate::{
+    db::MongoDb,
+    types::{
+        stardust::block::{Address, OutputId, TokenAmount},
+        tangle::MilestoneIndex,
+    },
+};
 
 #[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]

@@ -11,7 +11,6 @@ use mongodb::{
     options::{IndexOptions, UpdateOptions},
     IndexModel,
 };
-use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "indexer")]
@@ -20,7 +19,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{Address, BlockId, Output, OutputId, TokenAmount},
+        stardust::block::{BlockId, Output, OutputId},
         tangle::MilestoneIndex,
     },
 };
