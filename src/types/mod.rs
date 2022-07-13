@@ -6,6 +6,8 @@
 /// Module containing the ledger data models.
 #[cfg(feature = "stardust")]
 pub mod ledger;
+/// Module containing information about the node.
+pub mod node;
 /// Module containing Stardust data models.
 #[cfg(feature = "stardust")]
 pub mod stardust;

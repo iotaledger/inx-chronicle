@@ -11,10 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     db::MongoDb,
-    types::{
-        ledger::MilestoneIndexTimestamp,
-        tangle::{MilestoneIndex, ProtocolParameters},
-    },
+    types::{ledger::MilestoneIndexTimestamp, node::ProtocolParameters, tangle::MilestoneIndex},
 };
 
 /// Contains all information related to an output.
@@ -23,7 +20,9 @@ struct ProtocolParametersDocument {
     /// The milestone index for which the parameters become active.
     at: MilestoneIndexTimestamp,
     parameters: ProtocolParameters,
-    update: bool,
+    /// Indicates if the parameters where updated through a
+    /// [`MilestonePayload`](crate::types::stardust::block::MilestonePayload) or where initialized in some other way.
+    was_broadcasted: bool,
 }
 
 impl ProtocolParametersDocument {
@@ -55,7 +54,11 @@ impl MongoDb {
         parameters: ProtocolParameters,
         update: bool,
     ) -> Result<(), Error> {
-        let doc = ProtocolParametersDocument { at, parameters, update };
+        let doc = ProtocolParametersDocument {
+            at,
+            parameters,
+            was_broadcasted: update,
+        };
         self.0
             .collection::<ProtocolParametersDocument>(ProtocolParametersDocument::COLLECTION)
             .update_one(
