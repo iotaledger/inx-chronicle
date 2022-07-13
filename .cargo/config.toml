@@ -1,7 +1,7 @@
 [alias]
-ci-build-all = "build --all-targets --all-features"
-ci-build-inx = "build --all-targets --no-default-features --features inx,stardust"
-ci-build-api = "build --all-targets --no-default-features --features api-core,api-history,analytics,stardust"
+ci-check-all = "check --all-targets --all-features"
+ci-check-inx = "check --all-targets --no-default-features --features inx,stardust"
+ci-check-api = "check --all-targets --no-default-features --features api-core,api-history,analytics,stardust"
 
 ci-clippy-all = "clippy --all-targets --all-features -- -D warnings"
 ci-clippy-inx = "clippy --all-targets --no-default-features --features inx,stardust -- -D warnings"

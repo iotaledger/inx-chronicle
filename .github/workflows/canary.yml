@@ -58,4 +58,23 @@ jobs:
         with:
           command: ci-udeps
 
+  check-all-features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --force cargo-all-features
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check-all-features
     
