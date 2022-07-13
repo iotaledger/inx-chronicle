@@ -6,7 +6,7 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
 use chronicle::{
-    db::collections::BasicOutputsQuery,
+    db::collections::{AliasOutputsQuery, BasicOutputsQuery},
     types::stardust::block::{Address, OutputId},
 };
 use primitive_types::U256;
@@ -109,6 +109,92 @@ impl<B: Send> FromRequest<B> for BasicOutputsPagination {
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
                 tag: query.tag,
+                created_before: query.created_before,
+                created_after: query.created_after,
+            },
+            page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+            cursor,
+        })
+    }
+}
+
+#[derive(Clone)]
+pub struct AliasOutputsPagination {
+    pub query: AliasOutputsQuery,
+    pub page_size: usize,
+    pub cursor: Option<(u32, OutputId)>,
+}
+
+#[derive(Clone, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AliasOutputsPaginationQuery {
+    pub state_controller: Option<String>,
+    pub governor: Option<String>,
+    pub issuer: Option<String>,
+    pub sender: Option<String>,
+    pub has_native_tokens: Option<bool>,
+    pub min_native_token_count: Option<String>,
+    pub max_native_token_count: Option<String>,
+    pub created_before: Option<u32>,
+    pub created_after: Option<u32>,
+    pub page_size: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for AliasOutputsPagination {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(mut query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
+            .await
+            .map_err(ApiError::QueryError)?;
+        let mut cursor = None;
+        if let Some(in_cursor) = query.cursor {
+            let parts = in_cursor.split('.').collect::<Vec<_>>();
+            if parts.len() != 3 {
+                return Err(ApiError::bad_parse(ParseError::BadPagingState));
+            } else {
+                cursor.replace((
+                    parts[0].parse().map_err(ApiError::bad_parse)?,
+                    parts[1].parse().map_err(ApiError::bad_parse)?,
+                ));
+                query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
+            }
+        }
+        Ok(AliasOutputsPagination {
+            query: AliasOutputsQuery {
+                state_controller: query
+                    .state_controller
+                    .map(|address| Address::from_str(&address))
+                    .transpose()
+                    .map_err(ApiError::bad_parse)?,
+                governor: query
+                    .governor
+                    .map(|address| Address::from_str(&address))
+                    .transpose()
+                    .map_err(ApiError::bad_parse)?,
+                issuer: query
+                    .issuer
+                    .map(|address| Address::from_str(&address))
+                    .transpose()
+                    .map_err(ApiError::bad_parse)?,
+                sender: query
+                    .sender
+                    .map(|address| Address::from_str(&address))
+                    .transpose()
+                    .map_err(ApiError::bad_parse)?,
+                has_native_tokens: query.has_native_tokens,
+                min_native_token_count: query
+                    .min_native_token_count
+                    .map(|c| U256::from_dec_str(&c))
+                    .transpose()
+                    .map_err(ApiError::bad_parse)?,
+                max_native_token_count: query
+                    .max_native_token_count
+                    .map(|c| U256::from_dec_str(&c))
+                    .transpose()
+                    .map_err(ApiError::bad_parse)?,
                 created_before: query.created_before,
                 created_after: query.created_after,
             },

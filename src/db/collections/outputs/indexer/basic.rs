@@ -5,13 +5,10 @@ use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::IndexOptions,
-    IndexModel,
 };
 use primitive_types::U256;
-use serde::Deserialize;
 
-use super::OutputDocument;
+use super::{OutputDocument, OutputResult, OutputsResult};
 use crate::{
     db::MongoDb,
     types::{
@@ -20,83 +17,8 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Deserialize)]
-#[allow(missing_docs)]
-pub struct OutputResult {
-    pub output_id: OutputId,
-    pub booked_index: MilestoneIndex,
-}
-
-#[derive(Clone, Debug)]
-#[allow(missing_docs)]
-pub struct OutputsResult {
-    pub ledger_index: MilestoneIndex,
-    pub outputs: Vec<OutputResult>,
-}
-
 /// Implements the queries for the core API.
 impl MongoDb {
-    /// Creates output indexes.
-    pub async fn create_basic_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<OutputDocument>(OutputDocument::COLLECTION);
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.kind": 1 })
-                    .options(IndexOptions::builder().name("output_kind_index".to_string()).build())
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.unlock_conditions": 1 })
-                    .options(IndexOptions::builder().name("output_unlock_index".to_string()).build())
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.features": 1 })
-                    .options(IndexOptions::builder().name("output_feature_index".to_string()).build())
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.native_tokens": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_native_tokens_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "metadata.booked": -1 })
-                    .options(IndexOptions::builder().name("output_booked_index".to_string()).build())
-                    .build(),
-                None,
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// Gets basic outputs that match the provided query.
     pub async fn get_basic_outputs(
         &self,
@@ -107,21 +29,12 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let mut query_doc = bson::Document::from(query);
-            query_doc.insert("metadata.booked.milestone_index", doc! { "$lte": ledger_index });
+            let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
             if let Some((start_ms, start_output_id)) = cursor {
-                query_doc.insert(
-                    "metadata.booked.milestone_index",
-                    doc! {
-                        "$lte": start_ms,
-                    },
-                );
-                query_doc.insert(
-                    "output_id",
-                    doc! {
-                        "$lte": start_output_id,
-                    },
-                );
+                additional_queries.push(doc! { "metadata.booked.milestone_index": { "$lte": start_ms } });
+                additional_queries.push(doc! { "output_id": { "$lte": start_output_id } });
             }
+            query_doc.insert("$and", additional_queries);
             let match_doc = doc! { "$match": query_doc };
             let outputs = self
                 .0
@@ -179,6 +92,7 @@ impl From<BasicOutputsQuery> for bson::Document {
         let mut queries = Vec::new();
         queries.push(doc! { "output.kind": "basic" });
 
+        // Address
         if let Some(address) = query.address {
             queries.push(doc! {
                 "output.unlock_conditions": {

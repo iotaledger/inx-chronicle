@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[cfg(feature = "indexer")]
-mod basic_indexer;
+mod indexer;
 
 use futures::TryStreamExt;
 use mongodb::{
@@ -14,7 +14,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "indexer")]
-pub use self::basic_indexer::BasicOutputsQuery;
+pub use self::indexer::{AliasOutputsQuery, BasicOutputsQuery};
 use crate::{
     db::MongoDb,
     types::{
@@ -84,6 +84,9 @@ impl MongoDb {
                 None,
             )
             .await?;
+
+        #[cfg(feature = "indexer")]
+        self.create_indexer_output_indexes().await?;
 
         Ok(())
     }

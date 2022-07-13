@@ -67,7 +67,7 @@ impl MongoDb {
                             .unique(true)
                             .name("transaction_id_index".to_string())
                             .partial_filter_expression(doc! {
-                                "block.payload.transaction_id": { "$exists": true } ,
+                                "block.payload.transaction_id": { "$exists": true },
                                 "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
                             })
                             .build(),
@@ -285,7 +285,7 @@ mod analytics {
                         } },
                         doc! { "$unwind": "$block.payload.essence.outputs" },
                         doc! { "$group": {
-                            "_id": "null",
+                            "_id": null,
                             "count": { "$sum": 1 },
                             "total_value": { "$sum": { "$toDouble": "$block.payload.essence.outputs.amount" } },
                             "avg_value": { "$avg": { "$toDouble": "$block.payload.essence.outputs.amount" } },
