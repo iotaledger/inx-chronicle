@@ -16,14 +16,14 @@ pub struct TokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
 impl From<&U256> for TokenAmount {
     fn from(value: &U256) -> Self {
         let mut amount = [0; size_of::<U256>()];
-        value.to_little_endian(&mut amount);
+        value.to_big_endian(&mut amount);
         Self(amount)
     }
 }
 
 impl From<TokenAmount> for U256 {
     fn from(value: TokenAmount) -> Self {
-        U256::from_little_endian(&value.0)
+        U256::from_big_endian(&value.0)
     }
 }
 

@@ -191,18 +191,19 @@ impl From<BasicOutputsQuery> for bson::Document {
         }
 
         // Native Tokens
-        if let Some(has_native_tokens) = query.has_native_tokens {
-            queries.push(if has_native_tokens {
-                doc! {
-                    "output.native_tokens": { "$ne": [] }
-                }
-            } else {
-                doc! {
-                    "output.native_tokens": { "$eq": [] }
-                }
+        if let Some(false) = query.has_native_tokens {
+            queries.push(doc! {
+                "output.native_tokens": { "$eq": [] }
             });
-        }
-        if matches!(query.has_native_tokens, Some(true) | None) {
+        } else {
+            if matches!(query.has_native_tokens, Some(true))
+                || query.min_native_token_count.is_some()
+                || query.max_native_token_count.is_some()
+            {
+                queries.push(doc! {
+                    "output.native_tokens": { "$ne": [] }
+                });
+            }
             if let Some(min_native_token_count) = query.min_native_token_count {
                 queries.push(doc! {
                     "output.native_tokens": {
