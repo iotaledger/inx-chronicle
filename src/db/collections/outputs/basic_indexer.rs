@@ -73,7 +73,21 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "metadata.booked.milestone_index": -1 })
+                    .keys(doc! { "output.native_tokens": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_native_tokens_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "metadata.booked": -1 })
                     .options(IndexOptions::builder().name("output_booked_index".to_string()).build())
                     .build(),
                 None,
@@ -191,12 +205,28 @@ impl From<BasicOutputsQuery> for bson::Document {
         if matches!(query.has_native_tokens, Some(true) | None) {
             if let Some(min_native_token_count) = query.min_native_token_count {
                 queries.push(doc! {
-                    "output.native_tokens": { "$all": { "amount": { "$gte": bson::to_bson(&TokenAmount::from(&min_native_token_count)).unwrap() } } }
+                    "output.native_tokens": {
+                        "$not": {
+                            "$elemMatch": {
+                                "amount": {
+                                    "$lt": bson::to_bson(&TokenAmount::from(&min_native_token_count)).unwrap()
+                                }
+                            }
+                        }
+                    }
                 });
             }
             if let Some(max_native_token_count) = query.max_native_token_count {
                 queries.push(doc! {
-                    "output.native_tokens": { "$all": { "amount": { "$lte": bson::to_bson(&TokenAmount::from(&max_native_token_count)).unwrap() } } }
+                    "output.native_tokens": {
+                        "$not": {
+                            "$elemMatch": {
+                                "amount": {
+                                    "$gt": bson::to_bson(&TokenAmount::from(&max_native_token_count)).unwrap()
+                                }
+                            }
+                        }
+                    }
                 });
             }
         }
@@ -206,8 +236,10 @@ impl From<BasicOutputsQuery> for bson::Document {
             (_, Some(false)) => {
                 queries.push(doc! {
                     "output.unlock_conditions": {
-                        "$nin": {
-                            "kind": "storage_deposit_return",
+                        "$not": {
+                            "$elemMatch": {
+                                "kind": "storage_deposit_return",
+                            }
                         }
                     }
                 });
@@ -238,8 +270,10 @@ impl From<BasicOutputsQuery> for bson::Document {
         if matches!(query.has_timelock_condition, Some(false)) {
             queries.push(doc! {
                 "output.unlock_conditions": {
-                    "$nin": {
-                        "kind": "timelock",
+                    "$not": {
+                        "$elemMatch": {
+                            "kind": "timelock",
+                        }
                     }
                 }
             });
@@ -279,8 +313,10 @@ impl From<BasicOutputsQuery> for bson::Document {
         if matches!(query.has_expiration_condition, Some(false)) {
             queries.push(doc! {
                 "output.unlock_conditions": {
-                    "$nin": {
-                        "kind": "expiration",
+                    "$not": {
+                        "$elemMatch": {
+                            "kind": "expiration",
+                        }
                     }
                 }
             });
@@ -415,8 +451,16 @@ mod test {
                     }
                 } },
                 { "output.native_tokens": { "$ne": [] } },
-                { "output.native_tokens": { "$all": { "amount": { "$gte": bson::to_bson(&TokenAmount::from(&U256::from(100))).unwrap() } } } },
-                { "output.native_tokens": { "$all": { "amount": { "$lte": bson::to_bson(&TokenAmount::from(&U256::from(1000))).unwrap() } } } },
+                { "output.native_tokens": { "$not": {
+                    "$elemMatch": {
+                        "amount": { "$lt": bson::to_bson(&TokenAmount::from(&U256::from(100))).unwrap() }
+                    }
+                } } },
+                { "output.native_tokens": { "$not": {
+                    "$elemMatch": {
+                        "amount": { "$gt": bson::to_bson(&TokenAmount::from(&U256::from(1000))).unwrap() }
+                    }
+                } } },
                 { "output.unlock_conditions": {
                     "$elemMatch": {
                         "kind": "storage_deposit_return",
@@ -492,18 +536,24 @@ mod test {
                 } },
                 { "output.native_tokens": { "$eq": [] } },
                 { "output.unlock_conditions": {
-                    "$nin": {
-                        "kind": "storage_deposit_return",
+                    "$not": {
+                        "$elemMatch": {
+                            "kind": "storage_deposit_return",
+                        }
                     }
                 } },
                 { "output.unlock_conditions": {
-                    "$nin": {
-                        "kind": "timelock",
+                    "$not": {
+                        "$elemMatch": {
+                            "kind": "timelock",
+                        }
                     }
                 } },
                 { "output.unlock_conditions": {
-                    "$nin": {
-                        "kind": "expiration",
+                    "$not": {
+                        "$elemMatch": {
+                            "kind": "expiration",
+                        }
                     }
                 } },
                 { "output.features": { "$elemMatch": {
