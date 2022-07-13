@@ -1,6 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(feature = "indexer")]
+mod basic_indexer;
+
 use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc},
@@ -8,13 +11,16 @@ use mongodb::{
     options::{IndexOptions, UpdateOptions},
     IndexModel,
 };
+use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "indexer")]
+pub use self::basic_indexer::BasicOutputsQuery;
 use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{BlockId, Output, OutputId},
+        stardust::block::{Address, BlockId, Output, OutputId, TokenAmount},
         tangle::MilestoneIndex,
     },
 };

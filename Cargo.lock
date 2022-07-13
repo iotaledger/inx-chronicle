@@ -519,6 +519,7 @@ dependencies = [
  "toml",
  "tower",
  "tower-http 0.3.4",
+ "uint",
  "url",
  "uuid 1.1.2",
  "zeroize",

@@ -23,7 +23,7 @@ pub use self::{
     basic::BasicOutput,
     feature::Feature,
     foundry::FoundryOutput,
-    native_token::{NativeToken, TokenScheme},
+    native_token::{NativeToken, TokenAmount, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
     unlock_condition::{UnlockCondition, UnlockConditionType},

@@ -14,6 +14,8 @@ mod status;
 /// Module containing the treasury model.
 mod treasury;
 
+#[cfg(feature = "indexer")]
+pub use self::outputs::BasicOutputsQuery;
 pub use self::{
     ledger_update::{LedgerUpdatePerAddressRecord, SortOrder},
     milestone::SyncData,
