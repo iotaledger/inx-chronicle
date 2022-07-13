@@ -85,9 +85,10 @@ default = [
     "api-analytics",
     "api-history",
     "api-core",
+    "api-history",
     "inx",
-    "stardust",
     "metrics",
+    "stardust",
 ]
 api = [ 
     "dep:auth-helper",
