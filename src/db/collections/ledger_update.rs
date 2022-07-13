@@ -57,11 +57,11 @@ pub enum SortOrder {
 }
 
 fn newest() -> Document {
-    doc! { "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": -1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -75,42 +75,11 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "address": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(false)
-                            .name("address_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
                     .keys(newest())
                     .options(
                         IndexOptions::builder()
                             .unique(true)
-                            .name("cursor_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "at.milestone_timestamp": 1, })
-                    .options(
-                        IndexOptions::builder()
-                            // An output can be spent and unspent only once.
-                            .unique(false)
-                            .name("timestamp_index".to_string())
+                            .name("ledger_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -250,7 +219,7 @@ mod analytics {
 
     #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
     pub struct StorageDepositAnalyticsResult {
-        pub total_value: f64,
+        pub sdruc_amount: f64,
     }
 
     impl MongoDb {
@@ -349,7 +318,7 @@ mod analytics {
                         } },
                         doc! { "$group": {
                             "_id": "null",
-                            "total_value": { "$sum": { "$toDouble": "$unlock_condition_type.amount" } },
+                            "sdruc_amount": { "$sum": { "$toDouble": "$unlock_condition_type.amount" } },
                         } },
                     ],
                     None,

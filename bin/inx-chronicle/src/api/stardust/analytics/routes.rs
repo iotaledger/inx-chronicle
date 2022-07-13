@@ -63,6 +63,6 @@ async fn storage_deposit_analytics(
         .await?;
 
     Ok(StorageDepositAnalyticsResponse {
-        total_amount: res.total_value,
+        sdruc_amount: res.sdruc_amount,
     })
 }

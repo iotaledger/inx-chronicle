@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{BlockId, Output, OutputId},
+        stardust::block::{BlockId, Output, OutputId, RentStructureBytes},
         tangle::MilestoneIndex,
     },
 };
@@ -25,6 +25,7 @@ struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
+    rent_structure: RentStructureBytes,
 }
 
 impl OutputDocument {
@@ -34,10 +35,12 @@ impl OutputDocument {
 
 impl From<OutputWithMetadata> for OutputDocument {
     fn from(rec: OutputWithMetadata) -> Self {
+        let rent_structure = rec.output.rent_structure();
         Self {
             output_id: rec.metadata.output_id,
             output: rec.output,
             metadata: rec.metadata,
+            rent_structure,
         }
     }
 }
@@ -69,12 +72,7 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "output_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("output_id_index".to_string())
-                            .build(),
-                    )
+                    .options(IndexOptions::builder().unique(true).build())
                     .build(),
                 None,
             )

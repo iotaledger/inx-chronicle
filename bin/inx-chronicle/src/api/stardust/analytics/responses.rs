@@ -31,7 +31,9 @@ impl_success_response!(TransactionsAnalyticsResponse);
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageDepositAnalyticsResponse {
-    pub total_amount: f64,
+    // The amount of tokens locked in
+    // [`UnlockCondition::StorageDepositReturn`](chronicle::types::stardust::block::output::unlock_condition::UnlockCondition::StorageDepositReturn).
+    pub sdruc_amount: f64,
 }
 
 impl_success_response!(StorageDepositAnalyticsResponse);

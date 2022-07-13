@@ -9,6 +9,8 @@ mod ledger_update;
 mod milestone;
 /// Module containing Block outputs.
 mod outputs;
+/// Module containing the Protocol Parameters.
+mod protocol_params;
 /// Module containing information about the network and state of the node.
 mod status;
 /// Module containing the treasury model.
