@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod extractors;
-mod routes;
 mod responses;
+mod routes;
 
 pub use self::routes::routes;
