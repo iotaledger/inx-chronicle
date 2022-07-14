@@ -223,7 +223,10 @@ impl MongoDb {
             .0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find(
-                doc! {"milestone_timestamp": { "$gte": start_timestamp }},
+                doc! {
+                    "milestone_timestamp": { "$gte": start_timestamp },
+                    "is_synced": true
+                },
                 FindOptions::builder()
                     .sort(doc! {"milestone_index": 1})
                     .limit(1)
@@ -247,7 +250,10 @@ impl MongoDb {
             .0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find(
-                doc! {"milestone_timestamp": { "$lte": end_timestamp }},
+                doc! {
+                    "milestone_timestamp": { "$lte": end_timestamp },
+                    "is_synced": true
+                },
                 FindOptions::builder()
                     .sort(doc! {"milestone_index": -1})
                     .limit(1)
@@ -267,7 +273,7 @@ impl MongoDb {
         self.0
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
-                doc! {},
+                doc! { "is_synced": true },
                 FindOptions::builder()
                     .sort(doc! {"milestone_index": -1})
                     .limit(1)
@@ -355,6 +361,41 @@ impl MongoDb {
             sync_data.gaps.push(range);
         }
         Ok(sync_data)
+    }
+
+    /// Retrieves gaps in the milestones collection.
+    pub async fn get_gaps(&self) -> Result<Vec<RangeInclusive<MilestoneIndex>>, Error> {
+        #[derive(Deserialize)]
+        struct SyncEntry {
+            milestone_index: MilestoneIndex,
+        }
+
+        let mut synced_ms = self
+            .0
+            .collection::<SyncEntry>(MilestoneDocument::COLLECTION)
+            .find(
+                doc! { "is_synced": true },
+                FindOptions::builder()
+                    .sort(doc! {"milestone_index": 1})
+                    .projection(doc! {"milestone_index": 1})
+                    .build(),
+            )
+            .await
+            .map(|c| c.map_ok(|e| e.milestone_index))?;
+
+        let mut gaps = Vec::new();
+        let mut last_record: Option<MilestoneIndex> = None;
+
+        while let Some(milestone_index) = synced_ms.try_next().await? {
+            // Missing records go into gaps
+            if let Some(&last) = last_record.as_ref() {
+                if last + 1 < milestone_index {
+                    gaps.push(last + 1..=milestone_index - 1);
+                }
+            }
+            last_record.replace(milestone_index);
+        }
+        Ok(gaps)
     }
 
     /// Streams all available receipt milestone options together with their corresponding `MilestoneIndex`.
