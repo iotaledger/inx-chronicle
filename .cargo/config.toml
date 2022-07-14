@@ -7,10 +7,10 @@ ci-clippy-all = "clippy --all-targets --all-features -- -D warnings"
 ci-clippy-inx = "clippy --all-targets --no-default-features --features inx,stardust -- -D warnings"
 ci-clippy-api = "clippy --all-targets --no-default-features --features api,stardust -- -D warnings"
 
-ci-doctest = "test --doc --all-features --release"
+ci-doctest = "test --doc --all-features"
 ci-doc = "doc --all-features --no-deps --document-private-items"
 ci-fmt = "fmt --all -- --check"
-ci-test = "test --all-targets --all-features --release"
+ci-test = "test --all-targets --all-features"
 ci-toml = "sort --grouped --check"
 ci-udeps = "udeps --all-targets --all-features --backend=depinfo"
 
