@@ -1,11 +1,11 @@
 [alias]
 ci-check-all = "check --all-targets --all-features"
 ci-check-inx = "check --all-targets --no-default-features --features inx,stardust"
-ci-check-api = "check --all-targets --no-default-features --features api-core,api-history,api-analytics,stardust"
+ci-check-api = "check --all-targets --no-default-features --features api,stardust"
 
 ci-clippy-all = "clippy --all-targets --all-features -- -D warnings"
 ci-clippy-inx = "clippy --all-targets --no-default-features --features inx,stardust -- -D warnings"
-ci-clippy-api = "clippy --all-targets --no-default-features --features api-core,api-history,api-analytics,stardust -- -D warnings"
+ci-clippy-api = "clippy --all-targets --no-default-features --features api,stardust -- -D warnings"
 
 ci-doctest = "test --doc --all-features --release"
 ci-doc = "doc --all-features --no-deps --document-private-items"

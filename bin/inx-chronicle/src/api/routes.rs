@@ -102,7 +102,7 @@ pub async fn health(database: Extension<MongoDb>) -> StatusCode {
     }
 }
 
-#[cfg(all(feature = "stardust", feature = "api-history"))]
+#[cfg(all(feature = "stardust", feature = "api"))]
 pub async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
     Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }

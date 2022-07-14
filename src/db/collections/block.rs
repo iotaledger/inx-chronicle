@@ -255,7 +255,7 @@ impl MongoDb {
     }
 }
 
-#[cfg(feature = "api-analytics")]
+#[cfg(feature = "api")]
 mod analytics {
     use super::*;
     use crate::types::tangle::MilestoneIndex;

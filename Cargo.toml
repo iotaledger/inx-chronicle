@@ -82,10 +82,7 @@ packable = { version = "0.4", default-features = false }
 
 [features]
 default = [
-    "api-analytics",
-    "api-history",
-    "api-core",
-    "api-history",
+    "api",
     "inx",
     "metrics",
     "stardust",
@@ -106,17 +103,6 @@ api = [
     "dep:tower",
     "dep:tower-http",
     "dep:zeroize",
-]
-api-analytics = [
-    "api",
-    "stardust",
-]
-api-core = [
-    "api",
-    "stardust",
-]
-api-history = [
-    "api",
     "stardust",
 ]
 console = [
