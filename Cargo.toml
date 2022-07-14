@@ -107,7 +107,10 @@ api = [
     "dep:tower-http",
     "dep:zeroize",
 ]
-api-analytics = []
+api-analytics = [
+    "api",
+    "stardust",
+]
 api-core = [
     "api",
     "stardust",
