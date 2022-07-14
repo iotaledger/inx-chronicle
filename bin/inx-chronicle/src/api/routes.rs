@@ -64,19 +64,26 @@ async fn login(
 async fn is_healthy(database: Extension<MongoDb>) -> bool {
     let end = match database.find_last_milestone(u32::MAX.into()).await {
         Ok(Some(last)) => last,
-        _ => return false,
+        _ => {
+            log::warn!("Could not retrieve last milestone from the database.");
+            return false;
+        }
     };
 
     // Panic: The milestone_timestamp is guaranteeed to be valid.
     let latest_ms_time = OffsetDateTime::from_unix_timestamp(end.milestone_timestamp.0 as i64).unwrap();
 
     if OffsetDateTime::now_utc() > latest_ms_time + STALE_MILESTONE_DURATION {
+        log::warn!("Latest milestone time is too old: `{latest_ms_time}`");
         return false;
     }
 
     let start = match database.find_first_milestone(0.into()).await {
         Ok(Some(first)) => first,
-        _ => return false,
+        _ => {
+            log::warn!("Could not retrieve first milestone from the database.");
+            return false;
+        }
     };
 
     // Check if there are no gaps in the sync status.
@@ -85,7 +92,10 @@ async fn is_healthy(database: Extension<MongoDb>) -> bool {
         .await
     {
         Ok(sync) => sync.gaps.is_empty(),
-        _ => false,
+        _ => {
+            log::warn!("Could not get sync status from the database");
+            false
+        }
     }
 }
 
