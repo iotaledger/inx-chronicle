@@ -13,7 +13,7 @@ use hyper::StatusCode;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
+use super::{auth::Auth, config::ApiData, error::ApiError, responses::*};
 
 // Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
@@ -104,11 +104,6 @@ pub async fn health(database: Extension<MongoDb>) -> StatusCode {
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     }
-}
-
-#[cfg(all(feature = "stardust", feature = "api"))]
-pub async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
-    Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
 pub async fn not_found() -> ApiError {

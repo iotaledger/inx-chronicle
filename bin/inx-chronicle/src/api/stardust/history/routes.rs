@@ -16,7 +16,7 @@ use super::{
         TransactionsPerAddressResponse, TransactionsPerMilestoneResponse, TransferByAddress, TransferByMilestone,
     },
 };
-use crate::api::{routes::sync, ApiError, ApiResult};
+use crate::api::{responses::SyncDataDto, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().route("/gaps", get(sync)).nest(
@@ -25,6 +25,10 @@ pub fn routes() -> Router {
             .route("/by-address/:address", get(transactions_by_address_history))
             .route("/by-milestone/:milestone_id", get(transactions_by_milestone_history)),
     )
+}
+
+async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
+    Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
 async fn transactions_by_address_history(

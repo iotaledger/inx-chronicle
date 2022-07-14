@@ -264,7 +264,6 @@ impl MongoDb {
     }
 }
 
-#[cfg(feature = "api")]
 mod analytics {
     use futures::TryStreamExt;
     use mongodb::bson;

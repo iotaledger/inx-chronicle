@@ -8,16 +8,8 @@ pub mod history;
 use axum::Router;
 
 pub fn routes() -> Router {
-    #[allow(unused_mut)]
-    let mut router = Router::new();
-
-    #[cfg(feature = "api")]
-    {
-        router = router
-            .nest("/analytics/v2", analytics::routes())
-            .nest("/history/v2", history::routes())
-            .nest("/core/v2", core::routes());
-    }
-
-    router
+    Router::new()
+        .nest("/analytics/v2", analytics::routes())
+        .nest("/history/v2", history::routes())
+        .nest("/core/v2", core::routes())
 }
