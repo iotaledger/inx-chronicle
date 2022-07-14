@@ -1,4 +1,4 @@
-name: Build and Test
+name: Check and Test
 
 on:
   workflow_call:
@@ -11,7 +11,7 @@ on:
         type: string
 
 jobs:
-  build-and-test:
+  check-and-test:
     name: '${{ inputs.os }}, ${{ inputs.rust }}'
     runs-on: ${{ inputs.os }}
     # Unfortunately, we can't do this right now because `indexmap` does not seem to follow semver.
