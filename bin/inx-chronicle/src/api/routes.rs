@@ -62,7 +62,7 @@ async fn login(
 }
 
 async fn is_healthy(database: Extension<MongoDb>) -> bool {
-    let end = match database.find_last_milestone(u32::MAX.into()).await {
+    let end = match database.get_latest_milestone().await {
         Ok(Some(last)) => last,
         _ => return false,
     };
@@ -74,17 +74,9 @@ async fn is_healthy(database: Extension<MongoDb>) -> bool {
         return false;
     }
 
-    let start = match database.find_first_milestone(0.into()).await {
-        Ok(Some(first)) => first,
-        _ => return false,
-    };
-
     // Check if there are no gaps in the sync status.
-    match database
-        .get_sync_data(start.milestone_index..=end.milestone_index)
-        .await
-    {
-        Ok(sync) => sync.gaps.is_empty(),
+    match database.get_gaps().await {
+        Ok(gaps) => gaps.is_empty(),
         _ => false,
     }
 }
