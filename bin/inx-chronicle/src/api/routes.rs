@@ -97,10 +97,12 @@ pub async fn info(database: Extension<MongoDb>) -> InfoResponse {
 }
 
 pub async fn health(database: Extension<MongoDb>) -> StatusCode {
-    if is_healthy(&database).await.unwrap_or_else(|e| {
+    let handle_error = |e| {
         log::error!("An error occured during health check: {e}");
         false
-    }) {
+    };
+
+    if is_healthy(&database).await.unwrap_or_else(handle_error) {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
