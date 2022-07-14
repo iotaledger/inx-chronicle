@@ -66,7 +66,11 @@ async fn is_healthy(database: &MongoDb) -> bool {
     {
         let end = match database.get_latest_milestone().await {
             Ok(Some(last)) => last,
-            _ => return false,
+            Ok(None) => return false,
+            Err(e) => {
+                log::error!("An error occured during health check: {e}");
+                return false;
+            }
         };
 
         // Panic: The milestone_timestamp is guaranteeed to be valid.
