@@ -10,7 +10,7 @@ use primitive_types::U256;
 
 use super::{
     queries::{
-        AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, NativeTokensQuery, SenderQuery,
+        AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, IssuerQuery, NativeTokensQuery, SenderQuery,
         StorageDepositReturnQuery, TagQuery, TimelockQuery,
     },
     OutputDocument, OutputResult, OutputsResult,
@@ -19,19 +19,51 @@ use crate::{
     db::MongoDb,
     types::{
         stardust::{
-            block::{Address, OutputId},
+            block::{Address, NftId, OutputId},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
     },
 };
 
+#[derive(Clone, Debug)]
+#[allow(missing_docs)]
+pub struct NftOutputResult {
+    pub ledger_index: MilestoneIndex,
+    pub output_id: OutputId,
+}
+
 /// Implements the queries for the core API.
 impl MongoDb {
-    /// Gets basic outputs that match the provided query.
-    pub async fn get_basic_outputs(
+    /// Gets the current unspent nft output id with the given nft id.
+    pub async fn get_nft_output_by_id(&self, nft_id: NftId) -> Result<Option<NftOutputResult>, Error> {
+        let ledger_index = self.get_ledger_index().await?;
+        if let Some(ledger_index) = ledger_index {
+            let res = self
+                .0
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .find_one(
+                    doc! {
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "output.nft_id": nft_id,
+                        "metadata.spent": null,
+                    },
+                    None,
+                )
+                .await?;
+            Ok(res.map(|doc| NftOutputResult {
+                ledger_index,
+                output_id: doc.output_id,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Gets nft outputs that match the provided query.
+    pub async fn get_nft_outputs(
         &self,
-        query: BasicOutputsQuery,
+        query: NftOutputsQuery,
         page_size: usize,
         cursor: Option<(MilestoneIndex, OutputId)>,
     ) -> Result<Option<OutputsResult>, Error> {
@@ -76,8 +108,10 @@ impl MongoDb {
 
 #[derive(Clone, Debug, Default)]
 #[allow(missing_docs)]
-pub struct BasicOutputsQuery {
+pub struct NftOutputsQuery {
     pub address: Option<Address>,
+    pub issuer: Option<Address>,
+    pub sender: Option<Address>,
     pub has_native_tokens: Option<bool>,
     pub min_native_token_count: Option<U256>,
     pub max_native_token_count: Option<U256>,
@@ -90,17 +124,18 @@ pub struct BasicOutputsQuery {
     pub expires_before: Option<MilestoneTimestamp>,
     pub expires_after: Option<MilestoneTimestamp>,
     pub expiration_return_address: Option<Address>,
-    pub sender: Option<Address>,
     pub tag: Option<String>,
     pub created_before: Option<MilestoneTimestamp>,
     pub created_after: Option<MilestoneTimestamp>,
 }
 
-impl From<BasicOutputsQuery> for bson::Document {
-    fn from(query: BasicOutputsQuery) -> Self {
+impl From<NftOutputsQuery> for bson::Document {
+    fn from(query: NftOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "basic" });
+        queries.push(doc! { "output.kind": "nft" });
         queries.append_query(AddressQuery(query.address));
+        queries.append_query(IssuerQuery(query.issuer));
+        queries.append_query(SenderQuery(query.sender));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
             min_native_token_count: query.min_native_token_count,
@@ -121,7 +156,6 @@ impl From<BasicOutputsQuery> for bson::Document {
             expires_after: query.expires_after,
             expiration_return_address: query.expiration_return_address,
         });
-        queries.append_query(SenderQuery(query.sender));
         queries.append_query(TagQuery(query.tag));
         queries.append_query(CreatedQuery {
             created_before: query.created_before,
@@ -137,14 +171,16 @@ mod test {
     use mongodb::bson::{self, doc};
     use primitive_types::U256;
 
-    use super::BasicOutputsQuery;
+    use super::NftOutputsQuery;
     use crate::types::stardust::block::{Address, TokenAmount};
 
     #[test]
-    fn test_basic_query_everything() {
+    fn test_nft_query_everything() {
         let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
-        let query = BasicOutputsQuery {
+        let query = NftOutputsQuery {
             address: Some(address),
+            issuer: Some(address),
+            sender: Some(address),
             has_native_tokens: Some(true),
             min_native_token_count: Some(100.into()),
             max_native_token_count: Some(1000.into()),
@@ -157,20 +193,27 @@ mod test {
             expires_before: Some(10000.into()),
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
-            sender: Some(address),
             tag: Some("my_tag".to_string()),
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "basic" },
+                { "output.kind": "nft" },
                 { "output.unlock_conditions": {
                     "$elemMatch": {
                         "kind": "address",
                         "address": address
                     }
                 } },
+                { "output.features": { "$elemMatch": {
+                    "kind": "issuer",
+                    "address": address
+                } } },
+                { "output.features": { "$elemMatch": {
+                    "kind": "sender",
+                    "address": address
+                } } },
                 { "output.native_tokens": { "$ne": [] } },
                 { "output.native_tokens": { "$not": {
                     "$elemMatch": {
@@ -208,10 +251,6 @@ mod test {
                     }
                 } },
                 { "output.features": { "$elemMatch": {
-                    "kind": "sender",
-                    "address": address
-                } } },
-                { "output.features": { "$elemMatch": {
                     "kind": "tag",
                     "data": bson::to_bson(&serde_bytes::Bytes::new("my_tag".as_bytes())).unwrap()
                 } } },
@@ -225,10 +264,12 @@ mod test {
     }
 
     #[test]
-    fn test_basic_query_all_false() {
+    fn test_nft_query_all_false() {
         let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
-        let query = BasicOutputsQuery {
+        let query = NftOutputsQuery {
             address: Some(address),
+            issuer: None,
+            sender: None,
             has_native_tokens: Some(false),
             min_native_token_count: Some(100.into()),
             max_native_token_count: Some(1000.into()),
@@ -241,14 +282,13 @@ mod test {
             expires_before: Some(10000.into()),
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
-            sender: None,
             tag: Some("my_tag".to_string()),
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "basic" },
+                { "output.kind": "nft" },
                 { "output.unlock_conditions": {
                     "$elemMatch": {
                         "kind": "address",
@@ -291,8 +331,8 @@ mod test {
     }
 
     #[test]
-    fn test_basic_query_all_true() {
-        let query = BasicOutputsQuery {
+    fn test_nft_query_all_true() {
+        let query = NftOutputsQuery {
             has_native_tokens: Some(true),
             has_storage_return_condition: Some(true),
             has_timelock_condition: Some(true),
@@ -301,7 +341,7 @@ mod test {
         };
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "basic" },
+                { "output.kind": "nft" },
                 { "output.native_tokens": { "$ne": [] } },
                 { "output.unlock_conditions": {
                     "$elemMatch": {

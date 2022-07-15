@@ -3,11 +3,16 @@
 
 mod alias;
 mod basic;
+mod foundry;
+mod nft;
+mod queries;
 
 use mongodb::{bson::doc, error::Error, options::IndexOptions, IndexModel};
 use serde::Deserialize;
 
-pub use self::{alias::AliasOutputsQuery, basic::BasicOutputsQuery};
+pub use self::{
+    alias::AliasOutputsQuery, basic::BasicOutputsQuery, foundry::FoundryOutputsQuery, nft::NftOutputsQuery,
+};
 use super::OutputDocument;
 use crate::{
     db::MongoDb,
@@ -52,6 +57,40 @@ impl MongoDb {
                             .name("output_alias_id_index".to_string())
                             .partial_filter_expression(
                                 doc! { "output.alias_id": { "$exists": true }, "metadata.spent": null },
+                            )
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "output.foundry_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_foundry_id_index".to_string())
+                            .partial_filter_expression(
+                                doc! { "output.foundry_id": { "$exists": true }, "metadata.spent": null },
+                            )
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "output.nft_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_nft_id_index".to_string())
+                            .partial_filter_expression(
+                                doc! { "output.nft_id": { "$exists": true }, "metadata.spent": null },
                             )
                             .build(),
                     )

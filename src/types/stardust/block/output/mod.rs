@@ -22,7 +22,7 @@ pub use self::{
     alias::{AliasId, AliasOutput},
     basic::BasicOutput,
     feature::Feature,
-    foundry::FoundryOutput,
+    foundry::{FoundryId, FoundryOutput},
     native_token::{NativeToken, TokenAmount, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,

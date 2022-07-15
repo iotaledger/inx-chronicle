@@ -12,7 +12,7 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-pub use self::indexer::{AliasOutputsQuery, BasicOutputsQuery};
+pub use self::indexer::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery};
 use crate::{
     db::MongoDb,
     types::{

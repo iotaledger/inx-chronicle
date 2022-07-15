@@ -9,16 +9,14 @@ use mongodb::{
 use primitive_types::U256;
 
 use super::{
-    queries::{
-        AppendQuery, CreatedQuery, GovernorQuery, IssuerQuery, NativeTokensQuery, SenderQuery, StateControllerQuery,
-    },
+    queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery},
     OutputDocument, OutputResult, OutputsResult,
 };
 use crate::{
     db::MongoDb,
     types::{
         stardust::{
-            block::{Address, AliasId, OutputId},
+            block::{Address, FoundryId, OutputId},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
@@ -27,15 +25,15 @@ use crate::{
 
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
-pub struct AliasOutputResult {
+pub struct FoundryOutputResult {
     pub ledger_index: MilestoneIndex,
     pub output_id: OutputId,
 }
 
 /// Implements the queries for the core API.
 impl MongoDb {
-    /// Gets the current unspent alias output id with the given alias id.
-    pub async fn get_alias_output_by_id(&self, alias_id: AliasId) -> Result<Option<AliasOutputResult>, Error> {
+    /// Gets the current unspent foundry output id with the given foundry id.
+    pub async fn get_foundry_output_by_id(&self, foundry_id: FoundryId) -> Result<Option<FoundryOutputResult>, Error> {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let res = self
@@ -44,13 +42,13 @@ impl MongoDb {
                 .find_one(
                     doc! {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "output.alias_id": alias_id,
+                        "output.foundry_id": foundry_id,
                         "metadata.spent": null,
                     },
                     None,
                 )
                 .await?;
-            Ok(res.map(|doc| AliasOutputResult {
+            Ok(res.map(|doc| FoundryOutputResult {
                 ledger_index,
                 output_id: doc.output_id,
             }))
@@ -59,10 +57,10 @@ impl MongoDb {
         }
     }
 
-    /// Gets alias outputs that match the provided query.
-    pub async fn get_alias_outputs(
+    /// Gets foundry outputs that match the provided query.
+    pub async fn get_foundry_outputs(
         &self,
-        query: AliasOutputsQuery,
+        query: FoundryOutputsQuery,
         page_size: usize,
         cursor: Option<(MilestoneIndex, OutputId)>,
     ) -> Result<Option<OutputsResult>, Error> {
@@ -107,11 +105,8 @@ impl MongoDb {
 
 #[derive(Clone, Debug, Default)]
 #[allow(missing_docs)]
-pub struct AliasOutputsQuery {
-    pub state_controller: Option<Address>,
-    pub governor: Option<Address>,
-    pub issuer: Option<Address>,
-    pub sender: Option<Address>,
+pub struct FoundryOutputsQuery {
+    pub alias_address: Option<Address>,
     pub has_native_tokens: Option<bool>,
     pub min_native_token_count: Option<U256>,
     pub max_native_token_count: Option<U256>,
@@ -119,14 +114,11 @@ pub struct AliasOutputsQuery {
     pub created_after: Option<MilestoneTimestamp>,
 }
 
-impl From<AliasOutputsQuery> for bson::Document {
-    fn from(query: AliasOutputsQuery) -> Self {
+impl From<FoundryOutputsQuery> for bson::Document {
+    fn from(query: FoundryOutputsQuery) -> Self {
         let mut queries = Vec::new();
-        queries.push(doc! { "output.kind": "alias" });
-        queries.append_query(StateControllerQuery(query.state_controller));
-        queries.append_query(GovernorQuery(query.governor));
-        queries.append_query(IssuerQuery(query.issuer));
-        queries.append_query(SenderQuery(query.sender));
+        queries.push(doc! { "output.kind": "foundry" });
+        queries.append_query(ImmutableAliasAddressQuery(query.alias_address));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
             min_native_token_count: query.min_native_token_count,
@@ -146,17 +138,14 @@ mod test {
     use mongodb::bson::{self, doc};
     use primitive_types::U256;
 
-    use super::AliasOutputsQuery;
+    use super::FoundryOutputsQuery;
     use crate::types::stardust::block::{Address, TokenAmount};
 
     #[test]
-    fn test_alias_query_everything() {
+    fn test_foundry_query_everything() {
         let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
-        let query = AliasOutputsQuery {
-            state_controller: Some(address),
-            governor: Some(address),
-            issuer: Some(address),
-            sender: Some(address),
+        let query = FoundryOutputsQuery {
+            alias_address: Some(address),
             has_native_tokens: Some(true),
             min_native_token_count: Some(100.into()),
             max_native_token_count: Some(1000.into()),
@@ -165,28 +154,10 @@ mod test {
         };
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "alias" },
+                { "output.kind": "foundry" },
                 { "output.unlock_conditions": {
                     "$elemMatch": {
-                        "kind": "state_controller_address",
-                        "address": address
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "governor_address",
-                        "address": address
-                    }
-                } },
-                { "output.features": {
-                    "$elemMatch": {
-                        "kind": "issuer",
-                        "address": address
-                    }
-                } },
-                { "output.features": {
-                    "$elemMatch": {
-                        "kind": "sender",
+                        "kind": "immutable_alias_address",
                         "address": address
                     }
                 } },
@@ -211,21 +182,38 @@ mod test {
     }
 
     #[test]
-    fn test_alias_query_all_false() {
-        let query = AliasOutputsQuery {
+    fn test_foundry_query_all_false() {
+        let query = FoundryOutputsQuery {
+            alias_address: None,
             has_native_tokens: Some(false),
             min_native_token_count: Some(100.into()),
             max_native_token_count: Some(1000.into()),
             created_before: Some(10000.into()),
+            created_after: Some(1000.into()),
+        };
+        let query_doc = doc! {
+            "$and": [
+                { "output.kind": "foundry" },
+                { "output.native_tokens": { "$eq": [] } },
+                { "metadata.booked.milestone_timestamp": {
+                    "$gt": 1000,
+                    "$lt": 10000
+                } }
+            ]
+        };
+        assert_eq!(query_doc, bson::Document::from(query));
+    }
+
+    #[test]
+    fn test_foundry_query_all_true() {
+        let query = FoundryOutputsQuery {
+            has_native_tokens: Some(true),
             ..Default::default()
         };
         let query_doc = doc! {
             "$and": [
-                { "output.kind": "alias" },
-                { "output.native_tokens": { "$eq": [] } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$lt": 10000
-                } }
+                { "output.kind": "foundry" },
+                { "output.native_tokens": { "$ne": [] } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));
