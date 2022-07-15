@@ -88,10 +88,17 @@ impl InxWorker {
 
         if let Some(db_protocol_parameters) = self.db.get_protocol_parameters().await? {
             if db_protocol_parameters.network_name != protocol_parameters.network_name {
-                return Err(InxError::NetworkChanged(db_protocol_parameters.network_name, protocol_parameters.network_name));
+                return Err(InxError::NetworkChanged(
+                    db_protocol_parameters.network_name,
+                    protocol_parameters.network_name,
+                ));
             }
         } else {
-            log::info!("Linking database {} to network {}.", self.db.name(), protocol_parameters.network_name);
+            log::info!(
+                "Linking database {} to network {}.",
+                self.db.name(),
+                protocol_parameters.network_name
+            );
             self.db.set_protocol_parameters(protocol_parameters).await?;
         }
 
