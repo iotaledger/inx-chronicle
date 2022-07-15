@@ -12,7 +12,10 @@ use super::{OutputDocument, OutputResult, OutputsResult};
 use crate::{
     db::MongoDb,
     types::{
-        stardust::{block::{Address, AliasId, OutputId, TokenAmount}, milestone::MilestoneTimestamp},
+        stardust::{
+            block::{Address, AliasId, OutputId, TokenAmount},
+            milestone::MilestoneTimestamp,
+        },
         tangle::MilestoneIndex,
     },
 };
