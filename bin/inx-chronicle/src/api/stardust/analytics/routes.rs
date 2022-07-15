@@ -59,7 +59,7 @@ async fn storage_deposit_analytics(
     }: TimeRange,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let res = database
-        .get_storage_deposit_analytics(start_timestamp, end_timestamp)
+        .get_sdruc_analytics(start_timestamp, end_timestamp)
         .await?;
 
     Ok(StorageDepositAnalyticsResponse {
