@@ -25,7 +25,6 @@ use inx::{
 pub use ledger_update_stream::LedgerUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
-use crate::check_health::IsHealthy;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -199,42 +198,6 @@ impl HandleEvent<Report<Syncer>> for InxWorker {
                 }
             },
         }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<IsHealthy> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        IsHealthy(sender): IsHealthy,
-        inx_client: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
-            .map_err(InxError::InxTypeConversion)?;
-
-        let mut healthy = true;
-        healthy &= node_status.is_healthy;
-
-        let latest_inserted_ms = self.db.get_latest_milestone().await?.map(|ms| ms.milestone_index.0);
-        healthy &= latest_inserted_ms.map_or(false, |latest_inserted_ms| {
-            // If the latest confirmed ms from the node is either the last ms we inserted or the next one
-            // (because we are still working on it) then we are healthy
-            (latest_inserted_ms..=latest_inserted_ms + 1)
-                .contains(&node_status.confirmed_milestone.milestone_info.milestone_index)
-        });
-
-        let first_ms = node_status.tangle_pruning_index + 1;
-        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-        healthy &= self
-            .db
-            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
-            .await?
-            .gaps
-            .is_empty();
-
-        sender.send(healthy).ok();
         Ok(())
     }
 }
