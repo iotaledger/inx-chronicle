@@ -25,7 +25,7 @@ use inx::{
 pub use ledger_update_stream::LedgerUpdateStream;
 
 use self::syncer::{SyncNext, Syncer};
-use crate::check_health::IsHealthy;
+use crate::{check_health::IsHealthy, stardust_inx::syncer::SyncProgress};
 
 pub struct InxWorker {
     db: MongoDb,
@@ -105,6 +105,7 @@ impl InxWorker {
             let syncer = cx
                 .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
                 .await;
+            syncer.send(SyncProgress(self.config.sync_report_interval))?;
             syncer.send(SyncNext)?;
         } else {
             cx.abort().await;

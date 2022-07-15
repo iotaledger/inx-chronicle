@@ -44,7 +44,7 @@ where
         let handle = cx.handle().clone();
         spawn_task("delay event sleeper", async move {
             tokio::time::sleep(event.delay).await;
-            handle.send(event.event).unwrap();
+            handle.send(event.event).ok();
         });
         Ok(())
     }

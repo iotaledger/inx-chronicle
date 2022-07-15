@@ -20,6 +20,8 @@ pub struct InxConfig {
     pub connection_retry_count: usize,
     /// The milestone at which synchronization should begin.
     pub sync_start_milestone: MilestoneIndex,
+    /// The interval at which to report syncing progress.
+    pub sync_report_interval: Duration,
 }
 
 impl Default for InxConfig {
@@ -30,6 +32,7 @@ impl Default for InxConfig {
             connection_retry_interval: Duration::from_secs(5),
             connection_retry_count: 5,
             sync_start_milestone: 1.into(),
+            sync_report_interval: Duration::from_secs(5),
         }
     }
 }

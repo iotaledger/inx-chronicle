@@ -53,7 +53,10 @@ connection_retry_interval = "5s"
 connection_retry_count = 10
 
 ### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
-sync_start_milestone = 1 
+sync_start_milestone = 1
+
+### The interval at which to report syncing progress.
+sync_report_interval = "5s"
 
 [metrics]
 ### Whether metrics will be served.
