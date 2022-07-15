@@ -13,7 +13,7 @@ use hyper::StatusCode;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
+use super::{auth::Auth, config::ApiData, error::ApiError, responses::*};
 
 // Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
@@ -61,45 +61,52 @@ async fn login(
     }
 }
 
-async fn is_healthy(database: Extension<MongoDb>) -> bool {
-    let end = match database.get_latest_milestone().await {
-        Ok(Some(last)) => last,
-        _ => return false,
-    };
+async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
+    #[cfg(feature = "stardust")]
+    {
+        let end = match database.get_latest_milestone().await? {
+            Some(last) => last,
+            None => return Ok(false),
+        };
 
-    // Panic: The milestone_timestamp is guaranteeed to be valid.
-    let latest_ms_time = OffsetDateTime::from_unix_timestamp(end.milestone_timestamp.0 as i64).unwrap();
+        // Panic: The milestone_timestamp is guaranteeed to be valid.
+        let latest_ms_time = OffsetDateTime::from_unix_timestamp(end.milestone_timestamp.0 as i64).unwrap();
 
-    if OffsetDateTime::now_utc() > latest_ms_time + STALE_MILESTONE_DURATION {
-        return false;
+        if OffsetDateTime::now_utc() > latest_ms_time + STALE_MILESTONE_DURATION {
+            return Ok(false);
+        }
+
+        // Check if there are no gaps in the sync status.
+        if !database.get_gaps().await?.is_empty() {
+            return Ok(false);
+        };
     }
 
-    // Check if there are no gaps in the sync status.
-    match database.get_gaps().await {
-        Ok(gaps) => gaps.is_empty(),
-        _ => false,
-    }
+    Ok(true)
 }
 
 pub async fn info(database: Extension<MongoDb>) -> InfoResponse {
     InfoResponse {
         name: "Chronicle".into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
-        is_healthy: is_healthy(database).await,
+        is_healthy: is_healthy(&database).await.unwrap_or_else(|e| {
+            log::error!("An error occured during health check: {e}");
+            false
+        }),
     }
 }
 
 pub async fn health(database: Extension<MongoDb>) -> StatusCode {
-    if is_healthy(database).await {
+    let handle_error = |e| {
+        log::error!("An error occured during health check: {e}");
+        false
+    };
+
+    if is_healthy(&database).await.unwrap_or_else(handle_error) {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     }
-}
-
-#[cfg(feature = "api-history")]
-pub async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
-    Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
 pub async fn not_found() -> ApiError {
