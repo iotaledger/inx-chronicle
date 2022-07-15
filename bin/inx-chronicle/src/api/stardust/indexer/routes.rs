@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
-    db::MongoDb,
+    db::{collections::OutputsResult, MongoDb},
     types::stardust::block::{AliasId, FoundryId, NftId},
 };
 
@@ -58,21 +58,8 @@ async fn basic_outputs(
         )
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut iter = res.outputs.iter();
 
-    // Take all of the requested records first
-    let items = iter.by_ref().take(page_size).map(|o| o.output_id.to_hex()).collect();
-
-    // If any record is left, use it to make the cursor
-    let cursor = iter
-        .next()
-        .map(|rec| format!("{}.{}.{}", rec.booked_index, rec.output_id.to_hex(), page_size));
-
-    Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
-        items,
-        cursor,
-    })
+    Ok(create_outputs_response(res, page_size))
 }
 
 async fn output_by_alias_id(
@@ -107,21 +94,8 @@ async fn alias_outputs(
         )
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut iter = res.outputs.iter();
 
-    // Take all of the requested records first
-    let items = iter.by_ref().take(page_size).map(|o| o.output_id.to_hex()).collect();
-
-    // If any record is left, use it to make the cursor
-    let cursor = iter
-        .next()
-        .map(|rec| format!("{}.{}.{}", rec.booked_index, rec.output_id.to_hex(), page_size));
-
-    Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
-        items,
-        cursor,
-    })
+    Ok(create_outputs_response(res, page_size))
 }
 
 async fn output_by_foundry_id(
@@ -156,21 +130,8 @@ async fn foundry_outputs(
         )
         .await?
         .ok_or(ApiError::NoResults)?;
-    let mut iter = res.outputs.iter();
 
-    // Take all of the requested records first
-    let items = iter.by_ref().take(page_size).map(|o| o.output_id.to_hex()).collect();
-
-    // If any record is left, use it to make the cursor
-    let cursor = iter
-        .next()
-        .map(|rec| format!("{}.{}.{}", rec.booked_index, rec.output_id.to_hex(), page_size));
-
-    Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
-        items,
-        cursor,
-    })
+    Ok(create_outputs_response(res, page_size))
 }
 
 async fn output_by_nft_id(
@@ -205,6 +166,11 @@ async fn nft_outputs(
         )
         .await?
         .ok_or(ApiError::NoResults)?;
+
+    Ok(create_outputs_response(res, page_size))
+}
+
+fn create_outputs_response(res: OutputsResult, page_size: usize) -> IndexerOutputsResponse {
     let mut iter = res.outputs.iter();
 
     // Take all of the requested records first
@@ -215,9 +181,9 @@ async fn nft_outputs(
         .next()
         .map(|rec| format!("{}.{}.{}", rec.booked_index, rec.output_id.to_hex(), page_size));
 
-    Ok(IndexerOutputsResponse {
+    IndexerOutputsResponse {
         ledger_index: res.ledger_index.0,
         items,
         cursor,
-    })
+    }
 }
