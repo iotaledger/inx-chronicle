@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
+  check-and-test:
+    name: "check and test"
+    uses: ./.github/workflows/_check.yml
     with: { os: ubuntu-latest, rust: stable }
 
   format:

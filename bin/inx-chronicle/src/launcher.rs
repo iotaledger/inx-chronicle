@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
+#[cfg(any(feature = "api", feature = "inx"))]
+use chronicle::runtime::{ActorError, HandleEvent, Report};
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, ErrorLevel, HandleEvent, Report, RuntimeError},
+    runtime::{Actor, ActorContext, ErrorLevel, RuntimeError},
 };
 use clap::Parser;
 use thiserror::Error;
@@ -44,6 +46,7 @@ impl Actor for Launcher {
     type State = ChronicleConfig;
     type Error = LauncherError;
 
+    #[allow(unused_variables)]
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         // TODO: move parsing command-line args to `main.rs` (only async closures make this low effort though)
         let cl_args = ClArgs::parse();
@@ -62,10 +65,13 @@ impl Actor for Launcher {
 
         let db = MongoDb::connect(&config.mongodb).await?;
 
-        db.create_output_indexes().await?;
-        db.create_block_indexes().await?;
-        db.create_ledger_update_indexes().await?;
-        db.create_milestone_indexes().await?;
+        #[cfg(feature = "stardust")]
+        {
+            db.create_output_indexes().await?;
+            db.create_block_indexes().await?;
+            db.create_ledger_update_indexes().await?;
+            db.create_milestone_indexes().await?;
+        }
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
         if config.inx.enabled {
