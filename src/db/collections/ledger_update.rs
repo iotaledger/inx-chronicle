@@ -301,7 +301,7 @@ mod analytics {
                 .unwrap_or_default())
         }
 
-        /// Computes the total amount of tokens locked up in a [`UnlockCondition::StorageDepositReturn`](crate::type::), which is often also called SDRUC.
+        /// Computes the total amount of tokens locked up in a [`UnlockCondition::StorageDepositReturn`](crate::types::stardust::output::UnlockCondition), which is often also called SDRUC.
         pub async fn get_sdruc_analytics(
             &self,
             start_timestamp: MilestoneTimestamp,
