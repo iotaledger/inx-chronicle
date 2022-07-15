@@ -29,8 +29,8 @@ impl FromStr for Sort {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "asc" => Ok(Self::Ascending),
-            "desc" => Ok(Self::Descending),
+            "asc" | "oldest" => Ok(Self::Ascending),
+            "desc" | "newest" => Ok(Self::Descending),
             _ => Err(ParseError::BadSortDescriptor),
         }
     }
