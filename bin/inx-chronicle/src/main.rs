@@ -3,9 +3,6 @@
 
 //! TODO
 
-// TODO: This is currently broken, but may be fixed, so we should check it every once in a while
-#![allow(clippy::needless_borrow)]
-
 /// Module containing the API.
 #[cfg(feature = "api")]
 mod api;

@@ -12,7 +12,10 @@ use super::{OutputDocument, OutputResult, OutputsResult};
 use crate::{
     db::MongoDb,
     types::{
-        stardust::block::{Address, OutputId, TokenAmount},
+        stardust::{
+            block::{Address, OutputId, TokenAmount},
+            milestone::MilestoneTimestamp,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -75,16 +78,16 @@ pub struct BasicOutputsQuery {
     pub has_storage_return_condition: Option<bool>,
     pub storage_return_address: Option<Address>,
     pub has_timelock_condition: Option<bool>,
-    pub timelocked_before: Option<u32>,
-    pub timelocked_after: Option<u32>,
+    pub timelocked_before: Option<MilestoneTimestamp>,
+    pub timelocked_after: Option<MilestoneTimestamp>,
     pub has_expiration_condition: Option<bool>,
-    pub expires_before: Option<u32>,
-    pub expires_after: Option<u32>,
+    pub expires_before: Option<MilestoneTimestamp>,
+    pub expires_after: Option<MilestoneTimestamp>,
     pub expiration_return_address: Option<Address>,
     pub sender: Option<Address>,
     pub tag: Option<String>,
-    pub created_before: Option<u32>,
-    pub created_after: Option<u32>,
+    pub created_before: Option<MilestoneTimestamp>,
+    pub created_after: Option<MilestoneTimestamp>,
 }
 
 impl From<BasicOutputsQuery> for bson::Document {
@@ -345,16 +348,16 @@ mod test {
             has_storage_return_condition: Some(true),
             storage_return_address: Some(address),
             has_timelock_condition: Some(true),
-            timelocked_before: Some(10000),
-            timelocked_after: Some(1000),
+            timelocked_before: Some(10000.into()),
+            timelocked_after: Some(1000.into()),
             has_expiration_condition: Some(true),
-            expires_before: Some(10000),
-            expires_after: Some(1000),
+            expires_before: Some(10000.into()),
+            expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
             sender: Some(address),
             tag: Some("my_tag".to_string()),
-            created_before: Some(10000),
-            created_after: Some(1000),
+            created_before: Some(10000.into()),
+            created_after: Some(1000.into()),
         };
         let query_doc = doc! {
             "$and": [
@@ -429,16 +432,16 @@ mod test {
             has_storage_return_condition: Some(false),
             storage_return_address: Some(address),
             has_timelock_condition: Some(false),
-            timelocked_before: Some(10000),
-            timelocked_after: Some(1000),
+            timelocked_before: Some(10000.into()),
+            timelocked_after: Some(1000.into()),
             has_expiration_condition: Some(false),
-            expires_before: Some(10000),
-            expires_after: Some(1000),
+            expires_before: Some(10000.into()),
+            expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
             sender: None,
             tag: Some("my_tag".to_string()),
-            created_before: Some(10000),
-            created_after: Some(1000),
+            created_before: Some(10000.into()),
+            created_after: Some(1000.into()),
         };
         let query_doc = doc! {
             "$and": [

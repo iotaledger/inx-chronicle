@@ -93,11 +93,11 @@ impl<B: Send> FromRequest<B> for BasicOutputsPagination {
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
                 has_timelock_condition: query.has_timelock_condition,
-                timelocked_before: query.timelocked_before,
-                timelocked_after: query.timelocked_after,
+                timelocked_before: query.timelocked_before.map(Into::into),
+                timelocked_after: query.timelocked_after.map(Into::into),
                 has_expiration_condition: query.has_expiration_condition,
-                expires_before: query.expires_before,
-                expires_after: query.expires_after,
+                expires_before: query.expires_before.map(Into::into),
+                expires_after: query.expires_after.map(Into::into),
                 expiration_return_address: query
                     .expiration_return_address
                     .map(|address| Address::from_str(&address))
@@ -109,8 +109,8 @@ impl<B: Send> FromRequest<B> for BasicOutputsPagination {
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
                 tag: query.tag,
-                created_before: query.created_before,
-                created_after: query.created_after,
+                created_before: query.created_before.map(Into::into),
+                created_after: query.created_after.map(Into::into),
             },
             page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             cursor,
@@ -195,8 +195,8 @@ impl<B: Send> FromRequest<B> for AliasOutputsPagination {
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
-                created_before: query.created_before,
-                created_after: query.created_after,
+                created_before: query.created_before.map(Into::into),
+                created_after: query.created_after.map(Into::into),
             },
             page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             cursor,

@@ -43,7 +43,7 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
         Self {
-            output: (&value.output).into(),
+            output: Into::into(&value.output),
             metadata: OutputMetadata {
                 output_id,
                 block_id: value.block_id.into(),

@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(feature = "indexer")]
 mod indexer;
 
 use futures::TryStreamExt;
@@ -13,7 +12,6 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "indexer")]
 pub use self::indexer::{AliasOutputsQuery, BasicOutputsQuery};
 use crate::{
     db::MongoDb,
@@ -85,7 +83,6 @@ impl MongoDb {
             )
             .await?;
 
-        #[cfg(feature = "indexer")]
         self.create_indexer_output_indexes().await?;
 
         Ok(())

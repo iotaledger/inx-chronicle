@@ -8,13 +8,11 @@ pub mod core;
 #[cfg(feature = "api-history")]
 pub mod history;
 
-#[cfg(feature = "indexer")]
 pub mod indexer;
 
 use axum::Router;
 
 pub fn routes() -> Router {
-    #[allow(unused_mut)]
     let mut router = Router::new();
 
     #[cfg(feature = "analytics")]
@@ -32,10 +30,8 @@ pub fn routes() -> Router {
         router = router.nest("/core/v2", core::routes());
     }
 
-    #[cfg(feature = "indexer")]
-    {
-        router = router.nest("/indexer/v1", indexer::routes());
-    }
+    // TODO: Chain these above once features are removed
+    router = router.nest("/indexer/v1", indexer::routes());
 
     router
 }

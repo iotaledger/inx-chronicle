@@ -12,7 +12,7 @@ use super::{OutputDocument, OutputResult, OutputsResult};
 use crate::{
     db::MongoDb,
     types::{
-        stardust::block::{Address, AliasId, OutputId, TokenAmount},
+        stardust::{block::{Address, AliasId, OutputId, TokenAmount}, milestone::MilestoneTimestamp},
         tangle::MilestoneIndex,
     },
 };
@@ -107,8 +107,8 @@ pub struct AliasOutputsQuery {
     pub has_native_tokens: Option<bool>,
     pub min_native_token_count: Option<U256>,
     pub max_native_token_count: Option<U256>,
-    pub created_before: Option<u32>,
-    pub created_after: Option<u32>,
+    pub created_before: Option<MilestoneTimestamp>,
+    pub created_after: Option<MilestoneTimestamp>,
 }
 
 impl From<AliasOutputsQuery> for bson::Document {
@@ -256,8 +256,8 @@ mod test {
             has_native_tokens: Some(true),
             min_native_token_count: Some(100.into()),
             max_native_token_count: Some(1000.into()),
-            created_before: Some(10000),
-            created_after: Some(1000),
+            created_before: Some(10000.into()),
+            created_after: Some(1000.into()),
         };
         let query_doc = doc! {
             "$and": [
@@ -312,7 +312,7 @@ mod test {
             has_native_tokens: Some(false),
             min_native_token_count: Some(100.into()),
             max_native_token_count: Some(1000.into()),
-            created_before: Some(10000),
+            created_before: Some(10000.into()),
             ..Default::default()
         };
         let query_doc = doc! {

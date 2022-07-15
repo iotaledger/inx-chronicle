@@ -3,8 +3,6 @@
 
 #![warn(missing_docs)]
 #![warn(unreachable_pub)]
-// TODO: This is currently broken, but may be fixed, so we should check it every once in a while
-#![allow(clippy::needless_borrow)]
 
 //! TODO
 

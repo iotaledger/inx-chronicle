@@ -14,11 +14,9 @@ mod status;
 /// Module containing the treasury model.
 mod treasury;
 
-#[cfg(feature = "indexer")]
-pub use self::outputs::{AliasOutputsQuery, BasicOutputsQuery};
 pub use self::{
     ledger_update::{LedgerUpdatePerAddressRecord, SortOrder},
     milestone::SyncData,
-    outputs::{OutputMetadataResult, OutputWithMetadataResult},
+    outputs::{AliasOutputsQuery, BasicOutputsQuery, OutputMetadataResult, OutputWithMetadataResult},
     treasury::TreasuryResult,
 };

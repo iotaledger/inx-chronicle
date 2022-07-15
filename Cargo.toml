@@ -118,7 +118,6 @@ console = [
     "dep:console-subscriber",
     "tokio/tracing",
 ]
-indexer = []
 inx = [
     "dep:inx",
 ]
