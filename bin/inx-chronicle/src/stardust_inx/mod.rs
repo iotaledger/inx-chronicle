@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Sender},
-    types::tangle::MilestoneIndex,
+    types::tangle::{MilestoneIndex, ProtocolParameters},
 };
 pub use config::InxConfig;
 pub use error::InxError;
@@ -79,18 +79,20 @@ impl InxWorker {
         );
 
         let node_config = inx_client.read_node_configuration(NoParams {}).await?.into_inner();
+        let inx_protocol_parameters = inx::ProtocolParameters::try_from(node_config.protocol_parameters.unwrap())
+            .map_err(InxError::InxTypeConversion)?;
 
-        let network_name = node_config.protocol_parameters.unwrap().network_name;
+        let protocol_parameters = ProtocolParameters::from(inx_protocol_parameters);
 
-        log::debug!("Connected to network {}.", network_name);
+        log::debug!("Connected to network {}.", protocol_parameters.network_name);
 
-        if let Some(prev_network_name) = self.db.get_network_name().await? {
-            if prev_network_name != network_name {
-                return Err(InxError::NetworkChanged(prev_network_name, network_name));
+        if let Some(db_protocol_parameters) = self.db.get_protocol_parameters().await? {
+            if db_protocol_parameters.network_name != protocol_parameters.network_name {
+                return Err(InxError::NetworkChanged(db_protocol_parameters.network_name, protocol_parameters.network_name));
             }
         } else {
-            log::info!("Linking database {} to network {}.", self.db.name(), network_name);
-            self.db.set_network_name(network_name).await?;
+            log::info!("Linking database {} to network {}.", self.db.name(), protocol_parameters.network_name);
+            self.db.set_protocol_parameters(protocol_parameters).await?;
         }
 
         let first_ms = node_status.tangle_pruning_index + 1;

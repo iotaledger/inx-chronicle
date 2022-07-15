@@ -1,15 +1,22 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{bson::doc, error::Error, options::UpdateOptions};
+use mongodb::{
+    bson::{doc, to_document},
+    error::Error,
+    options::UpdateOptions,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{db::MongoDb, types::tangle::MilestoneIndex};
+use crate::{
+    db::MongoDb,
+    types::tangle::{MilestoneIndex, ProtocolParameters},
+};
 
 /// Provides the information about the status of the node.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct StatusDocument {
-    network_name: Option<String>,
+    protocol_parameters: Option<ProtocolParameters>,
     ledger_index: Option<MilestoneIndex>,
 }
 
@@ -20,23 +27,21 @@ impl StatusDocument {
 
 impl MongoDb {
     /// Get the name of the network.
-    #[deprecated(note = "Use `ProtocolParameterDocument` instead.")]
-    pub async fn get_network_name(&self) -> Result<Option<String>, Error> {
+    pub async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .find_one(doc! {}, None)
             .await
-            .map(|doc| doc.and_then(|doc| doc.network_name))
+            .map(|doc| doc.and_then(|doc| doc.protocol_parameters))
     }
 
     /// Sets the name of the network.
-    #[deprecated(note = "Use `ProtocolParameterDocument` instead.")]
-    pub async fn set_network_name(&self, network_name: String) -> Result<(), Error> {
+    pub async fn set_protocol_parameters(&self, protocol_parameters: ProtocolParameters) -> Result<(), Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .update_one(
                 doc! {},
-                doc! { "$set": { "network_name": network_name } },
+                doc! { "$set": { "protocol_parameters": to_document(&protocol_parameters)? } },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
