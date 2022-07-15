@@ -187,10 +187,10 @@ impl MongoDb {
         if let Some(output_id) = start_output_id {
             match order {
                 SortOrder::Newest => {
-                    filter.insert("output_id", doc! { "$lte": output_id });
+                    filter.insert("output_id", doc! { "$gte": output_id });
                 }
                 SortOrder::Oldest => {
-                    filter.insert("output_id", doc! { "$gte": output_id });
+                    filter.insert("output_id", doc! { "$lte": output_id });
                 }
             }
         }
@@ -198,9 +198,9 @@ impl MongoDb {
         let options = FindOptions::builder()
             .limit(page_size as i64)
             .sort(if order.is_newest() {
-                inverse_ledger_index()
-            } else {
                 ledger_index()
+            } else {
+                inverse_ledger_index()
             })
             .build();
 
@@ -251,9 +251,9 @@ impl MongoDb {
         let options = FindOptions::builder()
             .limit(page_size as i64)
             .sort(if order.is_newest() {
-                inverse_ledger_index()
-            } else {
                 ledger_index()
+            } else {
+                inverse_ledger_index()
             })
             .build();
 
