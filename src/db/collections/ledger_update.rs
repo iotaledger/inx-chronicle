@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::block::{Address, OutputId, UnlockConditionType},
+        stardust::block::{Address, OutputAmount, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -25,9 +25,8 @@ struct LedgerUpdateDocument {
     address: Address,
     output_id: OutputId,
     at: MilestoneIndexTimestamp,
-    #[serde(with = "crate::types::util::stringify")]
-    amount: u64,
-    unlock_condition_type: UnlockConditionType,
+    amount: OutputAmount,
+    is_trivial_unlock: bool,
     is_spent: bool,
 }
 
@@ -42,6 +41,8 @@ pub struct LedgerUpdatePerAddressRecord {
     pub output_id: OutputId,
     pub at: MilestoneIndexTimestamp,
     pub is_spent: bool,
+    pub is_trivial_unlock: bool,
+    pub amount: OutputAmount,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -114,7 +115,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "output_id": 1, "is_spent": 1, "unlock_condition": 1 })
+                    .keys(doc! { "output_id": 1, "is_spent": 1 })
                     .options(
                         IndexOptions::builder()
                             // An output can be spent and unspent only once.
@@ -139,19 +140,19 @@ impl MongoDb {
         for delta in deltas {
             self.insert_output(delta.clone()).await?;
             // Ledger updates
-            for (address, unlock_condition) in delta.output.owning_addresses() {
+            if let Some(&address) = delta.output.owning_address() {
                 let doc = LedgerUpdateDocument {
                     address,
                     output_id: delta.metadata.output_id,
+                    amount: delta.output.amount(),
                     at: delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked),
                     is_spent: delta.metadata.spent.is_some(),
-                    amount: delta.output.amount(),
-                    unlock_condition_type: unlock_condition,
+                    is_trivial_unlock: delta.output.is_trivial_unlock(),
                 };
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
-                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent, "unlock_condition": bson::to_document(&doc.unlock_condition_type)? },
+                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent },
                         doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
                     )

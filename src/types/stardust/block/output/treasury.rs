@@ -8,13 +8,14 @@ use super::OutputAmount;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
-    #[serde(with = "crate::types::util::stringify")]
     pub amount: OutputAmount,
 }
 
 impl From<&bee::TreasuryOutput> for TreasuryOutput {
     fn from(value: &bee::TreasuryOutput) -> Self {
-        Self { amount: value.amount() }
+        Self {
+            amount: value.amount().into(),
+        }
     }
 }
 
@@ -22,7 +23,7 @@ impl TryFrom<TreasuryOutput> for bee::TreasuryOutput {
     type Error = bee_block_stardust::Error;
 
     fn try_from(value: TreasuryOutput) -> Result<Self, Self::Error> {
-        Self::new(value.amount)
+        Self::new(value.amount.0)
     }
 }
 
