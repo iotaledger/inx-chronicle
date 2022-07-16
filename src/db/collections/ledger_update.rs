@@ -81,11 +81,11 @@ impl From<SortOrder> for Bson {
 }
 
 fn ledger_index() -> Document {
-    doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 }
+    doc! { "address": 1, "at.milestone_index": -1, "output_id": 1, "is_spent": 1 }
 }
 
 fn inverse_ledger_index() -> Document {
-    doc! { "address": -1, "at.milestone_index": 1, "output_id": -1 }
+    doc! { "address": -1, "at.milestone_index": 1, "output_id": -1, "is_spent": -1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -103,7 +103,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             // An output can be spent within the same milestone that it was created in.
-                            .unique(false)
+                            .unique(true)
                             .name("ledger_index".to_string())
                             .build(),
                     )
