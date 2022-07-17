@@ -34,12 +34,7 @@ async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
 async fn transactions_by_address_history(
     database: Extension<MongoDb>,
     Path(address): Path<String>,
-    HistoryByAddressPagination {
-        page_size,
-        sort,
-        start_milestone_index,
-        start_output_id,
-    }: HistoryByAddressPagination,
+    pagination: HistoryByAddressPagination,
 ) -> ApiResult<TransactionsPerAddressResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
@@ -47,21 +42,21 @@ async fn transactions_by_address_history(
         .stream_ledger_updates_for_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
-            page_size + 1,
-            start_milestone_index.map(Into::into),
-            start_output_id,
-            sort.into(),
+            pagination.page_size + 1,
+            pagination.start_milestone_index,
+            pagination.start_output_id_spent,
+            pagination.sort.into(),
         )
         .await?;
 
     // Take all of the requested records first
-    let records = record_stream.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
+    let records = record_stream.by_ref().take(pagination.page_size).try_collect::<Vec<_>>().await?;
 
     // If any record is left, use it to make the cursor
     let cursor = record_stream
         .try_next()
         .await?
-        .map(|rec| format!("{}.{}.{}", rec.at.milestone_index, rec.output_id.to_hex(), page_size));
+        .map(|rec| format!("{}.{}.{}.{}", rec.at.milestone_index, rec.output_id.to_hex(), rec.is_spent, pagination.page_size));
 
     let transfers = records
         .into_iter()

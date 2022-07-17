@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::block::{Address, OutputAmount, OutputId},
+        stardust::{block::{Address, OutputAmount, OutputId}},
         tangle::MilestoneIndex,
     },
 };
@@ -80,11 +80,11 @@ impl From<SortOrder> for Bson {
     }
 }
 
-fn ledger_index() -> Document {
+fn newest() -> Document {
     doc! { "address": 1, "at.milestone_index": -1, "output_id": 1, "is_spent": 1 }
 }
 
-fn inverse_ledger_index() -> Document {
+fn oldest() -> Document {
     doc! { "address": -1, "at.milestone_index": 1, "output_id": -1, "is_spent": -1 }
 }
 
@@ -96,31 +96,16 @@ impl MongoDb {
             .0
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
 
+            // TODO: Check if this index is even being used.
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(ledger_index())
+                    .keys(newest())
                     .options(
                         IndexOptions::builder()
                             // An output can be spent within the same milestone that it was created in.
                             .unique(true)
                             .name("ledger_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output_id": 1, "is_spent": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            // An output can be spent and unspent only once.
-                            .unique(true)
-                            .name("id_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -169,40 +154,65 @@ impl MongoDb {
         address: &Address,
         page_size: usize,
         start_milestone_index: Option<MilestoneIndex>,
-        start_output_id: Option<OutputId>,
+        start_output_id_is_spent: Option<(OutputId, bool)>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
-        let mut filter = doc! {
-            "address": { "$eq": address },
+
+        // TODO: Clean this up!
+        let row_filter = match (start_milestone_index, start_output_id_is_spent) {
+            (Some(milestone_index), Some((output_id, is_spent))) => match order {
+                SortOrder::Newest => {
+                    Some(doc! { "$or": [
+                        { "$and": [
+                            { "at.milestone_index": milestone_index },
+                            { "output_id": output_id },
+                            { "is_spent": { "$gte": is_spent } },
+                        ] },
+                        { "$and": [
+                            { "at.milestone_index": milestone_index },
+                            { "output_id": { "$lte": output_id } },
+                        ] },
+                        { "at.milestone_index" : { "$gte": milestone_index } }
+                    ] })
+                },
+                SortOrder::Oldest => {
+                    Some(doc! { "$or": [
+                        { "$and": [
+                            { "at.milestone_index": milestone_index },
+                            { "output_id": output_id },
+                            { "is_spent": { "$lte": is_spent } },
+                        ] },
+                        { "$and": [
+                            { "at.milestone_index": milestone_index },
+                            { "output_id": { "$gte": output_id } },
+                        ] },
+                        { "at.milestone_index" : { "$lte": milestone_index } }
+                    ] })
+                }
+            },
+            (Some(milestone_index), None) => match order {
+                SortOrder::Newest => Some(doc! { "at.milestone_index" : { "$gte": milestone_index } } ),
+                SortOrder::Oldest => Some(doc! { "at.milestone_index" : { "$lte": milestone_index } } ),
+            },
+            _ => None
         };
-        if let Some(milestone_index) = start_milestone_index {
-            match order {
-                SortOrder::Newest => {
-                    filter.insert("at.milestone_index", doc! { "$lte": milestone_index });
-                }
-                SortOrder::Oldest => {
-                    filter.insert("at.milestone_index", doc! { "$gte": milestone_index });
-                }
-            }
+
+        let mut filter = doc! {
+            "address": { "$eq": address }
+        };
+
+        if let Some(f) = row_filter {
+            filter.insert("$and", f);
         }
-        if let Some(output_id) = start_output_id {
-            match order {
-                SortOrder::Newest => {
-                    filter.insert("output_id", doc! { "$gte": output_id });
-                }
-                SortOrder::Oldest => {
-                    filter.insert("output_id", doc! { "$lte": output_id });
-                }
-            }
-        }
+
+        let sort = match order {
+            SortOrder::Newest => newest(),
+            SortOrder::Oldest => oldest(),
+        };
 
         let options = FindOptions::builder()
             .limit(page_size as i64)
-            .sort(if order.is_newest() {
-                ledger_index()
-            } else {
-                inverse_ledger_index()
-            })
+            .sort(sort)
             .build();
 
         self.0
@@ -252,9 +262,9 @@ impl MongoDb {
         let options = FindOptions::builder()
             .limit(page_size as i64)
             .sort(if order.is_newest() {
-                ledger_index()
+                newest()
             } else {
-                inverse_ledger_index()
+                oldest()
             })
             .build();
 
