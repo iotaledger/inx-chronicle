@@ -197,13 +197,17 @@ impl MongoDb {
             _ => None
         };
 
-        let mut filter = doc! {
-            "address": { "$eq": address }
-        };
 
-        if let Some(f) = row_filter {
-            filter.insert("$and", f);
-        }
+        let filter = if let Some(f) = row_filter {
+            doc! { "$and": [
+                { "address": { "$eq": address } },
+                f,
+            ] }
+        } else {
+            doc! {
+                "address": { "$eq": address }
+            }
+        };
 
         let sort = match order {
             SortOrder::Newest => newest(),
