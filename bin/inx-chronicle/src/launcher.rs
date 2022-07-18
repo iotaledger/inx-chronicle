@@ -91,7 +91,7 @@ impl Actor for Launcher {
                 .await;
         }
 
-        Ok(dbg!(config))
+        Ok(config)
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
