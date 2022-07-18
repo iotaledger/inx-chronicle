@@ -55,7 +55,7 @@ ed25519-dalek = { version = "1.0", default-features = false, features = ["u64_ba
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
 lazy_static = { version = "1.4", default-features = false, optional = true }
-packable = { version = "0.4", default-features = false, optional = true }
+packable = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, features = ["std"], optional = true }
 regex = { version = "1.5", default-features = false, features = ["std"], optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
@@ -78,7 +78,7 @@ console-subscriber = { version = "0.1", default-features = false, optional = tru
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
-packable = { version = "0.4", default-features = false }
+packable = { version = "0.5", default-features = false }
 
 [features]
 default = [
