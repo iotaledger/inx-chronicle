@@ -49,11 +49,11 @@ impl From<Sort> for SortOrder {
 }
 
 #[derive(Clone)]
-struct HistoryByAddressCursor {
-    milestone_index: MilestoneIndex,
-    output_id: OutputId,
-    is_spent: bool,
-    page_size: usize,
+pub struct HistoryByAddressCursor {
+    pub milestone_index: MilestoneIndex,
+    pub output_id: OutputId,
+    pub is_spent: bool,
+    pub page_size: usize,
 }
 
 impl FromStr for HistoryByAddressCursor {
@@ -75,15 +75,14 @@ impl FromStr for HistoryByAddressCursor {
 
 impl Display for HistoryByAddressCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = format!(
-            "{:0>10}.{}.{}.{}",
+        write!(
+            f,
+            "{}.{}.{}.{}",
             self.milestone_index,
             self.output_id.to_hex(),
             self.is_spent,
             self.page_size
-        );
-
-        write!(f, "{s}")
+        )
     }
 }
 
@@ -91,8 +90,7 @@ impl Display for HistoryByAddressCursor {
 pub struct HistoryByAddressPagination {
     pub page_size: usize,
     pub sort: Sort,
-    pub start_milestone_index: Option<MilestoneIndex>,
-    pub start_output_id_spent: Option<(OutputId, bool)>,
+    pub cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -113,20 +111,23 @@ impl<B: Send> FromRequest<B> for HistoryByAddressPagination {
             .await
             .map_err(ApiError::QueryError)?;
 
-        let mut pagination = HistoryByAddressPagination {
-            page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
-            start_milestone_index: query.start_milestone_index,
-            ..Default::default()
+        let mut pagination = if let Some(cursor) = query.cursor {
+            let cursor: HistoryByAddressCursor = cursor.parse()?;
+            HistoryByAddressPagination {
+                page_size: cursor.page_size,
+                cursor: Some((cursor.milestone_index, Some((cursor.output_id, cursor.is_spent)))),
+                ..Default::default()
+            }
+        } else {
+            HistoryByAddressPagination {
+                page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+                cursor: query.start_milestone_index.map(|i| (i, None)),
+                ..Default::default()
+            }
         };
 
         if let Some(sort) = query.sort {
             pagination.sort = sort.parse().map_err(ApiError::bad_parse)?;
-        }
-
-        if let Some(cursor) = query.cursor {
-            let cursor: HistoryByAddressCursor = cursor.parse()?;
-            pagination.start_milestone_index = Some(cursor.milestone_index);
-            pagination.start_output_id_spent = Some((cursor.output_id, cursor.is_spent));
         }
 
         Ok(pagination)

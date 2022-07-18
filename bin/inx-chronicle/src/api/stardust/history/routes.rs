@@ -11,7 +11,7 @@ use chronicle::{
 use futures::{StreamExt, TryStreamExt};
 
 use super::{
-    extractors::{HistoryByAddressPagination, HistoryByMilestonePagination},
+    extractors::{HistoryByAddressCursor, HistoryByAddressPagination, HistoryByMilestonePagination},
     responses::{
         TransactionsPerAddressResponse, TransactionsPerMilestoneResponse, TransferByAddress, TransferByMilestone,
     },
@@ -34,7 +34,11 @@ async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
 async fn transactions_by_address_history(
     database: Extension<MongoDb>,
     Path(address): Path<String>,
-    pagination: HistoryByAddressPagination,
+    HistoryByAddressPagination {
+        page_size,
+        sort,
+        cursor,
+    }: HistoryByAddressPagination,
 ) -> ApiResult<TransactionsPerAddressResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
@@ -42,25 +46,25 @@ async fn transactions_by_address_history(
         .stream_ledger_updates_for_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
-            pagination.page_size + 1,
-            pagination.start_milestone_index,
-            pagination.start_output_id_spent,
-            pagination.sort.into(),
+            page_size + 1,
+            cursor,
+            sort.into(),
         )
         .await?;
 
     // Take all of the requested records first
-    let records = record_stream
-        .by_ref()
-        .take(pagination.page_size)
-        .try_collect::<Vec<_>>()
-        .await?;
+    let records = record_stream.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
 
     // If any record is left, use it to make the cursor
-    let cursor = record_stream
-        .try_next()
-        .await?
-        .map(|rec| format!("{}.{}", rec.cursor, pagination.page_size));
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        HistoryByAddressCursor {
+            milestone_index: rec.at.milestone_index,
+            output_id: rec.output_id,
+            is_spent: rec.is_spent,
+            page_size,
+        }
+        .to_string()
+    });
 
     let transfers = records
         .into_iter()
