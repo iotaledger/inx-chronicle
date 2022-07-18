@@ -38,7 +38,7 @@ async fn transactions_by_address_history(
 ) -> ApiResult<TransactionsPerAddressResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
-    let mut record_stream = database
+    let record_vec = database
         .stream_ledger_updates_for_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
@@ -49,34 +49,26 @@ async fn transactions_by_address_history(
         )
         .await?;
 
+    let mut record_iter = record_vec.iter();
+
     // Take all of the requested records first
-    let records = record_stream.by_ref().take(pagination.page_size).try_collect::<Vec<_>>().await?;
-
-    // If any record is left, use it to make the cursor
-    let cursor = record_stream
-        .try_next()
-        .await?
-        .map(|rec| format!("{}.{}.{}.{}", rec.at.milestone_index, rec.output_id.to_hex(), rec.is_spent, pagination.page_size));
-
-    let transfers = records
-        .into_iter()
+    let items = record_iter
+        .by_ref()
+        .take(pagination.page_size)
         .map(|rec| {
             Ok(TransferByAddress {
                 output_id: rec.output_id.to_hex(),
                 is_spent: rec.is_spent,
-                is_trivial_unlock: rec.is_trivial_unlock,
-                amount: rec.amount,
                 milestone_index: rec.at.milestone_index,
                 milestone_timestamp: rec.at.milestone_timestamp,
             })
         })
         .collect::<Result<_, ApiError>>()?;
 
-    Ok(TransactionsPerAddressResponse {
-        address,
-        items: transfers,
-        cursor,
-    })
+    // If any record is left, use it to make the cursor
+    let cursor = record_iter.next().map(|rec| rec.cursor.clone());
+
+    Ok(TransactionsPerAddressResponse { address, items, cursor })
 }
 
 async fn transactions_by_milestone_history(

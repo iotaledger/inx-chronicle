@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::types::{
-    stardust::{
-        block::{Address, OutputAmount},
-        milestone::MilestoneTimestamp,
-    },
+    stardust::{block::Address, milestone::MilestoneTimestamp},
     tangle::MilestoneIndex,
 };
 use serde::{Deserialize, Serialize};
@@ -26,8 +23,6 @@ impl_success_response!(TransactionsPerAddressResponse);
 pub struct TransferByAddress {
     pub output_id: String,
     pub is_spent: bool,
-    pub is_trivial_unlock: bool,
-    pub amount: OutputAmount,
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,
 }

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::Stream;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{self, doc, Bson, Document},
     error::Error,
@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::{block::{Address, OutputAmount, OutputId}},
+        stardust::block::{Address, OutputAmount, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -43,6 +43,7 @@ pub struct LedgerUpdatePerAddressRecord {
     pub is_spent: bool,
     pub is_trivial_unlock: bool,
     pub amount: OutputAmount,
+    pub cursor: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -81,11 +82,11 @@ impl From<SortOrder> for Bson {
 }
 
 fn newest() -> Document {
-    doc! { "address": 1, "at.milestone_index": -1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": 1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
 }
 
 fn oldest() -> Document {
-    doc! { "address": -1, "at.milestone_index": 1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -96,7 +97,7 @@ impl MongoDb {
             .0
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
 
-            // TODO: Check if this index is even being used.
+        // TODO: Check if this index is even being used.
         collection
             .create_index(
                 IndexModel::builder()
@@ -156,73 +157,42 @@ impl MongoDb {
         start_milestone_index: Option<MilestoneIndex>,
         start_output_id_is_spent: Option<(OutputId, bool)>,
         order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
+    ) -> Result<Vec<LedgerUpdatePerAddressRecord>, Error> {
+        println!("milestone_index: {:#?}", start_milestone_index);
 
-        // TODO: Clean this up!
-        let row_filter = match (start_milestone_index, start_output_id_is_spent) {
-            (Some(milestone_index), Some((output_id, is_spent))) => match order {
-                SortOrder::Newest => {
-                    Some(doc! { "$or": [
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": output_id },
-                            { "is_spent": { "$gte": is_spent } },
-                        ] },
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": { "$lte": output_id } },
-                        ] },
-                        { "at.milestone_index" : { "$gte": milestone_index } }
-                    ] })
-                },
-                SortOrder::Oldest => {
-                    Some(doc! { "$or": [
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": output_id },
-                            { "is_spent": { "$lte": is_spent } },
-                        ] },
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": { "$gte": output_id } },
-                        ] },
-                        { "at.milestone_index" : { "$lte": milestone_index } }
-                    ] })
-                }
-            },
-            (Some(milestone_index), None) => match order {
-                SortOrder::Newest => Some(doc! { "at.milestone_index" : { "$gte": milestone_index } } ),
-                SortOrder::Oldest => Some(doc! { "at.milestone_index" : { "$lte": milestone_index } } ),
-            },
-            _ => None
+        let (_sort, cmp, sort_int) = match order {
+            SortOrder::Newest => (newest(), "$gte", -1),
+            SortOrder::Oldest => (oldest(), "$lte", 1),
         };
 
-
-        let filter = if let Some(f) = row_filter {
-            doc! { "$and": [
-                { "address": { "$eq": address } },
-                f,
-            ] }
-        } else {
-            doc! {
-                "address": { "$eq": address }
+        let cursor = match (start_milestone_index, start_output_id_is_spent) {
+            (Some(milestone_index), Some((output_id, is_spent))) => {
+                Some(format!("{milestone_index}.{}.{}", output_id.to_hex(), is_spent))
             }
+            (Some(milestone_index), None) => Some(milestone_index.to_string()),
+            (None, _) => None,
         };
 
-        let sort = match order {
-            SortOrder::Newest => newest(),
-            SortOrder::Oldest => oldest(),
-        };
+        let mut pipeline = Vec::new();
+        pipeline.push(doc! { "$match": { "address": address } });
+        pipeline.push( doc! { "$addFields": { "cursor": { "$concat": [ "$at.milestone_index", ".", "$output_id", ".", "$is_spent", ".", (page_size - 1).to_string() ] } } } );
+        if let Some(cursor) = cursor {
+            pipeline.push(doc! { "$match": { "cursor": { cmp: cursor } } });
+        }
+        pipeline.push(doc! { "$sort": { "cursor": sort_int } });
+        pipeline.push(doc! { "$limit": page_size as i64 });
 
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(sort)
-            .build();
-
-        self.0
+        let docs = self
+            .0
             .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
-            .find(filter, options)
-            .await
+            .aggregate(pipeline, None)
+            .await?
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        docs.into_iter()
+            .map(|d| bson::from_document(d).map_err(Into::into))
+            .collect()
     }
 
     /// Streams updates to the ledger for a given milestone index.
@@ -265,11 +235,7 @@ impl MongoDb {
 
         let options = FindOptions::builder()
             .limit(page_size as i64)
-            .sort(if order.is_newest() {
-                newest()
-            } else {
-                oldest()
-            })
+            .sort(if order.is_newest() { newest() } else { oldest() })
             .build();
 
         self.0
