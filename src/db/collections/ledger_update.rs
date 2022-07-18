@@ -79,11 +79,11 @@ impl From<SortOrder> for Bson {
 }
 
 fn newest() -> Document {
-    doc! { "address": 1, "cursor": -1 }
+    doc! { "cursor": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "address": -1, "cursor": 1 }
+    doc! { "cursor": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -94,7 +94,22 @@ impl MongoDb {
             .0
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
 
-        // TODO: Check if this index is even being used.
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(newest())
+                    .options(
+                        IndexOptions::builder()
+                            // An output can be spent within the same milestone that it was created in.
+                            .unique(false)
+                            .name("cursor_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
         collection
             .create_index(
                 IndexModel::builder()
@@ -103,7 +118,7 @@ impl MongoDb {
                         IndexOptions::builder()
                             // An output can be spent within the same milestone that it was created in.
                             .unique(true)
-                            .name("ledger_index".to_string())
+                            .name("address_index".to_string())
                             .build(),
                     )
                     .build(),
