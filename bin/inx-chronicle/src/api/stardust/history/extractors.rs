@@ -76,7 +76,7 @@ impl FromStr for HistoryByAddressCursor {
 impl Display for HistoryByAddressCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = format!("{:0>10}.{}.{}.{}",
-        self.milestone_index.0,
+        self.milestone_index,
         self.output_id.to_hex(),
         self.is_spent,
         self.page_size);
