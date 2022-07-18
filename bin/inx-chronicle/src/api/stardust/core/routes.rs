@@ -10,17 +10,17 @@ use axum::{
     routing::*,
     Router,
 };
-use bee_block_stardust::{
-    output::dto::OutputDto,
-    payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
-    BlockDto,
-};
-use bee_rest_api_stardust::types::{
+use bee_api_types_stardust::{
     dtos::ReceiptDto,
     responses::{
         BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
         ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
     },
+};
+use bee_block_stardust::{
+    output::dto::OutputDto,
+    payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
+    BlockDto,
 };
 use chronicle::{
     db::{
