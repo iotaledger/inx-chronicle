@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::types::{
-    stardust::{
-        block::{Address, OutputAmount},
-        milestone::MilestoneTimestamp,
-    },
+    stardust::{block::Address, milestone::MilestoneTimestamp},
     tangle::MilestoneIndex,
 };
 use serde::{Deserialize, Serialize};

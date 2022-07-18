@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::block::{Address, OutputAmount, OutputId},
+        stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
 };
