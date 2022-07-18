@@ -98,9 +98,9 @@ impl Output {
                 ..
             }) => &address_unlock_condition.address,
             Self::Alias(AliasOutput {
-                governor_address_unlock_condition,
+                state_controller_address_unlock_condition,
                 ..
-            }) => &governor_address_unlock_condition.address,
+            }) => &state_controller_address_unlock_condition.address,
             Self::Foundry(FoundryOutput {
                 immutable_alias_address_unlock_condition,
                 ..

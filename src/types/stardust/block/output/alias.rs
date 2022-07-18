@@ -66,9 +66,9 @@ pub struct AliasOutput {
     #[serde(with = "serde_bytes")]
     pub state_metadata: Box<[u8]>,
     pub foundry_counter: u32,
-    pub state_controller_address_unlock_condition: Option<StateControllerAddressUnlockCondition>,
-    // The governor address unlock condition is mandatory for now but this could change in the protocol in the future
-    // for compression reasons.
+    // The governor address unlock condition and the state controller unlock conditions are mandatory for now, but this
+    // could change in the protocol in the future for compression reasons.
+    pub state_controller_address_unlock_condition: StateControllerAddressUnlockCondition,
     pub governor_address_unlock_condition: GovernorAddressUnlockCondition,
     pub features: Box<[Feature]>,
     pub immutable_features: Box<[Feature]>,
@@ -83,11 +83,13 @@ impl From<&bee::AliasOutput> for AliasOutput {
             state_index: value.state_index(),
             state_metadata: value.state_metadata().to_vec().into_boxed_slice(),
             foundry_counter: value.foundry_counter(),
+            // Panic: The state controller address unlock condition has to be present for now.
             state_controller_address_unlock_condition: value
                 .unlock_conditions()
                 .state_controller_address()
-                .map(Into::into),
-            // Panic: The address unlock condition has to be present for now.
+                .unwrap()
+                .into(),
+            // Panic: The governor address unlock condition has to be present for now.
             governor_address_unlock_condition: value.unlock_conditions().governor_address().unwrap().into(),
             features: value.features().iter().map(Into::into).collect(),
             immutable_features: value.immutable_features().iter().map(Into::into).collect(),
@@ -101,11 +103,12 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
-            value
-                .state_controller_address_unlock_condition
-                .map(bee::unlock_condition::StateControllerAddressUnlockCondition::try_from)
-                .transpose()?
-                .map(Into::into),
+            Some(
+                bee::unlock_condition::StateControllerAddressUnlockCondition::from(
+                    value.state_controller_address_unlock_condition,
+                )
+                .into(),
+            ),
             Some(
                 bee::unlock_condition::GovernorAddressUnlockCondition::from(value.governor_address_unlock_condition)
                     .into(),

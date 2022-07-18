@@ -3,7 +3,7 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{self, doc, Bson, Document},
+    bson::{self, doc, Document},
     error::Error,
     options::{FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
@@ -66,15 +66,6 @@ impl SortOrder {
     #[allow(dead_code)]
     fn is_oldest(&self) -> bool {
         matches!(self, SortOrder::Oldest)
-    }
-}
-
-impl From<SortOrder> for Bson {
-    fn from(value: SortOrder) -> Self {
-        match value {
-            SortOrder::Newest => Bson::Int32(-1),
-            SortOrder::Oldest => Bson::Int32(1),
-        }
     }
 }
 
@@ -188,11 +179,9 @@ impl MongoDb {
             SortOrder::Oldest => (oldest(), "$lte"),
         };
 
-        let filter = if let Some(c) = cursor {
+        let filter = cursor.map(|c| {
             doc! { "address": address, "cursor": { cmp: c } }
-        } else {
-            doc! {}
-        };
+        });
 
         let options = FindOptions::builder().limit(page_size as i64).sort(sort).build();
 

@@ -8,7 +8,7 @@ use crate::types::stardust::block::Address;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateControllerAddressUnlockCondition {
-    address: Address,
+    pub address: Address,
 }
 
 impl From<&bee::StateControllerAddressUnlockCondition> for StateControllerAddressUnlockCondition {
