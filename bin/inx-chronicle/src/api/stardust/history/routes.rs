@@ -50,7 +50,11 @@ async fn transactions_by_address_history(
         .await?;
 
     // Take all of the requested records first
-    let records = record_stream.by_ref().take(pagination.page_size).try_collect::<Vec<_>>().await?;
+    let records = record_stream
+        .by_ref()
+        .take(pagination.page_size)
+        .try_collect::<Vec<_>>()
+        .await?;
 
     // If any record is left, use it to make the cursor
     let cursor = record_stream

@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::{block::{Address, OutputAmount, OutputId}},
+        stardust::block::{Address, OutputAmount, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -25,8 +25,6 @@ struct LedgerUpdateDocument {
     address: Address,
     output_id: OutputId,
     at: MilestoneIndexTimestamp,
-    amount: OutputAmount,
-    is_trivial_unlock: bool,
     is_spent: bool,
     cursor: String,
 }
@@ -98,7 +96,7 @@ impl MongoDb {
             .0
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
 
-            // TODO: Check if this index is even being used.
+        // TODO: Check if this index is even being used.
         collection
             .create_index(
                 IndexModel::builder()
@@ -132,11 +130,14 @@ impl MongoDb {
                 let doc = LedgerUpdateDocument {
                     address,
                     output_id: delta.metadata.output_id,
-                    amount: delta.output.amount(),
                     at,
                     is_spent: delta.metadata.spent.is_some(),
-                    is_trivial_unlock: delta.output.is_trivial_unlock(),
-                    cursor: format!("{}.{}.{}", at.milestone_index, delta.metadata.output_id.to_hex(), delta.metadata.spent.is_some()),
+                    cursor: format!(
+                        "{}.{}.{}",
+                        at.milestone_index,
+                        delta.metadata.output_id.to_hex(),
+                        delta.metadata.spent.is_some()
+                    ),
                 };
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
@@ -161,11 +162,12 @@ impl MongoDb {
         start_output_id_is_spent: Option<(OutputId, bool)>,
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
-
         let cursor = match (start_milestone_index, start_output_id_is_spent) {
-            (Some(milestone_index), Some((output_id, is_spent))) => Some(format!("{}.{}.{}", milestone_index, output_id.to_hex(), is_spent)),
+            (Some(milestone_index), Some((output_id, is_spent))) => {
+                Some(format!("{}.{}.{}", milestone_index, output_id.to_hex(), is_spent))
+            }
             (Some(milestone_index), None) => Some(milestone_index.to_string()),
-            _ => None
+            _ => None,
         };
 
         let (sort, cmp) = match order {
@@ -179,10 +181,7 @@ impl MongoDb {
             doc! {}
         };
 
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(sort)
-            .build();
+        let options = FindOptions::builder().limit(page_size as i64).sort(sort).build();
 
         self.0
             .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
@@ -230,11 +229,7 @@ impl MongoDb {
 
         let options = FindOptions::builder()
             .limit(page_size as i64)
-            .sort(if order.is_newest() {
-                newest()
-            } else {
-                oldest()
-            })
+            .sort(if order.is_newest() { newest() } else { oldest() })
             .build();
 
         self.0
