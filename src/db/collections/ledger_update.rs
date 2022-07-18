@@ -28,6 +28,7 @@ struct LedgerUpdateDocument {
     amount: OutputAmount,
     is_trivial_unlock: bool,
     is_spent: bool,
+    cursor: String,
 }
 
 impl LedgerUpdateDocument {
@@ -43,6 +44,7 @@ pub struct LedgerUpdatePerAddressRecord {
     pub is_spent: bool,
     pub is_trivial_unlock: bool,
     pub amount: OutputAmount,
+    pub cursor: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -81,11 +83,11 @@ impl From<SortOrder> for Bson {
 }
 
 fn newest() -> Document {
-    doc! { "address": 1, "at.milestone_index": -1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": 1, "cursor": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "address": -1, "at.milestone_index": 1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "cursor": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -126,13 +128,15 @@ impl MongoDb {
             self.insert_output(delta.clone()).await?;
             // Ledger updates
             if let Some(&address) = delta.output.owning_address() {
+                let at = delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked);
                 let doc = LedgerUpdateDocument {
                     address,
                     output_id: delta.metadata.output_id,
                     amount: delta.output.amount(),
-                    at: delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked),
+                    at,
                     is_spent: delta.metadata.spent.is_some(),
                     is_trivial_unlock: delta.output.is_trivial_unlock(),
+                    cursor: format!("{}.{}.{}", at.milestone_index, delta.metadata.output_id.to_hex(), delta.metadata.spent.is_some()),
                 };
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
@@ -158,60 +162,21 @@ impl MongoDb {
         order: SortOrder,
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
 
-        // TODO: Clean this up!
-        let row_filter = match (start_milestone_index, start_output_id_is_spent) {
-            (Some(milestone_index), Some((output_id, is_spent))) => match order {
-                SortOrder::Newest => {
-                    Some(doc! { "$or": [
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": output_id },
-                            { "is_spent": { "$gte": is_spent } },
-                        ] },
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": { "$lte": output_id } },
-                        ] },
-                        { "at.milestone_index" : { "$gte": milestone_index } }
-                    ] })
-                },
-                SortOrder::Oldest => {
-                    Some(doc! { "$or": [
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": output_id },
-                            { "is_spent": { "$lte": is_spent } },
-                        ] },
-                        { "$and": [
-                            { "at.milestone_index": milestone_index },
-                            { "output_id": { "$gte": output_id } },
-                        ] },
-                        { "at.milestone_index" : { "$lte": milestone_index } }
-                    ] })
-                }
-            },
-            (Some(milestone_index), None) => match order {
-                SortOrder::Newest => Some(doc! { "at.milestone_index" : { "$gte": milestone_index } } ),
-                SortOrder::Oldest => Some(doc! { "at.milestone_index" : { "$lte": milestone_index } } ),
-            },
+        let cursor = match (start_milestone_index, start_output_id_is_spent) {
+            (Some(milestone_index), Some((output_id, is_spent))) => Some(format!("{}.{}.{}", milestone_index, output_id.to_hex(), is_spent)),
+            (Some(milestone_index), None) => Some(milestone_index.to_string()),
             _ => None
         };
 
-
-        let filter = if let Some(f) = row_filter {
-            doc! { "$and": [
-                { "address": { "$eq": address } },
-                f,
-            ] }
-        } else {
-            doc! {
-                "address": { "$eq": address }
-            }
+        let (sort, cmp) = match order {
+            SortOrder::Newest => (newest(), "$gte"),
+            SortOrder::Oldest => (oldest(), "$lte"),
         };
 
-        let sort = match order {
-            SortOrder::Newest => newest(),
-            SortOrder::Oldest => oldest(),
+        let filter = if let Some(c) = cursor {
+            doc! { "address": address, "cursor": { cmp: c } }
+        } else {
+            doc! {}
         };
 
         let options = FindOptions::builder()

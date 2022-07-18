@@ -56,7 +56,7 @@ async fn transactions_by_address_history(
     let cursor = record_stream
         .try_next()
         .await?
-        .map(|rec| format!("{}.{}.{}.{}", rec.at.milestone_index, rec.output_id.to_hex(), rec.is_spent, pagination.page_size));
+        .map(|rec| format!("{}.{}", rec.cursor, pagination.page_size));
 
     let transfers = records
         .into_iter()
