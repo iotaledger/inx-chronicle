@@ -70,8 +70,8 @@ inx = { git = "https://github.com/iotaledger/inx", version = "1.0.0-beta.1", def
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
 
 # Stardust types
-bee-block-stardust = { package = "bee-block", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
 bee-api-types-stardust = { package = "bee-api-types", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
+bee-block-stardust = { package = "bee-block", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
@@ -117,7 +117,7 @@ metrics = [
 ]
 # The following feature enables metrics that can be used to debug the runtime.
 metrics-debug = [
-    "metrics"
+    "metrics",
 ]
 stardust = [
     "dep:bee-block-stardust",
