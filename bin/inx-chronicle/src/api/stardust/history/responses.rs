@@ -26,8 +26,6 @@ impl_success_response!(TransactionsPerAddressResponse);
 pub struct TransferByAddress {
     pub output_id: String,
     pub is_spent: bool,
-    pub is_trivial_unlock: bool,
-    pub amount: OutputAmount,
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,
 }

@@ -68,8 +68,6 @@ async fn transactions_by_address_history(
             Ok(TransferByAddress {
                 output_id: rec.output_id.to_hex(),
                 is_spent: rec.is_spent,
-                is_trivial_unlock: rec.is_trivial_unlock,
-                amount: rec.amount,
                 milestone_index: rec.at.milestone_index,
                 milestone_timestamp: rec.at.milestone_timestamp,
             })
