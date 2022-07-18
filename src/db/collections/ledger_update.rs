@@ -132,7 +132,7 @@ impl MongoDb {
                     is_spent: delta.metadata.spent.is_some(),
                     cursor: format!(
                         "{:0>10}.{}.{}",
-                        at.milestone_index,
+                        at.milestone_index.0,
                         delta.metadata.output_id.to_hex(),
                         delta.metadata.spent.is_some()
                     ),
@@ -164,7 +164,7 @@ impl MongoDb {
             (Some(milestone_index), Some((output_id, is_spent))) => {
                 Some(format!("{:0>10}.{}.{}", milestone_index, output_id.to_hex(), is_spent))
             }
-            (Some(milestone_index), None) => Some(milestone_index.to_string()),
+            (Some(milestone_index), None) => Some(format!("{:0>10}", milestone_index.to_string())),
             _ => None,
         };
 
