@@ -76,7 +76,7 @@ impl FromStr for HistoryByAddressCursor {
 impl Display for HistoryByAddressCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = format!("{:0>10}.{}.{}.{}",
-        self.milestone_index,
+        self.milestone_index.0,
         self.output_id.to_hex(),
         self.is_spent,
         self.page_size);
@@ -189,12 +189,12 @@ mod test {
 
     #[test]
     fn address_cursor_from_to_str() {
-        let milestone_index_str = 164338324;
+        let milestone_index = 164338324u32;
         let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
         let is_spent_str = "false";
         let page_size_str = "1337";
 
-        let cursor = format!("{:0>10}.{output_id_str}.{is_spent_str}.{page_size_str}", milestone_index_str);
+        let cursor = format!("{:0>10}.{output_id_str}.{is_spent_str}.{page_size_str}", milestone_index);
         let parsed: HistoryByAddressCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
     }

@@ -162,9 +162,9 @@ impl MongoDb {
     ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
         let cursor = match (start_milestone_index, start_output_id_is_spent) {
             (Some(milestone_index), Some((output_id, is_spent))) => {
-                Some(format!("{:0>10}.{}.{}", milestone_index, output_id.to_hex(), is_spent))
+                Some(format!("{:0>10}.{}.{}", milestone_index.0, output_id.to_hex(), is_spent))
             }
-            (Some(milestone_index), None) => Some(format!("{:0>10}", milestone_index.to_string())),
+            (Some(milestone_index), None) => Some(format!("{:0>10}", milestone_index.0)),
             _ => None,
         };
 
