@@ -141,9 +141,9 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.5.12"
+version = "0.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d16705af05732b7d3258ec0f7b73c03a658a28925e050d8852d5b568ee8bcf4e"
+checksum = "6b9496f0c1d1afb7a2af4338bbe1d969cddfead41d87a9fb3aaa6d0bbc7af648"
 dependencies = [
  "async-trait",
  "axum-core 0.2.7",
@@ -281,7 +281,7 @@ name = "bee-rest-api"
 version = "0.2.2"
 source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#c6a10bce2fb5eed8778de397d3360a9e8455e039"
 dependencies = [
- "axum 0.5.12",
+ "axum 0.5.13",
  "bee-block",
  "bee-ledger",
  "serde",
@@ -481,7 +481,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "auth-helper",
- "axum 0.5.12",
+ "axum 0.5.13",
  "bee-block",
  "bee-metrics",
  "bee-rest-api",
@@ -2674,7 +2674,7 @@ checksum = "5be9d60db39854b30b835107500cf0aca0b0d14d6e1c3de124217c23a29c2ddb"
 dependencies = [
  "async-stream",
  "async-trait",
- "axum 0.5.12",
+ "axum 0.5.13",
  "base64",
  "bytes",
  "futures-core",
