@@ -6,7 +6,7 @@ use std::{fmt::Display, str::FromStr};
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
 use chronicle::{
-    db::collections::{LedgerUpdateByAddressRecord, SortOrder},
+    db::collections::SortOrder,
     types::{stardust::block::OutputId, tangle::MilestoneIndex},
 };
 use serde::Deserialize;
