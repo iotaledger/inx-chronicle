@@ -35,7 +35,7 @@ impl LedgerUpdateDocument {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct LedgerUpdatePerAddressRecord {
+pub struct LedgerUpdateByAddressRecord {
     pub output_id: OutputId,
     pub at: MilestoneIndexTimestamp,
     pub is_spent: bool,
@@ -43,7 +43,7 @@ pub struct LedgerUpdatePerAddressRecord {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct LedgerUpdatePerMilestoneRecord {
+pub struct LedgerUpdateByMilestoneRecord {
     pub address: Address,
     pub output_id: OutputId,
     pub is_spent: bool,
@@ -154,7 +154,7 @@ impl MongoDb {
         page_size: usize,
         cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
         order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateByAddressRecord, Error>>, Error> {
         let (sort, cmp1, cmp2) = match order {
             SortOrder::Newest => (newest(), "$lt", "$lte"),
             SortOrder::Oldest => (oldest(), "$gt", "$gte"),
@@ -179,7 +179,7 @@ impl MongoDb {
         }
 
         self.0
-            .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateByAddressRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },
                 FindOptions::builder().limit(page_size as i64).sort(sort).build(),
@@ -191,9 +191,9 @@ impl MongoDb {
     pub async fn stream_ledger_updates_for_index(
         &self,
         milestone_index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateByMilestoneRecord, Error>>, Error> {
         self.0
-            .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateByMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! {
                     "at.milestone_index": { "$eq": milestone_index },
@@ -210,7 +210,7 @@ impl MongoDb {
         page_size: usize,
         start_output_id: Option<OutputId>,
         order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateByMilestoneRecord, Error>>, Error> {
         let mut filter = doc! {
             "at.milestone_index": { "$eq": milestone_index }
         };
@@ -231,7 +231,7 @@ impl MongoDb {
             .build();
 
         self.0
-            .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateByMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
             .find(filter, options)
             .await
     }

@@ -14,55 +14,39 @@ use serde::Deserialize;
 use crate::api::{error::ParseError, ApiError};
 
 const DEFAULT_PAGE_SIZE: usize = 100;
+const DEFAULT_SORT_ORDER: SortOrder = SortOrder::Newest;
 
-#[derive(Clone, Debug)]
-pub enum Sort {
-    Ascending,
-    Descending,
+#[derive(Clone)]
+pub struct LedgerUpdatesByAddressPagination {
+    pub page_size: usize,
+    pub sort: SortOrder,
+    pub cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
 }
 
-impl Default for Sort {
-    fn default() -> Self {
-        Self::Ascending
-    }
-}
-
-impl FromStr for Sort {
-    type Err = ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "asc" | "oldest" => Ok(Self::Ascending),
-            "desc" | "newest" => Ok(Self::Descending),
-            _ => Err(ParseError::BadSortDescriptor),
-        }
-    }
-}
-
-impl From<Sort> for SortOrder {
-    fn from(sort: Sort) -> Self {
-        match sort {
-            Sort::Ascending => Self::Oldest,
-            Sort::Descending => Self::Newest,
-        }
-    }
+#[derive(Clone, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct LedgerUpdatesByAddressPaginationQuery {
+    pub page_size: Option<usize>,
+    pub sort: Option<String>,
+    pub start_milestone_index: Option<MilestoneIndex>,
+    pub cursor: Option<String>,
 }
 
 #[derive(Clone)]
-pub struct HistoryByAddressCursor {
+pub struct LedgerUpdatesByAddressCursor {
     pub milestone_index: MilestoneIndex,
     pub output_id: OutputId,
     pub is_spent: bool,
     pub page_size: usize,
 }
 
-impl FromStr for HistoryByAddressCursor {
+impl FromStr for LedgerUpdatesByAddressCursor {
     type Err = ApiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
-            [ms, o, sp, ps] => HistoryByAddressCursor {
+            [ms, o, sp, ps] => LedgerUpdatesByAddressCursor {
                 milestone_index: ms.parse().map_err(ApiError::bad_parse)?,
                 output_id: o.parse().map_err(ApiError::bad_parse)?,
                 is_spent: sp.parse().map_err(ApiError::bad_parse)?,
@@ -73,7 +57,7 @@ impl FromStr for HistoryByAddressCursor {
     }
 }
 
-impl Display for HistoryByAddressCursor {
+impl Display for LedgerUpdatesByAddressCursor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -86,49 +70,39 @@ impl Display for HistoryByAddressCursor {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct HistoryByAddressPagination {
-    pub page_size: usize,
-    pub sort: Sort,
-    pub cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
-}
-
-#[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
-pub struct HistoryByAddressPaginationQuery {
-    pub page_size: Option<usize>,
-    pub sort: Option<String>,
-    pub start_milestone_index: Option<MilestoneIndex>,
-    pub cursor: Option<String>,
+fn sort_order_from_str(s: String) -> Result<SortOrder, ApiError> {
+    match s.as_ref() {
+        "asc" | "oldest" => Ok(SortOrder::Oldest),
+        "desc" | "newest" => Ok(SortOrder::Newest),
+        _ => Err(ParseError::BadSortDescriptor).map_err(ApiError::bad_parse),
+    }
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for HistoryByAddressPagination {
+impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<HistoryByAddressPaginationQuery>::from_request(req)
+        let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
 
-        let mut pagination = if let Some(cursor) = query.cursor {
-            let cursor: HistoryByAddressCursor = cursor.parse()?;
-            HistoryByAddressPagination {
+        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+
+        let pagination = if let Some(cursor) = query.cursor {
+            let cursor: LedgerUpdatesByAddressCursor = cursor.parse()?;
+            LedgerUpdatesByAddressPagination {
                 page_size: cursor.page_size,
                 cursor: Some((cursor.milestone_index, Some((cursor.output_id, cursor.is_spent)))),
-                ..Default::default()
+                sort,
             }
         } else {
-            HistoryByAddressPagination {
+            LedgerUpdatesByAddressPagination {
                 page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
                 cursor: query.start_milestone_index.map(|i| (i, None)),
-                ..Default::default()
+                sort,
             }
         };
-
-        if let Some(sort) = query.sort {
-            pagination.sort = sort.parse().map_err(ApiError::bad_parse)?;
-        }
 
         Ok(pagination)
     }
@@ -137,7 +111,7 @@ impl<B: Send> FromRequest<B> for HistoryByAddressPagination {
 #[derive(Clone)]
 pub struct HistoryByMilestonePagination {
     pub page_size: usize,
-    pub sort: Sort,
+    pub sort: SortOrder,
     pub start_output_id: Option<OutputId>,
 }
 
@@ -171,13 +145,10 @@ impl<B: Send> FromRequest<B> for HistoryByMilestonePagination {
                 page_size.replace(parts[1].parse().map_err(ApiError::bad_parse)?);
             }
         }
+        let sort = sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
         Ok(HistoryByMilestonePagination {
             page_size: page_size.unwrap_or(DEFAULT_PAGE_SIZE),
-            sort: if let Some(sort) = sort {
-                sort.parse().map_err(ApiError::bad_parse)?
-            } else {
-                Sort::default()
-            },
+            sort,
             start_output_id,
         })
     }
@@ -194,11 +165,8 @@ mod test {
         let is_spent_str = "false";
         let page_size_str = "1337";
 
-        let cursor = format!(
-            "{:0>10}.{output_id_str}.{is_spent_str}.{page_size_str}",
-            milestone_index
-        );
-        let parsed: HistoryByAddressCursor = cursor.parse().unwrap();
+        let cursor = format!("{milestone_index}.{output_id_str}.{is_spent_str}.{page_size_str}",);
+        let parsed: LedgerUpdatesByAddressCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
     }
 }
