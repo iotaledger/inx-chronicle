@@ -109,48 +109,70 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
 }
 
 #[derive(Clone)]
-pub struct HistoryByMilestonePagination {
+pub struct LedgerUpdatesByMilestonePagination {
     pub page_size: usize,
-    pub sort: SortOrder,
-    pub start_output_id: Option<OutputId>,
+    pub cursor: Option<(OutputId, bool)>,
 }
 
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
-pub struct HistoryByMilestonePaginationQuery {
+pub struct LedgerUpdatesByMilestonePaginationQuery {
     pub page_size: Option<usize>,
-    pub sort: Option<String>,
     pub cursor: Option<String>,
 }
 
+#[derive(Clone)]
+pub struct LedgerUpdatesByMilestoneCursor {
+    pub output_id: OutputId,
+    pub is_spent: bool,
+    pub page_size: usize,
+}
+
+impl FromStr for LedgerUpdatesByMilestoneCursor {
+    type Err = ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.split('.').collect();
+        Ok(match parts[..] {
+            [o, sp, ps] => LedgerUpdatesByMilestoneCursor {
+                output_id: o.parse().map_err(ApiError::bad_parse)?,
+                is_spent: sp.parse().map_err(ApiError::bad_parse)?,
+                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+            },
+            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+        })
+    }
+}
+
+impl Display for LedgerUpdatesByMilestoneCursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.output_id.to_hex(), self.is_spent, self.page_size)
+    }
+}
+
 #[async_trait]
-impl<B: Send> FromRequest<B> for HistoryByMilestonePagination {
+impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(HistoryByMilestonePaginationQuery {
-            mut page_size,
-            sort,
-            cursor,
-        }) = Query::<HistoryByMilestonePaginationQuery>::from_request(req)
+        let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let mut start_output_id = None;
-        if let Some(cursor) = cursor {
-            let parts = cursor.split('.').collect::<Vec<_>>();
-            if parts.len() != 2 {
-                return Err(ApiError::bad_parse(ParseError::BadPagingState));
-            } else {
-                start_output_id.replace(parts[0].parse().map_err(ApiError::bad_parse)?);
-                page_size.replace(parts[1].parse().map_err(ApiError::bad_parse)?);
+
+        let pagination = if let Some(cursor) = query.cursor {
+            let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
+            LedgerUpdatesByMilestonePagination {
+                page_size: cursor.page_size,
+                cursor: Some((cursor.output_id, cursor.is_spent)),
             }
-        }
-        let sort = sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
-        Ok(HistoryByMilestonePagination {
-            page_size: page_size.unwrap_or(DEFAULT_PAGE_SIZE),
-            sort,
-            start_output_id,
-        })
+        } else {
+            LedgerUpdatesByMilestonePagination {
+                page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+                cursor: None,
+            }
+        };
+
+        Ok(pagination)
     }
 }
 
