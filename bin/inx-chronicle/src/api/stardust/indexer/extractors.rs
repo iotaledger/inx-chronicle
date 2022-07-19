@@ -6,21 +6,28 @@ use std::str::FromStr;
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
 use chronicle::{
-    db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery},
+    db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
     types::stardust::block::{Address, OutputId},
 };
+use mongodb::bson;
 use primitive_types::U256;
 use serde::Deserialize;
 
-use crate::api::{error::ParseError, ApiError};
-
-const DEFAULT_PAGE_SIZE: usize = 100;
+use crate::api::{
+    error::ParseError,
+    stardust::{sort_order_from_str, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER},
+    ApiError,
+};
 
 #[derive(Clone)]
-pub struct BasicOutputsPagination {
-    pub query: BasicOutputsQuery,
+pub struct OutputsPagination<Q>
+where
+    bson::Document: From<Q>,
+{
+    pub query: Q,
     pub page_size: usize,
     pub cursor: Option<(u32, OutputId)>,
+    pub sort: SortOrder,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -45,10 +52,11 @@ pub struct BasicOutputsPaginationQuery {
     pub created_after: Option<u32>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
+    pub sort: Option<String>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for BasicOutputsPagination {
+impl<B: Send> FromRequest<B> for OutputsPagination<BasicOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
@@ -68,7 +76,10 @@ impl<B: Send> FromRequest<B> for BasicOutputsPagination {
                 query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
             }
         }
-        Ok(BasicOutputsPagination {
+
+        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+
+        Ok(OutputsPagination {
             query: BasicOutputsQuery {
                 address: query
                     .address
@@ -114,15 +125,9 @@ impl<B: Send> FromRequest<B> for BasicOutputsPagination {
             },
             page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             cursor,
+            sort,
         })
     }
-}
-
-#[derive(Clone)]
-pub struct AliasOutputsPagination {
-    pub query: AliasOutputsQuery,
-    pub page_size: usize,
-    pub cursor: Option<(u32, OutputId)>,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -139,10 +144,11 @@ pub struct AliasOutputsPaginationQuery {
     pub created_after: Option<u32>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
+    pub sort: Option<String>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for AliasOutputsPagination {
+impl<B: Send> FromRequest<B> for OutputsPagination<AliasOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
@@ -162,7 +168,10 @@ impl<B: Send> FromRequest<B> for AliasOutputsPagination {
                 query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
             }
         }
-        Ok(AliasOutputsPagination {
+
+        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+
+        Ok(OutputsPagination {
             query: AliasOutputsQuery {
                 state_controller: query
                     .state_controller
@@ -200,15 +209,9 @@ impl<B: Send> FromRequest<B> for AliasOutputsPagination {
             },
             page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             cursor,
+            sort,
         })
     }
-}
-
-#[derive(Clone)]
-pub struct FoundryOutputsPagination {
-    pub query: FoundryOutputsQuery,
-    pub page_size: usize,
-    pub cursor: Option<(u32, OutputId)>,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -222,10 +225,11 @@ pub struct FoundryOutputsPaginationQuery {
     pub created_after: Option<u32>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
+    pub sort: Option<String>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for FoundryOutputsPagination {
+impl<B: Send> FromRequest<B> for OutputsPagination<FoundryOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
@@ -245,7 +249,10 @@ impl<B: Send> FromRequest<B> for FoundryOutputsPagination {
                 query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
             }
         }
-        Ok(FoundryOutputsPagination {
+
+        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+
+        Ok(OutputsPagination {
             query: FoundryOutputsQuery {
                 alias_address: query
                     .alias_address
@@ -268,15 +275,9 @@ impl<B: Send> FromRequest<B> for FoundryOutputsPagination {
             },
             page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             cursor,
+            sort,
         })
     }
-}
-
-#[derive(Clone)]
-pub struct NftOutputsPagination {
-    pub query: NftOutputsQuery,
-    pub page_size: usize,
-    pub cursor: Option<(u32, OutputId)>,
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -302,10 +303,11 @@ pub struct NftOutputsPaginationQuery {
     pub created_after: Option<u32>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
+    pub sort: Option<String>,
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for NftOutputsPagination {
+impl<B: Send> FromRequest<B> for OutputsPagination<NftOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
@@ -325,7 +327,10 @@ impl<B: Send> FromRequest<B> for NftOutputsPagination {
                 query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
             }
         }
-        Ok(NftOutputsPagination {
+
+        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+
+        Ok(OutputsPagination {
             query: NftOutputsQuery {
                 address: query
                     .address
@@ -376,6 +381,7 @@ impl<B: Send> FromRequest<B> for NftOutputsPagination {
             },
             page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
             cursor,
+            sort,
         })
     }
 }

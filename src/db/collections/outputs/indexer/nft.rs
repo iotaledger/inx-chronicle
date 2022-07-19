@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc},
     error::Error,
@@ -13,7 +12,7 @@ use super::{
         AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, IssuerQuery, NativeTokensQuery, SenderQuery,
         StorageDepositReturnQuery, TagQuery, TimelockQuery,
     },
-    OutputDocument, OutputResult, OutputsResult,
+    OutputDocument,
 };
 use crate::{
     db::MongoDb,
@@ -55,51 +54,6 @@ impl MongoDb {
                 ledger_index,
                 output_id: doc.output_id,
             }))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Gets nft outputs that match the provided query.
-    pub async fn get_nft_outputs(
-        &self,
-        query: NftOutputsQuery,
-        page_size: usize,
-        cursor: Option<(MilestoneIndex, OutputId)>,
-    ) -> Result<Option<OutputsResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            let mut query_doc = bson::Document::from(query);
-            let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
-            if let Some((start_ms, start_output_id)) = cursor {
-                additional_queries.push(doc! { "metadata.booked.milestone_index": { "$lte": start_ms } });
-                additional_queries.push(doc! { "output_id": { "$lte": start_output_id } });
-            }
-            query_doc.insert("$and", additional_queries);
-            let match_doc = doc! { "$match": query_doc };
-            let outputs = self
-                .0
-                .collection::<OutputResult>(OutputDocument::COLLECTION)
-                .aggregate(
-                    vec![
-                        match_doc,
-                        doc! { "$sort": {
-                            "metadata.booked.milestone_index": -1,
-                            "output_id": -1
-                        } },
-                        doc! { "$limit": page_size as i64 },
-                        doc! { "$replaceWith": {
-                            "output_id": "$output_id",
-                            "booked_index": "$metadata.booked.milestone_index"
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .map_ok(|doc| bson::from_document::<OutputResult>(doc).unwrap())
-                .try_collect::<Vec<_>>()
-                .await?;
-            Ok(Some(OutputsResult { ledger_index, outputs }))
         } else {
             Ok(None)
         }

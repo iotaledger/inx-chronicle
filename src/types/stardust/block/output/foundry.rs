@@ -7,9 +7,7 @@ use bee_block_stardust::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme,
-};
+use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
 use crate::types::util::bytify;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
