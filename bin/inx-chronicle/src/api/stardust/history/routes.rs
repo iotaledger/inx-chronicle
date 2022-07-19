@@ -16,8 +16,7 @@ use super::{
         LedgerUpdatesByMilestonePagination,
     },
     responses::{
-        BalanceResponse,
-        LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
+        BalanceResponse, LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
         LedgerUpdatesByMilestoneResponse,
     },
 };
@@ -28,11 +27,11 @@ pub fn routes() -> Router {
         .route("/gaps", get(sync))
         .route("/balance/:address", get(balance))
         .nest(
-        "/ledger/updates",
-        Router::new()
-            .route("/by-address/:address", get(ledger_updates_by_address))
-            .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-    )
+            "/ledger/updates",
+            Router::new()
+                .route("/by-address/:address", get(ledger_updates_by_address))
+                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+        )
 }
 
 async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
@@ -120,10 +119,10 @@ async fn ledger_updates_by_milestone(
 
 async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
-    let (total_balance, locked_balance) = database.calc_balances_for_address(address).await?;
+    let (total_balance, unlockable_balance) = database.sum_balances_owned_by_address(address).await?;
 
     Ok(BalanceResponse {
         total_balance,
-        locked_balance,
+        unlockable_balance,
     })
 }

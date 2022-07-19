@@ -26,7 +26,7 @@ use crate::{
 
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct OutputDocument {
+pub(crate) struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
@@ -34,7 +34,7 @@ struct OutputDocument {
 
 impl OutputDocument {
     /// The stardust outputs collection name.
-    const COLLECTION: &'static str = "stardust_outputs";
+    pub(crate) const COLLECTION: &'static str = "stardust_outputs";
 }
 
 impl From<OutputWithMetadata> for OutputDocument {

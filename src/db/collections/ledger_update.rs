@@ -11,7 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::MongoDb,
+    db::{collections::outputs::OutputDocument, MongoDb},
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
         stardust::block::{Address, OutputId},
@@ -209,8 +209,8 @@ impl MongoDb {
             .await
     }
 
-    /// Calculates the current balances associated with the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn calc_balances_for_address(&self, address: Address) -> Result<(u64, u64), Error> {
+    /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
+    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<(u64, u64), Error> {
         #[derive(Deserialize, Default)]
         struct Amount {
             amount: f64,
@@ -219,7 +219,7 @@ impl MongoDb {
         #[derive(Deserialize, Default)]
         struct Balances {
             total_balance: Amount,
-            locked_balance: Amount,
+            unlockable_balance: Amount,
         }
 
         let balances = self
@@ -227,21 +227,41 @@ impl MongoDb {
             .collection::<Balances>(LedgerUpdateDocument::COLLECTION)
             .aggregate(
                 vec![
+                    // Match every ledger update where the given `address` was part in.
                     doc! { "$match": {
-                        "address": &address, "is_spent": false,
+                        "address": &address,
                     } },
+                    // Build groups of `OutputId` rows.
+                    // TODO: this can probably be done more elegantly.
+                    doc! { "$group": {
+                        "_id": "$output_id",
+                        "$push": { "unspent": { "$not": [ "$is_spent" ] } }
+                    } },
+                    // Determine whether an `Output` has actually been spent at some point.
+                    doc! { "$match": {
+                        "$allElementsTrue": "$unspent",
+                    } },
+                    // In order to get the amounts associated with the unspent output we have query the outputs coll.
+                    doc! { "$lookup": {
+                        "from": OutputDocument::COLLECTION,
+                        "localField": "output_id",
+                        "foreignField": "output_id",
+                        "as":"output_doc",
+                    } },
+                    // Calculate the total balance and the immediatedly unlockable balance.
+                    // TODO: is this sufficiently qualified to reach the actual amount?
                     doc! { "$facet": {
                         "total_balance": [
                             { "$group" : {
                                 "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$amount" } },
+                                "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
                             }},
                         ],
-                        "locked_balance": [
-                            { "$match": { "$neq": {"$unlock_condition_type.kind": "address" } } },
+                        "unlockable_balance": [
+                            // TODO: find the right match that does the same as `is_trivial_unlock`.
                             { "$group" : {
                                 "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$amount" } },
+                                "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
                             }},
                         ],
                     } },
@@ -257,7 +277,7 @@ impl MongoDb {
 
         Ok((
             balances.total_balance.amount as u64,
-            balances.locked_balance.amount as u64,
+            balances.unlockable_balance.amount as u64,
         ))
     }
 }
