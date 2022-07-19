@@ -139,7 +139,7 @@ mod test {
     use primitive_types::U256;
 
     use super::FoundryOutputsQuery;
-    use crate::types::stardust::block::{Address, TokenAmount};
+    use crate::types::stardust::block::{Address, NativeTokenAmount};
 
     #[test]
     fn test_foundry_query_everything() {
@@ -164,12 +164,12 @@ mod test {
                 { "output.native_tokens": { "$ne": [] } },
                 { "output.native_tokens": { "$not": {
                     "$elemMatch": {
-                        "amount": { "$lt": bson::to_bson(&TokenAmount::from(&U256::from(100))).unwrap() }
+                        "amount": { "$lt": bson::to_bson(&NativeTokenAmount::from(&U256::from(100))).unwrap() }
                     }
                 } } },
                 { "output.native_tokens": { "$not": {
                     "$elemMatch": {
-                        "amount": { "$gt": bson::to_bson(&TokenAmount::from(&U256::from(1000))).unwrap() }
+                        "amount": { "$gt": bson::to_bson(&NativeTokenAmount::from(&U256::from(1000))).unwrap() }
                     }
                 } } },
                 { "metadata.booked.milestone_timestamp": {

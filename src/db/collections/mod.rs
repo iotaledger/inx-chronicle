@@ -15,7 +15,7 @@ mod status;
 mod treasury;
 
 pub use self::{
-    ledger_update::{LedgerUpdatePerAddressRecord, SortOrder},
+    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, SortOrder},
     milestone::SyncData,
     outputs::{
         AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, OutputMetadataResult,

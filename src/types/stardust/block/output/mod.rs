@@ -23,15 +23,16 @@ pub use self::{
     basic::BasicOutput,
     feature::Feature,
     foundry::{FoundryId, FoundryOutput},
-    native_token::{NativeToken, TokenAmount, TokenScheme},
+    native_token::{NativeToken, NativeTokenAmount, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
-    unlock_condition::{UnlockCondition, UnlockConditionType},
 };
 use super::Address;
 use crate::types::stardust::block::TransactionId;
 
-pub type OutputAmount = u64;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
+pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
+
 pub type OutputIndex = u16;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,17 +90,26 @@ pub enum Output {
 }
 
 impl Output {
-    pub fn owning_addresses(&self) -> Vec<(Address, UnlockConditionType)> {
-        match self {
-            Self::Treasury(_) => Vec::new(),
-            Self::Basic(BasicOutput { unlock_conditions, .. })
-            | Self::Alias(AliasOutput { unlock_conditions, .. })
-            | Self::Nft(NftOutput { unlock_conditions, .. })
-            | Self::Foundry(FoundryOutput { unlock_conditions, .. }) => unlock_conditions
-                .iter()
-                .filter_map(UnlockCondition::owning_address)
-                .collect(),
-        }
+    pub fn owning_address(&self) -> Option<&Address> {
+        Some(match self {
+            Self::Treasury(_) => return None,
+            Self::Basic(BasicOutput {
+                address_unlock_condition,
+                ..
+            }) => &address_unlock_condition.address,
+            Self::Alias(AliasOutput {
+                state_controller_address_unlock_condition,
+                ..
+            }) => &state_controller_address_unlock_condition.address,
+            Self::Foundry(FoundryOutput {
+                immutable_alias_address_unlock_condition,
+                ..
+            }) => &immutable_alias_address_unlock_condition.address,
+            Self::Nft(NftOutput {
+                address_unlock_condition,
+                ..
+            }) => &address_unlock_condition.address,
+        })
     }
 
     pub fn amount(&self) -> OutputAmount {
@@ -109,6 +119,34 @@ impl Output {
             Self::Alias(AliasOutput { amount, .. }) => *amount,
             Self::Nft(NftOutput { amount, .. }) => *amount,
             Self::Foundry(FoundryOutput { amount, .. }) => *amount,
+        }
+    }
+
+    pub fn is_trivial_unlock(&self) -> bool {
+        match self {
+            Self::Treasury(_) => false,
+            Self::Basic(BasicOutput {
+                storage_deposit_return_unlock_condition,
+                timelock_unlock_condition,
+                expiration_unlock_condition,
+                ..
+            }) => {
+                storage_deposit_return_unlock_condition.is_none()
+                    && timelock_unlock_condition.is_none()
+                    && expiration_unlock_condition.is_none()
+            }
+            Self::Alias(_) => true,
+            Self::Nft(NftOutput {
+                storage_deposit_return_unlock_condition,
+                timelock_unlock_condition,
+                expiration_unlock_condition,
+                ..
+            }) => {
+                storage_deposit_return_unlock_condition.is_none()
+                    && timelock_unlock_condition.is_none()
+                    && expiration_unlock_condition.is_none()
+            }
+            Self::Foundry(_) => true,
         }
     }
 }

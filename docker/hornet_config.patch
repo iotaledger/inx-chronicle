@@ -8,7 +8,7 @@ index 609d941..9ab337c 100644
      ]
 +  },
 +  "inx": {
-+    "enabled": false,
++    "enabled": true,
 +    "bindAddress": "localhost:9029",
 +    "pow": {
 +      "workerCount": 0

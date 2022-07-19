@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "0.1.0-alpha.13"
+version = "0.1.0-alpha.15"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -56,7 +56,7 @@ ed25519-dalek = { version = "1.0", default-features = false, features = ["u64_ba
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
 lazy_static = { version = "1.4", default-features = false, optional = true }
-packable = { version = "0.4", default-features = false, optional = true }
+packable = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, features = ["std"], optional = true }
 regex = { version = "1.5", default-features = false, features = ["std"], optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
@@ -65,21 +65,21 @@ tower-http = { version = "0.3", default-features = false, features = ["cors", "c
 zeroize = { version = "1.5", default-features = false, features = ["std"], optional = true }
 
 # INX
-inx = { git = "https://github.com/iotaledger/inx", version = "0.4", default-features = false, features = ["types"], optional = true }
+inx = { git = "https://github.com/iotaledger/inx", version = "1.0.0-beta.1", default-features = false, features = ["types"], optional = true }
 
 # Metrics
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
 
 # Stardust types
+bee-api-types-stardust = { package = "bee-api-types", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 bee-block-stardust = { package = "bee-block", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, features = ["std", "serde", "dto"], optional = true }
-bee-rest-api-stardust = { package = "bee-rest-api", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false, optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
 bee-test = { package = "bee-test", git = "https://github.com/iotaledger/bee.git", branch = "shimmer-develop", default-features = false }
-packable = { version = "0.4", default-features = false }
+packable = { version = "0.5", default-features = false }
 
 [features]
 default = [
@@ -118,11 +118,11 @@ metrics = [
 ]
 # The following feature enables metrics that can be used to debug the runtime.
 metrics-debug = [
-    "metrics"
+    "metrics",
 ]
 stardust = [
     "dep:bee-block-stardust",
-    "dep:bee-rest-api-stardust",
+    "dep:bee-api-types-stardust",
 ]
 
 [profile.production]

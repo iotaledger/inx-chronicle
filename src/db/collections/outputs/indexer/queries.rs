@@ -5,7 +5,7 @@ use mongodb::bson::{self, doc, Document};
 use primitive_types::U256;
 
 use crate::types::stardust::{
-    block::{Address, TokenAmount},
+    block::{Address, NativeTokenAmount},
     milestone::MilestoneTimestamp,
 };
 
@@ -106,7 +106,7 @@ impl AppendToQuery for NativeTokensQuery {
                         "$not": {
                             "$elemMatch": {
                                 "amount": {
-                                    "$lt": bson::to_bson(&TokenAmount::from(&min_native_token_count)).unwrap()
+                                    "$lt": bson::to_bson(&NativeTokenAmount::from(&min_native_token_count)).unwrap()
                                 }
                             }
                         }
@@ -119,7 +119,7 @@ impl AppendToQuery for NativeTokensQuery {
                         "$not": {
                             "$elemMatch": {
                                 "amount": {
-                                    "$gt": bson::to_bson(&TokenAmount::from(&max_native_token_count)).unwrap()
+                                    "$gt": bson::to_bson(&NativeTokenAmount::from(&max_native_token_count)).unwrap()
                                 }
                             }
                         }

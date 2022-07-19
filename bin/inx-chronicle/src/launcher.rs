@@ -91,7 +91,7 @@ impl Actor for Launcher {
                 .await;
         }
 
-        Ok(dbg!(config))
+        Ok(config)
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -181,13 +181,14 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
 
 #[cfg(feature = "metrics")]
 #[async_trait]
-impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
+impl HandleEvent<chronicle::runtime::Report<super::metrics::MetricsWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::metrics::MetricsWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        use chronicle::runtime::Report;
         match event {
             Report::Success(_) => {
                 cx.abort().await;

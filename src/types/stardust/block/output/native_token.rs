@@ -11,9 +11,9 @@ use crate::types::util::bytify;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
+pub struct NativeTokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
 
-impl From<&U256> for TokenAmount {
+impl From<&U256> for NativeTokenAmount {
     fn from(value: &U256) -> Self {
         let mut amount = [0; size_of::<U256>()];
         value.to_big_endian(&mut amount);
@@ -21,33 +21,33 @@ impl From<&U256> for TokenAmount {
     }
 }
 
-impl From<TokenAmount> for U256 {
-    fn from(value: TokenAmount) -> Self {
+impl From<NativeTokenAmount> for U256 {
+    fn from(value: NativeTokenAmount) -> Self {
         U256::from_big_endian(&value.0)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TokenId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
+pub struct NativeTokenId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
-impl TokenId {
+impl NativeTokenId {
     const LENGTH: usize = bee::TokenId::LENGTH;
 }
 
-impl From<bee::TokenId> for TokenId {
+impl From<bee::TokenId> for NativeTokenId {
     fn from(value: bee::TokenId) -> Self {
         Self(*value)
     }
 }
 
-impl From<TokenId> for bee::TokenId {
-    fn from(value: TokenId) -> Self {
+impl From<NativeTokenId> for bee::TokenId {
+    fn from(value: NativeTokenId) -> Self {
         bee::TokenId::new(value.0)
     }
 }
 
-impl FromStr for TokenId {
+impl FromStr for NativeTokenId {
     type Err = bee_block_stardust::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -59,9 +59,9 @@ impl FromStr for TokenId {
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TokenScheme {
     Simple {
-        minted_tokens: TokenAmount,
-        melted_tokens: TokenAmount,
-        maximum_supply: TokenAmount,
+        minted_tokens: NativeTokenAmount,
+        melted_tokens: NativeTokenAmount,
+        maximum_supply: NativeTokenAmount,
     },
 }
 
@@ -97,14 +97,14 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeToken {
-    pub token_id: TokenId,
-    pub amount: TokenAmount,
+    pub token_id: NativeTokenId,
+    pub amount: NativeTokenAmount,
 }
 
 impl From<&bee::NativeToken> for NativeToken {
     fn from(value: &bee::NativeToken) -> Self {
         Self {
-            token_id: TokenId(**value.token_id()),
+            token_id: NativeTokenId(**value.token_id()),
             amount: value.amount().into(),
         }
     }
@@ -126,9 +126,9 @@ pub(crate) mod test {
 
     #[test]
     fn test_token_id_bson() {
-        let token_id = TokenId::from(rand_token_id());
+        let token_id = NativeTokenId::from(rand_token_id());
         let bson = to_bson(&token_id).unwrap();
-        assert_eq!(token_id, from_bson::<TokenId>(bson).unwrap());
+        assert_eq!(token_id, from_bson::<NativeTokenId>(bson).unwrap());
     }
 
     #[test]

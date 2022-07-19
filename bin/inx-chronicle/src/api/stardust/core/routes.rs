@@ -10,17 +10,17 @@ use axum::{
     routing::*,
     Router,
 };
-use bee_block_stardust::{
-    output::dto::OutputDto,
-    payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
-    BlockDto,
-};
-use bee_rest_api_stardust::types::{
+use bee_api_types_stardust::{
     dtos::ReceiptDto,
     responses::{
         BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
         ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
     },
+};
+use bee_block_stardust::{
+    output::dto::OutputDto,
+    payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
+    BlockDto,
 };
 use chronicle::{
     db::{
@@ -79,7 +79,7 @@ pub fn routes() -> Router {
                 .route("/:milestone_id", get(milestone))
                 .route("/:milestone_id/utxo-changes", get(utxo_changes))
                 .route("/by-index/:index", get(milestone_by_index))
-                .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
+                .route("/by-index/:index/utxo-changes", not_implemented.into_service()),
         )
         .nest(
             "/peers",
@@ -326,29 +326,33 @@ async fn utxo_changes(
     collect_utxo_changes(&database, milestone_index).await
 }
 
-async fn utxo_changes_by_index(
+async fn _utxo_changes_by_index(
     database: Extension<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
 ) -> ApiResult<UtxoChangesResponse> {
     collect_utxo_changes(&database, milestone_index).await
 }
 
-async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
-    let mut created_outputs = Vec::new();
-    let mut consumed_outputs = Vec::new();
+async fn collect_utxo_changes(_database: &MongoDb, _milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
+    // The following won't work because it will report duplicate outputs. We have to use the `OutputDocument` collection
+    // here instead. The endpoint in the API has been set to return a not implemented status.
 
-    let mut updates = database.stream_ledger_updates_for_index(milestone_index).await?;
-    while let Some(update) = updates.try_next().await? {
-        if update.is_spent {
-            consumed_outputs.push(update.output_id.to_hex());
-        } else {
-            created_outputs.push(update.output_id.to_hex());
-        }
-    }
-
-    Ok(UtxoChangesResponse {
-        index: *milestone_index,
-        created_outputs,
-        consumed_outputs,
-    })
+    // let mut created_outputs = Vec::new();
+    // let mut consumed_outputs = Vec::new();
+    //
+    // let mut updates = database.stream_ledger_updates_by_index(milestone_index).await?;
+    // while let Some(update) = updates.try_next().await? {
+    // if update.is_spent {
+    // consumed_outputs.push(update.output_id.to_hex());
+    // } else {
+    // created_outputs.push(update.output_id.to_hex());
+    // }
+    // }
+    //
+    // Ok(UtxoChangesResponse {
+    // index: *milestone_index,
+    // created_outputs,
+    // consumed_outputs,
+    // })
+    unimplemented!()
 }
