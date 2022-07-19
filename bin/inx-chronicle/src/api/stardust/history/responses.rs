@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LederUpdatesByAddressResponse {
     pub address: String,
     pub items: Vec<LedgerUpdateByAddressResponse>,
@@ -42,6 +43,7 @@ impl From<LedgerUpdateByAddressRecord> for LedgerUpdateByAddressResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LedgerUpdatesByMilestoneResponse {
     pub milestone_index: MilestoneIndex,
     pub items: Vec<LedgerUpdateByMilestoneResponse>,
