@@ -31,6 +31,16 @@ impl From<bee::Address> for Address {
     }
 }
 
+impl From<&bee::Address> for Address {
+    fn from(value: &bee::Address) -> Self {
+        match *value {
+            bee::Address::Ed25519(a) => Self::Ed25519(a.into()),
+            bee::Address::Alias(a) => Self::Alias(a.into()),
+            bee::Address::Nft(a) => Self::Nft(a.into()),
+        }
+    }
+}
+
 impl From<Address> for bee::Address {
     fn from(value: Address) -> Self {
         match value {

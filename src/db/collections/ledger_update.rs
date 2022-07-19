@@ -3,7 +3,7 @@
 
 use futures::Stream;
 use mongodb::{
-    bson::{self, doc, Bson, Document},
+    bson::{self, doc, Document},
     error::Error,
     options::{FindOptions, IndexOptions, UpdateOptions},
     IndexModel,
@@ -14,7 +14,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
-        stardust::block::{Address, OutputId, UnlockConditionType},
+        stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -25,9 +25,6 @@ struct LedgerUpdateDocument {
     address: Address,
     output_id: OutputId,
     at: MilestoneIndexTimestamp,
-    #[serde(with = "crate::types::util::stringify")]
-    amount: u64,
-    unlock_condition_type: UnlockConditionType,
     is_spent: bool,
 }
 
@@ -38,7 +35,7 @@ impl LedgerUpdateDocument {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct LedgerUpdatePerAddressRecord {
+pub struct LedgerUpdateByAddressRecord {
     pub output_id: OutputId,
     pub at: MilestoneIndexTimestamp,
     pub is_spent: bool,
@@ -46,7 +43,7 @@ pub struct LedgerUpdatePerAddressRecord {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct LedgerUpdatePerMilestoneRecord {
+pub struct LedgerUpdateByMilestoneRecord {
     pub address: Address,
     pub output_id: OutputId,
     pub is_spent: bool,
@@ -59,32 +56,12 @@ pub enum SortOrder {
     Oldest,
 }
 
-impl SortOrder {
-    fn is_newest(&self) -> bool {
-        matches!(self, SortOrder::Newest)
-    }
-
-    #[allow(dead_code)]
-    fn is_oldest(&self) -> bool {
-        matches!(self, SortOrder::Oldest)
-    }
+fn newest() -> Document {
+    doc! { "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
 }
 
-impl From<SortOrder> for Bson {
-    fn from(value: SortOrder) -> Self {
-        match value {
-            SortOrder::Newest => Bson::Int32(-1),
-            SortOrder::Oldest => Bson::Int32(1),
-        }
-    }
-}
-
-fn ledger_index() -> Document {
-    doc! { "address": 1, "at.milestone_index": -1, "output_id": 1 }
-}
-
-fn inverse_ledger_index() -> Document {
-    doc! { "address": -1, "at.milestone_index": 1, "output_id": -1 }
+fn oldest() -> Document {
+    doc! { "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -98,12 +75,11 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(ledger_index())
+                    .keys(doc! { "address": 1 })
                     .options(
                         IndexOptions::builder()
-                            // An output can be spent within the same milestone that it was created in.
                             .unique(false)
-                            .name("ledger_index".to_string())
+                            .name("address_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -114,12 +90,11 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "output_id": 1, "is_spent": 1, "unlock_condition": 1 })
+                    .keys(newest())
                     .options(
                         IndexOptions::builder()
-                            // An output can be spent and unspent only once.
                             .unique(true)
-                            .name("id_index".to_string())
+                            .name("cursor_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -139,19 +114,18 @@ impl MongoDb {
         for delta in deltas {
             self.insert_output(delta.clone()).await?;
             // Ledger updates
-            for (address, unlock_condition) in delta.output.owning_addresses() {
+            if let Some(&address) = delta.output.owning_address() {
+                let at = delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked);
                 let doc = LedgerUpdateDocument {
                     address,
                     output_id: delta.metadata.output_id,
-                    at: delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked),
+                    at,
                     is_spent: delta.metadata.spent.is_some(),
-                    amount: delta.output.amount(),
-                    unlock_condition_type: unlock_condition,
                 };
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
-                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent, "unlock_condition": bson::to_document(&doc.unlock_condition_type)? },
+                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent },
                         doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
                     )
@@ -163,103 +137,71 @@ impl MongoDb {
     }
 
     /// Streams updates to the ledger for a given address.
-    pub async fn stream_ledger_updates_for_address(
+    pub async fn stream_ledger_updates_by_address(
         &self,
         address: &Address,
         page_size: usize,
-        start_milestone_index: Option<MilestoneIndex>,
-        start_output_id: Option<OutputId>,
+        cursor: Option<(MilestoneIndex, Option<(OutputId, bool)>)>,
         order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerAddressRecord, Error>>, Error> {
-        let mut filter = doc! {
-            "address": { "$eq": address },
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateByAddressRecord, Error>>, Error> {
+        let (sort, cmp1, cmp2) = match order {
+            SortOrder::Newest => (newest(), "$lt", "$lte"),
+            SortOrder::Oldest => (oldest(), "$gt", "$gte"),
         };
-        if let Some(milestone_index) = start_milestone_index {
-            match order {
-                SortOrder::Newest => {
-                    filter.insert("at.milestone_index", doc! { "$lte": milestone_index });
-                }
-                SortOrder::Oldest => {
-                    filter.insert("at.milestone_index", doc! { "$gte": milestone_index });
-                }
+
+        let mut queries = vec![doc! { "address": address }];
+
+        if let Some((milestone_index, rest)) = cursor {
+            let mut cursor_queries = vec![doc! { "at.milestone_index": { cmp1: milestone_index } }];
+            if let Some((output_id, is_spent)) = rest {
+                cursor_queries.push(doc! {
+                    "at.milestone_index": milestone_index,
+                    "output_id": { cmp1: output_id }
+                });
+                cursor_queries.push(doc! {
+                    "at.milestone_index": milestone_index,
+                    "output_id": output_id,
+                    "is_spent": { cmp2: is_spent }
+                });
             }
-        }
-        if let Some(output_id) = start_output_id {
-            match order {
-                SortOrder::Newest => {
-                    filter.insert("output_id", doc! { "$gte": output_id });
-                }
-                SortOrder::Oldest => {
-                    filter.insert("output_id", doc! { "$lte": output_id });
-                }
-            }
+            queries.push(doc! { "$or": cursor_queries });
         }
 
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(if order.is_newest() {
-                ledger_index()
-            } else {
-                inverse_ledger_index()
-            })
-            .build();
-
         self.0
-            .collection::<LedgerUpdatePerAddressRecord>(LedgerUpdateDocument::COLLECTION)
-            .find(filter, options)
-            .await
-    }
-
-    /// Streams updates to the ledger for a given milestone index.
-    pub async fn stream_ledger_updates_for_index(
-        &self,
-        milestone_index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
-        self.0
-            .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateByAddressRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
-                doc! {
-                    "at.milestone_index": { "$eq": milestone_index },
-                },
-                None,
+                doc! { "$and": queries },
+                FindOptions::builder().limit(page_size as i64).sort(sort).build(),
             )
             .await
     }
 
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
-    pub async fn stream_ledger_updates_for_index_paginated(
+    pub async fn stream_ledger_updates_by_milestone(
         &self,
         milestone_index: MilestoneIndex,
         page_size: usize,
-        start_output_id: Option<OutputId>,
-        order: SortOrder,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdatePerMilestoneRecord, Error>>, Error> {
-        let mut filter = doc! {
-            "at.milestone_index": { "$eq": milestone_index }
-        };
-        if let Some(output_id) = start_output_id {
-            match order {
-                SortOrder::Newest => {
-                    filter.insert("output_id", doc! { "$lte": output_id });
-                }
-                SortOrder::Oldest => {
-                    filter.insert("output_id", doc! { "$gte": output_id });
-                }
-            }
+        cursor: Option<(OutputId, bool)>,
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateByMilestoneRecord, Error>>, Error> {
+        let (cmp1, cmp2) = ("$gt", "$gte");
+
+        let mut queries = vec![doc! { "at.milestone_index": milestone_index }];
+
+        if let Some((output_id, is_spent)) = cursor {
+            let mut cursor_queries = vec![doc! { "output_id": { cmp1: output_id } }];
+            cursor_queries.push(doc! {
+                "output_id": output_id,
+                "is_spent": { cmp2: is_spent }
+            });
+            queries.push(doc! { "$or": cursor_queries });
         }
 
-        let options = FindOptions::builder()
-            .limit(page_size as i64)
-            .sort(if order.is_newest() {
-                ledger_index()
-            } else {
-                inverse_ledger_index()
-            })
-            .build();
-
         self.0
-            .collection::<LedgerUpdatePerMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
-            .find(filter, options)
+            .collection::<LedgerUpdateByMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
+            .find(
+                doc! { "$and": queries },
+                FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
+            )
             .await
     }
 }
