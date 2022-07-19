@@ -11,7 +11,11 @@ use chronicle::{
 };
 use serde::Deserialize;
 
-use crate::api::{error::ParseError, stardust::{sort_order_from_str, DEFAULT_SORT_ORDER, DEFAULT_PAGE_SIZE}, ApiError};
+use crate::api::{
+    error::ParseError,
+    stardust::{sort_order_from_str, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER},
+    ApiError,
+};
 
 #[derive(Clone)]
 pub struct LedgerUpdatesByAddressPagination {
