@@ -6,7 +6,7 @@ use std::{fmt::Display, str::FromStr};
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
 use chronicle::{
-    db::collections::SortOrder,
+    db::collections::{LedgerUpdateByAddressRecord, SortOrder},
     types::{stardust::block::OutputId, tangle::MilestoneIndex},
 };
 use serde::Deserialize;
@@ -181,7 +181,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn address_cursor_from_to_str() {
+    fn ledger_updates_by_address_cursor_from_to_str() {
         let milestone_index = 164338324u32;
         let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
         let is_spent_str = "false";
@@ -189,6 +189,17 @@ mod test {
 
         let cursor = format!("{milestone_index}.{output_id_str}.{is_spent_str}.{page_size_str}",);
         let parsed: LedgerUpdatesByAddressCursor = cursor.parse().unwrap();
+        assert_eq!(parsed.to_string(), cursor);
+    }
+
+    #[test]
+    fn ledger_updates_by_milestone_cursor_from_to_str() {
+        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
+        let is_spent_str = "false";
+        let page_size_str = "1337";
+
+        let cursor = format!("{output_id_str}.{is_spent_str}.{page_size_str}",);
+        let parsed: LedgerUpdatesByMilestoneCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
     }
 }

@@ -11,7 +11,10 @@ use chronicle::{
 use futures::{StreamExt, TryStreamExt};
 
 use super::{
-    extractors::{LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestonePagination},
+    extractors::{
+        LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
+        LedgerUpdatesByMilestonePagination,
+    },
     responses::{
         LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
         LedgerUpdatesByMilestoneResponse,
@@ -95,10 +98,14 @@ async fn ledger_updates_by_milestone(
         .await?;
 
     // If any record is left, use it to make the paging state
-    let cursor = record_stream
-        .try_next()
-        .await?
-        .map(|rec| format!("{}.{}", rec.output_id.to_hex(), page_size));
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        LedgerUpdatesByMilestoneCursor {
+            output_id: rec.output_id,
+            page_size,
+            is_spent: rec.is_spent,
+        }
+        .to_string()
+    });
 
     Ok(LedgerUpdatesByMilestoneResponse {
         milestone_index,
