@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::output::{self as bee};
+use bee_block_stardust::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -101,7 +101,7 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
     type Error = bee_block_stardust::Error;
 
     fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
-        // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
+        // The order of the conditions is important here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(
                 bee::unlock_condition::StateControllerAddressUnlockCondition::from(
