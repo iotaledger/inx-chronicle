@@ -1,13 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
-    types::stardust::block::{Address, OutputId},
+    types::{
+        stardust::block::{Address, OutputId},
+        tangle::MilestoneIndex,
+    },
 };
 use mongodb::bson;
 use primitive_types::U256;
@@ -20,14 +23,49 @@ use crate::api::{
 };
 
 #[derive(Clone)]
-pub struct OutputsPagination<Q>
+pub struct IndexedOutputsPagination<Q>
 where
     bson::Document: From<Q>,
 {
     pub query: Q,
     pub page_size: usize,
-    pub cursor: Option<(u32, OutputId)>,
+    pub cursor: Option<(MilestoneIndex, OutputId)>,
     pub sort: SortOrder,
+}
+
+#[derive(Clone)]
+pub struct IndexedOutputsCursor {
+    pub milestone_index: MilestoneIndex,
+    pub output_id: OutputId,
+    pub page_size: usize,
+}
+
+impl FromStr for IndexedOutputsCursor {
+    type Err = ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.split('.').collect();
+        Ok(match parts[..] {
+            [ms, o, ps] => IndexedOutputsCursor {
+                milestone_index: ms.parse().map_err(ApiError::bad_parse)?,
+                output_id: o.parse().map_err(ApiError::bad_parse)?,
+                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+            },
+            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+        })
+    }
+}
+
+impl Display for IndexedOutputsCursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}.{}.{}",
+            self.milestone_index,
+            self.output_id.to_hex(),
+            self.page_size
+        )
+    }
 }
 
 #[derive(Clone, Deserialize, Default)]
@@ -56,30 +94,24 @@ pub struct BasicOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for OutputsPagination<BasicOutputsQuery> {
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
+        let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let mut cursor = None;
-        if let Some(in_cursor) = query.cursor {
-            let parts = in_cursor.split('.').collect::<Vec<_>>();
-            if parts.len() != 3 {
-                return Err(ApiError::bad_parse(ParseError::BadPagingState));
-            } else {
-                cursor.replace((
-                    parts[0].parse().map_err(ApiError::bad_parse)?,
-                    parts[1].parse().map_err(ApiError::bad_parse)?,
-                ));
-                query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
-            }
-        }
+
+        let (cursor, page_size) = if let Some(cursor) = query.cursor {
+            let cursor: IndexedOutputsCursor = cursor.parse()?;
+            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+        } else {
+            (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
+        };
 
         let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
 
-        Ok(OutputsPagination {
+        Ok(IndexedOutputsPagination {
             query: BasicOutputsQuery {
                 address: query
                     .address
@@ -123,7 +155,7 @@ impl<B: Send> FromRequest<B> for OutputsPagination<BasicOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+            page_size,
             cursor,
             sort,
         })
@@ -148,30 +180,24 @@ pub struct AliasOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for OutputsPagination<AliasOutputsQuery> {
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
+        let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let mut cursor = None;
-        if let Some(in_cursor) = query.cursor {
-            let parts = in_cursor.split('.').collect::<Vec<_>>();
-            if parts.len() != 3 {
-                return Err(ApiError::bad_parse(ParseError::BadPagingState));
-            } else {
-                cursor.replace((
-                    parts[0].parse().map_err(ApiError::bad_parse)?,
-                    parts[1].parse().map_err(ApiError::bad_parse)?,
-                ));
-                query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
-            }
-        }
+
+        let (cursor, page_size) = if let Some(cursor) = query.cursor {
+            let cursor: IndexedOutputsCursor = cursor.parse()?;
+            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+        } else {
+            (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
+        };
 
         let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
 
-        Ok(OutputsPagination {
+        Ok(IndexedOutputsPagination {
             query: AliasOutputsQuery {
                 state_controller: query
                     .state_controller
@@ -207,7 +233,7 @@ impl<B: Send> FromRequest<B> for OutputsPagination<AliasOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+            page_size,
             cursor,
             sort,
         })
@@ -229,30 +255,24 @@ pub struct FoundryOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for OutputsPagination<FoundryOutputsQuery> {
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
+        let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let mut cursor = None;
-        if let Some(in_cursor) = query.cursor {
-            let parts = in_cursor.split('.').collect::<Vec<_>>();
-            if parts.len() != 3 {
-                return Err(ApiError::bad_parse(ParseError::BadPagingState));
-            } else {
-                cursor.replace((
-                    parts[0].parse().map_err(ApiError::bad_parse)?,
-                    parts[1].parse().map_err(ApiError::bad_parse)?,
-                ));
-                query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
-            }
-        }
+
+        let (cursor, page_size) = if let Some(cursor) = query.cursor {
+            let cursor: IndexedOutputsCursor = cursor.parse()?;
+            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+        } else {
+            (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
+        };
 
         let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
 
-        Ok(OutputsPagination {
+        Ok(IndexedOutputsPagination {
             query: FoundryOutputsQuery {
                 alias_address: query
                     .alias_address
@@ -273,7 +293,7 @@ impl<B: Send> FromRequest<B> for OutputsPagination<FoundryOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+            page_size,
             cursor,
             sort,
         })
@@ -307,30 +327,24 @@ pub struct NftOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for OutputsPagination<NftOutputsQuery> {
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<NftOutputsPaginationQuery>::from_request(req)
+        let Query(query) = Query::<NftOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let mut cursor = None;
-        if let Some(in_cursor) = query.cursor {
-            let parts = in_cursor.split('.').collect::<Vec<_>>();
-            if parts.len() != 3 {
-                return Err(ApiError::bad_parse(ParseError::BadPagingState));
-            } else {
-                cursor.replace((
-                    parts[0].parse().map_err(ApiError::bad_parse)?,
-                    parts[1].parse().map_err(ApiError::bad_parse)?,
-                ));
-                query.page_size.replace(parts[2].parse().map_err(ApiError::bad_parse)?);
-            }
-        }
+
+        let (cursor, page_size) = if let Some(cursor) = query.cursor {
+            let cursor: IndexedOutputsCursor = cursor.parse()?;
+            (Some((cursor.milestone_index, cursor.output_id)), cursor.page_size)
+        } else {
+            (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
+        };
 
         let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
 
-        Ok(OutputsPagination {
+        Ok(IndexedOutputsPagination {
             query: NftOutputsQuery {
                 address: query
                     .address
@@ -379,9 +393,25 @@ impl<B: Send> FromRequest<B> for OutputsPagination<NftOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+            page_size,
             cursor,
             sort,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn indexed_outputs_cursor_from_to_str() {
+        let milestone_index = 164338324u32;
+        let output_id_str = "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100";
+        let page_size_str = "1337";
+
+        let cursor = format!("{milestone_index}.{output_id_str}.{page_size_str}",);
+        let parsed: IndexedOutputsCursor = cursor.parse().unwrap();
+        assert_eq!(parsed.to_string(), cursor);
     }
 }

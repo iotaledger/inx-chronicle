@@ -14,10 +14,10 @@ use chronicle::{
 use mongodb::bson;
 
 use super::{
-    extractors::OutputsPagination,
+    extractors::IndexedOutputsPagination,
     responses::{IndexerOutputResponse, IndexerOutputsResponse},
 };
-use crate::api::{ApiError, ApiResult};
+use crate::api::{stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().nest(
@@ -92,12 +92,12 @@ async fn output_by_nft_id(
 
 async fn indexed_outputs<Q>(
     database: Extension<MongoDb>,
-    OutputsPagination {
+    IndexedOutputsPagination {
         query,
         page_size,
         cursor,
         sort,
-    }: OutputsPagination<Q>,
+    }: IndexedOutputsPagination<Q>,
 ) -> ApiResult<IndexerOutputsResponse>
 where
     bson::Document: From<Q>,
@@ -119,9 +119,14 @@ where
     let items = iter.by_ref().take(page_size).map(|o| o.output_id.to_hex()).collect();
 
     // If any record is left, use it to make the cursor
-    let cursor = iter
-        .next()
-        .map(|rec| format!("{}.{}.{}", rec.booked_index, rec.output_id.to_hex(), page_size));
+    let cursor = iter.next().map(|rec| {
+        IndexedOutputsCursor {
+            milestone_index: rec.booked_index,
+            output_id: rec.output_id,
+            page_size,
+        }
+        .to_string()
+    });
 
     Ok(IndexerOutputsResponse {
         ledger_index: res.ledger_index.0,
