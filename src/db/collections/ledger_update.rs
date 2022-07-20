@@ -262,22 +262,22 @@ impl MongoDb {
                             { "$match": { 
                                 "$or": {
                                     // an alias output, or ...
-                                    "$eq": { "$output_doc.output.kind": "alias" },
+                                    "output_doc.output.kind": { "$eq": "alias" },
                                     // a foundry output, or ...
-                                    "$eq": { "$output_doc.output.kind": "foundry" },
+                                    "output_doc.output.kind": { "$eq": "foundry" },
                                     // a basic output without certain unlock conditions ...
                                     "$and": {
-                                        "$eq": { "$output_doc.output.kind": "basic" },
-                                        "$exists": { "$output_doc.output.storage_deposit_return_unlock_condition": false },
-                                        "$exists": { "$output_doc.output.timelock_unlock_condition": false },
-                                        "$exists": { "$output_doc.output.expiration_unlock_condition": false },
+                                        "output_doc.output.kind": { "$eq":  "basic" },
+                                        "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
+                                        "output_doc.output.timelock_unlock_condition": { "$eq": null },
+                                        "output_doc.output.expiration_unlock_condition":  { "$eq": null },
                                     },
                                     // an NFT output without certain unlock conditions ...
                                     "$and": {
-                                        "$eq": { "$output_doc.output.kind": "nft" },
-                                        "$exists": { "$output_doc.output.storage_deposit_return_unlock_condition": false },
-                                        "$exists": { "$output_doc.output.timelock_unlock_condition": false },
-                                        "$exists": { "$output_doc.output.expiration_unlock_condition": false },
+                                        "output_doc.output.kind": { "$eq":  "nft" },
+                                        "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
+                                        "output_doc.output.timelock_unlock_condition": { "$eq": null },
+                                        "output_doc.output.expiration_unlock_condition": { "$eq": null },
                                     },
                                 },
                             } },
