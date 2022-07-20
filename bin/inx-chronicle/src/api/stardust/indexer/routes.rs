@@ -81,7 +81,7 @@ where
             query,
             // Get one extra record so that we can create the cursor.
             page_size + 1,
-            cursor.map(|(ms, o)| (ms.into(), o)),
+            cursor,
             sort,
         )
         .await?
