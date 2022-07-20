@@ -150,7 +150,7 @@ impl MongoDb {
                 ),
             };
 
-            let mut query_doc = bson::Document::from(query);
+            let query_doc = bson::Document::from(query);
             let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
             if let Some((start_ms, start_output_id)) = cursor {
                 additional_queries.push(doc! { "$or": [
@@ -161,8 +161,12 @@ impl MongoDb {
                     },
                 ] });
             }
-            query_doc.insert("$and", additional_queries);
-            let match_doc = doc! { "$match": query_doc };
+            let match_doc = doc! { "$match": {
+                "$and": [
+                    query_doc,
+                    { "$and": additional_queries }
+                ]
+            } };
             let outputs = self
                 .0
                 .collection::<OutputResult>(OutputDocument::COLLECTION)
