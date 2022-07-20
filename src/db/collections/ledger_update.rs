@@ -245,7 +245,6 @@ impl MongoDb {
                         "as":"output_doc",
                     } },
                     // Calculate the total balance and the signature unlockable balance.
-                    // TODO: is this sufficiently qualified to reach the actual amount?
                     doc! { "$facet": {
                         "total_balance": [
                             { "$group" : {
@@ -268,7 +267,7 @@ impl MongoDb {
                                         "output_doc.output.timelock_unlock_condition": { "$eq": null },
                                         "output_doc.output.expiration_unlock_condition":  { "$eq": null },
                                     },
-                                    // an NFT output without certain unlock conditions ...
+                                    // an NFT output without certain unlock conditions.
                                     "$and": {
                                         "output_doc.output.kind": { "$eq": "nft" },
                                         "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
