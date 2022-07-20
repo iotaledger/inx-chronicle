@@ -219,7 +219,7 @@ impl MongoDb {
         #[derive(Deserialize, Default)]
         struct Balances {
             total_balance: Amount,
-            unlockable_balance: Amount,
+            sig_locked_balance: Amount,
         }
 
         let balances = self
@@ -231,8 +231,8 @@ impl MongoDb {
                     doc! { "$match": {
                         "address": &address,
                     } },
-                    // Build groups of `OutputId` rows.
-                    // TODO: this can probably be done more elegantly.
+                    // Reduce over documents with the same `OutputId` collecting `is_spent` fields.
+                    // TODO: this could be done more elegantly if we could just apply `logical and` on the fly.
                     doc! { "$group": {
                         "_id": "$output_id",
                         "$push": { "unspent": { "$not": [ "$is_spent" ] } }
@@ -241,14 +241,14 @@ impl MongoDb {
                     doc! { "$match": {
                         "$allElementsTrue": "$unspent",
                     } },
-                    // In order to get the amounts associated with the unspent output we have query the outputs coll.
+                    // In order to get the amounts we have to look them up from the outputs collection.
                     doc! { "$lookup": {
                         "from": OutputDocument::COLLECTION,
                         "localField": "output_id",
                         "foreignField": "output_id",
                         "as":"output_doc",
                     } },
-                    // Calculate the total balance and the immediatedly unlockable balance.
+                    // Calculate the total balance and the signature unlockable balance.
                     // TODO: is this sufficiently qualified to reach the actual amount?
                     doc! { "$facet": {
                         "total_balance": [
@@ -257,8 +257,9 @@ impl MongoDb {
                                 "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
                             }},
                         ],
-                        "unlockable_balance": [
+                        "sig_locked_balance": [
                             // TODO: find the right match that does the same as `is_trivial_unlock`.
+                            { "$match": { } },
                             { "$group" : {
                                 "_id": "null",
                                 "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
@@ -277,7 +278,7 @@ impl MongoDb {
 
         Ok((
             balances.total_balance.amount as u64,
-            balances.unlockable_balance.amount as u64,
+            balances.sig_locked_balance.amount as u64,
         ))
     }
 }
