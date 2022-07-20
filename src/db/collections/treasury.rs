@@ -33,7 +33,7 @@ impl TreasuryDocument {
 /// The latest treasury information.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct TreasuryResult {
+pub struct TreasuryRecord {
     pub milestone_id: MilestoneId,
     pub amount: u64,
 }
@@ -42,12 +42,18 @@ pub struct TreasuryResult {
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_treasury_indexes(&self) -> Result<(), Error> {
-        self.0
-            .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+        let collection = self.0.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
+
+        collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "milestone_index": -1, "milestone_id": 1 })
-                    .options(IndexOptions::builder().unique(true).build())
+                    .keys(doc! { "at.milestone_index": -1, "milestone_id": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("treasury_index".to_string())
+                            .build(),
+                    )
                     .build(),
                 None,
             )
@@ -76,9 +82,9 @@ impl MongoDb {
     }
 
     /// Returns the current state of the treasury.
-    pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryResult>, Error> {
+    pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryRecord>, Error> {
         self.0
-            .collection::<TreasuryResult>(TreasuryDocument::COLLECTION)
+            .collection::<TreasuryRecord>(TreasuryDocument::COLLECTION)
             .find_one(
                 doc! {},
                 FindOneOptions::builder().sort(doc! { "milestone_index": -1 }).build(),

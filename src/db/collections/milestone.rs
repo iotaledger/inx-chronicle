@@ -45,9 +45,8 @@ impl MilestoneDocument {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub(crate) struct MilestoneRecord {
-    pub(crate) milestone_index: MilestoneIndex,
     pub(crate) milestone_id: MilestoneId,
-    pub(crate) milestone_timestamp: MilestoneTimestamp,
+    pub(crate) at: MilestoneIndexTimestamp,
     pub(crate) payload: MilestonePayload,
     pub(crate) is_synced: bool,
 }
@@ -69,8 +68,8 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "milestone_index": 1 })
-                    .options(IndexOptions::builder().unique(true).build())
+                    .keys(doc! { "at.milestone_index": 1 })
+                    .options(IndexOptions::builder().unique(true).name("milestone_idx_index".to_string()).build())
                     .build(),
                 None,
             )
@@ -79,8 +78,8 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "milestone_timestamp": 1 })
-                    .options(IndexOptions::builder().unique(true).build())
+                    .keys(doc! { "at.milestone_timestamp": 1 })
+                    .options(IndexOptions::builder().unique(true).name("milestone_timestamp_index".to_string()).build())
                     .build(),
                 None,
             )
@@ -90,7 +89,7 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "milestone_id": 1 })
-                    .options(IndexOptions::builder().unique(true).build())
+                    .options(IndexOptions::builder().unique(true).name("milestone_id_index".to_string()).build())
                     .build(),
                 None,
             )
@@ -209,7 +208,7 @@ impl MongoDb {
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! {
-                    "milestone_timestamp": { "$gte": start_timestamp },
+                    "at.milestone_timestamp": { "$gte": start_timestamp },
                     "is_synced": true
                 },
                 FindOneOptions::builder().sort(doc! {"at.milestone_index": 1}).build(),
@@ -228,7 +227,7 @@ impl MongoDb {
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! {
-                    "milestone_timestamp": { "$lte": end_timestamp },
+                    "at.milestone_timestamp": { "$lte": end_timestamp },
                     "is_synced": true
                 },
                 FindOneOptions::builder().sort(doc! {"at.milestone_index": -1}).build(),
@@ -345,8 +344,8 @@ impl MongoDb {
             .find(
                 doc! { "is_synced": true },
                 FindOptions::builder()
-                    .sort(doc! {"milestone_index": 1})
-                    .projection(doc! {"milestone_index": 1})
+                    .sort(doc! {"at.milestone_index": 1})
+                    .projection(doc! {"at.milestone_index": 1})
                     .build(),
             )
             .await
@@ -388,7 +387,7 @@ impl MongoDb {
                     } },
                     doc! { "$replaceWith": {
                         "receipt": "options.receipt" ,
-                        "at": "$milestone_index" ,
+                        "at": "$at.milestone_index" ,
                     } },
                     doc! { "$sort": { "at": 1 } },
                 ],
@@ -426,7 +425,7 @@ impl MongoDb {
                     } },
                     doc! { "$replaceWith": {
                         "receipt": "options.receipt" ,
-                        "at": "$milestone_index" ,
+                        "at": "$at.milestone_index" ,
                     } },
                     doc! { "$sort": { "at": 1 } },
                 ],

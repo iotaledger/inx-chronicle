@@ -72,7 +72,12 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "output_id": 1 })
-                    .options(IndexOptions::builder().unique(true).build())
+                    .options(
+                        IndexOptions::builder()
+                            .unique(true)
+                            .name("output_id_index".to_string())
+                            .build(),
+                    )
                     .build(),
                 None,
             )
