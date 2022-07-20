@@ -27,12 +27,10 @@ use crate::{
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct MilestoneDocument {
-    /// The milestone index.
-    milestone_index: MilestoneIndex,
     /// The [`MilestoneId`](MilestoneId) of the milestone.
     milestone_id: MilestoneId,
-    /// The timestamp of the milestone.
-    milestone_timestamp: MilestoneTimestamp,
+    /// The milestone index and timestamp.
+    at: MilestoneIndexTimestamp,
     /// The milestone's payload.
     payload: MilestonePayload,
     /// The milestone's sync status.
@@ -47,9 +45,8 @@ impl MilestoneDocument {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub(crate) struct MilestoneRecord {
-    pub(crate) milestone_index: MilestoneIndex,
     pub(crate) milestone_id: MilestoneId,
-    pub(crate) milestone_timestamp: MilestoneTimestamp,
+    pub(crate) at: MilestoneIndexTimestamp,
     pub(crate) payload: MilestonePayload,
     pub(crate) is_synced: bool,
 }
@@ -71,13 +68,8 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "milestone_index": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_idx_index".to_string())
-                            .build(),
-                    )
+                    .keys(doc! { "at.milestone_index": 1 })
+                    .options(IndexOptions::builder().unique(true).name("milestone_idx_index".to_string()).build())
                     .build(),
                 None,
             )
@@ -86,13 +78,8 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "milestone_timestamp": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_timestamp_index".to_string())
-                            .build(),
-                    )
+                    .keys(doc! { "at.milestone_timestamp": 1 })
+                    .options(IndexOptions::builder().unique(true).name("milestone_timestamp_index".to_string()).build())
                     .build(),
                 None,
             )
@@ -102,12 +89,7 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_id_index".to_string())
-                            .build(),
-                    )
+                    .options(IndexOptions::builder().unique(true).name("milestone_id_index".to_string()).build())
                     .build(),
                 None,
             )
@@ -147,7 +129,7 @@ impl MongoDb {
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "milestone_index": index } },
+                    doc! { "$match": { "at.milestone_index": index } },
                     doc! { "$replaceWith": "$payload" },
                 ],
                 None,
@@ -172,9 +154,9 @@ impl MongoDb {
             .0
             .collection::<TimestampResult>(MilestoneDocument::COLLECTION)
             .find_one(
-                doc! { "milestone_index": index },
+                doc! { "at.milestone_index": index },
                 FindOneOptions::builder()
-                    .projection(doc! { "milestone_timestamp": 1 })
+                    .projection(doc! { "at.milestone_timestamp": 1 })
                     .build(),
             )
             .await?
@@ -193,8 +175,10 @@ impl MongoDb {
     ) -> Result<(), Error> {
         let milestone_document = MilestoneDocument {
             milestone_id,
-            milestone_index,
-            milestone_timestamp,
+            at: MilestoneIndexTimestamp {
+                milestone_index,
+                milestone_timestamp,
+            },
             payload,
             is_synced: Default::default(),
         };
@@ -205,7 +189,7 @@ impl MongoDb {
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
-                doc! { "milestone_index": milestone_index },
+                doc! { "at.milestone_index": milestone_index },
                 doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -222,23 +206,15 @@ impl MongoDb {
         Ok(self
             .0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .find(
+            .find_one(
                 doc! {
-                    "milestone_timestamp": { "$gte": start_timestamp },
+                    "at.milestone_timestamp": { "$gte": start_timestamp },
                     "is_synced": true
                 },
-                FindOptions::builder()
-                    .sort(doc! {"milestone_index": 1})
-                    .limit(1)
-                    .build(),
+                FindOneOptions::builder().sort(doc! {"at.milestone_index": 1}).build(),
             )
             .await?
-            .try_next()
-            .await?
-            .map(|d| MilestoneIndexTimestamp {
-                milestone_index: d.milestone_index,
-                milestone_timestamp: d.milestone_timestamp,
-            }))
+            .map(|d| d.at))
     }
 
     /// Find the end milestone.
@@ -249,23 +225,15 @@ impl MongoDb {
         Ok(self
             .0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .find(
+            .find_one(
                 doc! {
-                    "milestone_timestamp": { "$lte": end_timestamp },
+                    "at.milestone_timestamp": { "$lte": end_timestamp },
                     "is_synced": true
                 },
-                FindOptions::builder()
-                    .sort(doc! {"milestone_index": -1})
-                    .limit(1)
-                    .build(),
+                FindOneOptions::builder().sort(doc! {"at.milestone_index": -1}).build(),
             )
             .await?
-            .try_next()
-            .await?
-            .map(|d| MilestoneIndexTimestamp {
-                milestone_index: d.milestone_index,
-                milestone_timestamp: d.milestone_timestamp,
-            }))
+            .map(|d| d.at))
     }
 
     /// Find the latest milestone inserted.
@@ -275,7 +243,7 @@ impl MongoDb {
             .find(
                 doc! { "is_synced": true },
                 FindOptions::builder()
-                    .sort(doc! {"milestone_index": -1})
+                    .sort(doc! {"at.milestone_index": -1})
                     .limit(1)
                     .build(),
             )
@@ -289,7 +257,7 @@ impl MongoDb {
         self.0
             .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
             .update_one(
-                doc! { "milestone_index": index },
+                doc! { "at.milestone_index": index },
                 doc! { "$set": {
                     "is_synced": true,
                 }},
@@ -314,12 +282,12 @@ impl MongoDb {
             .collection::<SyncEntry>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
-                    "milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
+                    "at.milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
                     "is_synced": { "$eq": true }
                 },
                 FindOptions::builder()
-                    .sort(doc! {"milestone_index": 1u32})
-                    .projection(doc! {"milestone_index": 1u32})
+                    .sort(doc! {"at.milestone_index": 1u32})
+                    .projection(doc! {"at.milestone_index": 1u32})
                     .build(),
             )
             .await
@@ -376,8 +344,8 @@ impl MongoDb {
             .find(
                 doc! { "is_synced": true },
                 FindOptions::builder()
-                    .sort(doc! {"milestone_index": 1})
-                    .projection(doc! {"milestone_index": 1})
+                    .sort(doc! {"at.milestone_index": 1})
+                    .projection(doc! {"at.milestone_index": 1})
                     .build(),
             )
             .await
@@ -419,7 +387,7 @@ impl MongoDb {
                     } },
                     doc! { "$replaceWith": {
                         "receipt": "options.receipt" ,
-                        "at": "$milestone_index" ,
+                        "at": "$at.milestone_index" ,
                     } },
                     doc! { "$sort": { "at": 1 } },
                 ],
@@ -457,7 +425,7 @@ impl MongoDb {
                     } },
                     doc! { "$replaceWith": {
                         "receipt": "options.receipt" ,
-                        "at": "$milestone_index" ,
+                        "at": "$at.milestone_index" ,
                     } },
                     doc! { "$sort": { "at": 1 } },
                 ],

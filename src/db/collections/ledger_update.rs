@@ -57,11 +57,11 @@ pub enum SortOrder {
 }
 
 fn newest() -> Document {
-    doc! { "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": -1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -75,26 +75,11 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "address": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(false)
-                            .name("address_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
                     .keys(newest())
                     .options(
                         IndexOptions::builder()
                             .unique(true)
-                            .name("cursor_index".to_string())
+                            .name("ledger_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -225,6 +210,18 @@ mod analytics {
         pub send_addresses: u64,
     }
 
+    #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+    pub struct TransactionAnalyticsResult {
+        pub count: u64,
+        pub total_value: f64,
+        pub avg_value: f64,
+    }
+
+    #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+    pub struct StorageDepositAnalyticsResult {
+        pub sdruc_amount: f64,
+    }
+
     impl MongoDb {
         /// Create aggregate statistics of all addresses.
         pub async fn get_address_analytics(
@@ -237,7 +234,7 @@ mod analytics {
                 .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                 .aggregate(
                     vec![
-                        doc! { "$match": { "at.milestone_timestamp": { "$gt": start_timestamp, "$lt": end_timestamp } } },
+                        doc! { "$match": { "at.milestone_timestamp": { "$gte": start_timestamp, "$lte": end_timestamp } } },
                         doc! { "$facet": {
                             "total": [
                                 { "$group" : {
@@ -273,6 +270,67 @@ mod analytics {
                 .await?
                 .map(bson::from_document)
                 .transpose()?)
+        }
+
+        /// Gathers transaction analytics.
+        pub async fn get_transaction_analytics(
+            &self,
+            start_timestamp: MilestoneTimestamp,
+            end_timestamp: MilestoneTimestamp,
+        ) -> Result<TransactionAnalyticsResult, Error> {
+            Ok(self
+                .0
+                .collection::<TransactionAnalyticsResult>(LedgerUpdateDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "at.milestone_timestamp": { "$gte": start_timestamp, "$lte": end_timestamp } } },
+                        doc! { "$group": {
+                            "_id": "null",
+                            "count": { "$sum": 1 },
+                            "total_value": { "$sum": { "$toDouble": "$amount" } },
+                            "avg_value": { "$avg": { "$toDouble": "$amount" } },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?
+                .unwrap_or_default())
+        }
+
+        /// Computes the total amount of tokens locked up in a
+        /// [`UnlockCondition::StorageDepositReturn`](crate::types::stardust::output::UnlockCondition), which is often
+        /// also called SDRUC.
+        pub async fn get_sdruc_analytics(
+            &self,
+            start_timestamp: MilestoneTimestamp,
+            end_timestamp: MilestoneTimestamp,
+        ) -> Result<StorageDepositAnalyticsResult, Error> {
+            Ok(self
+                .0
+                .collection::<TransactionAnalyticsResult>(LedgerUpdateDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "at.milestone_timestamp": { "$gte": start_timestamp, "$lte": end_timestamp },
+                            "unlock_condition_type.kind": "storage_deposit_return",
+                        } },
+                        doc! { "$group": {
+                            "_id": "null",
+                            "sdruc_amount": { "$sum": { "$toDouble": "$unlock_condition_type.amount" } },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?
+                .unwrap_or_default())
         }
     }
 }

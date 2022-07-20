@@ -67,10 +67,10 @@ impl Actor for Launcher {
 
         #[cfg(feature = "stardust")]
         {
-            db.create_output_indexes().await?;
             db.create_block_indexes().await?;
             db.create_ledger_update_indexes().await?;
             db.create_milestone_indexes().await?;
+            db.create_output_indexes().await?;
         }
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
