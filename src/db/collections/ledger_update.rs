@@ -258,8 +258,8 @@ impl MongoDb {
                             }},
                         ],
                         "sig_locked_balance": [
-                            // We do want to sum amounts if it's ... 
-                            { "$match": { 
+                            // We do want to sum amounts if it's ...
+                            { "$match": {
                                 "$or": {
                                     // an alias output, or ...
                                     "output_doc.output.kind": { "$eq": "alias" },
@@ -267,14 +267,14 @@ impl MongoDb {
                                     "output_doc.output.kind": { "$eq": "foundry" },
                                     // a basic output without certain unlock conditions ...
                                     "$and": {
-                                        "output_doc.output.kind": { "$eq":  "basic" },
+                                        "output_doc.output.kind": { "$eq": "basic" },
                                         "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
                                         "output_doc.output.timelock_unlock_condition": { "$eq": null },
                                         "output_doc.output.expiration_unlock_condition":  { "$eq": null },
                                     },
                                     // an NFT output without certain unlock conditions ...
                                     "$and": {
-                                        "output_doc.output.kind": { "$eq":  "nft" },
+                                        "output_doc.output.kind": { "$eq": "nft" },
                                         "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
                                         "output_doc.output.timelock_unlock_condition": { "$eq": null },
                                         "output_doc.output.expiration_unlock_condition": { "$eq": null },
