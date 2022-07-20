@@ -20,7 +20,7 @@ use super::{cone_stream::ConeStream, InxError};
 pub struct LedgerUpdateStream {
     db: MongoDb,
     inx: InxClient<Channel>,
-    range: RangeInclusive<MilestoneIndex>,
+    pub(crate) range: RangeInclusive<MilestoneIndex>,
 }
 
 impl LedgerUpdateStream {

@@ -55,6 +55,9 @@ connection_retry_count = 10
 ### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
 sync_start_milestone = 1 
 
+### Number of milestones to sync at a time. This will report progress in this batch size to INFO level logs.
+sync_batch_size = 100
+
 [metrics]
 ### Whether metrics will be served.
 enabled = true

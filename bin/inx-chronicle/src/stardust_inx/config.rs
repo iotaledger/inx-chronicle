@@ -20,6 +20,8 @@ pub struct InxConfig {
     pub connection_retry_count: usize,
     /// The milestone at which synchronization should begin.
     pub sync_start_milestone: MilestoneIndex,
+    /// The number of milestones to sync at a time. Will default to gap size.
+    pub sync_batch_size: Option<u32>,
 }
 
 impl Default for InxConfig {
@@ -30,6 +32,7 @@ impl Default for InxConfig {
             connection_retry_interval: Duration::from_secs(5),
             connection_retry_count: 5,
             sync_start_milestone: 1.into(),
+            sync_batch_size: None,
         }
     }
 }
