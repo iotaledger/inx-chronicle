@@ -258,8 +258,29 @@ impl MongoDb {
                             }},
                         ],
                         "sig_locked_balance": [
-                            // TODO: find the right match that does the same as `is_trivial_unlock`.
-                            { "$match": { } },
+                            // We do want to sum amounts if it's ... 
+                            { "$match": { 
+                                "$or": {
+                                    // an alias output, or ...
+                                    "$eq": { "$output_doc.output.kind": "alias" },
+                                    // a foundry output, or ...
+                                    "$eq": { "$output_doc.output.kind": "foundry" },
+                                    // a basic output without certain unlock conditions ...
+                                    "$and": {
+                                        "$eq": { "$output_doc.output.kind": "basic" },
+                                        "$exists": { "$output_doc.output.storage_deposit_return_unlock_condition": false },
+                                        "$exists": { "$output_doc.output.timelock_unlock_condition": false },
+                                        "$exists": { "$output_doc.output.expiration_unlock_condition": false },
+                                    },
+                                    // an NFT output without certain unlock conditions ...
+                                    "$and": {
+                                        "$eq": { "$output_doc.output.kind": "nft" },
+                                        "$exists": { "$output_doc.output.storage_deposit_return_unlock_condition": false },
+                                        "$exists": { "$output_doc.output.timelock_unlock_condition": false },
+                                        "$exists": { "$output_doc.output.expiration_unlock_condition": false },
+                                    },
+                                },
+                            } },
                             { "$group" : {
                                 "_id": "null",
                                 "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
