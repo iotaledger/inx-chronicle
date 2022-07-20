@@ -1,64 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{
-    bson::{self, doc},
-    error::Error,
-};
+use mongodb::bson::{self, doc};
 use primitive_types::U256;
 
-use super::{
-    queries::{
-        AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, IssuerQuery, NativeTokensQuery, SenderQuery,
-        StorageDepositReturnQuery, TagQuery, TimelockQuery,
-    },
-    OutputDocument,
+use super::queries::{
+    AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, IssuerQuery, NativeTokensQuery, SenderQuery,
+    StorageDepositReturnQuery, TagQuery, TimelockQuery,
 };
-use crate::{
-    db::MongoDb,
-    types::{
-        stardust::{
-            block::{Address, NftId, OutputId},
-            milestone::MilestoneTimestamp,
-        },
-        tangle::MilestoneIndex,
-    },
-};
-
-#[derive(Clone, Debug)]
-#[allow(missing_docs)]
-pub struct NftOutputResult {
-    pub ledger_index: MilestoneIndex,
-    pub output_id: OutputId,
-}
-
-/// Implements the queries for the core API.
-impl MongoDb {
-    /// Gets the current unspent nft output id with the given nft id.
-    pub async fn get_nft_output_by_id(&self, nft_id: NftId) -> Result<Option<NftOutputResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            let res = self
-                .0
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .find_one(
-                    doc! {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "output.nft_id": nft_id,
-                        "metadata.spent": null,
-                    },
-                    None,
-                )
-                .await?;
-            Ok(res.map(|doc| NftOutputResult {
-                ledger_index,
-                output_id: doc.output_id,
-            }))
-        } else {
-            Ok(None)
-        }
-    }
-}
+use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default)]
 #[allow(missing_docs)]

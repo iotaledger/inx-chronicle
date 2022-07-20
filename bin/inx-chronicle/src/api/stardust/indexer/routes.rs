@@ -6,7 +6,7 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{
-        collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery},
+        collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery},
         MongoDb,
     },
     types::stardust::block::{AliasId, FoundryId, NftId},
@@ -28,60 +28,34 @@ pub fn routes() -> Router {
                 "/alias",
                 Router::new()
                     .route("/", get(indexed_outputs::<AliasOutputsQuery>))
-                    .route("/:alias_id", get(output_by_alias_id)),
+                    .route("/:alias_id", get(indexed_output_by_id::<AliasId>)),
             )
             .nest(
                 "/foundry",
                 Router::new()
                     .route("/", get(indexed_outputs::<FoundryOutputsQuery>))
-                    .route("/:foundry_id", get(output_by_foundry_id)),
+                    .route("/:foundry_id", get(indexed_output_by_id::<FoundryId>)),
             )
             .nest(
                 "/nft",
                 Router::new()
                     .route("/", get(indexed_outputs::<NftOutputsQuery>))
-                    .route("/:nft_id", get(output_by_nft_id)),
+                    .route("/:nft_id", get(indexed_output_by_id::<NftId>)),
             ),
     )
 }
 
-async fn output_by_alias_id(
+async fn indexed_output_by_id<ID>(
     database: Extension<MongoDb>,
-    Path(alias_id): Path<String>,
-) -> ApiResult<IndexerOutputResponse> {
-    let alias_id = AliasId::from_str(&alias_id)?;
+    Path(id): Path<String>,
+) -> ApiResult<IndexerOutputResponse>
+where
+    ID: Into<IndexedId> + FromStr,
+    ApiError: From<ID::Err>,
+{
+    let id = ID::from_str(&id)?;
     let res = database
-        .get_alias_output_by_id(alias_id)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    Ok(IndexerOutputResponse {
-        ledger_index: res.ledger_index.0,
-        output_id: res.output_id.to_hex(),
-    })
-}
-
-async fn output_by_foundry_id(
-    database: Extension<MongoDb>,
-    Path(foundry_id): Path<String>,
-) -> ApiResult<IndexerOutputResponse> {
-    let foundry_id = FoundryId::from_str(&foundry_id)?;
-    let res = database
-        .get_foundry_output_by_id(foundry_id)
-        .await?
-        .ok_or(ApiError::NoResults)?;
-    Ok(IndexerOutputResponse {
-        ledger_index: res.ledger_index.0,
-        output_id: res.output_id.to_hex(),
-    })
-}
-
-async fn output_by_nft_id(
-    database: Extension<MongoDb>,
-    Path(nft_id): Path<String>,
-) -> ApiResult<IndexerOutputResponse> {
-    let nft_id = NftId::from_str(&nft_id)?;
-    let res = database
-        .get_nft_output_by_id(nft_id)
+        .get_indexed_output_by_id(id)
         .await?
         .ok_or(ApiError::NoResults)?;
     Ok(IndexerOutputResponse {

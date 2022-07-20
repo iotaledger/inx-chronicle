@@ -7,9 +7,10 @@ mod foundry;
 mod nft;
 mod queries;
 
+use derive_more::From;
 use futures::TryStreamExt;
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, Bson},
     error::Error,
     options::IndexOptions,
     IndexModel,
@@ -22,7 +23,11 @@ pub use self::{
 use super::OutputDocument;
 use crate::{
     db::{collections::SortOrder, MongoDb},
-    types::{stardust::block::OutputId, tangle::MilestoneIndex},
+    types::{
+        ledger::OutputMetadata,
+        stardust::block::{AliasId, FoundryId, NftId, OutputId},
+        tangle::MilestoneIndex,
+    },
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -39,7 +44,86 @@ pub struct OutputsResult {
     pub outputs: Vec<OutputResult>,
 }
 
+#[derive(From)]
+#[allow(missing_docs)]
+pub enum IndexedId {
+    Alias(AliasId),
+    Foundry(FoundryId),
+    Nft(NftId),
+}
+
+impl From<IndexedId> for Bson {
+    fn from(id: IndexedId) -> Self {
+        match id {
+            IndexedId::Alias(id) => id.into(),
+            IndexedId::Foundry(id) => id.into(),
+            IndexedId::Nft(id) => id.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+#[allow(missing_docs)]
+pub struct IndexedOutputResult {
+    pub ledger_index: MilestoneIndex,
+    pub output_id: OutputId,
+}
+
 impl MongoDb {
+    /// Gets the current unspent indexed output id with the given indexed id.
+    pub async fn get_indexed_output_by_id(
+        &self,
+        id: impl Into<IndexedId>,
+    ) -> Result<Option<IndexedOutputResult>, Error> {
+        let ledger_index = self.get_ledger_index().await?;
+        if let Some(ledger_index) = ledger_index {
+            let id = id.into();
+            let id_string = match id {
+                IndexedId::Alias(_) => "output.alias_id",
+                IndexedId::Foundry(_) => "output.foundry_id",
+                IndexedId::Nft(_) => "output.nft_id",
+            };
+            let mut res = self
+                .0
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            id_string: id,
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent": null },
+                                { "metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document::<OutputDocument>)
+                .transpose()?;
+            if let Some(OutputDocument {
+                metadata: OutputMetadata {
+                    spent: spent @ Some(_), ..
+                },
+                ..
+            }) = res.as_mut()
+            {
+                // TODO: record that we got an output that is spent past the ledger_index to metrics
+                spent.take();
+            }
+            Ok(res.map(|doc| IndexedOutputResult {
+                ledger_index,
+                output_id: doc.output_id,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Gets any indexed output kind that match the provided query.
     pub async fn get_indexed_outputs<Q>(
         &self,

@@ -1,61 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{
-    bson::{self, doc},
-    error::Error,
-};
+use mongodb::bson::{self, doc};
 use primitive_types::U256;
 
-use super::{
-    queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery},
-    OutputDocument,
-};
-use crate::{
-    db::MongoDb,
-    types::{
-        stardust::{
-            block::{Address, FoundryId, OutputId},
-            milestone::MilestoneTimestamp,
-        },
-        tangle::MilestoneIndex,
-    },
-};
-
-#[derive(Clone, Debug)]
-#[allow(missing_docs)]
-pub struct FoundryOutputResult {
-    pub ledger_index: MilestoneIndex,
-    pub output_id: OutputId,
-}
-
-/// Implements the queries for the core API.
-impl MongoDb {
-    /// Gets the current unspent foundry output id with the given foundry id.
-    pub async fn get_foundry_output_by_id(&self, foundry_id: FoundryId) -> Result<Option<FoundryOutputResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            let res = self
-                .0
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .find_one(
-                    doc! {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "output.foundry_id": foundry_id,
-                        "metadata.spent": null,
-                    },
-                    None,
-                )
-                .await?;
-            Ok(res.map(|doc| FoundryOutputResult {
-                ledger_index,
-                output_id: doc.output_id,
-            }))
-        } else {
-            Ok(None)
-        }
-    }
-}
+use super::queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery};
+use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default)]
 #[allow(missing_docs)]
