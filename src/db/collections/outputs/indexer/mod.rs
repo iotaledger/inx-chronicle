@@ -209,9 +209,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_alias_id_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.alias_id": { "$exists": true }, "metadata.spent": null },
-                            )
+                            .partial_filter_expression(doc! { "output.alias_id": { "$exists": true } })
                             .build(),
                     )
                     .build(),
@@ -226,9 +224,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_foundry_id_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.foundry_id": { "$exists": true }, "metadata.spent": null },
-                            )
+                            .partial_filter_expression(doc! { "output.foundry_id": { "$exists": true } })
                             .build(),
                     )
                     .build(),
@@ -243,9 +239,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_nft_id_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.nft_id": { "$exists": true }, "metadata.spent": null },
-                            )
+                            .partial_filter_expression(doc! { "output.nft_id": { "$exists": true } })
                             .build(),
                     )
                     .build(),
@@ -292,6 +286,16 @@ impl MongoDb {
                 IndexModel::builder()
                     .keys(doc! { "metadata.booked": -1 })
                     .options(IndexOptions::builder().name("output_booked_index".to_string()).build())
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "metadata.spent": -1 })
+                    .options(IndexOptions::builder().name("output_spent_index".to_string()).build())
                     .build(),
                 None,
             )
