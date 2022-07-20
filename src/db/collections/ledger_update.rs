@@ -250,7 +250,7 @@ impl MongoDb {
                         "total_balance": [
                             { "$group" : {
                                 "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
+                                "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
                             }},
                         ],
                         "sig_locked_balance": [
@@ -279,7 +279,7 @@ impl MongoDb {
                             } },
                             { "$group" : {
                                 "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output_doc.output.kind.amount" } },
+                                "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
                             }},
                         ],
                     } },
