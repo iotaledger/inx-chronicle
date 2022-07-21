@@ -97,7 +97,7 @@ impl MongoDb {
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
                 doc! { "output_id": output.metadata.output_id },
-                doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
+                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;

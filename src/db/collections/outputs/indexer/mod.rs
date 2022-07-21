@@ -186,15 +186,6 @@ impl MongoDb {
                         match_doc,
                         doc! { "$sort": sort },
                         doc! { "$limit": page_size as i64 },
-                        if include_spent {
-                            doc! { "$set": { 
-                                "metadata.spent_metadata": { 
-                                    "$cond": [ { "$gt": [ "$metadata.spent_metadata.spent.milestone_index", ledger_index ] }, "$$REMOVE", "$metadata.spent_metadata" ] 
-                                }
-                            } }
-                        } else {
-                            doc! { "$unset": "metadata.spent_metadata" }
-                        },
                         doc! { "$replaceWith": {
                             "output_id": "$output_id",
                             "booked_index": "$metadata.booked.milestone_index"
