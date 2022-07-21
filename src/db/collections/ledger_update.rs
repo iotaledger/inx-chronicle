@@ -259,31 +259,31 @@ impl MongoDb {
                         "sig_locked_balance": [
                             // We do want to sum amounts if it's ...
                             { "$match": {
-                                "$or": {
+                                "$or": [
                                     // an alias output, or ...
-                                    "output_doc.output.kind": { "$eq": "alias" },
+                                    { "output_doc.output.kind": { "$eq": "alias" } },
                                     // a foundry output, or ...
-                                    "output_doc.output.kind": { "$eq": "foundry" },
+                                    { "output_doc.output.kind": { "$eq": "foundry" } },
                                     // a basic output without certain unlock conditions ...
-                                    "$and": {
-                                        "output_doc.output.kind": { "$eq": "basic" },
-                                        "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
-                                        "output_doc.output.timelock_unlock_condition": { "$eq": null },
-                                        "output_doc.output.expiration_unlock_condition":  { "$eq": null },
-                                    },
+                                    { "$and": [
+                                        { "output_doc.output.kind": { "$eq": "basic" } },
+                                        { "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null } },
+                                        { "output_doc.output.timelock_unlock_condition": { "$eq": null } },
+                                        { "output_doc.output.expiration_unlock_condition":  { "$eq": null } },
+                                    ] },
                                     // an NFT output without certain unlock conditions.
-                                    "$and": {
-                                        "output_doc.output.kind": { "$eq": "nft" },
-                                        "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null },
-                                        "output_doc.output.timelock_unlock_condition": { "$eq": null },
-                                        "output_doc.output.expiration_unlock_condition": { "$eq": null },
-                                    },
-                                },
+                                    { "$and": [
+                                        { "output_doc.output.kind": { "$eq": "nft" } },
+                                        { "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null } },
+                                        { "output_doc.output.timelock_unlock_condition": { "$eq": null } },
+                                        { "output_doc.output.expiration_unlock_condition": { "$eq": null } },
+                                    ] },
+                                ],
                             } },
                             { "$group" : {
                                 "_id": "null",
                                 "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
-                            }},
+                            } },
                         ],
                     } },
                 ],
