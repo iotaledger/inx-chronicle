@@ -71,6 +71,7 @@ async fn indexed_outputs<Q>(
         page_size,
         cursor,
         sort,
+        include_spent,
     }: IndexedOutputsPagination<Q>,
 ) -> ApiResult<IndexerOutputsResponse>
 where
@@ -83,6 +84,7 @@ where
             page_size + 1,
             cursor,
             sort,
+            include_spent,
         )
         .await?
         .ok_or(ApiError::NoResults)?;

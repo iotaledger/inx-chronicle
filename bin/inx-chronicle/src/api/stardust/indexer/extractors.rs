@@ -31,6 +31,7 @@ where
     pub page_size: usize,
     pub cursor: Option<(MilestoneIndex, OutputId)>,
     pub sort: SortOrder,
+    pub include_spent: bool,
 }
 
 #[derive(Clone)]
@@ -91,6 +92,7 @@ pub struct BasicOutputsPaginationQuery {
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
     pub sort: Option<String>,
+    pub include_spent: Option<bool>,
 }
 
 #[async_trait]
@@ -158,6 +160,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
             page_size,
             cursor,
             sort,
+            include_spent: query.include_spent.unwrap_or_default(),
         })
     }
 }
@@ -177,6 +180,7 @@ pub struct AliasOutputsPaginationQuery {
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
     pub sort: Option<String>,
+    pub include_spent: Option<bool>,
 }
 
 #[async_trait]
@@ -236,6 +240,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
             page_size,
             cursor,
             sort,
+            include_spent: query.include_spent.unwrap_or_default(),
         })
     }
 }
@@ -252,6 +257,7 @@ pub struct FoundryOutputsPaginationQuery {
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
     pub sort: Option<String>,
+    pub include_spent: Option<bool>,
 }
 
 #[async_trait]
@@ -296,6 +302,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
             page_size,
             cursor,
             sort,
+            include_spent: query.include_spent.unwrap_or_default(),
         })
     }
 }
@@ -324,6 +331,7 @@ pub struct NftOutputsPaginationQuery {
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
     pub sort: Option<String>,
+    pub include_spent: Option<bool>,
 }
 
 #[async_trait]
@@ -396,6 +404,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
             page_size,
             cursor,
             sort,
+            include_spent: query.include_spent.unwrap_or_default(),
         })
     }
 }

@@ -53,7 +53,7 @@ pub struct OutputMetadataResult {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
-    pub spent: Option<SpentMetadata>,
+    pub spent_metadata: Option<SpentMetadata>,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -145,7 +145,7 @@ impl MongoDb {
                         doc! { "$set": {
                             // The max fn will not consider the spent milestone index if it is null,
                             // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
+                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
                         } },
                     ],
                     None,
@@ -178,7 +178,7 @@ impl MongoDb {
                         doc! { "$set": {
                             // The max fn will not consider the spent milestone index if it is null,
                             // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
+                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
                         } },
                         doc! { "$replaceWith": "$metadata" },
                     ],
@@ -207,7 +207,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "output_id": &output_id } },
-                    doc! { "$replaceWith": "$metadata.spent" },
+                    doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],
                 None,
             )

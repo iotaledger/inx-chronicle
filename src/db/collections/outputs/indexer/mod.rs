@@ -92,8 +92,8 @@ impl MongoDb {
                             id_string: id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
                             "$or": [
-                                { "metadata.spent": null },
-                                { "metadata.spent.milestone_index": { "$gt": ledger_index } },
+                                { "metadata.spent_metadata": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                             ]
                         } },
                         doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
@@ -106,9 +106,11 @@ impl MongoDb {
                 .map(bson::from_document::<OutputDocument>)
                 .transpose()?;
             if let Some(OutputDocument {
-                metadata: OutputMetadata {
-                    spent: spent @ Some(_), ..
-                },
+                metadata:
+                    OutputMetadata {
+                        spent_metadata: spent @ Some(_),
+                        ..
+                    },
                 ..
             }) = res.as_mut()
             {
@@ -131,6 +133,7 @@ impl MongoDb {
         page_size: usize,
         cursor: Option<(MilestoneIndex, OutputId)>,
         order: SortOrder,
+        include_spent: bool,
     ) -> Result<Option<OutputsResult>, Error>
     where
         bson::Document: From<Q>,
@@ -152,6 +155,14 @@ impl MongoDb {
 
             let query_doc = bson::Document::from(query);
             let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
+            if !include_spent {
+                additional_queries.push(doc! {
+                    "$or": [
+                        { "metadata.spent_metadata": null },
+                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                    ]
+                });
+            }
             if let Some((start_ms, start_output_id)) = cursor {
                 additional_queries.push(doc! { "$or": [
                     doc! { "metadata.booked.milestone_index": { cmp1: start_ms } },
@@ -175,6 +186,15 @@ impl MongoDb {
                         match_doc,
                         doc! { "$sort": sort },
                         doc! { "$limit": page_size as i64 },
+                        if include_spent {
+                            doc! { "$set": { 
+                                "metadata.spent_metadata": { 
+                                    "$cond": [ { "$gt": [ "$metadata.spent_metadata.spent.milestone_index", ledger_index ] }, "$$REMOVE", "$metadata.spent_metadata" ] 
+                                }
+                            } }
+                        } else {
+                            doc! { "$unset": "metadata.spent_metadata" }
+                        },
                         doc! { "$replaceWith": {
                             "output_id": "$output_id",
                             "booked_index": "$metadata.booked.milestone_index"
@@ -298,8 +318,13 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "metadata.spent": -1 })
-                    .options(IndexOptions::builder().name("output_spent_index".to_string()).build())
+                    .keys(doc! { "metadata.spent_metadata.spent": -1 })
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_spent_index".to_string())
+                            .partial_filter_expression(doc! { "metadata.spent_metadata.spent": { "$exists": true } })
+                            .build(),
+                    )
                     .build(),
                 None,
             )
