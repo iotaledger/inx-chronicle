@@ -18,6 +18,7 @@ pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signatu
 pub struct Block {
     pub protocol_version: u8,
     pub parents: Box<[BlockId]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub payload: Option<Payload>,
     #[serde(with = "crate::types::util::stringify")]
     pub nonce: u64,

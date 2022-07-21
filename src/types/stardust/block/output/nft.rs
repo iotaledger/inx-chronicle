@@ -63,8 +63,11 @@ pub struct NftOutput {
     pub native_tokens: Box<[NativeToken]>,
     pub nft_id: NftId,
     pub address_unlock_condition: AddressUnlockCondition,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub storage_deposit_return_unlock_condition: Option<StorageDepositReturnUnlockCondition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub timelock_unlock_condition: Option<TimelockUnlockCondition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration_unlock_condition: Option<ExpirationUnlockCondition>,
     pub features: Box<[Feature]>,
     pub immutable_features: Box<[Feature]>,

@@ -59,12 +59,7 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "foundry" },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "immutable_alias_address",
-                        "address": address
-                    }
-                } },
+                { "output.immutable_alias_address_unlock_condition.address": address },
                 { "output.native_tokens": { "$ne": [] } },
                 { "output.native_tokens": { "$not": {
                     "$elemMatch": {
@@ -76,10 +71,8 @@ mod test {
                         "amount": { "$gt": bson::to_bson(&NativeTokenAmount::from(&U256::from(1000))).unwrap() }
                     }
                 } } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$gt": 1000,
-                    "$lt": 10000
-                } }
+                { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
+                { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));
@@ -99,10 +92,8 @@ mod test {
             "$and": [
                 { "output.kind": "foundry" },
                 { "output.native_tokens": { "$eq": [] } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$gt": 1000,
-                    "$lt": 10000
-                } }
+                { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
+                { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));

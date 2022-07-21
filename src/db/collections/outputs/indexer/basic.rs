@@ -101,12 +101,7 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "basic" },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "address",
-                        "address": address
-                    }
-                } },
+                { "output.address_unlock_condition.address": address },
                 { "output.native_tokens": { "$ne": [] } },
                 { "output.native_tokens": { "$not": {
                     "$elemMatch": {
@@ -118,31 +113,15 @@ mod test {
                         "amount": { "$gt": bson::to_bson(&NativeTokenAmount::from(&U256::from(1000))).unwrap() }
                     }
                 } } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "storage_deposit_return",
-                        "return_address": address
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "timelock",
-                        "timestamp": {
-                            "$gt": 1000,
-                            "$lt": 10000
-                        }
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "expiration",
-                        "return_address": address,
-                        "timestamp": {
-                            "$gt": 1000,
-                            "$lt": 10000
-                        }
-                    }
-                } },
+                { "output.storage_deposit_return_unlock_condition": { "$exists": true } },
+                { "output.storage_deposit_return_unlock_condition.return_address": address },
+                { "output.timelock_unlock_condition": { "$exists": true } },
+                { "output.timelock_unlock_condition.timestamp": { "$lt": 10000 } },
+                { "output.timelock_unlock_condition.timestamp": { "$gt": 1000 } },
+                { "output.expiration_unlock_condition": { "$exists": true } },
+                { "output.expiration_unlock_condition.timestamp": { "$lt": 10000 } },
+                { "output.expiration_unlock_condition.timestamp": { "$gt": 1000 } },
+                { "output.expiration_unlock_condition.return_address": address },
                 { "output.features": { "$elemMatch": {
                     "kind": "sender",
                     "address": address
@@ -151,10 +130,8 @@ mod test {
                     "kind": "tag",
                     "data": bson::to_bson(&serde_bytes::Bytes::new("my_tag".as_bytes())).unwrap()
                 } } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$gt": 1000,
-                    "$lt": 10000
-                } }
+                { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
+                { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));
@@ -185,42 +162,23 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "basic" },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "address",
-                        "address": address
-                    }
-                } },
+                { "output.address_unlock_condition.address": address },
                 { "output.native_tokens": { "$eq": [] } },
-                { "output.unlock_conditions": {
-                    "$not": {
-                        "$elemMatch": {
-                            "kind": "storage_deposit_return",
-                        }
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$not": {
-                        "$elemMatch": {
-                            "kind": "timelock",
-                        }
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$not": {
-                        "$elemMatch": {
-                            "kind": "expiration",
-                        }
-                    }
-                } },
+                { "output.storage_deposit_return_unlock_condition": { "$exists": false } },
+                { "output.storage_deposit_return_unlock_condition.return_address": address },
+                { "output.timelock_unlock_condition": { "$exists": false } },
+                { "output.timelock_unlock_condition.timestamp": { "$lt": 10000 } },
+                { "output.timelock_unlock_condition.timestamp": { "$gt": 1000 } },
+                { "output.expiration_unlock_condition": { "$exists": false } },
+                { "output.expiration_unlock_condition.timestamp": { "$lt": 10000 } },
+                { "output.expiration_unlock_condition.timestamp": { "$gt": 1000 } },
+                { "output.expiration_unlock_condition.return_address": address },
                 { "output.features": { "$elemMatch": {
                     "kind": "tag",
                     "data": bson::to_bson(&serde_bytes::Bytes::new("my_tag".as_bytes())).unwrap()
                 } } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$gt": 1000,
-                    "$lt": 10000
-                } }
+                { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
+                { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));
@@ -239,21 +197,9 @@ mod test {
             "$and": [
                 { "output.kind": "basic" },
                 { "output.native_tokens": { "$ne": [] } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "storage_deposit_return",
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "timelock",
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "expiration",
-                    }
-                } },
+                { "output.storage_deposit_return_unlock_condition": { "$exists": true } },
+                { "output.timelock_unlock_condition": { "$exists": true } },
+                { "output.expiration_unlock_condition": { "$exists": true } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));

@@ -70,18 +70,8 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "alias" },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "state_controller_address",
-                        "address": address
-                    }
-                } },
-                { "output.unlock_conditions": {
-                    "$elemMatch": {
-                        "kind": "governor_address",
-                        "address": address
-                    }
-                } },
+                { "output.state_controller_address_unlock_condition.address": address },
+                { "output.governor_address_unlock_condition.address": address },
                 { "output.features": {
                     "$elemMatch": {
                         "kind": "issuer",
@@ -105,10 +95,8 @@ mod test {
                         "amount": { "$gt": bson::to_bson(&NativeTokenAmount::from(&U256::from(1000))).unwrap() }
                     }
                 } } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$gt": 1000,
-                    "$lt": 10000
-                } }
+                { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
+                { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));
@@ -127,9 +115,7 @@ mod test {
             "$and": [
                 { "output.kind": "alias" },
                 { "output.native_tokens": { "$eq": [] } },
-                { "metadata.booked.milestone_timestamp": {
-                    "$lt": 10000
-                } }
+                { "metadata.booked.milestone_timestamp": { "$lt": 10000 } }
             ]
         };
         assert_eq!(query_doc, bson::Document::from(query));
