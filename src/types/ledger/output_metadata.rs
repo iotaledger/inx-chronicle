@@ -29,7 +29,8 @@ pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
-    pub spent: Option<SpentMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spent_metadata: Option<SpentMetadata>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -43,7 +44,7 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
     fn from(value: inx::LedgerOutput) -> Self {
         let output_id = OutputId::from(value.output_id);
         Self {
-            output: (&value.output).into(),
+            output: Into::into(&value.output),
             metadata: OutputMetadata {
                 output_id,
                 block_id: value.block_id.into(),
@@ -51,7 +52,7 @@ impl From<inx::LedgerOutput> for OutputWithMetadata {
                     milestone_index: value.milestone_index_booked.into(),
                     milestone_timestamp: value.milestone_timestamp_booked.into(),
                 },
-                spent: None,
+                spent_metadata: None,
             },
         }
     }
@@ -62,7 +63,7 @@ impl From<inx::LedgerSpent> for OutputWithMetadata {
     fn from(value: inx::LedgerSpent) -> Self {
         let mut delta = OutputWithMetadata::from(value.output);
 
-        delta.metadata.spent.replace(SpentMetadata {
+        delta.metadata.spent_metadata.replace(SpentMetadata {
             transaction_id: value.transaction_id_spent.into(),
             spent: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_spent.into(),

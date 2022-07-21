@@ -119,6 +119,8 @@ pub enum ParseError {
     #[error(transparent)]
     Int(#[from] ParseIntError),
     #[error(transparent)]
+    DecimalU256(#[from] uint::FromDecStrErr),
+    #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }
 

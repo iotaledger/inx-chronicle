@@ -163,13 +163,19 @@ fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMeta
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.output_id.transaction_id.to_hex(),
         output_index: metadata.output_id.index,
-        is_spent: metadata.spent.is_some(),
-        milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
+        is_spent: metadata.spent_metadata.is_some(),
+        milestone_index_spent: metadata
+            .spent_metadata
+            .as_ref()
+            .map(|spent_md| *spent_md.spent.milestone_index),
         milestone_timestamp_spent: metadata
-            .spent
+            .spent_metadata
             .as_ref()
             .map(|spent_md| *spent_md.spent.milestone_timestamp),
-        transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
+        transaction_id_spent: metadata
+            .spent_metadata
+            .as_ref()
+            .map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
         ledger_index: metadata.ledger_index.0,

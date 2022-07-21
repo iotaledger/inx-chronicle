@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![warn(missing_docs)]
-#![warn(unreachable_pub)]
 
 //! TODO
 

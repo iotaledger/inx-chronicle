@@ -115,12 +115,16 @@ impl MongoDb {
             self.insert_output(delta.clone()).await?;
             // Ledger updates
             if let Some(&address) = delta.output.owning_address() {
-                let at = delta.metadata.spent.map(|s| s.spent).unwrap_or(delta.metadata.booked);
+                let at = delta
+                    .metadata
+                    .spent_metadata
+                    .map(|s| s.spent)
+                    .unwrap_or(delta.metadata.booked);
                 let doc = LedgerUpdateDocument {
                     address,
                     output_id: delta.metadata.output_id,
                     at,
-                    is_spent: delta.metadata.spent.is_some(),
+                    is_spent: delta.metadata.spent_metadata.is_some(),
                 };
                 self.0
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
