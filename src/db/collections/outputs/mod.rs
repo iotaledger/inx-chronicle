@@ -100,6 +100,9 @@ impl MongoDb {
                         IndexOptions::builder()
                             .unique(false)
                             .name("address_index".to_string())
+                            .partial_filter_expression(doc! {
+                                "address": { "$ne": null } ,
+                            })
                             .build(),
                     )
                     .build(),
