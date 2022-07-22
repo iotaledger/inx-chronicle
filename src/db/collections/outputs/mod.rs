@@ -19,7 +19,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{BlockId, Output, OutputId, Address},
+        stardust::block::{Address, BlockId, Output, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -30,7 +30,7 @@ pub(crate) struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
-    address: Option<Address>, 
+    address: Option<Address>,
     is_trivial_unlock: bool,
 }
 
@@ -85,6 +85,21 @@ impl MongoDb {
                         IndexOptions::builder()
                             .unique(true)
                             .name("output_id_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "address": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(false)
+                            .name("address_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -225,5 +240,61 @@ impl MongoDb {
             .transpose()?;
 
         Ok(metadata)
+    }
+
+    /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
+    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<(u64, u64), Error> {
+        #[derive(Deserialize, Default)]
+        struct Amount {
+            amount: f64,
+        }
+
+        #[derive(Deserialize, Default)]
+        struct Balances {
+            total_balance: Amount,
+            sig_locked_balance: Amount,
+        }
+
+        let balances = self
+            .0
+            .collection::<Balances>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    // Look at all unspent output documents for the given address.
+                    doc! { "$match": {
+                        "address": &address,
+                        "metadata.spent": null,
+                    } },
+                    doc! { "$facet": {
+                        // Sum all output amounts (total balance).
+                        "total_balance": [
+                            { "$group" : {
+                                "_id": "null",
+                                "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                            }},
+                        ],
+                        // Sum only trivially unlockable output amounts (signature locked balance).
+                        "sig_locked_balance": [
+                            { "$match": { "is_trivial_unlock": true } },
+                            { "$group" : {
+                                "_id": "null",
+                                "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
+                            } },
+                        ],
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document::<Balances>)
+            .transpose()?
+            .unwrap_or_default();
+
+        Ok((
+            balances.total_balance.amount as u64,
+            balances.sig_locked_balance.amount as u64,
+        ))
     }
 }

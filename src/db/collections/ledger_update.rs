@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, TryStreamExt};
+use futures::Stream;
 use mongodb::{
     bson::{self, doc, Document},
     error::Error,
@@ -11,7 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{collections::outputs::OutputDocument, MongoDb},
+    db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
         stardust::block::{Address, OutputId},
@@ -207,99 +207,6 @@ impl MongoDb {
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
             .await
-    }
-
-    /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<(u64, u64), Error> {
-        #[derive(Deserialize, Default)]
-        struct Amount {
-            amount: f64,
-        }
-
-        #[derive(Deserialize, Default)]
-        struct Balances {
-            total_balance: Amount,
-            sig_locked_balance: Amount,
-        }
-
-        let balances = self
-            .0
-            .collection::<Balances>(LedgerUpdateDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    // Match every ledger update where the given `address` was part in.
-                    doc! { "$match": {
-                        "address": &address,
-                    } },
-                    // Reduce over documents with the same `OutputId` collecting `is_spent` fields.
-                    // TODO: this could be done more elegantly if we could just apply `logical and` on the fly.
-                    doc! { "$group": {
-                        "_id": "$output_id",
-                        "$push": { "unspent": { "$not": [ "$is_spent" ] } }
-                    } },
-                    // Determine whether an `Output` has actually been spent at some point.
-                    doc! { "$match": {
-                        "$allElementsTrue": "$unspent",
-                    } },
-                    // In order to get the amounts we have to look them up from the outputs collection.
-                    doc! { "$lookup": {
-                        "from": OutputDocument::COLLECTION,
-                        "localField": "output_id",
-                        "foreignField": "output_id",
-                        "as":"output_doc",
-                    } },
-                    // Calculate the total balance and the signature unlockable balance.
-                    doc! { "$facet": {
-                        "total_balance": [
-                            { "$group" : {
-                                "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
-                            }},
-                        ],
-                        "sig_locked_balance": [
-                            // We do want to sum amounts if it's ...
-                            { "$match": {
-                                "$or": [
-                                    // an alias output, or ...
-                                    { "output_doc.output.kind": { "$eq": "alias" } },
-                                    // a foundry output, or ...
-                                    { "output_doc.output.kind": { "$eq": "foundry" } },
-                                    // a basic output without certain unlock conditions ...
-                                    { "$and": [
-                                        { "output_doc.output.kind": { "$eq": "basic" } },
-                                        { "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null } },
-                                        { "output_doc.output.timelock_unlock_condition": { "$eq": null } },
-                                        { "output_doc.output.expiration_unlock_condition":  { "$eq": null } },
-                                    ] },
-                                    // an NFT output without certain unlock conditions.
-                                    { "$and": [
-                                        { "output_doc.output.kind": { "$eq": "nft" } },
-                                        { "output_doc.output.storage_deposit_return_unlock_condition": { "$eq": null } },
-                                        { "output_doc.output.timelock_unlock_condition": { "$eq": null } },
-                                        { "output_doc.output.expiration_unlock_condition": { "$eq": null } },
-                                    ] },
-                                ],
-                            } },
-                            { "$group" : {
-                                "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
-                            } },
-                        ],
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document::<Balances>)
-            .transpose()?
-            .unwrap_or_default();
-
-        Ok((
-            balances.total_balance.amount as u64,
-            balances.sig_locked_balance.amount as u64,
-        ))
     }
 }
 
