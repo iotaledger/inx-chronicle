@@ -281,7 +281,7 @@ impl MongoDb {
                             { "$match": { "is_trivial_unlock": true } },
                             { "$group" : {
                                 "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output_doc.output.amount" } },
+                                "amount": { "$sum": { "$toDouble": "$output.amount" } },
                             } },
                         ],
                     } },
