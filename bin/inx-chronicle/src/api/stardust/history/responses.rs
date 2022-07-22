@@ -69,3 +69,12 @@ impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneResponse {
         }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceResponse {
+    pub total_balance: u64,
+    pub sig_locked_balance: u64,
+}
+
+impl_success_response!(BalanceResponse);

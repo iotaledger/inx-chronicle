@@ -14,30 +14,37 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{BlockId, Output, OutputId},
+        stardust::block::{Address, BlockId, Output, OutputId},
         tangle::MilestoneIndex,
     },
 };
 
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct OutputDocument {
+pub(crate) struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
+    address: Option<Address>,
+    is_trivial_unlock: bool,
 }
 
 impl OutputDocument {
     /// The stardust outputs collection name.
-    const COLLECTION: &'static str = "stardust_outputs";
+    pub(crate) const COLLECTION: &'static str = "stardust_outputs";
 }
 
 impl From<OutputWithMetadata> for OutputDocument {
     fn from(rec: OutputWithMetadata) -> Self {
+        let address = rec.output.owning_address().copied();
+        let is_trivial_unlock = rec.output.is_trivial_unlock();
+
         Self {
             output_id: rec.metadata.output_id,
             output: rec.output,
             metadata: rec.metadata,
+            address,
+            is_trivial_unlock,
         }
     }
 }
@@ -73,6 +80,24 @@ impl MongoDb {
                         IndexOptions::builder()
                             .unique(true)
                             .name("output_id_index".to_string())
+                            .build(),
+                    )
+                    .build(),
+                None,
+            )
+            .await?;
+
+        collection
+            .create_index(
+                IndexModel::builder()
+                    .keys(doc! { "address": 1 })
+                    .options(
+                        IndexOptions::builder()
+                            .unique(false)
+                            .name("address_index".to_string())
+                            .partial_filter_expression(doc! {
+                                "address": { "$ne": null } ,
+                            })
                             .build(),
                     )
                     .build(),
@@ -211,5 +236,61 @@ impl MongoDb {
             .transpose()?;
 
         Ok(metadata)
+    }
+
+    /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
+    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<(u64, u64), Error> {
+        #[derive(Deserialize, Default)]
+        struct Amount {
+            amount: f64,
+        }
+
+        #[derive(Deserialize, Default)]
+        struct Balances {
+            total_balance: Amount,
+            sig_locked_balance: Amount,
+        }
+
+        let balances = self
+            .0
+            .collection::<Balances>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    // Look at all unspent output documents for the given address.
+                    doc! { "$match": {
+                        "address": &address,
+                        "metadata.spent": null,
+                    } },
+                    doc! { "$facet": {
+                        // Sum all output amounts (total balance).
+                        "total_balance": [
+                            { "$group" : {
+                                "_id": "null",
+                                "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                            }},
+                        ],
+                        // Sum only trivially unlockable output amounts (signature locked balance).
+                        "sig_locked_balance": [
+                            { "$match": { "is_trivial_unlock": true } },
+                            { "$group" : {
+                                "_id": "null",
+                                "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                            } },
+                        ],
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document::<Balances>)
+            .transpose()?
+            .unwrap_or_default();
+
+        Ok((
+            balances.total_balance.amount as u64,
+            balances.sig_locked_balance.amount as u64,
+        ))
     }
 }
