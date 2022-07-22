@@ -19,7 +19,7 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
-        stardust::block::{BlockId, Output, OutputId},
+        stardust::block::{BlockId, Output, OutputId, Address},
         tangle::MilestoneIndex,
     },
 };
@@ -30,6 +30,8 @@ pub(crate) struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
+    address: Option<Address>, 
+    is_trivial_unlock: bool,
 }
 
 impl OutputDocument {
@@ -39,10 +41,15 @@ impl OutputDocument {
 
 impl From<OutputWithMetadata> for OutputDocument {
     fn from(rec: OutputWithMetadata) -> Self {
+        let address = rec.output.owning_address().copied();
+        let is_trivial_unlock = rec.output.is_trivial_unlock();
+
         Self {
             output_id: rec.metadata.output_id,
             output: rec.output,
             metadata: rec.metadata,
+            address,
+            is_trivial_unlock,
         }
     }
 }
