@@ -85,7 +85,7 @@ pub struct OutputWithMetadataResult {
 pub struct BalancesResult {
     pub total_balance: u64,
     pub sig_locked_balance: u64,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
 }
 
 /// Implements the queries for the core API.
@@ -112,7 +112,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "address": 1 })
+                    .keys(doc! { "details.address": 1 })
                     .options(
                         IndexOptions::builder()
                             .unique(false)
@@ -321,7 +321,7 @@ impl MongoDb {
             Ok(Some(BalancesResult {
                 total_balance: balances.total_balance.amount as u64,
                 sig_locked_balance: balances.sig_locked_balance.amount as u64,
-                ledger_index: ledger_index.into(),
+                ledger_index,
             }))
         } else {
             Ok(None)
