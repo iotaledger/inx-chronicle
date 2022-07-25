@@ -35,7 +35,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_treasury_output_bson() {
-        let output = TreasuryOutput::from(&bee_test::rand::output::rand_treasury_output());
+        let output = TreasuryOutput::from(&bee_block_stardust::rand::output::rand_treasury_output());
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<TreasuryOutput>(bson).unwrap());
     }

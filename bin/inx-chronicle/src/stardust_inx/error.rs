@@ -11,7 +11,7 @@ pub enum InxError {
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
     #[error("INX type conversion error: {0:?}")]
-    InxTypeConversion(#[from] inx::Error),
+    InxTypeConversion(#[from] bee_block_stardust::InxError),
     #[error("missing milestone id for milestone index `{0}`")]
     MissingMilestoneInfo(MilestoneIndex),
     #[error(transparent)]
@@ -21,11 +21,9 @@ pub enum InxError {
     #[error(transparent)]
     ParsingAddressFailed(#[from] url::ParseError),
     #[error(transparent)]
-    Read(#[from] inx::tonic::Status),
-    #[error(transparent)]
     Runtime(#[from] chronicle::runtime::RuntimeError),
     #[error(transparent)]
-    Tonic(#[from] inx::tonic::Error),
+    BeeInx(#[from] bee_inx::Error),
 }
 
 impl ErrorLevel for InxError {

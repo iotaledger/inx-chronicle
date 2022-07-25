@@ -32,11 +32,11 @@ pub struct BlockMetadata {
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::BlockMetadata> for BlockMetadata {
-    fn from(metadata: inx::BlockMetadata) -> Self {
+impl From<bee_inx::BlockMetadata> for BlockMetadata {
+    fn from(metadata: bee_inx::BlockMetadata) -> Self {
         Self {
             block_id: metadata.block_id.into(),
-            parents: metadata.parents.into_iter().map(|id| id.into()).collect(),
+            parents: metadata.parents.iter().map(|&id| id.into()).collect(),
             is_solid: metadata.is_solid,
             should_promote: metadata.should_promote,
             should_reattach: metadata.should_reattach,

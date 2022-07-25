@@ -65,11 +65,11 @@ pub(crate) mod test {
 
     #[test]
     fn test_feature_bson() {
-        let block = get_test_sender_block(bee_test::rand::address::rand_address().into());
+        let block = get_test_sender_block(bee_block_stardust::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = get_test_issuer_block(bee_test::rand::address::rand_address().into());
+        let block = get_test_issuer_block(bee_block_stardust::rand::address::rand_address().into());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 

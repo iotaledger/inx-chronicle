@@ -4,14 +4,11 @@
 use std::ops::RangeInclusive;
 
 use async_trait::async_trait;
+use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
-    types::tangle::MilestoneIndex,
-};
-use inx::{
-    client::InxClient,
-    tonic::{Channel, Status},
+    types::tangle::{MilestoneIndex, ProtocolInfo, ProtocolParameters},
 };
 
 use super::{cone_stream::ConeStream, InxError};
@@ -19,12 +16,12 @@ use super::{cone_stream::ConeStream, InxError};
 #[derive(Debug)]
 pub struct LedgerUpdateStream {
     db: MongoDb,
-    inx: InxClient<Channel>,
+    inx: Inx,
     range: RangeInclusive<MilestoneIndex>,
 }
 
 impl LedgerUpdateStream {
-    pub fn new(db: MongoDb, inx: InxClient<Channel>, range: RangeInclusive<MilestoneIndex>) -> Self {
+    pub fn new(db: MongoDb, inx: Inx, range: RangeInclusive<MilestoneIndex>) -> Self {
         Self { db, inx, range }
     }
 }
@@ -38,12 +35,11 @@ impl Actor for LedgerUpdateStream {
         let ledger_update_stream = self
             .inx
             .listen_to_ledger_updates(if *self.range.end() == u32::MAX {
-                inx::proto::MilestoneRangeRequest::from(*self.range.start()..)
+                (self.range.start().0..).into()
             } else {
-                inx::proto::MilestoneRangeRequest::from(self.range.clone())
+                (self.range.start().0..self.range.end().0).into()
             })
-            .await?
-            .into_inner();
+            .await?;
         cx.add_stream(ledger_update_stream);
         Ok(())
     }
@@ -81,31 +77,41 @@ impl HandleEvent<Report<ConeStream>> for LedgerUpdateStream {
 }
 
 #[async_trait]
-impl HandleEvent<Result<inx::proto::LedgerUpdate, Status>> for LedgerUpdateStream {
+impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for LedgerUpdateStream {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        ledger_update_result: Result<inx::proto::LedgerUpdate, Status>,
+        ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received ledger update event {:#?}", ledger_update_result);
 
-        let ledger_update = inx::LedgerUpdate::try_from(ledger_update_result?)?;
+        let ledger_update = ledger_update_result?;
 
-        let output_updates_iter = Vec::from(ledger_update.created)
+        let output_updates = Vec::from(ledger_update.created)
             .into_iter()
-            .map(Into::into)
-            .chain(Vec::from(ledger_update.consumed).into_iter().map(Into::into));
+            .map(TryInto::try_into)
+            .chain(Vec::from(ledger_update.consumed).into_iter().map(TryInto::try_into))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        self.db.insert_ledger_updates(output_updates_iter).await?;
+        self.db.insert_ledger_updates(output_updates.into_iter()).await?;
 
-        let milestone_request = inx::proto::MilestoneRequest::from_index(ledger_update.milestone_index);
+        let milestone = self.inx.read_milestone(ledger_update.milestone_index.into()).await?;
+        let parameters: ProtocolParameters = self
+            .inx
+            .read_protocol_parameters(ledger_update.milestone_index.into())
+            .await?
+            .inner()?
+            .into();
 
-        let milestone_proto = self.inx.read_milestone(milestone_request.clone()).await?.into_inner();
+        self.db
+            .set_protocol_parameters(ProtocolInfo {
+                parameters,
+                tangle_index: ledger_update.milestone_index.into(),
+            })
+            .await?;
 
-        log::trace!("Received milestone: `{:?}`", milestone_proto);
-
-        let milestone: inx::Milestone = milestone_proto.try_into()?;
+        log::trace!("Received milestone: `{:?}`", milestone);
 
         let milestone_index = milestone.milestone_info.milestone_index.into();
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();

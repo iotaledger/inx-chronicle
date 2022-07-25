@@ -49,8 +49,8 @@ pub(crate) mod test {
     pub(crate) fn get_test_treasury_transaction_payload() -> TreasuryTransactionPayload {
         TreasuryTransactionPayload::from(
             &bee::TreasuryTransactionPayload::new(
-                bee_test::rand::input::rand_treasury_input(),
-                bee_test::rand::output::rand_treasury_output(),
+                bee_block_stardust::rand::input::rand_treasury_input(),
+                bee_block_stardust::rand::output::rand_treasury_output(),
             )
             .unwrap(),
         )

@@ -178,7 +178,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_transaction_id_bson() {
-        let transaction_id = TransactionId::from(bee_test::rand::transaction::rand_transaction_id());
+        let transaction_id = TransactionId::from(bee_block_stardust::rand::transaction::rand_transaction_id());
         let bson = to_bson(&transaction_id).unwrap();
         assert_eq!(Bson::from(transaction_id), bson);
         assert_eq!(transaction_id, from_bson::<TransactionId>(bson).unwrap());

@@ -14,7 +14,7 @@ pub(crate) mod treasury;
 
 use std::str::FromStr;
 
-use bee_block_stardust::output::{self as bee};
+use bee_block_stardust::output::{self as bee, Rent};
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ pub use self::{
     treasury::TreasuryOutput,
 };
 use super::Address;
-use crate::types::stardust::block::TransactionId;
+use crate::types::{ledger::RentStructureBytes, stardust::block::TransactionId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
@@ -149,6 +149,46 @@ impl Output {
             Self::Foundry(_) => true,
         }
     }
+
+    pub fn rent_structure(&self) -> RentStructureBytes {
+        match self {
+            output @ (Self::Basic(_) | Self::Alias(_) | Self::Foundry(_) | Self::Nft(_)) => {
+                let bee_output =
+                    bee::Output::try_from(output.clone()).expect("`Output` has to be convertible to `bee::Output`");
+
+                // The following computations of `data_bytes` and `key_bytes` makec use of the fact that the byte cost
+                // computation is a linear combination with respect to the type of the fields and their weight.
+
+                let num_data_bytes = {
+                    let config = bee::RentStructureBuilder::new()
+                        .byte_cost(1)
+                        .data_factor(1)
+                        .key_factor(0)
+                        .finish();
+                    bee_output.rent_cost(&config)
+                };
+
+                let num_key_bytes = {
+                    let config = bee::RentStructureBuilder::new()
+                        .byte_cost(1)
+                        .data_factor(0)
+                        .key_factor(1)
+                        .finish();
+                    bee_output.rent_cost(&config)
+                };
+
+                RentStructureBytes {
+                    num_data_bytes,
+                    num_key_bytes,
+                }
+            }
+            // The treasury output does not have an associated byte cost.
+            Self::Treasury(_) => RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 0,
+            },
+        }
+    }
 }
 
 impl From<&bee::Output> for Output {
@@ -194,7 +234,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_output_id_bson() {
-        let output_id = OutputId::from(bee_test::rand::output::rand_output_id());
+        let output_id = OutputId::from(bee_block_stardust::rand::output::rand_output_id());
         let bson = to_bson(&output_id).unwrap();
         from_bson::<OutputId>(bson).unwrap();
     }
@@ -217,7 +257,9 @@ pub(crate) mod test {
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = Output::from(&bee::Output::Treasury(bee_test::rand::output::rand_treasury_output()));
+        let output = Output::from(&bee::Output::Treasury(
+            bee_block_stardust::rand::output::rand_treasury_output(),
+        ));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }

@@ -76,7 +76,7 @@ impl From<&bee::MilestoneEssence> for MilestoneEssence {
             index: value.index().0.into(),
             timestamp: value.timestamp(),
             previous_milestone_id: (*value.previous_milestone_id()).into(),
-            parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
+            parents: value.parents().iter().map(|&id| BlockId::from(id)).collect(),
             inclusion_merkle_root: **value.inclusion_merkle_root(),
             applied_merkle_root: **value.applied_merkle_root(),
             metadata: value.metadata().to_vec(),
@@ -234,7 +234,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_milestone_id_bson() {
-        let milestone_id = MilestoneId::from(bee_test::rand::milestone::rand_milestone_id());
+        let milestone_id = MilestoneId::from(bee_block_stardust::rand::milestone::rand_milestone_id());
         let bson = to_bson(&milestone_id).unwrap();
         assert_eq!(Bson::from(milestone_id), bson);
         assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
@@ -251,7 +251,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &bee::option::MigratedFundsEntry::new(
                 bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH1).unwrap(),
-                bee_block_stardust::address::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()),
+                bee_block_stardust::address::Address::Ed25519(bee_block_stardust::rand::address::rand_ed25519_address()),
                 2000000,
             )
             .unwrap(),
@@ -262,7 +262,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &bee::option::MigratedFundsEntry::new(
                 bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH2).unwrap(),
-                bee_block_stardust::address::Address::Alias(bee_test::rand::address::rand_alias_address()),
+                bee_block_stardust::address::Address::Alias(bee_block_stardust::rand::address::rand_alias_address()),
                 2000000,
             )
             .unwrap(),
@@ -273,7 +273,7 @@ pub(crate) mod test {
         MigratedFundsEntry::from(
             &bee::option::MigratedFundsEntry::new(
                 bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH3).unwrap(),
-                bee_block_stardust::address::Address::Nft(bee_test::rand::address::rand_nft_address()),
+                bee_block_stardust::address::Address::Nft(bee_block_stardust::rand::address::rand_nft_address()),
                 2000000,
             )
             .unwrap(),
@@ -285,10 +285,10 @@ pub(crate) mod test {
             &bee::MilestoneEssence::new(
                 1.into(),
                 12345,
-                bee_test::rand::milestone::rand_milestone_id(),
-                bee_test::rand::parents::rand_parents(),
-                bee_test::rand::milestone::rand_merkle_root(),
-                bee_test::rand::milestone::rand_merkle_root(),
+                bee_block_stardust::rand::milestone::rand_milestone_id(),
+                bee_block_stardust::rand::parents::rand_parents(),
+                bee_block_stardust::rand::milestone::rand_merkle_root(),
+                bee_block_stardust::rand::milestone::rand_merkle_root(),
                 "Foo".as_bytes().to_vec(),
                 bee::MilestoneOptions::new(vec![bee::option::MilestoneOption::Receipt(
                     bee::option::ReceiptMilestoneOption::new(
@@ -300,8 +300,8 @@ pub(crate) mod test {
                             get_test_nft_migrated_funds_entry().try_into().unwrap(),
                         ],
                         TreasuryTransactionPayload::new(
-                            bee_test::rand::input::rand_treasury_input(),
-                            bee_test::rand::output::rand_treasury_output(),
+                            bee_block_stardust::rand::input::rand_treasury_input(),
+                            bee_block_stardust::rand::output::rand_treasury_output(),
                         )
                         .unwrap(),
                     )

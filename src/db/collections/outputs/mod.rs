@@ -18,7 +18,7 @@ pub use self::indexer::{
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, SpentMetadata},
+        ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, RentStructureBytes, SpentMetadata},
         stardust::block::{Address, BlockId, Output, OutputId},
         tangle::MilestoneIndex,
     },
@@ -43,12 +43,14 @@ struct OutputDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     address: Option<Address>,
     is_trivial_unlock: bool,
+    rent_structure: RentStructureBytes,
 }
 
 impl From<OutputWithMetadata> for OutputDocument {
     fn from(rec: OutputWithMetadata) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
+        let rent_structure = rec.output.rent_structure();
 
         Self {
             output: rec.output,
@@ -56,6 +58,7 @@ impl From<OutputWithMetadata> for OutputDocument {
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
+                rent_structure,
             },
         }
     }

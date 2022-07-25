@@ -22,12 +22,14 @@ pub(crate) mod test {
 
     use std::fmt::Debug;
 
-    use bee_block_stardust::output::{unlock_condition as bee, Output};
-    use bee_test::rand::{
-        address::{rand_address, rand_alias_address},
-        milestone::rand_milestone_index,
-        number::{rand_number, rand_number_range},
-        output::{rand_alias_id, unlock_condition::*},
+    use bee_block_stardust::{
+        output::{unlock_condition as bee, Output},
+        rand::{
+            address::{rand_address, rand_alias_address},
+            milestone::rand_milestone_index,
+            number::{rand_number, rand_number_range},
+            output::{rand_alias_id, unlock_condition::*},
+        },
     };
     use mongodb::bson::{from_bson, to_bson};
     use serde::{de::DeserializeOwned, Serialize};

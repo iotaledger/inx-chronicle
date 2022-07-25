@@ -139,10 +139,12 @@ pub(crate) mod test {
     }
 
     pub(crate) fn rand_token_id() -> bee::TokenId {
-        bee_test::rand::bytes::rand_bytes_array().into()
+        bee_block_stardust::rand::bytes::rand_bytes_array().into()
     }
 
     pub(crate) fn get_test_native_token() -> NativeToken {
-        NativeToken::from(&bee::NativeToken::new(bee_test::rand::bytes::rand_bytes_array().into(), 100.into()).unwrap())
+        NativeToken::from(
+            &bee::NativeToken::new(bee_block_stardust::rand::bytes::rand_bytes_array().into(), 100.into()).unwrap(),
+        )
     }
 }

@@ -55,7 +55,9 @@ mod test {
 
     #[test]
     fn test_alias_query_everything() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let query = AliasOutputsQuery {
             state_controller: Some(address),
             governor: Some(address),

@@ -78,7 +78,9 @@ mod test {
 
     #[test]
     fn test_basic_query_everything() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let query = BasicOutputsQuery {
             address: Some(address),
             has_native_tokens: Some(true),
@@ -139,7 +141,9 @@ mod test {
 
     #[test]
     fn test_basic_query_all_false() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let query = BasicOutputsQuery {
             address: Some(address),
             has_native_tokens: Some(false),

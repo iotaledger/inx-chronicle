@@ -135,7 +135,7 @@ pub(crate) mod test {
         FoundryOutput::from(
             &bee::FoundryOutput::build_with_amount(
                 100,
-                bee_test::rand::number::rand_number(),
+                bee_block_stardust::rand::number::rand_number(),
                 bee::TokenScheme::Simple(bee::SimpleTokenScheme::new(250.into(), 200.into(), 300.into()).unwrap()),
             )
             .unwrap()
