@@ -10,6 +10,7 @@ use chronicle::{
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
     types::tangle::{MilestoneIndex, ProtocolInfo, ProtocolParameters},
 };
+use tokio::time::Instant;
 
 use super::{cone_stream::ConeStream, InxError};
 
@@ -86,6 +87,8 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for LedgerUpdate
     ) -> Result<(), Self::Error> {
         log::trace!("Received ledger update event {:#?}", ledger_update_result);
 
+        let ledger_update_start = Instant::now();
+
         let ledger_update = ledger_update_result?;
 
         let output_updates = Vec::from(ledger_update.created)
@@ -130,8 +133,13 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for LedgerUpdate
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
-        cx.spawn_child(ConeStream::new(milestone_index, self.inx.clone(), self.db.clone()))
-            .await;
+        cx.spawn_child(ConeStream::new(
+            milestone_index,
+            ledger_update_start,
+            self.inx.clone(),
+            self.db.clone(),
+        ))
+        .await;
 
         Ok(())
     }

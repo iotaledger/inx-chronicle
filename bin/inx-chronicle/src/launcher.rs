@@ -85,11 +85,10 @@ impl Actor for Launcher {
                 .await;
         }
 
-        // #[cfg(feature = "metrics")]
-        // if config.metrics.enabled {
-        //     cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-        //         .await;
-        // }
+        if config.metrics.enabled {
+            cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
+                .await;
+        }
 
         Ok(config)
     }
@@ -179,32 +178,31 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
     }
 }
 
-// #[cfg(feature = "metrics")]
-// #[async_trait]
-// impl HandleEvent<chronicle::runtime::Report<super::metrics::MetricsWorker>> for Launcher {
-//     async fn handle_event(
-//         &mut self,
-//         cx: &mut ActorContext<Self>,
-//         event: Report<super::metrics::MetricsWorker>,
-//         config: &mut Self::State,
-//     ) -> Result<(), Self::Error> {
-//         use chronicle::runtime::Report;
-//         match event {
-//             Report::Success(_) => {
-//                 cx.abort().await;
-//             }
-//             Report::Error(e) => match e.error {
-//                 ActorError::Result(_) => {
-//                     let db = MongoDb::connect(&config.mongodb).await?;
-//                     cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-//                         .await;
-//                 }
-//                 ActorError::Panic | ActorError::Aborted => {
-//                     cx.abort().await;
-//                 }
-//             },
-//         }
+#[async_trait]
+impl HandleEvent<chronicle::runtime::Report<super::metrics::MetricsWorker>> for Launcher {
+    async fn handle_event(
+        &mut self,
+        cx: &mut ActorContext<Self>,
+        event: Report<super::metrics::MetricsWorker>,
+        config: &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        use chronicle::runtime::Report;
+        match event {
+            Report::Success(_) => {
+                cx.abort().await;
+            }
+            Report::Error(e) => match e.error {
+                ActorError::Result(_) => {
+                    let db = MongoDb::connect(&config.mongodb).await?;
+                    cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
+                        .await;
+                }
+                ActorError::Panic | ActorError::Aborted => {
+                    cx.abort().await;
+                }
+            },
+        }
 
-//         Ok(())
-//     }
-// }
+        Ok(())
+    }
+}

@@ -69,8 +69,9 @@ bee-inx = { version = "1.0.0-beta.2", default-features = false, optional = true 
 tonic = { version = "0.7.2", default-features = false, optional = true }
 
 # Metrics
-metrics = { version = "0.20.0", default-features = false, optional = true }
-
+metrics = { version = "0.20.0", default-features = false }
+metrics-exporter-prometheus = { version = "0.11.0", default-features = false, features = ["http-listener", "tokio"] }
+metrics-util = { version = "0.14.0", default-features = false, features = [] }
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
@@ -88,7 +89,6 @@ packable = { version = "0.5", default-features = false }
 default = [
     "api",
     "inx",
-    "metrics",
     "stardust",
 ]
 api = [ 
@@ -116,13 +116,6 @@ console = [
 inx = [
     "dep:bee-inx",
     "dep:tonic",
-]
-metrics = [
-    "dep:metrics",
-]
-# The following feature enables metrics that can be used to debug the runtime.
-metrics-debug = [
-    "metrics",
 ]
 stardust = [
     "dep:bee-block-stardust",

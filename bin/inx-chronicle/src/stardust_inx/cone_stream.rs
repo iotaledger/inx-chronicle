@@ -8,20 +8,25 @@ use chronicle::{
     runtime::{Actor, ActorContext, HandleEvent},
     types::tangle::MilestoneIndex,
 };
+use metrics::histogram;
+use tokio::time::Instant;
 
 use super::InxError;
+use crate::metrics::SYNC_TIME;
 
 #[derive(Debug)]
 pub struct ConeStream {
     pub milestone_index: MilestoneIndex,
+    start: Instant,
     inx: Inx,
     db: MongoDb,
 }
 
 impl ConeStream {
-    pub fn new(milestone_index: MilestoneIndex, inx: Inx, db: MongoDb) -> Self {
+    pub fn new(milestone_index: MilestoneIndex, start: Instant, inx: Inx, db: MongoDb) -> Self {
         Self {
             milestone_index,
+            start,
             inx,
             db,
         }
@@ -52,6 +57,7 @@ impl Actor for ConeStream {
         if run_result.is_ok() {
             self.db.set_sync_status_blocks(self.milestone_index).await?;
             self.db.update_ledger_index(self.milestone_index).await?;
+            histogram!(SYNC_TIME, self.start.elapsed());
             log::debug!("Milestone `{}` synced.", self.milestone_index);
         } else {
             log::warn!("Syncing milestone `{}` failed.", self.milestone_index);
