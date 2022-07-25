@@ -119,10 +119,14 @@ async fn ledger_updates_by_milestone(
 
 async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
-    let (total_balance, sig_locked_balance) = database.sum_balances_owned_by_address(address).await?;
+    let res = database
+        .sum_balances_owned_by_address(address)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
     Ok(BalanceResponse {
-        total_balance,
-        sig_locked_balance,
+        total_balance: res.total_balance,
+        sig_locked_balance: res.sig_locked_balance,
+        ledger_index: res.ledger_index,
     })
 }

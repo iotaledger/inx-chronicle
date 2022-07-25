@@ -75,6 +75,7 @@ impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneResponse {
 pub struct BalanceResponse {
     pub total_balance: u64,
     pub sig_locked_balance: u64,
+    pub ledger_index: u32,
 }
 
 impl_success_response!(BalanceResponse);

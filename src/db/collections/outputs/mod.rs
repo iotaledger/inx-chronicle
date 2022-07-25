@@ -71,6 +71,14 @@ pub struct OutputWithMetadataResult {
     pub metadata: OutputMetadataResult,
 }
 
+#[derive(Clone, Debug)]
+#[allow(missing_docs)]
+pub struct BalancesResult {
+    pub total_balance: u64,
+    pub sig_locked_balance: u64,
+    pub ledger_index: u32,
+}
+
 /// Implements the queries for the core API.
 impl MongoDb {
     /// Creates output indexes.
@@ -246,7 +254,7 @@ impl MongoDb {
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<(u64, u64), Error> {
+    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<Option<BalancesResult>, Error> {
         #[derive(Deserialize, Default)]
         struct Amount {
             amount: f64,
@@ -258,46 +266,53 @@ impl MongoDb {
             sig_locked_balance: Amount,
         }
 
-        let balances = self
-            .0
-            .collection::<Balances>(OutputDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    // Look at all unspent output documents for the given address.
-                    doc! { "$match": {
-                        "address": &address,
-                        "metadata.spent": null,
-                    } },
-                    doc! { "$facet": {
-                        // Sum all output amounts (total balance).
-                        "total_balance": [
-                            { "$group" : {
-                                "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                            }},
-                        ],
-                        // Sum only trivially unlockable output amounts (signature locked balance).
-                        "sig_locked_balance": [
-                            { "$match": { "is_trivial_unlock": true } },
-                            { "$group" : {
-                                "_id": "null",
-                                "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                            } },
-                        ],
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document::<Balances>)
-            .transpose()?
-            .unwrap_or_default();
+        let ledger_index = self.get_ledger_index().await?;
+        if let Some(ledger_index) = ledger_index {
+            let balances = self
+                .0
+                .collection::<Balances>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        // Look at all unspent output documents for the given address.
+                        doc! { "$match": {
+                            "address": &address,
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "metadata.spent": null,
+                        } },
+                        doc! { "$facet": {
+                            // Sum all output amounts (total balance).
+                            "total_balance": [
+                                { "$group" : {
+                                    "_id": "null",
+                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                                }},
+                            ],
+                            // Sum only trivially unlockable output amounts (signature locked balance).
+                            "sig_locked_balance": [
+                                { "$match": { "is_trivial_unlock": true } },
+                                { "$group" : {
+                                    "_id": "null",
+                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                                } },
+                            ],
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document::<Balances>)
+                .transpose()?
+                .unwrap_or_default();
 
-        Ok((
-            balances.total_balance.amount as u64,
-            balances.sig_locked_balance.amount as u64,
-        ))
+            Ok(Some(BalancesResult {
+                total_balance: balances.total_balance.amount as u64,
+                sig_locked_balance: balances.sig_locked_balance.amount as u64,
+                ledger_index: ledger_index.into(),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }
