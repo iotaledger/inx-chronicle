@@ -128,17 +128,13 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
             TransactionEssence::Regular {
                 network_id,
                 inputs,
-                inputs_commitment: _,
+                inputs_commitment,
                 outputs,
                 payload,
             } => {
-                let outputs = Vec::from(outputs)
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<bee_block_stardust::output::Output>, _>>()?;
                 let mut builder = bee::RegularTransactionEssence::builder(
                     network_id,
-                    bee_block_stardust::output::InputsCommitment::new(outputs.iter()),
+                    bee_block_stardust::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
                     Vec::from(inputs)
@@ -146,7 +142,12 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
                         .map(TryInto::try_into)
                         .collect::<Result<Vec<_>, _>>()?,
                 )
-                .with_outputs(outputs);
+                .with_outputs(
+                    Vec::from(outputs)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
                 if let Some(payload) = payload {
                     builder = builder.with_payload(payload.try_into()?);
                 }
