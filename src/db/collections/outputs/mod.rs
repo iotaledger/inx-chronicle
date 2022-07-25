@@ -30,6 +30,7 @@ pub(crate) struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
+    #[serde(skip_serializing_if = "Option::is_none")]
     address: Option<Address>,
     is_trivial_unlock: bool,
 }
@@ -109,7 +110,7 @@ impl MongoDb {
                             .unique(false)
                             .name("address_index".to_string())
                             .partial_filter_expression(doc! {
-                                "address": { "$ne": null } ,
+                                "address": { "$exists": true } ,
                             })
                             .build(),
                     )
@@ -277,7 +278,10 @@ impl MongoDb {
                         doc! { "$match": {
                             "address": &address,
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "metadata.spent": null,
+                            "$or": [
+                                { "metadata.spent": null },
+                                { "metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
                         } },
                         doc! { "$facet": {
                             // Sum all output amounts (total balance).
