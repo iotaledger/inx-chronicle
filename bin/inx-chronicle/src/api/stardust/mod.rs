@@ -25,8 +25,8 @@ pub fn routes() -> Router {
 
 fn sort_order_from_str(s: String) -> Result<SortOrder, ApiError> {
     match s.as_ref() {
-        "asc" | "oldest" => Ok(SortOrder::Oldest),
-        "desc" | "newest" => Ok(SortOrder::Newest),
+        "oldest" => Ok(SortOrder::Oldest),
+        "newest" => Ok(SortOrder::Newest),
         _ => Err(ParseError::BadSortDescriptor).map_err(ApiError::bad_parse),
     }
 }
