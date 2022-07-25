@@ -118,7 +118,7 @@ impl MongoDb {
                             .unique(false)
                             .name("address_index".to_string())
                             .partial_filter_expression(doc! {
-                                "address": { "$exists": true } ,
+                                "details.address": { "$exists": true } ,
                             })
                             .build(),
                     )
@@ -284,11 +284,11 @@ impl MongoDb {
                     vec![
                         // Look at all (at ledger index o'clock) unspent output documents for the given address.
                         doc! { "$match": {
-                            "address": &address,
+                            "details.address": &address,
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
                             "$or": [
-                                { "metadata.spent": null },
-                                { "metadata.spent.milestone_index": { "$gt": ledger_index } },
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                             ]
                         } },
                         doc! { "$facet": {
@@ -301,7 +301,7 @@ impl MongoDb {
                             ],
                             // Sum only trivially unlockable output amounts (signature locked balance).
                             "sig_locked_balance": [
-                                { "$match": { "is_trivial_unlock": true } },
+                                { "$match": { "details.is_trivial_unlock": true } },
                                 { "$group" : {
                                     "_id": "null",
                                     "amount": { "$sum": { "$toDouble": "$output.amount" } },
