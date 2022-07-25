@@ -105,7 +105,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts a [`Output`](crate::types::stardust::block::Output) together with its associated
+    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_ledger_updates(
         &self,

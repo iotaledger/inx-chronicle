@@ -16,19 +16,22 @@ use super::{
         LedgerUpdatesByMilestonePagination,
     },
     responses::{
-        LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
+        BalanceResponse, LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
         LedgerUpdatesByMilestoneResponse,
     },
 };
 use crate::api::{responses::SyncDataDto, ApiError, ApiResult};
 
 pub fn routes() -> Router {
-    Router::new().route("/gaps", get(sync)).nest(
-        "/ledger/updates",
-        Router::new()
-            .route("/by-address/:address", get(ledger_updates_by_address))
-            .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-    )
+    Router::new()
+        .route("/gaps", get(sync))
+        .route("/balance/:address", get(balance))
+        .nest(
+            "/ledger/updates",
+            Router::new()
+                .route("/by-address/:address", get(ledger_updates_by_address))
+                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+        )
 }
 
 async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
@@ -111,5 +114,19 @@ async fn ledger_updates_by_milestone(
         milestone_index,
         items,
         cursor,
+    })
+}
+
+async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
+    let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
+    let res = database
+        .sum_balances_owned_by_address(address)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(BalanceResponse {
+        total_balance: res.total_balance,
+        sig_locked_balance: res.sig_locked_balance,
+        ledger_index: res.ledger_index,
     })
 }
