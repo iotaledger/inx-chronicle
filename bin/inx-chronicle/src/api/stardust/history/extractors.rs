@@ -11,10 +11,11 @@ use chronicle::{
 };
 use serde::Deserialize;
 
-use crate::api::{error::ParseError, ApiError};
-
-const DEFAULT_PAGE_SIZE: usize = 100;
-const DEFAULT_SORT_ORDER: SortOrder = SortOrder::Newest;
+use crate::api::{
+    error::ParseError,
+    stardust::{sort_order_from_str, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER},
+    ApiError,
+};
 
 #[derive(Clone)]
 pub struct LedgerUpdatesByAddressPagination {
@@ -67,14 +68,6 @@ impl Display for LedgerUpdatesByAddressCursor {
             self.is_spent,
             self.page_size
         )
-    }
-}
-
-fn sort_order_from_str(s: String) -> Result<SortOrder, ApiError> {
-    match s.as_ref() {
-        "asc" | "oldest" => Ok(SortOrder::Oldest),
-        "desc" | "newest" => Ok(SortOrder::Newest),
-        _ => Err(ParseError::BadSortDescriptor).map_err(ApiError::bad_parse),
     }
 }
 

@@ -1,15 +1,58 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::str::FromStr;
+
 use bee_block_stardust::output as bee;
+use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
+use crate::types::util::bytify;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct FoundryId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
+
+impl FoundryId {
+    const LENGTH: usize = bee::FoundryId::LENGTH;
+}
+
+impl From<bee::FoundryId> for FoundryId {
+    fn from(value: bee::FoundryId) -> Self {
+        Self(*value)
+    }
+}
+
+impl From<FoundryId> for bee::FoundryId {
+    fn from(value: FoundryId) -> Self {
+        bee::FoundryId::new(value.0)
+    }
+}
+
+impl FromStr for FoundryId {
+    type Err = bee_block_stardust::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(bee::FoundryId::from_str(s)?.into())
+    }
+}
+
+impl From<FoundryId> for Bson {
+    fn from(val: FoundryId) -> Self {
+        Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: val.0.to_vec(),
+        }
+        .into()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
+    pub foundry_id: FoundryId,
     #[serde(with = "crate::types::util::stringify")]
     pub serial_number: u32,
     pub token_scheme: TokenScheme,
@@ -23,6 +66,7 @@ impl From<&bee::FoundryOutput> for FoundryOutput {
         Self {
             amount: value.amount().into(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
+            foundry_id: value.id().into(),
             serial_number: value.serial_number(),
             token_scheme: value.token_scheme().into(),
             // Panic: The immutable alias address unlock condition has to be present.

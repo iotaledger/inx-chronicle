@@ -22,8 +22,8 @@ pub use self::{
     alias::{AliasId, AliasOutput},
     basic::BasicOutput,
     feature::Feature,
-    foundry::FoundryOutput,
-    native_token::{NativeToken, TokenScheme},
+    foundry::{FoundryId, FoundryOutput},
+    native_token::{NativeToken, NativeTokenAmount, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
 };

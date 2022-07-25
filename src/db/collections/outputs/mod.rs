@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod indexer;
+
 use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc},
@@ -10,6 +12,9 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
+pub use self::indexer::{
+    AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
+};
 use crate::{
     db::MongoDb,
     types::{
@@ -48,7 +53,7 @@ pub struct OutputMetadataResult {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
-    pub spent: Option<SpentMetadata>,
+    pub spent_metadata: Option<SpentMetadata>,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -80,6 +85,8 @@ impl MongoDb {
             )
             .await?;
 
+        self.create_indexer_output_indexes().await?;
+
         Ok(())
     }
 
@@ -90,7 +97,7 @@ impl MongoDb {
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
                 doc! { "output_id": output.metadata.output_id },
-                doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
+                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
@@ -138,7 +145,7 @@ impl MongoDb {
                         doc! { "$set": {
                             // The max fn will not consider the spent milestone index if it is null,
                             // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
+                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
                         } },
                     ],
                     None,
@@ -171,7 +178,7 @@ impl MongoDb {
                         doc! { "$set": {
                             // The max fn will not consider the spent milestone index if it is null,
                             // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent.milestone_index" ] },
+                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
                         } },
                         doc! { "$replaceWith": "$metadata" },
                     ],
@@ -200,7 +207,7 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": { "output_id": &output_id } },
-                    doc! { "$replaceWith": "$metadata.spent" },
+                    doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],
                 None,
             )
