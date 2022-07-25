@@ -26,7 +26,7 @@ use crate::{
 
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct MilestoneDocument {
+struct MilestoneDocument {
     /// The milestone index.
     milestone_index: MilestoneIndex,
     /// The [`MilestoneId`](MilestoneId) of the milestone.
@@ -41,7 +41,7 @@ pub(crate) struct MilestoneDocument {
 
 impl MilestoneDocument {
     /// The stardust milestone collection name.
-    pub(crate) const COLLECTION: &'static str = "stardust_milestones";
+    const COLLECTION: &'static str = "stardust_milestones";
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

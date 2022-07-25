@@ -26,7 +26,7 @@ use crate::{
 
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct OutputDocument {
+struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
@@ -37,7 +37,7 @@ pub(crate) struct OutputDocument {
 
 impl OutputDocument {
     /// The stardust outputs collection name.
-    pub(crate) const COLLECTION: &'static str = "stardust_outputs";
+    const COLLECTION: &'static str = "stardust_outputs";
 }
 
 impl From<OutputWithMetadata> for OutputDocument {
@@ -274,7 +274,7 @@ impl MongoDb {
                 .collection::<Balances>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
-                        // Look at all unspent output documents for the given address.
+                        // Look at all (at ledger index o'clock) unspent output documents for the given address.
                         doc! { "$match": {
                             "address": &address,
                             "metadata.booked.milestone_index": { "$lte": ledger_index },

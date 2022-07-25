@@ -20,7 +20,7 @@ use crate::{
 
 /// Chronicle Block record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct BlockDocument {
+struct BlockDocument {
     /// The id of the current block.
     block_id: BlockId,
     /// The block.
@@ -34,7 +34,7 @@ pub(crate) struct BlockDocument {
 
 impl BlockDocument {
     /// The stardust blocks collection name.
-    pub(crate) const COLLECTION: &'static str = "stardust_blocks";
+    const COLLECTION: &'static str = "stardust_blocks";
 }
 
 /// Implements the queries for the core API.
