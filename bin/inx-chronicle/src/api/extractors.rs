@@ -6,10 +6,10 @@ use axum::extract::{FromRequest, Query};
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::error::ApiError;
+use super::{error::ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
-#[derive(Copy, Clone, Deserialize)]
-#[serde(default)]
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Pagination {
     pub page_size: usize,
     pub page: usize,
@@ -18,7 +18,7 @@ pub struct Pagination {
 impl Default for Pagination {
     fn default() -> Self {
         Self {
-            page_size: 100,
+            page_size: DEFAULT_PAGE_SIZE,
             page: 0,
         }
     }
@@ -29,15 +29,16 @@ impl<B: Send> FromRequest<B> for Pagination {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(pagination) = Query::<Pagination>::from_request(req)
+        let Query(mut pagination) = Query::<Pagination>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        pagination.page_size = pagination.page_size.min(MAX_PAGE_SIZE);
         Ok(pagination)
     }
 }
 
 #[derive(Copy, Clone, Default, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct TimeRangeQuery {
     start_timestamp: Option<u32>,
     end_timestamp: Option<u32>,
@@ -129,5 +130,33 @@ impl<B: Send> FromRequest<B> for Expanded {
             .await
             .map_err(ApiError::QueryError)?;
         Ok(expanded)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use axum::{
+        extract::{FromRequest, RequestParts},
+        http::Request,
+    };
+
+    use super::*;
+
+    #[tokio::test]
+    async fn page_size_clamped() {
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/?pageSize=9999999")
+                .body(())
+                .unwrap(),
+        );
+        assert_eq!(
+            Pagination::from_request(&mut req).await.unwrap(),
+            Pagination {
+                page_size: MAX_PAGE_SIZE,
+                ..Default::default()
+            }
+        );
     }
 }

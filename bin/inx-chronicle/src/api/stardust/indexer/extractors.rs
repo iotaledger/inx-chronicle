@@ -16,13 +16,9 @@ use mongodb::bson;
 use primitive_types::U256;
 use serde::Deserialize;
 
-use crate::api::{
-    error::ParseError,
-    stardust::{sort_order_from_str, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER},
-    ApiError,
-};
+use crate::api::{error::ParseError, ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedOutputsPagination<Q>
 where
     bson::Document: From<Q>,
@@ -111,7 +107,11 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
 
-        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
 
         Ok(IndexedOutputsPagination {
             query: BasicOutputsQuery {
@@ -157,7 +157,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size,
+            page_size: page_size.min(MAX_PAGE_SIZE),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -199,7 +199,11 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
 
-        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
 
         Ok(IndexedOutputsPagination {
             query: AliasOutputsQuery {
@@ -237,7 +241,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size,
+            page_size: page_size.min(MAX_PAGE_SIZE),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -276,7 +280,11 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
 
-        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
 
         Ok(IndexedOutputsPagination {
             query: FoundryOutputsQuery {
@@ -299,7 +307,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size,
+            page_size: page_size.min(MAX_PAGE_SIZE),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -350,7 +358,11 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
             (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
         };
 
-        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
 
         Ok(IndexedOutputsPagination {
             query: NftOutputsQuery {
@@ -401,7 +413,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size,
+            page_size: page_size.min(MAX_PAGE_SIZE),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -411,6 +423,8 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
 
 #[cfg(test)]
 mod test {
+    use axum::{extract::RequestParts, http::Request};
+
     use super::*;
 
     #[test]
@@ -422,5 +436,28 @@ mod test {
         let cursor = format!("{milestone_index}.{output_id_str}.{page_size_str}",);
         let parsed: IndexedOutputsCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
+    }
+
+    #[tokio::test]
+    async fn page_size_clamped() {
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/outputs/basic?pageSize=9999999")
+                .body(())
+                .unwrap(),
+        );
+        assert_eq!(
+            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(&mut req)
+                .await
+                .unwrap(),
+            IndexedOutputsPagination {
+                page_size: MAX_PAGE_SIZE,
+                query: Default::default(),
+                cursor: Default::default(),
+                sort: Default::default(),
+                include_spent: Default::default()
+            }
+        );
     }
 }
