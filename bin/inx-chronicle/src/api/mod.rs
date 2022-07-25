@@ -15,8 +15,8 @@ mod secret_key;
 mod responses;
 mod auth;
 mod config;
-#[cfg(feature = "metrics")]
-mod metrics;
+// #[cfg(feature = "metrics")]
+// mod metrics;
 mod routes;
 
 use async_trait::async_trait;
@@ -90,20 +90,20 @@ impl Actor for ApiWorker {
                     .allow_credentials(false),
             );
 
-        #[cfg(feature = "metrics")]
-        let routes = {
-            use self::metrics::MetricsLayer;
+        // #[cfg(feature = "metrics")]
+        // let routes = {
+        //     use self::metrics::MetricsLayer;
 
-            let layer = MetricsLayer::default();
+        //     let layer = MetricsLayer::default();
 
-            cx.metrics_registry().register(
-                "incoming_requests",
-                "Incoming API Requests",
-                layer.metrics.incoming_requests.clone(),
-            );
+        //     cx.metrics_registry().register(
+        //         "incoming_requests",
+        //         "Incoming API Requests",
+        //         layer.metrics.incoming_requests.clone(),
+        //     );
 
-            routes.layer(layer)
-        };
+        //     routes.layer(layer)
+        // };
 
         let join_handle = spawn_task("Axum server", async move {
             let res = Server::bind(&([0, 0, 0, 0], port).into())

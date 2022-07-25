@@ -69,7 +69,8 @@ bee-inx = { version = "1.0.0-beta.2", default-features = false, optional = true 
 tonic = { version = "0.7.2", default-features = false, optional = true }
 
 # Metrics
-bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
+metrics = { version = "0.20.0", default-features = false, optional = true }
+
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
@@ -117,7 +118,7 @@ inx = [
     "dep:tonic",
 ]
 metrics = [
-    "dep:bee-metrics",
+    "dep:metrics",
 ]
 # The following feature enables metrics that can be used to debug the runtime.
 metrics-debug = [
