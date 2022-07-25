@@ -30,14 +30,20 @@ struct OutputDocument {
     output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    address: Option<Address>,
-    is_trivial_unlock: bool,
+    details: OutputDetails,
 }
 
 impl OutputDocument {
     /// The stardust outputs collection name.
     const COLLECTION: &'static str = "stardust_outputs";
+}
+
+/// Precalculated info and other output details.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct OutputDetails {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    address: Option<Address>,
+    is_trivial_unlock: bool,
 }
 
 impl From<OutputWithMetadata> for OutputDocument {
@@ -49,8 +55,10 @@ impl From<OutputWithMetadata> for OutputDocument {
             output_id: rec.metadata.output_id,
             output: rec.output,
             metadata: rec.metadata,
-            address,
-            is_trivial_unlock,
+            details: OutputDetails {
+                address,
+                is_trivial_unlock,
+            },
         }
     }
 }
