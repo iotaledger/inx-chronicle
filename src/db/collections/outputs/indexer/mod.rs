@@ -8,7 +8,7 @@ mod nft;
 mod queries;
 
 use derive_more::From;
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc, Bson},
     error::Error,
@@ -194,7 +194,7 @@ impl MongoDb {
                     None,
                 )
                 .await?
-                .map_ok(|doc| bson::from_document::<OutputResult>(doc).unwrap())
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document::<OutputResult>(doc?)?))
                 .try_collect::<Vec<_>>()
                 .await?;
             Ok(Some(OutputsResult { ledger_index, outputs }))
