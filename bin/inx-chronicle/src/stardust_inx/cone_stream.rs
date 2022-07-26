@@ -83,7 +83,7 @@ impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
         let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
 
         self.db
-            .insert_block_with_metadata(metadata.block_id.into(), block.into(), raw, metadata.into())
+            .insert_block_with_metadata(block.into(), raw, metadata.into())
             .await?;
 
         log::trace!("Inserted block into database.");

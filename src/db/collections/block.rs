@@ -21,8 +21,6 @@ use crate::{
 /// Chronicle Block record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct BlockDocument {
-    /// The id of the current block.
-    block_id: BlockId,
     /// The block.
     block: Block,
     /// The raw bytes of the block.
@@ -46,7 +44,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "block_id": 1 })
+                    .keys(doc! { "metadata.block_id": 1 })
                     .options(
                         IndexOptions::builder()
                             .unique(true)
@@ -87,7 +85,7 @@ impl MongoDb {
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "block_id": block_id } },
+                    doc! { "$match": { "metadata.block_id": block_id } },
                     doc! { "$replaceWith": "$block" },
                 ],
                 None,
@@ -114,7 +112,7 @@ impl MongoDb {
             .collection::<RawResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "block_id": block_id } },
+                    doc! { "$match": { "metadata.block_id": block_id } },
                     doc! { "$replaceWith": { "data": "$raw" } },
                 ],
                 None,
@@ -135,7 +133,7 @@ impl MongoDb {
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "block_id": block_id } },
+                    doc! { "$match": { "metadata.block_id": block_id } },
                     doc! { "$replaceWith": "$metadata" },
                 ],
                 None,
@@ -164,7 +162,7 @@ impl MongoDb {
                     .skip((page_size * page) as u64)
                     .sort(doc! {"metadata.referenced_by_milestone_index": -1})
                     .limit(page_size as i64)
-                    .projection(doc! {"block_id": 1 })
+                    .projection(doc! {"metadata.block_id": 1 })
                     .build(),
             )
             .await
@@ -173,7 +171,6 @@ impl MongoDb {
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
     pub async fn insert_block_with_metadata(
         &self,
-        block_id: BlockId,
         block: Block,
         raw: Vec<u8>,
         metadata: BlockMetadata,
@@ -184,13 +181,8 @@ impl MongoDb {
                     .await?;
             }
         }
-
-        let block_document = BlockDocument {
-            block_id,
-            block,
-            raw,
-            metadata,
-        };
+        let block_id = metadata.block_id;
+        let block_document = BlockDocument { block, raw, metadata };
 
         let mut doc = bson::to_document(&block_document)?;
         doc.insert("_id", block_id.to_hex());
@@ -198,7 +190,7 @@ impl MongoDb {
         self.0
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
-                doc! { "block_id": block_id },
+                doc! { "metadata.block_id": block_id },
                 doc! { "$set": doc },
                 UpdateOptions::builder().upsert(true).build(),
             )
