@@ -15,8 +15,7 @@ mod secret_key;
 mod responses;
 mod auth;
 mod config;
-// #[cfg(feature = "metrics")]
-// mod metrics;
+mod metrics;
 mod routes;
 
 use async_trait::async_trait;
@@ -38,7 +37,7 @@ pub use self::{
     error::{ApiError, ConfigError},
     secret_key::SecretKey,
 };
-use self::{config::ApiData, routes::routes};
+use self::{config::ApiData, metrics::MetricsLayer, routes::routes};
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 pub const MAX_PAGE_SIZE: usize = 1000;
@@ -88,22 +87,8 @@ impl Actor for ApiWorker {
                     .allow_methods(vec![Method::GET, Method::OPTIONS])
                     .allow_headers(Any)
                     .allow_credentials(false),
-            );
-
-        // #[cfg(feature = "metrics")]
-        // let routes = {
-        //     use self::metrics::MetricsLayer;
-
-        //     let layer = MetricsLayer::default();
-
-        //     cx.metrics_registry().register(
-        //         "incoming_requests",
-        //         "Incoming API Requests",
-        //         layer.metrics.incoming_requests.clone(),
-        //     );
-
-        //     routes.layer(layer)
-        // };
+            )
+            .layer(MetricsLayer::default());
 
         let join_handle = spawn_task("Axum server", async move {
             let res = Server::bind(&([0, 0, 0, 0], port).into())

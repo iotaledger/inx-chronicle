@@ -4,13 +4,11 @@
 use std::net::{IpAddr, SocketAddr};
 
 use async_trait::async_trait;
-// use bee_metrics::{metrics::gauge::Gauge, serve_metrics};
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ErrorLevel, HandleEvent, Task, TaskError, TaskReport},
 };
-// use futures::StreamExt;
-use metrics::{describe_gauge, describe_histogram, gauge, Unit};
+use metrics::{describe_counter, describe_gauge, describe_histogram, gauge, Unit};
 use metrics_exporter_prometheus::{BuildError as PrometheusBuildError, PrometheusBuilder};
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -21,6 +19,7 @@ use tokio::{
 const GAPS_COUNT: &str = "db_gaps_count";
 const GAPS_UPDATE_INTERVAL_DEFAULT: Duration = Duration::from_secs(60);
 pub(crate) const SYNC_TIME: &str = "ms_sync_time";
+pub(crate) const REQ_COUNT: &str = "incoming_api_requests_count";
 
 #[derive(Debug, thiserror::Error)]
 pub enum MetricsError {
@@ -125,6 +124,7 @@ impl Actor for MetricsWorker {
 
         describe_gauge!(GAPS_COUNT, Unit::Count, "the current number of gaps in the database");
         describe_histogram!(SYNC_TIME, Unit::Seconds, "the time it took to sync a milestone");
+        describe_counter!(REQ_COUNT, Unit::Count, "the number of incoming api requests");
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let worker_handle = cx.handle().clone();
