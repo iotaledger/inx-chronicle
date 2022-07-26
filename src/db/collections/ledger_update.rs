@@ -66,7 +66,7 @@ impl Default for SortOrder {
 }
 
 #[derive(Debug, Error)]
-#[error("Invalid sort order descriptor. Expected 'oldest' or 'newest', found '{0}'")]
+#[error("Invalid sort order descriptor. Expected `oldest` or `newest`, found `{0}`")]
 #[allow(missing_docs)]
 pub struct ParseSortError(String);
 
