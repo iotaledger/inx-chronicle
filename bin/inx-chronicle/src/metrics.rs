@@ -1,26 +1,40 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    convert::Infallible,
-    net::{IpAddr, SocketAddr},
-};
+use std::net::{IpAddr, SocketAddr};
 
 use async_trait::async_trait;
 // use bee_metrics::{metrics::gauge::Gauge, serve_metrics};
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, HandleEvent, Task, TaskError, TaskReport},
+    runtime::{Actor, ActorContext, ErrorLevel, HandleEvent, Task, TaskError, TaskReport},
 };
 // use futures::StreamExt;
 use metrics::{describe_gauge, describe_histogram, gauge, Unit};
-use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics_exporter_prometheus::{BuildError as PrometheusBuildError, PrometheusBuilder};
 use serde::{Deserialize, Serialize};
-use tokio::time::{sleep, Duration};
+use tokio::{
+    sync::oneshot,
+    time::{sleep, Duration},
+};
 
 const GAPS_COUNT: &str = "db_gaps_count";
 const GAPS_UPDATE_INTERVAL_DEFAULT: Duration = Duration::from_secs(60);
 pub(crate) const SYNC_TIME: &str = "ms_sync_time";
+
+#[derive(Debug, thiserror::Error)]
+pub enum MetricsError {
+    #[error(transparent)]
+    Prometheus(#[from] PrometheusBuildError),
+}
+
+impl ErrorLevel for MetricsError {
+    fn level(&self) -> log::Level {
+        match self {
+            Self::Prometheus(_) => log::Level::Warn,
+        }
+    }
+}
 
 pub struct MetricsWorker {
     db: MongoDb,
@@ -37,7 +51,7 @@ impl MetricsWorker {
 }
 
 pub struct MetricsState {
-    // server_handle: (JoinHandle<()>, Option<oneshot::Sender<()>>),
+    shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,7 +105,7 @@ impl Task for GapsMetric {
             }
         }
 
-        log::warn!("Could not update databse metrics after {MAX_RETRIES} retries");
+        log::warn!("Could not update gaps metric after {MAX_RETRIES} retries");
 
         Ok(())
     }
@@ -100,62 +114,47 @@ impl Task for GapsMetric {
 #[async_trait]
 impl Actor for MetricsWorker {
     type State = MetricsState;
-    type Error = Infallible;
+    type Error = MetricsError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let addr = SocketAddr::new(self.config.address, self.config.port);
 
         // TODO: get the server handle!
         let builder = PrometheusBuilder::new();
-        builder
-            .with_http_listener(addr)
-            .install()
-            // TODO: return actual error
-            .expect("failed to install Prometheus recorder");
+        let (recorder, exporter_fut) = builder.with_http_listener(addr).build()?;
+
+        metrics::set_boxed_recorder(Box::new(recorder)).map_err(PrometheusBuildError::from)?;
 
         describe_gauge!(GAPS_COUNT, Unit::Count, "the current number of gaps in the database");
         describe_histogram!(SYNC_TIME, Unit::Milliseconds, "the time it took to sync a milestone");
 
-        // let db_size_metric = Gauge::<u64>::default();
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let worker_handle = cx.handle().clone();
 
-        // cx.metrics_registry()
-        //     .register("db_size", "DB size", db_size_metric.clone());
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = shutdown_rx => {}
+                _ = exporter_fut => {}
+            }
 
-        // let (send, recv) = oneshot::channel();
-        // let metrics_handle = cx.handle().clone();
-
-        // let server_fut = {
-        //     let registry = cx.metrics_registry().clone();
-        //     tokio::spawn(async move {
-        //         let res = serve_metrics(addr, registry)
-        //             .with_graceful_shutdown(async {
-        //                 recv.await.ok();
-        //             })
-        //             .await;
-
-        //         // Stop the actor if the server stops.
-        //         metrics_handle.shutdown().await;
-
-        //         res.unwrap()
-        //     })
-        // };
+            // Stop the actor if the server stops.
+            worker_handle.shutdown().await;
+        });
 
         cx.spawn_child_task(GapsMetric { db: self.db.clone() }).await;
 
-        Ok(MetricsState {
-            // server_handle: (server_fut, Some(send)),
-        })
+        Ok(MetricsState { shutdown_tx: Some(shutdown_tx) })
     }
 
     async fn shutdown(
         &mut self,
         cx: &mut ActorContext<Self>,
-        _state: &mut Self::State,
+        state: &mut Self::State,
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
         log::debug!("{} shutting down ({})", self.name(), cx.id());
 
-        // state.server_handle.1.take().map(|send| send.send(()));
+        state.shutdown_tx.take().map(|tx| tx.send(()));
 
         run_result
     }
