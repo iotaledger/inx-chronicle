@@ -119,9 +119,7 @@ impl Actor for MetricsWorker {
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let addr = SocketAddr::new(self.config.address, self.config.port);
 
-        // TODO: get the server handle!
-        let builder = PrometheusBuilder::new();
-        let (recorder, exporter_fut) = builder.with_http_listener(addr).build()?;
+        let (recorder, exporter_fut) = PrometheusBuilder::new().with_http_listener(addr).build()?;
 
         metrics::set_boxed_recorder(Box::new(recorder)).map_err(PrometheusBuildError::from)?;
 
@@ -143,7 +141,9 @@ impl Actor for MetricsWorker {
 
         cx.spawn_child_task(GapsMetric { db: self.db.clone() }).await;
 
-        Ok(MetricsState { shutdown_tx: Some(shutdown_tx) })
+        Ok(MetricsState {
+            shutdown_tx: Some(shutdown_tx),
+        })
     }
 
     async fn shutdown(
