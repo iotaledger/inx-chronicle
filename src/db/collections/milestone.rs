@@ -3,7 +3,7 @@
 
 use std::ops::RangeInclusive;
 
-use futures::{Stream, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
@@ -391,11 +391,9 @@ impl MongoDb {
                 None,
             )
             .await?
-            .map_ok(|doc| {
-                // Panic: we made sure that this is infallible.
-                let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc).unwrap();
-
-                (receipt, index)
+            .map(|doc| {
+                let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc?)?;
+                Ok((receipt, index))
             }))
     }
 
@@ -429,11 +427,9 @@ impl MongoDb {
                 None,
             )
             .await?
-            .map_ok(|doc| {
-                // Panic: we made sure that this is infallible.
-                let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc).unwrap();
-
-                (receipt, index)
+            .map(|doc| {
+                let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc?)?;
+                Ok((receipt, index))
             }))
     }
 }
