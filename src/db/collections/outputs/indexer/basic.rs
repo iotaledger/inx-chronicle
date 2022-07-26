@@ -10,7 +10,7 @@ use super::queries::{
 };
 use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct BasicOutputsQuery {
     pub address: Option<Address>,

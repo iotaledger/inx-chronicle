@@ -11,13 +11,9 @@ use chronicle::{
 };
 use serde::Deserialize;
 
-use crate::api::{
-    error::ParseError,
-    stardust::{sort_order_from_str, DEFAULT_PAGE_SIZE, DEFAULT_SORT_ORDER},
-    ApiError,
-};
+use crate::api::{error::ParseError, ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LedgerUpdatesByAddressPagination {
     pub page_size: usize,
     pub sort: SortOrder,
@@ -80,28 +76,34 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
             .await
             .map_err(ApiError::QueryError)?;
 
-        let sort = query.sort.map_or(Ok(DEFAULT_SORT_ORDER), sort_order_from_str)?;
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
 
-        let pagination = if let Some(cursor) = query.cursor {
+        let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByAddressCursor = cursor.parse()?;
-            LedgerUpdatesByAddressPagination {
-                page_size: cursor.page_size,
-                cursor: Some((cursor.milestone_index, Some((cursor.output_id, cursor.is_spent)))),
-                sort,
-            }
+            (
+                cursor.page_size,
+                Some((cursor.milestone_index, Some((cursor.output_id, cursor.is_spent)))),
+            )
         } else {
-            LedgerUpdatesByAddressPagination {
-                page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
-                cursor: query.start_milestone_index.map(|i| (i, None)),
-                sort,
-            }
+            (
+                query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
+                query.start_milestone_index.map(|i| (i, None)),
+            )
         };
 
-        Ok(pagination)
+        Ok(LedgerUpdatesByAddressPagination {
+            page_size: page_size.min(MAX_PAGE_SIZE),
+            cursor,
+            sort,
+        })
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LedgerUpdatesByMilestonePagination {
     pub page_size: usize,
     pub cursor: Option<(OutputId, bool)>,
@@ -152,25 +154,24 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
             .await
             .map_err(ApiError::QueryError)?;
 
-        let pagination = if let Some(cursor) = query.cursor {
+        let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
-            LedgerUpdatesByMilestonePagination {
-                page_size: cursor.page_size,
-                cursor: Some((cursor.output_id, cursor.is_spent)),
-            }
+            (cursor.page_size, Some((cursor.output_id, cursor.is_spent)))
         } else {
-            LedgerUpdatesByMilestonePagination {
-                page_size: query.page_size.unwrap_or(DEFAULT_PAGE_SIZE),
-                cursor: None,
-            }
+            (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
         };
 
-        Ok(pagination)
+        Ok(LedgerUpdatesByMilestonePagination {
+            page_size: page_size.min(MAX_PAGE_SIZE),
+            cursor,
+        })
     }
 }
 
 #[cfg(test)]
 mod test {
+    use axum::{extract::RequestParts, http::Request};
+
     use super::*;
 
     #[test]
@@ -194,5 +195,41 @@ mod test {
         let cursor = format!("{output_id_str}.{is_spent_str}.{page_size_str}",);
         let parsed: LedgerUpdatesByMilestoneCursor = cursor.parse().unwrap();
         assert_eq!(parsed.to_string(), cursor);
+    }
+
+    #[tokio::test]
+    async fn page_size_clamped() {
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
+                .body(())
+                .unwrap(),
+        );
+        assert_eq!(
+            LedgerUpdatesByAddressPagination::from_request(&mut req).await.unwrap(),
+            LedgerUpdatesByAddressPagination {
+                page_size: MAX_PAGE_SIZE,
+                sort: Default::default(),
+                cursor: Default::default()
+            }
+        );
+
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/ledger/updates/by-milestone/0?pageSize=9999999")
+                .body(())
+                .unwrap(),
+        );
+        assert_eq!(
+            LedgerUpdatesByMilestonePagination::from_request(&mut req)
+                .await
+                .unwrap(),
+            LedgerUpdatesByMilestonePagination {
+                page_size: MAX_PAGE_SIZE,
+                cursor: Default::default()
+            }
+        );
     }
 }

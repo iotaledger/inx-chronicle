@@ -7,7 +7,7 @@ use primitive_types::U256;
 use super::queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery};
 use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub struct FoundryOutputsQuery {
     pub alias_address: Option<Address>,

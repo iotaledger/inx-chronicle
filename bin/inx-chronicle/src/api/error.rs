@@ -7,7 +7,7 @@ use axum::{
     extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
-use chronicle::runtime::ErrorLevel;
+use chronicle::{db::collections::ParseSortError, runtime::ErrorLevel};
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -109,17 +109,17 @@ pub enum ParseError {
     #[allow(dead_code)]
     #[error("Invalid cursor")]
     BadPagingState,
-    #[error("Invalid sort order descriptor")]
-    BadSortDescriptor,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     Bool(#[from] ParseBoolError),
     #[error(transparent)]
+    DecimalU256(#[from] uint::FromDecStrErr),
+    #[error(transparent)]
     Int(#[from] ParseIntError),
     #[error(transparent)]
-    DecimalU256(#[from] uint::FromDecStrErr),
+    SortOrder(#[from] ParseSortError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }
