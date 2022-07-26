@@ -123,12 +123,6 @@ impl RuntimeScope {
         }
     }
 
-    // /// Gets the metrics registry used by the runtime.
-    // #[cfg(feature = "metrics")]
-    // pub fn metrics_registry(&self) -> &std::sync::Arc<bee_metrics::Registry> {
-    //     self.scope.0.metrics_registry()
-    // }
-
     /// Creates a new scope within this one.
     pub async fn scope<S, F, O>(&self, f: S) -> Result<O, RuntimeError>
     where
@@ -170,33 +164,10 @@ impl RuntimeScope {
         A: 'static + Actor,
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
-        // #[cfg(not(feature = "metrics-debug"))]
         let (sender, receiver) = {
             let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
             (sender, tokio_stream::wrappers::UnboundedReceiverStream::new(receiver))
         };
-        // #[cfg(feature = "metrics-debug")]
-        // let (sender, receiver) = {
-        //     use bee_metrics::metrics::sync::mpsc;
-        //     let (sender, receiver) = mpsc::unbounded_channel::<Envelope<A>>();
-        //     self.metrics_registry().register(
-        //         format!(
-        //             "{}_send",
-        //             super::actor::util::sanitize_metric_name(actor.name().as_ref())
-        //         ),
-        //         format!("{} sender channel counter", actor.name()),
-        //         sender.counter(),
-        //     );
-        //     self.metrics_registry().register(
-        //         format!(
-        //             "{}_recv",
-        //             super::actor::util::sanitize_metric_name(actor.name().as_ref())
-        //         ),
-        //         format!("{} receiver channel counter", actor.name()),
-        //         receiver.counter(),
-        //     );
-        //     (sender, mpsc::UnboundedReceiverStream::new(receiver))
-        // };
 
         let (receiver, shutdown_handle) = ShutdownStream::new(Box::new(receiver));
         let receiver = match streams {

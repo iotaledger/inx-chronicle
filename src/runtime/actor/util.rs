@@ -79,16 +79,3 @@ where
         Ok(())
     }
 }
-
-// #[cfg(feature = "metrics-debug")]
-// pub(crate) fn sanitize_metric_name(name: &str) -> String {
-//     name.chars()
-//         .filter_map(|c| match c {
-//             '<' => Some('_'),
-//             '_' | ':' => Some(c),
-//             c if c.is_whitespace() => Some('_'),
-//             c if c.is_ascii_alphanumeric() => Some(c),
-//             _ => None,
-//         })
-//         .collect::<String>()
-// }
