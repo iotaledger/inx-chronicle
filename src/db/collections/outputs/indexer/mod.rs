@@ -119,7 +119,7 @@ impl MongoDb {
             }
             Ok(res.map(|doc| IndexedOutputResult {
                 ledger_index,
-                output_id: doc.output_id,
+                output_id: doc.metadata.output_id,
             }))
         } else {
             Ok(None)
@@ -142,12 +142,12 @@ impl MongoDb {
         if let Some(ledger_index) = ledger_index {
             let (sort, cmp1, cmp2) = match order {
                 SortOrder::Newest => (
-                    doc! { "metadata.booked.milestone_index": -1, "output_id": -1 },
+                    doc! { "metadata.booked.milestone_index": -1, "metadata.output_id": -1 },
                     "$lt",
                     "$lte",
                 ),
                 SortOrder::Oldest => (
-                    doc! { "metadata.booked.milestone_index": 1, "output_id": 1 },
+                    doc! { "metadata.booked.milestone_index": 1, "metadata.output_id": 1 },
                     "$gt",
                     "$gte",
                 ),
@@ -168,7 +168,7 @@ impl MongoDb {
                     doc! { "metadata.booked.milestone_index": { cmp1: start_ms } },
                     doc! {
                         "metadata.booked.milestone_index": start_ms,
-                        "output_id": { cmp2: start_output_id }
+                        "metadata.output_id": { cmp2: start_output_id }
                     },
                 ] });
             }
@@ -187,7 +187,7 @@ impl MongoDb {
                         doc! { "$sort": sort },
                         doc! { "$limit": page_size as i64 },
                         doc! { "$replaceWith": {
-                            "output_id": "$output_id",
+                            "output_id": "$metadata.output_id",
                             "booked_index": "$metadata.booked.milestone_index"
                         } },
                     ],

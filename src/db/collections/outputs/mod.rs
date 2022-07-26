@@ -27,7 +27,6 @@ use crate::{
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDocument {
-    output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
     details: OutputDetails,
@@ -52,7 +51,6 @@ impl From<OutputWithMetadata> for OutputDocument {
         let is_trivial_unlock = rec.output.is_trivial_unlock();
 
         Self {
-            output_id: rec.metadata.output_id,
             output: rec.output,
             metadata: rec.metadata,
             details: OutputDetails {
@@ -97,7 +95,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "output_id": 1 })
+                    .keys(doc! { "metadata.output_id": 1 })
                     .options(
                         IndexOptions::builder()
                             .unique(true)
@@ -138,7 +136,7 @@ impl MongoDb {
         self.0
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
-                doc! { "output_id": output.metadata.output_id },
+                doc! { "metadata.output_id": output.metadata.output_id },
                 doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
                 UpdateOptions::builder().upsert(true).build(),
             )
@@ -154,7 +152,7 @@ impl MongoDb {
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "output_id": output_id } },
+                    doc! { "$match": { "metadata.output_id": output_id } },
                     doc! { "$replaceWith": "$output" },
                 ],
                 None,
@@ -181,7 +179,7 @@ impl MongoDb {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "output_id": &output_id,
+                            "metadata.output_id": &output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
                         doc! { "$set": {
@@ -214,7 +212,7 @@ impl MongoDb {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "output_id": &output_id,
+                            "metadata.output_id": &output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
                         doc! { "$set": {
@@ -248,7 +246,7 @@ impl MongoDb {
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "output_id": &output_id } },
+                    doc! { "$match": { "metadata.output_id": &output_id } },
                     doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],
                 None,
