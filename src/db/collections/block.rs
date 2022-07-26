@@ -1,11 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOptions, IndexOptions, UpdateOptions},
+    options::{IndexOptions, UpdateOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -154,18 +154,26 @@ impl MongoDb {
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-        self.0
-            .collection::<BlockId>(BlockDocument::COLLECTION)
-            .find(
-                doc! {"block.parents": bson::to_bson(block_id)?},
-                FindOptions::builder()
-                    .skip((page_size * page) as u64)
-                    .sort(doc! {"metadata.referenced_by_milestone_index": -1})
-                    .limit(page_size as i64)
-                    .projection(doc! {"metadata.block_id": 1 })
-                    .build(),
+        #[derive(Deserialize)]
+        struct BlockIdResult {
+            block_id: BlockId,
+        }
+
+        Ok(self
+            .0
+            .collection::<BlockIdResult>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "block.parents": block_id } },
+                    doc! { "$skip": (page_size * page) as i64 },
+                    doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
+                    doc! { "$limit": page_size as i64 },
+                    doc! { "$replaceWith": { "block_id": "$metadata.block_id" } },
+                ],
+                None,
             )
-            .await
+            .await?
+            .map(|doc| Ok(bson::from_document::<BlockIdResult>(doc?)?.block_id)))
     }
 
     /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
