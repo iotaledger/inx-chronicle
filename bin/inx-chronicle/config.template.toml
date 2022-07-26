@@ -35,6 +35,7 @@ public_routes = [
     # Activated APIs.
     "api/core/v2/*",
     "api/history/v2/*",
+    "api/indexer/v1/*",
 
     "api/analytics/v2/addresses*",
 ]
