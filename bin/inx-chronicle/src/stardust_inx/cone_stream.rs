@@ -73,11 +73,7 @@ impl HandleEvent<Result<bee_inx::BlockWithMetadata, bee_inx::Error>> for ConeStr
         log::trace!("Block id: {:?}", metadata.block_id);
 
         self.db
-            .insert_block_with_metadata(
-                block.clone().inner()?.into(),
-                block.data(),
-                metadata.into(),
-            )
+            .insert_block_with_metadata(block.clone().inner()?.into(), block.data(), metadata.into())
             .await?;
 
         log::trace!("Inserted block into database.");
