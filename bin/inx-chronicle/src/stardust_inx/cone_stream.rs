@@ -57,6 +57,8 @@ impl Actor for ConeStream {
         if run_result.is_ok() {
             self.db.set_sync_status_blocks(self.milestone_index).await?;
             self.db.update_ledger_index(self.milestone_index).await?;
+
+            // NOTE: this macro will turn the duration into an `f64` via `.as_secs_f64`.
             histogram!(SYNC_TIME, self.start.elapsed());
             log::debug!("Milestone `{}` synced.", self.milestone_index);
         } else {

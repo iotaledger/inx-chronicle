@@ -124,7 +124,7 @@ impl Actor for MetricsWorker {
         metrics::set_boxed_recorder(Box::new(recorder)).map_err(PrometheusBuildError::from)?;
 
         describe_gauge!(GAPS_COUNT, Unit::Count, "the current number of gaps in the database");
-        describe_histogram!(SYNC_TIME, Unit::Milliseconds, "the time it took to sync a milestone");
+        describe_histogram!(SYNC_TIME, Unit::Seconds, "the time it took to sync a milestone");
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let worker_handle = cx.handle().clone();
