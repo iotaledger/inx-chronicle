@@ -202,8 +202,7 @@ impl MongoDb {
         &self,
         start_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        Ok(self
-            .0
+        self.0
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
@@ -218,7 +217,7 @@ impl MongoDb {
             )
             .await?
             .try_next()
-            .await?)
+            .await
     }
 
     /// Find the end milestone.
@@ -226,8 +225,7 @@ impl MongoDb {
         &self,
         end_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        Ok(self
-            .0
+        self.0
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
@@ -242,7 +240,7 @@ impl MongoDb {
             )
             .await?
             .try_next()
-            .await?)
+            .await
     }
 
     /// Find the latest milestone inserted.
