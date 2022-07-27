@@ -48,7 +48,7 @@ impl From<FoundryId> for Bson {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,

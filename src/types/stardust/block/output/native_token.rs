@@ -95,12 +95,19 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NativeToken {
     pub token_id: NativeTokenId,
     pub amount: NativeTokenAmount,
     pub float_amount: f64,
 }
+
+impl PartialEq for NativeToken {
+    fn eq(&self, other: &Self) -> bool {
+        self.token_id == other.token_id && self.amount == other.amount
+    }
+}
+impl Eq for NativeToken {}
 
 impl From<&bee::NativeToken> for NativeToken {
     fn from(value: &bee::NativeToken) -> Self {

@@ -57,7 +57,7 @@ impl From<NftId> for Bson {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NftOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,
