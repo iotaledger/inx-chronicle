@@ -7,12 +7,19 @@ use async_trait::async_trait;
 use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
-    types::tangle::{MilestoneIndex, ProtocolInfo, ProtocolParameters},
+    runtime::{Actor, ActorContext, HandleEvent},
+    types::{
+        ledger::BlockMetadata,
+        stardust::block::Block,
+        tangle::{MilestoneIndex, ProtocolInfo, ProtocolParameters},
+    },
 };
+use futures::StreamExt;
+use metrics::histogram;
 use tokio::time::Instant;
 
-use super::{cone_stream::ConeStream, InxError};
+use super::InxError;
+use crate::metrics::SYNC_TIME;
 
 #[derive(Debug)]
 pub struct LedgerUpdateStream {
@@ -55,40 +62,16 @@ impl Actor for LedgerUpdateStream {
 }
 
 #[async_trait]
-impl HandleEvent<Report<ConeStream>> for LedgerUpdateStream {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<ConeStream>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => (),
-            Report::Error(report) => match report.error {
-                ActorError::Result(e) => {
-                    Err(e)?;
-                }
-                ActorError::Aborted | ActorError::Panic => {
-                    cx.abort().await;
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
 impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for LedgerUpdateStream {
     async fn handle_event(
         &mut self,
-        cx: &mut ActorContext<Self>,
+        _cx: &mut ActorContext<Self>,
         ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received ledger update event {:#?}", ledger_update_result);
 
         let ledger_update_start = Instant::now();
-
         let ledger_update = ledger_update_result?;
 
         let output_updates = Vec::from(ledger_update.created)
@@ -133,13 +116,28 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for LedgerUpdate
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
-        cx.spawn_child(ConeStream::new(
-            milestone_index,
-            ledger_update_start,
-            self.inx.clone(),
-            self.db.clone(),
-        ))
-        .await;
+        let mut cone_stream = self.inx.read_milestone_cone(milestone_index.0.into()).await?;
+
+        while let Some(bee_inx_block_with_metadata) = cone_stream.next().await.transpose()? {
+            log::trace!(
+                "Received Stardust block with metadata: {:?}",
+                bee_inx_block_with_metadata
+            );
+
+            let bee_inx::BlockWithMetadata { block, metadata } = bee_inx_block_with_metadata;
+            let raw = block.clone().data();
+            let block: Block = block.inner()?.into();
+            let metadata: BlockMetadata = metadata.into();
+
+            self.db.insert_block_with_metadata(block, raw, metadata).await?;
+            log::trace!("Inserted block into database.");
+        }
+
+        self.db.set_sync_status_blocks(milestone_index).await?;
+        self.db.update_ledger_index(milestone_index).await?;
+
+        histogram!(SYNC_TIME, ledger_update_start.elapsed());
+        log::debug!("Milestone `{}` synced.", milestone_index);
 
         Ok(())
     }

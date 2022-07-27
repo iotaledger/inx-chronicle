@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod cone_stream;
 mod config;
 mod error;
 mod ledger_update_stream;
