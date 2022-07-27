@@ -22,7 +22,7 @@ struct StatusDocument {
 
 impl StatusDocument {
     /// The status collection name.
-    const COLLECTION: &'static str = "status";
+    const COLLECTION: &'static str = "stardust_status";
 }
 
 impl MongoDb {

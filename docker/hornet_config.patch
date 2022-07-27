@@ -1,11 +1,11 @@
 diff --git a/docker/config.alphanet.hornet.json b/docker/config.alphanet.hornet.json
-index 609d941..9ab337c 100644
+index 29df93f..f41efa6 100644
 --- a/docker/config.alphanet.hornet.json
 +++ b/docker/config.alphanet.hornet.json
-@@ -62,5 +62,12 @@
-         "delta": "https://files.alphanet.iotaledger.net/snapshots/latest-delta_snapshot.bin"
-       }
-     ]
+@@ -71,5 +71,12 @@
+   },
+   "warpsync": {
+     "advancementRange": 1500
 +  },
 +  "inx": {
 +    "enabled": true,
