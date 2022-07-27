@@ -353,7 +353,10 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "$nor": [
+                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                        ],
                     } },
                     // First group the outputs into transactions
                     doc! { "$group" : {
@@ -390,7 +393,10 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "$nor": [
+                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                        ],
                     } },
                     doc! { "$unwind": "$output.native_tokens" },
                     doc! { "$group" : {
@@ -422,7 +428,10 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "$nor": [
+                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                        ],
                         "output.kind": "nft"
                     } },
                     // First group the nfts by their ids
@@ -459,7 +468,10 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "$nor": [
+                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                        ],
                         "output.kind": "foundry"
                     } },
                     doc! { "$unwind": "$output.native_tokens" },
@@ -497,12 +509,12 @@ impl MongoDb {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "$nor": [
+                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                            { "metadata.spent_metadata.spent.milestone_timestamp": { "$lt": end_timestamp } },
+                        ],
                         "output.storage_deposit_return_unlock_condition": { "$exists": true },
-                        "$or": [
-                            { "metadata.spent_metadata": { "$exists": false } },
-                            { "metadata.spent_metadata.spent.milestone_timestamp": { "$gte": end_timestamp } },
-                        ]
                     } },
                     doc! { "$group" : {
                         "_id": null,
@@ -553,20 +565,36 @@ impl MongoDb {
                         "total": [
                             { "$match": {
                                 "$or": [
-                                    { "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } },
-                                    { "metadata.spent_metadata.spent.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } },
+                                    { "$nor": [
+                                        { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                                        { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                                    ] },
+                                    { "$nor": [
+                                        { "metadata.spent_metadata.spent.milestone_timestamp": { "$lt": start_timestamp } },
+                                        { "metadata.spent_metadata.spent.milestone_timestamp": { "$gte": end_timestamp } },
+                                    ] },
                                 ],
                             } },
                             { "$group" : { "_id": "$details.address" }},
                             { "$count": "addresses" },
                         ],
                         "receiving": [
-                            { "$match": { "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } } },
+                            { "$match": { 
+                                "$nor": [
+                                    { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                                    { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                                ],
+                             } },
                             { "$group" : { "_id": "$details.address" }},
                             { "$count": "addresses" },
                         ],
                         "sending": [
-                            { "$match": { "metadata.spent_metadata.spent.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } } },
+                            { "$match": { 
+                                "$nor": [
+                                    { "metadata.spent_metadata.spent.milestone_timestamp": { "$lt": start_timestamp } },
+                                    { "metadata.spent_metadata.spent.milestone_timestamp": { "$gte": end_timestamp } },
+                                ],
+                             } },
                             { "$group" : { "_id": "$details.address" }},
                             { "$count": "addresses" },
                         ],
