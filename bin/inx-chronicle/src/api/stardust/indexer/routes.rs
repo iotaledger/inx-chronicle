@@ -17,7 +17,7 @@ use super::{
     extractors::IndexedOutputsPagination,
     responses::{IndexerOutputResponse, IndexerOutputsResponse},
 };
-use crate::api::{stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult};
+use crate::api::{stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult, error::ParseError};
 
 pub fn routes() -> Router {
     Router::new().nest(
@@ -51,9 +51,9 @@ async fn indexed_output_by_id<ID>(
 ) -> ApiResult<IndexerOutputResponse>
 where
     ID: Into<IndexedId> + FromStr,
-    ApiError: From<ID::Err>,
+    ParseError: From<ID::Err>,
 {
-    let id = ID::from_str(&id)?;
+    let id = ID::from_str(&id).map_err(ApiError::bad_parse)?;
     let res = database
         .get_indexed_output_by_id(id)
         .await?
