@@ -53,12 +53,12 @@ pub(crate) mod test {
     }
 
     pub(crate) fn get_test_utxo_input() -> Input {
-        Input::Utxo(bee_test::rand::output::rand_output_id().into())
+        Input::Utxo(bee_block_stardust::rand::output::rand_output_id().into())
     }
 
     pub(crate) fn get_test_treasury_input() -> Input {
         Input::Treasury {
-            milestone_id: bee_test::rand::milestone::rand_milestone_id().into(),
+            milestone_id: bee_block_stardust::rand::milestone::rand_milestone_id().into(),
         }
     }
 }

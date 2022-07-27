@@ -80,7 +80,9 @@ mod test {
 
     #[test]
     fn test_nft_query_everything() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let query = NftOutputsQuery {
             address: Some(address),
             issuer: Some(address),
@@ -146,7 +148,9 @@ mod test {
 
     #[test]
     fn test_nft_query_all_false() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let query = NftOutputsQuery {
             address: Some(address),
             issuer: None,

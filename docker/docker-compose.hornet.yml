@@ -32,7 +32,7 @@ services:
       - ../bin/inx-chronicle/config.template.toml:/app/config.toml:ro
 
   hornet:
-    image: iotaledger/hornet:2.0.0-alpha.25
+    image: iotaledger/hornet:2.0.0-beta.3
     container_name: hornet
     ulimits:
       nofile:
@@ -55,4 +55,5 @@ services:
     command:
       - "-c"
       - "config.json"
+      - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"

@@ -127,11 +127,11 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
                             cx.abort().await;
                         }
                     },
-                    InxError::Read(e) => match e.code() {
-                        inx::tonic::Code::DeadlineExceeded
-                        | inx::tonic::Code::ResourceExhausted
-                        | inx::tonic::Code::Aborted
-                        | inx::tonic::Code::Unavailable => {
+                    InxError::BeeInx(bee_inx::Error::StatusCode(e)) => match e.code() {
+                        tonic::Code::DeadlineExceeded
+                        | tonic::Code::ResourceExhausted
+                        | tonic::Code::Aborted
+                        | tonic::Code::Unavailable => {
                             cx.spawn_child(report.actor).await;
                         }
                         _ => {

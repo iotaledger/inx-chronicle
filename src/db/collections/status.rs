@@ -1,40 +1,47 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{bson::doc, error::Error, options::UpdateOptions};
+use mongodb::{
+    bson::{doc, to_document},
+    error::Error,
+    options::UpdateOptions,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{db::MongoDb, types::tangle::MilestoneIndex};
+use crate::{
+    db::MongoDb,
+    types::tangle::{MilestoneIndex, ProtocolInfo},
+};
 
 /// Provides the information about the status of the node.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct StatusDocument {
-    network_name: Option<String>,
+    protocol: Option<ProtocolInfo>,
     ledger_index: Option<MilestoneIndex>,
 }
 
 impl StatusDocument {
     /// The status collection name.
-    const COLLECTION: &'static str = "status";
+    const COLLECTION: &'static str = "stardust_status";
 }
 
 impl MongoDb {
     /// Get the name of the network.
-    pub async fn get_network_name(&self) -> Result<Option<String>, Error> {
+    pub async fn get_protocol_parameters(&self) -> Result<Option<ProtocolInfo>, Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .find_one(doc! {}, None)
             .await
-            .map(|doc| doc.and_then(|doc| doc.network_name))
+            .map(|doc| doc.and_then(|doc| doc.protocol))
     }
 
     /// Sets the name of the network.
-    pub async fn set_network_name(&self, network_name: String) -> Result<(), Error> {
+    pub async fn set_protocol_parameters(&self, protocol_info: ProtocolInfo) -> Result<(), Error> {
         self.0
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .update_one(
                 doc! {},
-                doc! { "$set": { "network_name": network_name } },
+                doc! { "$set": { "protocol.parameters": to_document(&protocol_info)? } },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;

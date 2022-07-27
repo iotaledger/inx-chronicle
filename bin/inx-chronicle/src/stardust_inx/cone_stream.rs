@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
+use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
     types::tangle::MilestoneIndex,
-};
-use inx::{
-    client::InxClient,
-    tonic::{Channel, Status},
-    BlockWithMetadata,
 };
 
 use super::InxError;
@@ -18,15 +14,15 @@ use super::InxError;
 #[derive(Debug)]
 pub struct ConeStream {
     pub milestone_index: MilestoneIndex,
-    inx_client: InxClient<Channel>,
+    inx: Inx,
     db: MongoDb,
 }
 
 impl ConeStream {
-    pub fn new(milestone_index: MilestoneIndex, inx_client: InxClient<Channel>, db: MongoDb) -> Self {
+    pub fn new(milestone_index: MilestoneIndex, inx: Inx, db: MongoDb) -> Self {
         Self {
             milestone_index,
-            inx_client,
+            inx,
             db,
         }
     }
@@ -38,11 +34,7 @@ impl Actor for ConeStream {
     type Error = InxError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let cone_stream = self
-            .inx_client
-            .read_milestone_cone(inx::proto::MilestoneRequest::from_index(self.milestone_index.0))
-            .await?
-            .into_inner();
+        let cone_stream = self.inx.read_milestone_cone(self.milestone_index.0.into()).await?;
         cx.add_stream(cone_stream);
         Ok(())
     }
@@ -69,21 +61,19 @@ impl Actor for ConeStream {
 }
 
 #[async_trait]
-impl HandleEvent<Result<inx::proto::BlockWithMetadata, Status>> for ConeStream {
+impl HandleEvent<Result<bee_inx::BlockWithMetadata, bee_inx::Error>> for ConeStream {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        block_metadata_result: Result<inx::proto::BlockWithMetadata, Status>,
+        block_metadata_result: Result<bee_inx::BlockWithMetadata, bee_inx::Error>,
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received Stardust block event");
-        let block_metadata = block_metadata_result?;
-        log::trace!("Block data: {:?}", block_metadata);
-        let inx_block_with_metadata: inx::BlockWithMetadata = block_metadata.try_into()?;
-        let BlockWithMetadata { metadata, block, raw } = inx_block_with_metadata;
+        let bee_inx::BlockWithMetadata { block, metadata } = block_metadata_result?;
+        log::trace!("Block id: {:?}", metadata.block_id);
 
         self.db
-            .insert_block_with_metadata(block.into(), raw, metadata.into())
+            .insert_block_with_metadata(block.clone().inner()?.into(), block.data(), metadata.into())
             .await?;
 
         log::trace!("Inserted block into database.");

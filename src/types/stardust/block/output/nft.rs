@@ -140,7 +140,7 @@ impl TryFrom<NftOutput> for bee::NftOutput {
 
 #[cfg(test)]
 pub(crate) mod test {
-    use bee_test::rand::output::unlock_condition::rand_address_unlock_condition;
+    use bee_block_stardust::rand::output::unlock_condition::rand_address_unlock_condition;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
@@ -169,7 +169,7 @@ pub(crate) mod test {
     }
 
     pub(crate) fn rand_nft_id() -> bee::NftId {
-        bee_test::rand::bytes::rand_bytes_array().into()
+        bee_block_stardust::rand::bytes::rand_bytes_array().into()
     }
 
     pub(crate) fn get_test_nft_output() -> NftOutput {
@@ -184,14 +184,14 @@ pub(crate) mod test {
                     rand_expiration_unlock_condition().into(),
                 ])
                 .with_features(vec![
-                    get_test_sender_block(bee_test::rand::address::rand_address().into())
+                    get_test_sender_block(bee_block_stardust::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),
                     get_test_tag_block().try_into().unwrap(),
                 ])
                 .with_immutable_features(vec![
-                    get_test_issuer_block(bee_test::rand::address::rand_address().into())
+                    get_test_issuer_block(bee_block_stardust::rand::address::rand_address().into())
                         .try_into()
                         .unwrap(),
                     get_test_metadata_block().try_into().unwrap(),

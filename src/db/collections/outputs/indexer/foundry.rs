@@ -47,7 +47,9 @@ mod test {
 
     #[test]
     fn test_foundry_query_everything() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let query = FoundryOutputsQuery {
             alias_address: Some(address),
             has_native_tokens: Some(true),

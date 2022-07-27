@@ -4,12 +4,12 @@
 use std::{collections::VecDeque, ops::RangeInclusive};
 
 use async_trait::async_trait;
+use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ActorError, HandleEvent, Report},
     types::tangle::MilestoneIndex,
 };
-use inx::{client::InxClient, tonic::Channel};
 
 use super::{InxError, LedgerUpdateStream};
 
@@ -18,15 +18,15 @@ use super::{InxError, LedgerUpdateStream};
 pub struct Syncer {
     gaps: Gaps,
     db: MongoDb,
-    inx_client: InxClient<Channel>,
+    inx: Inx,
 }
 
 impl Syncer {
-    pub fn new(gaps: Vec<RangeInclusive<MilestoneIndex>>, db: MongoDb, inx_client: InxClient<Channel>) -> Self {
+    pub fn new(gaps: Vec<RangeInclusive<MilestoneIndex>>, db: MongoDb, inx: Inx) -> Self {
         Self {
             gaps: Gaps(gaps.into()),
             db,
-            inx_client,
+            inx,
         }
     }
 }
@@ -104,7 +104,7 @@ impl HandleEvent<SyncNext> for Syncer {
             );
             cx.spawn_child(LedgerUpdateStream::new(
                 self.db.clone(),
-                self.inx_client.clone(),
+                self.inx.clone(),
                 *milestone_range.start()..=*milestone_range.end(),
             ))
             .await;
