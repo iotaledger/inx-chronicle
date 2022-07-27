@@ -17,7 +17,7 @@ use super::{
     extractors::IndexedOutputsPagination,
     responses::{IndexerOutputResponse, IndexerOutputsResponse},
 };
-use crate::api::{stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult, error::ParseError};
+use crate::api::{error::ParseError, stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().nest(
