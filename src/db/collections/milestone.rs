@@ -109,7 +109,7 @@ impl MongoDb {
         &self,
         milestone_id: &MilestoneId,
     ) -> Result<Option<MilestonePayload>, Error> {
-        let payload = self
+        Ok(self
             .0
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
@@ -123,14 +123,12 @@ impl MongoDb {
             .try_next()
             .await?
             .map(bson::from_document)
-            .transpose()?;
-
-        Ok(payload)
+            .transpose()?)
     }
 
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
-        let payload = self
+        Ok(self
             .0
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
@@ -144,24 +142,25 @@ impl MongoDb {
             .try_next()
             .await?
             .map(bson::from_document)
-            .transpose()?;
-
-        Ok(payload)
+            .transpose()?)
     }
 
     /// Gets the timestamp of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
-        let timestamp = self
+        Ok(self
             .0
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! { "at.milestone_index": index },
-                FindOneOptions::builder().projection(doc! { "at": 1 }).build(),
+                FindOneOptions::builder()
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
+                    .build(),
             )
             .await?
-            .map(|ts| ts.milestone_timestamp);
-
-        Ok(timestamp)
+            .map(|ts| ts.milestone_timestamp))
     }
 
     /// Inserts the information of a milestone into the database.
@@ -212,7 +211,10 @@ impl MongoDb {
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
                     .limit(1)
-                    .projection(doc! { "at": 1 })
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
                     .build(),
             )
             .await?
@@ -235,7 +237,10 @@ impl MongoDb {
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": -1 })
                     .limit(1)
-                    .projection(doc! { "at": 1 })
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
                     .build(),
             )
             .await?
@@ -252,7 +257,10 @@ impl MongoDb {
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": -1 })
                     .limit(1)
-                    .projection(doc! { "at": 1 })
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
                     .build(),
             )
             .await?
@@ -289,7 +297,10 @@ impl MongoDb {
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
-                    .projection(doc! { "at": 1 })
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
                     .build(),
             )
             .await?

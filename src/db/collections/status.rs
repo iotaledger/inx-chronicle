@@ -41,7 +41,7 @@ impl MongoDb {
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .update_one(
                 doc! {},
-                doc! { "$set": { "protocol.parameters": to_document(&protocol_info)? } },
+                doc! { "$set": { "protocol": to_document(&protocol_info)? } },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
