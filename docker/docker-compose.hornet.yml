@@ -55,4 +55,5 @@ services:
     command:
       - "-c"
       - "config.json"
+      - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"

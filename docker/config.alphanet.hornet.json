@@ -71,12 +71,5 @@
   },
   "warpsync": {
     "advancementRange": 1500
-  },
-  "inx": {
-    "enabled": true,
-    "bindAddress": "localhost:9029",
-    "pow": {
-      "workerCount": 0
-    }
   }
 }

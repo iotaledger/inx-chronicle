@@ -1,8 +1,0 @@
-73a74,80
->   },
->   "inx": {
->     "enabled": true,
->     "bindAddress": "localhost:9029",
->     "pow": {
->       "workerCount": 0
->     }
