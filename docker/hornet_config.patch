@@ -1,17 +1,8 @@
-diff --git a/docker/config.alphanet.hornet.json b/docker/config.alphanet.hornet.json
-index 29df93f..f41efa6 100644
---- a/docker/config.alphanet.hornet.json
-+++ b/docker/config.alphanet.hornet.json
-@@ -71,5 +71,12 @@
-   },
-   "warpsync": {
-     "advancementRange": 1500
-+  },
-+  "inx": {
-+    "enabled": true,
-+    "bindAddress": "localhost:9029",
-+    "pow": {
-+      "workerCount": 0
-+    }
-   }
- }
+73a74,80
+>   },
+>   "inx": {
+>     "enabled": true,
+>     "bindAddress": "localhost:9029",
+>     "pow": {
+>       "workerCount": 0
+>     }
