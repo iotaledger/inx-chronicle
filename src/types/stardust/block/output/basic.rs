@@ -11,7 +11,7 @@ use super::{
     Feature, NativeToken, OutputAmount,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BasicOutput {
     pub amount: OutputAmount,
     pub native_tokens: Box<[NativeToken]>,

@@ -95,17 +95,24 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NativeToken {
     pub token_id: NativeTokenId,
     pub amount: NativeTokenAmount,
+    pub float_amount: f64,
 }
 
 impl From<&bee::NativeToken> for NativeToken {
     fn from(value: &bee::NativeToken) -> Self {
+        let amount = NativeTokenAmount::from(value.amount());
+        let (high, low) = (
+            u128::from_be_bytes(amount.0[..16].try_into().unwrap()),
+            u128::from_be_bytes(amount.0[16..].try_into().unwrap()),
+        );
         Self {
             token_id: NativeTokenId(**value.token_id()),
-            amount: value.amount().into(),
+            amount,
+            float_amount: ((high as f64) * 2f64.powi(16)) + low as f64,
         }
     }
 }

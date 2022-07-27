@@ -19,7 +19,10 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, RentStructureBytes, SpentMetadata},
-        stardust::block::{Address, BlockId, Output, OutputId},
+        stardust::{
+            block::{Address, BlockId, Output, OutputId},
+            milestone::MilestoneTimestamp,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -327,5 +330,259 @@ impl MongoDb {
         } else {
             Ok(None)
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OutputAnalyticsResult {
+    pub count: u64,
+    pub total_value: f64,
+    pub avg_value: f64,
+}
+
+impl MongoDb {
+    /// Gathers output analytics.
+    pub async fn get_transaction_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<OutputAnalyticsResult, Error> {
+        Ok(self
+            .0
+            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                    } },
+                    // First group the outputs into transactions
+                    doc! { "$group" : {
+                        "_id": "$metadata.output_id.transaction_id",
+                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                    }},
+                    // Then aggregate transaction analytics
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": "$amount" },
+                        "avg_value": { "$avg": "$amount" },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers native token analytics.
+    pub async fn get_native_token_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<OutputAnalyticsResult, Error> {
+        Ok(self
+            .0
+            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                    } },
+                    doc! { "$unwind": "$output.native_tokens" },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": "$output.native_tokens.float_amount" },
+                        "avg_value": { "$avg": "$output.native_tokens.float_amount" },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers nft output analytics.
+    pub async fn get_nft_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<OutputAnalyticsResult, Error> {
+        Ok(self
+            .0
+            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "output.kind": "nft"
+                    } },
+                    // First group the nfts by their ids
+                    doc! { "$group" : {
+                        "_id": "$output.nft_id",
+                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                    }},
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": "$amount" },
+                        "avg_value": { "$avg": "$amount" },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers nft output analytics.
+    pub async fn get_foundry_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<OutputAnalyticsResult, Error> {
+        Ok(self
+            .0
+            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "output.kind": "foundry"
+                    } },
+                    doc! { "$unwind": "$output.native_tokens" },
+                    // First group by token id
+                    doc! { "$group" : {
+                        "_id": "$output.native_tokens.token_id",
+                        "amount": { "$sum": "$output.native_tokens.float_amount" },
+                    }},
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": "$amount" },
+                        "avg_value": { "$avg": "$amount" },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers locked storage deposit analytics.
+    pub async fn get_locked_storage_deposit_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<OutputAnalyticsResult, Error> {
+        Ok(self
+            .0
+            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } },
+                        "output.storage_deposit_return_unlock_condition": { "$exists": true },
+                        "$or": [
+                            { "metadata.spent_metadata": { "$exists": false } },
+                            { "metadata.spent_metadata.spent.milestone_timestamp": { "$gte": end_timestamp } },
+                        ]
+                    } },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": { "$toDouble": "$output.storage_deposit_return_unlock_condition.amount" } },
+                        "avg_value": { "$avg": { "$toDouble": "$output.storage_deposit_return_unlock_condition.amount" } },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+}
+
+/// Address analytics result.
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct AddressAnalyticsResult {
+    /// The number of addresses used in the time period.
+    pub total_active_addresses: u64,
+    /// The number of addresses that received tokens in the time period.
+    pub receiving_addresses: u64,
+    /// The number of addresses that sent tokens in the time period.
+    pub sending_addresses: u64,
+}
+
+impl MongoDb {
+    /// Create aggregate statistics of all addresses.
+    pub async fn get_address_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<Option<AddressAnalyticsResult>, Error> {
+        Ok(self
+            .0
+            .collection::<AddressAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "details.address": { "$exists": true }
+                    } },
+                    doc! { "$facet": {
+                        "total": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } },
+                                    { "metadata.spent_metadata.spent.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } },
+                                ],
+                            } },
+                            { "$group" : { "_id": "$details.address" }},
+                            { "$count": "addresses" },
+                        ],
+                        "receiving": [
+                            { "$match": { "metadata.booked.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } } },
+                            { "$group" : { "_id": "$details.address" }},
+                            { "$count": "addresses" },
+                        ],
+                        "sending": [
+                            { "$match": { "metadata.spent_metadata.spent.milestone_timestamp": { "$not": { "$lt": start_timestamp }, "$not": { "$gte": end_timestamp } } } },
+                            { "$group" : { "_id": "$details.address" }},
+                            { "$count": "addresses" },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "total_active_addresses": { "$first": "$total.addresses" },
+                        "receiving_addresses": { "$first": "$receiving.addresses" },
+                        "sending_addresses": { "$first": "$sending.addresses" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?)
     }
 }
