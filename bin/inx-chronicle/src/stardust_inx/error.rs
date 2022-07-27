@@ -27,10 +27,9 @@ pub enum InxError {
 impl ErrorLevel for InxError {
     fn level(&self) -> log::Level {
         match self {
-            Self::InvalidAddress(_)
-            | Self::MongoDb(_)
-            | Self::NetworkChanged(_, _)
-            | Self::ParsingAddressFailed(_) => log::Level::Error,
+            Self::InvalidAddress(_) | Self::MongoDb(_) | Self::NetworkChanged(_, _) | Self::ParsingAddressFailed(_) => {
+                log::Level::Error
+            }
             _ => log::Level::Warn,
         }
     }
