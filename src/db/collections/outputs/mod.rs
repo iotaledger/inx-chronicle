@@ -319,11 +319,16 @@ impl MongoDb {
                 .transpose()?
                 .unwrap_or_default();
 
-            Ok(Some(BalancesResult {
-                total_balance: balances.total_balance[0].amount as u64,
-                sig_locked_balance: balances.sig_locked_balance[0].amount as u64,
-                ledger_index,
-            }))
+            if balances.total_balance.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(BalancesResult {
+                    total_balance: balances.total_balance[0].amount as u64,
+                    sig_locked_balance: balances.sig_locked_balance[0].amount as u64,
+                    ledger_index,
+                }))
+            }
+
         } else {
             Ok(None)
         }
