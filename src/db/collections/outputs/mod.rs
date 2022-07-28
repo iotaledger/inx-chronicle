@@ -89,6 +89,13 @@ pub struct BalancesResult {
     pub ledger_index: MilestoneIndex,
 }
 
+#[derive(Clone, Debug)]
+#[allow(missing_docs)]
+pub struct UtxoChangesResult {
+    pub created_outputs: Vec<OutputId>,
+    pub consumed_outputs: Vec<OutputId>,
+}
+
 /// Implements the queries for the core API.
 impl MongoDb {
     /// Creates output indexes.
@@ -323,6 +330,74 @@ impl MongoDb {
                 total_balance: balances.total_balance.amount as u64,
                 sig_locked_balance: balances.sig_locked_balance.amount as u64,
                 ledger_index,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
+    /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
+    /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
+    pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
+        #[derive(Default, Deserialize)]
+        struct OutputIds {
+            output_ids: Vec<OutputId>,
+        }
+
+        #[derive(Default, Deserialize)]
+        struct UtxoChanges {
+            created_outputs: OutputIds,
+            consumed_outputs: OutputIds,
+        }
+
+        if let Some(ledger_index) = self.get_ledger_index().await? {
+            if index > ledger_index {
+                return Ok(None);
+            }
+            let utxo_changes = self
+                .0
+                .collection::<UtxoChanges>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![doc! { "$facet": {
+                        // Match all outputs that were booked at `index` (created outputs).
+                        "created_outputs": [
+                            { "$match": { "metadata.booked.milestone_index": index  } },
+                            { "$group": {
+                                "_id": null,
+                                "output_ids": { "$push": "$metadata.output_id" },
+                            } },
+                        ],
+                        // Match all outputs that were spent at `index` (consumed outputs).
+                        "consumed_outputs": [
+                            { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                            { "$group": {
+                                "_id": null,
+                                "output_ids": { "$push": "$metadata.output_id" },
+                            } },
+                        ],
+                    } }],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document::<UtxoChanges>)
+                .transpose()?
+                .unwrap_or_default();
+
+            let UtxoChanges {
+                created_outputs: OutputIds {
+                    output_ids: created_outputs,
+                },
+                consumed_outputs: OutputIds {
+                    output_ids: consumed_outputs,
+                },
+            } = utxo_changes;
+
+            Ok(Some(UtxoChangesResult {
+                created_outputs,
+                consumed_outputs,
             }))
         } else {
             Ok(None)
