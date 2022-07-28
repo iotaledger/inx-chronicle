@@ -272,8 +272,8 @@ impl MongoDb {
 
         #[derive(Deserialize, Default)]
         struct Balances {
-            total_balance: Amount,
-            sig_locked_balance: Amount,
+            total_balance: Vec<Amount>,
+            sig_locked_balance: Vec<Amount>,
         }
 
         let ledger_index = self.get_ledger_index().await?;
@@ -298,7 +298,7 @@ impl MongoDb {
                                 { "$group" : {
                                     "_id": null,
                                     "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                }},
+                                } } ,
                             ],
                             // Sum only trivially unlockable output amounts (signature locked balance).
                             "sig_locked_balance": [
@@ -320,8 +320,8 @@ impl MongoDb {
                 .unwrap_or_default();
 
             Ok(Some(BalancesResult {
-                total_balance: balances.total_balance.amount as u64,
-                sig_locked_balance: balances.sig_locked_balance.amount as u64,
+                total_balance: balances.total_balance[0].amount as u64,
+                sig_locked_balance: balances.sig_locked_balance[0].amount as u64,
                 ledger_index,
             }))
         } else {
