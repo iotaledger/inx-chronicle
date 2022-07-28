@@ -536,7 +536,7 @@ impl MongoDb {
 
 /// Address analytics result.
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct AddressAnalyticsResult {
     /// The number of addresses used in the time period.
     pub total_active_addresses: u64,
@@ -552,7 +552,7 @@ impl MongoDb {
         &self,
         start_timestamp: Option<MilestoneTimestamp>,
         end_timestamp: Option<MilestoneTimestamp>,
-    ) -> Result<Option<AddressAnalyticsResult>, Error> {
+    ) -> Result<AddressAnalyticsResult, Error> {
         Ok(self
             .0
             .collection::<AddressAnalyticsResult>(OutputDocument::COLLECTION)
@@ -611,6 +611,89 @@ impl MongoDb {
             .try_next()
             .await?
             .map(bson::from_document)
-            .transpose()?)
+            .transpose()?
+            .unwrap_or_default())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct Richlist {
+    pub distribution: Vec<DistributionStat>,
+    pub top: Vec<AddressStat>,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct AddressStat {
+    pub address: Address,
+    pub balance: f64,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct DistributionStat {
+    pub index: u32,
+    pub address_count: u64,
+    pub total_balance: f64,
+}
+
+impl MongoDb {
+    /// Create richlist statistics.
+    pub async fn get_richlist_analytics(&self, top: usize) -> Result<Richlist, Error> {
+        let ledger_index = self.get_ledger_index().await?;
+        if let Some(ledger_index) = ledger_index {
+            Ok(self
+                .0
+                .collection::<Richlist>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "details.address": { "$exists": true },
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$details.address",
+                            "balance": { "$sum": { "$toDouble": "$output.amount" } },
+                        } },
+                        doc! { "$facet": {
+                            "distribution": [
+                                { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
+                                { "$group" : {
+                                    "_id": "$index",
+                                    "address_count": { "$sum": 1 },
+                                    "total_balance": { "$sum": "$balance" },
+                                } },
+                                { "$sort": { "_id": 1 } },
+                                { "$project": {
+                                    "_id": 0,
+                                    "index": "$_id",
+                                    "address_count": 1,
+                                    "total_balance": 1,
+                                } },
+                            ],
+                            "top": [
+                                { "$sort": { "balance": -1 } },
+                                { "$limit": top as i64 },
+                                { "$project": {
+                                    "_id": 0,
+                                    "address": "$_id",
+                                    "balance": 1,
+                                } },
+                            ],
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document)
+                .transpose()?
+                .unwrap_or_default())
+        } else {
+            Ok(Default::default())
+        }
     }
 }
