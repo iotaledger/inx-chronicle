@@ -342,31 +342,32 @@ impl MongoDb {
     pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
         if let Some(ledger_index) = self.get_ledger_index().await? {
             if index > ledger_index {
-                return Ok(None);
+                Ok(None)
+            } else {
+                Ok(Some(
+                    self.0
+                        .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
+                        .aggregate(
+                            vec![doc! { "$facet": {
+                                "created_outputs": [
+                                    { "$match": { "metadata.booked.milestone_index": index  } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                                "consumed_outputs": [
+                                    { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                            } }],
+                            None,
+                        )
+                        .await?
+                        .try_next()
+                        .await?
+                        .map(bson::from_document::<UtxoChangesResult>)
+                        .transpose()?
+                        .unwrap_or_default(),
+                ))
             }
-            Ok(Some(
-                self.0
-                    .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
-                    .aggregate(
-                        vec![doc! { "$facet": {
-                            "created_outputs": [
-                                { "$match": { "metadata.booked.milestone_index": index  } },
-                                { "$replaceWith": "$metadata.output_id" },
-                            ],
-                            "consumed_outputs": [
-                                { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
-                                { "$replaceWith": "$metadata.output_id" },
-                            ],
-                        } }],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .map(bson::from_document::<UtxoChangesResult>)
-                    .transpose()?
-                    .unwrap_or_default(),
-            ))
         } else {
             Ok(None)
         }
