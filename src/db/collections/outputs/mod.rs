@@ -319,16 +319,22 @@ impl MongoDb {
                 .transpose()?
                 .unwrap_or_default();
 
+            // Note: this check means that the address wasn't found in this collection (bc otherwise there's an output
+            // with an actual amount).
             if balances.total_balance.is_empty() {
                 Ok(None)
             } else {
                 Ok(Some(BalancesResult {
                     total_balance: balances.total_balance[0].amount as u64,
-                    sig_locked_balance: balances.sig_locked_balance[0].amount as u64,
+                    // Note: for outputs that are only non-trivially unlockable we return a default of 0.
+                    sig_locked_balance: if balances.sig_locked_balance.is_empty() {
+                        0u64
+                    } else {
+                        balances.sig_locked_balance[0].amount as u64
+                    },
                     ledger_index,
                 }))
             }
-
         } else {
             Ok(None)
         }
