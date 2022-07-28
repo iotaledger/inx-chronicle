@@ -37,7 +37,7 @@ impl Actor for LedgerUpdateStream {
             .listen_to_ledger_updates(if *self.range.end() == u32::MAX {
                 (self.range.start().0..).into()
             } else {
-                (self.range.start().0..self.range.end().0).into()
+                (self.range.start().0..=self.range.end().0).into()
             })
             .await?;
         cx.add_stream(ledger_update_stream);
