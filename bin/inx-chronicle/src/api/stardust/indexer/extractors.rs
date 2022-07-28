@@ -66,7 +66,7 @@ impl Display for IndexedOutputsCursor {
 }
 
 #[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct BasicOutputsPaginationQuery {
     pub address: Option<String>,
     pub has_native_tokens: Option<bool>,
@@ -166,7 +166,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
 }
 
 #[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct AliasOutputsPaginationQuery {
     pub state_controller: Option<String>,
     pub governor: Option<String>,
@@ -250,7 +250,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
 }
 
 #[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct FoundryOutputsPaginationQuery {
     pub alias_address: Option<String>,
     pub has_native_tokens: Option<bool>,
@@ -316,7 +316,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
 }
 
 #[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct NftOutputsPaginationQuery {
     pub address: Option<String>,
     pub issuer: Option<String>,
