@@ -296,7 +296,7 @@ impl MongoDb {
                             // Sum all output amounts (total balance).
                             "total_balance": [
                                 { "$group" : {
-                                    "_id": "null",
+                                    "_id": null,
                                     "amount": { "$sum": { "$toDouble": "$output.amount" } },
                                 }},
                             ],
@@ -304,7 +304,7 @@ impl MongoDb {
                             "sig_locked_balance": [
                                 { "$match": { "details.is_trivial_unlock": true } },
                                 { "$group" : {
-                                    "_id": "null",
+                                    "_id": null,
                                     "amount": { "$sum": { "$toDouble": "$output.amount" } },
                                 } },
                             ],
