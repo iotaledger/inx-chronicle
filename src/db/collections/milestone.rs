@@ -353,7 +353,10 @@ impl MongoDb {
                 doc! { "is_synced": true },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
-                    .projection(doc! { "at": 1 })
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
                     .build(),
             )
             .await?
