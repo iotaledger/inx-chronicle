@@ -278,7 +278,7 @@ impl MongoDb {
 
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
-            let balances = self
+            let mut balances = self
                 .0
                 .collection::<Balances>(OutputDocument::COLLECTION)
                 .aggregate(
@@ -321,20 +321,24 @@ impl MongoDb {
 
             // Note: this check means that the address wasn't found in this collection (bc otherwise there's an output
             // with an actual amount).
-            if balances.total_balance.is_empty() {
-                Ok(None)
+            let total_balance = if let Some(total_balance) = balances.total_balance.pop() {
+                total_balance.amount as u64
             } else {
-                Ok(Some(BalancesResult {
-                    total_balance: balances.total_balance[0].amount as u64,
-                    // Note: for outputs that are only non-trivially unlockable we return a default of 0.
-                    sig_locked_balance: if balances.sig_locked_balance.is_empty() {
-                        0u64
-                    } else {
-                        balances.sig_locked_balance[0].amount as u64
-                    },
-                    ledger_index,
-                }))
-            }
+                return Ok(None);
+            };
+
+            // Note: for outputs that are only non-trivially unlockable we return 0 for the signature locked balance.
+            let sig_locked_balance = if let Some(sig_locked_balance) = balances.sig_locked_balance.pop() {
+                sig_locked_balance.amount as u64
+            } else {
+                0u64
+            };
+
+            Ok(Some(BalancesResult {
+                total_balance,
+                sig_locked_balance,
+                ledger_index,
+            }))
         } else {
             Ok(None)
         }
