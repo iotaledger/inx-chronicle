@@ -623,15 +623,20 @@ pub struct Richlist {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct AddressStat {
     pub address: Address,
     pub balance: f64,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+/// Statistics for a particular logarithmic range of balances
 pub struct DistributionStat {
+    /// The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
     pub index: u32,
+    /// The number of unique addresses in this range
     pub address_count: u64,
+    /// The total balance of the addresses in this range
     pub total_balance: f64,
 }
 

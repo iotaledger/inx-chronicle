@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{routing::get, Extension, Router};
-use bee_block_stardust::address::{dto::AddressDto, Address};
 use chronicle::db::MongoDb;
 
 use super::{
     extractors::RichlistQuery,
-    responses::{
-        AddressAnalyticsResponse, AddressStat, DistributionStat, OutputsAnalyticsResponse, RichlistAnalyticsResponse,
-    },
+    responses::{AddressAnalyticsResponse, OutputsAnalyticsResponse, RichlistAnalyticsResponse},
 };
 use crate::api::{extractors::TimeRange, ApiResult};
 
@@ -133,22 +130,7 @@ async fn richlist_analytics(
     let res = database.get_richlist_analytics(top).await?;
 
     Ok(RichlistAnalyticsResponse {
-        distribution: res
-            .distribution
-            .into_iter()
-            .map(|s| DistributionStat {
-                range: 10_u64.pow(s.index)..10_u64.pow(s.index + 1),
-                address_count: s.address_count,
-                total_balance: s.total_balance,
-            })
-            .collect(),
-        top: res
-            .top
-            .into_iter()
-            .map(|s| AddressStat {
-                address: AddressDto::from(&Address::from(s.address)),
-                balance: s.balance,
-            })
-            .collect(),
+        distribution: res.distribution.into_iter().map(Into::into).collect(),
+        top: res.top.into_iter().map(Into::into).collect(),
     })
 }
