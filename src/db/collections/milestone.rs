@@ -34,6 +34,7 @@ struct MilestoneDocument {
     /// The milestone's payload.
     payload: MilestonePayload,
     /// The milestone's sync status.
+    /// TODO: Probably don't need this anymore
     is_synced: bool,
 }
 
@@ -342,39 +343,6 @@ impl MongoDb {
             sync_data.gaps.push(range);
         }
         Ok(sync_data)
-    }
-
-    /// Retrieves gaps in the milestones collection.
-    pub async fn get_gaps(&self) -> Result<Vec<RangeInclusive<MilestoneIndex>>, Error> {
-        let mut synced_ms = self
-            .0
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! { "is_synced": true },
-                FindOptions::builder()
-                    .sort(doc! { "at.milestone_index": 1 })
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await?
-            .map_ok(|e| e.milestone_index);
-
-        let mut gaps = Vec::new();
-        let mut last_record: Option<MilestoneIndex> = None;
-
-        while let Some(milestone_index) = synced_ms.try_next().await? {
-            // Missing records go into gaps
-            if let Some(&last) = last_record.as_ref() {
-                if last + 1 < milestone_index {
-                    gaps.push(last + 1..=milestone_index - 1);
-                }
-            }
-            last_record.replace(milestone_index);
-        }
-        Ok(gaps)
     }
 
     /// Streams all available receipt milestone options together with their corresponding `MilestoneIndex`.

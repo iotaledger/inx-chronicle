@@ -101,18 +101,27 @@ impl InxWorker {
 
         let first_ms = node_status.tangle_pruning_index + 1;
         let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-        let sync_data = self
-            .db
-            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
-            .await?
-            .gaps;
-        if !sync_data.is_empty() {
-            let syncer = cx
-                .spawn_child(Syncer::new(sync_data, self.db.clone(), inx.clone()))
-                .await;
-            syncer.send(SyncNext)?;
+
+        let latest_inserted_ms = self.db.get_latest_milestone().await?;
+        if let Some(latest_inserted_ms) = latest_inserted_ms {
+            if latest_inserted_ms.milestone_index.0 + 1 <= latest_ms {
+                self.db
+                    .insert_gap(latest_inserted_ms.milestone_index + 1, latest_ms.into())
+                    .await?;
+            }
         } else {
-            cx.abort().await;
+            self.db
+                .insert_gap(
+                    self.config.sync_start_milestone.0.max(first_ms).into(),
+                    latest_ms.into(),
+                )
+                .await?;
+        }
+
+        let gaps = self.db.get_gaps().await?.try_collect::<Vec<_>>().await?;
+        if !gaps.is_empty() {
+            let syncer = cx.spawn_child(Syncer::new(gaps, self.db.clone(), inx.clone())).await;
+            syncer.send(SyncNext)?;
         }
         Ok(latest_ms.into())
     }

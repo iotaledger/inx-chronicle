@@ -9,6 +9,7 @@ use axum::{
     Extension, Json, Router,
 };
 use chronicle::db::MongoDb;
+use futures::TryStreamExt;
 use hyper::StatusCode;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
@@ -77,7 +78,7 @@ async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
         }
 
         // Check if there are no gaps in the sync status.
-        if !database.get_gaps().await?.is_empty() {
+        if database.get_gaps().await?.try_next().await?.is_some() {
             return Ok(false);
         };
     }

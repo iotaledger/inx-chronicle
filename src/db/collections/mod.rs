@@ -3,6 +3,8 @@
 
 /// Module containing the Block document model.
 mod block;
+/// Module containing the gaps collection.
+mod gaps;
 /// Module containing the LedgerUpdate model.
 mod ledger_update;
 /// Module containing the Milestone document model.
