@@ -653,6 +653,19 @@ impl MongoDb {
                                 ],
                             }
                         },
+                        doc! {
+                            "$set": {
+                                "total_byte_cost": { "$toString":
+                                    { "$multiply": [
+                                        rent_structure.v_byte_cost,
+                                        { "$add": [
+                                            { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
+                                            { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
+                                        ] },
+                                    ] }
+                                }
+                            }
+                        },
                         doc! { "$project": {
                             "output_count": { "$first": "$all.output_count" },
                             "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
@@ -665,20 +678,8 @@ impl MongoDb {
                             "total_data_bytes": { 
                                 "$toString": { "$first": "$all.total_data_bytes" } 
                             },
+                            "total_byte_cost": 1,
                         } },
-                        doc! {
-                            "$set": {
-                                "total_byte_cost": { "$toString": {
-                                    "$multiply": [
-                                        rent_structure.v_byte_cost as f64,
-                                        { "$add": [
-                                            { "$multiply": [ "$total_key_bytes", rent_structure.v_byte_factor_key as f64 ] },
-                                            { "$multiply": [ "$total_data_bytes", rent_structure.v_byte_factor_data as f64 ] },
-                                        ] },
-                                    ]
-                                } }
-                            }
-                        },
                     ],
                     None,
                 )
