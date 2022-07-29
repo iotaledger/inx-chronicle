@@ -39,7 +39,7 @@ impl BlockDocument {
 impl MongoDb {
     /// Creates block indexes.
     pub async fn create_block_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<BlockDocument>(BlockDocument::COLLECTION);
+        let collection = self.db.collection::<BlockDocument>(BlockDocument::COLLECTION);
 
         collection
             .create_index(
@@ -81,7 +81,7 @@ impl MongoDb {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         let block = self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -108,7 +108,7 @@ impl MongoDb {
         }
 
         let raw = self
-            .0
+            .db
             .collection::<RawResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -129,7 +129,7 @@ impl MongoDb {
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         let block = self
-            .0
+            .db
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -160,7 +160,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .0
+            .db
             .collection::<BlockIdResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -195,7 +195,7 @@ impl MongoDb {
         let mut doc = bson::to_document(&block_document)?;
         doc.insert("_id", block_id.to_hex());
 
-        self.0
+        self.db
             .collection::<BlockDocument>(BlockDocument::COLLECTION)
             .update_one(
                 doc! { "metadata.block_id": block_id },
@@ -210,7 +210,7 @@ impl MongoDb {
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
         let block = self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -234,7 +234,7 @@ impl MongoDb {
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -274,7 +274,7 @@ mod analytics {
             end_milestone: MilestoneIndex,
         ) -> Result<TransactionAnalyticsResult, Error> {
             Ok(self
-                .0
+                .db
                 .collection::<TransactionAnalyticsResult>(BlockDocument::COLLECTION)
                 .aggregate(
                     vec![

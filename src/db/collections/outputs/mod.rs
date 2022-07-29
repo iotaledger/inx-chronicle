@@ -100,7 +100,7 @@ pub struct UtxoChangesResult {
 impl MongoDb {
     /// Creates output indexes.
     pub async fn create_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<OutputDocument>(OutputDocument::COLLECTION);
+        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
 
         collection
             .create_index(
@@ -143,7 +143,7 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_output(&self, output: OutputWithMetadata) -> Result<(), Error> {
-        self.0
+        self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
                 doc! { "metadata.output_id": output.metadata.output_id },
@@ -158,7 +158,7 @@ impl MongoDb {
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         let output = self
-            .0
+            .db
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -184,7 +184,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let output = self
-                .0
+                .db
                 .collection::<OutputWithMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -217,7 +217,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let metadata = self
-                .0
+                .db
                 .collection::<OutputMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -252,7 +252,7 @@ impl MongoDb {
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
         let metadata = self
-            .0
+            .db
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -286,7 +286,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let balances = self
-                .0
+                .db
                 .collection::<Balances>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![

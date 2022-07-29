@@ -20,7 +20,7 @@ impl StatusDocument {
 impl MongoDb {
     /// Get the current ledger index.
     pub async fn get_ledger_index(&self) -> Result<Option<MilestoneIndex>, Error> {
-        self.0
+        self.db
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .find_one(doc! {}, None)
             .await
@@ -29,7 +29,7 @@ impl MongoDb {
 
     /// Sets the current ledger index if it is greater than the current one.
     pub async fn update_ledger_index(&self, ledger_index: MilestoneIndex) -> Result<(), Error> {
-        self.0
+        self.db
             .collection::<StatusDocument>(StatusDocument::COLLECTION)
             .update_one(
                 doc! {},

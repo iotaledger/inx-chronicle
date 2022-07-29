@@ -42,7 +42,10 @@ impl ChronicleConfig {
     /// Applies command line arguments to the config.
     pub fn apply_cl_args(&mut self, args: &super::cli::ClArgs) {
         if let Some(connect_url) = &args.db_addr {
-            self.mongodb = MongoDbConfig::new().with_connect_url(connect_url);
+            self.mongodb = MongoDbConfig {
+                connect_url: connect_url.clone(),
+                ..Default::default()
+            };
         }
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
