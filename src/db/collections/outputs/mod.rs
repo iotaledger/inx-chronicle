@@ -92,6 +92,13 @@ pub struct BalancesResult {
     pub ledger_index: MilestoneIndex,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[allow(missing_docs)]
+pub struct UtxoChangesResult {
+    pub created_outputs: Vec<OutputId>,
+    pub consumed_outputs: Vec<OutputId>,
+}
+
 /// Implements the queries for the core API.
 impl MongoDb {
     /// Creates output indexes.
@@ -327,6 +334,43 @@ impl MongoDb {
                 sig_locked_balance: balances.sig_locked_balance.amount as u64,
                 ledger_index,
             }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
+    /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
+    /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
+    pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
+        if let Some(ledger_index) = self.get_ledger_index().await? {
+            if index > ledger_index {
+                Ok(None)
+            } else {
+                Ok(Some(
+                    self.0
+                        .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
+                        .aggregate(
+                            vec![doc! { "$facet": {
+                                "created_outputs": [
+                                    { "$match": { "metadata.booked.milestone_index": index  } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                                "consumed_outputs": [
+                                    { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                            } }],
+                            None,
+                        )
+                        .await?
+                        .try_next()
+                        .await?
+                        .map(bson::from_document::<UtxoChangesResult>)
+                        .transpose()?
+                        .unwrap_or_default(),
+                ))
+            }
         } else {
             Ok(None)
         }
