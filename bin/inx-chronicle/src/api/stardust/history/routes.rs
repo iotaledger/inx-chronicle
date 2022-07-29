@@ -125,8 +125,8 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> A
         .ok_or(ApiError::NoResults)?;
 
     Ok(BalanceResponse {
-        total_balance: res.total_balance as u64,
-        sig_locked_balance: res.sig_locked_balance as u64,
+        total_balance: res.total_balance,
+        sig_locked_balance: res.sig_locked_balance,
         ledger_index: res.ledger_index,
     })
 }

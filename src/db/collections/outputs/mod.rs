@@ -84,8 +84,8 @@ pub struct OutputWithMetadataResult {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[allow(missing_docs)]
 pub struct BalancesResult {
-    pub total_balance: f64,
-    pub sig_locked_balance: f64,
+    pub total_balance: String,
+    pub sig_locked_balance: String,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -286,7 +286,7 @@ impl MongoDb {
                                 "total_balance": [
                                     { "$group" : {
                                         "_id": null,
-                                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                                        "amount": { "$sum": { "$toDecimal": "$output.amount" } },
                                     } } ,
                                 ],
                                 // Sum only trivially unlockable output amounts (signature locked balance).
@@ -294,7 +294,7 @@ impl MongoDb {
                                     { "$match": { "details.is_trivial_unlock": true } },
                                     { "$group" : {
                                         "_id": null,
-                                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                                        "amount": { "$sum": { "$toDecimal": "$output.amount" } },
                                     } },
                                 ],
                             } },
@@ -302,14 +302,16 @@ impl MongoDb {
                                 "total_balance": { 
                                     "$cond": { 
                                         "if": { "$gt": [ { "$size": "$total_balance.amount" }, 0 ] }, 
-                                        "then": { "$first": "$total_balance.amount"}, 
-                                        "else": { "$toDouble": 0 } },
+                                        "then": { "$toString": { "$first": "$total_balance.amount"} }, 
+                                        "else": { "$literal": "0" },
+                                    },
                                 },
                                 "sig_locked_balance": { 
                                     "$cond": { 
                                         "if": { "$gt": [ { "$size": "$sig_locked_balance.amount" }, 0 ] }, 
-                                        "then": { "$first": "$sig_locked_balance.amount"}, 
-                                        "else": { "$toDouble": 0 } },
+                                        "then": { "$toString": { "$first": "$sig_locked_balance.amount"} }, 
+                                        "else": { "$literal": "0" },
+                                    },
                                 },
                                 "ledger_index": { "$literal": ledger_index },
                             } },
