@@ -14,7 +14,10 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{Block, BlockId, OutputId, Payload, TransactionId},
+        stardust::{
+            block::{Block, BlockId, OutputId, Payload, TransactionId},
+            milestone::MilestoneTimestamp,
+        },
     },
 };
 
@@ -252,5 +255,104 @@ impl MongoDb {
             .await?
             .map(bson::from_document)
             .transpose()?)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub struct BlockAnalyticsResult {
+    pub count: u64,
+}
+
+impl MongoDb {
+    /// Gathers milestone payload analytics.
+    pub async fn get_milestone_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<BlockAnalyticsResult, Error> {
+        Ok(self
+            .0
+            .collection::<BlockAnalyticsResult>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "block.payload.kind": "milestone",
+                        "$nor": [
+                            { "block.payload.essence.timestamp": { "$lt": start_timestamp } },
+                            { "block.payload.essence.timestamp": { "$gte": end_timestamp } },
+                        ],
+                    } },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers tagged data payload analytics.
+    pub async fn get_tagged_data_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<BlockAnalyticsResult, Error> {
+        let start_index = if let Some(start_timestamp) = start_timestamp {
+            if let Some(index) = self
+                .find_first_milestone(start_timestamp)
+                .await?
+                .map(|ts| ts.milestone_index)
+            {
+                Some(index)
+            } else {
+                return Ok(Default::default());
+            }
+        } else {
+            None
+        };
+        let end_index = if let Some(end_timestamp) = end_timestamp {
+            if let Some(index) = self
+                .find_last_milestone(end_timestamp)
+                .await?
+                .map(|ts| ts.milestone_index)
+            {
+                Some(index)
+            } else {
+                return Ok(Default::default());
+            }
+        } else {
+            None
+        };
+        Ok(self
+            .0
+            .collection::<BlockAnalyticsResult>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "block.payload.kind": "tagged_data",
+                        "$nor": [
+                            { "metadata.referenced_by_milestone_index": { "$lt": start_index } },
+                            { "metadata.referenced_by_milestone_index": { "$gte": end_index } },
+                        ],
+                    } },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                    }},
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
     }
 }

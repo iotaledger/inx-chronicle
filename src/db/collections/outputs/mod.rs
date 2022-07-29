@@ -377,14 +377,14 @@ impl MongoDb {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OutputAnalyticsResult {
     pub count: u64,
-    pub total_value: f64,
+    pub total_value: String,
 }
 
 impl MongoDb {
-    /// Gathers output analytics.
+    /// Gathers transaction analytics.
     pub async fn get_transaction_analytics(
         &self,
         start_timestamp: Option<MilestoneTimestamp>,
@@ -404,7 +404,7 @@ impl MongoDb {
                     // First group the outputs into transactions
                     doc! { "$group" : {
                         "_id": "$metadata.output_id.transaction_id",
-                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                        "amount": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
                     // Then aggregate transaction analytics
                     doc! { "$group" : {
@@ -412,6 +412,10 @@ impl MongoDb {
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": "$amount" },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -512,13 +516,17 @@ impl MongoDb {
                     // First group the nfts by their ids
                     doc! { "$group" : {
                         "_id": "$output.nft_id",
-                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                        "amount": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": "$amount" },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -553,6 +561,10 @@ impl MongoDb {
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": "$amount" },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -569,10 +581,10 @@ impl MongoDb {
 pub struct StorageDepositAnalyticsResult {
     pub output_count: u64,
     pub storage_deposit_return_count: u64,
-    pub storage_deposit_return_total_value: f64,
-    pub total_key_bytes: f64,
-    pub total_data_bytes: f64,
-    pub total_byte_cost: f64,
+    pub storage_deposit_return_total_value: String,
+    pub total_key_bytes: String,
+    pub total_data_bytes: String,
+    pub total_byte_cost: String,
     pub ledger_index: MilestoneIndex,
     pub rent_structure: RentStructure,
 }
@@ -598,9 +610,10 @@ impl MongoDb {
             struct StorageDepositAnalytics {
                 output_count: u64,
                 storage_deposit_return_count: u64,
-                storage_deposit_return_total_value: f64,
-                total_key_bytes: f64,
-                total_data_bytes: f64,
+                storage_deposit_return_total_value: String,
+                total_key_bytes: String,
+                total_data_bytes: String,
+                total_byte_cost: String,
             }
 
             let res = self
@@ -626,8 +639,8 @@ impl MongoDb {
                                     { "$group" : {
                                         "_id": null,
                                         "output_count": { "$sum": 1 },
-                                        "total_key_bytes": { "$sum": "$details.rent_structure.num_key_bytes" },
-                                        "total_data_bytes": { "$sum": "$details.rent_structure.num_data_bytes" },
+                                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
                                     } },
                                 ],
                                 "storage_deposit": [
@@ -635,7 +648,7 @@ impl MongoDb {
                                     { "$group" : {
                                         "_id": null,
                                         "return_count": { "$sum": 1 },
-                                        "return_total_value": { "$sum": { "$toDouble": "$output.storage_deposit_return_unlock_condition.amount" } },
+                                        "return_total_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
                                     } },
                                 ],
                             }
@@ -643,10 +656,29 @@ impl MongoDb {
                         doc! { "$project": {
                             "output_count": { "$first": "$all.output_count" },
                             "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
-                            "storage_deposit_return_total_value": { "$first": "$storage_deposit.return_total_value" },
-                            "total_key_bytes": { "$first": "$all.total_key_bytes" },
-                            "total_data_bytes": { "$first": "$all.total_data_bytes" },
+                            "storage_deposit_return_total_value": { 
+                                "$toString": { "$first": "$storage_deposit.return_total_value" } 
+                            },
+                            "total_key_bytes": { 
+                                "$toString": { "$first": "$all.total_key_bytes" } 
+                            },
+                            "total_data_bytes": { 
+                                "$toString": { "$first": "$all.total_data_bytes" } 
+                            },
                         } },
+                        doc! {
+                            "$set": {
+                                "total_byte_cost": { "$toString": {
+                                    "$multiply": [
+                                        rent_structure.v_byte_cost as f64,
+                                        { "$add": [
+                                            { "$multiply": [ "$total_key_bytes", rent_structure.v_byte_factor_key as f64 ] },
+                                            { "$multiply": [ "$total_data_bytes", rent_structure.v_byte_factor_data as f64 ] },
+                                        ] },
+                                    ]
+                                } }
+                            }
+                        },
                     ],
                     None,
                 )
@@ -663,9 +695,7 @@ impl MongoDb {
                 storage_deposit_return_total_value: res.storage_deposit_return_total_value,
                 total_key_bytes: res.total_key_bytes,
                 total_data_bytes: res.total_data_bytes,
-                total_byte_cost: rent_structure.v_byte_cost as f64
-                    * (res.total_key_bytes * rent_structure.v_byte_factor_key as f64
-                        + res.total_data_bytes * rent_structure.v_byte_factor_data as f64),
+                total_byte_cost: res.total_byte_cost,
                 ledger_index,
                 rent_structure,
             }))
