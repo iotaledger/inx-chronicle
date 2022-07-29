@@ -299,20 +299,8 @@ impl MongoDb {
                             ],
                         } },
                         doc! { "$project": {
-                            "total_balance": {
-                                "$cond": {
-                                    "if": { "$gt": [ { "$size": "$total_balance.amount" }, 0 ] },
-                                    "then": { "$toString": { "$first": "$total_balance.amount"} },
-                                    "else": null,
-                                },
-                            },
-                            "sig_locked_balance": {
-                                "$cond": {
-                                    "if": { "$gt": [ { "$size": "$sig_locked_balance.amount" }, 0 ] },
-                                    "then": { "$toString": { "$first": "$sig_locked_balance.amount"} },
-                                    "else": null,
-                                },
-                            },
+                            "total_balance": { "$toString": { "$first": "$total_balance.amount" } },
+                            "sig_locked_balance": { "$toString": { "$first": "$sig_locked_balance.amount" } },
                             "ledger_index": { "$literal": ledger_index },
                         } },
                     ],
