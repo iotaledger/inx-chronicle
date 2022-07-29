@@ -448,8 +448,12 @@ impl MongoDb {
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
-                        "total_value": { "$sum": "$amount" },
+                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -482,8 +486,12 @@ impl MongoDb {
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
-                        "total_value": { "$sum": "$amount" },
+                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
