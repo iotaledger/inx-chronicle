@@ -83,9 +83,9 @@ pub struct OutputWithMetadataResult {
 
 #[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
-pub struct BalancesResult {
-    pub total_balance: Option<String>,
-    pub sig_locked_balance: Option<String>,
+pub struct BalanceResult {
+    pub total_balance: String,
+    pub sig_locked_balance: String,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -264,12 +264,12 @@ impl MongoDb {
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<Option<BalancesResult>, Error> {
+    pub async fn get_address_balance(&self, address: Address) -> Result<Option<BalanceResult>, Error> {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let balances = self
                 .0
-                .collection::<BalancesResult>(OutputDocument::COLLECTION)
+                .collection::<BalanceResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         // Look at all (at ledger index o'clock) unspent output documents for the given address.
@@ -281,26 +281,16 @@ impl MongoDb {
                                 { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                             ]
                         } },
-                        doc! { "$facet": {
-                            // Sum all output amounts (total balance).
-                            "total_balance": [
-                                { "$group" : {
-                                    "_id": "sum",
-                                    "amount": { "$sum": { "$toDecimal": "$output.amount" } },
-                                } } ,
-                            ],
-                            // Sum only trivially unlockable output amounts (signature locked balance).
-                            "sig_locked_balance": [
-                                { "$match": { "details.is_trivial_unlock": true } },
-                                { "$group" : {
-                                    "_id": "sum",
-                                    "amount": { "$sum": { "$toDecimal": "$output.amount" } },
-                                } },
-                            ],
+                        doc! { "$group": {
+                            "_id": null,
+                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "sig_locked_balance": { "$sum": { 
+                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                            } },
                         } },
                         doc! { "$project": {
-                            "total_balance": { "$toString": { "$first": "$total_balance.amount" } },
-                            "sig_locked_balance": { "$toString": { "$first": "$sig_locked_balance.amount" } },
+                            "total_balance": { "$toString": "$total_balance" },
+                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
                             "ledger_index": { "$literal": ledger_index },
                         } },
                     ],
@@ -309,7 +299,7 @@ impl MongoDb {
                 .await?
                 .try_next()
                 .await?
-                .map(bson::from_document::<BalancesResult>)
+                .map(bson::from_document::<BalanceResult>)
                 .transpose()?;
 
             Ok(balances)
