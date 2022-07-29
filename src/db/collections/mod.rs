@@ -19,7 +19,7 @@ pub use self::{
     milestone::SyncData,
     outputs::{
         AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputMetadataResult,
-        OutputWithMetadataResult, OutputsResult,
+        OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
     },
     treasury::TreasuryResult,
 };
