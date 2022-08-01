@@ -9,10 +9,7 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
-    types::{
-        ledger::MilestoneIndexTimestamp,
-        tangle::{ProtocolInfo, ProtocolParameters},
-    },
+    types::{ledger::MilestoneIndexTimestamp, tangle::ProtocolParameters},
 };
 pub use config::InxConfig;
 pub use error::InxError;
@@ -98,12 +95,17 @@ impl Actor for InxWorker {
 
         log::debug!("Connected to network `{}`.", protocol_parameters.network_name);
 
-        if let Some(db_protocol) = self.db.get_protocol_parameters().await? {
-            if db_protocol.parameters.network_name != protocol_parameters.network_name {
+        if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
+            if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
-                    db_protocol.parameters.network_name,
+                    latest.parameters.network_name,
                     protocol_parameters.network_name,
                 ));
+            }
+            if latest.parameters != protocol_parameters {
+                self.db
+                    .insert_protocol_parameters(latest_milestone_index.into(), protocol_parameters)
+                    .await?;
             }
         } else {
             log::info!(
@@ -112,12 +114,9 @@ impl Actor for InxWorker {
                 protocol_parameters.network_name
             );
 
-            let protocol_info = ProtocolInfo {
-                parameters: protocol_parameters,
-                tangle_index: latest_milestone_index.into(),
-            };
-
-            self.db.set_protocol_parameters(protocol_info).await?;
+            self.db
+                .insert_protocol_parameters(latest_milestone_index.into(), protocol_parameters)
+                .await?;
 
             log::info!("Reading unspent outputs.");
             let mut unspent_output_stream = inx.read_unspent_outputs().await?;
@@ -173,10 +172,7 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
             .into();
 
         self.db
-            .set_protocol_parameters(ProtocolInfo {
-                parameters,
-                tangle_index: ledger_update.milestone_index.into(),
-            })
+            .update_latest_protocol_parameters(ledger_update.milestone_index.into(), parameters)
             .await?;
 
         log::trace!("Received milestone: `{:?}`", milestone);

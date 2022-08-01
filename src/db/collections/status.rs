@@ -1,22 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{
-    bson::{doc, to_document},
-    error::Error,
-    options::UpdateOptions,
-};
+use mongodb::{bson::doc, error::Error, options::UpdateOptions};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    db::MongoDb,
-    types::tangle::{MilestoneIndex, ProtocolInfo},
-};
+use crate::{db::MongoDb, types::tangle::MilestoneIndex};
 
 /// Provides the information about the status of the node.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct StatusDocument {
-    protocol: Option<ProtocolInfo>,
     ledger_index: Option<MilestoneIndex>,
 }
 
@@ -26,29 +18,6 @@ impl StatusDocument {
 }
 
 impl MongoDb {
-    /// Get the name of the network.
-    pub async fn get_protocol_parameters(&self) -> Result<Option<ProtocolInfo>, Error> {
-        self.0
-            .collection::<StatusDocument>(StatusDocument::COLLECTION)
-            .find_one(doc! {}, None)
-            .await
-            .map(|doc| doc.and_then(|doc| doc.protocol))
-    }
-
-    /// Sets the name of the network.
-    pub async fn set_protocol_parameters(&self, protocol_info: ProtocolInfo) -> Result<(), Error> {
-        self.0
-            .collection::<StatusDocument>(StatusDocument::COLLECTION)
-            .update_one(
-                doc! {},
-                doc! { "$set": { "protocol": to_document(&protocol_info)? } },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// Get the current ledger index.
     pub async fn get_ledger_index(&self) -> Result<Option<MilestoneIndex>, Error> {
         self.0

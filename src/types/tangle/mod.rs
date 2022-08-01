@@ -4,7 +4,4 @@
 mod milestone_index;
 mod protocol;
 
-pub use self::{
-    milestone_index::MilestoneIndex,
-    protocol::{ProtocolInfo, ProtocolParameters},
-};
+pub use self::{milestone_index::MilestoneIndex, protocol::ProtocolParameters};
