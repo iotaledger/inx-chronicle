@@ -132,12 +132,15 @@ impl Actor for InxWorker {
                 updates.push(output.try_into()?);
             }
             log::info!("Inserting {} unspent outputs.", updates.len());
-            
+
             // TODO: Use tracing here.
             let start_time = Instant::now();
             self.db.insert_ledger_updates(updates).await?;
             let duration = start_time.elapsed();
-            log::info!("Inserting unspent outputs took {}.", humantime::Duration::from(duration));
+            log::info!(
+                "Inserting unspent outputs took {}.",
+                humantime::Duration::from(duration)
+            );
         }
 
         let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
@@ -221,7 +224,11 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
         self.db.update_ledger_index(milestone_index).await?;
 
         let duration = start_time.elapsed();
-        log::debug!("Milestone `{}` synced in {}.", milestone_index, humantime::Duration::from(duration));
+        log::debug!(
+            "Milestone `{}` synced in {}.",
+            milestone_index,
+            humantime::Duration::from(duration)
+        );
 
         Ok(())
     }
