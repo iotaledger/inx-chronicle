@@ -345,7 +345,7 @@ impl MongoDb {
                 Ok(None)
             } else {
                 Ok(Some(
-                    self.0
+                    self.db
                         .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
                         .aggregate(
                             vec![doc! { "$facet": {
