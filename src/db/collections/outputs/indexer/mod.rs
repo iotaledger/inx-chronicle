@@ -211,7 +211,12 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "output.kind": 1 })
-                    .options(IndexOptions::builder().name("output_kind_index".to_string()).build())
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_kind_index".to_string())
+                            .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": false } })
+                            .build(),
+                    )
                     .build(),
                 None,
             )
@@ -224,7 +229,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_alias_id_index".to_string())
-                            .partial_filter_expression(doc! { "output.alias_id": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "output.alias_id": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -239,7 +247,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_foundry_id_index".to_string())
-                            .partial_filter_expression(doc! { "output.foundry_id": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "output.foundry_id": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -254,7 +265,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_nft_id_index".to_string())
-                            .partial_filter_expression(doc! { "output.nft_id": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "output.nft_id": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -269,7 +283,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_address_unlock_index".to_string())
-                            .partial_filter_expression(doc! { "output.address_unlock_condition": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "output.address_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -284,9 +301,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_storage_deposit_return_unlock_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.storage_deposit_return_unlock_condition": { "$exists": true } },
-                            )
+                            .partial_filter_expression(doc! {
+                                "output.storage_deposit_return_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -301,7 +319,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_timelock_unlock_index".to_string())
-                            .partial_filter_expression(doc! { "output.timelock_unlock_condition": { "$exists": true } })
+                            .partial_filter_expression(doc! {
+                                "output.timelock_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -316,9 +337,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_expiration_unlock_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.expiration_unlock_condition": { "$exists": true } },
-                            )
+                            .partial_filter_expression(doc! {
+                                "output.expiration_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -333,9 +355,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_state_controller_unlock_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.state_controller_address_unlock_condition": { "$exists": true } },
-                            )
+                            .partial_filter_expression(doc! {
+                                "output.state_controller_address_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -350,9 +373,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_governor_address_unlock_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.governor_address_unlock_condition": { "$exists": true } },
-                            )
+                            .partial_filter_expression(doc! {
+                                "output.governor_address_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -367,9 +391,10 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_immutable_alias_address_unlock_index".to_string())
-                            .partial_filter_expression(
-                                doc! { "output.immutable_alias_address_unlock_condition": { "$exists": true } },
-                            )
+                            .partial_filter_expression(doc! {
+                                "output.immutable_alias_address_unlock_condition": { "$exists": true },
+                                "metadata.spent_metadata": { "$exists": false }
+                            })
                             .build(),
                     )
                     .build(),
@@ -381,7 +406,12 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "output.features": 1 })
-                    .options(IndexOptions::builder().name("output_feature_index".to_string()).build())
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_feature_index".to_string())
+                            .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": false } })
+                            .build(),
+                    )
                     .build(),
                 None,
             )
@@ -394,6 +424,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_native_tokens_index".to_string())
+                            .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": false } })
                             .build(),
                     )
                     .build(),
@@ -405,7 +436,12 @@ impl MongoDb {
             .create_index(
                 IndexModel::builder()
                     .keys(doc! { "metadata.booked": -1 })
-                    .options(IndexOptions::builder().name("output_booked_index".to_string()).build())
+                    .options(
+                        IndexOptions::builder()
+                            .name("output_booked_index".to_string())
+                            .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": false } })
+                            .build(),
+                    )
                     .build(),
                 None,
             )
@@ -418,7 +454,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_spent_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata.spent": { "$exists": true } })
+                            .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": true } })
                             .build(),
                     )
                     .build(),
