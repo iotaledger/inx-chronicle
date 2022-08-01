@@ -42,7 +42,7 @@ pub struct TreasuryResult {
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_treasury_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
+        let collection = self.db.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
 
         collection
             .create_index(
@@ -73,7 +73,7 @@ impl MongoDb {
             milestone_id: payload.input_milestone_id,
             amount: payload.output_amount,
         };
-        self.0
+        self.db
             .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
             .insert_one(treasury_document, None)
             .await?;
@@ -83,7 +83,7 @@ impl MongoDb {
 
     /// Returns the current state of the treasury.
     pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryResult>, Error> {
-        self.0
+        self.db
             .collection::<TreasuryResult>(TreasuryDocument::COLLECTION)
             .find_one(
                 doc! {},

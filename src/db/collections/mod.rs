@@ -9,6 +9,8 @@ mod ledger_update;
 mod milestone;
 /// Module containing Block outputs.
 mod outputs;
+/// Module containing the protocol parameters collection.
+mod protocol_update;
 /// Module containing information about the network and state of the node.
 mod status;
 /// Module containing the treasury model.
@@ -19,7 +21,7 @@ pub use self::{
     milestone::SyncData,
     outputs::{
         AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputMetadataResult,
-        OutputWithMetadataResult, OutputsResult,
+        OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
     },
     treasury::TreasuryResult,
 };

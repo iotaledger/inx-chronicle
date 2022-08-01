@@ -9,7 +9,7 @@ use time::{Duration, OffsetDateTime};
 use super::{error::ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct Pagination {
     pub page_size: usize,
     pub page: usize,
@@ -38,7 +38,7 @@ impl<B: Send> FromRequest<B> for Pagination {
 }
 
 #[derive(Copy, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct TimeRangeQuery {
     start_timestamp: Option<u32>,
     end_timestamp: Option<u32>,
@@ -90,48 +90,6 @@ mod stardust {
 
 #[cfg(feature = "stardust")]
 pub use stardust::*;
-
-#[derive(Copy, Clone, Deserialize)]
-#[serde(default)]
-pub struct Included {
-    pub included: bool,
-}
-
-impl Default for Included {
-    fn default() -> Self {
-        Self { included: true }
-    }
-}
-
-#[async_trait]
-impl<B: Send> FromRequest<B> for Included {
-    type Rejection = ApiError;
-
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(included) = Query::<Included>::from_request(req)
-            .await
-            .map_err(ApiError::QueryError)?;
-        Ok(included)
-    }
-}
-
-#[derive(Copy, Clone, Default, Deserialize)]
-#[serde(default)]
-pub struct Expanded {
-    pub expanded: bool,
-}
-
-#[async_trait]
-impl<B: Send> FromRequest<B> for Expanded {
-    type Rejection = ApiError;
-
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(expanded) = Query::<Expanded>::from_request(req)
-            .await
-            .map_err(ApiError::QueryError)?;
-        Ok(expanded)
-    }
-}
 
 #[cfg(test)]
 mod test {

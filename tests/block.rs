@@ -33,7 +33,10 @@ async fn insert_and_get_block() -> Result<(), mongodb::error::Error> {
         white_flag_index: 0,
     };
 
-    let config = MongoDbConfig::default().with_database_name("chronicle-cargo-test");
+    let config = MongoDbConfig {
+        database_name: "chronicle-cargo-test".into(),
+        ..Default::default()
+    };
     let db = MongoDb::connect(&config).await?;
 
     db.clear().await?;

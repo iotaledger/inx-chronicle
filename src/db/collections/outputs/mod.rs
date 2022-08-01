@@ -89,11 +89,18 @@ pub struct BalanceResult {
     pub ledger_index: MilestoneIndex,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[allow(missing_docs)]
+pub struct UtxoChangesResult {
+    pub created_outputs: Vec<OutputId>,
+    pub consumed_outputs: Vec<OutputId>,
+}
+
 /// Implements the queries for the core API.
 impl MongoDb {
     /// Creates output indexes.
     pub async fn create_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<OutputDocument>(OutputDocument::COLLECTION);
+        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
 
         collection
             .create_index(
@@ -119,7 +126,7 @@ impl MongoDb {
                             .unique(false)
                             .name("address_index".to_string())
                             .partial_filter_expression(doc! {
-                                "details.address": { "$exists": true } ,
+                                "details.address": { "$exists": true },
                             })
                             .build(),
                     )
@@ -136,7 +143,7 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_output(&self, output: OutputWithMetadata) -> Result<(), Error> {
-        self.0
+        self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .update_one(
                 doc! { "metadata.output_id": output.metadata.output_id },
@@ -151,7 +158,7 @@ impl MongoDb {
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         let output = self
-            .0
+            .db
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -177,7 +184,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let output = self
-                .0
+                .db
                 .collection::<OutputWithMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -210,7 +217,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let metadata = self
-                .0
+                .db
                 .collection::<OutputMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -245,7 +252,7 @@ impl MongoDb {
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
         let metadata = self
-            .0
+            .db
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -268,7 +275,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let balances = self
-                .0
+                .db
                 .collection::<BalanceResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -303,6 +310,43 @@ impl MongoDb {
                 .transpose()?;
 
             Ok(balances)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
+    /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
+    /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
+    pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
+        if let Some(ledger_index) = self.get_ledger_index().await? {
+            if index > ledger_index {
+                Ok(None)
+            } else {
+                Ok(Some(
+                    self.db
+                        .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
+                        .aggregate(
+                            vec![doc! { "$facet": {
+                                "created_outputs": [
+                                    { "$match": { "metadata.booked.milestone_index": index  } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                                "consumed_outputs": [
+                                    { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                            } }],
+                            None,
+                        )
+                        .await?
+                        .try_next()
+                        .await?
+                        .map(bson::from_document::<UtxoChangesResult>)
+                        .transpose()?
+                        .unwrap_or_default(),
+                ))
+            }
         } else {
             Ok(None)
         }
