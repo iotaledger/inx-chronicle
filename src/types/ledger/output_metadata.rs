@@ -29,7 +29,6 @@ pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub spent_metadata: Option<SpentMetadata>,
 }
 
