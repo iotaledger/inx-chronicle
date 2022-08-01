@@ -18,7 +18,7 @@ pub struct ProtocolUpdateDocument {
 }
 
 impl ProtocolUpdateDocument {
-    /// The stardust milestone collection name.
+    /// The stardust protocol update collection name.
     const COLLECTION: &'static str = "stardust_protocol_updates";
 }
 
