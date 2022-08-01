@@ -66,15 +66,14 @@ impl Actor for InxWorker {
         // Request the node status so we can get the pruning index and latest confirmed milestone
         let node_status = inx.read_node_status().await?;
 
-        let latest_milestone_index = node_status.confirmed_milestone.milestone_info.milestone_index;
-
         log::debug!(
-            "The node has a pruning index of `{}` and a latest confirmed milestone index of `{latest_milestone_index}`.",
+            "The node has a pruning index of `{}` and a latest confirmed milestone index of `{}`.",
             node_status.tangle_pruning_index,
+            node_status.confirmed_milestone.milestone_info.milestone_index,
         );
 
         // Check if there is an unfixable gap in our node data.
-        if let Some(MilestoneIndexTimestamp {
+        let start_index = if let Some(MilestoneIndexTimestamp {
             milestone_index: latest_milestone,
             ..
         }) = self.db.get_latest_milestone().await?
@@ -85,10 +84,13 @@ impl Actor for InxWorker {
                     end: node_status.tangle_pruning_index.into(),
                 });
             }
-        }
+            latest_milestone + 1
+        } else {
+            (node_status.tangle_pruning_index + 1).into()
+        };
 
         let protocol_parameters: ProtocolParameters = inx
-            .read_protocol_parameters(latest_milestone_index.into())
+            .read_protocol_parameters(start_index.0.into())
             .await?
             .inner()?
             .into();
@@ -104,7 +106,7 @@ impl Actor for InxWorker {
             }
             if latest.parameters != protocol_parameters {
                 self.db
-                    .insert_protocol_parameters(latest_milestone_index.into(), protocol_parameters)
+                    .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
         } else {
@@ -115,7 +117,7 @@ impl Actor for InxWorker {
             );
 
             self.db
-                .insert_protocol_parameters(latest_milestone_index.into(), protocol_parameters)
+                .insert_protocol_parameters(start_index, protocol_parameters)
                 .await?;
 
             log::info!("Reading unspent outputs.");
@@ -130,9 +132,7 @@ impl Actor for InxWorker {
             self.db.insert_ledger_updates(updates).await?;
         }
 
-        let ledger_update_stream = inx
-            .listen_to_ledger_updates((node_status.tangle_pruning_index + 1..).into())
-            .await?;
+        let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
 
         cx.add_stream(ledger_update_stream);
 

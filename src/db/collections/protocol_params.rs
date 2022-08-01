@@ -25,11 +25,10 @@ impl ProtocolUpdateDocument {
 impl MongoDb {
     /// Gets the latest protocol parameters.
     pub async fn get_latest_protocol_parameters(&self) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        Ok(self
-            .0
+        self.0
             .collection::<ProtocolUpdateDocument>(ProtocolUpdateDocument::COLLECTION)
             .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
-            .await?)
+            .await
     }
 
     /// Inserts a protocol parameters for a given milestone index.
