@@ -14,6 +14,7 @@ use chronicle::{
 pub use config::InxConfig;
 pub use error::InxError;
 use futures::{StreamExt, TryStreamExt};
+use tokio::time::Instant;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -133,7 +134,15 @@ impl Actor for InxWorker {
                 updates.push(output.try_into()?);
             }
             log::info!("Inserting {} unspent outputs.", updates.len());
+
+            // TODO: Use tracing here.
+            let start_time = Instant::now();
             self.db.insert_ledger_updates(&mut session, updates).await?;
+            let duration = start_time.elapsed();
+            log::info!(
+                "Inserting unspent outputs took {}.",
+                humantime::Duration::from(duration)
+            );
         }
 
         let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
@@ -157,6 +166,9 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received ledger update event {:#?}", ledger_update_result);
+
+        // TODO: Use tracing here.
+        let start_time = Instant::now();
 
         let ledger_update = ledger_update_result?;
 
@@ -222,7 +234,12 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
             )
             .await?;
 
-        log::debug!("Milestone `{}` synced.", milestone_index);
+        let duration = start_time.elapsed();
+        log::debug!(
+            "Milestone `{}` synced in {}.",
+            milestone_index,
+            humantime::Duration::from(duration)
+        );
 
         Ok(())
     }

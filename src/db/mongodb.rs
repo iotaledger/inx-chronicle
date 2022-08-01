@@ -5,7 +5,7 @@
 
 use mongodb::{
     bson::{doc, Document},
-    error::{Error},
+    error::Error,
     options::{ClientOptions, Credential, TransactionOptions},
     Client, ClientSession,
 };
