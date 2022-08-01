@@ -86,7 +86,9 @@ impl Actor for InxWorker {
             }
             latest_milestone + 1
         } else {
-            (node_status.tangle_pruning_index + 1).into()
+            self.config
+                .sync_start_milestone
+                .max((node_status.tangle_pruning_index + 1).into())
         };
 
         let protocol_parameters: ProtocolParameters = inx
