@@ -126,7 +126,7 @@ impl MongoDb {
                             .unique(false)
                             .name("address_index".to_string())
                             .partial_filter_expression(doc! {
-                                "details.address": { "$exists": true } ,
+                                "details.address": { "$exists": true },
                             })
                             .build(),
                     )
