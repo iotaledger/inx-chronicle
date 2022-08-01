@@ -83,11 +83,11 @@ impl FromStr for SortOrder {
 }
 
 fn newest() -> Document {
-    doc! { "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": 1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -101,26 +101,11 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "address": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(false)
-                            .name("address_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
                     .keys(newest())
                     .options(
                         IndexOptions::builder()
                             .unique(true)
-                            .name("cursor_index".to_string())
+                            .name("ledger_update_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -155,7 +140,7 @@ impl MongoDb {
                 self.db
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
-                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent },
+                        doc! { "address": &doc.address, "at.milestone_index": &doc.at.milestone_index, "output_id": &doc.output_id, "is_spent": &doc.is_spent },
                         doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
                     )
