@@ -4,7 +4,8 @@ services:
   mongo1:
     image: mongo:latest
     container_name: mongo1
-    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27017"]
+    # Warning: We don't keep logs to make development simpler
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27017", "--quiet", "--logpath", "/dev/null"]  
     volumes:
       - ./chronicle_data/mongo-1:/data/db
     ports:
@@ -17,7 +18,8 @@ services:
   mongo2:
     image: mongo:latest
     container_name: mongo2
-    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27019"]
+    # Warning: We don't keep logs to make development simpler
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27019", "--quiet", "--logpath", "/dev/null"]
     volumes:
       - ./chronicle_data/mongo-2:/data/db
     ports:
@@ -26,7 +28,8 @@ services:
   mongo3:
     image: mongo:latest
     container_name: mongo3
-    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27020"]
+    # Warning: We don't keep logs to make development simpler
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27020", "--quiet", "--logpath", "/dev/null"]
     volumes:
       - ./chronicle_data/mongo-3:/data/db
     ports:
