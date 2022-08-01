@@ -9,7 +9,10 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
-    types::tangle::{ProtocolInfo, ProtocolParameters},
+    types::{
+        ledger::MilestoneIndexTimestamp,
+        tangle::{ProtocolInfo, ProtocolParameters},
+    },
 };
 pub use config::InxConfig;
 pub use error::InxError;
@@ -74,12 +77,16 @@ impl Actor for InxWorker {
         );
 
         // Check if there is an unfixable gap in our node data.
-        if let Some(latest_milestone) = self.db.get_latest_milestone().await? {
-            if node_status.tangle_pruning_index > latest_milestone {
-                return InxError::MilestoneGap {
+        if let Some(MilestoneIndexTimestamp {
+            milestone_index: latest_milestone,
+            ..
+        }) = self.db.get_latest_milestone().await?
+        {
+            if node_status.tangle_pruning_index > latest_milestone.0 {
+                return Err(InxError::MilestoneGap {
                     start: latest_milestone + 1,
-                    end: node_status.tangle_pruning_index,
-                };
+                    end: node_status.tangle_pruning_index.into(),
+                });
             }
         }
 
@@ -142,7 +149,7 @@ impl Actor for InxWorker {
 impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
     async fn handle_event(
         &mut self,
-        cx: &mut ActorContext<Self>,
+        _cx: &mut ActorContext<Self>,
         ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
