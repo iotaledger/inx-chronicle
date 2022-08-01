@@ -454,7 +454,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .name("output_spent_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": true } })
+                            .partial_filter_expression(doc! { "metadata.spent_metadata.spent": { "$exists": true } })
                             .build(),
                     )
                     .build(),
