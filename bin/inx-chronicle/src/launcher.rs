@@ -71,7 +71,7 @@ impl Actor for Launcher {
         let db = MongoDb::connect(&config.mongodb).await?;
         log::debug!("Available databases: `{:?}`", db.get_databases().await?);
         log::info!(
-            "Conntected to database `{}` ({})",
+            "Connected to database `{}` ({})",
             db.name(),
             ByteSize::b(db.size().await?)
         );
