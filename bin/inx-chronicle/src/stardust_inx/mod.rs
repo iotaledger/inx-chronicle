@@ -73,6 +73,16 @@ impl Actor for InxWorker {
             node_status.tangle_pruning_index,
         );
 
+        // Check if there is an unfixable gap in our node data.
+        if let Some(latest_milestone) = self.db.get_latest_milestone().await? {
+            if node_status.tangle_pruning_index > latest_milestone {
+                return InxError::MilestoneGap {
+                    start: latest_milestone + 1,
+                    end: node_status.tangle_pruning_index,
+                };
+            }
+        }
+
         let protocol_parameters: ProtocolParameters = inx
             .read_protocol_parameters(latest_milestone_index.into())
             .await?
