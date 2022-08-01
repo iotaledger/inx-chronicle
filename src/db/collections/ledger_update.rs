@@ -95,7 +95,7 @@ impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_ledger_update_indexes(&self) -> Result<(), Error> {
         let collection = self
-            .0
+            .db
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
 
         collection
@@ -152,7 +152,7 @@ impl MongoDb {
                     at,
                     is_spent: delta.metadata.spent_metadata.is_some(),
                 };
-                self.0
+                self.db
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                     .update_one(
                         doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent },
@@ -197,7 +197,7 @@ impl MongoDb {
             queries.push(doc! { "$or": cursor_queries });
         }
 
-        self.0
+        self.db
             .collection::<LedgerUpdateByAddressRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },
@@ -226,7 +226,7 @@ impl MongoDb {
             queries.push(doc! { "$or": cursor_queries });
         }
 
-        self.0
+        self.db
             .collection::<LedgerUpdateByMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },
@@ -263,7 +263,7 @@ mod analytics {
             end_timestamp: MilestoneTimestamp,
         ) -> Result<Option<AddressAnalyticsResult>, Error> {
             Ok(self
-                .0
+                .db
                 .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                 .aggregate(
                     vec![

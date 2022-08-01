@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
+use bytesize::ByteSize;
 #[cfg(any(feature = "api", feature = "inx"))]
 use chronicle::runtime::{ActorError, HandleEvent, Report};
 use chronicle::{
@@ -63,7 +64,17 @@ impl Actor for Launcher {
         };
         config.apply_cl_args(&cl_args);
 
+        log::info!(
+            "Connecting to database at bind address `{}`.",
+            config.mongodb.connect_url
+        );
         let db = MongoDb::connect(&config.mongodb).await?;
+        log::debug!("Available databases: `{:?}`", db.get_databases().await?);
+        log::info!(
+            "Connected to database `{}` ({})",
+            db.name(),
+            ByteSize::b(db.size().await?)
+        );
 
         #[cfg(feature = "stardust")]
         {

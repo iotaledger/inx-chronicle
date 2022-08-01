@@ -84,7 +84,7 @@ impl MongoDb {
                 IndexedId::Nft(_) => "output.nft_id",
             };
             let mut res = self
-                .0
+                .db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -179,7 +179,7 @@ impl MongoDb {
                 ]
             } };
             let outputs = self
-                .0
+                .db
                 .collection::<OutputResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -205,7 +205,7 @@ impl MongoDb {
 
     /// Creates indexer output indexes.
     pub async fn create_indexer_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<OutputDocument>(OutputDocument::COLLECTION);
+        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
 
         collection
             .create_index(
