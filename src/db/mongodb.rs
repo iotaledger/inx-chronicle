@@ -5,9 +5,9 @@
 
 use mongodb::{
     bson::{doc, Document},
-    error::Error,
-    options::{ClientOptions, Credential},
-    Client,
+    error::{Error},
+    options::{ClientOptions, Credential, TransactionOptions},
+    Client, ClientSession,
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,16 @@ impl MongoDb {
         let db = client.database(&config.database_name);
 
         Ok(MongoDb { db, client })
+    }
+
+    /// Starts a transaction.
+    pub async fn start_transaction(
+        &self,
+        options: impl Into<Option<TransactionOptions>>,
+    ) -> Result<ClientSession, Error> {
+        let mut session = self.client.start_session(None).await?;
+        session.start_transaction(options).await?;
+        Ok(session)
     }
 
     /// Clears all the collections from the database.

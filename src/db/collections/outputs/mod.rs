@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{IndexOptions, UpdateOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -142,15 +142,28 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_output(&self, output: OutputWithMetadata) -> Result<(), Error> {
-        self.db
-            .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .update_one(
-                doc! { "metadata.output_id": output.metadata.output_id },
-                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
+    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+        if output.metadata.spent_metadata.is_none() {
+            self.db
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! { "metadata.output_id": output.metadata.output_id },
+                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        } else {
+            self.db
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! { "metadata.output_id": output.metadata.output_id },
+                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        }
 
         Ok(())
     }

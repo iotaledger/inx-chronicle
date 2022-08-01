@@ -5,7 +5,7 @@ use mongodb::{
     bson::doc,
     error::Error,
     options::{FindOneOptions, IndexOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -62,7 +62,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Inserts or updates treasury data.
+    /// Inserts treasury data.
     pub async fn insert_treasury(
         &self,
         milestone_index: MilestoneIndex,
@@ -77,6 +77,30 @@ impl MongoDb {
             .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
             .insert_one(treasury_document, None)
             .await?;
+
+        Ok(())
+    }
+
+    /// Inserts many treasury data.
+    pub async fn insert_treasury_payloads(
+        &self,
+        session: &mut ClientSession,
+        payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
+    ) -> Result<(), Error> {
+        let payloads = payloads
+            .into_iter()
+            .map(|(milestone_index, payload)| TreasuryDocument {
+                milestone_index,
+                milestone_id: payload.input_milestone_id,
+                amount: payload.output_amount,
+            })
+            .collect::<Vec<_>>();
+        if !payloads.is_empty() {
+            self.db
+                .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+                .insert_many_with_session(payloads, None, session)
+                .await?;
+        }
 
         Ok(())
     }

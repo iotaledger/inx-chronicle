@@ -13,7 +13,7 @@ use chronicle::{
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 
 pub struct InxWorker {
     db: MongoDb,
@@ -99,6 +99,8 @@ impl Actor for InxWorker {
 
         log::debug!("Connected to network `{}`.", protocol_parameters.network_name);
 
+        let mut session = self.db.start_transaction(None).await?;
+
         if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
             if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
@@ -108,7 +110,7 @@ impl Actor for InxWorker {
             }
             if latest.parameters != protocol_parameters {
                 self.db
-                    .insert_protocol_parameters(start_index, protocol_parameters)
+                    .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
                     .await?;
             }
         } else {
@@ -119,7 +121,7 @@ impl Actor for InxWorker {
             );
 
             self.db
-                .insert_protocol_parameters(start_index, protocol_parameters)
+                .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
                 .await?;
 
             log::info!("Reading unspent outputs.");
@@ -131,7 +133,7 @@ impl Actor for InxWorker {
                 updates.push(output.try_into()?);
             }
             log::info!("Inserting {} unspent outputs.", updates.len());
-            self.db.insert_ledger_updates(updates).await?;
+            self.db.insert_ledger_updates(&mut session, updates).await?;
         }
 
         let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
@@ -164,7 +166,11 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
             .chain(Vec::from(ledger_update.consumed).into_iter().map(TryInto::try_into))
             .collect::<Result<Vec<_>, _>>()?;
 
-        self.db.insert_ledger_updates(output_updates.into_iter()).await?;
+        let mut session = self.db.start_transaction(None).await?;
+
+        self.db
+            .insert_ledger_updates(&mut session, output_updates.into_iter())
+            .await?;
 
         let milestone = inx.read_milestone(ledger_update.milestone_index.into()).await?;
         let parameters: ProtocolParameters = inx
@@ -174,7 +180,7 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
             .into();
 
         self.db
-            .update_latest_protocol_parameters(ledger_update.milestone_index.into(), parameters)
+            .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index.into(), parameters)
             .await?;
 
         log::trace!("Received milestone: `{:?}`", milestone);
@@ -192,24 +198,29 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
                 .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?,
         );
 
-        let mut cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+        let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
-        while let Some(bee_inx::BlockWithMetadata { block, metadata }) = cone_stream.try_next().await? {
-            log::trace!("Cone stream received Block id: {:?}", metadata.block_id);
-
-            self.db
-                .insert_block_with_metadata(block.clone().inner()?.into(), block.data(), metadata.into())
-                .await?;
-
-            log::trace!("Inserted block into database.");
-        }
-
-        self.db
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+        let blocks_with_metadata = cone_stream
+            .map(|res| {
+                let bee_inx::BlockWithMetadata { block, metadata } = res?;
+                Result::<_, Self::Error>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+            })
+            .try_collect::<Vec<_>>()
             .await?;
 
-        self.db.set_sync_status_blocks(milestone_index).await?;
-        self.db.update_ledger_index(milestone_index).await?;
+        self.db
+            .insert_blocks_with_metadata(&mut session, blocks_with_metadata)
+            .await?;
+
+        self.db
+            .insert_milestone(
+                &mut session,
+                milestone_id,
+                milestone_index,
+                milestone_timestamp,
+                payload,
+            )
+            .await?;
 
         log::debug!("Milestone `{}` synced.", milestone_index);
 
