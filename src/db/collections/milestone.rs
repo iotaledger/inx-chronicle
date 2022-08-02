@@ -7,8 +7,8 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOneOptions, FindOptions, IndexOptions, UpdateOptions},
-    IndexModel,
+    options::{FindOneOptions, FindOptions, IndexOptions},
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,8 +33,6 @@ struct MilestoneDocument {
     milestone_id: MilestoneId,
     /// The milestone's payload.
     payload: MilestonePayload,
-    /// The milestone's sync status.
-    is_synced: bool,
 }
 
 impl MilestoneDocument {
@@ -166,6 +164,7 @@ impl MongoDb {
     /// Inserts the information of a milestone into the database.
     pub async fn insert_milestone(
         &self,
+        session: &mut ClientSession,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
@@ -178,19 +177,14 @@ impl MongoDb {
             },
             milestone_id,
             payload,
-            is_synced: Default::default(),
         };
 
         let mut doc = bson::to_document(&milestone_document)?;
         doc.insert("_id", milestone_document.milestone_id.to_hex());
 
         self.db
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .update_one(
-                doc! { "at.milestone_index": milestone_index },
-                doc! { "$set": doc },
-                UpdateOptions::builder().upsert(true).build(),
-            )
+            .collection::<bson::Document>(MilestoneDocument::COLLECTION)
+            .insert_one_with_session(doc, None, session)
             .await?;
 
         Ok(())
@@ -206,7 +200,6 @@ impl MongoDb {
             .find(
                 doc! {
                     "at.milestone_timestamp": { "$gte": start_timestamp },
-                    "is_synced": true
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
@@ -232,7 +225,6 @@ impl MongoDb {
             .find(
                 doc! {
                     "at.milestone_timestamp": { "$lte": end_timestamp },
-                    "is_synced": true
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": -1 })
@@ -253,7 +245,7 @@ impl MongoDb {
         self.db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
-                doc! { "is_synced": true },
+                doc! {},
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": -1 })
                     .limit(1)
@@ -268,18 +260,9 @@ impl MongoDb {
             .await
     }
 
-    /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
-    pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.db
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .update_one(
-                doc! { "at.milestone_index": index },
-                doc! { "$set": { "is_synced": true } },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
-
-        Ok(())
+    /// Gets the current ledger index.
+    pub async fn get_ledger_index(&self) -> Result<Option<MilestoneIndex>, Error> {
+        Ok(self.get_latest_milestone().await?.map(|ts| ts.milestone_index))
     }
 
     /// Retrieves the sync records sorted by their [`MilestoneIndex`].
@@ -293,7 +276,6 @@ impl MongoDb {
             .find(
                 doc! {
                     "at.milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
-                    "is_synced": true
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
@@ -350,7 +332,7 @@ impl MongoDb {
             .db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
-                doc! { "is_synced": true },
+                doc! {},
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
                     .projection(doc! {

@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc, Document},
     error::Error,
     options::{FindOptions, IndexOptions, UpdateOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -120,10 +120,11 @@ impl MongoDb {
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_ledger_updates(
         &self,
+        session: &mut ClientSession,
         deltas: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
         for delta in deltas {
-            self.insert_output(delta.clone()).await?;
+            self.insert_output(session, delta.clone()).await?;
             // Ledger updates
             if let Some(&address) = delta.output.owning_address() {
                 let at = delta
@@ -139,10 +140,11 @@ impl MongoDb {
                 };
                 self.db
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .update_one(
+                    .update_one_with_session(
                         doc! { "address": &doc.address, "at.milestone_index": &doc.at.milestone_index, "output_id": &doc.output_id, "is_spent": &doc.is_spent },
                         doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
+                        session
                     )
                     .await?;
             }
