@@ -29,7 +29,6 @@ pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub spent_metadata: Option<SpentMetadata>,
 }
 
@@ -45,7 +44,7 @@ impl TryFrom<bee_inx::LedgerOutput> for OutputWithMetadata {
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
         Ok(Self {
-            output: (&(value.output.inner()?)).into(),
+            output: Into::into(&(value.output.inner()?)),
             metadata: OutputMetadata {
                 output_id: value.output_id.into(),
                 block_id: value.block_id.into(),

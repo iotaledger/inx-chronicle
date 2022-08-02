@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{IndexOptions, UpdateOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -81,11 +81,11 @@ pub struct OutputWithMetadataResult {
     pub metadata: OutputMetadataResult,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
-pub struct BalancesResult {
-    pub total_balance: u64,
-    pub sig_locked_balance: u64,
+pub struct BalanceResult {
+    pub total_balance: String,
+    pub sig_locked_balance: String,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -100,7 +100,7 @@ pub struct UtxoChangesResult {
 impl MongoDb {
     /// Creates output indexes.
     pub async fn create_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<OutputDocument>(OutputDocument::COLLECTION);
+        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
 
         collection
             .create_index(
@@ -126,7 +126,7 @@ impl MongoDb {
                             .unique(false)
                             .name("address_index".to_string())
                             .partial_filter_expression(doc! {
-                                "details.address": { "$exists": true } ,
+                                "details.address": { "$exists": true },
                             })
                             .build(),
                     )
@@ -142,15 +142,28 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_output(&self, output: OutputWithMetadata) -> Result<(), Error> {
-        self.0
-            .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .update_one(
-                doc! { "metadata.output_id": output.metadata.output_id },
-                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
+    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+        if output.metadata.spent_metadata.is_none() {
+            self.db
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! { "metadata.output_id": output.metadata.output_id },
+                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        } else {
+            self.db
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! { "metadata.output_id": output.metadata.output_id },
+                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        }
 
         Ok(())
     }
@@ -158,7 +171,7 @@ impl MongoDb {
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         let output = self
-            .0
+            .db
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -184,7 +197,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let output = self
-                .0
+                .db
                 .collection::<OutputWithMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -217,7 +230,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let metadata = self
-                .0
+                .db
                 .collection::<OutputMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -252,7 +265,7 @@ impl MongoDb {
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
         let metadata = self
-            .0
+            .db
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -271,23 +284,12 @@ impl MongoDb {
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<Option<BalancesResult>, Error> {
-        #[derive(Deserialize, Default)]
-        struct Amount {
-            amount: f64,
-        }
-
-        #[derive(Deserialize, Default)]
-        struct Balances {
-            total_balance: Amount,
-            sig_locked_balance: Amount,
-        }
-
+    pub async fn get_address_balance(&self, address: Address) -> Result<Option<BalanceResult>, Error> {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let balances = self
-                .0
-                .collection::<Balances>(OutputDocument::COLLECTION)
+                .db
+                .collection::<BalanceResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         // Look at all (at ledger index o'clock) unspent output documents for the given address.
@@ -299,22 +301,17 @@ impl MongoDb {
                                 { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                             ]
                         } },
-                        doc! { "$facet": {
-                            // Sum all output amounts (total balance).
-                            "total_balance": [
-                                { "$group" : {
-                                    "_id": "null",
-                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                }},
-                            ],
-                            // Sum only trivially unlockable output amounts (signature locked balance).
-                            "sig_locked_balance": [
-                                { "$match": { "details.is_trivial_unlock": true } },
-                                { "$group" : {
-                                    "_id": "null",
-                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                } },
-                            ],
+                        doc! { "$group": {
+                            "_id": null,
+                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "sig_locked_balance": { "$sum": { 
+                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                            } },
+                        } },
+                        doc! { "$project": {
+                            "total_balance": { "$toString": "$total_balance" },
+                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                            "ledger_index": { "$literal": ledger_index },
                         } },
                     ],
                     None,
@@ -322,15 +319,10 @@ impl MongoDb {
                 .await?
                 .try_next()
                 .await?
-                .map(bson::from_document::<Balances>)
-                .transpose()?
-                .unwrap_or_default();
+                .map(bson::from_document::<BalanceResult>)
+                .transpose()?;
 
-            Ok(Some(BalancesResult {
-                total_balance: balances.total_balance.amount as u64,
-                sig_locked_balance: balances.sig_locked_balance.amount as u64,
-                ledger_index,
-            }))
+            Ok(balances)
         } else {
             Ok(None)
         }
@@ -345,7 +337,7 @@ impl MongoDb {
                 Ok(None)
             } else {
                 Ok(Some(
-                    self.0
+                    self.db
                         .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
                         .aggregate(
                             vec![doc! { "$facet": {

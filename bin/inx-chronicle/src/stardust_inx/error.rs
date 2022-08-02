@@ -14,10 +14,12 @@ pub enum InxError {
     MissingMilestoneInfo(MilestoneIndex),
     #[error("MongoDB error: {0}")]
     MongoDb(#[from] mongodb::error::Error),
-    #[error("network changed from previous run. old network name: {0}, new network name: {1}")]
+    #[error("network changed from previous run. old network name: `{0}`, new network name: `{1}`")]
     NetworkChanged(String, String),
     #[error(transparent)]
     ParsingAddressFailed(#[from] url::ParseError),
+    #[error("node pruned required milestones between `{start}` and `{end}`")]
+    MilestoneGap { start: MilestoneIndex, end: MilestoneIndex },
     #[error(transparent)]
     Runtime(#[from] chronicle::runtime::RuntimeError),
     #[error("INX error: {0}")]

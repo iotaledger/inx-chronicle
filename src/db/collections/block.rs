@@ -5,8 +5,8 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, UpdateOptions},
-    IndexModel,
+    options::IndexOptions,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,7 @@ impl BlockDocument {
 impl MongoDb {
     /// Creates block indexes.
     pub async fn create_block_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<BlockDocument>(BlockDocument::COLLECTION);
+        let collection = self.db.collection::<BlockDocument>(BlockDocument::COLLECTION);
 
         collection
             .create_index(
@@ -81,7 +81,7 @@ impl MongoDb {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         let block = self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -108,7 +108,7 @@ impl MongoDb {
         }
 
         let raw = self
-            .0
+            .db
             .collection::<RawResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -129,7 +129,7 @@ impl MongoDb {
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         let block = self
-            .0
+            .db
             .collection::<BlockMetadata>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -160,7 +160,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .0
+            .db
             .collection::<BlockIdResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -195,22 +195,59 @@ impl MongoDb {
         let mut doc = bson::to_document(&block_document)?;
         doc.insert("_id", block_id.to_hex());
 
-        self.0
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .update_one(
-                doc! { "metadata.block_id": block_id },
-                doc! { "$set": doc },
-                UpdateOptions::builder().upsert(true).build(),
-            )
+        self.db
+            .collection::<bson::Document>(BlockDocument::COLLECTION)
+            .insert_one(doc, None)
             .await?;
 
+        Ok(())
+    }
+
+    /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
+    pub async fn insert_blocks_with_metadata(
+        &self,
+        session: &mut ClientSession,
+        blocks_with_metadata: impl IntoIterator<Item = (Block, Vec<u8>, BlockMetadata)>,
+    ) -> Result<(), Error> {
+        let blocks_with_metadata = blocks_with_metadata
+            .into_iter()
+            .map(|(block, raw, metadata)| BlockDocument { block, raw, metadata })
+            .collect::<Vec<_>>();
+        if !blocks_with_metadata.is_empty() {
+            self.insert_treasury_payloads(
+                session,
+                blocks_with_metadata.iter().filter_map(|block_document| {
+                    if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
+                        if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
+                            return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
+                        }
+                    }
+                    None
+                }),
+            )
+            .await?;
+            let blocks_with_metadata = blocks_with_metadata
+                .into_iter()
+                .map(|block_document| {
+                    let block_id = block_document.metadata.block_id;
+                    let mut doc = bson::to_document(&block_document)?;
+                    doc.insert("_id", block_id.to_hex());
+                    Result::<_, Error>::Ok(doc)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            self.db
+                .collection::<bson::Document>(BlockDocument::COLLECTION)
+                .insert_many_with_session(blocks_with_metadata, None, session)
+                .await?;
+        }
         Ok(())
     }
 
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
         let block = self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -234,7 +271,7 @@ impl MongoDb {
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<Block>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -274,7 +311,7 @@ mod analytics {
             end_milestone: MilestoneIndex,
         ) -> Result<TransactionAnalyticsResult, Error> {
             Ok(self
-                .0
+                .db
                 .collection::<TransactionAnalyticsResult>(BlockDocument::COLLECTION)
                 .aggregate(
                     vec![
