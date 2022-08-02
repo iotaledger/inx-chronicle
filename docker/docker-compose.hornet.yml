@@ -13,7 +13,7 @@ services:
     healthcheck:
       test: test $$(echo "rs.initiate({_id:'my-replica-set',members:[{_id:0,host:\"mongo1:27017\"},{_id:1,host:\"mongo2:27019\"},{_id:2,host:\"mongo3:27020\"}]}).ok || rs.status().ok" | mongo --port 27017 --quiet) -eq 1
       interval: 10s
-      start_period: 30s
+      start_period: 5s
 
   mongo2:
     image: mongo:latest
@@ -38,6 +38,7 @@ services:
 
   inx-chronicle:
     container_name: inx-chronicle
+    depends_on: [mongo1, mongo2, mongo3, hornet]
     build:
       context: ..
       dockerfile: docker/Dockerfile
