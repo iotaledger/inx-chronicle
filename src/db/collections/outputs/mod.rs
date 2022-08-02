@@ -81,11 +81,11 @@ pub struct OutputWithMetadataResult {
     pub metadata: OutputMetadataResult,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
-pub struct BalancesResult {
-    pub total_balance: u64,
-    pub sig_locked_balance: u64,
+pub struct BalanceResult {
+    pub total_balance: String,
+    pub sig_locked_balance: String,
     pub ledger_index: MilestoneIndex,
 }
 
@@ -284,23 +284,12 @@ impl MongoDb {
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<Option<BalancesResult>, Error> {
-        #[derive(Deserialize, Default)]
-        struct Amount {
-            amount: f64,
-        }
-
-        #[derive(Deserialize, Default)]
-        struct Balances {
-            total_balance: Amount,
-            sig_locked_balance: Amount,
-        }
-
+    pub async fn get_address_balance(&self, address: Address) -> Result<Option<BalanceResult>, Error> {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let balances = self
                 .db
-                .collection::<Balances>(OutputDocument::COLLECTION)
+                .collection::<BalanceResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         // Look at all (at ledger index o'clock) unspent output documents for the given address.
@@ -312,22 +301,17 @@ impl MongoDb {
                                 { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                             ]
                         } },
-                        doc! { "$facet": {
-                            // Sum all output amounts (total balance).
-                            "total_balance": [
-                                { "$group" : {
-                                    "_id": "null",
-                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                }},
-                            ],
-                            // Sum only trivially unlockable output amounts (signature locked balance).
-                            "sig_locked_balance": [
-                                { "$match": { "details.is_trivial_unlock": true } },
-                                { "$group" : {
-                                    "_id": "null",
-                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                } },
-                            ],
+                        doc! { "$group": {
+                            "_id": null,
+                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "sig_locked_balance": { "$sum": { 
+                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                            } },
+                        } },
+                        doc! { "$project": {
+                            "total_balance": { "$toString": "$total_balance" },
+                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                            "ledger_index": { "$literal": ledger_index },
                         } },
                     ],
                     None,
@@ -335,15 +319,10 @@ impl MongoDb {
                 .await?
                 .try_next()
                 .await?
-                .map(bson::from_document::<Balances>)
-                .transpose()?
-                .unwrap_or_default();
+                .map(bson::from_document::<BalanceResult>)
+                .transpose()?;
 
-            Ok(Some(BalancesResult {
-                total_balance: balances.total_balance.amount as u64,
-                sig_locked_balance: balances.sig_locked_balance.amount as u64,
-                ledger_index,
-            }))
+            Ok(balances)
         } else {
             Ok(None)
         }
