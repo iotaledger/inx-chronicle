@@ -816,7 +816,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             Ok(self
-                .0
+                .db
                 .collection::<Richlist>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![

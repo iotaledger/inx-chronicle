@@ -7,8 +7,8 @@ use chronicle::db::MongoDb;
 use super::{
     extractors::RichlistQuery,
     responses::{
-        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, OutputsAnalyticsResponse,
-        RichlistAnalyticsResponse, StorageDepositAnalyticsResponse,
+        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, RichlistAnalyticsResponse,
+        StorageDepositAnalyticsResponse,
     },
 };
 use crate::api::{extractors::TimeRange, ApiError, ApiResult};
