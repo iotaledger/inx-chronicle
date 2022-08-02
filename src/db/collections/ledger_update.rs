@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc, Document},
     error::Error,
     options::{FindOptions, IndexOptions, UpdateOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -83,11 +83,11 @@ impl FromStr for SortOrder {
 }
 
 fn newest() -> Document {
-    doc! { "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": 1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -95,23 +95,8 @@ impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_ledger_update_indexes(&self) -> Result<(), Error> {
         let collection = self
-            .0
+            .db
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "address": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(false)
-                            .name("address_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
 
         collection
             .create_index(
@@ -120,7 +105,7 @@ impl MongoDb {
                     .options(
                         IndexOptions::builder()
                             .unique(true)
-                            .name("cursor_index".to_string())
+                            .name("ledger_update_index".to_string())
                             .build(),
                     )
                     .build(),
@@ -135,10 +120,11 @@ impl MongoDb {
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     pub async fn insert_ledger_updates(
         &self,
+        session: &mut ClientSession,
         deltas: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
         for delta in deltas {
-            self.insert_output(delta.clone()).await?;
+            self.insert_output(session, delta.clone()).await?;
             // Ledger updates
             if let Some(&address) = delta.output.owning_address() {
                 let at = delta
@@ -152,12 +138,13 @@ impl MongoDb {
                     at,
                     is_spent: delta.metadata.spent_metadata.is_some(),
                 };
-                self.0
+                self.db
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .update_one(
-                        doc! { "output_id": &doc.output_id, "is_spent": &doc.is_spent },
+                    .update_one_with_session(
+                        doc! { "address": &doc.address, "at.milestone_index": &doc.at.milestone_index, "output_id": &doc.output_id, "is_spent": &doc.is_spent },
                         doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
+                        session
                     )
                     .await?;
             }
@@ -197,7 +184,7 @@ impl MongoDb {
             queries.push(doc! { "$or": cursor_queries });
         }
 
-        self.0
+        self.db
             .collection::<LedgerUpdateByAddressRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },
@@ -226,7 +213,7 @@ impl MongoDb {
             queries.push(doc! { "$or": cursor_queries });
         }
 
-        self.0
+        self.db
             .collection::<LedgerUpdateByMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },

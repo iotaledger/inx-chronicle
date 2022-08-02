@@ -4,10 +4,8 @@
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-use super::MilestoneIndex;
-
 /// Parameters relevant to byte cost calculations.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RentStructure {
     pub v_byte_cost: u32,
     pub v_byte_factor_data: u8,
@@ -25,7 +23,7 @@ impl From<&bee::output::RentStructure> for RentStructure {
 }
 
 /// Protocol parameters.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolParameters {
     pub version: u8,
     pub network_name: String,
@@ -49,11 +47,4 @@ impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
             token_supply: value.token_supply(),
         }
     }
-}
-
-/// Provides the information about the protocol at a given [`MilestoneIndex`].
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProtocolInfo {
-    pub parameters: ProtocolParameters,
-    pub tangle_index: MilestoneIndex,
 }

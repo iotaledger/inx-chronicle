@@ -7,8 +7,8 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{FindOneOptions, FindOptions, IndexOptions, UpdateOptions},
-    IndexModel,
+    options::{FindOneOptions, FindOptions, IndexOptions},
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,8 +33,6 @@ struct MilestoneDocument {
     milestone_id: MilestoneId,
     /// The milestone's payload.
     payload: MilestonePayload,
-    /// The milestone's sync status.
-    is_synced: bool,
 }
 
 impl MilestoneDocument {
@@ -54,7 +52,7 @@ pub struct SyncData {
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_milestone_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<MilestoneDocument>(MilestoneDocument::COLLECTION);
+        let collection = self.db.collection::<MilestoneDocument>(MilestoneDocument::COLLECTION);
 
         collection
             .create_index(
@@ -110,7 +108,7 @@ impl MongoDb {
         milestone_id: &MilestoneId,
     ) -> Result<Option<MilestonePayload>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -129,7 +127,7 @@ impl MongoDb {
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -148,7 +146,7 @@ impl MongoDb {
     /// Gets the timestamp of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! { "at.milestone_index": index },
@@ -166,6 +164,7 @@ impl MongoDb {
     /// Inserts the information of a milestone into the database.
     pub async fn insert_milestone(
         &self,
+        session: &mut ClientSession,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
@@ -178,19 +177,14 @@ impl MongoDb {
             },
             milestone_id,
             payload,
-            is_synced: Default::default(),
         };
 
         let mut doc = bson::to_document(&milestone_document)?;
         doc.insert("_id", milestone_document.milestone_id.to_hex());
 
-        self.0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .update_one(
-                doc! { "at.milestone_index": milestone_index },
-                doc! { "$set": doc },
-                UpdateOptions::builder().upsert(true).build(),
-            )
+        self.db
+            .collection::<bson::Document>(MilestoneDocument::COLLECTION)
+            .insert_one_with_session(doc, None, session)
             .await?;
 
         Ok(())
@@ -201,12 +195,11 @@ impl MongoDb {
         &self,
         start_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.0
+        self.db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
                     "at.milestone_timestamp": { "$gte": start_timestamp },
-                    "is_synced": true
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
@@ -227,12 +220,11 @@ impl MongoDb {
         &self,
         end_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.0
+        self.db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
                     "at.milestone_timestamp": { "$lte": end_timestamp },
-                    "is_synced": true
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": -1 })
@@ -250,10 +242,10 @@ impl MongoDb {
 
     /// Find the latest milestone inserted.
     pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.0
+        self.db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
-                doc! { "is_synced": true },
+                doc! {},
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": -1 })
                     .limit(1)
@@ -268,18 +260,9 @@ impl MongoDb {
             .await
     }
 
-    /// Marks that all [`Block`](crate::types::stardust::block::Block)s of a milestone have been synchronized.
-    pub async fn set_sync_status_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.0
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .update_one(
-                doc! { "at.milestone_index": index },
-                doc! { "$set": { "is_synced": true } },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
-
-        Ok(())
+    /// Gets the current ledger index.
+    pub async fn get_ledger_index(&self) -> Result<Option<MilestoneIndex>, Error> {
+        Ok(self.get_latest_milestone().await?.map(|ts| ts.milestone_index))
     }
 
     /// Retrieves the sync records sorted by their [`MilestoneIndex`].
@@ -288,12 +271,11 @@ impl MongoDb {
         range: RangeInclusive<MilestoneIndex>,
     ) -> Result<impl Stream<Item = Result<MilestoneIndex, Error>>, Error> {
         Ok(self
-            .0
+            .db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
                 doc! {
                     "at.milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
-                    "is_synced": true
                 },
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
@@ -347,10 +329,10 @@ impl MongoDb {
     /// Retrieves gaps in the milestones collection.
     pub async fn get_gaps(&self) -> Result<Vec<RangeInclusive<MilestoneIndex>>, Error> {
         let mut synced_ms = self
-            .0
+            .db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
             .find(
-                doc! { "is_synced": true },
+                doc! {},
                 FindOptions::builder()
                     .sort(doc! { "at.milestone_index": 1 })
                     .projection(doc! {
@@ -388,7 +370,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .0
+            .db
             .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -424,7 +406,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .0
+            .db
             .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![

@@ -6,5 +6,5 @@ mod protocol;
 
 pub use self::{
     milestone_index::MilestoneIndex,
-    protocol::{ProtocolInfo, ProtocolParameters, RentStructure},
+    protocol::{ProtocolParameters, RentStructure},
 };
