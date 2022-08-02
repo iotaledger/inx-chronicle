@@ -1,16 +1,44 @@
 version: '3'
 services:
 
-  mongo:
-    image: mongo
-    container_name: mongodb
-    restart: always
-    command: --quiet --logpath /dev/null
+  mongo1:
+    image: mongo:latest
+    container_name: mongo1
+    # Warning: We don't keep logs to make development simpler
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27017", "--quiet", "--logpath", "/dev/null"]  
     volumes:
-      - ./chronicle_data:/data/db
+      - ./chronicle_data/mongo-1:/data/db
+    ports:
+      - 27017:27017
+    healthcheck:
+      test: test $$(echo "rs.initiate({_id:'my-replica-set',members:[{_id:0,host:\"mongo1:27017\"},{_id:1,host:\"mongo2:27019\"},{_id:2,host:\"mongo3:27020\"}]}).ok || rs.status().ok" | mongo --port 27017 --quiet) -eq 1
+      interval: 10s
+      start_period: 5s
+
+  mongo2:
+    image: mongo:latest
+    container_name: mongo2
+    # Warning: We don't keep logs to make development simpler
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27019", "--quiet", "--logpath", "/dev/null"]
+    volumes:
+      - ./chronicle_data/mongo-2:/data/db
+    ports:
+      - 27019:27019
+
+  mongo3:
+    image: mongo:latest
+    container_name: mongo3
+    # Warning: We don't keep logs to make development simpler
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27020", "--quiet", "--logpath", "/dev/null"]
+    volumes:
+      - ./chronicle_data/mongo-3:/data/db
+    ports:
+      - 27020:27020
+
 
   inx-chronicle:
     container_name: inx-chronicle
+    depends_on: [mongo1, mongo2, mongo3, hornet]
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -25,7 +53,7 @@ services:
       - "--inx"
       - "http://hornet:9029"
       - "--db"
-      - "mongodb://mongo:27017"
+      - "mongodb://mongo1:27017"
       - "--config"
       - "config.toml"
     volumes:
