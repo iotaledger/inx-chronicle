@@ -290,6 +290,7 @@ impl MongoDb {
     }
 
     /// Retrieves a [`SyncData`] structure that contains the completed and gaps ranges.
+    #[deprecated]
     pub async fn get_sync_data(&self, range: RangeInclusive<MilestoneIndex>) -> Result<SyncData, Error> {
         let mut synced_ms = self.get_sorted_milestone_indices_synced(range.clone()).await?;
         let mut sync_data = SyncData::default();
@@ -327,6 +328,7 @@ impl MongoDb {
     }
 
     /// Retrieves gaps in the milestones collection.
+    #[deprecated]
     pub async fn get_gaps(&self) -> Result<Vec<RangeInclusive<MilestoneIndex>>, Error> {
         let mut synced_ms = self
             .db

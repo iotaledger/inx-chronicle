@@ -20,11 +20,10 @@ use super::{
         LedgerUpdatesByMilestoneResponse,
     },
 };
-use crate::api::{responses::SyncDataDto, ApiError, ApiResult};
+use crate::api::{ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/gaps", get(sync))
         .route("/balance/:address", get(balance))
         .nest(
             "/ledger/updates",
@@ -32,10 +31,6 @@ pub fn routes() -> Router {
                 .route("/by-address/:address", get(ledger_updates_by_address))
                 .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
         )
-}
-
-async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
-    Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
 async fn ledger_updates_by_address(
