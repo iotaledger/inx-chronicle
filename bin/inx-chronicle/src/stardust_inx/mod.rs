@@ -145,6 +145,8 @@ impl Actor for InxWorker {
             );
         }
 
+        session.commit_transaction().await?;
+
         let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
 
         cx.add_stream(ledger_update_stream);
@@ -233,6 +235,8 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
                 payload,
             )
             .await?;
+
+        session.commit_transaction().await?;
 
         let duration = start_time.elapsed();
         log::debug!(
