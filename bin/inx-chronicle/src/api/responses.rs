@@ -18,17 +18,6 @@ macro_rules! impl_success_response {
 pub(crate) use impl_success_response;
 use serde_json::Value;
 
-/// Response of `GET /api/info`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InfoResponse {
-    pub name: String,
-    pub version: String,
-    pub is_healthy: bool,
-}
-
-impl_success_response!(InfoResponse);
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MaybeSpentOutput {
@@ -46,6 +35,7 @@ pub struct Unlock {
 /// An aggregation type that represents the ranges of completed milestones and gaps.
 #[cfg(feature = "stardust")]
 mod stardust {
+
     use chronicle::{
         db::collections::SyncData,
         types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},

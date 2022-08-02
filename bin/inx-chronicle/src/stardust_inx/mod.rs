@@ -77,7 +77,7 @@ impl Actor for InxWorker {
         let start_index = if let Some(MilestoneIndexTimestamp {
             milestone_index: latest_milestone,
             ..
-        }) = self.db.get_latest_milestone().await?
+        }) = self.db.get_newest_milestone().await?
         {
             if node_status.tangle_pruning_index > latest_milestone.0 {
                 return Err(InxError::MilestoneGap {

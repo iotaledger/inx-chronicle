@@ -23,14 +23,12 @@ use super::{
 use crate::api::{ApiError, ApiResult};
 
 pub fn routes() -> Router {
-    Router::new()
-        .route("/balance/:address", get(balance))
-        .nest(
-            "/ledger/updates",
-            Router::new()
-                .route("/by-address/:address", get(ledger_updates_by_address))
-                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-        )
+    Router::new().route("/balance/:address", get(balance)).nest(
+        "/ledger/updates",
+        Router::new()
+            .route("/by-address/:address", get(ledger_updates_by_address))
+            .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+    )
 }
 
 async fn ledger_updates_by_address(
