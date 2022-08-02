@@ -6,19 +6,33 @@ use chronicle::db::MongoDb;
 
 use super::{
     extractors::RichlistQuery,
-    responses::{AddressAnalyticsResponse, OutputsAnalyticsResponse, RichlistAnalyticsResponse},
+    responses::{
+        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, OutputsAnalyticsResponse,
+        RichlistAnalyticsResponse, StorageDepositAnalyticsResponse,
+    },
 };
-use crate::api::{extractors::TimeRange, ApiResult};
+use crate::api::{extractors::TimeRange, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
         .route("/addresses", get(address_analytics))
-        .route("/transactions", get(transaction_analytics))
-        .route("/native-tokens", get(native_token_analytics))
-        .route("/nfts", get(nft_analytics))
-        .route("/foundrys", get(foundry_analytics))
-        .route("/storage-deposit", get(locked_storage_deposit_analytics))
+        .route("/storage-deposit", get(storage_deposit_analytics))
         .route("/richlist", get(richlist_analytics))
+        .nest(
+            "/blocks",
+            Router::new()
+                .route("/transaction", get(transaction_analytics))
+                .route("/milestone", get(milestone_analytics))
+                .route("/tagged_data", get(tagged_data_analytics)),
+        )
+        .nest(
+            "/outputs",
+            Router::new()
+                .route("/basic", get(basic_analytics))
+                .route("/alias", get(alias_analytics))
+                .route("/nft", get(nft_analytics))
+                .route("/foundry", get(foundry_analytics)),
+        )
 }
 
 async fn address_analytics(
@@ -31,9 +45,9 @@ async fn address_analytics(
     let res = database.get_address_analytics(start_timestamp, end_timestamp).await?;
 
     Ok(AddressAnalyticsResponse {
-        total_active_addresses: res.total_active_addresses,
-        receiving_addresses: res.receiving_addresses,
-        sending_addresses: res.sending_addresses,
+        total_active_addresses: res.total_active_addresses.to_string(),
+        receiving_addresses: res.receiving_addresses.to_string(),
+        sending_addresses: res.sending_addresses.to_string(),
     })
 }
 
@@ -43,33 +57,74 @@ async fn transaction_analytics(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> ApiResult<OutputsAnalyticsResponse> {
+) -> ApiResult<OutputAnalyticsResponse> {
     let res = database
         .get_transaction_analytics(start_timestamp, end_timestamp)
         .await?;
 
-    Ok(OutputsAnalyticsResponse {
-        count: res.count,
+    Ok(OutputAnalyticsResponse {
+        count: res.count.to_string(),
         total_value: res.total_value,
-        average_value: res.avg_value,
     })
 }
 
-async fn native_token_analytics(
+async fn milestone_analytics(
     database: Extension<MongoDb>,
     TimeRange {
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> ApiResult<OutputsAnalyticsResponse> {
+) -> ApiResult<BlockAnalyticsResponse> {
+    let res = database.get_milestone_analytics(start_timestamp, end_timestamp).await?;
+
+    Ok(BlockAnalyticsResponse {
+        count: res.count.to_string(),
+    })
+}
+
+async fn tagged_data_analytics(
+    database: Extension<MongoDb>,
+    TimeRange {
+        start_timestamp,
+        end_timestamp,
+    }: TimeRange,
+) -> ApiResult<BlockAnalyticsResponse> {
     let res = database
-        .get_native_token_analytics(start_timestamp, end_timestamp)
+        .get_tagged_data_analytics(start_timestamp, end_timestamp)
         .await?;
 
-    Ok(OutputsAnalyticsResponse {
-        count: res.count,
+    Ok(BlockAnalyticsResponse {
+        count: res.count.to_string(),
+    })
+}
+
+async fn basic_analytics(
+    database: Extension<MongoDb>,
+    TimeRange {
+        start_timestamp,
+        end_timestamp,
+    }: TimeRange,
+) -> ApiResult<OutputAnalyticsResponse> {
+    let res = database.get_basic_analytics(start_timestamp, end_timestamp).await?;
+
+    Ok(OutputAnalyticsResponse {
+        count: res.count.to_string(),
         total_value: res.total_value,
-        average_value: res.avg_value,
+    })
+}
+
+async fn alias_analytics(
+    database: Extension<MongoDb>,
+    TimeRange {
+        start_timestamp,
+        end_timestamp,
+    }: TimeRange,
+) -> ApiResult<OutputAnalyticsResponse> {
+    let res = database.get_alias_analytics(start_timestamp, end_timestamp).await?;
+
+    Ok(OutputAnalyticsResponse {
+        count: res.count.to_string(),
+        total_value: res.total_value,
     })
 }
 
@@ -79,13 +134,12 @@ async fn nft_analytics(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> ApiResult<OutputsAnalyticsResponse> {
+) -> ApiResult<OutputAnalyticsResponse> {
     let res = database.get_nft_analytics(start_timestamp, end_timestamp).await?;
 
-    Ok(OutputsAnalyticsResponse {
-        count: res.count,
+    Ok(OutputAnalyticsResponse {
+        count: res.count.to_string(),
         total_value: res.total_value,
-        average_value: res.avg_value,
     })
 }
 
@@ -95,31 +149,36 @@ async fn foundry_analytics(
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> ApiResult<OutputsAnalyticsResponse> {
+) -> ApiResult<OutputAnalyticsResponse> {
     let res = database.get_foundry_analytics(start_timestamp, end_timestamp).await?;
 
-    Ok(OutputsAnalyticsResponse {
-        count: res.count,
+    Ok(OutputAnalyticsResponse {
+        count: res.count.to_string(),
         total_value: res.total_value,
-        average_value: res.avg_value,
     })
 }
 
-async fn locked_storage_deposit_analytics(
+async fn storage_deposit_analytics(
     database: Extension<MongoDb>,
     TimeRange {
         start_timestamp,
         end_timestamp,
     }: TimeRange,
-) -> ApiResult<OutputsAnalyticsResponse> {
+) -> ApiResult<StorageDepositAnalyticsResponse> {
     let res = database
-        .get_locked_storage_deposit_analytics(start_timestamp, end_timestamp)
-        .await?;
+        .get_storage_deposit_analytics(start_timestamp, end_timestamp)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
-    Ok(OutputsAnalyticsResponse {
-        count: res.count,
-        total_value: res.total_value,
-        average_value: res.avg_value,
+    Ok(StorageDepositAnalyticsResponse {
+        output_count: res.output_count.to_string(),
+        storage_deposit_return_count: res.storage_deposit_return_count.to_string(),
+        storage_deposit_return_total_value: res.storage_deposit_return_total_value,
+        total_key_bytes: res.total_key_bytes,
+        total_data_bytes: res.total_data_bytes,
+        total_byte_cost: res.total_byte_cost,
+        ledger_index: res.ledger_index.0,
+        rent_structure: res.rent_structure.into(),
     })
 }
 

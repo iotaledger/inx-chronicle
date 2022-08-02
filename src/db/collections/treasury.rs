@@ -5,7 +5,7 @@ use mongodb::{
     bson::doc,
     error::Error,
     options::{FindOneOptions, IndexOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +42,7 @@ pub struct TreasuryResult {
 impl MongoDb {
     /// Creates ledger update indexes.
     pub async fn create_treasury_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
+        let collection = self.db.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
 
         collection
             .create_index(
@@ -62,7 +62,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Inserts or updates treasury data.
+    /// Inserts treasury data.
     pub async fn insert_treasury(
         &self,
         milestone_index: MilestoneIndex,
@@ -73,7 +73,7 @@ impl MongoDb {
             milestone_id: payload.input_milestone_id,
             amount: payload.output_amount,
         };
-        self.0
+        self.db
             .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
             .insert_one(treasury_document, None)
             .await?;
@@ -81,9 +81,33 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Inserts many treasury data.
+    pub async fn insert_treasury_payloads(
+        &self,
+        session: &mut ClientSession,
+        payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
+    ) -> Result<(), Error> {
+        let payloads = payloads
+            .into_iter()
+            .map(|(milestone_index, payload)| TreasuryDocument {
+                milestone_index,
+                milestone_id: payload.input_milestone_id,
+                amount: payload.output_amount,
+            })
+            .collect::<Vec<_>>();
+        if !payloads.is_empty() {
+            self.db
+                .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+                .insert_many_with_session(payloads, None, session)
+                .await?;
+        }
+
+        Ok(())
+    }
+
     /// Returns the current state of the treasury.
     pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryResult>, Error> {
-        self.0
+        self.db
             .collection::<TreasuryResult>(TreasuryDocument::COLLECTION)
             .find_one(
                 doc! {},

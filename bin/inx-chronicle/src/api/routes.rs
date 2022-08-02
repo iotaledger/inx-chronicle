@@ -75,11 +75,6 @@ async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
         if OffsetDateTime::now_utc() > latest_ms_time + STALE_MILESTONE_DURATION {
             return Ok(false);
         }
-
-        // Check if there are no gaps in the sync status.
-        if !database.get_gaps().await?.is_empty() {
-            return Ok(false);
-        };
     }
 
     Ok(true)

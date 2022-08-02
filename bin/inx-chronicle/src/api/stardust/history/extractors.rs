@@ -21,7 +21,7 @@ pub struct LedgerUpdatesByAddressPagination {
 }
 
 #[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct LedgerUpdatesByAddressPaginationQuery {
     pub page_size: Option<usize>,
     pub sort: Option<String>,
@@ -110,7 +110,7 @@ pub struct LedgerUpdatesByMilestonePagination {
 }
 
 #[derive(Clone, Deserialize, Default)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct LedgerUpdatesByMilestonePaginationQuery {
     pub page_size: Option<usize>,
     pub cursor: Option<String>,

@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{IndexOptions, UpdateOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ use crate::{
             block::{Address, BlockId, Output, OutputId},
             milestone::MilestoneTimestamp,
         },
-        tangle::MilestoneIndex,
+        tangle::{MilestoneIndex, RentStructure},
     },
 };
 
@@ -84,19 +84,26 @@ pub struct OutputWithMetadataResult {
     pub metadata: OutputMetadataResult,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
-pub struct BalancesResult {
-    pub total_balance: u64,
-    pub sig_locked_balance: u64,
+pub struct BalanceResult {
+    pub total_balance: String,
+    pub sig_locked_balance: String,
     pub ledger_index: MilestoneIndex,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[allow(missing_docs)]
+pub struct UtxoChangesResult {
+    pub created_outputs: Vec<OutputId>,
+    pub consumed_outputs: Vec<OutputId>,
 }
 
 /// Implements the queries for the core API.
 impl MongoDb {
     /// Creates output indexes.
     pub async fn create_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.0.collection::<OutputDocument>(OutputDocument::COLLECTION);
+        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
 
         collection
             .create_index(
@@ -122,7 +129,7 @@ impl MongoDb {
                             .unique(false)
                             .name("address_index".to_string())
                             .partial_filter_expression(doc! {
-                                "details.address": { "$exists": true } ,
+                                "details.address": { "$exists": true },
                             })
                             .build(),
                     )
@@ -138,15 +145,28 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_output(&self, output: OutputWithMetadata) -> Result<(), Error> {
-        self.0
-            .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .update_one(
-                doc! { "metadata.output_id": output.metadata.output_id },
-                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
-                UpdateOptions::builder().upsert(true).build(),
-            )
-            .await?;
+    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+        if output.metadata.spent_metadata.is_none() {
+            self.db
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! { "metadata.output_id": output.metadata.output_id },
+                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        } else {
+            self.db
+                .collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! { "metadata.output_id": output.metadata.output_id },
+                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        }
 
         Ok(())
     }
@@ -154,7 +174,7 @@ impl MongoDb {
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         let output = self
-            .0
+            .db
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -180,7 +200,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let output = self
-                .0
+                .db
                 .collection::<OutputWithMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -213,7 +233,7 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let metadata = self
-                .0
+                .db
                 .collection::<OutputMetadataResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
@@ -248,7 +268,7 @@ impl MongoDb {
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
         let metadata = self
-            .0
+            .db
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -267,23 +287,12 @@ impl MongoDb {
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn sum_balances_owned_by_address(&self, address: Address) -> Result<Option<BalancesResult>, Error> {
-        #[derive(Deserialize, Default)]
-        struct Amount {
-            amount: f64,
-        }
-
-        #[derive(Deserialize, Default)]
-        struct Balances {
-            total_balance: Amount,
-            sig_locked_balance: Amount,
-        }
-
+    pub async fn get_address_balance(&self, address: Address) -> Result<Option<BalanceResult>, Error> {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let balances = self
-                .0
-                .collection::<Balances>(OutputDocument::COLLECTION)
+                .db
+                .collection::<BalanceResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         // Look at all (at ledger index o'clock) unspent output documents for the given address.
@@ -295,22 +304,17 @@ impl MongoDb {
                                 { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                             ]
                         } },
-                        doc! { "$facet": {
-                            // Sum all output amounts (total balance).
-                            "total_balance": [
-                                { "$group" : {
-                                    "_id": "null",
-                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                }},
-                            ],
-                            // Sum only trivially unlockable output amounts (signature locked balance).
-                            "sig_locked_balance": [
-                                { "$match": { "details.is_trivial_unlock": true } },
-                                { "$group" : {
-                                    "_id": "null",
-                                    "amount": { "$sum": { "$toDouble": "$output.amount" } },
-                                } },
-                            ],
+                        doc! { "$group": {
+                            "_id": null,
+                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "sig_locked_balance": { "$sum": { 
+                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
+                            } },
+                        } },
+                        doc! { "$project": {
+                            "total_balance": { "$toString": "$total_balance" },
+                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                            "ledger_index": { "$literal": ledger_index },
                         } },
                     ],
                     None,
@@ -318,37 +322,68 @@ impl MongoDb {
                 .await?
                 .try_next()
                 .await?
-                .map(bson::from_document::<Balances>)
-                .transpose()?
-                .unwrap_or_default();
+                .map(bson::from_document::<BalanceResult>)
+                .transpose()?;
 
-            Ok(Some(BalancesResult {
-                total_balance: balances.total_balance.amount as u64,
-                sig_locked_balance: balances.sig_locked_balance.amount as u64,
-                ledger_index,
-            }))
+            Ok(balances)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
+    /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
+    /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
+    pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
+        if let Some(ledger_index) = self.get_ledger_index().await? {
+            if index > ledger_index {
+                Ok(None)
+            } else {
+                Ok(Some(
+                    self.db
+                        .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
+                        .aggregate(
+                            vec![doc! { "$facet": {
+                                "created_outputs": [
+                                    { "$match": { "metadata.booked.milestone_index": index  } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                                "consumed_outputs": [
+                                    { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                    { "$replaceWith": "$metadata.output_id" },
+                                ],
+                            } }],
+                            None,
+                        )
+                        .await?
+                        .try_next()
+                        .await?
+                        .map(bson::from_document::<UtxoChangesResult>)
+                        .transpose()?
+                        .unwrap_or_default(),
+                ))
+            }
         } else {
             Ok(None)
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OutputAnalyticsResult {
     pub count: u64,
-    pub total_value: f64,
-    pub avg_value: f64,
+    pub total_value: String,
 }
 
 impl MongoDb {
-    /// Gathers output analytics.
+    /// Gathers transaction analytics.
     pub async fn get_transaction_analytics(
         &self,
         start_timestamp: Option<MilestoneTimestamp>,
         end_timestamp: Option<MilestoneTimestamp>,
     ) -> Result<OutputAnalyticsResult, Error> {
         Ok(self
-            .0
+            .db
             .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -361,15 +396,18 @@ impl MongoDb {
                     // First group the outputs into transactions
                     doc! { "$group" : {
                         "_id": "$metadata.output_id.transaction_id",
-                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                        "amount": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
                     // Then aggregate transaction analytics
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": "$amount" },
-                        "avg_value": { "$avg": "$amount" },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -381,14 +419,14 @@ impl MongoDb {
             .unwrap_or_default())
     }
 
-    /// Gathers native token analytics.
-    pub async fn get_native_token_analytics(
+    /// Gathers basic output analytics.
+    pub async fn get_basic_analytics(
         &self,
         start_timestamp: Option<MilestoneTimestamp>,
         end_timestamp: Option<MilestoneTimestamp>,
     ) -> Result<OutputAnalyticsResult, Error> {
         Ok(self
-            .0
+            .db
             .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -397,14 +435,55 @@ impl MongoDb {
                             { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
                             { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
                         ],
+                        "output.kind": "basic"
                     } },
-                    doc! { "$unwind": "$output.native_tokens" },
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
-                        "total_value": { "$sum": "$output.native_tokens.float_amount" },
-                        "avg_value": { "$avg": "$output.native_tokens.float_amount" },
+                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers alias output analytics.
+    pub async fn get_alias_analytics(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+    ) -> Result<OutputAnalyticsResult, Error> {
+        Ok(self
+            .db
+            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "$nor": [
+                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                        ],
+                        "output.kind": "alias"
+                    } },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                    }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -423,7 +502,7 @@ impl MongoDb {
         end_timestamp: Option<MilestoneTimestamp>,
     ) -> Result<OutputAnalyticsResult, Error> {
         Ok(self
-            .0
+            .db
             .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -437,14 +516,17 @@ impl MongoDb {
                     // First group the nfts by their ids
                     doc! { "$group" : {
                         "_id": "$output.nft_id",
-                        "amount": { "$sum": { "$toDouble": "$output.amount" } },
+                        "amount": { "$sum": { "$toDecimal": "$output.amount" } },
                     }},
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": "$amount" },
-                        "avg_value": { "$avg": "$amount" },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -463,7 +545,7 @@ impl MongoDb {
         end_timestamp: Option<MilestoneTimestamp>,
     ) -> Result<OutputAnalyticsResult, Error> {
         Ok(self
-            .0
+            .db
             .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
@@ -474,18 +556,15 @@ impl MongoDb {
                         ],
                         "output.kind": "foundry"
                     } },
-                    doc! { "$unwind": "$output.native_tokens" },
-                    // First group by token id
-                    doc! { "$group" : {
-                        "_id": "$output.native_tokens.token_id",
-                        "amount": { "$sum": "$output.native_tokens.float_amount" },
-                    }},
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": "$amount" },
-                        "avg_value": { "$avg": "$amount" },
                     }},
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
                 ],
                 None,
             )
@@ -496,41 +575,132 @@ impl MongoDb {
             .transpose()?
             .unwrap_or_default())
     }
+}
 
-    /// Gathers locked storage deposit analytics.
-    pub async fn get_locked_storage_deposit_analytics(
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StorageDepositAnalyticsResult {
+    pub output_count: u64,
+    pub storage_deposit_return_count: u64,
+    pub storage_deposit_return_total_value: String,
+    pub total_key_bytes: String,
+    pub total_data_bytes: String,
+    pub total_byte_cost: String,
+    pub ledger_index: MilestoneIndex,
+    pub rent_structure: RentStructure,
+}
+
+impl MongoDb {
+    /// Gathers byte cost and storage deposit analytics.
+    pub async fn get_storage_deposit_analytics(
         &self,
         start_timestamp: Option<MilestoneTimestamp>,
         end_timestamp: Option<MilestoneTimestamp>,
-    ) -> Result<OutputAnalyticsResult, Error> {
-        Ok(self
-            .0
-            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "$nor": [
-                            { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
-                            { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
-                            { "metadata.spent_metadata.spent.milestone_timestamp": { "$lt": end_timestamp } },
-                        ],
-                        "output.storage_deposit_return_unlock_condition": { "$exists": true },
-                    } },
-                    doc! { "$group" : {
-                        "_id": null,
-                        "count": { "$sum": 1 },
-                        "total_value": { "$sum": { "$toDouble": "$output.storage_deposit_return_unlock_condition.amount" } },
-                        "avg_value": { "$avg": { "$toDouble": "$output.storage_deposit_return_unlock_condition.amount" } },
-                    }},
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?
-            .unwrap_or_default())
+    ) -> Result<Option<StorageDepositAnalyticsResult>, Error> {
+        let ledger_index = self.get_ledger_index().await?;
+        if let Some(ledger_index) = ledger_index {
+            if let Some(protocol_params) = self.get_protocol_parameters_for_ledger_index(ledger_index).await? {
+                #[derive(Default, Deserialize)]
+                struct StorageDepositAnalytics {
+                    output_count: u64,
+                    storage_deposit_return_count: u64,
+                    storage_deposit_return_total_value: String,
+                    total_key_bytes: String,
+                    total_data_bytes: String,
+                    total_byte_cost: String,
+                }
+
+                let rent_structure = protocol_params.parameters.rent_structure;
+
+                let res = self
+                .db
+                .collection::<StorageDepositAnalytics>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ],
+                            "$nor": [
+                                { "metadata.booked.milestone_timestamp": { "$lt": start_timestamp } },
+                                { "metadata.booked.milestone_timestamp": { "$gte": end_timestamp } },
+                                { "metadata.spent_metadata.spent.milestone_timestamp": { "$lt": end_timestamp } },
+                            ],
+                        } },
+                        doc! {
+                            "$facet": {
+                                "all": [
+                                    { "$group" : {
+                                        "_id": null,
+                                        "output_count": { "$sum": 1 },
+                                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                                    } },
+                                ],
+                                "storage_deposit": [
+                                    { "$match": { "output.storage_deposit_return_unlock_condition": { "$exists": true } } },
+                                    { "$group" : {
+                                        "_id": null,
+                                        "return_count": { "$sum": 1 },
+                                        "return_total_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
+                                    } },
+                                ],
+                            }
+                        },
+                        doc! {
+                            "$set": {
+                                "total_byte_cost": { "$toString":
+                                    { "$multiply": [
+                                        rent_structure.v_byte_cost,
+                                        { "$add": [
+                                            { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
+                                            { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
+                                        ] },
+                                    ] }
+                                }
+                            }
+                        },
+                        doc! { "$project": {
+                            "output_count": { "$first": "$all.output_count" },
+                            "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
+                            "storage_deposit_return_total_value": { 
+                                "$toString": { "$first": "$storage_deposit.return_total_value" } 
+                            },
+                            "total_key_bytes": { 
+                                "$toString": { "$first": "$all.total_key_bytes" } 
+                            },
+                            "total_data_bytes": { 
+                                "$toString": { "$first": "$all.total_data_bytes" } 
+                            },
+                            "total_byte_cost": 1,
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .map(bson::from_document::<StorageDepositAnalytics>)
+                .transpose()?
+                .unwrap_or_default();
+
+                Ok(Some(StorageDepositAnalyticsResult {
+                    output_count: res.output_count,
+                    storage_deposit_return_count: res.storage_deposit_return_count,
+                    storage_deposit_return_total_value: res.storage_deposit_return_total_value,
+                    total_key_bytes: res.total_key_bytes,
+                    total_data_bytes: res.total_data_bytes,
+                    total_byte_cost: res.total_byte_cost,
+                    ledger_index,
+                    rent_structure,
+                }))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -554,7 +724,7 @@ impl MongoDb {
         end_timestamp: Option<MilestoneTimestamp>,
     ) -> Result<AddressAnalyticsResult, Error> {
         Ok(self
-            .0
+            .db
             .collection::<AddressAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![

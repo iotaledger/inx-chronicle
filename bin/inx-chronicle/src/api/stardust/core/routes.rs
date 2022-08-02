@@ -24,7 +24,7 @@ use bee_block_stardust::{
 };
 use chronicle::{
     db::{
-        collections::{OutputMetadataResult, OutputWithMetadataResult},
+        collections::{OutputMetadataResult, OutputWithMetadataResult, UtxoChangesResult},
         MongoDb,
     },
     types::{
@@ -79,7 +79,7 @@ pub fn routes() -> Router {
                 .route("/:milestone_id", get(milestone))
                 .route("/:milestone_id/utxo-changes", get(utxo_changes))
                 .route("/by-index/:index", get(milestone_by_index))
-                .route("/by-index/:index/utxo-changes", not_implemented.into_service()),
+                .route("/by-index/:index/utxo-changes", get(utxo_changes_by_index)),
         )
         .nest(
             "/peers",
@@ -332,33 +332,28 @@ async fn utxo_changes(
     collect_utxo_changes(&database, milestone_index).await
 }
 
-async fn _utxo_changes_by_index(
+async fn utxo_changes_by_index(
     database: Extension<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
 ) -> ApiResult<UtxoChangesResponse> {
     collect_utxo_changes(&database, milestone_index).await
 }
 
-async fn collect_utxo_changes(_database: &MongoDb, _milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
-    // The following won't work because it will report duplicate outputs. We have to use the `OutputDocument` collection
-    // here instead. The endpoint in the API has been set to return a not implemented status.
+async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
+    let UtxoChangesResult {
+        created_outputs,
+        consumed_outputs,
+    } = database
+        .get_utxo_changes(milestone_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
-    // let mut created_outputs = Vec::new();
-    // let mut consumed_outputs = Vec::new();
-    //
-    // let mut updates = database.stream_ledger_updates_by_index(milestone_index).await?;
-    // while let Some(update) = updates.try_next().await? {
-    // if update.is_spent {
-    // consumed_outputs.push(update.output_id.to_hex());
-    // } else {
-    // created_outputs.push(update.output_id.to_hex());
-    // }
-    // }
-    //
-    // Ok(UtxoChangesResponse {
-    // index: *milestone_index,
-    // created_outputs,
-    // consumed_outputs,
-    // })
-    unimplemented!()
+    let created_outputs = created_outputs.iter().map(|output_id| output_id.to_hex()).collect();
+    let consumed_outputs = consumed_outputs.iter().map(|output_id| output_id.to_hex()).collect();
+
+    Ok(UtxoChangesResponse {
+        index: *milestone_index,
+        created_outputs,
+        consumed_outputs,
+    })
 }
