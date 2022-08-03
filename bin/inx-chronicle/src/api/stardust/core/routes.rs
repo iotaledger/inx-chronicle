@@ -140,7 +140,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .to_string(),
     };
 
-    // Unfortunately, there is a distinction between `LatestMilestoneResonse` and `ConfirmedMilestoneResponse` in Bee.
+    // Unfortunately, there is a distinction between `LatestMilestoneResponse` and `ConfirmedMilestoneResponse` in Bee.
     let confirmed_milestone = ConfirmedMilestoneResponse {
         index: latest_milestone.index,
         timestamp: latest_milestone.timestamp,
@@ -166,7 +166,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             is_healthy,
             latest_milestone,
             confirmed_milestone,
-            pruning_index: oldest_milestone.milestone_index.0,
+            pruning_index: oldest_milestone.milestone_index.0 - 1,
         },
     })
 }
