@@ -3,11 +3,9 @@
 
 use std::ops::Range;
 
+use bee_api_types_stardust::responses::RentStructureResponse;
 use bee_block_stardust::address::dto::AddressDto;
-use chronicle::{
-    db::collections::{AddressStat, DistributionStat},
-    types::tangle::RentStructure,
-};
+use chronicle::db::collections::{AddressStat, DistributionStat};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -52,29 +50,10 @@ pub struct StorageDepositAnalyticsResponse {
     pub total_data_bytes: String,
     pub total_byte_cost: String,
     pub ledger_index: u32,
-    pub rent_structure: RentStructureDto,
+    pub rent_structure: RentStructureResponse,
 }
 
 impl_success_response!(StorageDepositAnalyticsResponse);
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RentStructureDto {
-    pub v_byte_cost: u32,
-    pub v_byte_factor_data: u8,
-    pub v_byte_factor_key: u8,
-}
-
-impl From<RentStructure> for RentStructureDto {
-    fn from(s: RentStructure) -> Self {
-        Self {
-            v_byte_cost: s.v_byte_cost,
-            v_byte_factor_data: s.v_byte_factor_data,
-            v_byte_factor_key: s.v_byte_factor_key,
-        }
-    }
-}
-
 /// Response of `GET /api/analytics/richlist[?top=<usize>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

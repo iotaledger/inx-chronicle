@@ -2,47 +2,65 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{routing::get, Extension, Router};
-use chronicle::db::MongoDb;
+use bee_api_types_stardust::responses::RentStructureResponse;
+use chronicle::{
+    db::{
+        collections::{OutputKind, PayloadKind},
+        MongoDb,
+    },
+    types::stardust::block::{
+        AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
+    },
+};
 
 use super::{
-    extractors::RichlistQuery,
+    extractors::{LedgerIndex, MilestoneRange, RichlistQuery},
     responses::{
         AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, RichlistAnalyticsResponse,
         StorageDepositAnalyticsResponse,
     },
 };
-use crate::api::{extractors::TimeRange, ApiError, ApiResult};
+use crate::api::{ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/addresses", get(address_analytics))
-        .route("/storage-deposit", get(storage_deposit_analytics))
-        .route("/richlist", get(richlist_analytics))
         .nest(
-            "/blocks",
+            "/ledger",
             Router::new()
-                .route("/transaction", get(transaction_analytics))
-                .route("/milestone", get(milestone_analytics))
-                .route("/tagged_data", get(tagged_data_analytics)),
+                .route("/storage-deposit", get(storage_deposit_analytics))
+                .route("/native-tokens", get(unspent_output_analytics::<FoundryOutput>))
+                .route("/nfts", get(unspent_output_analytics::<NftOutput>)),
         )
         .nest(
-            "/outputs",
+            "/activity",
             Router::new()
-                .route("/basic", get(basic_analytics))
-                .route("/alias", get(alias_analytics))
-                .route("/nft", get(nft_analytics))
-                .route("/foundry", get(foundry_analytics)),
+                .route("/addresses", get(address_analytics))
+                .route("/richlist", get(richlist_analytics))
+                .nest(
+                    "/blocks",
+                    Router::new()
+                        .route("/", get(block_analytics::<()>))
+                        .route("/transaction", get(block_analytics::<TransactionPayload>))
+                        .route("/milestone", get(block_analytics::<MilestonePayload>))
+                        .route("/tagged_data", get(block_analytics::<TaggedDataPayload>)),
+                )
+                .nest(
+                    "/outputs",
+                    Router::new()
+                        .route("/", get(output_analytics::<()>))
+                        .route("/basic", get(output_analytics::<BasicOutput>))
+                        .route("/alias", get(output_analytics::<AliasOutput>))
+                        .route("/nft", get(output_analytics::<NftOutput>))
+                        .route("/foundry", get(output_analytics::<FoundryOutput>)),
+                ),
         )
 }
 
 async fn address_analytics(
     database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
+    MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let res = database.get_address_analytics(start_timestamp, end_timestamp).await?;
+    let res = database.get_address_analytics(start_index, end_index).await?;
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
@@ -51,106 +69,37 @@ async fn address_analytics(
     })
 }
 
-async fn transaction_analytics(
+async fn block_analytics<B: PayloadKind>(
     database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database
-        .get_transaction_analytics(start_timestamp, end_timestamp)
-        .await?;
-
-    Ok(OutputAnalyticsResponse {
-        count: res.count.to_string(),
-        total_value: res.total_value,
-    })
-}
-
-async fn milestone_analytics(
-    database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
+    MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<BlockAnalyticsResponse> {
-    let res = database.get_milestone_analytics(start_timestamp, end_timestamp).await?;
+    let res = database.get_block_analytics::<B>(start_index, end_index).await?;
 
     Ok(BlockAnalyticsResponse {
         count: res.count.to_string(),
     })
 }
 
-async fn tagged_data_analytics(
+async fn output_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<BlockAnalyticsResponse> {
+    MilestoneRange { start_index, end_index }: MilestoneRange,
+) -> ApiResult<OutputAnalyticsResponse> {
+    let res = database.get_output_analytics::<O>(start_index, end_index).await?;
+
+    Ok(OutputAnalyticsResponse {
+        count: res.count.to_string(),
+        total_value: res.total_value,
+    })
+}
+
+async fn unspent_output_analytics<O: OutputKind>(
+    database: Extension<MongoDb>,
+    LedgerIndex { ledger_index }: LedgerIndex,
+) -> ApiResult<OutputAnalyticsResponse> {
     let res = database
-        .get_tagged_data_analytics(start_timestamp, end_timestamp)
-        .await?;
-
-    Ok(BlockAnalyticsResponse {
-        count: res.count.to_string(),
-    })
-}
-
-async fn basic_analytics(
-    database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database.get_basic_analytics(start_timestamp, end_timestamp).await?;
-
-    Ok(OutputAnalyticsResponse {
-        count: res.count.to_string(),
-        total_value: res.total_value,
-    })
-}
-
-async fn alias_analytics(
-    database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database.get_alias_analytics(start_timestamp, end_timestamp).await?;
-
-    Ok(OutputAnalyticsResponse {
-        count: res.count.to_string(),
-        total_value: res.total_value,
-    })
-}
-
-async fn nft_analytics(
-    database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database.get_nft_analytics(start_timestamp, end_timestamp).await?;
-
-    Ok(OutputAnalyticsResponse {
-        count: res.count.to_string(),
-        total_value: res.total_value,
-    })
-}
-
-async fn foundry_analytics(
-    database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
-) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database.get_foundry_analytics(start_timestamp, end_timestamp).await?;
+        .get_unspent_output_analytics::<O>(ledger_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -160,13 +109,10 @@ async fn foundry_analytics(
 
 async fn storage_deposit_analytics(
     database: Extension<MongoDb>,
-    TimeRange {
-        start_timestamp,
-        end_timestamp,
-    }: TimeRange,
+    LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let res = database
-        .get_storage_deposit_analytics(start_timestamp, end_timestamp)
+        .get_storage_deposit_analytics(ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
@@ -178,7 +124,11 @@ async fn storage_deposit_analytics(
         total_data_bytes: res.total_data_bytes,
         total_byte_cost: res.total_byte_cost,
         ledger_index: res.ledger_index.0,
-        rent_structure: res.rent_structure.into(),
+        rent_structure: RentStructureResponse {
+            v_byte_cost: res.rent_structure.v_byte_cost,
+            v_byte_factor_key: res.rent_structure.v_byte_factor_key,
+            v_byte_factor_data: res.rent_structure.v_byte_factor_data,
+        },
     })
 }
 
