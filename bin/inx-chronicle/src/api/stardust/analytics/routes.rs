@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use axum::{routing::get, Extension, Router};
+use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::db::MongoDb;
 
 use super::responses::{
@@ -176,6 +177,10 @@ async fn storage_deposit_analytics(
         total_data_bytes: res.total_data_bytes,
         total_byte_cost: res.total_byte_cost,
         ledger_index: res.ledger_index.0,
-        rent_structure: res.rent_structure.into(),
+        rent_structure: RentStructureResponse {
+            v_byte_cost: res.rent_structure.v_byte_cost,
+            v_byte_factor_key: res.rent_structure.v_byte_factor_key,
+            v_byte_factor_data: res.rent_structure.v_byte_factor_data,
+        },
     })
 }
