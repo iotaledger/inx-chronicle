@@ -625,9 +625,12 @@ impl MongoDb {
                                         { "metadata.booked.milestone_index": { "$lt": start_index } },
                                         { "metadata.booked.milestone_index": { "$gte": end_index } },
                                     ] },
-                                    { "$nor": [
-                                        { "metadata.spent_metadata.spent.milestone_index": { "$lt": start_index } },
-                                        { "metadata.spent_metadata.spent.milestone_index": { "$gte": end_index } },
+                                    { "$and": [
+                                        { "metadata.spent_metadata.spent": { "exists": true } },
+                                        { "$nor": [
+                                            { "metadata.spent_metadata.spent.milestone_index": { "$lt": start_index } },
+                                            { "metadata.spent_metadata.spent.milestone_index": { "$gte": end_index } },
+                                        ] },
                                     ] },
                                 ],
                             } },
@@ -646,6 +649,7 @@ impl MongoDb {
                         ],
                         "sending": [
                             { "$match": {
+                                "metadata.spent_metadata.spent": { "exists": true },
                                 "$nor": [
                                     { "metadata.spent_metadata.spent.milestone_index": { "$lt": start_index } },
                                     { "metadata.spent_metadata.spent.milestone_index": { "$gte": end_index } },
@@ -656,9 +660,9 @@ impl MongoDb {
                         ],
                     } },
                     doc! { "$project": {
-                        "total_active_addresses": { "$max": [ 0, { "$first": "$total.addresses" }] },
-                        "receiving_addresses": { "$max": [ 0, { "$first": "$receiving.addresses" }] },
-                        "sending_addresses": { "$max": [ 0, { "$first": "$sending.addresses" }] },
+                        "total_active_addresses": { "$max": [ 0, { "$first": "$total.addresses" } ] },
+                        "receiving_addresses": { "$max": [ 0, { "$first": "$receiving.addresses" } ] },
+                        "sending_addresses": { "$max": [ 0, { "$first": "$sending.addresses" } ] },
                     } },
                 ],
                 None,
