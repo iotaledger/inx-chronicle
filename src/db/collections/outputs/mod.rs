@@ -592,7 +592,7 @@ impl MongoDb {
 
 /// Address analytics result.
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct AddressAnalyticsResult {
     /// The number of addresses used in the time period.
     pub total_active_addresses: u64,
@@ -608,7 +608,7 @@ impl MongoDb {
         &self,
         start_index: Option<MilestoneIndex>,
         end_index: Option<MilestoneIndex>,
-    ) -> Result<Option<AddressAnalyticsResult>, Error> {
+    ) -> Result<AddressAnalyticsResult, Error> {
         Ok(self
             .db
             .collection::<AddressAnalyticsResult>(OutputDocument::COLLECTION)
@@ -671,6 +671,7 @@ impl MongoDb {
             .try_next()
             .await?
             .map(bson::from_document)
-            .transpose()?)
+            .transpose()?
+            .unwrap_or_default())
     }
 }

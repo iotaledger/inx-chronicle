@@ -39,8 +39,7 @@ pub fn routes() -> Router {
                     Router::new()
                         .route("/", get(block_analytics::<()>))
                         .route("/transaction", get(block_analytics::<TransactionPayload>))
-                        .route("/milestone", get(block_analytics::<MilestonePayload>))
-                        .route("/tagged_data", get(block_analytics::<TaggedDataPayload>)),
+                        .route("/tagged-data", get(block_analytics::<TaggedDataPayload>)),
                 )
                 .nest(
                     "/outputs",
@@ -58,10 +57,7 @@ async fn address_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let res = database
-        .get_address_analytics(start_index, end_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    let res = database.get_address_analytics(start_index, end_index).await?;
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
