@@ -10,11 +10,13 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::PayloadKind;
 use crate::{
     db::MongoDb,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{Block, BlockId, OutputId, Payload, TransactionId},
+        tangle::MilestoneIndex,
     },
 };
 
@@ -292,49 +294,39 @@ impl MongoDb {
     }
 }
 
-mod analytics {
-    use super::*;
-    use crate::types::tangle::MilestoneIndex;
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub struct BlockAnalyticsResult {
+    pub count: u64,
+}
 
-    #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-    pub struct TransactionAnalyticsResult {
-        pub count: u64,
-        pub total_value: f64,
-        pub avg_value: f64,
-    }
-
-    impl MongoDb {
-        /// Gathers transaction analytics.
-        pub async fn get_transaction_analytics(
-            &self,
-            start_milestone: MilestoneIndex,
-            end_milestone: MilestoneIndex,
-        ) -> Result<TransactionAnalyticsResult, Error> {
-            Ok(self
-                .db
-                .collection::<TransactionAnalyticsResult>(BlockDocument::COLLECTION)
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                           "block.payload.kind": "transaction",
-                           "metadata.referenced_by_milestone_index": { "$gte": start_milestone, "$lte": end_milestone },
-                        } },
-                        doc! { "$unwind": "$block.payload.essence.outputs" },
-                        doc! { "$group": {
-                            "_id": null,
-                            "count": { "$sum": 1 },
-                            "total_value": { "$sum": { "$toDouble": "$block.payload.essence.outputs.amount" } },
-                            "avg_value": { "$avg": { "$toDouble": "$block.payload.essence.outputs.amount" } },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .map(bson::from_document)
-                .transpose()?
-                .unwrap_or_default())
+impl MongoDb {
+    /// Gathers block analytics.
+    pub async fn get_block_analytics<B: PayloadKind>(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<BlockAnalyticsResult, Error> {
+        let mut queries = vec![doc! {
+            "$nor": [
+                { "metadata.referenced_by_milestone_index": { "$lt": start_index } },
+                { "metadata.referenced_by_milestone_index": { "$gte": end_index } },
+            ],
+        }];
+        if let Some(kind) = B::kind() {
+            queries.push(doc! { "block.payload.kind": kind });
         }
+        Ok(self
+            .db
+            .collection::<BlockAnalyticsResult>(BlockDocument::COLLECTION)
+            .aggregate(
+                vec![doc! { "$match": { "$and": queries } }, doc! { "$count": "count" }],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
     }
 }
