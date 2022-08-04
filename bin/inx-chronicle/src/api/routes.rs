@@ -8,12 +8,12 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::db::MongoDb;
+use chronicle::{db::MongoDb, types::stardust::milestone::MilestoneTimestamp};
 use hyper::StatusCode;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::{auth::Auth, config::ApiData, error::ApiError, responses::*};
+use super::{auth::Auth, config::ApiData, error::ApiError};
 
 // Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
@@ -21,7 +21,7 @@ const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new().route("/info", get(info));
+    let mut router = Router::new();
 
     #[cfg(feature = "stardust")]
     {
@@ -61,34 +61,26 @@ async fn login(
     }
 }
 
-async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
+fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
+    // Panic: The milestone_timestamp is guaranteeed to be valid.
+    let timestamp = OffsetDateTime::from_unix_timestamp(timestamp.0 as i64).unwrap();
+    OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
+}
+
+pub async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
     #[cfg(feature = "stardust")]
     {
-        let end = match database.get_latest_milestone().await? {
+        let newest = match database.get_newest_milestone().await? {
             Some(last) => last,
             None => return Ok(false),
         };
 
-        // Panic: The milestone_timestamp is guaranteeed to be valid.
-        let latest_ms_time = OffsetDateTime::from_unix_timestamp(end.milestone_timestamp.0 as i64).unwrap();
-
-        if OffsetDateTime::now_utc() > latest_ms_time + STALE_MILESTONE_DURATION {
+        if !is_new_enough(newest.milestone_timestamp) {
             return Ok(false);
         }
     }
 
     Ok(true)
-}
-
-pub async fn info(database: Extension<MongoDb>) -> InfoResponse {
-    InfoResponse {
-        name: "Chronicle".into(),
-        version: std::env!("CARGO_PKG_VERSION").to_string(),
-        is_healthy: is_healthy(&database).await.unwrap_or_else(|e| {
-            log::error!("An error occured during health check: {e}");
-            false
-        }),
-    }
 }
 
 pub async fn health(database: Extension<MongoDb>) -> StatusCode {
