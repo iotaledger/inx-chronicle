@@ -1,0 +1,393 @@
+openapi: 3.0.3
+info:
+  title: Analytics REST API
+  description: This document specifies the analytics REST API for Chronicle software.
+  contact:
+    email: contact@iota.org
+  license:
+    name: Apache 2.0
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+  version: 1.0.0
+externalDocs:
+  description: Find out more about IOTA
+  url: "https://iota.org"
+servers:
+  - url: "http://127.0.0.1:8000"
+tags:
+  - name: ledger
+    description: Everything about the ledger.
+  - name: activity
+    description: Everything about IOTA activity.
+paths:
+  /api/analytics/v2/ledger/storage-deposit:
+    get:
+      tags:
+        - ledger
+      summary: Returns storage deposit and byte cost analytics.
+      description: >-
+        Returns analytics about storage deposit unlock conditions and funds held therein,
+        as well as the byte costs associated with output storage at the ledger state 
+        specified by the provided index.
+      parameters:
+        - $ref: "#/components/parameters/ledgerIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/StorageDeposit"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/ledger/native-tokens:
+    get:
+      tags:
+        - ledger
+      summary: Returns analytics about native tokens.
+      description: >-
+        Returns analytics about native tokens created by foundry outputs
+        at the ledger state specified by the provided index.
+      parameters:
+        - $ref: "#/components/parameters/ledgerIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/ledger/nfts:
+    get:
+      tags:
+        - ledger
+      summary: Returns analytics about NFTs.
+      description: >-
+        Returns analytics about NFT outputs at the ledger state specified by the provided index.
+      parameters:
+        - $ref: "#/components/parameters/ledgerIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/addresses:
+    get:
+      tags:
+        - activity
+      summary: Returns address activity.
+      description: >-
+        Returns the count of unique addresses used within the specified milestone range, 
+        divided into spending and receiving.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/blocks:
+    get:
+      tags:
+        - activity
+      summary: Returns total block count.
+      description: >-
+        Returns the count of blocks created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/blocks/transaction:
+    get:
+      tags:
+        - activity
+      summary: Returns total transaction type block count.
+      description: >-
+        Returns the count of transaction blocks created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/blocks/tagged-data:
+    get:
+      tags:
+        - activity
+      summary: Returns total tagged data type block count.
+      description: >-
+        Returns the count of tagged data blocks created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/outputs:
+    get:
+      tags:
+        - activity
+      summary: Returns total output count and value.
+      description: >-
+        Returns the count and value of outputs created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/outputs/basic:
+    get:
+      tags:
+        - activity
+      summary: Returns total basic output count and value.
+      description: >-
+        Returns the count and value of basic outputs created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/outputs/alias:
+    get:
+      tags:
+        - activity
+      summary: Returns total alias output count and value.
+      description: >-
+        Returns the count and value of alias outputs created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/outputs/nft:
+    get:
+      tags:
+        - activity
+      summary: Returns total nft output count and value.
+      description: >-
+        Returns the count and value of nft outputs created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/outputs/foundry:
+    get:
+      tags:
+        - activity
+      summary: Returns total foundry output count and value.
+      description: >-
+        Returns the count and value of foundry outputs created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Output"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  schemas:
+    AddressAnalyticsResponse:
+      description: Compiled statistics about address usage.
+      properties:
+        totalActiveAddresses:
+          type: string
+          description: The total number of unique addresses used.
+        receivingAddresses:
+          type: string
+          description: The total number of unique receiving addresses.
+        sendingAddresses:
+          type: string
+          description: The total number of unique sending addresses.
+      required:
+        - totalActiveAddresses
+        - receivingAddresses
+        - sendingAddresses
+    BlockAnalyticsResponse:
+      description: Compiled block statistics.
+      properties:
+        count:
+          type: string
+          description: The total count of blocks.
+      required:
+        - count
+    OutputAnalyticsResponse:
+      description: Compiled output statistics.
+      properties:
+        count:
+          type: string
+          description: The total count of outputs.
+        totalValue:
+          type: string
+          description: The total value of IOTA tokens.
+      required:
+        - count
+        - totalValue
+    StorageDepositAnalyticsResponse:
+      description: Compiled storage deposit and byte cost statistics.
+      properties:
+        outputCount:
+          type: string
+          description: The total count of outputs.
+        storageDepositReturnCount:
+          type: string
+          description: The total count of outputs with storage deposit return unlock conditions.
+        storageDepositReturnTotalValue:
+          type: string
+          description: The total value of funds locked with storage deposit return unlock conditions.
+        totalKeyBytes:
+          type: string
+          description: The number of bytes used to store key fields.
+        totalDataBytes:
+          type: string
+          description: The number of bytes used to store data fields.
+        totalByteCost:
+          type: string
+          description: The total calculated byte cost.
+        ledgerIndex:
+          type: number
+          description: The milestone index to be used to determine the ledger state.
+        rentStructure:
+          description: The rent structure according to TIP-19.
+          properties:
+            vByteCost:
+              description: Defines the rent of a single virtual byte denoted in IOTA tokens.
+              type: integer
+            vByteFactorData:
+              description: Defines the factor to be used for data only fields.
+              type: integer
+            vByteFactorKey:
+              description: Defines the factor to be used for key/lookup generating fields.
+              type: integer
+          required:
+            - vByteCost
+            - vByteFactorData
+            - vByteFactorKey
+      required:
+        - outputCount
+        - storageDepositReturnCount
+        - storageDepositReturnTotalValue
+        - totalKeyBytes
+        - totalDataBytes
+        - totalByteCost
+        - ledgerIndex
+        - rentStructure
+  responses:
+    Block:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BlockAnalyticsResponse"
+    Output:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OutputAnalyticsResponse"
+    Address:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AddressAnalyticsResponse"
+    StorageDeposit:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StorageDepositAnalyticsResponse"
+    NoResults:
+      description: >-
+        Unsuccessful operation: indicates that the requested data was not found.
+      content:
+        application/json:
+          schema:
+            $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NotFoundResponse"
+    BadRequest:
+      description: "Unsuccessful operation: indicates that the provided start or end milestone is invalid."
+      content:
+        application/json:
+          schema:
+            $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/BadRequestResponse"
+    InternalError:
+      description: >-
+        Unsuccessful operation: indicates that an unexpected, internal
+        server error happened which prevented the node from fulfilling the
+        request.
+      content:
+        application/json:
+          schema:
+            $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/InternalErrorResponse"
+  parameters:
+    startIndex:
+      in: query
+      name: startIndex
+      schema:
+        type: number
+      example: 100000
+      required: false
+      description: The milestone index with which to limit the start of the results.
+    endIndex:
+      in: query
+      name: endIndex
+      schema:
+        type: number
+      example: 200000
+      required: false
+      description: The milestone index with which to limit the end of the results.
+    ledgerIndex:
+      in: query
+      name: ledgerIndex
+      schema:
+        type: number
+      example: 200000
+      required: false
+      description: >-
+        The milestone index to be used to determine the ledger state. Defaults to the 
+        application's current ledger index.

@@ -54,6 +54,7 @@ pub struct StorageDepositAnalyticsResponse {
 }
 
 impl_success_response!(StorageDepositAnalyticsResponse);
+
 /// Response of `GET /api/analytics/richlist[?top=<usize>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
