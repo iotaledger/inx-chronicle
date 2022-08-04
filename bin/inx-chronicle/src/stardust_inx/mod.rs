@@ -195,16 +195,25 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
 
         use bee_inx::LedgerUpdate;
 
-        let mut this = self.project();
+        let this = self.project();
         if let Poll::Ready(next) = this.inner.poll_next(cx) {
             if let Some(res) = next {
                 match res {
                     Ok(ledger_update) => match ledger_update {
                         LedgerUpdate::Begin(marker) => {
-                            this.record.set(Some(LedgerUpdateRecord {
-                                milestone_index: marker.milestone_index.into(),
-                                outputs: Vec::with_capacity(marker.created_count + marker.consumed_count),
-                            }));
+                            // We shouldn't already have a record. If we do, that's bad.
+                            let record = this.record.get_mut();
+                            if let Some(record) = record.take() {
+                                return Poll::Ready(Some(Err(InxError::InvalidLedgerUpdateCount {
+                                    received: record.outputs.len(),
+                                    expected: record.outputs.capacity(),
+                                })));
+                            } else {
+                                *record = Some(LedgerUpdateRecord {
+                                    milestone_index: marker.milestone_index.into(),
+                                    outputs: Vec::with_capacity(marker.created_count + marker.consumed_count),
+                                });
+                            }
                         }
                         LedgerUpdate::Consumed(consumed) => {
                             if let Some(record) = this.record.get_mut() {
