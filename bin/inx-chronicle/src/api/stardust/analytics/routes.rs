@@ -29,13 +29,13 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/storage-deposit", get(storage_deposit_analytics))
                 .route("/native-tokens", get(unspent_output_analytics::<FoundryOutput>))
-                .route("/nfts", get(unspent_output_analytics::<NftOutput>)),
+                .route("/nfts", get(unspent_output_analytics::<NftOutput>))
+                .route("/richlist", get(richlist_analytics)),
         )
         .nest(
             "/activity",
             Router::new()
                 .route("/addresses", get(address_analytics))
-                .route("/richlist", get(richlist_analytics))
                 .nest(
                     "/blocks",
                     Router::new()
@@ -133,9 +133,9 @@ async fn storage_deposit_analytics(
 
 async fn richlist_analytics(
     database: Extension<MongoDb>,
-    RichlistQuery { top }: RichlistQuery,
+    RichlistQuery { top, ledger_index }: RichlistQuery,
 ) -> ApiResult<RichlistAnalyticsResponse> {
-    let res = database.get_richlist_analytics(top).await?;
+    let res = database.get_richlist_analytics(ledger_index, top).await?;
 
     Ok(RichlistAnalyticsResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),

@@ -682,14 +682,14 @@ pub struct Richlist {
     pub top: Vec<AddressStat>,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AddressStat {
     pub address: Address,
-    pub balance: f64,
+    pub balance: String,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// Statistics for a particular logarithmic range of balances
 pub struct DistributionStat {
     /// The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
@@ -697,13 +697,20 @@ pub struct DistributionStat {
     /// The number of unique addresses in this range
     pub address_count: u64,
     /// The total balance of the addresses in this range
-    pub total_balance: f64,
+    pub total_balance: String,
 }
 
 impl MongoDb {
     /// Create richlist statistics.
-    pub async fn get_richlist_analytics(&self, top: usize) -> Result<Richlist, Error> {
-        let ledger_index = self.get_ledger_index().await?;
+    pub async fn get_richlist_analytics(
+        &self,
+        ledger_index: Option<MilestoneIndex>,
+        top: usize,
+    ) -> Result<Richlist, Error> {
+        let ledger_index = match ledger_index {
+            None => self.get_ledger_index().await?,
+            i => i,
+        };
         if let Some(ledger_index) = ledger_index {
             Ok(self
                 .db
@@ -720,7 +727,7 @@ impl MongoDb {
                         } },
                         doc! { "$group" : {
                             "_id": "$details.address",
-                            "balance": { "$sum": { "$toDouble": "$output.amount" } },
+                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
                         } },
                         doc! { "$facet": {
                             "distribution": [
@@ -735,7 +742,7 @@ impl MongoDb {
                                     "_id": 0,
                                     "index": "$_id",
                                     "address_count": 1,
-                                    "total_balance": 1,
+                                    "total_balance": { "$toString": "$total_balance" },
                                 } },
                             ],
                             "top": [
@@ -744,7 +751,7 @@ impl MongoDb {
                                 { "$project": {
                                     "_id": 0,
                                     "address": "$_id",
-                                    "balance": 1,
+                                    "balance": { "$toString": "$balance" },
                                 } },
                             ],
                         } },

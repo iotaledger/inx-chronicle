@@ -15,12 +15,14 @@ const DEFAULT_TOP_RICHLIST: usize = 100;
 #[serde(default, deny_unknown_fields)]
 pub struct RichlistQuery {
     pub top: usize,
+    pub ledger_index: Option<MilestoneIndex>,
 }
 
 impl Default for RichlistQuery {
     fn default() -> Self {
         Self {
             top: DEFAULT_TOP_RICHLIST,
+            ledger_index: None,
         }
     }
 }

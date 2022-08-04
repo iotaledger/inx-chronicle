@@ -68,7 +68,7 @@ impl_success_response!(RichlistAnalyticsResponse);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AddressStatDto {
     pub address: AddressDto,
-    pub balance: f64,
+    pub balance: String,
 }
 
 impl From<AddressStat> for AddressStatDto {
@@ -84,15 +84,15 @@ impl From<AddressStat> for AddressStatDto {
 #[serde(rename_all = "camelCase")]
 pub struct DistributionStatDto {
     pub range: Range<u64>,
-    pub address_count: u64,
-    pub total_balance: f64,
+    pub address_count: String,
+    pub total_balance: String,
 }
 
 impl From<DistributionStat> for DistributionStatDto {
     fn from(s: DistributionStat) -> Self {
         Self {
             range: 10_u64.pow(s.index)..10_u64.pow(s.index + 1),
-            address_count: s.address_count,
+            address_count: s.address_count.to_string(),
             total_balance: s.total_balance,
         }
     }

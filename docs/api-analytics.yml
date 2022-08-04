@@ -76,6 +76,26 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/ledger/richlist:
+    get:
+      tags:
+        - ledger
+      summary: Returns a richlist.
+      description: >-
+        Returns analytics about the top richest addresses, as well as the distribution of wealth
+        at the ledger state specified by the provided index
+      parameters:
+        - $ref: "#/components/parameters/ledgerIndex"
+        - $ref: "#/components/parameters/top"
+      responses:
+        "200":
+          $ref: "#/components/responses/Richlist"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/addresses:
     get:
       tags:
@@ -317,6 +337,56 @@ components:
         - totalByteCost
         - ledgerIndex
         - rentStructure
+    RichlistAnalyticsResponse:
+      description: Richlist statistics.
+      properties:
+        distribution:
+          type: array
+          description: The distribution of IOTA tokens.
+          items:
+            type: object
+            properties:
+              range:
+                type: object
+                description: The range of balances.
+                properties:
+                  start:
+                    type: number
+                  end:
+                    type: number
+                required:
+                  - start
+                  - end
+              addressCount:
+                type: string
+                description: The number of addresses in this range.
+              totalBalance:
+                type: string
+                description: The total balance within this range.
+            required:
+              - range
+              - addressCount
+              - totalBalance
+        top:
+          type: array
+          description: The top wealthiest addresses.
+          items:
+            type: object
+            properties:
+              address:
+                oneOf:
+                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/Ed25519Address"
+                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/AliasAddress"
+                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NFTAddress"
+              balance:
+                type: string
+                description: The total balance within this range.
+            required:
+              - address
+              - balance
+      required:
+        - distribution
+        - top
   responses:
     Block:
       description: Successful operation.
@@ -324,24 +394,45 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/BlockAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/block-example"
     Output:
       description: Successful operation.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/OutputAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/output-example"
     Address:
       description: Successful operation.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/AddressAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/addresses-example"
     StorageDeposit:
       description: Successful operation.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/StorageDepositAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/storage-deposit-example"
+    Richlist:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RichlistAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/richlist-example"
     NoResults:
       description: >-
         Unsuccessful operation: indicates that the requested data was not found.
@@ -391,3 +482,64 @@ components:
       description: >-
         The milestone index to be used to determine the ledger state. Defaults to the 
         application's current ledger index.
+    top:
+      in: query
+      name: top
+      schema:
+        type: number
+      example: 100
+      required: false
+      description: The milestone index to be used to determine the ledger state. Defaults to 200.
+  examples:
+    storage-deposit-example:
+      value:
+        outputCount: "714"
+        storageDepositReturnCount: "43"
+        storageDepositReturnTotalValue: "12114000"
+        totalKeyBytes: "24276"
+        totalDataBytes: "124636"
+        totalByteCost: "635318000"
+        ledgerIndex: 1005429
+        rentStructure:
+          - vByteCost: 500
+            vByteFactorData: 1
+            vByteFactorKey: 10
+    block-example:
+      value:
+        count: "17400"
+    output-example:
+      value:
+        count: "81"
+        totalValue: "34903000"
+    addresses-example:
+      value:
+        totalActiveAddresses: "443"
+        receivingAddresses: "443"
+        sendingAddresses: "0"
+    richlist-example:
+      value:
+        distribution:
+          - range:
+              - start: 100000
+                end: 1000000
+            addressCount: "39"
+            totalBalance: "14612000"
+          - range:
+              - start: 1000000
+                end: 10000000
+            addressCount: "22"
+            totalBalance: "41274500"
+          - range:
+              - start: 100000000
+                end: 1000000000
+            addressCount: "27"
+            totalBalance: "25486528000"
+        top:
+          - address:
+              - type: 0
+                pubKeyHash: "0x3845105b59429361a75b3203a6e24e16d19540aad6bd1936449b62f1c4bbe5da"
+            balance: "2779164783277761"
+          - address:
+              - type: 0
+                pubKeyHash: "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
+            balance: "7398600000"
