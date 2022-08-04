@@ -9,7 +9,7 @@
 The data within Chronicle can be accessed through the following APIs:
 
 * [Core Node API](https://editor.swagger.io/?url=https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml) `api/core/v2/…`
-* [History API](https://editor.swagger.io/?url=https://raw.githubusercontent.com/iotaledger/tips/explorer-api/tips/TIP-0036/tx-history-rest-api.yaml) `api/history/v2/…`
+* [Explorer API](https://editor.swagger.io/?url=https://raw.githubusercontent.com/iotaledger/inx-chronicle/docs/api-explorer.yml.yaml) `api/history/v2/…`
 * Analytics API `api/history/v2/…`
 
 ## Usage
