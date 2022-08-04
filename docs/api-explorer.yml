@@ -1,0 +1,264 @@
+openapi: 3.0.3
+info:
+  title: Explorer REST API
+  description: This document specifies the REST API for Chronicle software.
+  contact:
+    email: contact@iota.org
+  license:
+    name: Apache 2.0
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+  version: 1.0.0
+externalDocs:
+  description: Find out more about IOTA
+  url: "https://iota.org"
+servers:
+  - url: "http://127.0.0.1:8000"
+tags:
+  - name: ledger
+    description: Everything about the ledger.
+  - name: balance
+    description: Everything about balances.
+paths:
+  /api/history/v2/balance/{address}:
+    get:
+      tags:
+        - balance
+      summary: Returns the balance owned by a given bech32 address.
+      description: >-
+        Returns the balance owned by a given bech32 address.
+      parameters:
+        - in: path
+          name: address
+          schema:
+            type: string
+          example: iota1qpf0mlq8yxpx2nck8a0slxnzr4ef2ek8f5gqxlzd0wasgp73utryj430ldu
+          required: true
+          description: bech32 address that is referenced by the outputs.
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: "Unsuccessful operation: indicates that the provided address is invalid."
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/BadRequestResponse"
+        "404":
+          description: >-
+            Unsuccessful operation: indicates that the requested data was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NotFoundResponse"
+        "500":
+          description: >-
+            Unsuccessful operation: indicates that an unexpected, internal
+            server error happened which prevented the node from fulfilling the
+            request.
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/InternalErrorResponse"
+  /api/history/v2/ledger/updates/by-address/{address}:
+    get:
+      tags:
+        - ledger
+      summary: Get all ledger updates involving a given bech32 address.
+      description: >-
+        Get all ledger updates involving a given bech32 address.
+      parameters:
+        - in: path
+          name: address
+          schema:
+            type: string
+          example: iota1qpf0mlq8yxpx2nck8a0slxnzr4ef2ek8f5gqxlzd0wasgp73utryj430ldu
+          required: true
+          description: bech32 address that is referenced by the outputs.
+        - in: query
+          name: pageSize
+          schema:
+            type: number
+          example: 100
+          description: Requested page size.
+        - in: query
+          name: sort
+          schema:
+            type: string
+          example: "asc"
+          description: "Describes the sort order for the milestone index of the updates. Possible values: asc, desc"
+        - in: query
+          name: startMilestoneIndex
+          schema:
+            type: number
+          example: 1643383242
+          description: Start the search from the given milestone index. Will be overridden by the pagingState if it is provided.
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          example: 1643383242.fa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100.100
+          description: Starts the search from the cursor (milestoneIndex.outputId.pageSize)
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerUpdateResponse"
+              # examples:
+              #   default:
+              #     $ref: "#/components/examples/get-transactions-response-example"
+        "400":
+          description: "Unsuccessful operation: indicates that the provided address is invalid."
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/BadRequestResponse"
+        "404":
+          description: >-
+            Unsuccessful operation: indicates that the requested data was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NotFoundResponse"
+        "500":
+          description: >-
+            Unsuccessful operation: indicates that an unexpected, internal
+            server error happened which prevented the node from fulfilling the
+            request.
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/InternalErrorResponse"
+  /api/history/v2/ledger/updates/by-milestone/{milestoneId}:
+    get:
+      tags:
+        - ledger
+      summary: Get all ledger updates involving a given milestone id.
+      description: >-
+        Get all ledger updates involving a given milestone id.
+      parameters:
+        - in: path
+          name: milestoneId
+          schema:
+            type: string
+          example: "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
+          required: true
+          description: Milestone ID of the milestone that is checked for any ledger updates.
+        - in: query
+          name: pageSize
+          schema:
+            type: number
+          example: 100
+          description: Requested page size.
+        - in: query
+          name: sort
+          schema:
+            type: string
+          example: "asc"
+          description: "Describes the sort order for the output ids of the updates. Possible values: asc, desc"
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          example: fa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100.100
+          description: Starts the search from the cursor (outputId.pageSize)
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerUpdateResponse"
+              # examples:
+              #   default:
+              #     $ref: "#/components/examples/get-transactions-response-example"
+        "400":
+          description: "Unsuccessful operation: indicates that the provided address is invalid."
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/BadRequestResponse"
+        "404":
+          description: >-
+            Unsuccessful operation: indicates that the requested data was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NotFoundResponse"
+        "500":
+          description: >-
+            Unsuccessful operation: indicates that an unexpected, internal
+            server error happened which prevented the node from fulfilling the
+            request.
+          content:
+            application/json:
+              schema:
+                $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/InternalErrorResponse"
+components:
+  schemas:
+    MilestoneInterval:
+      description: >-
+        Describes an interval of milestones defined as the range milestone indices [start, end]. Note that the interval is inclusive.
+      properties:
+        start:
+          type: number
+          description: The first value in the interval.
+        end:
+          type: number
+          description: The last value in the interval.
+    LedgerUpdate:
+      description: Information about ledger updates.
+      properties:
+        milestoneIndex:
+          type: integer
+          description: The index of the timestamp.
+        milestoneTimestamp:
+          type: integer
+          description: The timestamp at which the milestone was issued.
+        outputId:
+          type: string
+          description: The output ID (transaction hash + output index) of the update. Hex-encoded with 0x prefix.
+        isSpent:
+          type: boolean
+          description: Indicates if the output was spent or not.
+      required:
+        - milestoneIndex
+        - milestoneTimestamp
+        - outputId
+        - isSpent
+    LedgerUpdateResponse:
+      description: A list of ledger updates associated with an address.
+      properties:
+        address:
+          type: string
+          description: bech32 address that is referenced by the outputs.
+        items:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/LedgerUpdate"
+          description: A list of ledger updates.
+        cursor:
+          type: string
+          description: The cursor to use for getting the next page of results.
+          nullable: true
+      required:
+        - items
+        - address
+    BalanceResponse:
+      description: The balance owned by an address.
+      properties:
+        totalBalance:
+          type: integer
+          description: The sum of amounts in all unspent outputs owned by the given address (includes all unlock conditions).
+        sigLockedBalance:
+          type: integer
+          description: The sum of amounts in all unspent outputs owned by the given address that are signature locked ("trivially unlockable").
+        ledgerIndex:
+          type: integer
+          description: The ledger index for which the balance calculation was performed.
