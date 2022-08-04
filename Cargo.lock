@@ -220,8 +220,7 @@ checksum = "c5738be7561b0eeb501ef1d5c5db3f24e01ceb55fededd9b00039aada34966ad"
 [[package]]
 name = "bee-api-types"
 version = "1.0.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d8c1d70108dde51cd3e3877248b4f302de4913e410c70f56ce2e267d54ed16a"
+source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
 dependencies = [
  "axum 0.5.14",
  "bee-block",
@@ -232,9 +231,8 @@ dependencies = [
 
 [[package]]
 name = "bee-block"
-version = "1.0.0-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19986a689227ecf48f0f563a70db6b40e210b7153f6664e72e49d3eba73de2ed"
+version = "1.0.0-beta.5"
+source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -259,9 +257,8 @@ dependencies = [
 
 [[package]]
 name = "bee-inx"
-version = "1.0.0-beta.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "566cff9b8fe07d34cc0fa9644ad44cf9a23fd0c57ac9fcd2a0b1bb39f07e1965"
+version = "1.0.0-beta.3"
+source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
 dependencies = [
  "bee-block",
  "futures",
@@ -273,8 +270,7 @@ dependencies = [
 [[package]]
 name = "bee-ledger-types"
 version = "1.0.0-beta.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f71691001d120a2dc1223b1330fedf84fe3e09c121eb18940d9aec2954c08343"
+source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
 dependencies = [
  "bee-block",
  "packable",
@@ -1288,9 +1284,9 @@ dependencies = [
 
 [[package]]
 name = "inx"
-version = "1.0.0-beta.3"
+version = "1.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb13397ca8c1e0a5090669f89b2daa01a07d180e2ffdbadd15f94d8e3ec34959"
+checksum = "79d0e1c8561b44c85ab5a2a519bb7bc174b3e2f92cb366a62d5252a1cb31a5cb"
 dependencies = [
  "prost",
  "tonic",
