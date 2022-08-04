@@ -220,7 +220,8 @@ checksum = "c5738be7561b0eeb501ef1d5c5db3f24e01ceb55fededd9b00039aada34966ad"
 [[package]]
 name = "bee-api-types"
 version = "1.0.0-beta.4"
-source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d8c1d70108dde51cd3e3877248b4f302de4913e410c70f56ce2e267d54ed16a"
 dependencies = [
  "axum 0.5.14",
  "bee-block",
@@ -232,7 +233,8 @@ dependencies = [
 [[package]]
 name = "bee-block"
 version = "1.0.0-beta.5"
-source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "400e3fbac56e7c7e4d69af820f18a02e4ee89d8cf52a5b2e267b0b9d2d85d7f7"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -258,7 +260,8 @@ dependencies = [
 [[package]]
 name = "bee-inx"
 version = "1.0.0-beta.3"
-source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d9353c5f75ad4e1022a9f57b1d327f5dd3ea0cd4194ae288c238d9e231dd056"
 dependencies = [
  "bee-block",
  "futures",
@@ -270,7 +273,8 @@ dependencies = [
 [[package]]
 name = "bee-ledger-types"
 version = "1.0.0-beta.3"
-source = "git+https://github.com/grtlr/bee?branch=feat/inx/bump-inx#120c1e11281d3000e48d8cd7930ff028930e0a52"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f71691001d120a2dc1223b1330fedf84fe3e09c121eb18940d9aec2954c08343"
 dependencies = [
  "bee-block",
  "packable",
