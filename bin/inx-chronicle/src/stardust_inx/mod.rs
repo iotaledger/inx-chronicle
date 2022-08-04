@@ -5,11 +5,14 @@ mod config;
 mod error;
 
 use async_trait::async_trait;
-use bee_inx::client::Inx;
+use bee_inx::{client::Inx, LedgerUpdate};
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
-    types::{ledger::MilestoneIndexTimestamp, tangle::ProtocolParameters},
+    types::{
+        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
 pub use config::InxConfig;
 pub use error::InxError;
@@ -19,6 +22,13 @@ use tokio::time::Instant;
 pub struct InxWorker {
     db: MongoDb,
     config: InxConfig,
+}
+
+#[derive(Debug)]
+pub struct MilestoneState {
+    outputs: Vec<OutputWithMetadata>,
+    milestone_index: MilestoneIndex,
+    start_time: tokio::time::Instant,
 }
 
 impl InxWorker {
@@ -56,7 +66,7 @@ impl InxWorker {
 
 #[async_trait]
 impl Actor for InxWorker {
-    type State = Inx;
+    type State = (Inx, Option<MilestoneState>);
     type Error = InxError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
@@ -151,7 +161,7 @@ impl Actor for InxWorker {
 
         cx.add_stream(ledger_update_stream);
 
-        Ok(inx)
+        Ok((inx, None))
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -159,42 +169,77 @@ impl Actor for InxWorker {
     }
 }
 
-#[async_trait]
-impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
-        inx: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        log::trace!("Received ledger update event {:#?}", ledger_update_result);
-
-        // TODO: Use tracing here.
+impl InxWorker {
+    fn handle_milestone_begin(&mut self, begin: bee_inx::Marker) -> MilestoneState {
         let start_time = Instant::now();
+        MilestoneState {
+            outputs: Vec::with_capacity(begin.created_count + begin.consumed_count),
+            milestone_index: begin.milestone_index.into(),
+            start_time,
+        }
+    }
 
-        let ledger_update = ledger_update_result?;
+    fn handle_milestone_consumed(
+        &mut self,
+        milestone_state: &mut Option<MilestoneState>,
+        consumed: bee_inx::LedgerSpent,
+    ) -> Result<(), InxError> {
+        let milestone_state = if let Some(milestone_state) = milestone_state {
+            milestone_state
+        } else {
+            return Err(InxError::InvalidMilestoneState);
+        };
+        Ok(milestone_state.outputs.push(consumed.try_into()?))
+    }
 
-        let output_updates = Vec::from(ledger_update.created)
-            .into_iter()
-            .map(TryInto::try_into)
-            .chain(Vec::from(ledger_update.consumed).into_iter().map(TryInto::try_into))
-            .collect::<Result<Vec<_>, _>>()?;
+    fn handle_milestone_created(
+        &mut self,
+        milestone_state: &mut Option<MilestoneState>,
+        created: bee_inx::LedgerOutput,
+    ) -> Result<(), InxError> {
+        let milestone_state = if let Some(milestone_state) = milestone_state {
+            milestone_state
+        } else {
+            return Err(InxError::InvalidMilestoneState);
+        };
+
+        Ok(milestone_state.outputs.push(created.try_into()?))
+    }
+
+    async fn handle_milestone_end(
+        &mut self,
+        inx: &mut Inx,
+        milestone_state: Option<MilestoneState>,
+        end: bee_inx::Marker,
+    ) -> Result<Option<MilestoneState>, InxError> {
+        let milestone_state = if let Some(milestone_state) = milestone_state {
+            milestone_state
+        } else {
+            return Err(InxError::InvalidMilestoneState);
+        };
+
+        if milestone_state.outputs.len() != end.consumed_count + end.created_count {
+            return Err(InxError::InvalidLedgerUpdateCount {
+                received: milestone_state.outputs.len(),
+                expected: end.consumed_count + end.created_count,
+            });
+        }
 
         let mut session = self.db.start_transaction(None).await?;
 
         self.db
-            .insert_ledger_updates(&mut session, output_updates.into_iter())
+            .insert_ledger_updates(&mut session, milestone_state.outputs.into_iter())
             .await?;
 
-        let milestone = inx.read_milestone(ledger_update.milestone_index.into()).await?;
+        let milestone = inx.read_milestone(milestone_state.milestone_index.0.into()).await?;
         let parameters: ProtocolParameters = inx
-            .read_protocol_parameters(ledger_update.milestone_index.into())
+            .read_protocol_parameters(milestone_state.milestone_index.0.into())
             .await?
             .inner()?
             .into();
 
         self.db
-            .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index.into(), parameters)
+            .update_latest_protocol_parameters(&mut session, milestone_state.milestone_index.into(), parameters)
             .await?;
 
         log::trace!("Received milestone: `{:?}`", milestone);
@@ -204,12 +249,12 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
         let milestone_id = milestone
             .milestone_info
             .milestone_id
-            .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?
+            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
             .into();
         let payload = Into::into(
             &milestone
                 .milestone
-                .ok_or(Self::Error::MissingMilestoneInfo(milestone_index))?,
+                .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
         );
 
         let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
@@ -217,7 +262,7 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
         let blocks_with_metadata = cone_stream
             .map(|res| {
                 let bee_inx::BlockWithMetadata { block, metadata } = res?;
-                Result::<_, Self::Error>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+                Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
             })
             .try_collect::<Vec<_>>()
             .await?;
@@ -238,12 +283,37 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
 
         session.commit_transaction().await?;
 
-        let duration = start_time.elapsed();
+        let duration = milestone_state.start_time.elapsed();
         log::debug!(
             "Milestone `{}` synced in {}.",
             milestone_index,
             humantime::Duration::from(duration)
         );
+
+        Ok(None)
+    }
+}
+
+#[async_trait]
+impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
+    async fn handle_event(
+        &mut self,
+        _cx: &mut ActorContext<Self>,
+        ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
+        (inx, milestone_state): &mut Self::State,
+    ) -> Result<(), Self::Error> {
+        log::trace!("Received ledger update event {:#?}", ledger_update_result);
+
+        match ledger_update_result? {
+            LedgerUpdate::Begin(marker) => *milestone_state = Some(self.handle_milestone_begin(marker)),
+            LedgerUpdate::Consumed(consumed) => self.handle_milestone_consumed(milestone_state, consumed)?,
+            LedgerUpdate::Created(created) => self.handle_milestone_created(milestone_state, created)?,
+            LedgerUpdate::End(marker) => {
+                *milestone_state = self
+                    .handle_milestone_end(inx, std::mem::take(milestone_state), marker)
+                    .await?
+            }
+        }
 
         Ok(())
     }
