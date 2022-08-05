@@ -239,7 +239,7 @@ impl InxWorker {
             .into();
 
         self.db
-            .update_latest_protocol_parameters(&mut session, milestone_state.milestone_index.into(), parameters)
+            .update_latest_protocol_parameters(&mut session, milestone_state.milestone_index, parameters)
             .await?;
 
         log::trace!("Received milestone: `{:?}`", milestone);
