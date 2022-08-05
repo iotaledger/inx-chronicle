@@ -44,7 +44,7 @@ impl TryFrom<bee_inx::LedgerOutput> for OutputWithMetadata {
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
         Ok(Self {
-            output: Into::into(&(value.output.inner()?)),
+            output: Into::into(&value.output.inner()?),
             metadata: OutputMetadata {
                 output_id: value.output_id.into(),
                 block_id: value.block_id.into(),

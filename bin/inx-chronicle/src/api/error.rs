@@ -21,6 +21,8 @@ pub enum InternalApiError {
     BeeStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     BsonDeserialize(#[from] mongodb::bson::de::Error),
+    #[error("corrupt state: {0}")]
+    CorruptState(&'static str),
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]

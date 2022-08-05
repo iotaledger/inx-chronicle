@@ -13,8 +13,9 @@ use axum::{
 use bee_api_types_stardust::{
     dtos::ReceiptDto,
     responses::{
-        BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
-        ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
+        BlockMetadataResponse, BlockResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse, MilestoneResponse,
+        OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse,
+        StatusResponse, TreasuryResponse, UtxoChangesResponse,
     },
 };
 use bee_block_stardust::{
@@ -36,8 +37,13 @@ use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::BlockChildrenResponse;
-use crate::api::{error::ApiError, extractors::Pagination, routes::not_implemented, ApiResult};
+use super::responses::{BlockChildrenResponse, InfoResponse};
+use crate::api::{
+    error::{ApiError, InternalApiError},
+    extractors::Pagination,
+    routes::{is_healthy, not_implemented},
+    ApiResult,
+};
 
 lazy_static! {
     pub(crate) static ref BYTE_CONTENT_HEADER: HeaderValue =
@@ -46,7 +52,7 @@ lazy_static! {
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/info", get(crate::api::routes::info))
+        .route("/info", get(info))
         .route("/tips", not_implemented.into_service())
         .nest(
             "/blocks",
@@ -89,6 +95,80 @@ pub fn routes() -> Router {
         )
         .route("/control/database/prune", not_implemented.into_service())
         .route("/control/snapshot/create", not_implemented.into_service())
+}
+
+pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
+    let protocol = database
+        .get_latest_protocol_parameters()
+        .await?
+        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+            "no protocol parameters in the database",
+        )))?
+        .parameters;
+
+    let is_healthy = is_healthy(&database).await.unwrap_or_else(|e| {
+        log::error!("An error occured during health check: {e}");
+        false
+    });
+
+    let newest_milestone =
+        database
+            .get_newest_milestone()
+            .await?
+            .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                "no milestone in the database",
+            )))?;
+    let oldest_milestone =
+        database
+            .get_oldest_milestone()
+            .await?
+            .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                "no milestone in the database",
+            )))?;
+
+    let latest_milestone = LatestMilestoneResponse {
+        index: newest_milestone.milestone_index.0,
+        timestamp: newest_milestone.milestone_timestamp.0,
+        milestone_id: bee_block_stardust::payload::milestone::MilestoneId::from(
+            database
+                .get_milestone_id(newest_milestone.milestone_index)
+                .await?
+                .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                    "no milestone in the database",
+                )))?,
+        )
+        .to_string(),
+    };
+
+    // Unfortunately, there is a distinction between `LatestMilestoneResponse` and `ConfirmedMilestoneResponse` in Bee.
+    let confirmed_milestone = ConfirmedMilestoneResponse {
+        index: latest_milestone.index,
+        timestamp: latest_milestone.timestamp,
+        milestone_id: latest_milestone.milestone_id.clone(),
+    };
+
+    Ok(InfoResponse {
+        name: "Chronicle".into(),
+        version: std::env!("CARGO_PKG_VERSION").to_string(),
+        protocol: ProtocolResponse {
+            version: protocol.version,
+            network_name: protocol.network_name,
+            bech32_hrp: protocol.bech32_hrp,
+            min_pow_score: protocol.min_pow_score as f64,
+            rent_structure: RentStructureResponse {
+                v_byte_cost: protocol.rent_structure.v_byte_cost,
+                v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,
+                v_byte_factor_key: protocol.rent_structure.v_byte_factor_key,
+            },
+            token_supply: protocol.token_supply.to_string(),
+        },
+        status: StatusResponse {
+            is_healthy,
+            latest_milestone,
+            confirmed_milestone,
+            pruning_index: oldest_milestone.milestone_index.0 - 1,
+        },
+    })
 }
 
 async fn block(

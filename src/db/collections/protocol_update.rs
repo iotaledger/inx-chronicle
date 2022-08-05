@@ -31,6 +31,20 @@ impl MongoDb {
             .await
     }
 
+    /// Gets the protocol parameters that are valid for the given ledger index.
+    pub async fn get_protocol_parameters_for_ledger_index(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<Option<ProtocolUpdateDocument>, Error> {
+        self.db
+            .collection::<ProtocolUpdateDocument>(ProtocolUpdateDocument::COLLECTION)
+            .find_one(
+                doc! { "_id": { "$lte": ledger_index } },
+                FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
+            )
+            .await
+    }
+
     /// Inserts a protocol parameters for a given milestone index.
     pub async fn insert_protocol_parameters(
         &self,

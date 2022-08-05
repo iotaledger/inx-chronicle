@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use axum::extract::{FromRequest, Query};
 use serde::Deserialize;
-use time::{Duration, OffsetDateTime};
 
 use super::{error::ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
@@ -52,17 +51,8 @@ mod stardust {
 
     #[derive(Copy, Clone)]
     pub struct TimeRange {
-        pub start_timestamp: MilestoneTimestamp,
-        pub end_timestamp: MilestoneTimestamp,
-    }
-
-    fn days_ago_utc(days: i64) -> u32 {
-        let then = OffsetDateTime::now_utc() - Duration::days(days);
-        then.unix_timestamp() as u32
-    }
-
-    fn now_utc() -> u32 {
-        OffsetDateTime::now_utc().unix_timestamp() as u32
+        pub start_timestamp: Option<MilestoneTimestamp>,
+        pub end_timestamp: Option<MilestoneTimestamp>,
     }
 
     #[async_trait]
@@ -76,13 +66,13 @@ mod stardust {
             }) = Query::<TimeRangeQuery>::from_request(req)
                 .await
                 .map_err(ApiError::QueryError)?;
-            let time_range = TimeRange {
-                start_timestamp: start_timestamp.unwrap_or_else(|| days_ago_utc(30)).into(),
-                end_timestamp: end_timestamp.unwrap_or_else(now_utc).into(),
-            };
-            if time_range.end_timestamp < time_range.start_timestamp {
+            if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
                 return Err(ApiError::BadTimeRange);
             }
+            let time_range = TimeRange {
+                start_timestamp: start_timestamp.map(Into::into),
+                end_timestamp: end_timestamp.map(Into::into),
+            };
             Ok(time_range)
         }
     }
