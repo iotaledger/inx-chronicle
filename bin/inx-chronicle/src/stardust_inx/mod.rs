@@ -189,7 +189,8 @@ impl InxWorker {
         } else {
             return Err(InxError::InvalidMilestoneState);
         };
-        Ok(milestone_state.outputs.push(consumed.try_into()?))
+        milestone_state.outputs.push(consumed.try_into()?);
+        Ok(())
     }
 
     fn handle_milestone_created(
@@ -203,7 +204,8 @@ impl InxWorker {
             return Err(InxError::InvalidMilestoneState);
         };
 
-        Ok(milestone_state.outputs.push(created.try_into()?))
+        milestone_state.outputs.push(created.try_into()?);
+        Ok(())
     }
 
     async fn handle_milestone_end(
