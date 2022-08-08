@@ -17,6 +17,7 @@ mod auth;
 mod config;
 #[cfg(feature = "metrics")]
 mod metrics;
+mod router;
 mod routes;
 
 use async_trait::async_trait;

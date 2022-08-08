@@ -6,14 +6,20 @@ use axum::{
     handler::Handler,
     middleware::from_extractor,
     routing::{get, post},
-    Extension, Json, Router,
+    Extension, Json,
 };
 use chronicle::{db::MongoDb, types::stardust::milestone::MilestoneTimestamp};
 use hyper::StatusCode;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::{auth::Auth, config::ApiData, error::ApiError, responses::RoutesResponse};
+use super::{
+    auth::Auth,
+    config::ApiData,
+    error::ApiError,
+    responses::RoutesResponse,
+    router::{RouteNode, Router},
+};
 
 // Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
@@ -68,18 +74,9 @@ fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
     OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
 }
 
-async fn list_routes(Extension(config): Extension<ApiData>) -> RoutesResponse {
+async fn list_routes(Extension(root): Extension<RouteNode>) -> RoutesResponse {
     RoutesResponse {
-        // TODO: We should look at information from `axum::Router` to do this in a safer way. Also, we need a way to add
-        // protected routes too, ideally while respecting the JWT. The problem is that there is currently no way to
-        // access the list of routes from `axum::Router` programmatically.
-        // Here is more information about that: https://github.com/tokio-rs/axum/discussions/860
-        routes: config
-            .public_routes
-            .patterns()
-            .iter()
-            .map(|pattern| pattern.strip_suffix("/*").unwrap_or(pattern).to_owned())
-            .collect(),
+        routes: root.list_routes(),
     }
 }
 

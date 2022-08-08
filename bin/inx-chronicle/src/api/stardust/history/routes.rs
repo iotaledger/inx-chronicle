@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::MongoDb,
     types::{stardust::block::Address, tangle::MilestoneIndex},
@@ -20,7 +20,7 @@ use super::{
         LedgerUpdatesByMilestoneResponse,
     },
 };
-use crate::api::{ApiError, ApiResult};
+use crate::api::{router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new().route("/balance/:address", get(balance)).nest(

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{routing::get, Extension, Router};
+use axum::{routing::get, Extension};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
@@ -20,7 +20,7 @@ use super::{
         AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, StorageDepositAnalyticsResponse,
     },
 };
-use crate::api::{ApiError, ApiResult};
+use crate::api::{router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
