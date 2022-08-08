@@ -39,7 +39,7 @@ impl RouteNode {
     fn list_routes_recursive(&self, parents: &mut Vec<String>, routes: &mut Vec<String>) {
         if self.children.is_empty() {
             let mut route = parents.join("");
-            while route.ends_with("/") {
+            while route.ends_with('/') {
                 route.pop();
             }
             routes.push(route);
