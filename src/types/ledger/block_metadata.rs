@@ -27,14 +27,16 @@ pub struct BlockMetadata {
     pub inclusion_state: LedgerInclusionState,
     /// If the ledger inclusion state is conflicting, the reason for the conflict.
     pub conflict_reason: ConflictReason,
+    /// The index of this block in white flag order.
+    pub white_flag_index: u32,
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::BlockMetadata> for BlockMetadata {
-    fn from(metadata: inx::BlockMetadata) -> Self {
+impl From<bee_inx::BlockMetadata> for BlockMetadata {
+    fn from(metadata: bee_inx::BlockMetadata) -> Self {
         Self {
             block_id: metadata.block_id.into(),
-            parents: metadata.parents.into_iter().map(|id| id.into()).collect(),
+            parents: metadata.parents.iter().map(|&id| id.into()).collect(),
             is_solid: metadata.is_solid,
             should_promote: metadata.should_promote,
             should_reattach: metadata.should_reattach,
@@ -42,6 +44,7 @@ impl From<inx::BlockMetadata> for BlockMetadata {
             milestone_index: metadata.milestone_index.into(),
             inclusion_state: metadata.ledger_inclusion_state.into(),
             conflict_reason: metadata.conflict_reason.into(),
+            white_flag_index: metadata.white_flag_index,
         }
     }
 }

@@ -40,6 +40,9 @@ pub use self::{
 };
 use self::{config::ApiData, routes::routes};
 
+pub const DEFAULT_PAGE_SIZE: usize = 100;
+pub const MAX_PAGE_SIZE: usize = 1000;
+
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
 
@@ -74,7 +77,7 @@ impl Actor for ApiWorker {
         let api_handle = cx.handle().clone();
         let port = self.api_data.port;
         let routes = routes()
-            .layer(Extension((&***cx).clone())) // Pull ScopeView from the context
+            .layer(Extension((***cx).clone())) // Pull ScopeView from the context
             .layer(Extension(self.db.clone()))
             .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())

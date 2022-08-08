@@ -97,6 +97,7 @@ pub enum TransactionEssence {
         #[serde(with = "bytify")]
         inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
         outputs: Box<[Output]>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<Payload>,
     },
 }
@@ -127,17 +128,13 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
             TransactionEssence::Regular {
                 network_id,
                 inputs,
-                inputs_commitment: _,
+                inputs_commitment,
                 outputs,
                 payload,
             } => {
-                let outputs = Vec::from(outputs)
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<bee_block_stardust::output::Output>, _>>()?;
                 let mut builder = bee::RegularTransactionEssence::builder(
                     network_id,
-                    bee_block_stardust::output::InputsCommitment::new(outputs.iter()),
+                    bee_block_stardust::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
                     Vec::from(inputs)
@@ -145,7 +142,12 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
                         .map(TryInto::try_into)
                         .collect::<Result<Vec<_>, _>>()?,
                 )
-                .with_outputs(outputs);
+                .with_outputs(
+                    Vec::from(outputs)
+                        .into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
                 if let Some(payload) = payload {
                     builder = builder.with_payload(payload.try_into()?);
                 }
@@ -176,7 +178,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_transaction_id_bson() {
-        let transaction_id = TransactionId::from(bee_test::rand::transaction::rand_transaction_id());
+        let transaction_id = TransactionId::from(bee_block_stardust::rand::transaction::rand_transaction_id());
         let bson = to_bson(&transaction_id).unwrap();
         assert_eq!(Bson::from(transaction_id), bson);
         assert_eq!(transaction_id, from_bson::<TransactionId>(bson).unwrap());

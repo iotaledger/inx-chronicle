@@ -24,28 +24,6 @@ pub enum ConflictReason {
     SemanticValidationFailed = 255,
 }
 
-#[cfg(feature = "inx")]
-impl From<inx::ConflictReason> for ConflictReason {
-    fn from(value: inx::ConflictReason) -> Self {
-        match value {
-            inx::ConflictReason::None => Self::None,
-            inx::ConflictReason::InputAlreadySpent => Self::InputUtxoAlreadySpent,
-            inx::ConflictReason::InputAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
-            inx::ConflictReason::InputNotFound => Self::InputUtxoNotFound,
-            inx::ConflictReason::InputOutputSumMismatch => Self::CreatedConsumedAmountMismatch,
-            inx::ConflictReason::InvalidSignature => Self::InvalidSignature,
-            inx::ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
-            inx::ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
-            inx::ConflictReason::ReturnAmountNotFulfilled => Self::StorageDepositReturnUnfulfilled,
-            inx::ConflictReason::InvalidInputUnlock => Self::InvalidUnlock,
-            inx::ConflictReason::InvalidInputsCommitment => Self::InputsCommitmentsMismatch,
-            inx::ConflictReason::InvalidSender => Self::UnverifiedSender,
-            inx::ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
-            inx::ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
-        }
-    }
-}
-
 impl From<bee::ConflictReason> for ConflictReason {
     fn from(value: bee::ConflictReason) -> Self {
         match value {

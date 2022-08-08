@@ -6,29 +6,29 @@ on:
 
 jobs:
 
-  build-and-test-1:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
+  check-and-test-1:
+    name: "check and test"
+    uses: ./.github/workflows/_check.yml
     with: { os: windows-latest, rust: stable }
 
-  build-and-test-2:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
+  check-and-test-2:
+    name: "check and test"
+    uses: ./.github/workflows/_check.yml
     with: { os: macos-latest, rust: stable }
 
-  build-and-test-3:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
+  check-and-test-3:
+    name: "check and test"
+    uses: ./.github/workflows/_check.yml
     with: { os: ubuntu-latest, rust: beta }
   
-  build-and-test-4:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
+  check-and-test-4:
+    name: "check and test"
+    uses: ./.github/workflows/_check.yml
     with: { os: windows-latest, rust: beta }
 
-  build-and-test-5:
-    name: "build and test"
-    uses: ./.github/workflows/_build.yml
+  check-and-test-5:
+    name: "check and test"
+    uses: ./.github/workflows/_check.yml
     with: { os: macos-latest, rust: beta }
 
   docker:
@@ -58,4 +58,23 @@ jobs:
         with:
           command: ci-udeps
 
+  check-all-features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --force cargo-all-features
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check-all-features
     

@@ -43,6 +43,6 @@ pub(crate) mod test {
     }
 
     pub(crate) fn get_test_tagged_data_payload() -> TaggedDataPayload {
-        (&bee_test::rand::payload::rand_tagged_data_payload()).into()
+        Into::into(&bee_block_stardust::rand::payload::rand_tagged_data_payload())
     }
 }

@@ -28,9 +28,8 @@ pub struct SpentMetadata {
 pub struct OutputMetadata {
     pub output_id: OutputId,
     pub block_id: BlockId,
-    pub transaction_id: TransactionId,
     pub booked: MilestoneIndexTimestamp,
-    pub spent: Option<SpentMetadata>,
+    pub spent_metadata: Option<SpentMetadata>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,32 +39,33 @@ pub struct OutputWithMetadata {
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::LedgerOutput> for OutputWithMetadata {
-    fn from(value: inx::LedgerOutput) -> Self {
-        let output_id = OutputId::from(value.output_id);
-        let metadata = OutputMetadata {
-            output_id,
-            block_id: value.block_id.into(),
-            transaction_id: output_id.transaction_id,
-            booked: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_booked.into(),
-                milestone_timestamp: value.milestone_timestamp_booked.into(),
+impl TryFrom<bee_inx::LedgerOutput> for OutputWithMetadata {
+    type Error = bee_inx::Error;
+
+    fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
+        Ok(Self {
+            output: Into::into(&value.output.inner()?),
+            metadata: OutputMetadata {
+                output_id: value.output_id.into(),
+                block_id: value.block_id.into(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: value.milestone_index_booked.into(),
+                    milestone_timestamp: value.milestone_timestamp_booked.into(),
+                },
+                spent_metadata: None,
             },
-            spent: None,
-        };
-        Self {
-            output: (&value.output).into(),
-            metadata,
-        }
+        })
     }
 }
 
 #[cfg(feature = "inx")]
-impl From<inx::LedgerSpent> for OutputWithMetadata {
-    fn from(value: inx::LedgerSpent) -> Self {
-        let mut output_with_metadata = OutputWithMetadata::from(value.output);
+impl TryFrom<bee_inx::LedgerSpent> for OutputWithMetadata {
+    type Error = bee_inx::Error;
 
-        output_with_metadata.metadata.spent = Some(SpentMetadata {
+    fn try_from(value: bee_inx::LedgerSpent) -> Result<Self, Self::Error> {
+        let mut delta = OutputWithMetadata::try_from(value.output)?;
+
+        delta.metadata.spent_metadata.replace(SpentMetadata {
             transaction_id: value.transaction_id_spent.into(),
             spent: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_spent.into(),
@@ -73,6 +73,13 @@ impl From<inx::LedgerSpent> for OutputWithMetadata {
             },
         });
 
-        output_with_metadata
+        Ok(delta)
     }
+}
+
+/// The different number of bytes that are used for computing the rent cost.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RentStructureBytes {
+    pub num_key_bytes: u64,
+    pub num_data_bytes: u64,
 }

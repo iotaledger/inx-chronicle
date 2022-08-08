@@ -7,6 +7,7 @@ use axum::{
     extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
+use chronicle::{db::collections::ParseSortError, runtime::ErrorLevel};
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -20,6 +21,8 @@ pub enum InternalApiError {
     BeeStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     BsonDeserialize(#[from] mongodb::bson::de::Error),
+    #[error("corrupt state: {0}")]
+    CorruptState(&'static str),
     #[error(transparent)]
     Config(#[from] ConfigError),
     #[error(transparent)]
@@ -89,6 +92,8 @@ impl ApiError {
     }
 }
 
+impl ErrorLevel for ApiError {}
+
 impl<T: Into<InternalApiError>> From<T> for ApiError {
     fn from(err: T) -> Self {
         ApiError::Internal(err.into())
@@ -106,15 +111,17 @@ pub enum ParseError {
     #[allow(dead_code)]
     #[error("Invalid cursor")]
     BadPagingState,
-    #[error("Invalid sort order descriptor")]
-    BadSortDescriptor,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
     #[error(transparent)]
     Bool(#[from] ParseBoolError),
     #[error(transparent)]
+    DecimalU256(#[from] uint::FromDecStrErr),
+    #[error(transparent)]
     Int(#[from] ParseIntError),
+    #[error(transparent)]
+    SortOrder(#[from] ParseSortError),
     #[error(transparent)]
     TimeRange(#[from] time::error::ComponentRange),
 }

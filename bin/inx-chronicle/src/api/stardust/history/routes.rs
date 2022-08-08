@@ -11,111 +11,115 @@ use chronicle::{
 use futures::{StreamExt, TryStreamExt};
 
 use super::{
-    extractors::{HistoryByAddressPagination, HistoryByMilestonePagination},
+    extractors::{
+        LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
+        LedgerUpdatesByMilestonePagination,
+    },
     responses::{
-        TransactionsPerAddressResponse, TransactionsPerMilestoneResponse, TransferByAddress, TransferByMilestone,
+        BalanceResponse, LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
+        LedgerUpdatesByMilestoneResponse,
     },
 };
-use crate::api::{routes::sync, ApiError, ApiResult};
+use crate::api::{ApiError, ApiResult};
 
 pub fn routes() -> Router {
-    Router::new().route("/gaps", get(sync)).nest(
+    Router::new().route("/balance/:address", get(balance)).nest(
         "/ledger/updates",
         Router::new()
-            .route("/by-address/:address", get(transactions_by_address_history))
-            .route("/by-milestone/:milestone_id", get(transactions_by_milestone_history)),
+            .route("/by-address/:address", get(ledger_updates_by_address))
+            .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
     )
 }
 
-async fn transactions_by_address_history(
+async fn ledger_updates_by_address(
     database: Extension<MongoDb>,
     Path(address): Path<String>,
-    HistoryByAddressPagination {
+    LedgerUpdatesByAddressPagination {
         page_size,
         sort,
-        start_milestone_index,
-        start_output_id,
-    }: HistoryByAddressPagination,
-) -> ApiResult<TransactionsPerAddressResponse> {
+        cursor,
+    }: LedgerUpdatesByAddressPagination,
+) -> ApiResult<LederUpdatesByAddressResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
-        .stream_ledger_updates_for_address(
+        .stream_ledger_updates_by_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
             page_size + 1,
-            start_milestone_index.map(Into::into),
-            start_output_id,
-            sort.into(),
+            cursor,
+            sort,
         )
         .await?;
 
     // Take all of the requested records first
-    let records = record_stream.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
+    let items = record_stream
+        .by_ref()
+        .take(page_size)
+        .map(|record_result| record_result.map(LedgerUpdateByAddressResponse::from))
+        .try_collect::<Vec<_>>()
+        .await?;
 
     // If any record is left, use it to make the cursor
-    let cursor = record_stream
-        .try_next()
-        .await?
-        .map(|rec| format!("{}.{}.{}", rec.at.milestone_index, rec.output_id.to_hex(), page_size));
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        LedgerUpdatesByAddressCursor {
+            milestone_index: rec.at.milestone_index,
+            output_id: rec.output_id,
+            is_spent: rec.is_spent,
+            page_size,
+        }
+        .to_string()
+    });
 
-    let transfers = records
-        .into_iter()
-        .map(|rec| {
-            Ok(TransferByAddress {
-                output_id: rec.output_id.to_hex(),
-                is_spent: rec.is_spent,
-                milestone_index: rec.at.milestone_index,
-                milestone_timestamp: rec.at.milestone_timestamp,
-            })
-        })
-        .collect::<Result<_, ApiError>>()?;
+    Ok(LederUpdatesByAddressResponse { address, items, cursor })
+}
 
-    Ok(TransactionsPerAddressResponse {
-        address,
-        items: transfers,
+async fn ledger_updates_by_milestone(
+    database: Extension<MongoDb>,
+    Path(milestone_index): Path<String>,
+    LedgerUpdatesByMilestonePagination { page_size, cursor }: LedgerUpdatesByMilestonePagination,
+) -> ApiResult<LedgerUpdatesByMilestoneResponse> {
+    let milestone_index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
+
+    let mut record_stream = database
+        .stream_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
+        .await?;
+
+    // Take all of the requested records first
+    let items = record_stream
+        .by_ref()
+        .take(page_size)
+        .map(|record_result| record_result.map(LedgerUpdateByMilestoneResponse::from))
+        .try_collect::<Vec<_>>()
+        .await?;
+
+    // If any record is left, use it to make the paging state
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        LedgerUpdatesByMilestoneCursor {
+            output_id: rec.output_id,
+            page_size,
+            is_spent: rec.is_spent,
+        }
+        .to_string()
+    });
+
+    Ok(LedgerUpdatesByMilestoneResponse {
+        milestone_index,
+        items,
         cursor,
     })
 }
 
-async fn transactions_by_milestone_history(
-    database: Extension<MongoDb>,
-    Path(milestone_index): Path<String>,
-    HistoryByMilestonePagination {
-        page_size,
-        sort,
-        start_output_id,
-    }: HistoryByMilestonePagination,
-) -> ApiResult<TransactionsPerMilestoneResponse> {
-    let milestone_index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
-
-    let mut record_stream = database
-        .stream_ledger_updates_for_index_paginated(milestone_index, page_size + 1, start_output_id, sort.into())
-        .await?;
-
-    // Take all of the requested records first
-    let records = record_stream.by_ref().take(page_size).try_collect::<Vec<_>>().await?;
-
-    // If any record is left, use it to make the paging state
-    let cursor = record_stream
-        .try_next()
+async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
+    let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
+    let res = database
+        .get_address_balance(address)
         .await?
-        .map(|rec| format!("{}.{}", rec.output_id.to_hex(), page_size));
+        .ok_or(ApiError::NoResults)?;
 
-    let transfers = records
-        .into_iter()
-        .map(|rec| {
-            Ok(TransferByMilestone {
-                address: rec.address,
-                output_id: rec.output_id.to_hex(),
-                is_spent: rec.is_spent,
-            })
-        })
-        .collect::<Result<_, ApiError>>()?;
-
-    Ok(TransactionsPerMilestoneResponse {
-        index: milestone_index,
-        items: transfers,
-        cursor,
+    Ok(BalanceResponse {
+        total_balance: res.total_balance,
+        sig_locked_balance: res.sig_locked_balance,
+        ledger_index: res.ledger_index,
     })
 }

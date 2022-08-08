@@ -58,8 +58,8 @@ pub(crate) mod test {
 
     pub(crate) fn get_test_signature() -> Signature {
         Signature::from(&bee::Signature::Ed25519(bee::Ed25519Signature::new(
-            bee_test::rand::bytes::rand_bytes_array(),
-            bee_test::rand::bytes::rand_bytes_array(),
+            bee_block_stardust::rand::bytes::rand_bytes_array(),
+            bee_block_stardust::rand::bytes::rand_bytes_array(),
         )))
     }
 }

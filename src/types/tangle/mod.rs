@@ -2,5 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod milestone_index;
+mod protocol;
 
-pub use milestone_index::MilestoneIndex;
+pub use self::{
+    milestone_index::MilestoneIndex,
+    protocol::{ProtocolParameters, RentStructure},
+};

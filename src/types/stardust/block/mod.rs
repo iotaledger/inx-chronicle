@@ -18,6 +18,7 @@ pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signatu
 pub struct Block {
     pub protocol_version: u8,
     pub parents: Box<[BlockId]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub payload: Option<Payload>,
     #[serde(with = "crate::types::util::stringify")]
     pub nonce: u64,
@@ -27,7 +28,7 @@ impl From<bee::Block> for Block {
     fn from(value: bee::Block) -> Self {
         Self {
             protocol_version: value.protocol_version(),
-            parents: value.parents().iter().map(|id| BlockId::from(*id)).collect(),
+            parents: value.parents().iter().map(|&id| BlockId::from(id)).collect(),
             payload: value.payload().map(Into::into),
             nonce: value.nonce(),
         }
@@ -69,7 +70,7 @@ mod tests {
 
     #[test]
     fn test_block_id_bson() {
-        let block_id = BlockId::from(bee_test::rand::block::rand_block_id());
+        let block_id = BlockId::from(bee_block_stardust::rand::block::rand_block_id());
         let bson = to_bson(&block_id).unwrap();
         assert_eq!(Bson::from(block_id), bson);
         from_bson::<BlockId>(bson).unwrap();
@@ -92,7 +93,7 @@ mod tests {
 
     fn get_test_transaction_block() -> Block {
         Block::from(
-            bee::BlockBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_transaction_payload().try_into().unwrap())
                 .finish()
@@ -102,7 +103,7 @@ mod tests {
 
     fn get_test_milestone_block() -> Block {
         Block::from(
-            bee::BlockBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_milestone_payload().try_into().unwrap())
                 .finish()
@@ -112,7 +113,7 @@ mod tests {
 
     fn get_test_tagged_data_block() -> Block {
         Block::from(
-            bee::BlockBuilder::<u64>::new(bee_test::rand::parents::rand_parents())
+            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
                 .with_payload(get_test_tagged_data_payload().try_into().unwrap())
                 .finish()

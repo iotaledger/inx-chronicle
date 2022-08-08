@@ -16,12 +16,13 @@ pub(crate) mod sender;
 /// Module containing utilities.
 pub(crate) mod util;
 
-use std::{borrow::Cow, error::Error};
+use std::borrow::Cow;
 
 use async_trait::async_trait;
 use futures::StreamExt;
 
 use self::context::ActorContext;
+use super::error::ErrorLevel;
 
 /// The actor trait, which defines a task that is managed by the runtime.
 #[async_trait]
@@ -29,7 +30,7 @@ pub trait Actor: Send + Sync + Sized {
     /// Custom data that is passed to all actor methods.
     type State: Send;
     /// Custom error type that is returned by all actor methods.
-    type Error: Error + Send;
+    type Error: ErrorLevel + Send;
 
     /// Set this actor's name, primarily for debugging purposes.
     fn name(&self) -> Cow<'static, str> {
@@ -41,7 +42,7 @@ pub trait Actor: Send + Sync + Sized {
 
     /// Run the actor event loop
     async fn run(&mut self, cx: &mut ActorContext<Self>, state: &mut Self::State) -> Result<(), Self::Error> {
-        #[cfg(feature = "metrics")]
+        #[cfg(feature = "metrics-debug")]
         let histogram = {
             let histogram = bee_metrics::metrics::histogram::Histogram::new(
                 bee_metrics::metrics::histogram::exponential_buckets(1.0, 2.0, 10),
@@ -54,11 +55,11 @@ pub trait Actor: Send + Sync + Sized {
             histogram
         };
         while let Some(evt) = cx.inbox().next().await {
-            #[cfg(feature = "metrics")]
+            #[cfg(feature = "metrics-debug")]
             let start_time = std::time::Instant::now();
             // Handle the event
             evt.handle(cx, self, state).await?;
-            #[cfg(feature = "metrics")]
+            #[cfg(feature = "metrics-debug")]
             {
                 let elapsed = start_time.elapsed();
                 histogram.observe(elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0);

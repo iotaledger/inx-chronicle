@@ -6,14 +6,17 @@
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential},
-    Client,
+    options::{ClientOptions, Credential, TransactionOptions},
+    Client, ClientSession,
 };
 use serde::{Deserialize, Serialize};
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
-pub struct MongoDb(pub(crate) mongodb::Database);
+pub struct MongoDb {
+    pub(crate) db: mongodb::Database,
+    pub(crate) client: mongodb::Client,
+}
 
 impl MongoDb {
     const DEFAULT_NAME: &'static str = "chronicle";
@@ -37,15 +40,25 @@ impl MongoDb {
 
         let db = client.database(&config.database_name);
 
-        Ok(MongoDb(db))
+        Ok(MongoDb { db, client })
+    }
+
+    /// Starts a transaction.
+    pub async fn start_transaction(
+        &self,
+        options: impl Into<Option<TransactionOptions>>,
+    ) -> Result<ClientSession, Error> {
+        let mut session = self.client.start_session(None).await?;
+        session.start_transaction(options).await?;
+        Ok(session)
     }
 
     /// Clears all the collections from the database.
     pub async fn clear(&self) -> Result<(), Error> {
-        let collections = self.0.list_collection_names(None).await?;
+        let collections = self.db.list_collection_names(None).await?;
 
         for c in collections {
-            self.0.collection::<Document>(&c).drop(None).await?;
+            self.db.collection::<Document>(&c).drop(None).await?;
         }
 
         Ok(())
@@ -55,7 +68,7 @@ impl MongoDb {
     pub async fn size(&self) -> Result<u64, Error> {
         Ok(
             match self
-                .0
+                .db
                 .run_command(
                     doc! {
                         "dbStats": 1,
@@ -76,9 +89,14 @@ impl MongoDb {
         )
     }
 
+    /// Returns the names of all available databases.
+    pub async fn get_databases(&self) -> Result<Vec<String>, Error> {
+        self.client.list_database_names(None, None).await
+    }
+
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
-        self.0.name()
+        self.db.name()
     }
 }
 
@@ -87,41 +105,14 @@ impl MongoDb {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MongoDbConfig {
-    pub(crate) connect_url: String,
-    pub(crate) username: Option<String>,
-    pub(crate) password: Option<String>,
-    pub(crate) database_name: String,
-}
-
-impl MongoDbConfig {
-    /// Creates a new [`MongoDbConfig`].
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the connect URL.
-    pub fn with_connect_url(mut self, connect_url: impl Into<String>) -> Self {
-        self.connect_url = connect_url.into();
-        self
-    }
-
-    /// Sets the username.
-    pub fn with_username(mut self, username: impl Into<String>) -> Self {
-        self.username = Some(username.into());
-        self
-    }
-
-    /// Sets the password.
-    pub fn with_password(mut self, password: impl Into<String>) -> Self {
-        self.password = Some(password.into());
-        self
-    }
-
-    /// Sets the suffix.
-    pub fn with_database_name(mut self, database_name: impl Into<String>) -> Self {
-        self.database_name = database_name.into();
-        self
-    }
+    /// The bind address of the database.
+    pub connect_url: String,
+    /// The MongoDB username.
+    pub username: Option<String>,
+    /// The MongoDB password.
+    pub password: Option<String>,
+    /// The name of the database to connect to.
+    pub database_name: String,
 }
 
 impl Default for MongoDbConfig {

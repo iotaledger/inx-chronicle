@@ -1,38 +1,38 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod cone_stream;
 mod config;
 mod error;
-mod ledger_update_stream;
-mod syncer;
 
 use async_trait::async_trait;
+use bee_inx::{client::Inx, LedgerUpdate};
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, Sender},
-    types::tangle::MilestoneIndex,
+    runtime::{Actor, ActorContext, HandleEvent},
+    types::{
+        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use inx::{
-    client::InxClient,
-    proto::NoParams,
-    tonic::{Channel, Code},
-    NodeStatus,
-};
-pub use ledger_update_stream::LedgerUpdateStream;
-
-use self::syncer::{SyncNext, Syncer};
-use crate::check_health::IsHealthy;
+use futures::{StreamExt, TryStreamExt};
+use tokio::time::Instant;
 
 pub struct InxWorker {
     db: MongoDb,
     config: InxConfig,
 }
 
+#[derive(Debug)]
+pub struct MilestoneState {
+    outputs: Vec<OutputWithMetadata>,
+    milestone_index: MilestoneIndex,
+    start_time: tokio::time::Instant,
+}
+
 impl InxWorker {
-    /// Creates an [`InxClient`] by connecting to the endpoint specified in `inx_config`.
+    /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
         Self {
             db: db.clone(),
@@ -40,7 +40,7 @@ impl InxWorker {
         }
     }
 
-    pub async fn connect(inx_config: &InxConfig) -> Result<InxClient<Channel>, InxError> {
+    pub async fn connect(inx_config: &InxConfig) -> Result<Inx, InxError> {
         let url = url::Url::parse(&inx_config.connect_url)?;
 
         if url.scheme() != "http" {
@@ -48,7 +48,7 @@ impl InxWorker {
         }
 
         for i in 0..inx_config.connection_retry_count {
-            match InxClient::connect(inx_config.connect_url.clone()).await {
+            match Inx::connect(inx_config.connect_url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
                     log::warn!(
@@ -62,76 +62,106 @@ impl InxWorker {
         }
         Err(InxError::ConnectionError)
     }
-
-    async fn spawn_syncer(
-        &self,
-        cx: &mut ActorContext<Self>,
-        inx_client: &mut InxClient<Channel>,
-    ) -> Result<MilestoneIndex, InxError> {
-        // Request the node status so we can get the pruning index and latest confirmed milestone
-        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
-            .map_err(InxError::InxTypeConversion)?;
-
-        log::debug!(
-            "The node has a pruning index of `{}` and a latest confirmed milestone index of `{}`.",
-            node_status.tangle_pruning_index,
-            node_status.confirmed_milestone.milestone_info.milestone_index
-        );
-
-        let node_config = inx_client.read_node_configuration(NoParams {}).await?.into_inner();
-
-        let network_name = node_config.protocol_parameters.unwrap().network_name;
-
-        log::debug!("Connected to network {}.", network_name);
-
-        if let Some(prev_network_name) = self.db.get_network_name().await? {
-            if prev_network_name != network_name {
-                return Err(InxError::NetworkChanged(prev_network_name, network_name));
-            }
-        } else {
-            log::info!("Linking database {} to network {}.", self.db.name(), network_name);
-            self.db.set_network_name(network_name).await?;
-        }
-
-        let first_ms = node_status.tangle_pruning_index + 1;
-        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-        let sync_data = self
-            .db
-            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
-            .await?
-            .gaps;
-        if !sync_data.is_empty() {
-            let syncer = cx
-                .spawn_child(Syncer::new(sync_data, self.db.clone(), inx_client.clone()))
-                .await;
-            syncer.send(SyncNext)?;
-        } else {
-            cx.abort().await;
-        }
-        Ok(latest_ms.into())
-    }
 }
 
 #[async_trait]
 impl Actor for InxWorker {
-    type State = InxClient<Channel>;
+    type State = (Inx, Option<MilestoneState>);
     type Error = InxError;
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         log::info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
-        let mut inx_client = Self::connect(&self.config).await?;
+        let mut inx = Self::connect(&self.config).await?;
         log::info!("Connected to INX.");
 
-        let latest_ms = self.spawn_syncer(cx, &mut inx_client).await?;
+        // Request the node status so we can get the pruning index and latest confirmed milestone
+        let node_status = inx.read_node_status().await?;
 
-        cx.spawn_child(LedgerUpdateStream::new(
-            self.db.clone(),
-            inx_client.clone(),
-            latest_ms + 1..=u32::MAX.into(),
-        ))
-        .await;
+        log::debug!(
+            "The node has a pruning index of `{}` and a latest confirmed milestone index of `{}`.",
+            node_status.tangle_pruning_index,
+            node_status.confirmed_milestone.milestone_info.milestone_index,
+        );
 
-        Ok(inx_client)
+        // Check if there is an unfixable gap in our node data.
+        let start_index = if let Some(MilestoneIndexTimestamp {
+            milestone_index: latest_milestone,
+            ..
+        }) = self.db.get_newest_milestone().await?
+        {
+            if node_status.tangle_pruning_index > latest_milestone.0 {
+                return Err(InxError::MilestoneGap {
+                    start: latest_milestone + 1,
+                    end: node_status.tangle_pruning_index.into(),
+                });
+            }
+            latest_milestone + 1
+        } else {
+            self.config
+                .sync_start_milestone
+                .max((node_status.tangle_pruning_index + 1).into())
+        };
+
+        let protocol_parameters: ProtocolParameters = inx
+            .read_protocol_parameters(start_index.0.into())
+            .await?
+            .inner()?
+            .into();
+
+        log::debug!("Connected to network `{}`.", protocol_parameters.network_name);
+
+        let mut session = self.db.start_transaction(None).await?;
+
+        if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
+            if latest.parameters.network_name != protocol_parameters.network_name {
+                return Err(InxError::NetworkChanged(
+                    latest.parameters.network_name,
+                    protocol_parameters.network_name,
+                ));
+            }
+            if latest.parameters != protocol_parameters {
+                self.db
+                    .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
+                    .await?;
+            }
+        } else {
+            log::info!(
+                "Linking database `{}` to network `{}`.",
+                self.db.name(),
+                protocol_parameters.network_name
+            );
+
+            self.db
+                .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
+                .await?;
+
+            log::info!("Reading unspent outputs.");
+            let mut unspent_output_stream = inx.read_unspent_outputs().await?;
+
+            let mut updates = Vec::new();
+            while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
+                log::trace!("Received unspent output: {}", output.block_id);
+                updates.push(output.try_into()?);
+            }
+            log::info!("Inserting {} unspent outputs.", updates.len());
+
+            // TODO: Use tracing here.
+            let start_time = Instant::now();
+            self.db.insert_ledger_updates(&mut session, updates).await?;
+            let duration = start_time.elapsed();
+            log::info!(
+                "Inserting unspent outputs took {}.",
+                humantime::Duration::from(duration)
+            );
+        }
+
+        session.commit_transaction().await?;
+
+        let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
+
+        cx.add_stream(ledger_update_stream);
+
+        Ok((inx, None))
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -139,90 +169,154 @@ impl Actor for InxWorker {
     }
 }
 
-#[async_trait]
-impl HandleEvent<Report<LedgerUpdateStream>> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<LedgerUpdateStream>,
-        _state: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => (),
-            Report::Error(e) => match e.error {
-                ActorError::Result(e) => {
-                    Err(e)?;
-                }
-                ActorError::Aborted | ActorError::Panic => {
-                    cx.abort().await;
-                }
-            },
+impl InxWorker {
+    fn handle_milestone_begin(&mut self, begin: bee_inx::Marker) -> MilestoneState {
+        let start_time = Instant::now();
+        MilestoneState {
+            outputs: Vec::with_capacity(begin.created_count + begin.consumed_count),
+            milestone_index: begin.milestone_index.into(),
+            start_time,
         }
+    }
+
+    fn handle_milestone_consumed(
+        &mut self,
+        milestone_state: &mut Option<MilestoneState>,
+        consumed: bee_inx::LedgerSpent,
+    ) -> Result<(), InxError> {
+        let milestone_state = if let Some(milestone_state) = milestone_state {
+            milestone_state
+        } else {
+            return Err(InxError::InvalidMilestoneState);
+        };
+        milestone_state.outputs.push(consumed.try_into()?);
         Ok(())
+    }
+
+    fn handle_milestone_created(
+        &mut self,
+        milestone_state: &mut Option<MilestoneState>,
+        created: bee_inx::LedgerOutput,
+    ) -> Result<(), InxError> {
+        let milestone_state = if let Some(milestone_state) = milestone_state {
+            milestone_state
+        } else {
+            return Err(InxError::InvalidMilestoneState);
+        };
+
+        milestone_state.outputs.push(created.try_into()?);
+        Ok(())
+    }
+
+    async fn handle_milestone_end(
+        &mut self,
+        inx: &mut Inx,
+        milestone_state: Option<MilestoneState>,
+        end: bee_inx::Marker,
+    ) -> Result<Option<MilestoneState>, InxError> {
+        let milestone_state = if let Some(milestone_state) = milestone_state {
+            milestone_state
+        } else {
+            return Err(InxError::InvalidMilestoneState);
+        };
+
+        if milestone_state.outputs.len() != end.consumed_count + end.created_count {
+            return Err(InxError::InvalidLedgerUpdateCount {
+                received: milestone_state.outputs.len(),
+                expected: end.consumed_count + end.created_count,
+            });
+        }
+
+        let mut session = self.db.start_transaction(None).await?;
+
+        self.db
+            .insert_ledger_updates(&mut session, milestone_state.outputs.into_iter())
+            .await?;
+
+        let milestone = inx.read_milestone(milestone_state.milestone_index.0.into()).await?;
+        let parameters: ProtocolParameters = inx
+            .read_protocol_parameters(milestone_state.milestone_index.0.into())
+            .await?
+            .inner()?
+            .into();
+
+        self.db
+            .update_latest_protocol_parameters(&mut session, milestone_state.milestone_index, parameters)
+            .await?;
+
+        log::trace!("Received milestone: `{:?}`", milestone);
+
+        let milestone_index = milestone.milestone_info.milestone_index.into();
+        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
+        let milestone_id = milestone
+            .milestone_info
+            .milestone_id
+            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
+            .into();
+        let payload = Into::into(
+            &milestone
+                .milestone
+                .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
+        );
+
+        let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+
+        let blocks_with_metadata = cone_stream
+            .map(|res| {
+                let bee_inx::BlockWithMetadata { block, metadata } = res?;
+                Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+            })
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        self.db
+            .insert_blocks_with_metadata(&mut session, blocks_with_metadata)
+            .await?;
+
+        self.db
+            .insert_milestone(
+                &mut session,
+                milestone_id,
+                milestone_index,
+                milestone_timestamp,
+                payload,
+            )
+            .await?;
+
+        session.commit_transaction().await?;
+
+        let duration = milestone_state.start_time.elapsed();
+        log::debug!(
+            "Milestone `{}` synced in {}.",
+            milestone_index,
+            humantime::Duration::from(duration)
+        );
+
+        Ok(None)
     }
 }
 
 #[async_trait]
-impl HandleEvent<Report<Syncer>> for InxWorker {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<Syncer>,
-        inx_client: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        match event {
-            Report::Success(_) => (),
-            Report::Error(report) => match report.error {
-                ActorError::Result(e) => match &e {
-                    InxError::Read(s) => match s.code() {
-                        Code::InvalidArgument => {
-                            self.spawn_syncer(cx, inx_client).await?;
-                        }
-                        _ => Err(e)?,
-                    },
-                    _ => Err(e)?,
-                },
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.abort().await;
-                }
-            },
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl HandleEvent<IsHealthy> for InxWorker {
+impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        IsHealthy(sender): IsHealthy,
-        inx_client: &mut Self::State,
+        ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
+        (inx, milestone_state): &mut Self::State,
     ) -> Result<(), Self::Error> {
-        let node_status = NodeStatus::try_from(inx_client.read_node_status(NoParams {}).await?.into_inner())
-            .map_err(InxError::InxTypeConversion)?;
+        log::trace!("Received ledger update event {:#?}", ledger_update_result);
 
-        let mut healthy = true;
-        healthy &= node_status.is_healthy;
+        match ledger_update_result? {
+            LedgerUpdate::Begin(marker) => *milestone_state = Some(self.handle_milestone_begin(marker)),
+            LedgerUpdate::Consumed(consumed) => self.handle_milestone_consumed(milestone_state, consumed)?,
+            LedgerUpdate::Created(created) => self.handle_milestone_created(milestone_state, created)?,
+            LedgerUpdate::End(marker) => {
+                *milestone_state = self
+                    .handle_milestone_end(inx, std::mem::take(milestone_state), marker)
+                    .await?
+            }
+        }
 
-        let latest_inserted_ms = self.db.get_latest_milestone().await?;
-        healthy &= latest_inserted_ms.map_or(false, |MilestoneIndex(latest_inserted_ms)| {
-            // If the latest confirmed ms from the node is either the last ms we inserted or the next one
-            // (because we are still working on it) then we are healthy
-            (latest_inserted_ms..=latest_inserted_ms + 1)
-                .contains(&node_status.confirmed_milestone.milestone_info.milestone_index)
-        });
-
-        let first_ms = node_status.tangle_pruning_index + 1;
-        let latest_ms = node_status.confirmed_milestone.milestone_info.milestone_index;
-        healthy &= self
-            .db
-            .get_sync_data(self.config.sync_start_milestone.0.max(first_ms).into()..=latest_ms.into())
-            .await?
-            .gaps
-            .is_empty();
-
-        sender.send(healthy).ok();
         Ok(())
     }
 }

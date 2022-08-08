@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InxConfig {
+    pub enabled: bool,
     /// The bind address of node's INX interface.
     pub connect_url: String,
     /// The time that has to pass until a new connection attempt is made.
@@ -24,6 +25,7 @@ pub struct InxConfig {
 impl Default for InxConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             connect_url: "http://localhost:9029".into(),
             connection_retry_interval: Duration::from_secs(5),
             connection_retry_count: 5,

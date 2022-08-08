@@ -2,17 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
+use bytesize::ByteSize;
+#[cfg(any(feature = "api", feature = "inx"))]
+use chronicle::runtime::{ActorError, HandleEvent, Report};
 use chronicle::{
     db::MongoDb,
-    runtime::{Actor, ActorContext, ActorError, HandleEvent, Report, RuntimeError},
+    runtime::{Actor, ActorContext, ErrorLevel, RuntimeError},
 };
 use clap::Parser;
 use thiserror::Error;
 
 use super::{
-    cli::CliArgs,
+    cli::ClArgs,
     config::{ChronicleConfig, ConfigError},
 };
+
+const ENV_CONFIG_PATH: &str = "CONFIG_PATH";
 
 #[derive(Debug, Error)]
 pub enum LauncherError {
@@ -24,6 +29,15 @@ pub enum LauncherError {
     Runtime(#[from] RuntimeError),
 }
 
+impl ErrorLevel for LauncherError {
+    fn level(&self) -> log::Level {
+        match self {
+            LauncherError::Config(_) | LauncherError::MongoDb(_) => log::Level::Error,
+            LauncherError::Runtime(_) => log::Level::Warn,
+        }
+    }
+}
+
 #[derive(Debug)]
 /// Supervisor actor
 pub struct Launcher;
@@ -33,37 +47,60 @@ impl Actor for Launcher {
     type State = ChronicleConfig;
     type Error = LauncherError;
 
+    #[allow(unused_variables)]
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let cli_args = CliArgs::parse();
-        let mut config = match &cli_args.config {
+        // TODO: move parsing command-line args to `main.rs` (only async closures make this low effort though)
+        let cl_args = ClArgs::parse();
+
+        let mut config = match &cl_args.config {
             Some(path) => ChronicleConfig::from_file(path)?,
             None => {
-                if let Ok(path) = std::env::var("CONFIG_PATH") {
+                if let Ok(path) = std::env::var(ENV_CONFIG_PATH) {
                     ChronicleConfig::from_file(path)?
                 } else {
                     ChronicleConfig::default()
                 }
             }
         };
-        config.apply_cli_args(&cli_args);
+        config.apply_cl_args(&cl_args);
 
+        log::info!(
+            "Connecting to database at bind address `{}`.",
+            config.mongodb.connect_url
+        );
         let db = MongoDb::connect(&config.mongodb).await?;
+        log::debug!("Available databases: `{:?}`", db.get_databases().await?);
+        log::info!(
+            "Connected to database `{}` ({})",
+            db.name(),
+            ByteSize::b(db.size().await?)
+        );
 
-        db.create_block_indexes().await?;
-        db.create_ledger_update_indexes().await?;
-        db.create_milestone_indexes().await?;
+        #[cfg(feature = "stardust")]
+        {
+            db.create_output_indexes().await?;
+            db.create_block_indexes().await?;
+            db.create_ledger_update_indexes().await?;
+            db.create_milestone_indexes().await?;
+        }
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
-        cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
-            .await;
+        if config.inx.enabled {
+            cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
+                .await;
+        }
 
         #[cfg(feature = "api")]
-        cx.spawn_child(super::api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?)
-            .await;
+        if config.api.enabled {
+            cx.spawn_child(super::api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?)
+                .await;
+        }
 
         #[cfg(feature = "metrics")]
-        cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-            .await;
+        if config.metrics.enabled {
+            cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
+                .await;
+        }
 
         Ok(config)
     }
@@ -101,11 +138,11 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
                             cx.abort().await;
                         }
                     },
-                    InxError::Read(e) => match e.code() {
-                        inx::tonic::Code::DeadlineExceeded
-                        | inx::tonic::Code::ResourceExhausted
-                        | inx::tonic::Code::Aborted
-                        | inx::tonic::Code::Unavailable => {
+                    InxError::BeeInx(bee_inx::Error::StatusCode(e)) => match e.code() {
+                        tonic::Code::DeadlineExceeded
+                        | tonic::Code::ResourceExhausted
+                        | tonic::Code::Aborted
+                        | tonic::Code::Unavailable => {
                             cx.spawn_child(report.actor).await;
                         }
                         _ => {
@@ -155,13 +192,14 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
 
 #[cfg(feature = "metrics")]
 #[async_trait]
-impl HandleEvent<Report<super::metrics::MetricsWorker>> for Launcher {
+impl HandleEvent<chronicle::runtime::Report<super::metrics::MetricsWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
         event: Report<super::metrics::MetricsWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        use chronicle::runtime::Report;
         match event {
             Report::Success(_) => {
                 cx.abort().await;

@@ -30,7 +30,7 @@ use super::{
     },
     Sender,
 };
-use crate::runtime::merge::Merge;
+use crate::runtime::{error::ErrorLevel, merge::Merge};
 
 /// A view into a particular scope which provides the user-facing API.
 #[derive(Clone, Debug)]
@@ -170,12 +170,12 @@ impl RuntimeScope {
         A: 'static + Actor,
     {
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
-        #[cfg(not(feature = "metrics"))]
+        #[cfg(not(feature = "metrics-debug"))]
         let (sender, receiver) = {
             let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<Envelope<A>>();
             (sender, tokio_stream::wrappers::UnboundedReceiverStream::new(receiver))
         };
-        #[cfg(feature = "metrics")]
+        #[cfg(feature = "metrics-debug")]
         let (sender, receiver) = {
             use bee_metrics::metrics::sync::mpsc;
             let (sender, receiver) = mpsc::unbounded_channel::<Envelope<A>>();
@@ -236,7 +236,8 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::warn!(
+                            log::log!(
+                                e.level(),
                                 "{} exited with error: {}",
                                 format!("Task {:x}", child_scope.id().as_fields().0),
                                 e
@@ -279,7 +280,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::warn!("{} exited with error: {}", actor.name(), e);
+                            log::log!(e.level(), "{} exited with error: {}", actor.name(), e);
                             let err_str = e.to_string();
                             supervisor_addr.send(Report::Error(ErrorReport::new(
                                 actor,
@@ -320,7 +321,7 @@ impl RuntimeScope {
                     Ok(res) => match res {
                         Ok(_) => Ok(()),
                         Err(e) => {
-                            log::warn!("{} exited with error: {}", actor.name(), e);
+                            log::log!(e.level(), "{} exited with error: {}", actor.name(), e);
                             Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },

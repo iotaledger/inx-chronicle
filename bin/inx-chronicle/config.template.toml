@@ -11,6 +11,9 @@ password = "root"
 database_name = "chronicle"
 
 [api]
+### Whether API requests will be served.
+enabled = true
+
 ### API listening port. 
 port = 8042
 
@@ -25,15 +28,21 @@ jwt_expiration = "72h"
 ### Public API routes.
 public_routes = [
     # General API routes that provide information about Chronicle.
+    "health",
     "api/health",
     "api/info",
 
     # Activated APIs.
+    "api/analytics/v2/*",
     "api/core/v2/*",
     "api/history/v2/*",
+    "api/indexer/v1/*",
 ]
 
 [inx]
+### Whether INX is used (online mode).
+enabled = true
+
 ### Listening address of the node's INX interface.
 connect_url = "http://localhost:9029"
 
@@ -47,6 +56,9 @@ connection_retry_count = 10
 sync_start_milestone = 1 
 
 [metrics]
+### Whether metrics will be served.
+enabled = true
+
 ### Bind address of the metrics server.
 address = "0.0.0.0"
 

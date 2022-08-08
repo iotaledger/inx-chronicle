@@ -6,7 +6,6 @@
 /// Module containing the API.
 #[cfg(feature = "api")]
 mod api;
-mod check_health;
 mod cli;
 mod config;
 mod launcher;

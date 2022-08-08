@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_test::rand::block::{rand_block, rand_block_id};
+use bee_block_stardust::rand::block::{rand_block, rand_block_id};
 use chronicle::{
     db::{MongoDb, MongoDbConfig},
     types::{
@@ -30,14 +30,18 @@ async fn insert_and_get_block() -> Result<(), mongodb::error::Error> {
         milestone_index: 0.into(),
         inclusion_state: LedgerInclusionState::Included,
         conflict_reason: ConflictReason::None,
+        white_flag_index: 0,
     };
 
-    let config = MongoDbConfig::default().with_database_name("chronicle-cargo-test");
+    let config = MongoDbConfig {
+        database_name: "chronicle-cargo-test".into(),
+        ..Default::default()
+    };
     let db = MongoDb::connect(&config).await?;
 
     db.clear().await?;
 
-    db.insert_block_with_metadata(block_id, block, raw, metadata, 0).await?;
+    db.insert_block_with_metadata(block, raw, metadata).await?;
 
     let result_block = db.get_block(&block_id).await?.unwrap();
     let bee_result: bee_block_stardust::Block = result_block.try_into().unwrap();

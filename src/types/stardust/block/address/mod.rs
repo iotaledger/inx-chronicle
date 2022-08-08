@@ -31,6 +31,16 @@ impl From<bee::Address> for Address {
     }
 }
 
+impl From<&bee::Address> for Address {
+    fn from(value: &bee::Address) -> Self {
+        match *value {
+            bee::Address::Ed25519(a) => Self::Ed25519(a.into()),
+            bee::Address::Alias(a) => Self::Alias(a.into()),
+            bee::Address::Nft(a) => Self::Nft(a.into()),
+        }
+    }
+}
+
 impl From<Address> for bee::Address {
     fn from(value: Address) -> Self {
         match value {
@@ -64,17 +74,21 @@ pub(crate) mod test {
 
     #[test]
     fn test_address_bson() {
-        let address = Address::from(bee::Address::Ed25519(bee_test::rand::address::rand_ed25519_address()));
+        let address = Address::from(bee::Address::Ed25519(
+            bee_block_stardust::rand::address::rand_ed25519_address(),
+        ));
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
-        let address = Address::from(bee::Address::Alias(bee_test::rand::address::rand_alias_address()));
+        let address = Address::from(bee::Address::Alias(
+            bee_block_stardust::rand::address::rand_alias_address(),
+        ));
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
 
-        let address = Address::from(bee::Address::Nft(bee_test::rand::address::rand_nft_address()));
+        let address = Address::from(bee::Address::Nft(bee_block_stardust::rand::address::rand_nft_address()));
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());

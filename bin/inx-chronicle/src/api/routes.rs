@@ -8,18 +8,20 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::{db::MongoDb, runtime::ScopeView};
+use chronicle::{db::MongoDb, types::stardust::milestone::MilestoneTimestamp};
 use hyper::StatusCode;
 use serde::Deserialize;
+use time::{Duration, OffsetDateTime};
 
-use super::{auth::Auth, config::ApiData, error::ApiError, responses::*, ApiResult};
+use super::{auth::Auth, config::ApiData, error::ApiError, responses::RoutesResponse};
+
+// Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
+// sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
+const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new()
-        .route("/info", get(info))
-        .route("/health", get(health))
-        .route("/routes", get(list_routes));
+    let mut router = Router::new();
 
     #[cfg(feature = "stardust")]
     {
@@ -27,7 +29,9 @@ pub fn routes() -> Router {
     }
 
     Router::new()
+        .route("/health", get(health))
         .route("/login", post(login))
+        .route("/routes", get(list_routes))
         .nest("/api", router.route_layer(from_extractor::<Auth>()))
         .fallback(not_found.into_service())
 }
@@ -58,18 +62,10 @@ async fn login(
     }
 }
 
-async fn is_healthy(#[allow(unused)] scope: &ScopeView) -> bool {
-    #[allow(unused_mut)]
-    let mut is_healthy = true;
-    #[cfg(feature = "inx")]
-    {
-        use crate::check_health::CheckHealth;
-        is_healthy &= scope
-            .is_healthy::<crate::stardust_inx::InxWorker>()
-            .await
-            .unwrap_or(false);
-    }
-    is_healthy
+fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
+    // Panic: The milestone_timestamp is guaranteeed to be valid.
+    let timestamp = OffsetDateTime::from_unix_timestamp(timestamp.0 as i64).unwrap();
+    OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
 }
 
 async fn list_routes(Extension(config): Extension<ApiData>) -> RoutesResponse {
@@ -87,25 +83,33 @@ async fn list_routes(Extension(config): Extension<ApiData>) -> RoutesResponse {
     }
 }
 
-async fn info(Extension(scope): Extension<ScopeView>) -> InfoResponse {
-    InfoResponse {
-        name: "Chronicle".into(),
-        version: std::env!("CARGO_PKG_VERSION").to_string(),
-        is_healthy: is_healthy(&scope).await,
+pub async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
+    #[cfg(feature = "stardust")]
+    {
+        let newest = match database.get_newest_milestone().await? {
+            Some(last) => last,
+            None => return Ok(false),
+        };
+
+        if !is_new_enough(newest.milestone_timestamp) {
+            return Ok(false);
+        }
     }
+
+    Ok(true)
 }
 
-pub async fn health(Extension(scope): Extension<ScopeView>) -> StatusCode {
-    if is_healthy(&scope).await {
+pub async fn health(database: Extension<MongoDb>) -> StatusCode {
+    let handle_error = |e| {
+        log::error!("An error occured during health check: {e}");
+        false
+    };
+
+    if is_healthy(&database).await.unwrap_or_else(handle_error) {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     }
-}
-
-#[cfg(feature = "api-history")]
-pub async fn sync(database: Extension<MongoDb>) -> ApiResult<SyncDataDto> {
-    Ok(SyncDataDto(database.get_sync_data(0.into()..=u32::MAX.into()).await?))
 }
 
 pub async fn not_found() -> ApiError {

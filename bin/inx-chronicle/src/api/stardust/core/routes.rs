@@ -10,22 +10,25 @@ use axum::{
     routing::*,
     Router,
 };
+use bee_api_types_stardust::{
+    dtos::ReceiptDto,
+    responses::{
+        BlockMetadataResponse, BlockResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse, MilestoneResponse,
+        OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse,
+        StatusResponse, TreasuryResponse, UtxoChangesResponse,
+    },
+};
 use bee_block_stardust::{
     output::dto::OutputDto,
     payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
     BlockDto,
 };
-use bee_rest_api_stardust::types::{
-    dtos::ReceiptDto,
-    responses::{
-        BlockMetadataResponse, BlockResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
-        ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
-    },
-};
 use chronicle::{
-    db::MongoDb,
+    db::{
+        collections::{OutputMetadataResult, OutputWithMetadataResult, UtxoChangesResult},
+        MongoDb,
+    },
     types::{
-        ledger::{OutputMetadata, OutputWithMetadata},
         stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
         tangle::MilestoneIndex,
     },
@@ -34,8 +37,13 @@ use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::BlockChildrenResponse;
-use crate::api::{error::ApiError, extractors::Pagination, routes::not_implemented, ApiResult};
+use super::responses::{BlockChildrenResponse, InfoResponse};
+use crate::api::{
+    error::{ApiError, InternalApiError},
+    extractors::Pagination,
+    routes::{is_healthy, not_implemented},
+    ApiResult,
+};
 
 lazy_static! {
     pub(crate) static ref BYTE_CONTENT_HEADER: HeaderValue =
@@ -44,7 +52,7 @@ lazy_static! {
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/info", not_implemented.into_service())
+        .route("/info", get(info))
         .route("/tips", not_implemented.into_service())
         .nest(
             "/blocks",
@@ -89,6 +97,80 @@ pub fn routes() -> Router {
         .route("/control/snapshot/create", not_implemented.into_service())
 }
 
+pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
+    let protocol = database
+        .get_latest_protocol_parameters()
+        .await?
+        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+            "no protocol parameters in the database",
+        )))?
+        .parameters;
+
+    let is_healthy = is_healthy(&database).await.unwrap_or_else(|e| {
+        log::error!("An error occured during health check: {e}");
+        false
+    });
+
+    let newest_milestone =
+        database
+            .get_newest_milestone()
+            .await?
+            .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                "no milestone in the database",
+            )))?;
+    let oldest_milestone =
+        database
+            .get_oldest_milestone()
+            .await?
+            .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                "no milestone in the database",
+            )))?;
+
+    let latest_milestone = LatestMilestoneResponse {
+        index: newest_milestone.milestone_index.0,
+        timestamp: newest_milestone.milestone_timestamp.0,
+        milestone_id: bee_block_stardust::payload::milestone::MilestoneId::from(
+            database
+                .get_milestone_id(newest_milestone.milestone_index)
+                .await?
+                .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                    "no milestone in the database",
+                )))?,
+        )
+        .to_string(),
+    };
+
+    // Unfortunately, there is a distinction between `LatestMilestoneResponse` and `ConfirmedMilestoneResponse` in Bee.
+    let confirmed_milestone = ConfirmedMilestoneResponse {
+        index: latest_milestone.index,
+        timestamp: latest_milestone.timestamp,
+        milestone_id: latest_milestone.milestone_id.clone(),
+    };
+
+    Ok(InfoResponse {
+        name: "Chronicle".into(),
+        version: std::env!("CARGO_PKG_VERSION").to_string(),
+        protocol: ProtocolResponse {
+            version: protocol.version,
+            network_name: protocol.network_name,
+            bech32_hrp: protocol.bech32_hrp,
+            min_pow_score: protocol.min_pow_score as f64,
+            rent_structure: RentStructureResponse {
+                v_byte_cost: protocol.rent_structure.v_byte_cost,
+                v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,
+                v_byte_factor_key: protocol.rent_structure.v_byte_factor_key,
+            },
+            token_supply: protocol.token_supply.to_string(),
+        },
+        status: StatusResponse {
+            is_healthy,
+            latest_milestone,
+            confirmed_milestone,
+            pruning_index: oldest_milestone.milestone_index.0 - 1,
+        },
+    })
+}
+
 async fn block(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
@@ -128,6 +210,7 @@ async fn block_metadata(
         conflict_reason: Some(metadata.conflict_reason as u8),
         should_promote: Some(metadata.should_promote),
         should_reattach: Some(metadata.should_reattach),
+        white_flag_index: Some(metadata.white_flag_index),
     })
 }
 
@@ -155,37 +238,38 @@ async fn block_children(
     })
 }
 
-fn create_output_metadata_response(
-    output_index: u16,
-    metadata: OutputMetadata,
-    _ledger_index: MilestoneIndex,
-) -> OutputMetadataResponse {
+fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMetadataResponse {
     OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
-        transaction_id: metadata.transaction_id.to_hex(),
-        output_index,
-        is_spent: metadata.spent.is_some(),
-        milestone_index_spent: metadata.spent.as_ref().map(|spent_md| *spent_md.spent.milestone_index),
+        transaction_id: metadata.output_id.transaction_id.to_hex(),
+        output_index: metadata.output_id.index,
+        is_spent: metadata.spent_metadata.is_some(),
+        milestone_index_spent: metadata
+            .spent_metadata
+            .as_ref()
+            .map(|spent_md| *spent_md.spent.milestone_index),
         milestone_timestamp_spent: metadata
-            .spent
+            .spent_metadata
             .as_ref()
             .map(|spent_md| *spent_md.spent.milestone_timestamp),
-        transaction_id_spent: metadata.spent.as_ref().map(|spent_md| spent_md.transaction_id.to_hex()),
+        transaction_id_spent: metadata
+            .spent_metadata
+            .as_ref()
+            .map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
-        // TODO: return proper value
-        ledger_index: 0,
+        ledger_index: metadata.ledger_index.0,
     }
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
-    let OutputWithMetadata { output, metadata } = database
+    let OutputWithMetadataResult { output, metadata } = database
         .get_output_with_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let metadata = create_output_metadata_response(output_id.index, metadata, MilestoneIndex(0));
+    let metadata = create_output_metadata_response(metadata);
 
     Ok(OutputResponse {
         metadata,
@@ -203,11 +287,7 @@ async fn output_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(create_output_metadata_response(
-        output_id.index,
-        metadata,
-        MilestoneIndex(0),
-    ))
+    Ok(create_output_metadata_response(metadata))
 }
 
 async fn transaction_included_block(
@@ -340,17 +420,16 @@ async fn utxo_changes_by_index(
 }
 
 async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
-    let mut created_outputs = Vec::new();
-    let mut consumed_outputs = Vec::new();
+    let UtxoChangesResult {
+        created_outputs,
+        consumed_outputs,
+    } = database
+        .get_utxo_changes(milestone_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
-    let mut updates = database.stream_ledger_updates_for_index(milestone_index).await?;
-    while let Some(update) = updates.try_next().await? {
-        if update.is_spent {
-            consumed_outputs.push(update.output_id.to_hex());
-        } else {
-            created_outputs.push(update.output_id.to_hex());
-        }
-    }
+    let created_outputs = created_outputs.iter().map(|output_id| output_id.to_hex()).collect();
+    let consumed_outputs = consumed_outputs.iter().map(|output_id| output_id.to_hex()).collect();
 
     Ok(UtxoChangesResponse {
         index: *milestone_index,
