@@ -9,7 +9,7 @@ use chronicle::{
         MongoDb,
     },
     types::stardust::block::{
-        AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
+        AliasOutput, BasicOutput, FoundryOutput, NftOutput, TaggedDataPayload, TransactionPayload,
         TreasuryTransactionPayload,
     },
 };
@@ -39,7 +39,6 @@ pub fn routes() -> Router {
                     "/blocks",
                     Router::new()
                         .route("/", get(block_analytics::<()>))
-                        .route("/milestone", get(block_analytics::<MilestonePayload>))
                         .route("/transaction", get(block_analytics::<TransactionPayload>))
                         .route("/tagged-data", get(block_analytics::<TaggedDataPayload>))
                         .route(

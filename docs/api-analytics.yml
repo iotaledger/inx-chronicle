@@ -145,6 +145,23 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/blocks/treasury-transaction:
+    get:
+      tags:
+        - activity
+      summary: Returns total treasury transaction type block count.
+      description: >-
+        Returns the count of treasury transaction blocks created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/outputs:
     get:
       tags:
@@ -324,24 +341,36 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/BlockAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/block-example"
     Output:
       description: Successful operation.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/OutputAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/output-example"
     Address:
       description: Successful operation.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/AddressAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/addresses-example"
     StorageDeposit:
       description: Successful operation.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/StorageDepositAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/storage-deposit-example"
     NoResults:
       description: >-
         Unsuccessful operation: indicates that the requested data was not found.
@@ -369,7 +398,7 @@ components:
       in: query
       name: startIndex
       schema:
-        type: number
+        type: integer
       example: 100000
       required: false
       description: The milestone index with which to limit the start of the results.
@@ -377,7 +406,7 @@ components:
       in: query
       name: endIndex
       schema:
-        type: number
+        type: integer
       example: 200000
       required: false
       description: The milestone index with which to limit the end of the results.
@@ -385,9 +414,35 @@ components:
       in: query
       name: ledgerIndex
       schema:
-        type: number
+        type: integer
       example: 200000
       required: false
       description: >-
         The milestone index to be used to determine the ledger state. Defaults to the 
         application's current ledger index.
+  examples:
+    storage-deposit-example:
+      value:
+        outputCount: "714"
+        storageDepositReturnCount: "43"
+        storageDepositReturnTotalValue: "12114000"
+        totalKeyBytes: "24276"
+        totalDataBytes: "124636"
+        totalByteCost: "635318000"
+        ledgerIndex: 1005429
+        rentStructure:
+          - vByteCost: 500
+            vByteFactorData: 1
+            vByteFactorKey: 10
+    block-example:
+      value:
+        count: "17400"
+    output-example:
+      value:
+        count: "81"
+        totalValue: "34903000"
+    addresses-example:
+      value:
+        totalActiveAddresses: "443"
+        receivingAddresses: "443"
+        sendingAddresses: "0"

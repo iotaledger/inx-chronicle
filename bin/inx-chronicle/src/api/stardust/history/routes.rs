@@ -6,7 +6,7 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::MongoDb,
-    types::{stardust::block::Address, tangle::MilestoneIndex},
+    types::stardust::block::{Address, MilestoneId},
 };
 use futures::{StreamExt, TryStreamExt};
 
@@ -15,10 +15,7 @@ use super::{
         LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
         LedgerUpdatesByMilestonePagination,
     },
-    responses::{
-        BalanceResponse, LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
-        LedgerUpdatesByMilestoneResponse,
-    },
+    responses::{BalanceResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse},
 };
 use crate::api::{ApiError, ApiResult};
 
@@ -39,7 +36,7 @@ async fn ledger_updates_by_address(
         sort,
         cursor,
     }: LedgerUpdatesByAddressPagination,
-) -> ApiResult<LederUpdatesByAddressResponse> {
+) -> ApiResult<LedgerUpdatesByAddressResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
@@ -56,8 +53,8 @@ async fn ledger_updates_by_address(
     let items = record_stream
         .by_ref()
         .take(page_size)
-        .map(|record_result| record_result.map(LedgerUpdateByAddressResponse::from))
-        .try_collect::<Vec<_>>()
+        .map_ok(Into::into)
+        .try_collect()
         .await?;
 
     // If any record is left, use it to make the cursor
@@ -71,15 +68,22 @@ async fn ledger_updates_by_address(
         .to_string()
     });
 
-    Ok(LederUpdatesByAddressResponse { address, items, cursor })
+    Ok(LedgerUpdatesByAddressResponse { address, items, cursor })
 }
 
 async fn ledger_updates_by_milestone(
     database: Extension<MongoDb>,
-    Path(milestone_index): Path<String>,
+    Path(milestone_id): Path<String>,
     LedgerUpdatesByMilestonePagination { page_size, cursor }: LedgerUpdatesByMilestonePagination,
 ) -> ApiResult<LedgerUpdatesByMilestoneResponse> {
-    let milestone_index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let milestone_index = database
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?
+        .essence
+        .index;
 
     let mut record_stream = database
         .stream_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
@@ -89,8 +93,8 @@ async fn ledger_updates_by_milestone(
     let items = record_stream
         .by_ref()
         .take(page_size)
-        .map(|record_result| record_result.map(LedgerUpdateByMilestoneResponse::from))
-        .try_collect::<Vec<_>>()
+        .map_ok(Into::into)
+        .try_collect()
         .await?;
 
     // If any record is left, use it to make the paging state
