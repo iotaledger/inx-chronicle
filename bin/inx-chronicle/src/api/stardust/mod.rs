@@ -3,7 +3,7 @@
 
 pub mod analytics;
 pub mod core;
-pub mod history;
+pub mod explorer;
 pub mod indexer;
 
 use axum::Router;
@@ -11,7 +11,7 @@ use axum::Router;
 pub fn routes() -> Router {
     Router::new()
         .nest("/analytics/v2", analytics::routes())
-        .nest("/history/v2", history::routes())
+        .nest("/explorer/v2", explorer::routes())
         .nest("/core/v2", core::routes())
         .nest("/indexer/v1", indexer::routes())
 }

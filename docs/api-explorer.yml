@@ -19,7 +19,7 @@ tags:
   - name: balance
     description: Everything about balances.
 paths:
-  /api/history/v2/balance/{address}:
+  /api/explorer/v2/balance/{address}:
     get:
       tags:
         - balance
@@ -44,7 +44,7 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/history/v2/ledger/updates/by-address/{address}:
+  /api/explorer/v2/ledger/updates/by-address/{address}:
     get:
       tags:
         - ledger
@@ -73,7 +73,7 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/history/v2/ledger/updates/by-milestone/{milestoneId}:
+  /api/explorer/v2/ledger/updates/by-milestone/{milestoneId}:
     get:
       tags:
         - ledger
