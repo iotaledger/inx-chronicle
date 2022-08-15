@@ -14,10 +14,12 @@ externalDocs:
 servers:
   - url: "http://127.0.0.1:8000"
 tags:
-  - name: ledger
-    description: Everything about the ledger.
   - name: balance
     description: Everything about balances.
+  - name: blocks
+    description: Everything about blocks.
+  - name: ledger
+    description: Everything about the ledger.
 paths:
   /api/explorer/v2/balance/{address}:
     get:
@@ -38,6 +40,34 @@ paths:
               examples:
                 default:
                   $ref: "#/components/examples/balance-example"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/explorer/v2/blocks/{blockId}/children:
+    get:
+      tags:
+        - blocks
+      summary: Returns the children of a block.
+      description: >-
+        Returns the children of a given block in the Tangle.
+      parameters:
+        - in: path
+          name: blockId
+          schema:
+            type: string
+          example: "0xf532a53545103276b46876c473846d98648ee418468bce76df4868648dd73e5d"
+          required: true
+          description: Identifier of the block.
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockChildrenResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -117,6 +147,23 @@ components:
         ledgerIndex:
           type: integer
           description: The ledger index for which the balance calculation was performed.
+    BlockChildrenResponse:
+      description: Returns the children of a given block.
+      properties:
+        blockId:
+          type: string
+          description: The block id of the parent.
+        maxResults:
+          type: integer
+          description: The maximum number of results.
+        count:
+          type: integer
+          description: The total number of children.
+        children:
+          type: array
+          description: A list of block ids.
+          items:
+            type: string
     LedgerUpdatesByMilestoneResponse:
       description: A list of ledger updates associated with a milestone.
       properties:
