@@ -38,7 +38,7 @@ services:
 
   inx-chronicle:
     container_name: inx-chronicle
-    depends_on: [mongo1, mongo2, mongo3, hornet]
+    depends_on: [mongo1, mongo2, mongo3]
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -51,7 +51,7 @@ services:
     tty: true
     command:
       - "--inx"
-      - "http://hornet:9029"
+      - "http://host.docker.internal:9029"
       - "--db"
       - "mongodb://mongo1:27017"
       - "--config"
@@ -59,29 +59,3 @@ services:
     volumes:
       - ../bin/inx-chronicle/config.template.toml:/app/config.toml:ro
 
-  hornet:
-    image: iotaledger/hornet:2.0.0-beta.4
-    container_name: hornet
-    ulimits:
-      nofile:
-        soft: 8192
-        hard: 8192
-    stop_grace_period: 5m
-    ports:
-      - "15600:15600/tcp" # Gossip
-      - "14626:14626/udp" # Autopeering
-      - "14265:14265/tcp" # REST API
-      - "8081:8081/tcp"   # Dashboard
-      - "8091:8091/tcp"   # Faucet
-      - "9311:9311/tcp"   # Prometheus
-      - "9029:9029/tcp"   # INX
-    cap_drop:
-      - ALL
-    volumes:
-      - ./hornet_data:/app/alphanet
-      - ./config.alphanet.hornet.json:/app/config.json:ro
-    command:
-      - "-c"
-      - "config.json"
-      - "--inx.enabled=true"
-      - "--inx.bindAddress=hornet:9029"

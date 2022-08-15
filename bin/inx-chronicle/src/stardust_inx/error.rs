@@ -10,6 +10,10 @@ pub enum InxError {
     ConnectionError,
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
+    #[error("wrong number of ledger updates: `{received}` but expected `{expected}`")]
+    InvalidLedgerUpdateCount { received: usize, expected: usize },
+    #[error("invalid milestone state")]
+    InvalidMilestoneState,
     #[error("missing milestone id for milestone index `{0}`")]
     MissingMilestoneInfo(MilestoneIndex),
     #[error("MongoDB error: {0}")]

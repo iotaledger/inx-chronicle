@@ -9,11 +9,15 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
-    types::{ledger::MilestoneIndexTimestamp, tangle::ProtocolParameters},
+    types::{
+        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use futures::{StreamExt, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
+use pin_project::pin_project;
 use tokio::time::Instant;
 
 pub struct InxWorker {
@@ -77,7 +81,7 @@ impl Actor for InxWorker {
         let start_index = if let Some(MilestoneIndexTimestamp {
             milestone_index: latest_milestone,
             ..
-        }) = self.db.get_latest_milestone().await?
+        }) = self.db.get_newest_milestone().await?
         {
             if node_status.tangle_pruning_index > latest_milestone.0 {
                 return Err(InxError::MilestoneGap {
@@ -147,7 +151,8 @@ impl Actor for InxWorker {
 
         session.commit_transaction().await?;
 
-        let ledger_update_stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
+        let ledger_update_stream =
+            LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?);
 
         cx.add_stream(ledger_update_stream);
 
@@ -159,12 +164,125 @@ impl Actor for InxWorker {
     }
 }
 
+#[derive(Debug)]
+pub struct LedgerUpdateRecord {
+    milestone_index: MilestoneIndex,
+    outputs: Vec<OutputWithMetadata>,
+}
+
+#[pin_project]
+pub struct LedgerUpdateStream<S> {
+    #[pin]
+    inner: S,
+    #[pin]
+    record: Option<LedgerUpdateRecord>,
+}
+
+impl<S> LedgerUpdateStream<S> {
+    fn new(inner: S) -> Self {
+        Self { inner, record: None }
+    }
+}
+
+impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for LedgerUpdateStream<S> {
+    type Item = Result<LedgerUpdateRecord, InxError>;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        use std::task::Poll;
+
+        use bee_inx::LedgerUpdate;
+
+        let mut this = self.project();
+        Poll::Ready(loop {
+            if let Poll::Ready(next) = this.inner.as_mut().poll_next(cx) {
+                if let Some(res) = next {
+                    match res {
+                        Ok(ledger_update) => match ledger_update {
+                            LedgerUpdate::Begin(marker) => {
+                                // We shouldn't already have a record. If we do, that's bad.
+                                if let Some(record) = this.record.as_mut().take() {
+                                    break Some(Err(InxError::InvalidLedgerUpdateCount {
+                                        received: record.outputs.len(),
+                                        expected: record.outputs.capacity(),
+                                    }));
+                                } else {
+                                    this.record.set(Some(LedgerUpdateRecord {
+                                        milestone_index: marker.milestone_index.into(),
+                                        outputs: Vec::with_capacity(marker.created_count + marker.consumed_count),
+                                    }));
+                                }
+                            }
+                            LedgerUpdate::Consumed(consumed) => {
+                                if let Some(mut record) = this.record.as_mut().as_pin_mut() {
+                                    match OutputWithMetadata::try_from(consumed) {
+                                        Ok(consumed) => {
+                                            record.outputs.push(consumed);
+                                        }
+                                        Err(e) => {
+                                            break Some(Err(e.into()));
+                                        }
+                                    }
+                                } else {
+                                    break Some(Err(InxError::InvalidMilestoneState));
+                                }
+                            }
+                            LedgerUpdate::Created(created) => {
+                                if let Some(mut record) = this.record.as_mut().as_pin_mut() {
+                                    match OutputWithMetadata::try_from(created) {
+                                        Ok(created) => {
+                                            record.outputs.push(created);
+                                        }
+                                        Err(e) => {
+                                            break Some(Err(e.into()));
+                                        }
+                                    }
+                                } else {
+                                    break Some(Err(InxError::InvalidMilestoneState));
+                                }
+                            }
+                            LedgerUpdate::End(marker) => {
+                                if let Some(record) = this.record.as_mut().take() {
+                                    if record.outputs.len() != marker.consumed_count + marker.created_count {
+                                        break Some(Err(InxError::InvalidLedgerUpdateCount {
+                                            received: record.outputs.len(),
+                                            expected: marker.consumed_count + marker.created_count,
+                                        }));
+                                    }
+                                    break Some(Ok(record));
+                                } else {
+                                    break Some(Err(InxError::InvalidMilestoneState));
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            break Some(Err(e.into()));
+                        }
+                    }
+                } else {
+                    // If we were supposed to be in the middle of a milestone, something went wrong.
+                    if let Some(record) = this.record.as_mut().take() {
+                        break Some(Err(InxError::InvalidLedgerUpdateCount {
+                            received: record.outputs.len(),
+                            expected: record.outputs.capacity(),
+                        }));
+                    } else {
+                        break None;
+                    }
+                }
+            }
+        })
+    }
+}
+
 #[async_trait]
-impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
+impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
-        ledger_update_result: Result<bee_inx::LedgerUpdate, bee_inx::Error>,
+        ledger_update_result: Result<LedgerUpdateRecord, InxError>,
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
         log::trace!("Received ledger update event {:#?}", ledger_update_result);
@@ -174,27 +292,21 @@ impl HandleEvent<Result<bee_inx::LedgerUpdate, bee_inx::Error>> for InxWorker {
 
         let ledger_update = ledger_update_result?;
 
-        let output_updates = Vec::from(ledger_update.created)
-            .into_iter()
-            .map(TryInto::try_into)
-            .chain(Vec::from(ledger_update.consumed).into_iter().map(TryInto::try_into))
-            .collect::<Result<Vec<_>, _>>()?;
-
         let mut session = self.db.start_transaction(None).await?;
 
         self.db
-            .insert_ledger_updates(&mut session, output_updates.into_iter())
+            .insert_ledger_updates(&mut session, ledger_update.outputs.into_iter())
             .await?;
 
-        let milestone = inx.read_milestone(ledger_update.milestone_index.into()).await?;
+        let milestone = inx.read_milestone(ledger_update.milestone_index.0.into()).await?;
         let parameters: ProtocolParameters = inx
-            .read_protocol_parameters(ledger_update.milestone_index.into())
+            .read_protocol_parameters(ledger_update.milestone_index.0.into())
             .await?
             .inner()?
             .into();
 
         self.db
-            .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index.into(), parameters)
+            .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index, parameters)
             .await?;
 
         log::trace!("Received milestone: `{:?}`", milestone);

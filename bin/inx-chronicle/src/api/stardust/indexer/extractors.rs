@@ -72,12 +72,12 @@ pub struct BasicOutputsPaginationQuery {
     pub has_native_tokens: Option<bool>,
     pub min_native_token_count: Option<String>,
     pub max_native_token_count: Option<String>,
-    pub has_storage_return_condition: Option<bool>,
-    pub storage_return_address: Option<String>,
-    pub has_timelock_condition: Option<bool>,
+    pub has_storage_deposit_return: Option<bool>,
+    pub storage_deposit_return_address: Option<String>,
+    pub has_timelock: Option<bool>,
     pub timelocked_before: Option<u32>,
     pub timelocked_after: Option<u32>,
-    pub has_expiration_condition: Option<bool>,
+    pub has_expiration: Option<bool>,
     pub expires_before: Option<u32>,
     pub expires_after: Option<u32>,
     pub expiration_return_address: Option<String>,
@@ -131,16 +131,16 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
-                has_storage_return_condition: query.has_storage_return_condition,
-                storage_return_address: query
-                    .storage_return_address
+                has_storage_deposit_return: query.has_storage_deposit_return,
+                storage_deposit_return_address: query
+                    .storage_deposit_return_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
-                has_timelock_condition: query.has_timelock_condition,
+                has_timelock: query.has_timelock,
                 timelocked_before: query.timelocked_before.map(Into::into),
                 timelocked_after: query.timelocked_after.map(Into::into),
-                has_expiration_condition: query.has_expiration_condition,
+                has_expiration: query.has_expiration,
                 expires_before: query.expires_before.map(Into::into),
                 expires_after: query.expires_after.map(Into::into),
                 expiration_return_address: query
@@ -324,12 +324,12 @@ pub struct NftOutputsPaginationQuery {
     pub has_native_tokens: Option<bool>,
     pub min_native_token_count: Option<String>,
     pub max_native_token_count: Option<String>,
-    pub has_storage_return_condition: Option<bool>,
-    pub storage_return_address: Option<String>,
-    pub has_timelock_condition: Option<bool>,
+    pub has_storage_deposit_return: Option<bool>,
+    pub storage_deposit_return_address: Option<String>,
+    pub has_timelock: Option<bool>,
     pub timelocked_before: Option<u32>,
     pub timelocked_after: Option<u32>,
-    pub has_expiration_condition: Option<bool>,
+    pub has_expiration: Option<bool>,
     pub expires_before: Option<u32>,
     pub expires_after: Option<u32>,
     pub expiration_return_address: Option<String>,
@@ -392,16 +392,16 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
-                has_storage_return_condition: query.has_storage_return_condition,
-                storage_return_address: query
-                    .storage_return_address
+                has_storage_deposit_return: query.has_storage_deposit_return,
+                storage_deposit_return_address: query
+                    .storage_deposit_return_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
                     .map_err(ApiError::bad_parse)?,
-                has_timelock_condition: query.has_timelock_condition,
+                has_timelock: query.has_timelock,
                 timelocked_before: query.timelocked_before.map(Into::into),
                 timelocked_after: query.timelocked_after.map(Into::into),
-                has_expiration_condition: query.has_expiration_condition,
+                has_expiration: query.has_expiration,
                 expires_before: query.expires_before.map(Into::into),
                 expires_after: query.expires_after.map(Into::into),
                 expiration_return_address: query

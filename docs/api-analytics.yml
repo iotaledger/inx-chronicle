@@ -148,6 +148,23 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/blocks/milestone:
+    get:
+      tags:
+        - activity
+      summary: Returns total milestone type block count.
+      description: >-
+        Returns the count of milestone blocks created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/blocks/tagged-data:
     get:
       tags:
@@ -155,6 +172,23 @@ paths:
       summary: Returns total tagged data type block count.
       description: >-
         Returns the count of tagged data blocks created within the specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Block"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/blocks/treasury-transaction:
+    get:
+      tags:
+        - activity
+      summary: Returns total treasury transaction type block count.
+      description: >-
+        Returns the count of treasury transaction blocks created within the specified milestone range.
       parameters:
         - $ref: "#/components/parameters/startIndex"
         - $ref: "#/components/parameters/endIndex"
@@ -460,7 +494,7 @@ components:
       in: query
       name: startIndex
       schema:
-        type: number
+        type: integer
       example: 100000
       required: false
       description: The milestone index with which to limit the start of the results.
@@ -468,7 +502,7 @@ components:
       in: query
       name: endIndex
       schema:
-        type: number
+        type: integer
       example: 200000
       required: false
       description: The milestone index with which to limit the end of the results.
@@ -476,7 +510,7 @@ components:
       in: query
       name: ledgerIndex
       schema:
-        type: number
+        type: integer
       example: 200000
       required: false
       description: >-

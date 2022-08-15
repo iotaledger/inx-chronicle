@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.6"
+version = "1.0.0-beta.8"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -67,22 +67,22 @@ tower-http = { version = "0.3", default-features = false, features = ["cors", "c
 zeroize = { version = "1.5", default-features = false, features = ["std"], optional = true }
 
 # INX
-bee-inx = { version = "1.0.0-beta.2", default-features = false, optional = true }
-tonic = { version = "0.7.2", default-features = false, optional = true }
+bee-inx = { version = "1.0.0-beta.4", default-features = false, optional = true }
+tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.4", default-features = false, features = [ "dto", "std", "serde", ], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "std", "serde", ], optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 
 [dev-dependencies]
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.4", default-features = false, features = [ "dto", "rand", "std", "serde", ] }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "rand", "std", "serde", ] }
 packable = { version = "0.5", default-features = false }
 
 [features]

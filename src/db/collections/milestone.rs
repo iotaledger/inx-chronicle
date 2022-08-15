@@ -24,6 +24,9 @@ use crate::{
     },
 };
 
+const BY_OLDEST: i32 = 1;
+const BY_NEWEST: i32 = -1;
+
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct MilestoneDocument {
@@ -57,7 +60,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "at.milestone_index": 1 })
+                    .keys(doc! { "at.milestone_index": BY_OLDEST })
                     .options(
                         IndexOptions::builder()
                             .unique(true)
@@ -72,7 +75,7 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "at.milestone_timestamp": 1 })
+                    .keys(doc! { "at.milestone_timestamp": BY_OLDEST })
                     .options(
                         IndexOptions::builder()
                             .unique(true)
@@ -143,22 +146,26 @@ impl MongoDb {
             .transpose()?)
     }
 
-    /// Gets the timestamp of a milestone by the [`MilestoneIndex`].
-    pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
+    /// Gets the id of a milestone by the [`MilestoneIndex`].
+    pub async fn get_milestone_id(&self, index: MilestoneIndex) -> Result<Option<MilestoneId>, Error> {
+        #[derive(Deserialize)]
+        struct MilestoneIdResult {
+            milestone_id: MilestoneId,
+        }
         Ok(self
             .db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
+            .collection::<MilestoneIdResult>(MilestoneDocument::COLLECTION)
             .find_one(
                 doc! { "at.milestone_index": index },
                 FindOneOptions::builder()
                     .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
+                        "milestone_id": "$milestone_id",
+
                     })
                     .build(),
             )
             .await?
-            .map(|ts| ts.milestone_timestamp))
+            .map(|ts| ts.milestone_id))
     }
 
     /// Inserts the information of a milestone into the database.
@@ -240,123 +247,43 @@ impl MongoDb {
             .await
     }
 
-    /// Find the latest milestone inserted.
-    pub async fn get_latest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+    /// Find the newest milestone.
+    pub async fn get_newest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
         self.db
             .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
+            .find_one(
                 doc! {},
-                FindOptions::builder()
-                    .sort(doc! { "at.milestone_index": -1 })
-                    .limit(1)
+                FindOneOptions::builder()
+                    .sort(doc! { "at.milestone_index": BY_NEWEST })
                     .projection(doc! {
                         "milestone_index": "$at.milestone_index",
                         "milestone_timestamp": "$at.milestone_timestamp",
                     })
                     .build(),
             )
-            .await?
-            .try_next()
+            .await
+    }
+
+    /// Find the oldest milestone.
+    pub async fn get_oldest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        self.db
+            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
+            .find_one(
+                doc! {},
+                FindOneOptions::builder()
+                    .sort(doc! { "at.milestone_index": BY_OLDEST })
+                    .projection(doc! {
+                        "milestone_index": "$at.milestone_index",
+                        "milestone_timestamp": "$at.milestone_timestamp",
+                    })
+                    .build(),
+            )
             .await
     }
 
     /// Gets the current ledger index.
     pub async fn get_ledger_index(&self) -> Result<Option<MilestoneIndex>, Error> {
-        Ok(self.get_latest_milestone().await?.map(|ts| ts.milestone_index))
-    }
-
-    /// Retrieves the sync records sorted by their [`MilestoneIndex`].
-    async fn get_sorted_milestone_indices_synced(
-        &self,
-        range: RangeInclusive<MilestoneIndex>,
-    ) -> Result<impl Stream<Item = Result<MilestoneIndex, Error>>, Error> {
-        Ok(self
-            .db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! {
-                    "at.milestone_index": { "$gte": *range.start(), "$lte": *range.end() },
-                },
-                FindOptions::builder()
-                    .sort(doc! { "at.milestone_index": 1 })
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await?
-            .map_ok(|ts| ts.milestone_index))
-    }
-
-    /// Retrieves a [`SyncData`] structure that contains the completed and gaps ranges.
-    pub async fn get_sync_data(&self, range: RangeInclusive<MilestoneIndex>) -> Result<SyncData, Error> {
-        let mut synced_ms = self.get_sorted_milestone_indices_synced(range.clone()).await?;
-        let mut sync_data = SyncData::default();
-        let mut last_record: Option<MilestoneIndex> = None;
-
-        while let Some(milestone_index) = synced_ms.try_next().await? {
-            // Missing records go into gaps
-            if let Some(&last) = last_record.as_ref() {
-                if last + 1 < milestone_index {
-                    sync_data.gaps.push(last + 1..=milestone_index - 1);
-                }
-            } else if *range.start() < milestone_index {
-                sync_data.gaps.push(*range.start()..=milestone_index - 1)
-            }
-            match sync_data.completed.last_mut() {
-                Some(last) => {
-                    if *last.end() + 1 == milestone_index {
-                        *last = *last.start()..=milestone_index;
-                    } else {
-                        sync_data.completed.push(milestone_index..=milestone_index);
-                    }
-                }
-                None => sync_data.completed.push(milestone_index..=milestone_index),
-            }
-            last_record.replace(milestone_index);
-        }
-        if let Some(&last) = last_record.as_ref() {
-            if last < *range.end() {
-                sync_data.gaps.push(last + 1..=*range.end());
-            }
-        } else if range.start() <= range.end() {
-            sync_data.gaps.push(range);
-        }
-        Ok(sync_data)
-    }
-
-    /// Retrieves gaps in the milestones collection.
-    pub async fn get_gaps(&self) -> Result<Vec<RangeInclusive<MilestoneIndex>>, Error> {
-        let mut synced_ms = self
-            .db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! {},
-                FindOptions::builder()
-                    .sort(doc! { "at.milestone_index": 1 })
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await?
-            .map_ok(|e| e.milestone_index);
-
-        let mut gaps = Vec::new();
-        let mut last_record: Option<MilestoneIndex> = None;
-
-        while let Some(milestone_index) = synced_ms.try_next().await? {
-            // Missing records go into gaps
-            if let Some(&last) = last_record.as_ref() {
-                if last + 1 < milestone_index {
-                    gaps.push(last + 1..=milestone_index - 1);
-                }
-            }
-            last_record.replace(milestone_index);
-        }
-        Ok(gaps)
+        Ok(self.get_newest_milestone().await?.map(|ts| ts.milestone_index))
     }
 
     /// Streams all available receipt milestone options together with their corresponding `MilestoneIndex`.
