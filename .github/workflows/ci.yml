@@ -62,6 +62,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions-rs/cargo@v1
         with:
           command: ci-doc

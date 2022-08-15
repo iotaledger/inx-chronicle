@@ -196,83 +196,85 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
 
         use bee_inx::LedgerUpdate;
 
-        let this = self.project();
-        if let Poll::Ready(next) = this.inner.poll_next(cx) {
-            if let Some(res) = next {
-                match res {
-                    Ok(ledger_update) => match ledger_update {
-                        LedgerUpdate::Begin(marker) => {
-                            // We shouldn't already have a record. If we do, that's bad.
-                            let record = this.record.get_mut();
-                            if let Some(record) = record.take() {
-                                return Poll::Ready(Some(Err(InxError::InvalidLedgerUpdateCount {
-                                    received: record.outputs.len(),
-                                    expected: record.outputs.capacity(),
-                                })));
-                            } else {
-                                *record = Some(LedgerUpdateRecord {
-                                    milestone_index: marker.milestone_index.into(),
-                                    outputs: Vec::with_capacity(marker.created_count + marker.consumed_count),
-                                });
-                            }
-                        }
-                        LedgerUpdate::Consumed(consumed) => {
-                            if let Some(record) = this.record.get_mut() {
-                                match OutputWithMetadata::try_from(consumed) {
-                                    Ok(consumed) => {
-                                        record.outputs.push(consumed);
-                                    }
-                                    Err(e) => {
-                                        return Poll::Ready(Some(Err(e.into())));
-                                    }
-                                }
-                            } else {
-                                return Poll::Ready(Some(Err(InxError::InvalidMilestoneState)));
-                            }
-                        }
-                        LedgerUpdate::Created(created) => {
-                            if let Some(record) = this.record.get_mut() {
-                                match OutputWithMetadata::try_from(created) {
-                                    Ok(created) => {
-                                        record.outputs.push(created);
-                                    }
-                                    Err(e) => {
-                                        return Poll::Ready(Some(Err(e.into())));
-                                    }
-                                }
-                            } else {
-                                return Poll::Ready(Some(Err(InxError::InvalidMilestoneState)));
-                            }
-                        }
-                        LedgerUpdate::End(marker) => {
-                            if let Some(record) = this.record.get_mut().take() {
-                                if record.outputs.len() != marker.consumed_count + marker.created_count {
-                                    return Poll::Ready(Some(Err(InxError::InvalidLedgerUpdateCount {
+        let mut this = self.project();
+        Poll::Ready(loop {
+            if let Poll::Ready(next) = this.inner.as_mut().poll_next(cx) {
+                if let Some(res) = next {
+                    match res {
+                        Ok(ledger_update) => match ledger_update {
+                            LedgerUpdate::Begin(marker) => {
+                                // We shouldn't already have a record. If we do, that's bad.
+                                if let Some(record) = this.record.as_mut().take() {
+                                    break Some(Err(InxError::InvalidLedgerUpdateCount {
                                         received: record.outputs.len(),
-                                        expected: marker.consumed_count + marker.created_count,
-                                    })));
+                                        expected: record.outputs.capacity(),
+                                    }));
+                                } else {
+                                    this.record.set(Some(LedgerUpdateRecord {
+                                        milestone_index: marker.milestone_index.into(),
+                                        outputs: Vec::with_capacity(marker.created_count + marker.consumed_count),
+                                    }));
                                 }
-                                return Poll::Ready(Some(Ok(record)));
-                            } else {
-                                return Poll::Ready(Some(Err(InxError::InvalidMilestoneState)));
                             }
+                            LedgerUpdate::Consumed(consumed) => {
+                                if let Some(mut record) = this.record.as_mut().as_pin_mut() {
+                                    match OutputWithMetadata::try_from(consumed) {
+                                        Ok(consumed) => {
+                                            record.outputs.push(consumed);
+                                        }
+                                        Err(e) => {
+                                            break Some(Err(e.into()));
+                                        }
+                                    }
+                                } else {
+                                    break Some(Err(InxError::InvalidMilestoneState));
+                                }
+                            }
+                            LedgerUpdate::Created(created) => {
+                                if let Some(mut record) = this.record.as_mut().as_pin_mut() {
+                                    match OutputWithMetadata::try_from(created) {
+                                        Ok(created) => {
+                                            record.outputs.push(created);
+                                        }
+                                        Err(e) => {
+                                            break Some(Err(e.into()));
+                                        }
+                                    }
+                                } else {
+                                    break Some(Err(InxError::InvalidMilestoneState));
+                                }
+                            }
+                            LedgerUpdate::End(marker) => {
+                                if let Some(record) = this.record.as_mut().take() {
+                                    if record.outputs.len() != marker.consumed_count + marker.created_count {
+                                        break Some(Err(InxError::InvalidLedgerUpdateCount {
+                                            received: record.outputs.len(),
+                                            expected: marker.consumed_count + marker.created_count,
+                                        }));
+                                    }
+                                    break Some(Ok(record));
+                                } else {
+                                    break Some(Err(InxError::InvalidMilestoneState));
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            break Some(Err(e.into()));
                         }
-                    },
-                    Err(e) => {
-                        return Poll::Ready(Some(Err(e.into())));
+                    }
+                } else {
+                    // If we were supposed to be in the middle of a milestone, something went wrong.
+                    if let Some(record) = this.record.as_mut().take() {
+                        break Some(Err(InxError::InvalidLedgerUpdateCount {
+                            received: record.outputs.len(),
+                            expected: record.outputs.capacity(),
+                        }));
+                    } else {
+                        break None;
                     }
                 }
-            } else {
-                // If we were supposed to be in the middle of a milestone, something went wrong.
-                if let Some(record) = this.record.get_mut().take() {
-                    return Poll::Ready(Some(Err(InxError::InvalidLedgerUpdateCount {
-                        received: record.outputs.len(),
-                        expected: record.outputs.capacity(),
-                    })));
-                }
             }
-        }
-        Poll::Pending
+        })
     }
 }
 

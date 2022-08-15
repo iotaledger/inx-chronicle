@@ -25,6 +25,7 @@ pub use self::{
 };
 use crate::types::stardust::block::{
     AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
+    TreasuryTransactionPayload,
 };
 
 /// Helper to specify a kind for an output type.
@@ -72,4 +73,5 @@ macro_rules! impl_payload_kind {
 }
 impl_payload_kind!(TransactionPayload, "transaction");
 impl_payload_kind!(MilestonePayload, "milestone");
-impl_payload_kind!(TaggedDataPayload, "tagged-data");
+impl_payload_kind!(TaggedDataPayload, "tagged_data");
+impl_payload_kind!(TreasuryTransactionPayload, "treasury_transaction");
