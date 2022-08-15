@@ -14,24 +14,24 @@ use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LederUpdatesByAddressResponse {
+pub struct LedgerUpdatesByAddressResponse {
     pub address: String,
-    pub items: Vec<LedgerUpdateByAddressResponse>,
+    pub items: Vec<LedgerUpdateByAddressDto>,
     pub cursor: Option<String>,
 }
 
-impl_success_response!(LederUpdatesByAddressResponse);
+impl_success_response!(LedgerUpdatesByAddressResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LedgerUpdateByAddressResponse {
+pub struct LedgerUpdateByAddressDto {
     pub output_id: String,
     pub is_spent: bool,
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,
 }
 
-impl From<LedgerUpdateByAddressRecord> for LedgerUpdateByAddressResponse {
+impl From<LedgerUpdateByAddressRecord> for LedgerUpdateByAddressDto {
     fn from(value: LedgerUpdateByAddressRecord) -> Self {
         Self {
             output_id: value.output_id.to_hex(),
@@ -46,7 +46,7 @@ impl From<LedgerUpdateByAddressRecord> for LedgerUpdateByAddressResponse {
 #[serde(rename_all = "camelCase")]
 pub struct LedgerUpdatesByMilestoneResponse {
     pub milestone_index: MilestoneIndex,
-    pub items: Vec<LedgerUpdateByMilestoneResponse>,
+    pub items: Vec<LedgerUpdateByMilestoneDto>,
     pub cursor: Option<String>,
 }
 
@@ -54,13 +54,13 @@ impl_success_response!(LedgerUpdatesByMilestoneResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LedgerUpdateByMilestoneResponse {
+pub struct LedgerUpdateByMilestoneDto {
     pub address: Address,
     pub output_id: String,
     pub is_spent: bool,
 }
 
-impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneResponse {
+impl From<LedgerUpdateByMilestoneRecord> for LedgerUpdateByMilestoneDto {
     fn from(value: LedgerUpdateByMilestoneRecord) -> Self {
         Self {
             address: value.address,
@@ -79,3 +79,16 @@ pub struct BalanceResponse {
 }
 
 impl_success_response!(BalanceResponse);
+
+/// Response of GET /api/explorer/v2/blocks/{block_id}/children.
+/// Returns all children of a specific block.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockChildrenResponse {
+    pub block_id: String,
+    pub max_results: usize,
+    pub count: usize,
+    pub children: Vec<String>,
+}
+
+impl_success_response!(BlockChildrenResponse);

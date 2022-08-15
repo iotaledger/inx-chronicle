@@ -6,7 +6,7 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::MongoDb,
-    types::{stardust::block::Address, tangle::MilestoneIndex},
+    types::stardust::block::{Address, BlockId, MilestoneId},
 };
 use futures::{StreamExt, TryStreamExt};
 
@@ -16,19 +16,21 @@ use super::{
         LedgerUpdatesByMilestonePagination,
     },
     responses::{
-        BalanceResponse, LederUpdatesByAddressResponse, LedgerUpdateByAddressResponse, LedgerUpdateByMilestoneResponse,
-        LedgerUpdatesByMilestoneResponse,
+        BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
     },
 };
-use crate::api::{router::Router, ApiError, ApiResult};
+use crate::api::{extractors::Pagination, router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
-    Router::new().route("/balance/:address", get(balance)).nest(
-        "/ledger/updates",
-        Router::new()
-            .route("/by-address/:address", get(ledger_updates_by_address))
-            .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-    )
+    Router::new()
+        .route("/balance/:address", get(balance))
+        .route("/blocks/:block_id/children", get(block_children))
+        .nest(
+            "/ledger/updates",
+            Router::new()
+                .route("/by-address/:address", get(ledger_updates_by_address))
+                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+        )
 }
 
 async fn ledger_updates_by_address(
@@ -39,7 +41,7 @@ async fn ledger_updates_by_address(
         sort,
         cursor,
     }: LedgerUpdatesByAddressPagination,
-) -> ApiResult<LederUpdatesByAddressResponse> {
+) -> ApiResult<LedgerUpdatesByAddressResponse> {
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
@@ -56,8 +58,8 @@ async fn ledger_updates_by_address(
     let items = record_stream
         .by_ref()
         .take(page_size)
-        .map(|record_result| record_result.map(LedgerUpdateByAddressResponse::from))
-        .try_collect::<Vec<_>>()
+        .map_ok(Into::into)
+        .try_collect()
         .await?;
 
     // If any record is left, use it to make the cursor
@@ -71,15 +73,22 @@ async fn ledger_updates_by_address(
         .to_string()
     });
 
-    Ok(LederUpdatesByAddressResponse { address, items, cursor })
+    Ok(LedgerUpdatesByAddressResponse { address, items, cursor })
 }
 
 async fn ledger_updates_by_milestone(
     database: Extension<MongoDb>,
-    Path(milestone_index): Path<String>,
+    Path(milestone_id): Path<String>,
     LedgerUpdatesByMilestonePagination { page_size, cursor }: LedgerUpdatesByMilestonePagination,
 ) -> ApiResult<LedgerUpdatesByMilestoneResponse> {
-    let milestone_index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let milestone_index = database
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?
+        .essence
+        .index;
 
     let mut record_stream = database
         .stream_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
@@ -89,8 +98,8 @@ async fn ledger_updates_by_milestone(
     let items = record_stream
         .by_ref()
         .take(page_size)
-        .map(|record_result| record_result.map(LedgerUpdateByMilestoneResponse::from))
-        .try_collect::<Vec<_>>()
+        .map_ok(Into::into)
+        .try_collect()
         .await?;
 
     // If any record is left, use it to make the paging state
@@ -121,5 +130,29 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> A
         total_balance: res.total_balance,
         sig_locked_balance: res.sig_locked_balance,
         ledger_index: res.ledger_index,
+    })
+}
+
+async fn block_children(
+    database: Extension<MongoDb>,
+    Path(block_id): Path<String>,
+    Pagination { page_size, page }: Pagination,
+) -> ApiResult<BlockChildrenResponse> {
+    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
+    let mut block_children = database
+        .get_block_children(&block_id, page_size, page)
+        .await
+        .map_err(|_| ApiError::NoResults)?;
+
+    let mut children = Vec::new();
+    while let Some(block_id) = block_children.try_next().await? {
+        children.push(block_id.to_hex());
+    }
+
+    Ok(BlockChildrenResponse {
+        block_id: block_id.to_hex(),
+        max_results: page_size,
+        count: children.len(),
+        children,
     })
 }

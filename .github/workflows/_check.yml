@@ -20,19 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install protoc (Ubuntu)
-        if: contains(inputs.os, 'ubuntu')
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Install protoc (macOS)
-        if: contains(inputs.os, 'macos')
-        run: brew install protobuf
-
-      - name: Install protoc (Windows)
-        if: contains(inputs.os, 'windows')
-        run: choco install protoc
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust (${{ inputs.rust }})
         uses: actions-rs/toolchain@v1
