@@ -23,6 +23,11 @@ jobs:
           toolchain: ${{inputs.rust}}
           override: true
           components: clippy
+      
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clippy with all features
         uses: actions-rs/cargo@v1
