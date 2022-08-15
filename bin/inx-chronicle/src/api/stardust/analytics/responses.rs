@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
 
-/// Response of `GET /api/analytics/addresses[?start_timestamp=<i64>&end_timestamp=<i64>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressAnalyticsResponse {
@@ -17,7 +16,6 @@ pub struct AddressAnalyticsResponse {
 
 impl_success_response!(AddressAnalyticsResponse);
 
-/// Response of `GET /api/analytics/transactions[?start_timestamp=<i64>&end_timestamp=<i64>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutputAnalyticsResponse {
@@ -27,7 +25,6 @@ pub struct OutputAnalyticsResponse {
 
 impl_success_response!(OutputAnalyticsResponse);
 
-/// Response of `GET /api/analytics/transactions[?start_timestamp=<i64>&end_timestamp=<i64>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockAnalyticsResponse {
@@ -50,3 +47,13 @@ pub struct StorageDepositAnalyticsResponse {
 }
 
 impl_success_response!(StorageDepositAnalyticsResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputDiffAnalyticsResponse {
+    pub created_count: String,
+    pub transferred_count: String,
+    pub burned_count: String,
+}
+
+impl_success_response!(OutputDiffAnalyticsResponse);

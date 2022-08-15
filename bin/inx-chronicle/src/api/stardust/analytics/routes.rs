@@ -17,7 +17,8 @@ use chronicle::{
 use super::{
     extractors::{LedgerIndex, MilestoneRange},
     responses::{
-        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, StorageDepositAnalyticsResponse,
+        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse,
+        StorageDepositAnalyticsResponse,
     },
 };
 use crate::api::{ApiError, ApiResult};
@@ -35,6 +36,7 @@ pub fn routes() -> Router {
             "/activity",
             Router::new()
                 .route("/addresses", get(address_analytics))
+                .route("/nfts", get(nft_output_analytics))
                 .nest(
                     "/blocks",
                     Router::new()
@@ -132,5 +134,18 @@ async fn storage_deposit_analytics(
             v_byte_factor_key: res.rent_structure.v_byte_factor_key,
             v_byte_factor_data: res.rent_structure.v_byte_factor_data,
         },
+    })
+}
+
+async fn nft_output_analytics(
+    database: Extension<MongoDb>,
+    MilestoneRange { start_index, end_index }: MilestoneRange,
+) -> ApiResult<OutputDiffAnalyticsResponse> {
+    let res = database.get_nft_output_analytics(start_index, end_index).await?;
+
+    Ok(OutputDiffAnalyticsResponse {
+        created_count: res.created_count.to_string(),
+        transferred_count: res.transferred_count.to_string(),
+        burned_count: res.burned_count.to_string(),
     })
 }
