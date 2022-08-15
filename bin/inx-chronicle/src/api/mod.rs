@@ -32,6 +32,7 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
+use tracing::{debug, error, info};
 
 pub use self::{
     config::ApiConfig,
@@ -73,7 +74,7 @@ impl Actor for ApiWorker {
 
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         let (sender, receiver) = oneshot::channel();
-        log::info!("Starting API server on port `{}`", self.api_data.port);
+        info!("Starting API server on port `{}`", self.api_data.port);
         let api_handle = cx.handle().clone();
         let port = self.api_data.port;
         let routes = routes()
@@ -124,7 +125,7 @@ impl Actor for ApiWorker {
         _state: &mut Self::State,
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
-        log::debug!("{} shutting down ({})", self.name(), cx.id());
+        debug!("{} shutting down ({})", self.name(), cx.id());
         if let Some((join_handle, shutdown_handle)) = self.server_handle.take() {
             // Try to shut down axum. It may have already shut down, which is fine.
             shutdown_handle.send(()).ok();
@@ -132,7 +133,7 @@ impl Actor for ApiWorker {
             // Unwrap: Failures to join on this handle can safely be propagated as panics via the runtime.
             join_handle.await.unwrap()?;
         }
-        log::info!("Stopping API server");
+        info!("Stopping API server");
         run_result
     }
 
@@ -143,6 +144,6 @@ impl Actor for ApiWorker {
 
 async fn shutdown_signal(recv: oneshot::Receiver<()>) {
     if let Err(e) = recv.await {
-        log::error!("Error receiving shutdown signal: {}", e);
+        error!("Error receiving shutdown signal: {}", e);
     }
 }

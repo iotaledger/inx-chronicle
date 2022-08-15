@@ -12,6 +12,7 @@ use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
 use thiserror::Error;
+use tracing::error;
 
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
@@ -157,7 +158,7 @@ impl IntoResponse for ErrorBody {
                 .body(axum::body::boxed(axum::body::Full::from(json)))
                 .unwrap(),
             Err(e) => {
-                log::error!("Unable to serialize error body: {}", e);
+                error!("Unable to serialize error body: {}", e);
                 Result::<(), _>::Err(format!("Unable to serialize error body: {}", e)).into_response()
             }
         }
@@ -167,7 +168,7 @@ impl IntoResponse for ErrorBody {
 impl From<ApiError> for ErrorBody {
     fn from(err: ApiError) -> Self {
         if let ApiError::Internal(e) = &err {
-            log::error!("Internal API error: {}", e);
+            error!("Internal API error: {}", e);
         }
 
         Self {
