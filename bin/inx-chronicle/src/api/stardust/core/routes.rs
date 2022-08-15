@@ -37,10 +37,9 @@ use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::{BlockChildrenResponse, InfoResponse};
+use super::responses::InfoResponse;
 use crate::api::{
     error::{ApiError, InternalApiError},
-    extractors::Pagination,
     routes::{is_healthy, not_implemented},
     ApiResult,
 };
@@ -59,7 +58,6 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/", not_implemented.into_service())
                 .route("/:block_id", get(block))
-                .route("/:block_id/children", get(block_children))
                 .route("/:block_id/metadata", get(block_metadata)),
         )
         .nest(
@@ -211,30 +209,6 @@ async fn block_metadata(
         should_promote: Some(metadata.should_promote),
         should_reattach: Some(metadata.should_reattach),
         white_flag_index: Some(metadata.white_flag_index),
-    })
-}
-
-async fn block_children(
-    database: Extension<MongoDb>,
-    Path(block_id): Path<String>,
-    Pagination { page_size, page }: Pagination,
-) -> ApiResult<BlockChildrenResponse> {
-    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-    let mut block_children = database
-        .get_block_children(&block_id, page_size, page)
-        .await
-        .map_err(|_| ApiError::NoResults)?;
-
-    let mut children = Vec::new();
-    while let Some(block_id) = block_children.try_next().await? {
-        children.push(block_id.to_hex());
-    }
-
-    Ok(BlockChildrenResponse {
-        block_id: block_id.to_hex(),
-        max_results: page_size,
-        count: children.len(),
-        children,
     })
 }
 
