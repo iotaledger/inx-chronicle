@@ -170,7 +170,11 @@ impl MongoDb {
     }
 
     /// Inserts the information of a milestone into the database.
-    #[instrument(skip(self, session, payload), err, level = "trace")]
+    #[instrument(
+        skip(self, session, milestone_id, milestone_timestamp, payload),
+        err,
+        level = "trace"
+    )]
     pub async fn insert_milestone(
         &self,
         session: &mut ClientSession,
