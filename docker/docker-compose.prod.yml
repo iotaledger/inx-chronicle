@@ -1,0 +1,9 @@
+################################################################################
+# The following override uses the production `Dockerfile`.
+
+version: '3'
+services:
+
+  inx-chronicle:
+    build:
+      dockerfile: docker/Dockerfile

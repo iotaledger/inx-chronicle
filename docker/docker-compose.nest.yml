@@ -1,0 +1,17 @@
+################################################################################
+# The following override uses `hornet-nest` for local testing.
+
+version: '3'
+services:
+
+  hornet:
+    container_name: hornet
+    image: iotaledger/hornet-nest:2.0.0-beta.5
+    ports:
+      - "14265:14265/tcp"
+      - "8081:8081/tcp"
+      - "8091:8091/tcp"
+      - "9029:9029/tcp"
+    volumes: []
+    command: []
+    cap_drop: []
