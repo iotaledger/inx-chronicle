@@ -102,13 +102,13 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/ledger/wealth-distribution:
+  /api/analytics/v2/ledger/token-distribution:
     get:
       tags:
         - ledger
-      summary: Returns the current wealth distribution.
+      summary: Returns the current token distribution.
       description: >-
-        Returns analytics about the distribution of wealth at the ledger state specified by the provided index
+        Returns analytics about the distribution of IOTA tokens at the ledger state specified by the provided index
       parameters:
         - $ref: "#/components/parameters/ledgerIndex"
       responses:
@@ -120,7 +120,7 @@ paths:
                 $ref: "#/components/schemas/WealthDistributionResponse"
               examples:
                 default:
-                  $ref: "#/components/examples/wealth-distribution-example"
+                  $ref: "#/components/examples/token-distribution-example"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -588,7 +588,7 @@ components:
                 pubKeyHash: "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
             balance: "7398600000"
         ledgerIndex: 1005429
-    wealth-distribution-example:
+    token-distribution-example:
       value:
         distribution:
           - range:

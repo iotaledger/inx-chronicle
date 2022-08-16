@@ -81,12 +81,12 @@ impl From<AddressStat> for AddressStatDto {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WealthDistributionResponse {
+pub struct TokenDistributionResponse {
     pub distribution: Vec<DistributionStatDto>,
     pub ledger_index: u32,
 }
 
-impl_success_response!(WealthDistributionResponse);
+impl_success_response!(TokenDistributionResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

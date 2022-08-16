@@ -18,7 +18,7 @@ use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
         AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, RichestAddressesResponse,
-        StorageDepositAnalyticsResponse, WealthDistributionResponse,
+        StorageDepositAnalyticsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{ApiError, ApiResult};
@@ -32,7 +32,7 @@ pub fn routes() -> Router {
                 .route("/native-tokens", get(unspent_output_analytics::<FoundryOutput>))
                 .route("/nfts", get(unspent_output_analytics::<NftOutput>))
                 .route("/richest-addresses", get(richest_addresses))
-                .route("/wealth-distribution", get(wealth_distribution)),
+                .route("/token-distribution", get(token_distribution)),
         )
         .nest(
             "/activity",
@@ -153,16 +153,16 @@ async fn richest_addresses(
     })
 }
 
-async fn wealth_distribution(
+async fn token_distribution(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
-) -> ApiResult<WealthDistributionResponse> {
+) -> ApiResult<TokenDistributionResponse> {
     let res = database
-        .get_wealth_distribution(ledger_index)
+        .get_token_distribution(ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(WealthDistributionResponse {
+    Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
         ledger_index: res.ledger_index.0,
     })

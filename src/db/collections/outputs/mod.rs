@@ -690,7 +690,7 @@ pub struct AddressStat {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WealthDistribution {
+pub struct TokenDistribution {
     pub distribution: Vec<DistributionStat>,
     pub ledger_index: MilestoneIndex,
 }
@@ -755,11 +755,11 @@ impl MongoDb {
         }
     }
 
-    /// Create wealth distribution statistics.
-    pub async fn get_wealth_distribution(
+    /// Create token distribution statistics.
+    pub async fn get_token_distribution(
         &self,
         ledger_index: Option<MilestoneIndex>,
-    ) -> Result<Option<WealthDistribution>, Error> {
+    ) -> Result<Option<TokenDistribution>, Error> {
         let ledger_index = match ledger_index {
             None => self.get_ledger_index().await?,
             i => i,
@@ -802,7 +802,7 @@ impl MongoDb {
                 .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
                 .try_collect()
                 .await?;
-            Ok(Some(WealthDistribution {
+            Ok(Some(TokenDistribution {
                 distribution,
                 ledger_index,
             }))
