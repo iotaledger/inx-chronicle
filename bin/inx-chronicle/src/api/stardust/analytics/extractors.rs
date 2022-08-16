@@ -13,12 +13,12 @@ const DEFAULT_TOP_RICHLIST: usize = 100;
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct RichlistQuery {
+pub struct RichestAddressesQuery {
     pub top: usize,
     pub ledger_index: Option<MilestoneIndex>,
 }
 
-impl Default for RichlistQuery {
+impl Default for RichestAddressesQuery {
     fn default() -> Self {
         Self {
             top: DEFAULT_TOP_RICHLIST,
@@ -28,11 +28,11 @@ impl Default for RichlistQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for RichlistQuery {
+impl<B: Send> FromRequest<B> for RichestAddressesQuery {
     type Rejection = ApiError;
 
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<RichlistQuery>::from_request(req)
+        let Query(mut query) = Query::<RichestAddressesQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
         query.top = query.top.min(MAX_TOP_RICHLIST);

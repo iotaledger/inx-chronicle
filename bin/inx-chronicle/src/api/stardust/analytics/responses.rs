@@ -55,15 +55,14 @@ pub struct StorageDepositAnalyticsResponse {
 
 impl_success_response!(StorageDepositAnalyticsResponse);
 
-/// Response of `GET /api/analytics/richlist[?top=<usize>]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RichlistAnalyticsResponse {
-    pub distribution: Vec<DistributionStatDto>,
+pub struct RichestAddressesResponse {
     pub top: Vec<AddressStatDto>,
+    pub ledger_index: u32,
 }
 
-impl_success_response!(RichlistAnalyticsResponse);
+impl_success_response!(RichestAddressesResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AddressStatDto {
@@ -79,6 +78,15 @@ impl From<AddressStat> for AddressStatDto {
         }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WealthDistributionResponse {
+    pub distribution: Vec<DistributionStatDto>,
+    pub ledger_index: u32,
+}
+
+impl_success_response!(WealthDistributionResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

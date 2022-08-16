@@ -15,10 +15,10 @@ use chronicle::{
 };
 
 use super::{
-    extractors::{LedgerIndex, MilestoneRange, RichlistQuery},
+    extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, RichlistAnalyticsResponse,
-        StorageDepositAnalyticsResponse,
+        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, RichestAddressesResponse,
+        StorageDepositAnalyticsResponse, WealthDistributionResponse,
     },
 };
 use crate::api::{ApiError, ApiResult};
@@ -31,7 +31,8 @@ pub fn routes() -> Router {
                 .route("/storage-deposit", get(storage_deposit_analytics))
                 .route("/native-tokens", get(unspent_output_analytics::<FoundryOutput>))
                 .route("/nfts", get(unspent_output_analytics::<NftOutput>))
-                .route("/richlist", get(richlist_analytics)),
+                .route("/richest-addresses", get(richest_addresses))
+                .route("/wealth-distribution", get(wealth_distribution)),
         )
         .nest(
             "/activity",
@@ -137,14 +138,32 @@ async fn storage_deposit_analytics(
     })
 }
 
-async fn richlist_analytics(
+async fn richest_addresses(
     database: Extension<MongoDb>,
-    RichlistQuery { top, ledger_index }: RichlistQuery,
-) -> ApiResult<RichlistAnalyticsResponse> {
-    let res = database.get_richlist_analytics(ledger_index, top).await?;
+    RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
+) -> ApiResult<RichestAddressesResponse> {
+    let res = database
+        .get_richest_addresses(ledger_index, top)
+        .await?
+        .ok_or(ApiError::NoResults)?;
 
-    Ok(RichlistAnalyticsResponse {
-        distribution: res.distribution.into_iter().map(Into::into).collect(),
+    Ok(RichestAddressesResponse {
         top: res.top.into_iter().map(Into::into).collect(),
+        ledger_index: res.ledger_index.0,
+    })
+}
+
+async fn wealth_distribution(
+    database: Extension<MongoDb>,
+    LedgerIndex { ledger_index }: LedgerIndex,
+) -> ApiResult<WealthDistributionResponse> {
+    let res = database
+        .get_wealth_distribution(ledger_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(WealthDistributionResponse {
+        distribution: res.distribution.into_iter().map(Into::into).collect(),
+        ledger_index: res.ledger_index.0,
     })
 }

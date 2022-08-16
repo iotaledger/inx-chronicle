@@ -76,20 +76,51 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/ledger/richlist:
+  /api/analytics/v2/ledger/richest-addresses:
     get:
       tags:
         - ledger
-      summary: Returns a richlist.
+      summary: Returns the top richest addresses.
       description: >-
-        Returns analytics about the top richest addresses, as well as the distribution of wealth
-        at the ledger state specified by the provided index
+        Returns analytics about the top richest addresses at the ledger state specified by the provided index
       parameters:
         - $ref: "#/components/parameters/ledgerIndex"
         - $ref: "#/components/parameters/top"
       responses:
         "200":
-          $ref: "#/components/responses/Richlist"
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RichestAddressesResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/richest-addresses-example"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/ledger/wealth-distribution:
+    get:
+      tags:
+        - ledger
+      summary: Returns the current wealth distribution.
+      description: >-
+        Returns analytics about the distribution of wealth at the ledger state specified by the provided index
+      parameters:
+        - $ref: "#/components/parameters/ledgerIndex"
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WealthDistributionResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/wealth-distribution-example"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -371,8 +402,30 @@ components:
         - totalByteCost
         - ledgerIndex
         - rentStructure
-    RichlistAnalyticsResponse:
-      description: Richlist statistics.
+    RichestAddressesResponse:
+      description: Richest addresses statistics.
+      properties:
+        top:
+          type: array
+          description: The top wealthiest addresses.
+          items:
+            type: object
+            properties:
+              address:
+                oneOf:
+                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/Ed25519Address"
+                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/AliasAddress"
+                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NFTAddress"
+              balance:
+                type: string
+                description: The total balance within this range.
+            required:
+              - address
+              - balance
+      required:
+        - top
+    WealthDistributionResponse:
+      description: Wealth distribution statistics.
       properties:
         distribution:
           type: array
@@ -401,26 +454,8 @@ components:
               - range
               - addressCount
               - totalBalance
-        top:
-          type: array
-          description: The top wealthiest addresses.
-          items:
-            type: object
-            properties:
-              address:
-                oneOf:
-                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/Ed25519Address"
-                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/AliasAddress"
-                  - $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NFTAddress"
-              balance:
-                type: string
-                description: The total balance within this range.
-            required:
-              - address
-              - balance
       required:
         - distribution
-        - top
   responses:
     Block:
       description: Successful operation.
@@ -458,15 +493,6 @@ components:
           examples:
             default:
               $ref: "#/components/examples/storage-deposit-example"
-    Richlist:
-      description: Successful operation.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RichlistAnalyticsResponse"
-          examples:
-            default:
-              $ref: "#/components/examples/richlist-example"
     NoResults:
       description: >-
         Unsuccessful operation: indicates that the requested data was not found.
@@ -550,7 +576,19 @@ components:
         totalActiveAddresses: "443"
         receivingAddresses: "443"
         sendingAddresses: "0"
-    richlist-example:
+    richest-addresses-example:
+      value:
+        top:
+          - address:
+              - type: 0
+                pubKeyHash: "0x3845105b59429361a75b3203a6e24e16d19540aad6bd1936449b62f1c4bbe5da"
+            balance: "2779164783277761"
+          - address:
+              - type: 0
+                pubKeyHash: "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
+            balance: "7398600000"
+        ledgerIndex: 1005429
+    wealth-distribution-example:
       value:
         distribution:
           - range:
@@ -568,12 +606,4 @@ components:
                 end: 1000000000
             addressCount: "27"
             totalBalance: "25486528000"
-        top:
-          - address:
-              - type: 0
-                pubKeyHash: "0x3845105b59429361a75b3203a6e24e16d19540aad6bd1936449b62f1c4bbe5da"
-            balance: "2779164783277761"
-          - address:
-              - type: 0
-                pubKeyHash: "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
-            balance: "7398600000"
+        ledgerIndex: 1005429

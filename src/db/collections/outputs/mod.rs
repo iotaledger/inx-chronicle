@@ -3,7 +3,7 @@
 
 mod indexer;
 
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
@@ -676,10 +676,10 @@ impl MongoDb {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct Richlist {
-    pub distribution: Vec<DistributionStat>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RichestAddresses {
     pub top: Vec<AddressStat>,
+    pub ledger_index: MilestoneIndex,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -687,6 +687,12 @@ pub struct Richlist {
 pub struct AddressStat {
     pub address: Address,
     pub balance: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WealthDistribution {
+    pub distribution: Vec<DistributionStat>,
+    pub ledger_index: MilestoneIndex,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -701,20 +707,20 @@ pub struct DistributionStat {
 }
 
 impl MongoDb {
-    /// Create richlist statistics.
-    pub async fn get_richlist_analytics(
+    /// Create richest address statistics.
+    pub async fn get_richest_addresses(
         &self,
         ledger_index: Option<MilestoneIndex>,
         top: usize,
-    ) -> Result<Richlist, Error> {
+    ) -> Result<Option<RichestAddresses>, Error> {
         let ledger_index = match ledger_index {
             None => self.get_ledger_index().await?,
             i => i,
         };
         if let Some(ledger_index) = ledger_index {
-            Ok(self
+            let top = self
                 .db
-                .collection::<Richlist>(OutputDocument::COLLECTION)
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -729,41 +735,77 @@ impl MongoDb {
                             "_id": "$details.address",
                             "balance": { "$sum": { "$toDecimal": "$output.amount" } },
                         } },
-                        doc! { "$facet": {
-                            "distribution": [
-                                { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
-                                { "$group" : {
-                                    "_id": "$index",
-                                    "address_count": { "$sum": 1 },
-                                    "total_balance": { "$sum": "$balance" },
-                                } },
-                                { "$sort": { "_id": 1 } },
-                                { "$project": {
-                                    "_id": 0,
-                                    "index": "$_id",
-                                    "address_count": 1,
-                                    "total_balance": { "$toString": "$total_balance" },
-                                } },
-                            ],
-                            "top": [
-                                { "$sort": { "balance": -1 } },
-                                { "$limit": top as i64 },
-                                { "$project": {
-                                    "_id": 0,
-                                    "address": "$_id",
-                                    "balance": { "$toString": "$balance" },
-                                } },
-                            ],
+                        doc! { "$sort": { "balance": -1 } },
+                        doc! { "$limit": top as i64 },
+                        doc! { "$project": {
+                            "_id": 0,
+                            "address": "$_id",
+                            "balance": { "$toString": "$balance" },
                         } },
                     ],
                     None,
                 )
                 .await?
-                .try_next()
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
+                .try_collect()
+                .await?;
+            Ok(Some(RichestAddresses { top, ledger_index }))
+        } else {
+            Ok(Default::default())
+        }
+    }
+
+    /// Create wealth distribution statistics.
+    pub async fn get_wealth_distribution(
+        &self,
+        ledger_index: Option<MilestoneIndex>,
+    ) -> Result<Option<WealthDistribution>, Error> {
+        let ledger_index = match ledger_index {
+            None => self.get_ledger_index().await?,
+            i => i,
+        };
+        if let Some(ledger_index) = ledger_index {
+            let distribution = self
+                .db
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "details.address": { "$exists": true },
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$details.address",
+                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
+                        doc! { "$group" : {
+                            "_id": "$index",
+                            "address_count": { "$sum": 1 },
+                            "total_balance": { "$sum": "$balance" },
+                        } },
+                        doc! { "$sort": { "_id": 1 } },
+                        doc! { "$project": {
+                            "_id": 0,
+                            "index": "$_id",
+                            "address_count": 1,
+                            "total_balance": { "$toString": "$total_balance" },
+                        } },
+                    ],
+                    None,
+                )
                 .await?
-                .map(bson::from_document)
-                .transpose()?
-                .unwrap_or_default())
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
+                .try_collect()
+                .await?;
+            Ok(Some(WealthDistribution {
+                distribution,
+                ledger_index,
+            }))
         } else {
             Ok(Default::default())
         }
