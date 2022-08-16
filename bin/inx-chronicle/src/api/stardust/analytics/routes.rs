@@ -36,6 +36,7 @@ pub fn routes() -> Router {
             "/activity",
             Router::new()
                 .route("/addresses", get(address_analytics))
+                .route("/native-tokens", get(foundry_output_analytics))
                 .route("/nfts", get(nft_output_analytics))
                 .nest(
                     "/blocks",
@@ -142,6 +143,19 @@ async fn nft_output_analytics(
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputDiffAnalyticsResponse> {
     let res = database.get_nft_output_analytics(start_index, end_index).await?;
+
+    Ok(OutputDiffAnalyticsResponse {
+        created_count: res.created_count.to_string(),
+        transferred_count: res.transferred_count.to_string(),
+        burned_count: res.burned_count.to_string(),
+    })
+}
+
+async fn foundry_output_analytics(
+    database: Extension<MongoDb>,
+    MilestoneRange { start_index, end_index }: MilestoneRange,
+) -> ApiResult<OutputDiffAnalyticsResponse> {
+    let res = database.get_foundry_output_analytics(start_index, end_index).await?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),

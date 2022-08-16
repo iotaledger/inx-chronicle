@@ -529,6 +529,62 @@ impl MongoDb {
             .transpose()?
             .unwrap_or_default())
     }
+
+    /// Gathers foundry output analytics.
+    pub async fn get_foundry_output_analytics(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        Ok(self
+            .db
+            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "foundry",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": start_index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": start_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": start_index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": end_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created_count": { "$size": { "$setDifference": [ "$end_state", "$start_state" ] } },
+                        "transferred_count": { "$size": { "$setIntersection": [ "$start_state", "$end_state" ] } },
+                        "burned_count": { "$size": { "$setDifference": [ "$start_state", "$end_state" ] } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
