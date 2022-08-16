@@ -19,6 +19,7 @@ use std::error::Error;
 use chronicle::runtime::{spawn_task, Runtime, RuntimeScope};
 use launcher::Launcher;
 use tracing::error;
+use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 #[tokio::main]
 async fn main() {
@@ -37,32 +38,9 @@ async fn main() {
 }
 
 fn set_up_logging() {
-    use tracing_subscriber::prelude::*;
-
-    #[cfg(feature = "metrics")]
-    {
-        // use opentelemetry::sdk::trace as sdktrace;
-        // let tracer = opentelemetry_otlp::new_pipeline()
-        //    .tracing()
-        //    .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-        //    .with_trace_config(sdktrace::config().with_sampler(sdktrace::Sampler::AlwaysOn))
-        //    .install_simple()
-        //    .expect("Unable to initialize OtlpPipeline");
-
-        let tracer = opentelemetry::sdk::export::trace::stdout::new_pipeline().install_simple();
-
-        let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-
-        tracing_subscriber::registry()
-            .with(tracing_subscriber::fmt::layer())
-            .with(tracing_subscriber::EnvFilter::from_default_env())
-            .with(opentelemetry)
-            .init();
-    }
-    #[cfg(not(feature = "metrics"))]
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::EnvFilter::from_default_env())
+    tracing_subscriber::fmt()
+        .with_span_events(FmtSpan::CLOSE)
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 }
 

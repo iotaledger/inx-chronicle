@@ -73,9 +73,6 @@ tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
 bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
-opentelemetry = { version = "0.17", default-features = false, features = ["trace", "rt-tokio"], optional = true }
-opentelemetry-otlp = { version = "0.10", default-features = false, features = ["tonic", "tonic-build", "prost", "tokio"], optional = true }
-tracing-opentelemetry = { version = "0.17", default-features = false, features = ["tracing-log"], optional = true }
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
@@ -123,9 +120,6 @@ inx = [
 ]
 metrics = [
     "dep:bee-metrics",
-    "dep:opentelemetry",
-    "dep:tracing-opentelemetry",
-    "dep:opentelemetry-otlp",
 ]
 # The following feature enables metrics that can be used to debug the runtime.
 metrics-debug = [

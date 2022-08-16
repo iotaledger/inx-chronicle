@@ -18,7 +18,6 @@ pub use config::InxConfig;
 pub use error::InxError;
 use futures::{Stream, StreamExt, TryStreamExt};
 use pin_project::pin_project;
-use tokio::time::Instant;
 use tracing::{debug, info, instrument, trace, warn};
 
 pub struct InxWorker {
@@ -64,7 +63,7 @@ impl Actor for InxWorker {
     type State = Inx;
     type Error = InxError;
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, err, level = "trace")]
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx = Self::connect(&self.config).await?;
@@ -140,14 +139,7 @@ impl Actor for InxWorker {
             }
             info!("Inserting {} unspent outputs.", updates.len());
 
-            // TODO: Use tracing here.
-            let start_time = Instant::now();
             self.db.insert_ledger_updates(&mut session, updates).await?;
-            let duration = start_time.elapsed();
-            info!(
-                "Inserting unspent outputs took {}.",
-                humantime::Duration::from(duration)
-            );
         }
 
         session.commit_transaction().await?;
@@ -280,6 +272,13 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
 
 #[async_trait]
 impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
+    #[instrument(
+        skip_all,
+        fields(milestone_index),
+        err,
+        level = "debug",
+        name = "handle_ledger_update"
+    )]
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
@@ -287,8 +286,6 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
         trace!("Received ledger update event {:#?}", ledger_update_result);
-
-        let start_time = Instant::now();
 
         let ledger_update = ledger_update_result?;
 
@@ -311,7 +308,8 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         trace!("Received milestone: `{:?}`", milestone);
 
-        let milestone_index = milestone.milestone_info.milestone_index.into();
+        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+        tracing::Span::current().record("milestone_index", milestone_index.0);
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
         let milestone_id = milestone
             .milestone_info
@@ -349,13 +347,6 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .await?;
 
         session.commit_transaction().await?;
-
-        let duration = start_time.elapsed();
-        debug!(
-            "Milestone `{}` synced in {}.",
-            milestone_index,
-            humantime::Duration::from(duration)
-        );
 
         Ok(())
     }
