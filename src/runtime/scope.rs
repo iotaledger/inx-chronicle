@@ -8,6 +8,7 @@ use futures::{
     Future, FutureExt,
 };
 use tokio::task::JoinHandle;
+use tracing::{debug, error, info, trace, warn};
 
 use super::{
     actor::{
@@ -151,7 +152,7 @@ impl RuntimeScope {
 
     /// Awaits the tasks in this runtime's scope.
     pub(crate) async fn join(&mut self) {
-        log::debug!("Joining scope {:x}", self.0.id.as_fields().0);
+        debug!("Joining scope {:x}", self.0.id.as_fields().0);
         for handle in self.join_handles.drain(..) {
             handle.await.ok();
         }
@@ -212,7 +213,7 @@ impl RuntimeScope {
             self.scope.0.insert_addr(handle.clone()).await;
         }
         let cx = ActorContext::new(scope, handle.clone(), receiver);
-        log::debug!("Initializing {}", actor.name());
+        debug!("Initializing {}", actor.name());
         (handle, cx, abort_reg, shutdown_handle)
     }
 
@@ -236,12 +237,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::log!(
-                                e.level(),
-                                "{} exited with error: {}",
-                                format!("Task {:x}", child_scope.id().as_fields().0),
-                                e
-                            );
+                            handle_dynamic_error(format!("Task {:x}", child_scope.id().as_fields().0), &e);
                             Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },
@@ -280,7 +276,7 @@ impl RuntimeScope {
                             Ok(())
                         }
                         Err(e) => {
-                            log::log!(e.level(), "{} exited with error: {}", actor.name(), e);
+                            handle_dynamic_error(actor.name(), &e);
                             let err_str = e.to_string();
                             supervisor_addr.send(Report::Error(ErrorReport::new(
                                 actor,
@@ -321,7 +317,7 @@ impl RuntimeScope {
                     Ok(res) => match res {
                         Ok(_) => Ok(()),
                         Err(e) => {
-                            log::log!(e.level(), "{} exited with error: {}", actor.name(), e);
+                            handle_dynamic_error(actor.name(), &e);
                             Err(RuntimeError::ActorError(e.to_string()))
                         }
                     },
@@ -334,5 +330,29 @@ impl RuntimeScope {
         });
         self.join_handles.push(child_task);
         handle
+    }
+}
+
+fn handle_dynamic_error(name: impl std::fmt::Display, e: &impl ErrorLevel) {
+    use tracing::Level;
+    match e.level() {
+        Level::INFO => {
+            info!(
+                "{} exited with error: {} (but we all agreed to look the other way)",
+                name, e
+            );
+        }
+        Level::WARN => {
+            warn!("{} exited with a warning: {}", name, e);
+        }
+        Level::ERROR => {
+            error!("{} exited with error: {}", name, e);
+        }
+        Level::DEBUG => {
+            debug!("{} exited with error: {}", name, e);
+        }
+        Level::TRACE => {
+            trace!("{} exited with error: {}", name, e);
+        }
     }
 }

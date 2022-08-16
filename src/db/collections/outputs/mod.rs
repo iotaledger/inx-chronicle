@@ -11,6 +11,7 @@ use mongodb::{
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
@@ -143,6 +144,7 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip(self, session), err, level = "trace")]
     pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
         if output.metadata.spent_metadata.is_none() {
             self.db

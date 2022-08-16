@@ -9,6 +9,7 @@ use mongodb::{
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use super::PayloadKind;
 use crate::{
@@ -206,6 +207,7 @@ impl MongoDb {
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata(
         &self,
         session: &mut ClientSession,

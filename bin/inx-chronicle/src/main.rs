@@ -18,21 +18,30 @@ use std::error::Error;
 
 use chronicle::runtime::{spawn_task, Runtime, RuntimeScope};
 use launcher::Launcher;
+use tracing::error;
+use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    env_logger::init();
+    set_up_logging();
     #[cfg(all(tokio_unstable, feature = "console"))]
     console_subscriber::init();
 
     std::panic::set_hook(Box::new(|p| {
-        log::error!("{}", p);
+        error!("{}", p);
     }));
 
     if let Err(e) = Runtime::launch(startup).await {
-        log::error!("{}", e);
+        error!("{}", e);
     }
+}
+
+fn set_up_logging() {
+    tracing_subscriber::fmt()
+        .with_span_events(FmtSpan::CLOSE)
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 }
 
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {

@@ -11,6 +11,7 @@ use mongodb::{
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     db::MongoDb,
@@ -169,6 +170,11 @@ impl MongoDb {
     }
 
     /// Inserts the information of a milestone into the database.
+    #[instrument(
+        skip(self, session, milestone_id, milestone_timestamp, payload),
+        err,
+        level = "trace"
+    )]
     pub async fn insert_milestone(
         &self,
         session: &mut ClientSession,

@@ -18,6 +18,7 @@ use tokio::{
     task::JoinHandle,
     time::{sleep, Duration},
 };
+use tracing::{debug, warn};
 
 const METRICS_UPDATE_INTERVAL_DEFAULT: Duration = Duration::from_secs(60);
 
@@ -78,13 +79,13 @@ impl Task for UpdateDbMetrics {
                     remaining_retries = MAX_RETRIES;
                 }
                 Err(e) => {
-                    log::warn!("Cannot update database metrics: {e}");
+                    warn!("Cannot update database metrics: {e}");
                     remaining_retries -= 1;
                 }
             }
         }
 
-        log::warn!("Could not update databse metrics after {MAX_RETRIES} retries");
+        warn!("Could not update databse metrics after {MAX_RETRIES} retries");
 
         Ok(())
     }
@@ -139,7 +140,7 @@ impl Actor for MetricsWorker {
         state: &mut Self::State,
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
-        log::debug!("{} shutting down ({})", self.name(), cx.id());
+        debug!("{} shutting down ({})", self.name(), cx.id());
 
         state.server_handle.1.take().map(|send| send.send(()));
 
