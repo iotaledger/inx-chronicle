@@ -41,7 +41,7 @@ services:
     depends_on: [mongo1, mongo2, mongo3, hornet]
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.debug
     image: inx-chronicle:dev
     ports:
       - "8042:8042/tcp"   # REST API
@@ -60,7 +60,7 @@ services:
       - ../bin/inx-chronicle/config.template.toml:/app/config.toml:ro
 
   hornet:
-    image: iotaledger/hornet:2.0.0-beta.5
+    image: iotaledger/hornet:2.0.0-beta.6
     container_name: hornet
     ulimits:
       nofile:
@@ -85,3 +85,36 @@ services:
       - "config.json"
       - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"
+
+################################################################################
+# The following services can be enabled by setting the `monitoring` profile.
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - monitoring
+    container_name: prometheus
+    restart: always
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.external-url=http://localhost:9090'
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - monitoring
+    container_name: grafana
+    restart: always
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./monitoring/grafana/data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
