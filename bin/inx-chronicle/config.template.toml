@@ -39,6 +39,9 @@ public_routes = [
     "api/indexer/v1/*",
 ]
 
+### Maximum number of records returned by a single API call
+max_page_size = 500
+
 [inx]
 ### Whether INX is used (online mode).
 enabled = true

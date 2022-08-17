@@ -23,6 +23,7 @@ pub struct ApiConfig {
     pub jwt_expiration: Duration,
     pub public_routes: Vec<String>,
     pub identity_path: Option<String>,
+    pub max_page_size: usize,
 }
 
 impl Default for ApiConfig {
@@ -37,6 +38,7 @@ impl Default for ApiConfig {
             jwt_expiration: Duration::from_secs(72 * 60 * 60),
             public_routes: Default::default(),
             identity_path: None,
+            max_page_size: 1000,
         }
     }
 }
@@ -50,6 +52,7 @@ pub struct ApiData {
     pub jwt_expiration: Duration,
     pub public_routes: RegexSet,
     pub secret_key: SecretKey,
+    pub max_page_size: usize,
 }
 
 impl ApiData {
@@ -78,6 +81,7 @@ impl TryFrom<ApiConfig> for ApiData {
                     }
                 }
             },
+            max_page_size: config.max_page_size,
         })
     }
 }

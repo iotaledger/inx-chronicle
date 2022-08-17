@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use axum::extract::{FromRequest, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use chronicle::types::tangle::MilestoneIndex;
 use serde::Deserialize;
 
-use crate::api::ApiError;
+use crate::api::{config::ApiData, ApiError};
 
-const MAX_TOP_RICHLIST: usize = 1000;
 const DEFAULT_TOP_RICHLIST: usize = 100;
 
 #[derive(Clone, Deserialize)]
@@ -35,7 +37,8 @@ impl<B: Send> FromRequest<B> for RichestAddressesQuery {
         let Query(mut query) = Query::<RichestAddressesQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        query.top = query.top.min(MAX_TOP_RICHLIST);
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        query.top = query.top.min(config.max_page_size);
         Ok(query)
     }
 }

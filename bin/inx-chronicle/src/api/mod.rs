@@ -42,7 +42,6 @@ pub use self::{
 use self::{config::ApiData, routes::routes};
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
-pub const MAX_PAGE_SIZE: usize = 1000;
 
 /// The result of a request to the api
 pub type ApiResult<T> = Result<T, ApiError>;
