@@ -11,6 +11,8 @@ mod milestone;
 mod outputs;
 /// Module containing the protocol parameters collection.
 mod protocol_update;
+#[cfg(all(test, feature = "test-db"))]
+mod test;
 /// Module containing the treasury model.
 mod treasury;
 

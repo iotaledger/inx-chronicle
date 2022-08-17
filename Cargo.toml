@@ -129,6 +129,7 @@ stardust = [
     "dep:bee-block-stardust",
     "dep:bee-api-types-stardust",
 ]
+test-db = []
 
 [profile.production]
 inherits = "release"

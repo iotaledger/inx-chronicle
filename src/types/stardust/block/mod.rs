@@ -60,10 +60,10 @@ impl TryFrom<Block> for bee::BlockDto {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use mongodb::bson::{from_bson, to_bson, Bson};
 
-    use super::{
+    pub(crate) use super::{
         payload::test::{get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload},
         *,
     };
@@ -91,7 +91,7 @@ mod tests {
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }
 
-    fn get_test_transaction_block() -> Block {
+    pub(crate) fn get_test_transaction_block() -> Block {
         Block::from(
             bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
@@ -101,7 +101,7 @@ mod tests {
         )
     }
 
-    fn get_test_milestone_block() -> Block {
+    pub(crate) fn get_test_milestone_block() -> Block {
         Block::from(
             bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)
@@ -111,7 +111,7 @@ mod tests {
         )
     }
 
-    fn get_test_tagged_data_block() -> Block {
+    pub(crate) fn get_test_tagged_data_block() -> Block {
         Block::from(
             bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
                 .with_nonce_provider(u64::MAX, 0.0)

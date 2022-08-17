@@ -813,3 +813,122 @@ impl MongoDb {
         }
     }
 }
+
+#[cfg(all(test, feature = "test-db"))]
+mod test {
+    use bee_block_stardust as bee;
+
+    use crate::{
+        db::collections::test::connect_to_test_db,
+        types::{
+            ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata},
+            stardust::block::{
+                milestone::test::get_test_milestone_payload, tests::get_test_transaction_block, BlockId, MilestoneId,
+                OutputId, TransactionEssence, TransactionPayload,
+            },
+        },
+    };
+
+    #[tokio::test]
+    async fn test_outputs() {
+        let db = connect_to_test_db().await.unwrap().database("test-outputs");
+        db.clear().await.unwrap();
+        db.create_output_indexes().await.unwrap();
+
+        let block = get_test_transaction_block();
+        let block_id = BlockId::from(bee::Block::try_from(block.clone()).unwrap().id());
+        let transaction_payload = TransactionPayload::try_from(block.payload.unwrap()).unwrap();
+        let transaction_id = transaction_payload.transaction_id;
+        let TransactionEssence::Regular { outputs, .. } = transaction_payload.essence;
+        let outputs = outputs
+            .into_vec()
+            .into_iter()
+            .enumerate()
+            .map(|(i, output)| OutputWithMetadata {
+                output,
+                metadata: OutputMetadata {
+                    output_id: OutputId {
+                        transaction_id,
+                        index: i as u16,
+                    },
+                    block_id,
+                    booked: MilestoneIndexTimestamp {
+                        milestone_index: 1.into(),
+                        milestone_timestamp: 12345.into(),
+                    },
+                    spent_metadata: None,
+                },
+            })
+            .collect::<Vec<_>>();
+
+        // Need to insert a milestone to be the ledger index
+        let milestone = get_test_milestone_payload();
+        let milestone_id = MilestoneId::from(
+            bee::payload::MilestonePayload::try_from(milestone.clone())
+                .unwrap()
+                .id(),
+        );
+
+        let mut session = db.start_transaction(None).await.unwrap();
+
+        for output in outputs.iter().cloned() {
+            db.insert_output(&mut session, output).await.unwrap();
+        }
+
+        db.insert_milestone(
+            &mut session,
+            milestone_id,
+            milestone.essence.index,
+            milestone.essence.timestamp.into(),
+            milestone.clone(),
+        )
+        .await
+        .unwrap();
+
+        session.commit_transaction().await.unwrap();
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_output(&output.metadata.output_id).await.unwrap().as_ref(),
+                Some(&output.output),
+            );
+        }
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_output_metadata(&output.metadata.output_id)
+                    .await
+                    .unwrap()
+                    .map(|res| OutputMetadata {
+                        output_id: res.output_id,
+                        block_id: res.block_id,
+                        booked: res.booked,
+                        spent_metadata: res.spent_metadata
+                    })
+                    .as_ref(),
+                Some(&output.metadata),
+            );
+        }
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_output_with_metadata(&output.metadata.output_id)
+                    .await
+                    .unwrap()
+                    .map(|res| OutputWithMetadata {
+                        output: res.output,
+                        metadata: OutputMetadata {
+                            output_id: res.metadata.output_id,
+                            block_id: res.metadata.block_id,
+                            booked: res.metadata.booked,
+                            spent_metadata: res.metadata.spent_metadata
+                        }
+                    })
+                    .as_ref(),
+                Some(output),
+            );
+        }
+
+        db.drop().await.unwrap();
+    }
+}

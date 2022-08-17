@@ -11,19 +11,13 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-/// A handle to the underlying `MongoDB` database.
-#[derive(Clone, Debug)]
-pub struct MongoDb {
-    pub(crate) db: mongodb::Database,
-    pub(crate) client: mongodb::Client,
-}
+pub struct MongoClient(pub mongodb::Client);
 
-impl MongoDb {
-    const DEFAULT_NAME: &'static str = "chronicle";
+impl MongoClient {
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
+    pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
@@ -38,9 +32,31 @@ impl MongoDb {
 
         let client = Client::with_options(client_options)?;
 
-        let db = client.database(&config.database_name);
+        Ok(Self(client))
+    }
 
-        Ok(MongoDb { db, client })
+    /// Retrieves a database using this client.
+    pub fn database(&self, name: impl AsRef<str>) -> MongoDb {
+        MongoDb {
+            db: self.0.database(name.as_ref()),
+            client: self.0.clone(),
+        }
+    }
+}
+
+/// A handle to the underlying `MongoDB` database.
+#[derive(Clone, Debug)]
+pub struct MongoDb {
+    pub(crate) db: mongodb::Database,
+    pub(crate) client: mongodb::Client,
+}
+
+impl MongoDb {
+    const DEFAULT_NAME: &'static str = "chronicle";
+
+    /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
+    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
+        Ok(MongoClient::connect(config).await?.database(&config.database_name))
     }
 
     /// Starts a transaction.
@@ -62,6 +78,11 @@ impl MongoDb {
         }
 
         Ok(())
+    }
+
+    /// Drops the database.
+    pub async fn drop(self) -> Result<(), Error> {
+        self.db.drop(None).await
     }
 
     /// Returns the storage size of the database.
@@ -118,7 +139,7 @@ pub struct MongoDbConfig {
 impl Default for MongoDbConfig {
     fn default() -> Self {
         Self {
-            connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
+            connect_url: MongoClient::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
             database_name: MongoDb::DEFAULT_NAME.to_string(),

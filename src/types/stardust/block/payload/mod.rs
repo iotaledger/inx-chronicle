@@ -3,11 +3,12 @@
 
 use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-mod milestone;
-mod tagged_data;
-mod transaction;
-mod treasury_transaction;
+pub(crate) mod milestone;
+pub(crate) mod tagged_data;
+pub(crate) mod transaction;
+pub(crate) mod treasury_transaction;
 
 pub use self::{
     milestone::{MilestoneEssence, MilestoneId, MilestoneOption, MilestonePayload},
@@ -23,6 +24,17 @@ pub enum Payload {
     Milestone(Box<MilestonePayload>),
     TreasuryTransaction(Box<TreasuryTransactionPayload>),
     TaggedData(Box<TaggedDataPayload>),
+}
+
+impl Payload {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Payload::Transaction(_) => "transaction",
+            Payload::Milestone(_) => "milestone",
+            Payload::TreasuryTransaction(_) => "treasury_transaction",
+            Payload::TaggedData(_) => "tagged_data",
+        }
+    }
 }
 
 impl From<&bee::Payload> for Payload {
@@ -48,6 +60,36 @@ impl TryFrom<Payload> for bee::Payload {
         })
     }
 }
+
+#[derive(Debug, Error)]
+#[error("wrong payload requested. expected {expected}, found: {found}")]
+pub struct WrongPayloadError {
+    expected: &'static str,
+    found: &'static str,
+}
+
+macro_rules! impl_coerce_payload {
+    ($kind:literal, $t:ty, $var:ident) => {
+        impl TryFrom<Payload> for $t {
+            type Error = WrongPayloadError;
+
+            fn try_from(value: Payload) -> Result<Self, Self::Error> {
+                if let Payload::$var(payload) = value {
+                    Ok(*payload)
+                } else {
+                    Err(WrongPayloadError {
+                        expected: $kind,
+                        found: value.kind(),
+                    })
+                }
+            }
+        }
+    };
+}
+impl_coerce_payload!("transaction", TransactionPayload, Transaction);
+impl_coerce_payload!("milestone", MilestonePayload, Milestone);
+impl_coerce_payload!("treasury_transaction", TreasuryTransactionPayload, TreasuryTransaction);
+impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 
 #[cfg(test)]
 pub(crate) mod test {
