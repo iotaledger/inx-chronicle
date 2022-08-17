@@ -28,43 +28,43 @@ pub fn routes() -> Router {
         .nest(
             "/ledger",
             Router::new()
-                .route("/storage-deposit", get(storage_deposit_analytics))
-                .route("/native-tokens", get(unspent_output_analytics::<FoundryOutput>))
-                .route("/nfts", get(unspent_output_analytics::<NftOutput>))
-                .route("/richest-addresses", get(richest_addresses))
-                .route("/token-distribution", get(token_distribution)),
+                .route("/storage-deposit", get(storage_deposit_ledger_analytics))
+                .route("/native-tokens", get(unspent_output_ledger_analytics::<FoundryOutput>))
+                .route("/nfts", get(unspent_output_ledger_analytics::<NftOutput>))
+                .route("/richest-addresses", get(richest_addresses_ledger_analytics))
+                .route("/token-distribution", get(token_distribution_ledger_analytics)),
         )
         .nest(
             "/activity",
             Router::new()
-                .route("/addresses", get(address_analytics))
-                .route("/native-tokens", get(foundry_output_analytics))
-                .route("/nfts", get(nft_output_analytics))
+                .route("/addresses", get(address_activity_analytics))
+                .route("/native-tokens", get(native_token_activity_analytics))
+                .route("/nfts", get(nft_activity_analytics))
                 .nest(
                     "/blocks",
                     Router::new()
-                        .route("/", get(block_analytics::<()>))
-                        .route("/milestone", get(block_analytics::<MilestonePayload>))
-                        .route("/transaction", get(block_analytics::<TransactionPayload>))
-                        .route("/tagged-data", get(block_analytics::<TaggedDataPayload>))
+                        .route("/", get(block_activity_analytics::<()>))
+                        .route("/milestone", get(block_activity_analytics::<MilestonePayload>))
+                        .route("/transaction", get(block_activity_analytics::<TransactionPayload>))
+                        .route("/tagged-data", get(block_activity_analytics::<TaggedDataPayload>))
                         .route(
                             "/treasury-transaction",
-                            get(block_analytics::<TreasuryTransactionPayload>),
+                            get(block_activity_analytics::<TreasuryTransactionPayload>),
                         ),
                 )
                 .nest(
                     "/outputs",
                     Router::new()
-                        .route("/", get(output_analytics::<()>))
-                        .route("/basic", get(output_analytics::<BasicOutput>))
-                        .route("/alias", get(output_analytics::<AliasOutput>))
-                        .route("/nft", get(output_analytics::<NftOutput>))
-                        .route("/foundry", get(output_analytics::<FoundryOutput>)),
+                        .route("/", get(output_activity_analytics::<()>))
+                        .route("/basic", get(output_activity_analytics::<BasicOutput>))
+                        .route("/alias", get(output_activity_analytics::<AliasOutput>))
+                        .route("/nft", get(output_activity_analytics::<NftOutput>))
+                        .route("/foundry", get(output_activity_analytics::<FoundryOutput>)),
                 ),
         )
 }
 
-async fn address_analytics(
+async fn address_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
@@ -77,7 +77,7 @@ async fn address_analytics(
     })
 }
 
-async fn block_analytics<B: PayloadKind>(
+async fn block_activity_analytics<B: PayloadKind>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<BlockAnalyticsResponse> {
@@ -88,7 +88,7 @@ async fn block_analytics<B: PayloadKind>(
     })
 }
 
-async fn output_analytics<O: OutputKind>(
+async fn output_activity_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
@@ -100,7 +100,7 @@ async fn output_analytics<O: OutputKind>(
     })
 }
 
-async fn unspent_output_analytics<O: OutputKind>(
+async fn unspent_output_ledger_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
@@ -115,7 +115,7 @@ async fn unspent_output_analytics<O: OutputKind>(
     })
 }
 
-async fn storage_deposit_analytics(
+async fn storage_deposit_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
@@ -140,7 +140,7 @@ async fn storage_deposit_analytics(
     })
 }
 
-async fn nft_output_analytics(
+async fn nft_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputDiffAnalyticsResponse> {
@@ -153,7 +153,7 @@ async fn nft_output_analytics(
     })
 }
 
-async fn foundry_output_analytics(
+async fn native_token_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputDiffAnalyticsResponse> {
@@ -166,7 +166,7 @@ async fn foundry_output_analytics(
     })
 }
 
-async fn richest_addresses(
+async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
@@ -181,7 +181,7 @@ async fn richest_addresses(
     })
 }
 
-async fn token_distribution(
+async fn token_distribution_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
