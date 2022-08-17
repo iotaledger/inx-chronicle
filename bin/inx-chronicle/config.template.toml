@@ -40,7 +40,7 @@ public_routes = [
 ]
 
 ### Maximum number of records returned by a single API call
-max_page_size = 500
+max_page_size = 1000
 
 [inx]
 ### Whether INX is used (online mode).
