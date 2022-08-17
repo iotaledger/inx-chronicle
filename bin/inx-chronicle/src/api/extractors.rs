@@ -92,9 +92,8 @@ mod test {
         http::Request,
     };
 
-    use crate::api::ApiConfig;
-
     use super::*;
+    use crate::api::ApiConfig;
 
     #[tokio::test]
     async fn page_size_clamped() {
