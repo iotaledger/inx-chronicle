@@ -145,13 +145,17 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
-        if output.metadata.spent_metadata.is_none() {
+    pub async fn upsert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+        let output_id = output.metadata.output_id;
+        let is_spent = output.metadata.spent_metadata.is_some();
+        let mut doc = bson::to_document(&OutputDocument::from(output))?;
+        doc.insert("_id", output_id.to_hex());
+        if !is_spent {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
                 .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
+                    doc! { "metadata.output_id": output_id },
+                    doc! { "$setOnInsert": doc },
                     UpdateOptions::builder().upsert(true).build(),
                     session,
                 )
@@ -160,14 +164,39 @@ impl MongoDb {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
                 .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                    doc! { "metadata.output_id": output_id },
+                    doc! { "$set": doc },
                     UpdateOptions::builder().upsert(true).build(),
                     session,
                 )
                 .await?;
         }
+        Ok(())
+    }
 
+    /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_outputs(
+        &self,
+        session: &mut ClientSession,
+        outputs: impl IntoIterator<Item = OutputWithMetadata>,
+    ) -> Result<(), Error> {
+        let outputs = outputs
+            .into_iter()
+            .map(|output| {
+                let output_id = output.metadata.output_id;
+                let mut doc = bson::to_document(&OutputDocument::from(output))?;
+                doc.insert("_id", output_id.to_hex());
+                Ok(doc)
+            })
+            .collect::<Result<Vec<bson::Document>, Error>>()?;
+        if !outputs.is_empty() {
+            self.db
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
+                .insert_many_with_session(outputs, None, session)
+                .await?;
+        }
         Ok(())
     }
 

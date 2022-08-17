@@ -5,9 +5,9 @@ use std::str::FromStr;
 
 use futures::Stream;
 use mongodb::{
-    bson::{self, doc, Document},
+    bson::{doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions, UpdateOptions},
+    options::{FindOptions, IndexOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -123,33 +123,34 @@ impl MongoDb {
     pub async fn insert_ledger_updates(
         &self,
         session: &mut ClientSession,
-        deltas: impl IntoIterator<Item = OutputWithMetadata>,
+        outputs: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
-        for delta in deltas {
-            self.insert_output(session, delta.clone()).await?;
-            // Ledger updates
-            if let Some(&address) = delta.output.owning_address() {
-                let at = delta
-                    .metadata
-                    .spent_metadata
-                    .map(|s| s.spent)
-                    .unwrap_or(delta.metadata.booked);
-                let doc = LedgerUpdateDocument {
-                    address,
-                    output_id: delta.metadata.output_id,
-                    at,
-                    is_spent: delta.metadata.spent_metadata.is_some(),
-                };
-                self.db
-                    .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .update_one_with_session(
-                        doc! { "address": &doc.address, "at.milestone_index": &doc.at.milestone_index, "output_id": &doc.output_id, "is_spent": &doc.is_spent },
-                        doc! { "$setOnInsert": bson::to_document(&doc)? },
-                        UpdateOptions::builder().upsert(true).build(),
-                        session
-                    )
-                    .await?;
-            }
+        let outputs = outputs.into_iter().collect::<Vec<_>>();
+        for output in outputs.iter().cloned() {
+            self.upsert_output(session, output).await?;
+        }
+        let ledger_updates = outputs
+            .into_iter()
+            .filter_map(|o| {
+                // Ledger updates
+                if let Some(&address) = o.output.owning_address() {
+                    let at = o.metadata.spent_metadata.map(|s| s.spent).unwrap_or(o.metadata.booked);
+                    Some(LedgerUpdateDocument {
+                        address,
+                        output_id: o.metadata.output_id,
+                        at,
+                        is_spent: o.metadata.spent_metadata.is_some(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if !ledger_updates.is_empty() {
+            self.db
+                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .insert_many_with_session(ledger_updates, None, session)
+                .await?;
         }
 
         Ok(())

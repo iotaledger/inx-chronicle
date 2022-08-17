@@ -132,14 +132,14 @@ impl Actor for InxWorker {
             info!("Reading unspent outputs.");
             let mut unspent_output_stream = inx.read_unspent_outputs().await?;
 
-            let mut updates = Vec::new();
+            let mut outputs = Vec::new();
             while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
                 trace!("Received unspent output: {}", output.block_id);
-                updates.push(output.try_into()?);
+                outputs.push(output.try_into()?);
             }
-            info!("Inserting {} unspent outputs.", updates.len());
+            info!("Inserting {} unspent outputs.", outputs.len());
 
-            self.db.insert_ledger_updates(&mut session, updates).await?;
+            self.db.insert_outputs(&mut session, outputs).await?;
         }
 
         session.commit_transaction().await?;
@@ -160,7 +160,8 @@ impl Actor for InxWorker {
 #[derive(Debug)]
 pub struct LedgerUpdateRecord {
     milestone_index: MilestoneIndex,
-    outputs: Vec<OutputWithMetadata>,
+    unspent: Vec<OutputWithMetadata>,
+    spent: Vec<OutputWithMetadata>,
 }
 
 #[pin_project]
@@ -198,13 +199,14 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                                 // We shouldn't already have a record. If we do, that's bad.
                                 if let Some(record) = this.record.as_mut().take() {
                                     break Some(Err(InxError::InvalidLedgerUpdateCount {
-                                        received: record.outputs.len(),
-                                        expected: record.outputs.capacity(),
+                                        received: record.spent.len() + record.unspent.len(),
+                                        expected: record.spent.capacity() + record.unspent.capacity(),
                                     }));
                                 } else {
                                     this.record.set(Some(LedgerUpdateRecord {
                                         milestone_index: marker.milestone_index.into(),
-                                        outputs: Vec::with_capacity(marker.created_count + marker.consumed_count),
+                                        unspent: Vec::with_capacity(marker.created_count),
+                                        spent: Vec::with_capacity(marker.consumed_count),
                                     }));
                                 }
                             }
@@ -212,7 +214,7 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                                 if let Some(mut record) = this.record.as_mut().as_pin_mut() {
                                     match OutputWithMetadata::try_from(consumed) {
                                         Ok(consumed) => {
-                                            record.outputs.push(consumed);
+                                            record.spent.push(consumed);
                                         }
                                         Err(e) => {
                                             break Some(Err(e.into()));
@@ -226,7 +228,7 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                                 if let Some(mut record) = this.record.as_mut().as_pin_mut() {
                                     match OutputWithMetadata::try_from(created) {
                                         Ok(created) => {
-                                            record.outputs.push(created);
+                                            record.unspent.push(created);
                                         }
                                         Err(e) => {
                                             break Some(Err(e.into()));
@@ -238,9 +240,11 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                             }
                             LedgerUpdate::End(marker) => {
                                 if let Some(record) = this.record.as_mut().take() {
-                                    if record.outputs.len() != marker.consumed_count + marker.created_count {
+                                    if record.unspent.len() != marker.created_count
+                                        || record.spent.len() != marker.consumed_count
+                                    {
                                         break Some(Err(InxError::InvalidLedgerUpdateCount {
-                                            received: record.outputs.len(),
+                                            received: record.unspent.len() + record.spent.len(),
                                             expected: marker.consumed_count + marker.created_count,
                                         }));
                                     }
@@ -258,8 +262,8 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                     // If we were supposed to be in the middle of a milestone, something went wrong.
                     if let Some(record) = this.record.as_mut().take() {
                         break Some(Err(InxError::InvalidLedgerUpdateCount {
-                            received: record.outputs.len(),
-                            expected: record.outputs.capacity(),
+                            received: record.unspent.len() + record.spent.len(),
+                            expected: record.spent.capacity() + record.unspent.capacity(),
                         }));
                     } else {
                         break None;
@@ -292,7 +296,10 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         let mut session = self.db.start_transaction(None).await?;
 
         self.db
-            .insert_ledger_updates(&mut session, ledger_update.outputs.into_iter())
+            .insert_ledger_updates(
+                &mut session,
+                ledger_update.unspent.into_iter().chain(ledger_update.spent.into_iter()),
+            )
             .await?;
 
         let milestone = inx.read_milestone(ledger_update.milestone_index.0.into()).await?;
