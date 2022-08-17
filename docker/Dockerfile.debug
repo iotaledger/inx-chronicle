@@ -3,12 +3,6 @@
 ############################
 FROM lukemathwalker/cargo-chef:latest-rust-buster AS chef
 
-LABEL org.label-schema.description="IOTA permanode implemented as an IOTA Node Extension (INX)."
-LABEL org.label-schema.name="iotaledger/inx-chronicle"
-LABEL org.label-schema.schema-version="1.0"
-LABEL org.label-schema.vcs-url="https://github.com/iotaledger/inx-chronicle"
-LABEL org.label-schema.usage="https://github.com/iotaledger/inx-chronicle/blob/main/README.md"
-
 WORKDIR /inx-chronicle
 
 FROM chef as planner
@@ -19,9 +13,9 @@ FROM chef as builder
 RUN apt-get update && apt-get install -y protobuf-compiler
 COPY --from=planner /inx-chronicle/recipe.json recipe.json
 
-RUN cargo chef cook --profile production --recipe-path recipe.json
+RUN cargo chef cook --recipe-path recipe.json
 COPY . .
-RUN cargo build --profile production --bin inx-chronicle
+RUN cargo build --bin inx-chronicle
 
 ############################
 # Image
@@ -35,7 +29,7 @@ EXPOSE 8042/tcp
 # Metrics
 EXPOSE 9100/tcp
 
-COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/production/inx-chronicle /app/inx-chronicle
+COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/debug/inx-chronicle /app/inx-chronicle
 
 WORKDIR /app
 USER nonroot

@@ -3,7 +3,7 @@
 
 mod indexer;
 
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
@@ -11,6 +11,7 @@ use mongodb::{
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
@@ -143,6 +144,7 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip(self, session), err, level = "trace")]
     pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
         if output.metadata.spent_metadata.is_none() {
             self.db
@@ -794,5 +796,141 @@ impl MongoDb {
             .map(bson::from_document)
             .transpose()?
             .unwrap_or_default())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RichestAddresses {
+    pub top: Vec<AddressStat>,
+    pub ledger_index: MilestoneIndex,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AddressStat {
+    pub address: Address,
+    pub balance: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TokenDistribution {
+    pub distribution: Vec<DistributionStat>,
+    pub ledger_index: MilestoneIndex,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Statistics for a particular logarithmic range of balances
+pub struct DistributionStat {
+    /// The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
+    pub index: u32,
+    /// The number of unique addresses in this range
+    pub address_count: u64,
+    /// The total balance of the addresses in this range
+    pub total_balance: String,
+}
+
+impl MongoDb {
+    /// Create richest address statistics.
+    pub async fn get_richest_addresses(
+        &self,
+        ledger_index: Option<MilestoneIndex>,
+        top: usize,
+    ) -> Result<Option<RichestAddresses>, Error> {
+        let ledger_index = match ledger_index {
+            None => self.get_ledger_index().await?,
+            i => i,
+        };
+        if let Some(ledger_index) = ledger_index {
+            let top = self
+                .db
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "details.address": { "$exists": true },
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$details.address",
+                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$sort": { "balance": -1 } },
+                        doc! { "$limit": top as i64 },
+                        doc! { "$project": {
+                            "_id": 0,
+                            "address": "$_id",
+                            "balance": { "$toString": "$balance" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
+                .try_collect()
+                .await?;
+            Ok(Some(RichestAddresses { top, ledger_index }))
+        } else {
+            Ok(Default::default())
+        }
+    }
+
+    /// Create token distribution statistics.
+    pub async fn get_token_distribution(
+        &self,
+        ledger_index: Option<MilestoneIndex>,
+    ) -> Result<Option<TokenDistribution>, Error> {
+        let ledger_index = match ledger_index {
+            None => self.get_ledger_index().await?,
+            i => i,
+        };
+        if let Some(ledger_index) = ledger_index {
+            let distribution = self
+                .db
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "details.address": { "$exists": true },
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$details.address",
+                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
+                        doc! { "$group" : {
+                            "_id": "$index",
+                            "address_count": { "$sum": 1 },
+                            "total_balance": { "$sum": "$balance" },
+                        } },
+                        doc! { "$sort": { "_id": 1 } },
+                        doc! { "$project": {
+                            "_id": 0,
+                            "index": "$_id",
+                            "address_count": 1,
+                            "total_balance": { "$toString": "$total_balance" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
+                .try_collect()
+                .await?;
+            Ok(Some(TokenDistribution {
+                distribution,
+                ledger_index,
+            }))
+        } else {
+            Ok(Default::default())
+        }
     }
 }

@@ -11,6 +11,7 @@ use chronicle::{
 };
 use clap::Parser;
 use thiserror::Error;
+use tracing::{debug, info};
 
 use super::{
     cli::ClArgs,
@@ -30,10 +31,10 @@ pub enum LauncherError {
 }
 
 impl ErrorLevel for LauncherError {
-    fn level(&self) -> log::Level {
+    fn level(&self) -> tracing::Level {
         match self {
-            LauncherError::Config(_) | LauncherError::MongoDb(_) => log::Level::Error,
-            LauncherError::Runtime(_) => log::Level::Warn,
+            LauncherError::Config(_) | LauncherError::MongoDb(_) => tracing::Level::ERROR,
+            LauncherError::Runtime(_) => tracing::Level::WARN,
         }
     }
 }
@@ -64,13 +65,13 @@ impl Actor for Launcher {
         };
         config.apply_cl_args(&cl_args);
 
-        log::info!(
+        info!(
             "Connecting to database at bind address `{}`.",
             config.mongodb.connect_url
         );
         let db = MongoDb::connect(&config.mongodb).await?;
-        log::debug!("Available databases: `{:?}`", db.get_databases().await?);
-        log::info!(
+        debug!("Available databases: `{:?}`", db.get_databases().await?);
+        info!(
             "Connected to database `{}` ({})",
             db.name(),
             ByteSize::b(db.size().await?)

@@ -85,7 +85,7 @@ pub async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
 
 pub async fn health(database: Extension<MongoDb>) -> StatusCode {
     let handle_error = |e| {
-        log::error!("An error occured during health check: {e}");
+        tracing::error!("An error occured during health check: {e}");
         false
     };
 

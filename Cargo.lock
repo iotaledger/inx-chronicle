@@ -29,6 +29,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi_term"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -87,17 +96,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "atty"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi",
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -451,7 +449,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chronicle"
-version = "1.0.0-beta.9"
+version = "1.0.0-beta.10"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -469,14 +467,12 @@ dependencies = [
  "dyn-clone",
  "ed25519",
  "ed25519-dalek",
- "env_logger",
  "futures",
  "hex",
  "humantime",
  "humantime-serde",
  "hyper",
  "lazy_static",
- "log",
  "mongodb",
  "packable",
  "pin-project",
@@ -496,6 +492,9 @@ dependencies = [
  "tonic",
  "tower",
  "tower-http 0.3.4",
+ "tracing",
+ "tracing-futures",
+ "tracing-subscriber",
  "uint",
  "url",
  "uuid 1.1.2",
@@ -838,18 +837,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b2cf0344971ee6c64c31be0d530793fba457d322dfec2810c453d0ef228f9c3"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "termcolor",
 ]
 
 [[package]]
@@ -1443,6 +1430,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
 
 [[package]]
+name = "matchers"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
+dependencies = [
+ "regex-automata",
+]
+
+[[package]]
 name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2033,6 +2029,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "regex-automata"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
+dependencies = [
+ "regex-syntax",
+]
+
+[[package]]
 name = "regex-syntax"
 version = "0.6.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2440,15 +2445,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termcolor"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bab24d30b911b2376f3a13cc2cd443142f0c81dda04c118693e35b3835757755"
-dependencies = [
- "winapi-util",
-]
-
-[[package]]
 name = "textwrap"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2775,14 +2771,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-log"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
+dependencies = [
+ "lazy_static",
+ "log",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60db860322da191b40952ad9affe65ea23e7dd6a5c442c2c42865810c6ab8e6b"
 dependencies = [
+ "ansi_term",
+ "matchers",
+ "once_cell",
+ "regex",
  "sharded-slab",
+ "smallvec",
  "thread_local",
+ "time 0.3.13",
+ "tracing",
  "tracing-core",
+ "tracing-log",
 ]
 
 [[package]]
@@ -3084,15 +3099,6 @@ name = "winapi-i686-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
-
-[[package]]
-name = "winapi-util"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70ec6ce85bb158151cae5e5c87f95a8e97d2c0c4b001223f33a334e3ce5de178"
-dependencies = [
- "winapi",
-]
 
 [[package]]
 name = "winapi-x86_64-pc-windows-gnu"

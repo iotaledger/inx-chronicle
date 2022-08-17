@@ -15,10 +15,10 @@ use chronicle::{
 };
 
 use super::{
-    extractors::{LedgerIndex, MilestoneRange},
+    extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
         AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse,
-        StorageDepositAnalyticsResponse,
+        RichestAddressesResponse, StorageDepositAnalyticsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{ApiError, ApiResult};
@@ -30,7 +30,9 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/storage-deposit", get(storage_deposit_analytics))
                 .route("/native-tokens", get(unspent_output_analytics::<FoundryOutput>))
-                .route("/nfts", get(unspent_output_analytics::<NftOutput>)),
+                .route("/nfts", get(unspent_output_analytics::<NftOutput>))
+                .route("/richest-addresses", get(richest_addresses))
+                .route("/token-distribution", get(token_distribution)),
         )
         .nest(
             "/activity",
@@ -161,5 +163,35 @@ async fn foundry_output_analytics(
         created_count: res.created_count.to_string(),
         transferred_count: res.transferred_count.to_string(),
         burned_count: res.burned_count.to_string(),
+    })
+}
+
+async fn richest_addresses(
+    database: Extension<MongoDb>,
+    RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
+) -> ApiResult<RichestAddressesResponse> {
+    let res = database
+        .get_richest_addresses(ledger_index, top)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(RichestAddressesResponse {
+        top: res.top.into_iter().map(Into::into).collect(),
+        ledger_index: res.ledger_index.0,
+    })
+}
+
+async fn token_distribution(
+    database: Extension<MongoDb>,
+    LedgerIndex { ledger_index }: LedgerIndex,
+) -> ApiResult<TokenDistributionResponse> {
+    let res = database
+        .get_token_distribution(ledger_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(TokenDistributionResponse {
+        distribution: res.distribution.into_iter().map(Into::into).collect(),
+        ledger_index: res.ledger_index.0,
     })
 }

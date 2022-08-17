@@ -31,12 +31,12 @@ pub enum InxError {
 }
 
 impl ErrorLevel for InxError {
-    fn level(&self) -> log::Level {
+    fn level(&self) -> tracing::Level {
         match self {
             Self::InvalidAddress(_) | Self::MongoDb(_) | Self::NetworkChanged(_, _) | Self::ParsingAddressFailed(_) => {
-                log::Level::Error
+                tracing::Level::ERROR
             }
-            _ => log::Level::Warn,
+            _ => tracing::Level::WARN,
         }
     }
 }

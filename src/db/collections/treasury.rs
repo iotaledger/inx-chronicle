@@ -8,6 +8,7 @@ use mongodb::{
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     db::MongoDb,
@@ -82,6 +83,7 @@ impl MongoDb {
     }
 
     /// Inserts many treasury data.
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_treasury_payloads(
         &self,
         session: &mut ClientSession,

@@ -12,6 +12,7 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::instrument;
 
 use crate::{
     db::MongoDb,
@@ -118,6 +119,7 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_ledger_updates(
         &self,
         session: &mut ClientSession,

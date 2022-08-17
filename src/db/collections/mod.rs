@@ -18,8 +18,8 @@ pub use self::{
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, ParseSortError, SortOrder},
     milestone::SyncData,
     outputs::{
-        AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputMetadataResult,
-        OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
+        AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
+        NftOutputsQuery, OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
     },
     treasury::TreasuryResult,
 };

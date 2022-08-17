@@ -23,6 +23,7 @@ use futures::{
     future::{AbortHandle, Abortable},
     Future,
 };
+use tracing::{debug, trace};
 
 pub use self::{
     actor::{
@@ -66,7 +67,7 @@ impl Runtime {
     where
         for<'a> F: AsyncFn<'a, Result<(), Box<dyn Error + Send + Sync>>>,
     {
-        log::debug!("Spawning runtime");
+        debug!("Spawning runtime");
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let mut scope = RuntimeScope::root(abort_handle);
         let res = Abortable::new(f.call(&mut scope), abort_registration).await;
@@ -87,7 +88,7 @@ where
     F: 'static + Future + Send,
     F::Output: 'static + Send,
 {
-    log::trace!("Spawning task {}", name);
+    trace!("Spawning task {}", name);
     #[cfg(all(tokio_unstable, feature = "console"))]
     return tokio::task::Builder::new().name(name).spawn(task);
     #[cfg(not(all(tokio_unstable, feature = "console")))]

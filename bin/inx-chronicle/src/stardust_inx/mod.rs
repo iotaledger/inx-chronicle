@@ -18,7 +18,7 @@ pub use config::InxConfig;
 pub use error::InxError;
 use futures::{Stream, StreamExt, TryStreamExt};
 use pin_project::pin_project;
-use tokio::time::Instant;
+use tracing::{debug, info, instrument, trace, warn};
 
 pub struct InxWorker {
     db: MongoDb,
@@ -45,7 +45,7 @@ impl InxWorker {
             match Inx::connect(inx_config.connect_url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
-                    log::warn!(
+                    warn!(
                         "INX connection failed. Retrying in {}s. {} retries remaining.",
                         inx_config.connection_retry_interval.as_secs(),
                         inx_config.connection_retry_count - i
@@ -63,18 +63,18 @@ impl Actor for InxWorker {
     type State = Inx;
     type Error = InxError;
 
+    #[instrument(skip_all, err, level = "trace")]
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        log::info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
+        info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx = Self::connect(&self.config).await?;
-        log::info!("Connected to INX.");
+        info!("Connected to INX.");
 
         // Request the node status so we can get the pruning index and latest confirmed milestone
         let node_status = inx.read_node_status().await?;
 
-        log::debug!(
+        debug!(
             "The node has a pruning index of `{}` and a latest confirmed milestone index of `{}`.",
-            node_status.tangle_pruning_index,
-            node_status.confirmed_milestone.milestone_info.milestone_index,
+            node_status.tangle_pruning_index, node_status.confirmed_milestone.milestone_info.milestone_index,
         );
 
         // Check if there is an unfixable gap in our node data.
@@ -102,7 +102,7 @@ impl Actor for InxWorker {
             .inner()?
             .into();
 
-        log::debug!("Connected to network `{}`.", protocol_parameters.network_name);
+        debug!("Connected to network `{}`.", protocol_parameters.network_name);
 
         let mut session = self.db.start_transaction(None).await?;
 
@@ -119,7 +119,7 @@ impl Actor for InxWorker {
                     .await?;
             }
         } else {
-            log::info!(
+            info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
                 protocol_parameters.network_name
@@ -129,24 +129,17 @@ impl Actor for InxWorker {
                 .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
                 .await?;
 
-            log::info!("Reading unspent outputs.");
+            info!("Reading unspent outputs.");
             let mut unspent_output_stream = inx.read_unspent_outputs().await?;
 
             let mut updates = Vec::new();
             while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
-                log::trace!("Received unspent output: {}", output.block_id);
+                trace!("Received unspent output: {}", output.block_id);
                 updates.push(output.try_into()?);
             }
-            log::info!("Inserting {} unspent outputs.", updates.len());
+            info!("Inserting {} unspent outputs.", updates.len());
 
-            // TODO: Use tracing here.
-            let start_time = Instant::now();
             self.db.insert_ledger_updates(&mut session, updates).await?;
-            let duration = start_time.elapsed();
-            log::info!(
-                "Inserting unspent outputs took {}.",
-                humantime::Duration::from(duration)
-            );
         }
 
         session.commit_transaction().await?;
@@ -279,16 +272,20 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
 
 #[async_trait]
 impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
+    #[instrument(
+        skip_all,
+        fields(milestone_index),
+        err,
+        level = "debug",
+        name = "handle_ledger_update"
+    )]
     async fn handle_event(
         &mut self,
         _cx: &mut ActorContext<Self>,
         ledger_update_result: Result<LedgerUpdateRecord, InxError>,
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        log::trace!("Received ledger update event {:#?}", ledger_update_result);
-
-        // TODO: Use tracing here.
-        let start_time = Instant::now();
+        trace!("Received ledger update event {:#?}", ledger_update_result);
 
         let ledger_update = ledger_update_result?;
 
@@ -309,9 +306,10 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index, parameters)
             .await?;
 
-        log::trace!("Received milestone: `{:?}`", milestone);
+        trace!("Received milestone: `{:?}`", milestone);
 
-        let milestone_index = milestone.milestone_info.milestone_index.into();
+        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+        tracing::Span::current().record("milestone_index", milestone_index.0);
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
         let milestone_id = milestone
             .milestone_info
@@ -349,13 +347,6 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .await?;
 
         session.commit_transaction().await?;
-
-        let duration = start_time.elapsed();
-        log::debug!(
-            "Milestone `{}` synced in {}.",
-            milestone_index,
-            humantime::Duration::from(duration)
-        );
 
         Ok(())
     }

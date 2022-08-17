@@ -20,6 +20,8 @@ use std::borrow::Cow;
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use tracing::{debug, trace_span};
+use tracing_futures::Instrument;
 
 use self::context::ActorContext;
 use super::error::ErrorLevel;
@@ -58,7 +60,9 @@ pub trait Actor: Send + Sync + Sized {
             #[cfg(feature = "metrics-debug")]
             let start_time = std::time::Instant::now();
             // Handle the event
-            evt.handle(cx, self, state).await?;
+            evt.handle(cx, self, state)
+                .instrument(trace_span!("event_loop"))
+                .await?;
             #[cfg(feature = "metrics-debug")]
             {
                 let elapsed = start_time.elapsed();
@@ -66,7 +70,7 @@ pub trait Actor: Send + Sync + Sized {
             }
         }
 
-        log::debug!("{} exited event loop ({})", self.name(), cx.id());
+        debug!("{} exited event loop ({})", self.name(), cx.id());
         Ok(())
     }
 
@@ -77,7 +81,7 @@ pub trait Actor: Send + Sync + Sized {
         _state: &mut Self::State,
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
-        log::debug!("{} shutting down ({})", self.name(), cx.id());
+        debug!("{} shutting down ({})", self.name(), cx.id());
         run_result
     }
 }

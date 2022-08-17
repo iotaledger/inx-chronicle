@@ -105,7 +105,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .parameters;
 
     let is_healthy = is_healthy(&database).await.unwrap_or_else(|e| {
-        log::error!("An error occured during health check: {e}");
+        tracing::error!("An error occured during health check: {e}");
         false
     });
 
