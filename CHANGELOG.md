@@ -1,3 +1,14 @@
+# [1.0.0-beta.10](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.9...v1.0.0-beta.10) (2022-08-17)
+
+
+### Features
+
+* **analytics:** add `richest-addresses` and `token-distribution` endpoints ([#523](https://github.com/iotaledger/inx-chronicle/issues/523)) ([99049b6](https://github.com/iotaledger/inx-chronicle/commit/99049b6dbe36943418d5cfc2ae676d6520840927))
+* **docker:** `production` builds and support `hornet-nest` ([#557](https://github.com/iotaledger/inx-chronicle/issues/557)) ([70fe622](https://github.com/iotaledger/inx-chronicle/commit/70fe622607f2024ee0eec67c35994cd5f1083090))
+* **metrics:** use `tracing` instead of `log` ([#554](https://github.com/iotaledger/inx-chronicle/issues/554)) ([3a585ad](https://github.com/iotaledger/inx-chronicle/commit/3a585ad2f83905d49e8714cba77091ca1010b17f))
+
+
+
 # [1.0.0-beta.9](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.8...v1.0.0-beta.9) (2022-08-16)
 
 
