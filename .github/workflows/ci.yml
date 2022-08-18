@@ -5,10 +5,14 @@ on:
     paths-ignore:
       - "**.md"
       - "bin/inx-chronicle/docker/**"
+      - "bin/inx-chronicle/docs/**"
+    branches:
+      - main
   pull_request:
     paths-ignore:
       - "**.md"
       - "bin/inx-chronicle/docker/**"
+      - "bin/inx-chronicle/docs/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
