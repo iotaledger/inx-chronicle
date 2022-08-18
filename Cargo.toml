@@ -17,7 +17,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "inx-chronicle"
-path = "bin/inx-chronicle/src/main.rs"
+path = "src/bin/inx-chronicle/main.rs"
 
 [dependencies]
 
