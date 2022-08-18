@@ -72,9 +72,8 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --force cargo-all-features
+          args: --force cargo-hack
 
       - uses: actions-rs/cargo@v1
         with:
-          command: check-all-features
-    
+          command: hack check --each-feature --no-dev-deps

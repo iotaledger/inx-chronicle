@@ -4,7 +4,10 @@
 use std::{fmt::Display, str::FromStr};
 
 use async_trait::async_trait;
-use axum::extract::{FromRequest, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
     types::{
@@ -16,7 +19,7 @@ use mongodb::bson;
 use primitive_types::U256;
 use serde::Deserialize;
 
-use crate::api::{error::ParseError, ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
+use crate::api::{config::ApiData, error::ParseError, ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedOutputsPagination<Q>
@@ -99,6 +102,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
         let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -157,7 +161,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: page_size.min(MAX_PAGE_SIZE),
+            page_size: page_size.min(config.max_page_size),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -191,6 +195,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
         let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -241,7 +246,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: page_size.min(MAX_PAGE_SIZE),
+            page_size: page_size.min(config.max_page_size),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -272,6 +277,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
         let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -307,7 +313,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: page_size.min(MAX_PAGE_SIZE),
+            page_size: page_size.min(config.max_page_size),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -350,6 +356,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
         let Query(query) = Query::<NftOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -413,7 +420,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
-            page_size: page_size.min(MAX_PAGE_SIZE),
+            page_size: page_size.min(config.max_page_size),
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
@@ -426,6 +433,7 @@ mod test {
     use axum::{extract::RequestParts, http::Request};
 
     use super::*;
+    use crate::api::ApiConfig;
 
     #[test]
     fn indexed_outputs_cursor_from_to_str() {
@@ -444,6 +452,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/outputs/basic?pageSize=9999999")
+                .extension(ApiData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
         );
@@ -452,7 +461,7 @@ mod test {
                 .await
                 .unwrap(),
             IndexedOutputsPagination {
-                page_size: MAX_PAGE_SIZE,
+                page_size: 1000,
                 query: Default::default(),
                 cursor: Default::default(),
                 sort: Default::default(),

@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use axum::extract::{FromRequest, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use serde::Deserialize;
 
-use super::{error::ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
+use super::{config::ApiData, error::ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
@@ -31,7 +34,8 @@ impl<B: Send> FromRequest<B> for Pagination {
         let Query(mut pagination) = Query::<Pagination>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        pagination.page_size = pagination.page_size.min(MAX_PAGE_SIZE);
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
 }
@@ -89,6 +93,7 @@ mod test {
     };
 
     use super::*;
+    use crate::api::ApiConfig;
 
     #[tokio::test]
     async fn page_size_clamped() {
@@ -96,13 +101,14 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/?pageSize=9999999")
+                .extension(ApiData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
         );
         assert_eq!(
             Pagination::from_request(&mut req).await.unwrap(),
             Pagination {
-                page_size: MAX_PAGE_SIZE,
+                page_size: 1000,
                 ..Default::default()
             }
         );
