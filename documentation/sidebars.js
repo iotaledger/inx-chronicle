@@ -11,70 +11,70 @@
 
 module.exports = {
   docs: [
-    {
-      type: "doc",
-      id: "welcome",
-      label: "Welcome",
-    },
-    {
-      type: "category",
-      label: "Getting Started",
-      items: [
-        {
-          type: "doc",
-          id: "getting_started/README",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "How Tos",
-      items: [
-        {
-          type: "doc",
-          id: "how_tos/README",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Tutorials",
-      items: [
-        {
-          type: "doc",
-          id: "tutorials/README",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Key Concepts",
-      items: [
-        {
-          type: "doc",
-          id: "key_concepts/README",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Reference",
-      items: [
-        {
-          type: "doc",
-          id: "reference/README",
-        },
-      ],
-    },
-    {
-      type: "doc",
-      id: "troubleshooting",
-      label: "Troubleshooting",
-    },
-    {
-      type: "doc",
-      id: "contribute",
-      label: "Contribute",
-    },
+    // {
+    //   type: "doc",
+    //   id: "welcome",
+    //   label: "Welcome",
+    // },
+    // {
+    //   type: "category",
+    //   label: "Getting Started",
+    //   items: [
+    //     {
+    //       type: "doc",
+    //       id: "getting_started/README",
+    //     },
+    //   ],
+    // },
+    // {
+    //   type: "category",
+    //   label: "How Tos",
+    //   items: [
+    //     {
+    //       type: "doc",
+    //       id: "how_tos/README",
+    //     },
+    //   ],
+    // },
+    // {
+    //   type: "category",
+    //   label: "Tutorials",
+    //   items: [
+    //     {
+    //       type: "doc",
+    //       id: "tutorials/README",
+    //     },
+    //   ],
+    // },
+    // {
+    //   type: "category",
+    //   label: "Key Concepts",
+    //   items: [
+    //     {
+    //       type: "doc",
+    //       id: "key_concepts/README",
+    //     },
+    //   ],
+    // },
+    // {
+    //   type: "category",
+    //   label: "Reference",
+    //   items: [
+    //     {
+    //       type: "doc",
+    //       id: "reference/README",
+    //     },
+    //   ],
+    // },
+    // {
+    //   type: "doc",
+    //   id: "troubleshooting",
+    //   label: "Troubleshooting",
+    // },
+    // {
+    //   type: "doc",
+    //   id: "contribute",
+    //   label: "Contribute",
+    // },
   ],
 };
