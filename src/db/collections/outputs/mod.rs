@@ -936,7 +936,7 @@ impl MongoDb {
 }
 
 #[cfg(all(test, feature = "test-db"))]
-mod test {
+mod test_db {
     use bee_block_stardust as bee;
 
     use crate::{
