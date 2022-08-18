@@ -4,14 +4,17 @@
 use std::{fmt::Display, str::FromStr};
 
 use async_trait::async_trait;
-use axum::extract::{FromRequest, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use chronicle::{
     db::collections::SortOrder,
     types::{stardust::block::OutputId, tangle::MilestoneIndex},
 };
 use serde::Deserialize;
 
-use crate::api::{error::ParseError, ApiError, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
+use crate::api::{config::ApiData, error::ParseError, ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LedgerUpdatesByAddressPagination {
@@ -75,6 +78,7 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
         let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let sort = query
             .sort
@@ -96,7 +100,7 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
         };
 
         Ok(LedgerUpdatesByAddressPagination {
-            page_size: page_size.min(MAX_PAGE_SIZE),
+            page_size: page_size.min(config.max_page_size),
             cursor,
             sort,
         })
@@ -153,6 +157,7 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
         let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
@@ -162,7 +167,7 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
         };
 
         Ok(LedgerUpdatesByMilestonePagination {
-            page_size: page_size.min(MAX_PAGE_SIZE),
+            page_size: page_size.min(config.max_page_size),
             cursor,
         })
     }
@@ -173,6 +178,7 @@ mod test {
     use axum::{extract::RequestParts, http::Request};
 
     use super::*;
+    use crate::api::ApiConfig;
 
     #[test]
     fn ledger_updates_by_address_cursor_from_to_str() {
@@ -203,13 +209,14 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
+                .extension(ApiData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
         );
         assert_eq!(
             LedgerUpdatesByAddressPagination::from_request(&mut req).await.unwrap(),
             LedgerUpdatesByAddressPagination {
-                page_size: MAX_PAGE_SIZE,
+                page_size: 1000,
                 sort: Default::default(),
                 cursor: Default::default()
             }
@@ -219,6 +226,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/ledger/updates/by-milestone/0?pageSize=9999999")
+                .extension(ApiData::try_from(ApiConfig::default()).unwrap())
                 .body(())
                 .unwrap(),
         );
@@ -227,7 +235,7 @@ mod test {
                 .await
                 .unwrap(),
             LedgerUpdatesByMilestonePagination {
-                page_size: MAX_PAGE_SIZE,
+                page_size: 1000,
                 cursor: Default::default()
             }
         );
