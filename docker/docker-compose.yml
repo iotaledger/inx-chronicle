@@ -7,7 +7,7 @@ services:
     # Warning: We don't keep logs to make development simpler
     command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27017", "--quiet", "--logpath", "/dev/null"]  
     volumes:
-      - ./chronicle_data/mongo-1:/data/db
+      - ./data/chronicle/mongo-1:/data/db
     ports:
       - 27017:27017
     healthcheck:
@@ -21,7 +21,7 @@ services:
     # Warning: We don't keep logs to make development simpler
     command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27019", "--quiet", "--logpath", "/dev/null"]
     volumes:
-      - ./chronicle_data/mongo-2:/data/db
+      - ./data/chronicle/mongo-2:/data/db
     ports:
       - 27019:27019
 
@@ -31,7 +31,7 @@ services:
     # Warning: We don't keep logs to make development simpler
     command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27020", "--quiet", "--logpath", "/dev/null"]
     volumes:
-      - ./chronicle_data/mongo-3:/data/db
+      - ./data/chronicle/mongo-3:/data/db
     ports:
       - 27020:27020
 
@@ -78,7 +78,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ./hornet_data:/app/alphanet
+      - ./data/hornet:/app/alphanet
       - ./config.alphanet.hornet.json:/app/config.json:ro
     command:
       - "-c"
@@ -87,19 +87,21 @@ services:
       - "--inx.bindAddress=hornet:9029"
 
 ################################################################################
-# The following services can be enabled by setting the `monitoring` profile.
+# The following services can be enabled by setting the `metrics` profile.
 
   prometheus:
     image: prom/prometheus:latest
     profiles:
-      - monitoring
+      - metrics
     container_name: prometheus
-    restart: always
+    restart: unless-stopped
+    user: "65532"
     ports:
       - '9090:9090'
     volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus/:/prometheus
+      - ./assets/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /etc/localtime:/etc/localtime:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--web.external-url=http://localhost:9090'
@@ -107,14 +109,14 @@ services:
   grafana:
     image: grafana/grafana:latest
     profiles:
-      - monitoring
+      - metrics
     container_name: grafana
-    restart: always
+    restart: unless-stopped
+    user: "65532"
     ports:
       - '3000:3000'
     volumes:
-      - ./monitoring/grafana/data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      - ./data/grafana:/var/lib/grafana
+      - ./assets/grafana/:/etc/grafana/provisioning/
+
+

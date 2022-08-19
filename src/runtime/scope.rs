@@ -124,12 +124,6 @@ impl RuntimeScope {
         }
     }
 
-    /// Gets the metrics registry used by the runtime.
-    #[cfg(feature = "metrics")]
-    pub fn metrics_registry(&self) -> &std::sync::Arc<bee_metrics::Registry> {
-        self.scope.0.metrics_registry()
-    }
-
     /// Creates a new scope within this one.
     pub async fn scope<S, F, O>(&self, f: S) -> Result<O, RuntimeError>
     where
