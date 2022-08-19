@@ -99,7 +99,10 @@ impl Actor for Launcher {
             if let Err(err) = crate::metrics::setup(&config.metrics) {
                 warn!("Failed to build Prometheus exporter: {err}");
             } else {
-                info!("Exporting to Prometheus at bind address: {}:{}", config.metrics.address, config.metrics.port);
+                info!(
+                    "Exporting to Prometheus at bind address: {}:{}",
+                    config.metrics.address, config.metrics.port
+                );
             };
         }
 
