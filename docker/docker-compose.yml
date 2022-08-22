@@ -7,7 +7,7 @@ services:
     # Warning: We don't keep logs to make development simpler
     command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27017", "--quiet", "--logpath", "/dev/null"]  
     volumes:
-      - ./data/chronicle/mongo-1:/data/db
+      - ./data/chronicle/mongo1:/data/db
     ports:
       - 27017:27017
     healthcheck:
@@ -21,7 +21,7 @@ services:
     # Warning: We don't keep logs to make development simpler
     command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27019", "--quiet", "--logpath", "/dev/null"]
     volumes:
-      - ./data/chronicle/mongo-2:/data/db
+      - ./data/chronicle/mongo2:/data/db
     ports:
       - 27019:27019
 
@@ -31,7 +31,7 @@ services:
     # Warning: We don't keep logs to make development simpler
     command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27020", "--quiet", "--logpath", "/dev/null"]
     volumes:
-      - ./data/chronicle/mongo-3:/data/db
+      - ./data/chronicle/mongo3:/data/db
     ports:
       - 27020:27020
 
