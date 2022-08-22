@@ -159,7 +159,7 @@ impl Actor for InxWorker {
         metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
         metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
 
-        // cx.add_stream(ledger_update_stream);
+        cx.add_stream(ledger_update_stream);
 
         Ok(inx)
     }
