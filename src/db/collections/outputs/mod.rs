@@ -48,14 +48,14 @@ struct OutputDetails {
     rent_structure: RentStructureBytes,
 }
 
-impl From<OutputWithMetadata> for OutputDocument {
-    fn from(rec: OutputWithMetadata) -> Self {
+impl From<&OutputWithMetadata> for OutputDocument {
+    fn from(rec: &OutputWithMetadata) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
         let rent_structure = rec.output.rent_structure();
 
         Self {
-            output: rec.output,
+            output: rec.output.clone(),
             metadata: rec.metadata,
             details: OutputDetails {
                 address,
@@ -142,10 +142,24 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn upsert_outputs(
+        &self,
+        session: &mut ClientSession,
+        outputs: impl Iterator<Item = &OutputWithMetadata>,
+    ) -> Result<(), Error> {
+        for output in outputs {
+            self.upsert_output(session, output).await?;
+        }
+        Ok(())
+    }
+
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn upsert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+    pub async fn upsert_output(&self, session: &mut ClientSession, output: &OutputWithMetadata) -> Result<(), Error> {
         let output_id = output.metadata.output_id;
         let is_spent = output.metadata.spent_metadata.is_some();
         let mut doc = bson::to_document(&OutputDocument::from(output))?;
@@ -180,10 +194,9 @@ impl MongoDb {
     pub async fn insert_outputs(
         &self,
         session: &mut ClientSession,
-        outputs: impl IntoIterator<Item = OutputWithMetadata>,
+        outputs: impl Iterator<Item = &OutputWithMetadata>,
     ) -> Result<(), Error> {
         let outputs = outputs
-            .into_iter()
             .map(|output| {
                 let output_id = output.metadata.output_id;
                 let mut doc = bson::to_document(&OutputDocument::from(output))?;
@@ -313,6 +326,29 @@ impl MongoDb {
             .transpose()?;
 
         Ok(metadata)
+    }
+
+    /// Get the latest unspent [`Output`].
+    pub async fn get_latest_unspent_output_metadata(&self) -> Result<Option<OutputMetadata>, Error> {
+        let output = self
+            .db
+            .collection::<Output>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": { "metadata.spent_metadata.spent": null } },
+                    doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
+                    doc! { "$limit": 1 },
+                    doc! { "$replaceWith": "$metadata" },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?;
+
+        Ok(output)
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).

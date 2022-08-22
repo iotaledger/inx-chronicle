@@ -5,9 +5,9 @@ use std::str::FromStr;
 
 use futures::Stream;
 use mongodb::{
-    bson::{doc, Document},
+    bson::{self, doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions},
+    options::{FindOptions, IndexOptions, UpdateOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -120,17 +120,56 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
+    pub async fn upsert_ledger_updates(
+        &self,
+        session: &mut ClientSession,
+        outputs: impl Iterator<Item = &OutputWithMetadata>,
+    ) -> Result<(), Error> {
+        let ledger_updates = outputs
+            .filter_map(|o| {
+                // Ledger updates
+                if let Some(&address) = o.output.owning_address() {
+                    let at = o.metadata.spent_metadata.map(|s| s.spent).unwrap_or(o.metadata.booked);
+                    Some(LedgerUpdateDocument {
+                        address,
+                        output_id: o.metadata.output_id,
+                        at,
+                        is_spent: o.metadata.spent_metadata.is_some(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        for ledger_update in ledger_updates {
+            self.db
+                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .update_one_with_session(
+                    doc! {
+                        "address": &ledger_update.address,
+                        "at.milestone_index": &ledger_update.at.milestone_index,
+                        "output_id": &ledger_update.output_id,
+                        "is_spent": &ledger_update.is_spent
+                    },
+                    doc! { "$setOnInsert": bson::to_document(&ledger_update)? },
+                    UpdateOptions::builder().upsert(true).build(),
+                    session,
+                )
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_ledger_updates(
         &self,
         session: &mut ClientSession,
-        outputs: impl IntoIterator<Item = OutputWithMetadata>,
+        outputs: impl Iterator<Item = &OutputWithMetadata>,
     ) -> Result<(), Error> {
-        let outputs = outputs.into_iter().collect::<Vec<_>>();
-        for output in outputs.iter().cloned() {
-            self.upsert_output(session, output).await?;
-        }
         let ledger_updates = outputs
-            .into_iter()
             .filter_map(|o| {
                 // Ledger updates
                 if let Some(&address) = o.output.owning_address() {
