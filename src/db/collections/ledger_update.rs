@@ -126,7 +126,7 @@ impl MongoDb {
         deltas: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
         for delta in deltas {
-            self.insert_output(session, delta.clone()).await?;
+            self.upsert_output(session, delta.clone()).await?;
             // Ledger updates
             if let Some(&address) = delta.output.owning_address() {
                 let at = delta

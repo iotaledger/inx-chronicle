@@ -145,7 +145,7 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+    pub async fn upsert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
         if output.metadata.spent_metadata.is_none() {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
