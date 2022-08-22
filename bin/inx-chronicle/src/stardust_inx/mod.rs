@@ -110,7 +110,7 @@ impl Actor for InxWorker {
 
         let mut session = self.db.start_transaction(None).await?;
 
-        if let Some(latest) = self.db.get_latest_protocol_parameters_with_session(&mut session).await? {
+        if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
             if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
                     latest.parameters.network_name,
