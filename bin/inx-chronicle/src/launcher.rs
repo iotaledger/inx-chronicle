@@ -3,15 +3,13 @@
 
 use async_trait::async_trait;
 use bytesize::ByteSize;
-#[cfg(any(feature = "api", feature = "inx"))]
-use chronicle::runtime::{ActorError, HandleEvent, Report};
 use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, ErrorLevel, RuntimeError},
 };
 use clap::Parser;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::{
     cli::ClArgs,
@@ -97,10 +95,15 @@ impl Actor for Launcher {
                 .await;
         }
 
-        #[cfg(feature = "metrics")]
         if config.metrics.enabled {
-            cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-                .await;
+            if let Err(err) = crate::metrics::setup(&config.metrics) {
+                warn!("Failed to build Prometheus exporter: {err}");
+            } else {
+                info!(
+                    "Exporting to Prometheus at bind address: {}:{}",
+                    config.metrics.address, config.metrics.port
+                );
+            };
         }
 
         Ok(config)
@@ -113,13 +116,15 @@ impl Actor for Launcher {
 
 #[cfg(all(feature = "inx", feature = "stardust"))]
 #[async_trait]
-impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
+impl chronicle::runtime::HandleEvent<chronicle::runtime::Report<super::stardust_inx::InxWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<super::stardust_inx::InxWorker>,
+        event: chronicle::runtime::Report<super::stardust_inx::InxWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        use chronicle::runtime::{ActorError, Report};
+
         use super::stardust_inx::InxError;
         match event {
             Report::Success(_) => {
@@ -165,13 +170,14 @@ impl HandleEvent<Report<super::stardust_inx::InxWorker>> for Launcher {
 
 #[cfg(feature = "api")]
 #[async_trait]
-impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
+impl chronicle::runtime::HandleEvent<chronicle::runtime::Report<super::api::ApiWorker>> for Launcher {
     async fn handle_event(
         &mut self,
         cx: &mut ActorContext<Self>,
-        event: Report<super::api::ApiWorker>,
+        event: chronicle::runtime::Report<super::api::ApiWorker>,
         config: &mut Self::State,
     ) -> Result<(), Self::Error> {
+        use chronicle::runtime::{ActorError, Report};
         match event {
             Report::Success(_) => {
                 cx.abort().await;
@@ -187,36 +193,6 @@ impl HandleEvent<Report<super::api::ApiWorker>> for Launcher {
                 }
             },
         }
-        Ok(())
-    }
-}
-
-#[cfg(feature = "metrics")]
-#[async_trait]
-impl HandleEvent<chronicle::runtime::Report<super::metrics::MetricsWorker>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: Report<super::metrics::MetricsWorker>,
-        config: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        use chronicle::runtime::Report;
-        match event {
-            Report::Success(_) => {
-                cx.abort().await;
-            }
-            Report::Error(e) => match e.error {
-                ActorError::Result(_) => {
-                    let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-                        .await;
-                }
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.abort().await;
-                }
-            },
-        }
-
         Ok(())
     }
 }

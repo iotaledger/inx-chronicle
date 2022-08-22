@@ -32,6 +32,5 @@ pub struct ClArgs {
     pub enable_api: Option<bool>,
     /// Toggle the metrics server.
     #[clap(long, value_parser, env = "METRICS")]
-    #[cfg(feature = "metrics")]
     pub enable_metrics: Option<bool>,
 }

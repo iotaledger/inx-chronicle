@@ -466,7 +466,7 @@ impl MongoDb {
                         "_id": null,
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                    }},
+                    } },
                     doc! { "$project": {
                         "count": 1,
                         "total_value": { "$toString": "$total_value" },
@@ -512,7 +512,7 @@ impl MongoDb {
                                 "_id": null,
                                 "count": { "$sum": 1 },
                                 "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            }},
+                            } },
                             doc! { "$project": {
                                 "count": 1,
                                 "total_value": { "$toString": "$total_value" },
@@ -530,6 +530,127 @@ impl MongoDb {
         } else {
             Ok(None)
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OutputDiffAnalyticsResult {
+    pub created_count: u64,
+    pub transferred_count: u64,
+    pub burned_count: u64,
+}
+
+impl MongoDb {
+    /// Gathers nft output analytics.
+    pub async fn get_nft_output_analytics(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        Ok(self
+            .db
+            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "nft",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": start_index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": start_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "nft_id": "$output.nft_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": start_index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": end_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "nft_id": "$output.nft_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created_count": { "$size": { "$setDifference": [ "$end_state", "$start_state" ] } },
+                        "transferred_count": { "$size": { "$setIntersection": [ "$start_state", "$end_state" ] } },
+                        "burned_count": { "$size": { "$setDifference": [ "$start_state", "$end_state" ] } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers foundry output analytics.
+    pub async fn get_foundry_output_analytics(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        Ok(self
+            .db
+            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "foundry",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": start_index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": start_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": start_index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": end_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created_count": { "$size": { "$setDifference": [ "$end_state", "$start_state" ] } },
+                        "transferred_count": { "$size": { "$setIntersection": [ "$start_state", "$end_state" ] } },
+                        "burned_count": { "$size": { "$setDifference": [ "$start_state", "$end_state" ] } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
     }
 }
 

@@ -5,3 +5,5 @@
 /bin/inx-chronicle/config.toml
 
 .vscode
+
+.DS_Store
