@@ -110,7 +110,7 @@ impl Actor for InxWorker {
 
         let mut session = self.db.start_transaction(None).await?;
 
-        if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
+        if let Some(latest) = self.db.get_latest_protocol_parameters_with_session(&mut session).await? {
             if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
                     latest.parameters.network_name,
@@ -138,15 +138,15 @@ impl Actor for InxWorker {
 
             let mut updates = Vec::new();
             while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
-                trace!("Received unspent output: {}", output.block_id);
                 updates.push(output.try_into()?);
             }
             info!("Inserting {} unspent outputs.", updates.len());
 
-            self.db.insert_ledger_updates(&mut session, updates).await?;
-        }
+            self.db.insert_ledger_updates(&mut session, updates.iter()).await?;
+            self.db.insert_outputs(&mut session, updates).await?;
 
-        session.commit_transaction().await?;
+            session.commit_transaction().await?;
+        }
 
         let ledger_update_stream =
             LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?);
@@ -159,7 +159,7 @@ impl Actor for InxWorker {
         metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
         metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
 
-        cx.add_stream(ledger_update_stream);
+        // cx.add_stream(ledger_update_stream);
 
         Ok(inx)
     }
@@ -306,7 +306,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         let mut session = self.db.start_transaction(None).await?;
 
         self.db
-            .insert_ledger_updates(&mut session, ledger_update.outputs.into_iter())
+            .upsert_ledger_updates(&mut session, ledger_update.outputs.into_iter())
             .await?;
 
         let milestone = inx.read_milestone(ledger_update.milestone_index.0.into()).await?;

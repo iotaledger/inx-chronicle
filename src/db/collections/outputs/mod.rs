@@ -142,6 +142,15 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Inserts a batch of [`Output`](crate::types::stardust::block::Output)s together with their associated
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(name="insert_outputs", skip_all, err, level = "trace")]
+    pub async fn insert_outputs(&self, session: &mut ClientSession, outputs: impl IntoIterator<Item = OutputWithMetadata>) -> Result<(), Error> {
+        let docs = outputs.into_iter().map(|output_with_metadata| OutputDocument::from(output_with_metadata));
+        self.db.collection::<OutputDocument>(OutputDocument::COLLECTION).insert_many_with_session(docs, None, session).await?;
+        Ok(())
+    }
+
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip(self, session), err, level = "trace")]

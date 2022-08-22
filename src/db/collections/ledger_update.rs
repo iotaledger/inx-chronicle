@@ -117,10 +117,43 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Inserts multiple ledger updates at once.
+    #[instrument(name="insert_ledger_updates", skip_all, err, level = "trace")]
+    pub async fn insert_ledger_updates(
+        &self,
+        session: &mut ClientSession,
+        outputs: impl IntoIterator<Item = &OutputWithMetadata>,
+    ) -> Result<(), Error> {
+        let docs = outputs.into_iter().filter_map(|output_with_metadata| {
+            if let Some(&address) = output_with_metadata.output.owning_address() {
+                let at = output_with_metadata
+                    .metadata
+                    .spent_metadata
+                    .map(|s| s.spent)
+                    .unwrap_or(output_with_metadata.metadata.booked);
+                
+                    Some(LedgerUpdateDocument {
+                    address,
+                    output_id: output_with_metadata.metadata.output_id,
+                    at,
+                    is_spent: output_with_metadata.metadata.spent_metadata.is_some(),
+                })
+            } else {
+                None
+            }
+        });
+
+        self.db
+            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+            .insert_many_with_session(docs, None, session)
+            .await?;
+        Ok(())
+    }
+
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_ledger_updates(
+    pub async fn upsert_ledger_updates(
         &self,
         session: &mut ClientSession,
         deltas: impl IntoIterator<Item = OutputWithMetadata>,
