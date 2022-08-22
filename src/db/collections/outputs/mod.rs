@@ -7,7 +7,7 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, UpdateOptions},
+    options::{IndexOptions, InsertManyOptions, UpdateOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -207,7 +207,7 @@ impl MongoDb {
         if !outputs.is_empty() {
             self.db
                 .collection::<bson::Document>(OutputDocument::COLLECTION)
-                .insert_many_with_session(outputs, None, session)
+                .insert_many_with_session(outputs, InsertManyOptions::builder().ordered(false).build(), session)
                 .await?;
         }
         Ok(())

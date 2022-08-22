@@ -7,7 +7,7 @@ use futures::Stream;
 use mongodb::{
     bson::{self, doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions, UpdateOptions},
+    options::{FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -188,7 +188,11 @@ impl MongoDb {
         if !ledger_updates.is_empty() {
             self.db
                 .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_many_with_session(ledger_updates, None, session)
+                .insert_many_with_session(
+                    ledger_updates,
+                    InsertManyOptions::builder().ordered(false).build(),
+                    session,
+                )
                 .await?;
         }
 

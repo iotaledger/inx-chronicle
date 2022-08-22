@@ -5,7 +5,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::IndexOptions,
+    options::{IndexOptions, InsertManyOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -242,7 +242,11 @@ impl MongoDb {
 
             self.db
                 .collection::<bson::Document>(BlockDocument::COLLECTION)
-                .insert_many_with_session(blocks_with_metadata, None, session)
+                .insert_many_with_session(
+                    blocks_with_metadata,
+                    InsertManyOptions::builder().ordered(false).build(),
+                    session,
+                )
                 .await?;
         }
         Ok(())

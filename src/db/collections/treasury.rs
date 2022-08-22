@@ -4,7 +4,7 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{FindOneOptions, IndexOptions},
+    options::{FindOneOptions, IndexOptions, InsertManyOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -100,7 +100,7 @@ impl MongoDb {
         if !payloads.is_empty() {
             self.db
                 .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many_with_session(payloads, None, session)
+                .insert_many_with_session(payloads, InsertManyOptions::builder().ordered(false).build(), session)
                 .await?;
         }
 
