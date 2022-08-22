@@ -9,7 +9,7 @@ use chronicle::{
 };
 use clap::Parser;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::{
     cli::ClArgs,
@@ -95,10 +95,15 @@ impl Actor for Launcher {
                 .await;
         }
 
-        #[cfg(feature = "metrics")]
         if config.metrics.enabled {
-            cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-                .await;
+            if let Err(err) = crate::metrics::setup(&config.metrics) {
+                warn!("Failed to build Prometheus exporter: {err}");
+            } else {
+                info!(
+                    "Exporting to Prometheus at bind address: {}:{}",
+                    config.metrics.address, config.metrics.port
+                );
+            };
         }
 
         Ok(config)
@@ -188,36 +193,6 @@ impl chronicle::runtime::HandleEvent<chronicle::runtime::Report<super::api::ApiW
                 }
             },
         }
-        Ok(())
-    }
-}
-
-#[cfg(feature = "metrics")]
-#[async_trait]
-impl chronicle::runtime::HandleEvent<chronicle::runtime::Report<super::metrics::MetricsWorker>> for Launcher {
-    async fn handle_event(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        event: chronicle::runtime::Report<super::metrics::MetricsWorker>,
-        config: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        use chronicle::runtime::{ActorError, Report};
-        match event {
-            Report::Success(_) => {
-                cx.abort().await;
-            }
-            Report::Error(e) => match e.error {
-                ActorError::Result(_) => {
-                    let db = MongoDb::connect(&config.mongodb).await?;
-                    cx.spawn_child(super::metrics::MetricsWorker::new(&db, &config.metrics))
-                        .await;
-                }
-                ActorError::Panic | ActorError::Aborted => {
-                    cx.abort().await;
-                }
-            },
-        }
-
         Ok(())
     }
 }

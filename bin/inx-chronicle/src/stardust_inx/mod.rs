@@ -25,6 +25,10 @@ pub struct InxWorker {
     config: InxConfig,
 }
 
+const METRIC_MILESTONE_INDEX: &str = "milestone_index";
+const METRIC_MILESTONE_TIMESTAMP: &str = "milestone_timestamp";
+const METRIC_MILESTONE_SYNC_TIME: &str = "milestone_sync_time";
+
 impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
@@ -146,6 +150,14 @@ impl Actor for InxWorker {
 
         let ledger_update_stream =
             LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?);
+
+        metrics::describe_histogram!(
+            METRIC_MILESTONE_SYNC_TIME,
+            metrics::Unit::Seconds,
+            "the time it took to sync the last milestone"
+        );
+        metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
+        metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
 
         cx.add_stream(ledger_update_stream);
 
@@ -287,6 +299,8 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     ) -> Result<(), Self::Error> {
         trace!("Received ledger update event {:#?}", ledger_update_result);
 
+        let start_time = std::time::Instant::now();
+
         let ledger_update = ledger_update_result?;
 
         let mut session = self.db.start_transaction(None).await?;
@@ -347,6 +361,12 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .await?;
 
         session.commit_transaction().await?;
+
+        let elapsed = start_time.elapsed();
+
+        metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
+        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
+        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
 
         Ok(())
     }

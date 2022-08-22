@@ -27,7 +27,6 @@ pub struct ChronicleConfig {
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub inx: super::stardust_inx::InxConfig,
-    #[cfg(feature = "metrics")]
     pub metrics: crate::metrics::MetricsConfig,
 }
 
@@ -71,11 +70,9 @@ impl ChronicleConfig {
                 self.api.enabled = enabled;
             }
         }
-        #[cfg(feature = "metrics")]
-        {
-            if let Some(enabled) = args.enable_metrics {
-                self.metrics.enabled = enabled;
-            }
+
+        if let Some(enabled) = args.enable_metrics {
+            self.metrics.enabled = enabled;
         }
     }
 }
