@@ -313,8 +313,12 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         if ledger_update.milestone_index > *unspent_cutoff {
             info!("Batch inserting {}", ledger_update.milestone_index);
-            self.db.insert_outputs(&mut session, ledger_update.created.iter()).await?;
-            self.db.upsert_outputs(&mut session, ledger_update.consumed.iter()).await?;
+            self.db
+                .insert_outputs(&mut session, ledger_update.created.iter())
+                .await?;
+            self.db
+                .upsert_outputs(&mut session, ledger_update.consumed.iter())
+                .await?;
             self.db.insert_ledger_updates(&mut session, outputs).await?;
         } else {
             info!("Upserting {}", ledger_update.milestone_index);
