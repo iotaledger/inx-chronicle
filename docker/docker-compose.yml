@@ -123,6 +123,7 @@ services:
       - '--web.listen-address=:9216'
       - '--log.level=info'
       - '--discovering-mode'
+      - '--collect-all'
 
   grafana:
     image: grafana/grafana:latest
