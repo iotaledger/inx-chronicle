@@ -7,7 +7,7 @@ use futures::Stream;
 use mongodb::{
     bson::{self, doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions, UpdateOptions, InsertManyOptions},
+    options::{FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
     ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -118,7 +118,7 @@ impl MongoDb {
     }
 
     /// Inserts multiple ledger updates at once.
-    #[instrument(name="insert_ledger_updates", skip_all, err, level = "trace")]
+    #[instrument(name = "insert_ledger_updates", skip_all, err, level = "trace")]
     pub async fn insert_ledger_updates(
         &self,
         session: &mut ClientSession,
@@ -131,8 +131,8 @@ impl MongoDb {
                     .spent_metadata
                     .map(|s| s.spent)
                     .unwrap_or(output_with_metadata.metadata.booked);
-                
-                    Some(LedgerUpdateDocument {
+
+                Some(LedgerUpdateDocument {
                     address,
                     output_id: output_with_metadata.metadata.output_id,
                     at,
