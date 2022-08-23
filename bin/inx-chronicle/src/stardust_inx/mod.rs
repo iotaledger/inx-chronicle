@@ -127,7 +127,7 @@ impl Actor for InxWorker {
                 inx_protocol_parameters.network_name
             );
 
-            debug!("Reverting potentially corrupt data.");
+            debug!("Checking for corrupt data.");
             let corrupt_ledger_updates = self.db.remove_ledger_updates_newer_than_milestone(0.into()).await?;
             if corrupt_ledger_updates > 0 {
                 debug!("Removed {corrupt_ledger_updates} ledger updates");
@@ -147,6 +147,7 @@ impl Actor for InxWorker {
             }
             info!("Inserting {} unspent outputs.", updates.len());
 
+            // TODO: This should be done concurrently.
             self.db.insert_ledger_updates(updates.iter()).await?;
             self.db.insert_outputs(updates).await?;
 
@@ -306,8 +307,6 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         ledger_update_result: Result<LedgerUpdateRecord, InxError>,
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        trace!("Received ledger update event {:#?}", ledger_update_result);
-
         let start_time = std::time::Instant::now();
 
         let ledger_update = ledger_update_result?;
@@ -328,8 +327,6 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         self.db
             .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index, parameters)
             .await?;
-
-        trace!("Received milestone: `{:?}`", milestone);
 
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
         tracing::Span::current().record("milestone_index", milestone_index.0);
