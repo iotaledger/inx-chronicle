@@ -9,7 +9,7 @@ use crate::api::responses::impl_success_response;
 #[serde(rename_all = "camelCase")]
 pub struct IndexerOutputResponse {
     pub ledger_index: u32,
-    pub output_id: String,
+    pub items: Vec<String>,
 }
 
 impl_success_response!(IndexerOutputResponse);

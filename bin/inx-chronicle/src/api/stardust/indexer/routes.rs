@@ -60,7 +60,7 @@ where
         .ok_or(ApiError::NoResults)?;
     Ok(IndexerOutputResponse {
         ledger_index: res.ledger_index.0,
-        output_id: res.output_id.to_hex(),
+        items: vec![res.output_id.to_hex()],
     })
 }
 
