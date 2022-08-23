@@ -220,7 +220,7 @@ impl MongoDb {
         Ok(output)
     }
 
-    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,
