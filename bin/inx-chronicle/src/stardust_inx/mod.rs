@@ -11,16 +11,16 @@ use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        ledger::{MilestoneIndexTimestamp},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use futures::{Stream, StreamExt, TryStreamExt};
-use pin_project::pin_project;
+use futures::{StreamExt, TryStreamExt};
+
 use stream::{LedgerUpdateRecord, LedgerUpdateStream};
-use tracing::{debug, info, instrument, trace, warn};
+use tracing::{debug, info, instrument, warn};
 
 pub struct InxWorker {
     db: MongoDb,
@@ -64,7 +64,7 @@ impl InxWorker {
     }
 }
 
-fn log_corrupt(num: usize, desc: &str) {
+fn log_corrupt(num: usize, _desc: &str) {
     if num > 0 {
         debug!("Removed {num} ledger_updates.");
     };
