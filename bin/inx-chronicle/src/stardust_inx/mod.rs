@@ -63,9 +63,9 @@ impl InxWorker {
     }
 }
 
-fn log_corrupt(num: usize, _desc: &str) {
+fn log_orphaned(num: usize, desc: &str) {
     if num > 0 {
-        debug!("Removed {num} ledger_updates.");
+        debug!("Removed {num} orphaned {desc}.");
     };
 }
 
@@ -136,12 +136,12 @@ impl Actor for InxWorker {
                 inx_protocol_parameters.network_name
             );
 
-            debug!("Checking for corrupt data.");
-            log_corrupt(
+            debug!("Checking for orphaned data.");
+            log_orphaned(
                 self.db.remove_ledger_updates_newer_than_milestone(0.into()).await?,
                 "ledger_updates",
             );
-            log_corrupt(
+            log_orphaned(
                 self.db.remove_outputs_newer_than_milestone(0.into()).await?,
                 "outputs",
             );
@@ -172,20 +172,20 @@ impl Actor for InxWorker {
             ..
         }) = db_latest_milestone
         {
-            log_corrupt(
+            log_orphaned(
                 self.db.remove_ledger_updates_newer_than_milestone(latest).await?,
                 "ledger_updates",
             );
-            log_corrupt(
+            log_orphaned(
                 self.db.remove_outputs_newer_than_milestone(latest).await?,
                 "outputs",
             );
-            log_corrupt(self.db.remove_blocks_newer_than_milestone(latest).await?, "blocks");
-            log_corrupt(
+            log_orphaned(self.db.remove_blocks_newer_than_milestone(latest).await?, "blocks");
+            log_orphaned(
                 self.db.remove_protocol_updates_newer_than_milestone(latest).await?,
                 "protocol_updates",
             );
-            log_corrupt(self.db.remove_treasury_newer_than_milestone(latest).await?, "trasury");
+            log_orphaned(self.db.remove_treasury_newer_than_milestone(latest).await?, "trasury");
         }
 
         let ledger_update_stream =
