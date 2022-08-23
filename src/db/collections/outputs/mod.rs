@@ -145,19 +145,28 @@ impl MongoDb {
     /// Inserts a batch of [`Output`](crate::types::stardust::block::Output)s together with their associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(name = "insert_outputs", skip_all, err, level = "trace")]
-    pub async fn insert_outputs(
-        &self,
-        session: &mut ClientSession,
-        outputs: impl IntoIterator<Item = OutputWithMetadata>,
-    ) -> Result<(), Error> {
+    pub async fn insert_outputs(&self, outputs: impl IntoIterator<Item = OutputWithMetadata>) -> Result<(), Error> {
         let docs = outputs
             .into_iter()
             .map(|output_with_metadata| OutputDocument::from(output_with_metadata));
         self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .insert_many_with_session(docs, InsertManyOptions::builder().ordered(false).build(), session)
+            .insert_many(docs, InsertManyOptions::builder().ordered(false).build())
             .await?;
         Ok(())
+    }
+
+    /// Removes all [`OutputDocument`]s that are newer than a given [`MilestoneIndex`].
+    #[instrument(name = "outputs_newer_than_milestone", skip_all, err, level = "trace")]
+    pub async fn remove_outputs_newer_than_milestone(&self, milestone_index: MilestoneIndex) -> Result<usize, Error> {
+        self.db
+            .collection::<OutputDocument>(OutputDocument::COLLECTION)
+            .delete_many(
+                doc! {"metadata.booked.milestone_index": { "$gt": milestone_index }},
+                None,
+            )
+            .await
+            .map(|res| res.deleted_count as usize)
     }
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated

@@ -100,38 +100,43 @@ impl Actor for InxWorker {
                 .max((node_status.tangle_pruning_index + 1).into())
         };
 
-        let protocol_parameters: ProtocolParameters = inx
+        let inx_protocol_parameters: ProtocolParameters = inx
             .read_protocol_parameters(start_index.0.into())
             .await?
             .inner()?
             .into();
 
-        debug!("Connected to network `{}`.", protocol_parameters.network_name);
-
-        let mut session = self.db.start_transaction(None).await?;
+        debug!("Connected to network `{}`.", inx_protocol_parameters.network_name);
 
         if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
-            if latest.parameters.network_name != protocol_parameters.network_name {
+            if latest.parameters.network_name != inx_protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
                     latest.parameters.network_name,
-                    protocol_parameters.network_name,
+                    inx_protocol_parameters.network_name,
                 ));
             }
-            if latest.parameters != protocol_parameters {
+            if latest.parameters != inx_protocol_parameters {
                 self.db
-                    .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
+                    .insert_protocol_parameters(start_index, inx_protocol_parameters)
                     .await?;
             }
         } else {
             info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
-                protocol_parameters.network_name
+                inx_protocol_parameters.network_name
             );
 
-            self.db
-                .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
-                .await?;
+            debug!("Reverting potentially corrupt data.");
+            let corrupt_ledger_updates = self.db.remove_ledger_updates_newer_than_milestone(0.into()).await?;
+            if corrupt_ledger_updates > 0 {
+                debug!("Removed {corrupt_ledger_updates} ledger updates");
+            };
+
+            let corrupt_outputs = self.db.remove_outputs_newer_than_milestone(0.into()).await?;
+            if corrupt_outputs > 0 {
+                debug!("Removed {corrupt_outputs} corrupt outputs.");
+            }
 
             info!("Reading unspent outputs.");
             let mut unspent_output_stream = inx.read_unspent_outputs().await?;
@@ -142,10 +147,14 @@ impl Actor for InxWorker {
             }
             info!("Inserting {} unspent outputs.", updates.len());
 
-            self.db.insert_ledger_updates(&mut session, updates.iter()).await?;
-            self.db.insert_outputs(&mut session, updates).await?;
+            self.db.insert_ledger_updates(updates.iter()).await?;
+            self.db.insert_outputs(updates).await?;
 
-            session.commit_transaction().await?;
+            // The protocol parameters act as a checkpoint. Writing the unspent outputs was successful only if the
+            // parameters are in the database.
+            self.db
+                .insert_protocol_parameters(start_index, inx_protocol_parameters)
+                .await?;
         }
 
         let ledger_update_stream =

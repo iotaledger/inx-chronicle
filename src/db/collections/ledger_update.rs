@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{str::FromStr, iter::Peekable};
+use std::str::FromStr;
 
 use futures::Stream;
 use mongodb::{
@@ -117,37 +117,52 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Removes all [`LedgerUpdateDocument`]s that are newer than a given [`MilestoneIndex`].
+    #[instrument(name = "ledger_updates_newer_than_milestone", skip_all, err, level = "trace")]
+    pub async fn remove_ledger_updates_newer_than_milestone(
+        &self,
+        milestone_index: MilestoneIndex,
+    ) -> Result<usize, Error> {
+        self.db
+            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+            .delete_many(doc! {"at.milestone_index": { "$gt": milestone_index }}, None)
+            .await
+            .map(|res| res.deleted_count as usize)
+    }
+
     /// Inserts multiple ledger updates at once.
     #[instrument(name = "insert_ledger_updates", skip_all, err, level = "trace")]
     pub async fn insert_ledger_updates(
         &self,
-        session: &mut ClientSession,
         outputs: impl IntoIterator<Item = &OutputWithMetadata>,
     ) -> Result<(), Error> {
-        let docs = outputs.into_iter().filter_map(|output_with_metadata| {
-            if let Some(&address) = output_with_metadata.output.owning_address() {
-                let at = output_with_metadata
-                    .metadata
-                    .spent_metadata
-                    .map(|s| s.spent)
-                    .unwrap_or(output_with_metadata.metadata.booked);
+        let docs = outputs
+            .into_iter()
+            .filter_map(|output_with_metadata| {
+                if let Some(&address) = output_with_metadata.output.owning_address() {
+                    let at = output_with_metadata
+                        .metadata
+                        .spent_metadata
+                        .map(|s| s.spent)
+                        .unwrap_or(output_with_metadata.metadata.booked);
 
-                Some(LedgerUpdateDocument {
-                    address,
-                    output_id: output_with_metadata.metadata.output_id,
-                    at,
-                    is_spent: output_with_metadata.metadata.spent_metadata.is_some(),
-                })
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>();
+                    Some(LedgerUpdateDocument {
+                        address,
+                        output_id: output_with_metadata.metadata.output_id,
+                        at,
+                        is_spent: output_with_metadata.metadata.spent_metadata.is_some(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         if !docs.is_empty() {
             self.db
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-            .insert_many_with_session(docs, InsertManyOptions::builder().ordered(false).build(), session)
-            .await?;
+                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .insert_many(docs, InsertManyOptions::builder().ordered(false).build())
+                .await?;
         }
         Ok(())
     }
