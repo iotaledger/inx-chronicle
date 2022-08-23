@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{str::FromStr, iter::Peekable};
 
 use futures::Stream;
 use mongodb::{
@@ -141,12 +141,14 @@ impl MongoDb {
             } else {
                 None
             }
-        });
+        }).collect::<Vec<_>>();
 
-        self.db
+        if !docs.is_empty() {
+            self.db
             .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
             .insert_many_with_session(docs, InsertManyOptions::builder().ordered(false).build(), session)
             .await?;
+        }
         Ok(())
     }
 
