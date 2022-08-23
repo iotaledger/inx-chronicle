@@ -236,9 +236,8 @@ impl MongoDb {
             .collect::<Result<Vec<_>, _>>()?;
 
         for batch in blocks_with_metadata.chunks(10000) {
-            self.db
-                .collection::<bson::Document>(BlockDocument::COLLECTION)
-                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
+            self.collection::<bson::Document>(BlockDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -290,19 +289,6 @@ impl MongoDb {
             .await?
             .map(bson::from_document)
             .transpose()?)
-    }
-
-    /// Clears blocks after a given milestone index.
-    pub async fn clear_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.db
-            .collection::<Block>(BlockDocument::COLLECTION)
-            .delete_many(
-                doc! { "metadata.referenced_by_milestone_index": { "$gt": index } },
-                None,
-            )
-            .await?;
-
-        Ok(())
     }
 }
 

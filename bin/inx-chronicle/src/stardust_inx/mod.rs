@@ -62,14 +62,9 @@ impl InxWorker {
     }
 }
 
-pub struct InxWorkerState {
-    inx: Inx,
-    unspent_cutoff: MilestoneIndex,
-}
-
 #[async_trait]
 impl Actor for InxWorker {
-    type State = InxWorkerState;
+    type State = Inx;
     type Error = InxError;
 
     #[instrument(skip_all, err, level = "trace")]
@@ -98,7 +93,6 @@ impl Actor for InxWorker {
                     end: node_status.tangle_pruning_index.into(),
                 });
             }
-            self.db.clear_orphaned_data(latest_milestone).await?;
             latest_milestone + 1
         } else {
             self.config
@@ -187,15 +181,7 @@ impl Actor for InxWorker {
         metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
         metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
 
-        Ok(InxWorkerState {
-            inx,
-            unspent_cutoff: self
-                .db
-                .get_latest_unspent_output_metadata()
-                .await?
-                .map(|o| o.booked.milestone_index)
-                .unwrap_or_default(),
-        })
+        Ok(inx)
     }
 
     fn name(&self) -> std::borrow::Cow<'static, str> {
@@ -333,7 +319,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         &mut self,
         _cx: &mut ActorContext<Self>,
         ledger_update_result: Result<LedgerUpdateRecord, InxError>,
-        InxWorkerState { inx, unspent_cutoff }: &mut Self::State,
+        inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
         trace!("Received ledger update event {:#?}", ledger_update_result);
 
@@ -341,20 +327,14 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         let ledger_update = ledger_update_result?;
 
-        let outputs = ledger_update.created.iter().chain(ledger_update.consumed.iter());
+        self.db.insert_outputs(ledger_update.created.iter()).await?;
+        self.db.insert_ledger_updates(ledger_update.created.iter()).await?;
+        self.db.upsert_outputs(ledger_update.consumed.iter()).await?;
+        self.db.insert_ledger_updates(ledger_update.consumed.iter()).await?;
 
-        if ledger_update.milestone_index > *unspent_cutoff {
-            trace!("Batch inserting {}", ledger_update.milestone_index);
-            self.db.insert_outputs(ledger_update.created.iter()).await?;
-            self.db.upsert_outputs(ledger_update.consumed.iter()).await?;
-            self.db.insert_ledger_updates(outputs).await?;
-        } else {
-            trace!("Upserting {}", ledger_update.milestone_index);
-            self.db.upsert_outputs(outputs.clone()).await?;
-            self.db.upsert_ledger_updates(outputs).await?;
-        }
+        self.handle_protocol_params(inx, ledger_update.milestone_index).await?;
 
-        self.handle_cone_stream(inx, ledger_update.milestone_index).await?;
+        self.handle_milestone(inx, ledger_update.milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -365,8 +345,8 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 }
 
 impl InxWorker {
-    async fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
+    #[instrument(skip(self, inx), level = "trace")]
+    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
         let parameters: ProtocolParameters = inx
             .read_protocol_parameters(milestone_index.0.into())
             .await?
@@ -376,6 +356,13 @@ impl InxWorker {
         self.db
             .update_latest_protocol_parameters(milestone_index, parameters)
             .await?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self, inx), level = "trace")]
+    async fn handle_milestone(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
         trace!("Received milestone: `{:?}`", milestone);
 
@@ -393,6 +380,20 @@ impl InxWorker {
                 .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
         );
 
+        self.handle_cone_stream(inx, milestone_index).await?;
+
+        self.db
+            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+            .await?;
+
+        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
+        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
+
+        Ok(())
+    }
+
+    #[instrument(skip(self, inx), level = "trace")]
+    async fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
         let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
         let blocks_with_metadata = cone_stream
@@ -404,13 +405,6 @@ impl InxWorker {
             .await?;
 
         self.db.insert_blocks_with_metadata(blocks_with_metadata).await?;
-
-        self.db
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
-            .await?;
-
-        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
-        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
 
         Ok(())
     }

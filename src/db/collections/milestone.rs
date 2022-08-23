@@ -356,13 +356,4 @@ impl MongoDb {
                 Ok((receipt, index))
             }))
     }
-
-    /// Clears all orphaned data after a given milestone index.
-    pub async fn clear_orphaned_data(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.clear_blocks(index).await?;
-        self.clear_ledger_updates(index).await?;
-        self.clear_treasury(index).await?;
-
-        Ok(())
-    }
 }

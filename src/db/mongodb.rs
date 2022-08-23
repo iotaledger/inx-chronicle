@@ -3,13 +3,18 @@
 
 //! Holds the `MongoDb` type and its config.
 
+use std::borrow::Borrow;
+
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential, TransactionOptions},
+    options::{ClientOptions, Credential, InsertManyOptions, TransactionOptions},
     Client, ClientSession,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
+
+const DUPLICATE_KEY_CODE: i32 = 11000;
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
@@ -41,6 +46,11 @@ impl MongoDb {
         let db = client.database(&config.database_name);
 
         Ok(MongoDb { db, client })
+    }
+
+    /// Gets a collection of the provided type with the given name.
+    pub fn collection<T>(&self, name: impl AsRef<str>) -> MongoDbCollection<T> {
+        MongoDbCollection(self.db.collection(name.as_ref()))
     }
 
     /// Starts a transaction.
@@ -97,6 +107,44 @@ impl MongoDb {
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
         self.db.name()
+    }
+}
+
+pub struct MongoDbCollection<T>(mongodb::Collection<T>);
+
+impl<T: Serialize> MongoDbCollection<T> {
+    /// Inserts many records and ignores duplicate key errors.
+    pub async fn insert_many_ignore_duplicates(
+        &self,
+        docs: impl IntoIterator<Item = impl Borrow<T>>,
+        options: impl Into<Option<InsertManyOptions>>,
+    ) -> Result<usize, Error> {
+        use mongodb::error::ErrorKind;
+        match self.insert_many(docs, options).await {
+            Ok(r) => Ok(r.inserted_ids.len()),
+            Err(e) => match &*e.kind {
+                ErrorKind::BulkWrite(b) => {
+                    if let Some(write_errs) = &b.write_errors {
+                        if write_errs.len() == 1 {
+                            if write_errs[0].code == DUPLICATE_KEY_CODE {
+                                info!("{:?}", e);
+                                return Ok(0);
+                            }
+                        }
+                    }
+                    Err(e)
+                }
+                _ => Err(e),
+            },
+        }
+    }
+}
+
+impl<T> std::ops::Deref for MongoDbCollection<T> {
+    type Target = mongodb::Collection<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

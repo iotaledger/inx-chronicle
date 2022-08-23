@@ -5,9 +5,9 @@ use std::str::FromStr;
 
 use futures::Stream;
 use mongodb::{
-    bson::{self, doc, Document},
+    bson::{doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
+    options::{FindOptions, IndexOptions, InsertManyOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -120,45 +120,6 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn upsert_ledger_updates(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
-        let ledger_updates = outputs
-            .filter_map(|o| {
-                // Ledger updates
-                if let Some(&address) = o.output.owning_address() {
-                    let at = o.metadata.spent_metadata.map(|s| s.spent).unwrap_or(o.metadata.booked);
-                    Some(LedgerUpdateDocument {
-                        address,
-                        output_id: o.metadata.output_id,
-                        at,
-                        is_spent: o.metadata.spent_metadata.is_some(),
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        for ledger_update in ledger_updates {
-            self.db
-                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .update_one(
-                    doc! {
-                        "address": &ledger_update.address,
-                        "at.milestone_index": &ledger_update.at.milestone_index,
-                        "output_id": &ledger_update.output_id,
-                        "is_spent": &ledger_update.is_spent
-                    },
-                    doc! { "$setOnInsert": bson::to_document(&ledger_update)? },
-                    UpdateOptions::builder().upsert(true).build(),
-                )
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_ledger_updates(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
         let ledger_updates = outputs
             .filter_map(|o| {
@@ -176,9 +137,8 @@ impl MongoDb {
             })
             .collect::<Vec<_>>();
         for batch in ledger_updates.chunks(10000) {
-            self.db
-                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
+            self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -276,15 +236,5 @@ impl MongoDb {
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
             .await
-    }
-
-    /// Clears ledger updates after a given milestone index.
-    pub async fn clear_ledger_updates(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.db
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-            .delete_many(doc! { "at.milestone_index": { "$gt": index } }, None)
-            .await?;
-
-        Ok(())
     }
 }

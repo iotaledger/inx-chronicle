@@ -97,9 +97,8 @@ impl MongoDb {
             })
             .collect::<Vec<_>>();
         for batch in payloads.chunks(10000) {
-            self.db
-                .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
+            self.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -115,15 +114,5 @@ impl MongoDb {
                 FindOneOptions::builder().sort(doc! { "milestone_index": -1 }).build(),
             )
             .await
-    }
-
-    /// Clears treasury docs after a given milestone index.
-    pub async fn clear_treasury(&self, index: MilestoneIndex) -> Result<(), Error> {
-        self.db
-            .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-            .delete_many(doc! { "milestone_index": { "$gt": index } }, None)
-            .await?;
-
-        Ok(())
     }
 }

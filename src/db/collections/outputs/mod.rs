@@ -212,9 +212,8 @@ impl MongoDb {
             .collect::<Result<Vec<bson::Document>, Error>>()?;
 
         for batch in outputs.chunks(10000) {
-            self.db
-                .collection::<bson::Document>(OutputDocument::COLLECTION)
-                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
+            self.collection::<bson::Document>(OutputDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -334,29 +333,6 @@ impl MongoDb {
             .transpose()?;
 
         Ok(metadata)
-    }
-
-    /// Get the latest unspent [`Output`].
-    pub async fn get_latest_unspent_output_metadata(&self) -> Result<Option<OutputMetadata>, Error> {
-        let output = self
-            .db
-            .collection::<OutputMetadata>(OutputDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "metadata.spent_metadata.spent": null } },
-                    doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
-                    doc! { "$limit": 1 },
-                    doc! { "$replaceWith": "$metadata" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(output)
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
