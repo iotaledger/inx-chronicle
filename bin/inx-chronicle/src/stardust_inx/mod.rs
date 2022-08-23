@@ -17,7 +17,6 @@ use chronicle::{
 pub use config::InxConfig;
 pub use error::InxError;
 use futures::{Stream, StreamExt, TryStreamExt};
-use mongodb::ClientSession;
 use pin_project::pin_project;
 use tracing::{debug, info, instrument, trace, warn};
 
@@ -99,6 +98,7 @@ impl Actor for InxWorker {
                     end: node_status.tangle_pruning_index.into(),
                 });
             }
+            self.db.clear_orphaned_data(latest_milestone).await?;
             latest_milestone + 1
         } else {
             self.config
@@ -114,8 +114,6 @@ impl Actor for InxWorker {
 
         debug!("Connected to network `{}`.", protocol_parameters.network_name);
 
-        let mut session = self.db.start_transaction(None).await?;
-
         if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
             if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
@@ -125,10 +123,47 @@ impl Actor for InxWorker {
             }
             if latest.parameters != protocol_parameters {
                 self.db
-                    .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
+                    .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
         } else {
+            self.db.clear().await?;
+            info!("Reading unspent outputs.");
+            let mut unspent_output_stream = inx.read_unspent_outputs().await?;
+
+            let mut outputs = Vec::new();
+            let mut count = 0;
+            let mut tasks = Vec::new();
+            while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
+                trace!("Received unspent output: {}", output.block_id);
+                count += 1;
+                outputs.push(output.try_into()?);
+                if count % 10000 == 0 {
+                    let n = count / 10000;
+                    info!("Spawning batch {}", n);
+                    let batch = std::mem::take(&mut outputs);
+                    let db = self.db.clone();
+                    tasks.push(tokio::spawn(async move {
+                        let start = std::time::Instant::now();
+                        db.insert_outputs(batch.iter()).await?;
+                        db.insert_ledger_updates(batch.iter()).await?;
+                        info!("Inserting batch {} took {} ms", n, start.elapsed().as_millis());
+                        Result::<_, InxError>::Ok(())
+                    }));
+                }
+            }
+
+            info!("Inserting remaining {} outputs", outputs.len());
+            self.db.insert_outputs(outputs.iter()).await?;
+            self.db.insert_ledger_updates(outputs.iter()).await?;
+
+            for task in tasks {
+                // Panic: Acceptable risk
+                task.await.unwrap()?;
+            }
+
+            info!("Inserted {} unspent outputs.", count);
+
             info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
@@ -136,24 +171,9 @@ impl Actor for InxWorker {
             );
 
             self.db
-                .insert_protocol_parameters(&mut session, start_index, protocol_parameters)
+                .insert_protocol_parameters(start_index, protocol_parameters)
                 .await?;
-
-            info!("Reading unspent outputs.");
-            let mut unspent_output_stream = inx.read_unspent_outputs().await?;
-
-            let mut outputs = Vec::new();
-            while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
-                trace!("Received unspent output: {}", output.block_id);
-                outputs.push(output.try_into()?);
-            }
-            info!("Inserting {} unspent outputs.", outputs.len());
-
-            self.db.insert_outputs(&mut session, outputs.iter()).await?;
-            self.db.insert_ledger_updates(&mut session, outputs.iter()).await?;
         }
-
-        session.commit_transaction().await?;
 
         cx.add_stream(LedgerUpdateStream::new(
             inx.listen_to_ledger_updates((start_index.0..).into()).await?,
@@ -321,29 +341,20 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         let ledger_update = ledger_update_result?;
 
-        let mut session = self.db.start_transaction(None).await?;
-
         let outputs = ledger_update.created.iter().chain(ledger_update.consumed.iter());
 
         if ledger_update.milestone_index > *unspent_cutoff {
             trace!("Batch inserting {}", ledger_update.milestone_index);
-            self.db
-                .insert_outputs(&mut session, ledger_update.created.iter())
-                .await?;
-            self.db
-                .upsert_outputs(&mut session, ledger_update.consumed.iter())
-                .await?;
-            self.db.insert_ledger_updates(&mut session, outputs).await?;
+            self.db.insert_outputs(ledger_update.created.iter()).await?;
+            self.db.upsert_outputs(ledger_update.consumed.iter()).await?;
+            self.db.insert_ledger_updates(outputs).await?;
         } else {
             trace!("Upserting {}", ledger_update.milestone_index);
-            self.db.upsert_outputs(&mut session, outputs.clone()).await?;
-            self.db.upsert_ledger_updates(&mut session, outputs).await?;
+            self.db.upsert_outputs(outputs.clone()).await?;
+            self.db.upsert_ledger_updates(outputs).await?;
         }
 
-        self.handle_cone_stream(inx, &mut session, ledger_update.milestone_index)
-            .await?;
-
-        session.commit_transaction().await?;
+        self.handle_cone_stream(inx, ledger_update.milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -354,12 +365,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 }
 
 impl InxWorker {
-    async fn handle_cone_stream(
-        &self,
-        inx: &mut Inx,
-        session: &mut ClientSession,
-        milestone_index: MilestoneIndex,
-    ) -> Result<(), InxError> {
+    async fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
         let milestone = inx.read_milestone(milestone_index.0.into()).await?;
         let parameters: ProtocolParameters = inx
             .read_protocol_parameters(milestone_index.0.into())
@@ -368,7 +374,7 @@ impl InxWorker {
             .into();
 
         self.db
-            .update_latest_protocol_parameters(session, milestone_index, parameters)
+            .update_latest_protocol_parameters(milestone_index, parameters)
             .await?;
 
         trace!("Received milestone: `{:?}`", milestone);
@@ -397,12 +403,10 @@ impl InxWorker {
             .try_collect::<Vec<_>>()
             .await?;
 
-        self.db
-            .insert_blocks_with_metadata(session, blocks_with_metadata)
-            .await?;
+        self.db.insert_blocks_with_metadata(blocks_with_metadata).await?;
 
         self.db
-            .insert_milestone(session, milestone_id, milestone_index, milestone_timestamp, payload)
+            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
         metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);

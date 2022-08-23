@@ -5,7 +5,7 @@ use mongodb::{
     bson::doc,
     error::Error,
     options::{FindOneOptions, IndexOptions, InsertManyOptions},
-    ClientSession, IndexModel,
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -86,7 +86,6 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_treasury_payloads(
         &self,
-        session: &mut ClientSession,
         payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
     ) -> Result<(), Error> {
         let payloads = payloads
@@ -97,10 +96,10 @@ impl MongoDb {
                 amount: payload.output_amount,
             })
             .collect::<Vec<_>>();
-        if !payloads.is_empty() {
+        for batch in payloads.chunks(10000) {
             self.db
                 .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many_with_session(payloads, InsertManyOptions::builder().ordered(false).build(), session)
+                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -116,5 +115,15 @@ impl MongoDb {
                 FindOneOptions::builder().sort(doc! { "milestone_index": -1 }).build(),
             )
             .await
+    }
+
+    /// Clears treasury docs after a given milestone index.
+    pub async fn clear_treasury(&self, index: MilestoneIndex) -> Result<(), Error> {
+        self.db
+            .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+            .delete_many(doc! { "milestone_index": { "$gt": index } }, None)
+            .await?;
+
+        Ok(())
     }
 }

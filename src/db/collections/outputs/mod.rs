@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{IndexOptions, InsertManyOptions, UpdateOptions},
-    ClientSession, IndexModel,
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -145,21 +145,17 @@ impl MongoDb {
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn upsert_outputs(
-        &self,
-        session: &mut ClientSession,
-        outputs: impl Iterator<Item = &OutputWithMetadata>,
-    ) -> Result<(), Error> {
+    pub async fn upsert_outputs(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
         for output in outputs {
-            self.upsert_output(session, output).await?;
+            self.upsert_output(output).await?;
         }
         Ok(())
     }
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn upsert_output(&self, session: &mut ClientSession, output: &OutputWithMetadata) -> Result<(), Error> {
+    #[instrument(skip(self), err, level = "trace")]
+    pub async fn upsert_output(&self, output: &OutputWithMetadata) -> Result<(), Error> {
         let output_id = output.metadata.output_id;
         let is_spent = output.metadata.spent_metadata.is_some();
         let mut doc = bson::to_document(&OutputDocument::from(output))?;
@@ -167,35 +163,45 @@ impl MongoDb {
         if !is_spent {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
+                .update_one(
                     doc! { "metadata.output_id": output_id },
                     doc! { "$setOnInsert": doc },
                     UpdateOptions::builder().upsert(true).build(),
-                    session,
                 )
                 .await?;
         } else {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
+                .update_one(
                     doc! { "metadata.output_id": output_id },
                     doc! { "$set": doc },
                     UpdateOptions::builder().upsert(true).build(),
-                    session,
                 )
                 .await?;
         }
         Ok(())
     }
 
+    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip(self), err, level = "trace")]
+    pub async fn insert_output(&self, output: &OutputWithMetadata) -> Result<(), Error> {
+        let output_id = output.metadata.output_id;
+        let mut doc = bson::to_document(&OutputDocument::from(output))?;
+        doc.insert("_id", output_id.to_hex());
+
+        self.db
+            .collection::<bson::Document>(OutputDocument::COLLECTION)
+            .insert_one(doc, None)
+            .await?;
+
+        Ok(())
+    }
+
     /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_outputs(
-        &self,
-        session: &mut ClientSession,
-        outputs: impl Iterator<Item = &OutputWithMetadata>,
-    ) -> Result<(), Error> {
+    pub async fn insert_outputs(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
         let outputs = outputs
             .map(|output| {
                 let output_id = output.metadata.output_id;
@@ -204,12 +210,14 @@ impl MongoDb {
                 Ok(doc)
             })
             .collect::<Result<Vec<bson::Document>, Error>>()?;
-        if !outputs.is_empty() {
+
+        for batch in outputs.chunks(10000) {
             self.db
                 .collection::<bson::Document>(OutputDocument::COLLECTION)
-                .insert_many_with_session(outputs, InsertManyOptions::builder().ordered(false).build(), session)
+                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
+
         Ok(())
     }
 
@@ -332,7 +340,7 @@ impl MongoDb {
     pub async fn get_latest_unspent_output_metadata(&self) -> Result<Option<OutputMetadata>, Error> {
         let output = self
             .db
-            .collection::<Output>(OutputDocument::COLLECTION)
+            .collection::<OutputMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": { "metadata.spent_metadata.spent": null } },

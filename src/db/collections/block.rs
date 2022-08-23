@@ -6,7 +6,7 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
-    ClientSession, IndexModel,
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -210,45 +210,38 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata(
         &self,
-        session: &mut ClientSession,
         blocks_with_metadata: impl IntoIterator<Item = (Block, Vec<u8>, BlockMetadata)>,
     ) -> Result<(), Error> {
         let blocks_with_metadata = blocks_with_metadata
             .into_iter()
             .map(|(block, raw, metadata)| BlockDocument { block, raw, metadata })
             .collect::<Vec<_>>();
-        if !blocks_with_metadata.is_empty() {
-            self.insert_treasury_payloads(
-                session,
-                blocks_with_metadata.iter().filter_map(|block_document| {
-                    if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
-                        if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
-                            return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
-                        }
-                    }
-                    None
-                }),
-            )
-            .await?;
-            let blocks_with_metadata = blocks_with_metadata
-                .into_iter()
-                .map(|block_document| {
-                    let block_id = block_document.metadata.block_id;
-                    let mut doc = bson::to_document(&block_document)?;
-                    doc.insert("_id", block_id.to_hex());
-                    Result::<_, Error>::Ok(doc)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+        self.insert_treasury_payloads(blocks_with_metadata.iter().filter_map(|block_document| {
+            if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
+                if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
+                    return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
+                }
+            }
+            None
+        }))
+        .await?;
+        let blocks_with_metadata = blocks_with_metadata
+            .into_iter()
+            .map(|block_document| {
+                let block_id = block_document.metadata.block_id;
+                let mut doc = bson::to_document(&block_document)?;
+                doc.insert("_id", block_id.to_hex());
+                Result::<_, Error>::Ok(doc)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
+        for batch in blocks_with_metadata.chunks(10000) {
             self.db
                 .collection::<bson::Document>(BlockDocument::COLLECTION)
-                .insert_many_with_session(
-                    blocks_with_metadata,
-                    InsertManyOptions::builder().ordered(false).build(),
-                    session,
-                )
+                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
+
         Ok(())
     }
 
@@ -297,6 +290,19 @@ impl MongoDb {
             .await?
             .map(bson::from_document)
             .transpose()?)
+    }
+
+    /// Clears blocks after a given milestone index.
+    pub async fn clear_blocks(&self, index: MilestoneIndex) -> Result<(), Error> {
+        self.db
+            .collection::<Block>(BlockDocument::COLLECTION)
+            .delete_many(
+                doc! { "metadata.referenced_by_milestone_index": { "$gt": index } },
+                None,
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
