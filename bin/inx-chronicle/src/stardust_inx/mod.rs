@@ -64,6 +64,12 @@ impl InxWorker {
     }
 }
 
+fn log_corrupt(num: usize, desc: &str) {
+    if num > 0 {
+        debug!("Removed {num} ledger_updates.");
+    };
+}
+
 #[async_trait]
 impl Actor for InxWorker {
     type State = Inx;
@@ -83,11 +89,13 @@ impl Actor for InxWorker {
             node_status.tangle_pruning_index, node_status.confirmed_milestone.milestone_info.milestone_index,
         );
 
+        let db_latest_milestone = self.db.get_newest_milestone().await?;
+
         // Check if there is an unfixable gap in our node data.
         let start_index = if let Some(MilestoneIndexTimestamp {
             milestone_index: latest_milestone,
             ..
-        }) = self.db.get_newest_milestone().await?
+        }) = db_latest_milestone
         {
             if node_status.tangle_pruning_index > latest_milestone.0 {
                 return Err(InxError::MilestoneGap {
@@ -130,15 +138,11 @@ impl Actor for InxWorker {
             );
 
             debug!("Checking for corrupt data.");
-            let corrupt_ledger_updates = self.db.remove_ledger_updates_newer_than_milestone(0.into()).await?;
-            if corrupt_ledger_updates > 0 {
-                debug!("Removed {corrupt_ledger_updates} ledger updates");
-            };
-
-            let corrupt_outputs = self.db.remove_outputs_newer_than_milestone(0.into()).await?;
-            if corrupt_outputs > 0 {
-                debug!("Removed {corrupt_outputs} corrupt outputs.");
-            }
+            log_corrupt(
+                self.db.remove_ledger_updates_newer_than_milestone(0.into()).await?,
+                "ledger_updates",
+            );
+            log_corrupt(self.db.remove_outputs_newer_than_milestone(0.into()).await?, "outputs");
 
             info!("Reading unspent outputs.");
             let mut unspent_output_stream = inx.read_unspent_outputs().await?;
@@ -160,7 +164,24 @@ impl Actor for InxWorker {
                 .await?;
         }
 
-        // We check for potentially corrupt data from previous runs.
+        // We check and remove potentially corrupt data from previous runs.
+        if let Some(MilestoneIndexTimestamp {
+            milestone_index: latest,
+            ..
+        }) = db_latest_milestone
+        {
+            log_corrupt(
+                self.db.remove_ledger_updates_newer_than_milestone(latest).await?,
+                "ledger_updates",
+            );
+            log_corrupt(self.db.remove_outputs_newer_than_milestone(latest).await?, "outputs");
+            log_corrupt(self.db.remove_blocks_newer_than_milestone(latest).await?, "blocks");
+            log_corrupt(
+                self.db.remove_protocol_updates_newer_than_milestone(latest).await?,
+                "protocol_updates",
+            );
+            log_corrupt(self.db.remove_treasury_newer_than_milestone(latest).await?, "trasury");
+        }
 
         let ledger_update_stream =
             LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?);

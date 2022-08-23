@@ -272,6 +272,19 @@ impl MongoDb {
         Ok(block)
     }
 
+    /// Removes all [`BlockDocument`]s that are newer than a given [`MilestoneIndex`].
+    #[instrument(name = "remove_blocks_newer_than_milestone", skip_all, err, level = "trace")]
+    pub async fn remove_blocks_newer_than_milestone(&self, milestone_index: MilestoneIndex) -> Result<usize, Error> {
+        self.db
+            .collection::<BlockDocument>(BlockDocument::COLLECTION)
+            .delete_many(
+                doc! {"at.referenced_by_milestone_index": { "$gt": milestone_index }},
+                None,
+            )
+            .await
+            .map(|res| res.deleted_count as usize)
+    }
+
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         Ok(self

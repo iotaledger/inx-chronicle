@@ -118,7 +118,7 @@ impl MongoDb {
     }
 
     /// Removes all [`LedgerUpdateDocument`]s that are newer than a given [`MilestoneIndex`].
-    #[instrument(name = "ledger_updates_newer_than_milestone", skip_all, err, level = "trace")]
+    #[instrument(name = "remove_ledger_updates_newer_than_milestone", skip_all, err, level = "trace")]
     pub async fn remove_ledger_updates_newer_than_milestone(
         &self,
         milestone_index: MilestoneIndex,

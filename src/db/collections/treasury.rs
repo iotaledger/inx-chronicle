@@ -117,4 +117,14 @@ impl MongoDb {
             )
             .await
     }
+
+    /// Removes all [`TreasuryDocument`]s that are newer than a given [`MilestoneIndex`].
+    #[instrument(name = "remove_treasury_newer_than_milestone", skip_all, err, level = "trace")]
+    pub async fn remove_treasury_newer_than_milestone(&self, milestone_index: MilestoneIndex) -> Result<usize, Error> {
+        self.db
+            .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+            .delete_many(doc! {"milestone_index": { "$gt": milestone_index }}, None)
+            .await
+            .map(|res| res.deleted_count as usize)
+    }
 }

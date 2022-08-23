@@ -157,7 +157,7 @@ impl MongoDb {
     }
 
     /// Removes all [`OutputDocument`]s that are newer than a given [`MilestoneIndex`].
-    #[instrument(name = "outputs_newer_than_milestone", skip_all, err, level = "trace")]
+    #[instrument(name = "remove_outputs_newer_than_milestone", skip_all, err, level = "trace")]
     pub async fn remove_outputs_newer_than_milestone(&self, milestone_index: MilestoneIndex) -> Result<usize, Error> {
         self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)

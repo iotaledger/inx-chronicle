@@ -3,6 +3,7 @@
 
 use mongodb::{bson::doc, error::Error, options::FindOneOptions, ClientSession};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     db::MongoDb,
@@ -80,5 +81,23 @@ impl MongoDb {
             self.insert_protocol_parameters(tangle_index, parameters).await?;
         }
         Ok(())
+    }
+
+    /// Removes all [`ProtocolUpdateDocument`]s that are newer than a given [`MilestoneIndex`].
+    #[instrument(
+        name = "remove_protocol_updates_newer_than_milestone",
+        skip_all,
+        err,
+        level = "trace"
+    )]
+    pub async fn remove_protocol_updates_newer_than_milestone(
+        &self,
+        milestone_index: MilestoneIndex,
+    ) -> Result<usize, Error> {
+        self.db
+            .collection::<ProtocolUpdateDocument>(ProtocolUpdateDocument::COLLECTION)
+            .delete_many(doc! {"tangle_index": { "$gt": milestone_index }}, None)
+            .await
+            .map(|res| res.deleted_count as usize)
     }
 }
