@@ -7,8 +7,7 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, InsertManyOptions, UpdateOptions},
-    ClientSession, IndexModel,
+    options::{IndexOptions, InsertManyOptions, UpdateOptions}, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -148,7 +147,7 @@ impl MongoDb {
     pub async fn insert_outputs(&self, outputs: impl IntoIterator<Item = OutputWithMetadata>) -> Result<(), Error> {
         let docs = outputs
             .into_iter()
-            .map(|output_with_metadata| OutputDocument::from(output_with_metadata));
+            .map(OutputDocument::from);
         self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .insert_many(docs, InsertManyOptions::builder().ordered(false).build())

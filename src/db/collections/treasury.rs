@@ -4,8 +4,7 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{FindOneOptions, IndexOptions},
-    ClientSession, IndexModel,
+    options::{FindOneOptions, IndexOptions}, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
