@@ -13,10 +13,7 @@ use chronicle::{
 };
 use mongodb::bson;
 
-use super::{
-    extractors::IndexedOutputsPagination,
-    responses::{IndexerOutputResponse, IndexerOutputsResponse},
-};
+use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
 use crate::api::{error::ParseError, stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult};
 
 pub fn routes() -> Router {
@@ -48,7 +45,7 @@ pub fn routes() -> Router {
 async fn indexed_output_by_id<ID>(
     database: Extension<MongoDb>,
     Path(id): Path<String>,
-) -> ApiResult<IndexerOutputResponse>
+) -> ApiResult<IndexerOutputsResponse>
 where
     ID: Into<IndexedId> + FromStr,
     ParseError: From<ID::Err>,
@@ -58,9 +55,10 @@ where
         .get_indexed_output_by_id(id)
         .await?
         .ok_or(ApiError::NoResults)?;
-    Ok(IndexerOutputResponse {
+    Ok(IndexerOutputsResponse {
         ledger_index: res.ledger_index.0,
         items: vec![res.output_id.to_hex()],
+        cursor: None,
     })
 }
 
