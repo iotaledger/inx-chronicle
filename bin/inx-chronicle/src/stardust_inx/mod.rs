@@ -142,7 +142,7 @@ impl Actor for InxWorker {
                 "ledger_updates",
             );
             log_corrupt(
-                self.db.remove_unspent_outputs_newer_than_milestone(0.into()).await?,
+                self.db.remove_outputs_newer_than_milestone(0.into()).await?,
                 "outputs",
             );
 
@@ -177,7 +177,7 @@ impl Actor for InxWorker {
                 "ledger_updates",
             );
             log_corrupt(
-                self.db.remove_unspent_outputs_newer_than_milestone(latest).await?,
+                self.db.remove_outputs_newer_than_milestone(latest).await?,
                 "outputs",
             );
             log_corrupt(self.db.remove_blocks_newer_than_milestone(latest).await?, "blocks");
