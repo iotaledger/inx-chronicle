@@ -16,11 +16,13 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::OutputKind;
+use super::{OutputKind, INSERT_BATCH_SIZE};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, RentStructureBytes, SpentMetadata},
+        ledger::{
+            LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
+        },
         stardust::block::{Address, BlockId, Output, OutputId},
         tangle::{MilestoneIndex, RentStructure},
     },
@@ -48,21 +50,34 @@ struct OutputDetails {
     rent_structure: RentStructureBytes,
 }
 
-impl From<&OutputWithMetadata> for OutputDocument {
-    fn from(rec: &OutputWithMetadata) -> Self {
+impl From<&LedgerOutput> for OutputDocument {
+    fn from(rec: &LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
         let rent_structure = rec.output.rent_structure();
 
         Self {
             output: rec.output.clone(),
-            metadata: rec.metadata,
+            metadata: OutputMetadata {
+                output_id: rec.output_id,
+                block_id: rec.block_id,
+                booked: rec.booked,
+                spent_metadata: None,
+            },
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
                 rent_structure,
             },
         }
+    }
+}
+
+impl From<&LedgerSpent> for OutputDocument {
+    fn from(rec: &LedgerSpent) -> Self {
+        let mut res = Self::from(&rec.output);
+        res.metadata.spent_metadata.replace(rec.spent_metadata);
+        res
     }
 }
 
@@ -145,9 +160,9 @@ impl MongoDb {
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn upsert_outputs(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
+    pub async fn update_spent_outputs(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
         for output in outputs {
-            self.upsert_output(output).await?;
+            self.update_spent_output(output).await?;
         }
         Ok(())
     }
@@ -155,44 +170,15 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip(self), err, level = "trace")]
-    pub async fn upsert_output(&self, output: &OutputWithMetadata) -> Result<(), Error> {
-        let output_id = output.metadata.output_id;
-        let is_spent = output.metadata.spent_metadata.is_some();
-        let mut doc = bson::to_document(&OutputDocument::from(output))?;
-        doc.insert("_id", output_id.to_hex());
-        if !is_spent {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one(
-                    doc! { "metadata.output_id": output_id },
-                    doc! { "$setOnInsert": doc },
-                    UpdateOptions::builder().upsert(true).build(),
-                )
-                .await?;
-        } else {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one(
-                    doc! { "metadata.output_id": output_id },
-                    doc! { "$set": doc },
-                    UpdateOptions::builder().upsert(true).build(),
-                )
-                .await?;
-        }
-        Ok(())
-    }
-
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip(self), err, level = "trace")]
-    pub async fn insert_output(&self, output: &OutputWithMetadata) -> Result<(), Error> {
-        let output_id = output.metadata.output_id;
-        let mut doc = bson::to_document(&OutputDocument::from(output))?;
-        doc.insert("_id", output_id.to_hex());
-
+    pub async fn update_spent_output(&self, output: &LedgerSpent) -> Result<(), Error> {
+        let output_id = output.output.output_id;
         self.db
-            .collection::<bson::Document>(OutputDocument::COLLECTION)
-            .insert_one(doc, None)
+            .collection::<OutputDocument>(OutputDocument::COLLECTION)
+            .update_one(
+                doc! { "metadata.output_id": output_id },
+                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
             .await?;
 
         Ok(())
@@ -201,18 +187,11 @@ impl MongoDb {
     /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_outputs(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
-        let outputs = outputs
-            .map(|output| {
-                let output_id = output.metadata.output_id;
-                let mut doc = bson::to_document(&OutputDocument::from(output))?;
-                doc.insert("_id", output_id.to_hex());
-                Ok(doc)
-            })
-            .collect::<Result<Vec<bson::Document>, Error>>()?;
+    pub async fn insert_unspent_outputs(&self, outputs: impl Iterator<Item = &LedgerOutput>) -> Result<(), Error> {
+        let outputs = outputs.map(Into::into).collect::<Vec<_>>();
 
-        for batch in outputs.chunks(10000) {
-            self.collection::<bson::Document>(OutputDocument::COLLECTION)
+        for batch in outputs.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<OutputDocument>(OutputDocument::COLLECTION)
                 .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }

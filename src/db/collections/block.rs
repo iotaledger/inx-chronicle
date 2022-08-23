@@ -11,7 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::PayloadKind;
+use super::{PayloadKind, INSERT_BATCH_SIZE};
 use crate::{
     db::MongoDb,
     types::{
@@ -225,18 +225,9 @@ impl MongoDb {
             None
         }))
         .await?;
-        let blocks_with_metadata = blocks_with_metadata
-            .into_iter()
-            .map(|block_document| {
-                let block_id = block_document.metadata.block_id;
-                let mut doc = bson::to_document(&block_document)?;
-                doc.insert("_id", block_id.to_hex());
-                Result::<_, Error>::Ok(doc)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
 
-        for batch in blocks_with_metadata.chunks(10000) {
-            self.collection::<bson::Document>(BlockDocument::COLLECTION)
+        for batch in blocks_with_metadata.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<BlockDocument>(BlockDocument::COLLECTION)
                 .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }

@@ -3,22 +3,25 @@
 
 mod config;
 mod error;
+mod stream;
 
 use async_trait::async_trait;
 use bee_inx::client::Inx;
 use chronicle::{
-    db::MongoDb,
+    db::{collections::INSERT_BATCH_SIZE, MongoDb},
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 pub use config::InxConfig;
 pub use error::InxError;
-use futures::{Stream, StreamExt, TryStreamExt};
-use pin_project::pin_project;
+use futures::{StreamExt, TryStreamExt};
+use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument, trace, warn};
+
+use self::stream::LedgerUpdateStream;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -123,33 +126,23 @@ impl Actor for InxWorker {
         } else {
             self.db.clear().await?;
             info!("Reading unspent outputs.");
-            let mut unspent_output_stream = inx.read_unspent_outputs().await?;
+            let unspent_output_stream = inx.read_unspent_outputs().await?;
 
-            let mut outputs = Vec::new();
-            let mut count = 0;
-            let mut tasks = Vec::new();
-            while let Some(bee_inx::UnspentOutput { output, .. }) = unspent_output_stream.try_next().await? {
-                trace!("Received unspent output: {}", output.block_id);
-                count += 1;
-                outputs.push(output.try_into()?);
-                if count % 10000 == 0 {
-                    let n = count / 10000;
-                    info!("Spawning batch {}", n);
-                    let batch = std::mem::take(&mut outputs);
-                    let db = self.db.clone();
-                    tasks.push(tokio::spawn(async move {
-                        let start = std::time::Instant::now();
-                        db.insert_outputs(batch.iter()).await?;
-                        db.insert_ledger_updates(batch.iter()).await?;
-                        info!("Inserting batch {} took {} ms", n, start.elapsed().as_millis());
-                        Result::<_, InxError>::Ok(())
-                    }));
-                }
-            }
-
-            info!("Inserting remaining {} outputs", outputs.len());
-            self.db.insert_outputs(outputs.iter()).await?;
-            self.db.insert_ledger_updates(outputs.iter()).await?;
+            let (tasks, count) = unspent_output_stream
+                // Convert to OutputWithMetadata
+                .map(|res| Ok(res?.output.try_into()?))
+                // Break into chunks
+                .try_chunks(INSERT_BATCH_SIZE)
+                // We only care if we had an error, so discard the other data
+                .map_err(|e| e.1)
+                // Convert batches to tasks
+                .map_ok(|batch| (batch.len(), self.insert_unspent_outputs(batch)))
+                // Fold everything into a total count and list of tasks
+                .try_fold((Vec::new(), 0), |(mut tasks, count), (batch_size, task)| async move {
+                    tasks.push(task);
+                    Result::<_, InxError>::Ok((tasks, count + batch_size))
+                })
+                .await?;
 
             for task in tasks {
                 // Panic: Acceptable risk
@@ -192,118 +185,8 @@ impl Actor for InxWorker {
 #[derive(Debug)]
 pub struct LedgerUpdateRecord {
     milestone_index: MilestoneIndex,
-    created: Vec<OutputWithMetadata>,
-    consumed: Vec<OutputWithMetadata>,
-}
-
-#[pin_project]
-pub struct LedgerUpdateStream<S> {
-    #[pin]
-    inner: S,
-    #[pin]
-    record: Option<LedgerUpdateRecord>,
-}
-
-impl<S> LedgerUpdateStream<S> {
-    fn new(inner: S) -> Self {
-        Self { inner, record: None }
-    }
-}
-
-impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for LedgerUpdateStream<S> {
-    type Item = Result<LedgerUpdateRecord, InxError>;
-
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        use std::task::Poll;
-
-        use bee_inx::LedgerUpdate;
-
-        let mut this = self.project();
-        Poll::Ready(loop {
-            if let Poll::Ready(next) = this.inner.as_mut().poll_next(cx) {
-                if let Some(res) = next {
-                    match res {
-                        Ok(ledger_update) => match ledger_update {
-                            LedgerUpdate::Begin(marker) => {
-                                // We shouldn't already have a record. If we do, that's bad.
-                                if let Some(record) = this.record.as_mut().take() {
-                                    break Some(Err(InxError::InvalidLedgerUpdateCount {
-                                        received: record.consumed.len() + record.created.len(),
-                                        expected: record.consumed.capacity() + record.created.capacity(),
-                                    }));
-                                } else {
-                                    this.record.set(Some(LedgerUpdateRecord {
-                                        milestone_index: marker.milestone_index.into(),
-                                        created: Vec::with_capacity(marker.created_count),
-                                        consumed: Vec::with_capacity(marker.consumed_count),
-                                    }));
-                                }
-                            }
-                            LedgerUpdate::Consumed(consumed) => {
-                                if let Some(mut record) = this.record.as_mut().as_pin_mut() {
-                                    match OutputWithMetadata::try_from(consumed) {
-                                        Ok(consumed) => {
-                                            record.consumed.push(consumed);
-                                        }
-                                        Err(e) => {
-                                            break Some(Err(e.into()));
-                                        }
-                                    }
-                                } else {
-                                    break Some(Err(InxError::InvalidMilestoneState));
-                                }
-                            }
-                            LedgerUpdate::Created(created) => {
-                                if let Some(mut record) = this.record.as_mut().as_pin_mut() {
-                                    match OutputWithMetadata::try_from(created) {
-                                        Ok(created) => {
-                                            record.created.push(created);
-                                        }
-                                        Err(e) => {
-                                            break Some(Err(e.into()));
-                                        }
-                                    }
-                                } else {
-                                    break Some(Err(InxError::InvalidMilestoneState));
-                                }
-                            }
-                            LedgerUpdate::End(marker) => {
-                                if let Some(record) = this.record.as_mut().take() {
-                                    if record.created.len() != marker.created_count
-                                        || record.consumed.len() != marker.consumed_count
-                                    {
-                                        break Some(Err(InxError::InvalidLedgerUpdateCount {
-                                            received: record.consumed.len() + record.created.len(),
-                                            expected: marker.consumed_count + marker.created_count,
-                                        }));
-                                    }
-                                    break Some(Ok(record));
-                                } else {
-                                    break Some(Err(InxError::InvalidMilestoneState));
-                                }
-                            }
-                        },
-                        Err(e) => {
-                            break Some(Err(e.into()));
-                        }
-                    }
-                } else {
-                    // If we were supposed to be in the middle of a milestone, something went wrong.
-                    if let Some(record) = this.record.as_mut().take() {
-                        break Some(Err(InxError::InvalidLedgerUpdateCount {
-                            received: record.consumed.len() + record.created.len(),
-                            expected: record.consumed.capacity() + record.created.capacity(),
-                        }));
-                    } else {
-                        break None;
-                    }
-                }
-            }
-        })
-    }
+    created: Vec<LedgerOutput>,
+    consumed: Vec<LedgerSpent>,
 }
 
 #[async_trait]
@@ -327,12 +210,17 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         let ledger_update = ledger_update_result?;
 
-        self.db.insert_outputs(ledger_update.created.iter()).await?;
-        self.db.insert_ledger_updates(ledger_update.created.iter()).await?;
-        self.db.upsert_outputs(ledger_update.consumed.iter()).await?;
-        self.db.insert_ledger_updates(ledger_update.consumed.iter()).await?;
+        let tasks = [
+            self.insert_unspent_outputs(ledger_update.created),
+            self.update_spent_outputs(ledger_update.consumed),
+            self.handle_cone_stream(inx, ledger_update.milestone_index),
+        ];
 
         self.handle_protocol_params(inx, ledger_update.milestone_index).await?;
+
+        for task in tasks {
+            task.await.unwrap()?;
+        }
 
         self.handle_milestone(inx, ledger_update.milestone_index).await?;
 
@@ -345,6 +233,24 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 }
 
 impl InxWorker {
+    fn insert_unspent_outputs(&self, outputs: Vec<LedgerOutput>) -> JoinHandle<Result<(), InxError>> {
+        let db = self.db.clone();
+        tokio::spawn(async move {
+            db.insert_unspent_outputs(outputs.iter()).await?;
+            db.insert_unspent_ledger_updates(outputs.iter()).await?;
+            Ok(())
+        })
+    }
+
+    fn update_spent_outputs(&self, outputs: Vec<LedgerSpent>) -> JoinHandle<Result<(), InxError>> {
+        let db = self.db.clone();
+        tokio::spawn(async move {
+            db.update_spent_outputs(outputs.iter()).await?;
+            db.insert_spent_ledger_updates(outputs.iter()).await?;
+            Ok(())
+        })
+    }
+
     #[instrument(skip(self, inx), level = "trace")]
     async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
         let parameters: ProtocolParameters = inx
@@ -380,8 +286,6 @@ impl InxWorker {
                 .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
         );
 
-        self.handle_cone_stream(inx, milestone_index).await?;
-
         self.db
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
@@ -393,19 +297,23 @@ impl InxWorker {
     }
 
     #[instrument(skip(self, inx), level = "trace")]
-    async fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+    fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> JoinHandle<Result<(), InxError>> {
+        let db = self.db.clone();
+        let mut inx = inx.clone();
+        tokio::spawn(async move {
+            let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
-        let blocks_with_metadata = cone_stream
-            .map(|res| {
-                let bee_inx::BlockWithMetadata { block, metadata } = res?;
-                Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
-            })
-            .try_collect::<Vec<_>>()
-            .await?;
+            let blocks_with_metadata = cone_stream
+                .map(|res| {
+                    let bee_inx::BlockWithMetadata { block, metadata } = res?;
+                    Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+                })
+                .try_collect::<Vec<_>>()
+                .await?;
 
-        self.db.insert_blocks_with_metadata(blocks_with_metadata).await?;
+            db.insert_blocks_with_metadata(blocks_with_metadata).await?;
 
-        Ok(())
+            Ok(())
+        })
     }
 }

@@ -10,6 +10,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
@@ -96,7 +97,7 @@ impl MongoDb {
                 amount: payload.output_amount,
             })
             .collect::<Vec<_>>();
-        for batch in payloads.chunks(10000) {
+        for batch in payloads.chunks(INSERT_BATCH_SIZE) {
             self.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
                 .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;

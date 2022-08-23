@@ -8,8 +8,8 @@ use std::borrow::Borrow;
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential, InsertManyOptions, TransactionOptions},
-    Client, ClientSession,
+    options::{ClientOptions, Credential, InsertManyOptions},
+    Client,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -51,16 +51,6 @@ impl MongoDb {
     /// Gets a collection of the provided type with the given name.
     pub fn collection<T>(&self, name: impl AsRef<str>) -> MongoDbCollection<T> {
         MongoDbCollection(self.db.collection(name.as_ref()))
-    }
-
-    /// Starts a transaction.
-    pub async fn start_transaction(
-        &self,
-        options: impl Into<Option<TransactionOptions>>,
-    ) -> Result<ClientSession, Error> {
-        let mut session = self.client.start_session(None).await?;
-        session.start_transaction(options).await?;
-        Ok(session)
     }
 
     /// Clears all the collections from the database.
@@ -125,11 +115,9 @@ impl<T: Serialize> MongoDbCollection<T> {
             Err(e) => match &*e.kind {
                 ErrorKind::BulkWrite(b) => {
                     if let Some(write_errs) = &b.write_errors {
-                        if write_errs.len() == 1 {
-                            if write_errs[0].code == DUPLICATE_KEY_CODE {
-                                info!("{:?}", e);
-                                return Ok(0);
-                            }
+                        if write_errs.len() == 1 && write_errs[0].code == DUPLICATE_KEY_CODE {
+                            info!("{:?}", e);
+                            return Ok(0);
                         }
                     }
                     Err(e)

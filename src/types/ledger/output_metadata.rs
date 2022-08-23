@@ -33,47 +33,53 @@ pub struct OutputMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputWithMetadata {
+pub struct LedgerOutput {
+    pub output_id: OutputId,
+    pub block_id: BlockId,
+    pub booked: MilestoneIndexTimestamp,
     pub output: Output,
-    pub metadata: OutputMetadata,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LedgerSpent {
+    pub output: LedgerOutput,
+    pub spent_metadata: SpentMetadata,
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerOutput> for OutputWithMetadata {
+impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
         Ok(Self {
             output: Into::into(&value.output.inner()?),
-            metadata: OutputMetadata {
-                output_id: value.output_id.into(),
-                block_id: value.block_id.into(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: value.milestone_index_booked.into(),
-                    milestone_timestamp: value.milestone_timestamp_booked.into(),
-                },
-                spent_metadata: None,
+            output_id: value.output_id.into(),
+            block_id: value.block_id.into(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_booked.into(),
+                milestone_timestamp: value.milestone_timestamp_booked.into(),
             },
         })
     }
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerSpent> for OutputWithMetadata {
+impl TryFrom<bee_inx::LedgerSpent> for LedgerSpent {
     type Error = bee_inx::Error;
 
     fn try_from(value: bee_inx::LedgerSpent) -> Result<Self, Self::Error> {
-        let mut delta = OutputWithMetadata::try_from(value.output)?;
+        let output = LedgerOutput::try_from(value.output)?;
 
-        delta.metadata.spent_metadata.replace(SpentMetadata {
-            transaction_id: value.transaction_id_spent.into(),
-            spent: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_spent.into(),
-                milestone_timestamp: value.milestone_timestamp_spent.into(),
+        Ok(Self {
+            output,
+            spent_metadata: SpentMetadata {
+                transaction_id: value.transaction_id_spent.into(),
+                spent: MilestoneIndexTimestamp {
+                    milestone_index: value.milestone_index_spent.into(),
+                    milestone_timestamp: value.milestone_timestamp_spent.into(),
+                },
             },
-        });
-
-        Ok(delta)
+        })
     }
 }
 

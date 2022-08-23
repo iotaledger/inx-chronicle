@@ -14,10 +14,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
 
+use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
@@ -120,23 +121,24 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_ledger_updates(&self, outputs: impl Iterator<Item = &OutputWithMetadata>) -> Result<(), Error> {
+    pub async fn insert_spent_ledger_updates(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
         let ledger_updates = outputs
-            .filter_map(|o| {
-                // Ledger updates
-                if let Some(&address) = o.output.owning_address() {
-                    Some(LedgerUpdateDocument {
+            .filter_map(
+                |LedgerSpent {
+                     output: LedgerOutput { output_id, output, .. },
+                     spent_metadata,
+                 }| {
+                    // Ledger updates
+                    output.owning_address().map(|&address| LedgerUpdateDocument {
                         address,
-                        output_id: o.metadata.output_id,
-                        at: o.metadata.spent_metadata.map(|s| s.spent).unwrap_or(o.metadata.booked),
-                        is_spent: o.metadata.spent_metadata.is_some(),
+                        output_id: *output_id,
+                        at: spent_metadata.spent,
+                        is_spent: true,
                     })
-                } else {
-                    None
-                }
-            })
+                },
+            )
             .collect::<Vec<_>>();
-        for batch in ledger_updates.chunks(10000) {
+        for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
             self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
                 .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
@@ -148,21 +150,31 @@ impl MongoDb {
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_ledger_update(&self, output: &OutputWithMetadata) -> Result<(), Error> {
-        if let Some(&address) = output.output.owning_address() {
-            let doc = LedgerUpdateDocument {
-                address,
-                output_id: output.metadata.output_id,
-                at: output
-                    .metadata
-                    .spent_metadata
-                    .map(|s| s.spent)
-                    .unwrap_or(output.metadata.booked),
-                is_spent: output.metadata.spent_metadata.is_some(),
-            };
-            self.db
-                .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_one(doc, None)
+    pub async fn insert_unspent_ledger_updates(
+        &self,
+        outputs: impl Iterator<Item = &LedgerOutput>,
+    ) -> Result<(), Error> {
+        let ledger_updates = outputs
+            .filter_map(
+                |LedgerOutput {
+                     output_id,
+                     booked,
+                     output,
+                     ..
+                 }| {
+                    // Ledger updates
+                    output.owning_address().map(|&address| LedgerUpdateDocument {
+                        address,
+                        output_id: *output_id,
+                        at: *booked,
+                        is_spent: false,
+                    })
+                },
+            )
+            .collect::<Vec<_>>();
+        for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
