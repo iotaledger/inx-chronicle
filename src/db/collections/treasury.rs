@@ -86,7 +86,6 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_treasury_payloads(
         &self,
-        session: &mut ClientSession,
         payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
     ) -> Result<(), Error> {
         let payloads = payloads
@@ -97,10 +96,11 @@ impl MongoDb {
                 amount: payload.output_amount,
             })
             .collect::<Vec<_>>();
+
         if !payloads.is_empty() {
             self.db
                 .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many_with_session(payloads, None, session)
+                .insert_many(payloads, None)
                 .await?;
         }
 

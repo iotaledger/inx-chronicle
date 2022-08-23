@@ -69,7 +69,6 @@ impl MongoDb {
     /// Add the protocol parameters to the list if the protocol parameters have changed.
     pub async fn update_latest_protocol_parameters(
         &self,
-        _session: &mut ClientSession,
         tangle_index: MilestoneIndex,
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {

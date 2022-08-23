@@ -223,11 +223,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         let ledger_update = ledger_update_result?;
 
-        let mut session = self.db.start_transaction(None).await?;
-
-        self.db
-            .upsert_ledger_updates(&mut session, ledger_update.outputs.into_iter())
-            .await?;
+        self.db.upsert_ledger_updates(ledger_update.outputs.into_iter()).await?;
 
         let milestone = inx.read_milestone(ledger_update.milestone_index.0.into()).await?;
         let parameters: ProtocolParameters = inx
@@ -237,7 +233,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .into();
 
         self.db
-            .update_latest_protocol_parameters(&mut session, ledger_update.milestone_index, parameters)
+            .update_latest_protocol_parameters(ledger_update.milestone_index, parameters)
             .await?;
 
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
@@ -264,21 +260,11 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .try_collect::<Vec<_>>()
             .await?;
 
-        self.db
-            .insert_blocks_with_metadata(&mut session, blocks_with_metadata)
-            .await?;
+        self.db.insert_blocks_with_metadata(blocks_with_metadata).await?;
 
         self.db
-            .insert_milestone(
-                &mut session,
-                milestone_id,
-                milestone_index,
-                milestone_timestamp,
-                payload,
-            )
+            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
-
-        session.commit_transaction().await?;
 
         let elapsed = start_time.elapsed();
 

@@ -171,26 +171,24 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn upsert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
+    #[instrument(skip(self), err, level = "trace")]
+    pub async fn upsert_output(&self, output: OutputWithMetadata) -> Result<(), Error> {
         if output.metadata.spent_metadata.is_none() {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
+                .update_one(
                     doc! { "metadata.output_id": output.metadata.output_id },
                     doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
                     UpdateOptions::builder().upsert(true).build(),
-                    session,
                 )
                 .await?;
         } else {
             self.db
                 .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
+                .update_one(
                     doc! { "metadata.output_id": output.metadata.output_id },
                     doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
                     UpdateOptions::builder().upsert(true).build(),
-                    session,
                 )
                 .await?;
         }

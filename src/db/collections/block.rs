@@ -210,7 +210,6 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata(
         &self,
-        session: &mut ClientSession,
         blocks_with_metadata: impl IntoIterator<Item = (Block, Vec<u8>, BlockMetadata)>,
     ) -> Result<(), Error> {
         let blocks_with_metadata = blocks_with_metadata
@@ -218,17 +217,14 @@ impl MongoDb {
             .map(|(block, raw, metadata)| BlockDocument { block, raw, metadata })
             .collect::<Vec<_>>();
         if !blocks_with_metadata.is_empty() {
-            self.insert_treasury_payloads(
-                session,
-                blocks_with_metadata.iter().filter_map(|block_document| {
-                    if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
-                        if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
-                            return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
-                        }
+            self.insert_treasury_payloads(blocks_with_metadata.iter().filter_map(|block_document| {
+                if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
+                    if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
+                        return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
                     }
-                    None
-                }),
-            )
+                }
+                None
+            }))
             .await?;
             let blocks_with_metadata = blocks_with_metadata
                 .into_iter()
@@ -242,7 +238,7 @@ impl MongoDb {
 
             self.db
                 .collection::<bson::Document>(BlockDocument::COLLECTION)
-                .insert_many_with_session(blocks_with_metadata, None, session)
+                .insert_many(blocks_with_metadata, None)
                 .await?;
         }
         Ok(())

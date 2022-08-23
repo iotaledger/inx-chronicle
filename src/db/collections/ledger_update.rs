@@ -172,11 +172,10 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn upsert_ledger_updates(
         &self,
-        session: &mut ClientSession,
         deltas: impl IntoIterator<Item = OutputWithMetadata>,
     ) -> Result<(), Error> {
         for delta in deltas {
-            self.upsert_output(session, delta.clone()).await?;
+            self.upsert_output(delta.clone()).await?;
             // Ledger updates
             if let Some(&address) = delta.output.owning_address() {
                 let at = delta
@@ -192,11 +191,10 @@ impl MongoDb {
                 };
                 self.db
                     .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .update_one_with_session(
+                    .update_one(
                         doc! { "address": &doc.address, "at.milestone_index": &doc.at.milestone_index, "output_id": &doc.output_id, "is_spent": &doc.is_spent },
                         doc! { "$setOnInsert": bson::to_document(&doc)? },
                         UpdateOptions::builder().upsert(true).build(),
-                        session
                     )
                     .await?;
             }
