@@ -11,14 +11,13 @@ use chronicle::{
     db::MongoDb,
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        ledger::{MilestoneIndexTimestamp},
+        ledger::MilestoneIndexTimestamp,
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 pub use config::InxConfig;
 pub use error::InxError;
 use futures::{StreamExt, TryStreamExt};
-
 use stream::{LedgerUpdateRecord, LedgerUpdateStream};
 use tracing::{debug, info, instrument, warn};
 
@@ -142,7 +141,10 @@ impl Actor for InxWorker {
                 self.db.remove_ledger_updates_newer_than_milestone(0.into()).await?,
                 "ledger_updates",
             );
-            log_corrupt(self.db.remove_outputs_newer_than_milestone(0.into()).await?, "outputs");
+            log_corrupt(
+                self.db.remove_unspent_outputs_newer_than_milestone(0.into()).await?,
+                "outputs",
+            );
 
             info!("Reading unspent outputs.");
             let mut unspent_output_stream = inx.read_unspent_outputs().await?;
@@ -174,7 +176,10 @@ impl Actor for InxWorker {
                 self.db.remove_ledger_updates_newer_than_milestone(latest).await?,
                 "ledger_updates",
             );
-            log_corrupt(self.db.remove_outputs_newer_than_milestone(latest).await?, "outputs");
+            log_corrupt(
+                self.db.remove_unspent_outputs_newer_than_milestone(latest).await?,
+                "outputs",
+            );
             log_corrupt(self.db.remove_blocks_newer_than_milestone(latest).await?, "blocks");
             log_corrupt(
                 self.db.remove_protocol_updates_newer_than_milestone(latest).await?,

@@ -7,7 +7,8 @@ use futures::Stream;
 use mongodb::{
     bson::{self, doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions, InsertManyOptions, UpdateOptions}, IndexModel,
+    options::{FindOptions, IndexOptions, InsertManyOptions, UpdateOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

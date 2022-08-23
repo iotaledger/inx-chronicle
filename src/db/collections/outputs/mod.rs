@@ -7,9 +7,11 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, InsertManyOptions, UpdateOptions}, IndexModel,
+    options::{IndexOptions, InsertManyOptions, UpdateOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tokio::try_join;
 use tracing::instrument;
 
 pub use self::indexer::{
@@ -145,9 +147,7 @@ impl MongoDb {
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(name = "insert_outputs", skip_all, err, level = "trace")]
     pub async fn insert_outputs(&self, outputs: impl IntoIterator<Item = OutputWithMetadata>) -> Result<(), Error> {
-        let docs = outputs
-            .into_iter()
-            .map(OutputDocument::from);
+        let docs = outputs.into_iter().map(OutputDocument::from);
         self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
             .insert_many(docs, InsertManyOptions::builder().ordered(false).build())
@@ -158,14 +158,20 @@ impl MongoDb {
     /// Removes all [`OutputDocument`]s that are newer than a given [`MilestoneIndex`].
     #[instrument(name = "remove_outputs_newer_than_milestone", skip_all, err, level = "trace")]
     pub async fn remove_outputs_newer_than_milestone(&self, milestone_index: MilestoneIndex) -> Result<usize, Error> {
-        self.db
-            .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .delete_many(
-                doc! {"metadata.booked.milestone_index": { "$gt": milestone_index }},
+        let coll = &self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
+        let (booked, spent) = try_join!(
+            coll.delete_many(
+                doc! {"metadata.booked.milestone_index": { "$gt": milestone_index } },
+                None,
+            ),
+            coll.update_many(
+                doc! {"metadata.spent.milestone_index": { "$gt": milestone_index } },
+                doc! { "$unset": { "metadata.spent": "" } },
                 None,
             )
-            .await
-            .map(|res| res.deleted_count as usize)
+        )?;
+
+        Ok(booked.deleted_count as usize + spent.modified_count as usize)
     }
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated

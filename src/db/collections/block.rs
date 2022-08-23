@@ -5,7 +5,8 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::IndexOptions, IndexModel,
+    options::IndexOptions,
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
