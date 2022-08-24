@@ -83,10 +83,7 @@ mod test {
 
     #[test]
     fn config_file_conformity() -> Result<(), ConfigError> {
-        let _ = ChronicleConfig::from_file(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/bin/inx-chronicle/config.template.toml"
-        ))?;
+        let _ = ChronicleConfig::from_file(concat!(env!("CARGO_MANIFEST_DIR"), "/config.template.toml"))?;
 
         Ok(())
     }

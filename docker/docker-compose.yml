@@ -32,7 +32,7 @@ services:
       - "--config"
       - "config.toml"
     volumes:
-      - ../bin/inx-chronicle/config.template.toml:/app/config.toml:ro
+      - ../config.template.toml:/app/config.toml:ro
 
   hornet:
     image: iotaledger/hornet:2.0.0-beta.6
