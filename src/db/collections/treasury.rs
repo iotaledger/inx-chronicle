@@ -4,12 +4,13 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{FindOneOptions, IndexOptions},
-    ClientSession, IndexModel,
+    options::{FindOneOptions, IndexOptions, InsertManyOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
@@ -86,7 +87,6 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_treasury_payloads(
         &self,
-        session: &mut ClientSession,
         payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
     ) -> Result<(), Error> {
         let payloads = payloads
@@ -97,10 +97,9 @@ impl MongoDb {
                 amount: payload.output_amount,
             })
             .collect::<Vec<_>>();
-        if !payloads.is_empty() {
-            self.db
-                .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many_with_session(payloads, None, session)
+        for batch in payloads.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 

@@ -28,6 +28,9 @@ use crate::types::stardust::block::{
     TreasuryTransactionPayload,
 };
 
+/// Batch size for `insert_many` operations.
+pub const INSERT_BATCH_SIZE: usize = 10000;
+
 /// Helper to specify a kind for an output type.
 pub trait OutputKind {
     /// Gets the output kind.

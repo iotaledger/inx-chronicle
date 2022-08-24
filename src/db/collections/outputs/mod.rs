@@ -7,8 +7,8 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, UpdateOptions},
-    ClientSession, IndexModel,
+    options::{IndexOptions, InsertManyOptions, UpdateOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -16,11 +16,13 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::OutputKind;
+use super::{OutputKind, INSERT_BATCH_SIZE};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, RentStructureBytes, SpentMetadata},
+        ledger::{
+            LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
+        },
         stardust::block::{Address, BlockId, Output, OutputId},
         tangle::{MilestoneIndex, RentStructure},
     },
@@ -48,21 +50,34 @@ struct OutputDetails {
     rent_structure: RentStructureBytes,
 }
 
-impl From<OutputWithMetadata> for OutputDocument {
-    fn from(rec: OutputWithMetadata) -> Self {
+impl From<&LedgerOutput> for OutputDocument {
+    fn from(rec: &LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
         let rent_structure = rec.output.rent_structure();
 
         Self {
-            output: rec.output,
-            metadata: rec.metadata,
+            output: rec.output.clone(),
+            metadata: OutputMetadata {
+                output_id: rec.output_id,
+                block_id: rec.block_id,
+                booked: rec.booked,
+                spent_metadata: None,
+            },
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
                 rent_structure,
             },
         }
+    }
+}
+
+impl From<&LedgerSpent> for OutputDocument {
+    fn from(rec: &LedgerSpent) -> Self {
+        let mut res = Self::from(&rec.output);
+        res.metadata.spent_metadata.replace(rec.spent_metadata);
+        res
     }
 }
 
@@ -142,29 +157,42 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn update_spent_outputs(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
+        for output in outputs {
+            self.update_spent_output(output).await?;
+        }
+        Ok(())
+    }
+
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
-        if output.metadata.spent_metadata.is_none() {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
-                    UpdateOptions::builder().upsert(true).build(),
-                    session,
-                )
-                .await?;
-        } else {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
-                    UpdateOptions::builder().upsert(true).build(),
-                    session,
-                )
+    #[instrument(skip(self), err, level = "trace")]
+    pub async fn update_spent_output(&self, output: &LedgerSpent) -> Result<(), Error> {
+        let output_id = output.output.output_id;
+        self.db
+            .collection::<OutputDocument>(OutputDocument::COLLECTION)
+            .update_one(
+                doc! { "metadata.output_id": output_id },
+                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_unspent_outputs(&self, outputs: impl Iterator<Item = &LedgerOutput>) -> Result<(), Error> {
+        let outputs = outputs.map(Into::into).collect::<Vec<_>>();
+
+        for batch in outputs.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -192,7 +220,7 @@ impl MongoDb {
         Ok(output)
     }
 
-    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,

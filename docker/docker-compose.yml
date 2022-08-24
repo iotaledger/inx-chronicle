@@ -1,44 +1,19 @@
 version: '3'
 services:
 
-  mongo1:
+  mongo:
     image: mongo:latest
-    container_name: mongo1
+    container_name: mongo
     # Warning: We don't keep logs to make development simpler
-    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27017", "--quiet", "--logpath", "/dev/null"]  
+    command: ["--quiet", "--logpath", "/dev/null"]  
     volumes:
-      - ./data/chronicle/mongo1:/data/db
+      - ./data/chronicle/mongodb:/data/db
     ports:
       - 27017:27017
-    healthcheck:
-      test: test $$(echo "rs.initiate({_id:'my-replica-set',members:[{_id:0,host:\"mongo1:27017\"},{_id:1,host:\"mongo2:27019\"},{_id:2,host:\"mongo3:27020\"}]}).ok || rs.status().ok" | mongo --port 27017 --quiet) -eq 1
-      interval: 10s
-      start_period: 5s
-
-  mongo2:
-    image: mongo:latest
-    container_name: mongo2
-    # Warning: We don't keep logs to make development simpler
-    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27019", "--quiet", "--logpath", "/dev/null"]
-    volumes:
-      - ./data/chronicle/mongo2:/data/db
-    ports:
-      - 27019:27019
-
-  mongo3:
-    image: mongo:latest
-    container_name: mongo3
-    # Warning: We don't keep logs to make development simpler
-    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "27020", "--quiet", "--logpath", "/dev/null"]
-    volumes:
-      - ./data/chronicle/mongo3:/data/db
-    ports:
-      - 27020:27020
-
 
   inx-chronicle:
     container_name: inx-chronicle
-    depends_on: [mongo1, mongo2, mongo3, hornet]
+    depends_on: [mongo, hornet]
     build:
       context: ..
       dockerfile: docker/Dockerfile.debug
@@ -53,7 +28,7 @@ services:
       - "--inx"
       - "http://hornet:9029"
       - "--db"
-      - "mongodb://mongo1:27017"
+      - "mongodb://mongo:27017"
       - "--config"
       - "config.toml"
     volumes:
@@ -87,6 +62,24 @@ services:
       - "--inx.bindAddress=hornet:9029"
 
 ################################################################################
+# The following services can be enabled by setting the `debug` profile.
+
+  mongo-express:
+    image: mongo-express
+    depends_on:
+      - mongo
+    profiles:
+      - debug
+    restart: unless-stopped
+    ports:
+      - 8084:8084
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_OPTIONS_READONLY=true
+      - VCAP_APP_PORT=8084
+
+################################################################################
 # The following services can be enabled by setting the `metrics` profile.
 
   prometheus:
@@ -111,14 +104,14 @@ services:
     profiles:
       - metrics
     depends_on:
-      - mongo1
+      - mongo
     container_name: mongodb-exporter
     restart: unless-stopped
     user: "65532"
     ports:
       - '9216:9261'
     command:
-      - '--mongodb.uri=mongodb://mongo1:27017'
+      - '--mongodb.uri=mongodb://mongo:27017'
       - '--mongodb.direct-connect=true'
       - '--web.listen-address=:9216'
       - '--log.level=info'
@@ -139,5 +132,3 @@ services:
       - ./assets/grafana/:/etc/grafana/provisioning/
     environment:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
-
-
