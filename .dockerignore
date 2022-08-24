@@ -1,4 +1,3 @@
 target/
 
-docker/chronicle_data/
-docker/hornet_data/
+docker/data/

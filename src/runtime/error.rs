@@ -23,14 +23,14 @@ pub enum RuntimeError {
 /// Defines an error's log level.
 pub trait ErrorLevel: Error {
     /// Returns the log level for this error.
-    fn level(&self) -> log::Level {
-        log::Level::Error
+    fn level(&self) -> tracing::Level {
+        tracing::Level::ERROR
     }
 }
 
 impl ErrorLevel for RuntimeError {
-    fn level(&self) -> log::Level {
-        log::Level::Warn
+    fn level(&self) -> tracing::Level {
+        tracing::Level::WARN
     }
 }
 

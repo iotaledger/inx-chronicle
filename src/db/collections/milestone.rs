@@ -8,9 +8,10 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{FindOneOptions, FindOptions, IndexOptions},
-    ClientSession, IndexModel,
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{
     db::MongoDb,
@@ -169,9 +170,9 @@ impl MongoDb {
     }
 
     /// Inserts the information of a milestone into the database.
+    #[instrument(skip(self, milestone_id, milestone_timestamp, payload), err, level = "trace")]
     pub async fn insert_milestone(
         &self,
-        session: &mut ClientSession,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
@@ -191,7 +192,7 @@ impl MongoDb {
 
         self.db
             .collection::<bson::Document>(MilestoneDocument::COLLECTION)
-            .insert_one_with_session(doc, None, session)
+            .insert_one(doc, None)
             .await?;
 
         Ok(())

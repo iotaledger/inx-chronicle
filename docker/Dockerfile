@@ -19,9 +19,9 @@ FROM chef as builder
 RUN apt-get update && apt-get install -y protobuf-compiler
 COPY --from=planner /inx-chronicle/recipe.json recipe.json
 
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --profile production --recipe-path recipe.json
 COPY . .
-RUN cargo build --release --bin inx-chronicle
+RUN cargo build --profile production --bin inx-chronicle
 
 ############################
 # Image
@@ -35,7 +35,7 @@ EXPOSE 8042/tcp
 # Metrics
 EXPOSE 9100/tcp
 
-COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/release/inx-chronicle /app/inx-chronicle
+COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/production/inx-chronicle /app/inx-chronicle
 
 WORKDIR /app
 USER nonroot

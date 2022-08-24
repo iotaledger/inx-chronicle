@@ -5,12 +5,13 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::IndexOptions,
-    ClientSession, IndexModel,
+    options::{IndexOptions, InsertManyOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
-use super::PayloadKind;
+use super::{PayloadKind, INSERT_BATCH_SIZE};
 use crate::{
     db::MongoDb,
     types::{
@@ -206,43 +207,31 @@ impl MongoDb {
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata(
         &self,
-        session: &mut ClientSession,
         blocks_with_metadata: impl IntoIterator<Item = (Block, Vec<u8>, BlockMetadata)>,
     ) -> Result<(), Error> {
         let blocks_with_metadata = blocks_with_metadata
             .into_iter()
             .map(|(block, raw, metadata)| BlockDocument { block, raw, metadata })
             .collect::<Vec<_>>();
-        if !blocks_with_metadata.is_empty() {
-            self.insert_treasury_payloads(
-                session,
-                blocks_with_metadata.iter().filter_map(|block_document| {
-                    if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
-                        if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
-                            return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
-                        }
-                    }
-                    None
-                }),
-            )
-            .await?;
-            let blocks_with_metadata = blocks_with_metadata
-                .into_iter()
-                .map(|block_document| {
-                    let block_id = block_document.metadata.block_id;
-                    let mut doc = bson::to_document(&block_document)?;
-                    doc.insert("_id", block_id.to_hex());
-                    Result::<_, Error>::Ok(doc)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+        self.insert_treasury_payloads(blocks_with_metadata.iter().filter_map(|block_document| {
+            if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
+                if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
+                    return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
+                }
+            }
+            None
+        }))
+        .await?;
 
-            self.db
-                .collection::<bson::Document>(BlockDocument::COLLECTION)
-                .insert_many_with_session(blocks_with_metadata, None, session)
+        for batch in blocks_with_metadata.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<BlockDocument>(BlockDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
+
         Ok(())
     }
 

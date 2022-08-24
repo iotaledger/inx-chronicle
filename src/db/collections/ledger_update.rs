@@ -5,18 +5,20 @@ use std::str::FromStr;
 
 use futures::Stream;
 use mongodb::{
-    bson::{self, doc, Document},
+    bson::{doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions, UpdateOptions},
-    ClientSession, IndexModel,
+    options::{FindOptions, IndexOptions, InsertManyOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::instrument;
 
+use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputWithMetadata},
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Address, OutputId},
         tangle::MilestoneIndex,
     },
@@ -118,36 +120,62 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_ledger_updates(
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_spent_ledger_updates(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
+        let ledger_updates = outputs
+            .filter_map(
+                |LedgerSpent {
+                     output: LedgerOutput { output_id, output, .. },
+                     spent_metadata,
+                 }| {
+                    // Ledger updates
+                    output.owning_address().map(|&address| LedgerUpdateDocument {
+                        address,
+                        output_id: *output_id,
+                        at: spent_metadata.spent,
+                        is_spent: true,
+                    })
+                },
+            )
+            .collect::<Vec<_>>();
+        for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_unspent_ledger_updates(
         &self,
-        session: &mut ClientSession,
-        deltas: impl IntoIterator<Item = OutputWithMetadata>,
+        outputs: impl Iterator<Item = &LedgerOutput>,
     ) -> Result<(), Error> {
-        for delta in deltas {
-            self.insert_output(session, delta.clone()).await?;
-            // Ledger updates
-            if let Some(&address) = delta.output.owning_address() {
-                let at = delta
-                    .metadata
-                    .spent_metadata
-                    .map(|s| s.spent)
-                    .unwrap_or(delta.metadata.booked);
-                let doc = LedgerUpdateDocument {
-                    address,
-                    output_id: delta.metadata.output_id,
-                    at,
-                    is_spent: delta.metadata.spent_metadata.is_some(),
-                };
-                self.db
-                    .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                    .update_one_with_session(
-                        doc! { "address": &doc.address, "at.milestone_index": &doc.at.milestone_index, "output_id": &doc.output_id, "is_spent": &doc.is_spent },
-                        doc! { "$setOnInsert": bson::to_document(&doc)? },
-                        UpdateOptions::builder().upsert(true).build(),
-                        session
-                    )
-                    .await?;
-            }
+        let ledger_updates = outputs
+            .filter_map(
+                |LedgerOutput {
+                     output_id,
+                     booked,
+                     output,
+                     ..
+                 }| {
+                    // Ledger updates
+                    output.owning_address().map(|&address| LedgerUpdateDocument {
+                        address,
+                        output_id: *output_id,
+                        at: *booked,
+                        is_spent: false,
+                    })
+                },
+            )
+            .collect::<Vec<_>>();
+        for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
+                .await?;
         }
 
         Ok(())

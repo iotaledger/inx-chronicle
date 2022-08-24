@@ -20,6 +20,8 @@ use std::borrow::Cow;
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use tracing::{debug, trace_span};
+use tracing_futures::Instrument;
 
 use self::context::ActorContext;
 use super::error::ErrorLevel;
@@ -42,31 +44,14 @@ pub trait Actor: Send + Sync + Sized {
 
     /// Run the actor event loop
     async fn run(&mut self, cx: &mut ActorContext<Self>, state: &mut Self::State) -> Result<(), Self::Error> {
-        #[cfg(feature = "metrics-debug")]
-        let histogram = {
-            let histogram = bee_metrics::metrics::histogram::Histogram::new(
-                bee_metrics::metrics::histogram::exponential_buckets(1.0, 2.0, 10),
-            );
-            cx.metrics_registry().register(
-                format!("{}_loop_time", util::sanitize_metric_name(self.name().as_ref())),
-                format!("{} loop timings", self.name()),
-                histogram.clone(),
-            );
-            histogram
-        };
         while let Some(evt) = cx.inbox().next().await {
-            #[cfg(feature = "metrics-debug")]
-            let start_time = std::time::Instant::now();
             // Handle the event
-            evt.handle(cx, self, state).await?;
-            #[cfg(feature = "metrics-debug")]
-            {
-                let elapsed = start_time.elapsed();
-                histogram.observe(elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0);
-            }
+            evt.handle(cx, self, state)
+                .instrument(trace_span!("event_loop"))
+                .await?;
         }
 
-        log::debug!("{} exited event loop ({})", self.name(), cx.id());
+        debug!("{} exited event loop ({})", self.name(), cx.id());
         Ok(())
     }
 
@@ -77,7 +62,7 @@ pub trait Actor: Send + Sync + Sized {
         _state: &mut Self::State,
         run_result: Result<(), Self::Error>,
     ) -> Result<(), Self::Error> {
-        log::debug!("{} shutting down ({})", self.name(), cx.id());
+        debug!("{} shutting down ({})", self.name(), cx.id());
         run_result
     }
 }

@@ -3,23 +3,26 @@
 
 mod indexer;
 
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, UpdateOptions},
-    ClientSession, IndexModel,
+    options::{IndexOptions, InsertManyOptions, UpdateOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::OutputKind;
+use super::{OutputKind, INSERT_BATCH_SIZE};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, RentStructureBytes, SpentMetadata},
+        ledger::{
+            LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
+        },
         stardust::block::{Address, BlockId, Output, OutputId},
         tangle::{MilestoneIndex, RentStructure},
     },
@@ -47,21 +50,34 @@ struct OutputDetails {
     rent_structure: RentStructureBytes,
 }
 
-impl From<OutputWithMetadata> for OutputDocument {
-    fn from(rec: OutputWithMetadata) -> Self {
+impl From<&LedgerOutput> for OutputDocument {
+    fn from(rec: &LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
         let rent_structure = rec.output.rent_structure();
 
         Self {
-            output: rec.output,
-            metadata: rec.metadata,
+            output: rec.output.clone(),
+            metadata: OutputMetadata {
+                output_id: rec.output_id,
+                block_id: rec.block_id,
+                booked: rec.booked,
+                spent_metadata: None,
+            },
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
                 rent_structure,
             },
         }
+    }
+}
+
+impl From<&LedgerSpent> for OutputDocument {
+    fn from(rec: &LedgerSpent) -> Self {
+        let mut res = Self::from(&rec.output);
+        res.metadata.spent_metadata.replace(rec.spent_metadata);
+        res
     }
 }
 
@@ -141,28 +157,42 @@ impl MongoDb {
         Ok(())
     }
 
+    /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn update_spent_outputs(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
+        for output in outputs {
+            self.update_spent_output(output).await?;
+        }
+        Ok(())
+    }
+
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
-        if output.metadata.spent_metadata.is_none() {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
-                    UpdateOptions::builder().upsert(true).build(),
-                    session,
-                )
-                .await?;
-        } else {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
-                    UpdateOptions::builder().upsert(true).build(),
-                    session,
-                )
+    #[instrument(skip(self), err, level = "trace")]
+    pub async fn update_spent_output(&self, output: &LedgerSpent) -> Result<(), Error> {
+        let output_id = output.output.output_id;
+        self.db
+            .collection::<OutputDocument>(OutputDocument::COLLECTION)
+            .update_one(
+                doc! { "metadata.output_id": output_id },
+                doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_unspent_outputs(&self, outputs: impl Iterator<Item = &LedgerOutput>) -> Result<(), Error> {
+        let outputs = outputs.map(Into::into).collect::<Vec<_>>();
+
+        for batch in outputs.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -190,7 +220,7 @@ impl MongoDb {
         Ok(output)
     }
 
-    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,
@@ -399,7 +429,7 @@ impl MongoDb {
                         "_id": null,
                         "count": { "$sum": 1 },
                         "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                    }},
+                    } },
                     doc! { "$project": {
                         "count": 1,
                         "total_value": { "$toString": "$total_value" },
@@ -445,7 +475,7 @@ impl MongoDb {
                                 "_id": null,
                                 "count": { "$sum": 1 },
                                 "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            }},
+                            } },
                             doc! { "$project": {
                                 "count": 1,
                                 "total_value": { "$toString": "$total_value" },
@@ -463,6 +493,127 @@ impl MongoDb {
         } else {
             Ok(None)
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OutputDiffAnalyticsResult {
+    pub created_count: u64,
+    pub transferred_count: u64,
+    pub burned_count: u64,
+}
+
+impl MongoDb {
+    /// Gathers nft output analytics.
+    pub async fn get_nft_output_analytics(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        Ok(self
+            .db
+            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "nft",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": start_index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": start_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "nft_id": "$output.nft_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": start_index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": end_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "nft_id": "$output.nft_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created_count": { "$size": { "$setDifference": [ "$end_state", "$start_state" ] } },
+                        "transferred_count": { "$size": { "$setIntersection": [ "$start_state", "$end_state" ] } },
+                        "burned_count": { "$size": { "$setDifference": [ "$start_state", "$end_state" ] } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
+    }
+
+    /// Gathers foundry output analytics.
+    pub async fn get_foundry_output_analytics(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        Ok(self
+            .db
+            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "foundry",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": start_index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": start_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": start_index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": end_index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created_count": { "$size": { "$setDifference": [ "$end_state", "$start_state" ] } },
+                        "transferred_count": { "$size": { "$setIntersection": [ "$start_state", "$end_state" ] } },
+                        "burned_count": { "$size": { "$setDifference": [ "$start_state", "$end_state" ] } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(bson::from_document)
+            .transpose()?
+            .unwrap_or_default())
     }
 }
 
@@ -673,5 +824,141 @@ impl MongoDb {
             .map(bson::from_document)
             .transpose()?
             .unwrap_or_default())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RichestAddresses {
+    pub top: Vec<AddressStat>,
+    pub ledger_index: MilestoneIndex,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct AddressStat {
+    pub address: Address,
+    pub balance: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TokenDistribution {
+    pub distribution: Vec<DistributionStat>,
+    pub ledger_index: MilestoneIndex,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Statistics for a particular logarithmic range of balances
+pub struct DistributionStat {
+    /// The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
+    pub index: u32,
+    /// The number of unique addresses in this range
+    pub address_count: u64,
+    /// The total balance of the addresses in this range
+    pub total_balance: String,
+}
+
+impl MongoDb {
+    /// Create richest address statistics.
+    pub async fn get_richest_addresses(
+        &self,
+        ledger_index: Option<MilestoneIndex>,
+        top: usize,
+    ) -> Result<Option<RichestAddresses>, Error> {
+        let ledger_index = match ledger_index {
+            None => self.get_ledger_index().await?,
+            i => i,
+        };
+        if let Some(ledger_index) = ledger_index {
+            let top = self
+                .db
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "details.address": { "$exists": true },
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$details.address",
+                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$sort": { "balance": -1 } },
+                        doc! { "$limit": top as i64 },
+                        doc! { "$project": {
+                            "_id": 0,
+                            "address": "$_id",
+                            "balance": { "$toString": "$balance" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
+                .try_collect()
+                .await?;
+            Ok(Some(RichestAddresses { top, ledger_index }))
+        } else {
+            Ok(Default::default())
+        }
+    }
+
+    /// Create token distribution statistics.
+    pub async fn get_token_distribution(
+        &self,
+        ledger_index: Option<MilestoneIndex>,
+    ) -> Result<Option<TokenDistribution>, Error> {
+        let ledger_index = match ledger_index {
+            None => self.get_ledger_index().await?,
+            i => i,
+        };
+        if let Some(ledger_index) = ledger_index {
+            let distribution = self
+                .db
+                .collection::<bson::Document>(OutputDocument::COLLECTION)
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "details.address": { "$exists": true },
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ]
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$details.address",
+                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
+                        doc! { "$group" : {
+                            "_id": "$index",
+                            "address_count": { "$sum": 1 },
+                            "total_balance": { "$sum": "$balance" },
+                        } },
+                        doc! { "$sort": { "_id": 1 } },
+                        doc! { "$project": {
+                            "_id": 0,
+                            "index": "$_id",
+                            "address_count": 1,
+                            "total_balance": { "$toString": "$total_balance" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
+                .try_collect()
+                .await?;
+            Ok(Some(TokenDistribution {
+                distribution,
+                ledger_index,
+            }))
+        } else {
+            Ok(Default::default())
+        }
     }
 }

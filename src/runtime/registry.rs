@@ -14,6 +14,7 @@ use std::{
 use async_recursion::async_recursion;
 use futures::future::AbortHandle;
 use tokio::sync::RwLock;
+use tracing::trace;
 use uuid::Uuid;
 
 use super::{
@@ -36,8 +37,6 @@ pub(crate) const ROOT_SCOPE: Uuid = Uuid::nil();
 pub(crate) struct Scope {
     pub(crate) inner: Arc<ScopeInner>,
     valid: Arc<AtomicBool>,
-    #[cfg(feature = "metrics")]
-    metrics_registry: Arc<bee_metrics::Registry>,
 }
 
 /// Shared scope information.
@@ -63,13 +62,11 @@ impl Scope {
                 children: Default::default(),
             }),
             valid: Arc::new(AtomicBool::new(true)),
-            #[cfg(feature = "metrics")]
-            metrics_registry: Default::default(),
         }
     }
 
     pub(crate) async fn child(&self, abort_handle: AbortHandle) -> Self {
-        log::trace!("Adding child to {:x}", self.id.as_fields().0);
+        trace!("Adding child to {:x}", self.id.as_fields().0);
         let id = Uuid::new_v4();
         let parent = self.clone();
         let child = Scope {
@@ -82,11 +79,9 @@ impl Scope {
                 children: Default::default(),
             }),
             valid: Arc::new(AtomicBool::new(true)),
-            #[cfg(feature = "metrics")]
-            metrics_registry: self.metrics_registry.clone(),
         };
         self.children.write().await.insert(id, child.clone());
-        log::trace!("Added child to {:x}", self.id.as_fields().0);
+        trace!("Added child to {:x}", self.id.as_fields().0);
         child
     }
 
@@ -129,39 +124,34 @@ impl Scope {
     }
 
     pub(crate) async fn drop(&self) {
-        log::trace!("Dropping scope {:x}", self.id.as_fields().0);
+        trace!("Dropping scope {:x}", self.id.as_fields().0);
         if let Some(parent) = self.parent.as_ref() {
             parent.children.write().await.remove(&self.id);
         }
-        log::trace!("Dropped scope {:x}", self.id.as_fields().0);
+        trace!("Dropped scope {:x}", self.id.as_fields().0);
     }
 
     pub(crate) async fn shutdown(&self) {
-        log::trace!("Shutting down scope {:x}", self.id.as_fields().0);
+        trace!("Shutting down scope {:x}", self.id.as_fields().0);
         self.valid.store(false, Ordering::Release);
         if let Some(handle) = self.shutdown_handle.read().await.as_ref() {
             handle.shutdown();
         } else {
             self.abort_handle.abort();
         }
-        log::trace!("Shut down scope {:x}", self.id.as_fields().0);
+        trace!("Shut down scope {:x}", self.id.as_fields().0);
     }
 
     /// Aborts the tasks in this scope.
     #[async_recursion]
     pub(crate) async fn abort(&self) {
-        log::trace!("Aborting scope {:x}", self.id.as_fields().0);
+        trace!("Aborting scope {:x}", self.id.as_fields().0);
         let children = self.children().await;
         for child_scope in children {
             child_scope.abort().await;
         }
         self.shutdown().await;
-        log::trace!("Aborted scope {:x}", self.id.as_fields().0);
-    }
-
-    #[cfg(feature = "metrics")]
-    pub(crate) fn metrics_registry(&self) -> &Arc<bee_metrics::Registry> {
-        &self.metrics_registry
+        trace!("Aborted scope {:x}", self.id.as_fields().0);
     }
 }
 
