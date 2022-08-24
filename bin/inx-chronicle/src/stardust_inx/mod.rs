@@ -18,8 +18,8 @@ use chronicle::{
 pub use config::InxConfig;
 pub use error::InxError;
 use futures::{StreamExt, TryStreamExt};
-use tokio::task::JoinHandle;
-use tracing::{debug, info, instrument, trace, warn};
+use tokio::try_join;
+use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
 use self::stream::LedgerUpdateStream;
 
@@ -126,22 +126,32 @@ impl Actor for InxWorker {
         } else {
             self.db.clear().await?;
             info!("Reading unspent outputs.");
-            let unspent_output_stream = inx.read_unspent_outputs().await?;
+            let unspent_output_stream = inx
+                .read_unspent_outputs()
+                .instrument(trace_span!("inx_read_unspent_outputs"))
+                .await?;
 
             let (tasks, count) = unspent_output_stream
-                // Convert to OutputWithMetadata
+                // Convert to `LedgerOutput`
                 .map(|res| Ok(res?.output.try_into()?))
                 // Break into chunks
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| e.1)
                 // Convert batches to tasks
-                .map_ok(|batch| (batch.len(), self.insert_unspent_outputs(batch)))
+                .map_ok(|batch| {
+                    let db = self.db.clone();
+                    (
+                        batch.len(),
+                        tokio::spawn(async move { insert_unspent_outputs(&db, batch).await }),
+                    )
+                })
                 // Fold everything into a total count and list of tasks
                 .try_fold((Vec::new(), 0), |(mut tasks, count), (batch_size, task)| async move {
                     tasks.push(task);
                     Result::<_, InxError>::Ok((tasks, count + batch_size))
                 })
+                .instrument(trace_span!("initial_insert_unspent_outputs"))
                 .await?;
 
             for task in tasks {
@@ -193,7 +203,7 @@ pub struct LedgerUpdateRecord {
 impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     #[instrument(
         skip_all,
-        fields(milestone_index),
+        fields(milestone_index, created, consumed),
         err,
         level = "debug",
         name = "handle_ledger_update"
@@ -204,25 +214,25 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         ledger_update_result: Result<LedgerUpdateRecord, InxError>,
         inx: &mut Self::State,
     ) -> Result<(), Self::Error> {
-        trace!("Received ledger update event {:#?}", ledger_update_result);
-
         let start_time = std::time::Instant::now();
 
         let ledger_update = ledger_update_result?;
 
-        let tasks = [
-            self.insert_unspent_outputs(ledger_update.created),
-            self.update_spent_outputs(ledger_update.consumed),
-            self.handle_cone_stream(inx, ledger_update.milestone_index),
-        ];
+        // Record the result as part of the current span.
+        tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
+        tracing::Span::current().record("created", &ledger_update.created.len());
+        tracing::Span::current().record("consumed", &ledger_update.consumed.len());
 
-        self.handle_protocol_params(inx, ledger_update.milestone_index).await?;
+        let mut inx_clone = inx.clone();
+        try_join!(
+            insert_unspent_outputs(&self.db, ledger_update.created),
+            update_spent_outputs(&self.db, ledger_update.consumed),
+            handle_cone_stream(&self.db, &mut inx_clone, ledger_update.milestone_index),
+            handle_protocol_params(&self.db, inx, ledger_update.milestone_index),
+        )?;
 
-        for task in tasks {
-            task.await.unwrap()?;
-        }
-
-        self.handle_milestone(inx, ledger_update.milestone_index).await?;
+        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
+        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -232,88 +242,78 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     }
 }
 
-impl InxWorker {
-    fn insert_unspent_outputs(&self, outputs: Vec<LedgerOutput>) -> JoinHandle<Result<(), InxError>> {
-        let db = self.db.clone();
-        tokio::spawn(async move {
-            db.insert_unspent_outputs(outputs.iter()).await?;
-            db.insert_unspent_ledger_updates(outputs.iter()).await?;
-            Ok(())
+#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
+    try_join!(
+        db.insert_unspent_outputs(outputs.iter()),
+        db.insert_unspent_ledger_updates(outputs.iter())
+    )?;
+    Ok(())
+}
+
+#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
+    try_join!(
+        db.update_spent_outputs(outputs.iter()),
+        db.insert_spent_ledger_updates(outputs.iter()),
+    )?;
+    Ok(())
+}
+
+#[instrument(skip_all, level = "trace")]
+async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let parameters: ProtocolParameters = inx
+        .read_protocol_parameters(milestone_index.0.into())
+        .await?
+        .inner()?
+        .into();
+
+    db.update_latest_protocol_parameters(milestone_index, parameters)
+        .await?;
+
+    Ok(())
+}
+
+#[instrument(skip_all, level = "trace")]
+async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let milestone = inx.read_milestone(milestone_index.0.into()).await?;
+
+    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+
+    let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
+    let milestone_id = milestone
+        .milestone_info
+        .milestone_id
+        .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
+        .into();
+    let payload = Into::into(
+        &milestone
+            .milestone
+            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
+    );
+
+    db.insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+        .await?;
+
+    metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
+    metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
+
+    Ok(())
+}
+
+#[instrument(skip(db, inx), level = "trace")]
+async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+
+    let blocks_with_metadata = cone_stream
+        .map(|res| {
+            let bee_inx::BlockWithMetadata { block, metadata } = res?;
+            Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
         })
-    }
+        .try_collect::<Vec<_>>()
+        .await?;
 
-    fn update_spent_outputs(&self, outputs: Vec<LedgerSpent>) -> JoinHandle<Result<(), InxError>> {
-        let db = self.db.clone();
-        tokio::spawn(async move {
-            db.update_spent_outputs(outputs.iter()).await?;
-            db.insert_spent_ledger_updates(outputs.iter()).await?;
-            Ok(())
-        })
-    }
+    db.insert_blocks_with_metadata(blocks_with_metadata).await?;
 
-    #[instrument(skip(self, inx), level = "trace")]
-    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let parameters: ProtocolParameters = inx
-            .read_protocol_parameters(milestone_index.0.into())
-            .await?
-            .inner()?
-            .into();
-
-        self.db
-            .update_latest_protocol_parameters(milestone_index, parameters)
-            .await?;
-
-        Ok(())
-    }
-
-    #[instrument(skip(self, inx), level = "trace")]
-    async fn handle_milestone(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
-
-        trace!("Received milestone: `{:?}`", milestone);
-
-        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
-        tracing::Span::current().record("milestone_index", milestone_index.0);
-        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-        let milestone_id = milestone
-            .milestone_info
-            .milestone_id
-            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
-            .into();
-        let payload = Into::into(
-            &milestone
-                .milestone
-                .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
-        );
-
-        self.db
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
-            .await?;
-
-        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
-        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
-
-        Ok(())
-    }
-
-    #[instrument(skip(self, inx), level = "trace")]
-    fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> JoinHandle<Result<(), InxError>> {
-        let db = self.db.clone();
-        let mut inx = inx.clone();
-        tokio::spawn(async move {
-            let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
-
-            let blocks_with_metadata = cone_stream
-                .map(|res| {
-                    let bee_inx::BlockWithMetadata { block, metadata } = res?;
-                    Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
-                })
-                .try_collect::<Vec<_>>()
-                .await?;
-
-            db.insert_blocks_with_metadata(blocks_with_metadata).await?;
-
-            Ok(())
-        })
-    }
+    Ok(())
 }

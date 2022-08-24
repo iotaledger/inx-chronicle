@@ -10,9 +10,7 @@ fi
 # Prepare Hornet's data directory.
 mkdir -p ${DIR}/data/hornet
 mkdir -p ${DIR}/data/chronicle
-mkdir -p ${DIR}/data/chronicle/mongo1
-mkdir -p ${DIR}/data/chronicle/mongo2
-mkdir -p ${DIR}/data/chronicle/mongo3
+mkdir -p ${DIR}/data/chronicle/mongo
 mkdir -p ${DIR}/data/grafana
 mkdir -p ${DIR}/data/prometheus
 if [[ "$OSTYPE" != "darwin"* ]]; then
