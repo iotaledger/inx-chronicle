@@ -25,7 +25,7 @@ use super::{
     ApiResult,
 };
 
-const ALWAYS_AVAILABLE_ROUTES: &[&'static str] = &["/health", "/login", "/routes"];
+const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 
 // Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
@@ -103,7 +103,7 @@ async fn list_routes(
         let public_routes = RegexSet::new(
             ALWAYS_AVAILABLE_ROUTES
                 .iter()
-                .map(|&s| s)
+                .copied()
                 .chain(config.public_routes.patterns().iter().map(String::as_str)),
         )
         .unwrap(); // Panic: Safe as we know previous regex compiled and ALWAYS_AVAILABLE_ROUTES is const
