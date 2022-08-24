@@ -1,7 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::BTreeMap, convert::Infallible};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    convert::Infallible,
+};
 
 use axum::{
     body::{Bytes, HttpBody},
@@ -10,6 +13,7 @@ use axum::{
     BoxError, Extension,
 };
 use hyper::{Body, Request};
+use regex::RegexSet;
 use tower::{Layer, Service};
 
 #[derive(Clone, Debug, Default)]
@@ -30,23 +34,37 @@ impl RouteNode {
         }
     }
 
-    pub fn list_routes(&self) -> Vec<String> {
-        let mut routes = Vec::new();
-        self.list_routes_recursive(&mut Vec::new(), &mut routes);
-        routes
+    pub fn list_routes(&self, public_routes: impl Into<Option<RegexSet>>, depth: Option<usize>) -> Vec<String> {
+        let mut routes = BTreeSet::new();
+        self.list_routes_recursive(&mut Vec::new(), &mut routes, &public_routes.into(), depth);
+        routes.into_iter().collect()
     }
 
-    fn list_routes_recursive(&self, parents: &mut Vec<String>, routes: &mut Vec<String>) {
+    fn list_routes_recursive(
+        &self,
+        parents: &mut Vec<String>,
+        routes: &mut BTreeSet<String>,
+        public_routes: &Option<RegexSet>,
+        depth: Option<usize>,
+    ) {
         if self.children.is_empty() {
             let mut route = parents.join("");
-            while route.ends_with('/') {
-                route.pop();
+            let pieces = route.split('/').filter(|s| !s.is_empty()).collect::<Vec<_>>();
+            if public_routes.is_none() || matches!(public_routes, Some(public_routes) if public_routes.is_match(&route))
+            {
+                if let Some(depth) = depth {
+                    if depth < pieces.len() {
+                        route = pieces[..depth].join("/");
+                    } else {
+                        route = pieces.join("/");
+                    }
+                }
+                routes.insert(route);
             }
-            routes.push(route);
         }
         for (name, child) in self.children.iter() {
             parents.push(name.clone());
-            child.list_routes_recursive(parents, routes);
+            child.list_routes_recursive(parents, routes, public_routes, depth);
             parents.pop();
         }
     }
