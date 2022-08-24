@@ -43,6 +43,11 @@ module.exports = {
           id: "reference/api",
           label: "API",
         },
+        {
+          type: "doc",
+          id: "reference/environment",
+          label: "Environment Variables",
+        },
       ],
     },
     {
