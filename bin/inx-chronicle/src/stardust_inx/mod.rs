@@ -131,23 +131,33 @@ impl Actor for InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
-            let count = unspent_output_stream
+            let (tasks, count) = unspent_output_stream
                 // Convert to `LedgerOutput`
-                .map(|res| Ok::<LedgerOutput, InxError>(res?.output.try_into()?))
+                .map(|res| Ok(res?.output.try_into()?))
                 // Break into chunks
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| e.1)
                 // Convert batches to tasks
-                .map_ok(|batch| async {
-                    let len = batch.len();
-                    self.insert_unspent_outputs(batch).await?;
-                    Ok::<usize, InxError>(len)
+                .map_ok(|batch| {
+                    let db = self.db.clone();
+                    (
+                        batch.len(),
+                        tokio::spawn(async move { insert_unspent_outputs(&db, batch).await }),
+                    )
                 })
                 // Fold everything into a total count and list of tasks
-                .try_fold(0, |acc, batch_size| async move { Ok(acc + batch_size.await?) })
+                .try_fold((Vec::new(), 0), |(mut tasks, count), (batch_size, task)| async move {
+                    tasks.push(task);
+                    Result::<_, InxError>::Ok((tasks, count + batch_size))
+                })
                 .instrument(trace_span!("initial_insert_unspent_outputs"))
                 .await?;
+
+            for task in tasks {
+                // Panic: Acceptable risk
+                task.await.unwrap()?;
+            }
 
             info!("Inserted {} unspent outputs.", count);
 
@@ -215,14 +225,14 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         let mut inx_clone = inx.clone();
         try_join!(
-            self.insert_unspent_outputs(ledger_update.created),
-            self.update_spent_outputs(ledger_update.consumed),
-            self.handle_cone_stream(&mut inx_clone, ledger_update.milestone_index),
-            self.handle_protocol_params(inx, ledger_update.milestone_index),
+            insert_unspent_outputs(&self.db, ledger_update.created),
+            update_spent_outputs(&self.db, ledger_update.consumed),
+            handle_cone_stream(&self.db, &mut inx_clone, ledger_update.milestone_index),
+            handle_protocol_params(&self.db, inx, ledger_update.milestone_index),
         )?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        self.handle_milestone(inx, ledger_update.milestone_index).await?;
+        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -232,82 +242,78 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     }
 }
 
-impl InxWorker {
-    #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
-    async fn insert_unspent_outputs(&self, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
-        try_join!(
-            self.db.insert_unspent_outputs(outputs.iter()),
-            self.db.insert_unspent_ledger_updates(outputs.iter())
-        )?;
-        Ok(())
-    }
+#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
+    try_join!(
+        db.insert_unspent_outputs(outputs.iter()),
+        db.insert_unspent_ledger_updates(outputs.iter())
+    )?;
+    Ok(())
+}
 
-    #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
-    async fn update_spent_outputs(&self, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
-        try_join!(
-            self.db.update_spent_outputs(outputs.iter()),
-            self.db.insert_spent_ledger_updates(outputs.iter()),
-        )?;
-        Ok(())
-    }
+#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
+    try_join!(
+        db.update_spent_outputs(outputs.iter()),
+        db.insert_spent_ledger_updates(outputs.iter()),
+    )?;
+    Ok(())
+}
 
-    #[instrument(skip_all, level = "trace")]
-    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let parameters: ProtocolParameters = inx
-            .read_protocol_parameters(milestone_index.0.into())
-            .await?
-            .inner()?
-            .into();
+#[instrument(skip_all, level = "trace")]
+async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let parameters: ProtocolParameters = inx
+        .read_protocol_parameters(milestone_index.0.into())
+        .await?
+        .inner()?
+        .into();
 
-        self.db
-            .update_latest_protocol_parameters(milestone_index, parameters)
-            .await?;
+    db.update_latest_protocol_parameters(milestone_index, parameters)
+        .await?;
 
-        Ok(())
-    }
+    Ok(())
+}
 
-    #[instrument(skip_all, level = "trace")]
-    async fn handle_milestone(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
+#[instrument(skip_all, level = "trace")]
+async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
-        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
 
-        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-        let milestone_id = milestone
-            .milestone_info
-            .milestone_id
-            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
-            .into();
-        let payload = Into::into(
-            &milestone
-                .milestone
-                .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
-        );
+    let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
+    let milestone_id = milestone
+        .milestone_info
+        .milestone_id
+        .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
+        .into();
+    let payload = Into::into(
+        &milestone
+            .milestone
+            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
+    );
 
-        self.db
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
-            .await?;
+    db.insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+        .await?;
 
-        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
-        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
+    metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
+    metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
 
-        Ok(())
-    }
+    Ok(())
+}
 
-    #[instrument(skip(self, inx), level = "trace")]
-    async fn handle_cone_stream(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-        let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+#[instrument(skip(db, inx), level = "trace")]
+async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
-        let blocks_with_metadata = cone_stream
-            .map(|res| {
-                let bee_inx::BlockWithMetadata { block, metadata } = res?;
-                Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
-            })
-            .try_collect::<Vec<_>>()
-            .await?;
+    let blocks_with_metadata = cone_stream
+        .map(|res| {
+            let bee_inx::BlockWithMetadata { block, metadata } = res?;
+            Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+        })
+        .try_collect::<Vec<_>>()
+        .await?;
 
-        self.db.insert_blocks_with_metadata(blocks_with_metadata).await?;
+    db.insert_blocks_with_metadata(blocks_with_metadata).await?;
 
-        Ok(())
-    }
+    Ok(())
 }
