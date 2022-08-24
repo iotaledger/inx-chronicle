@@ -1,3 +1,22 @@
+# [1.0.0-beta.11](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.10...v1.0.0-beta.11) (2022-08-24)
+
+
+### Bug Fixes
+
+* **api:** unify Indexer responses to `IndexerOutputsResponse` ([#585](https://github.com/iotaledger/inx-chronicle/issues/585)) ([5e1edab](https://github.com/iotaledger/inx-chronicle/commit/5e1edab2dcae1930b8968ed63beccc7301857025))
+* **ci:** install `protoc` in `coverage` workflow ([#574](https://github.com/iotaledger/inx-chronicle/issues/574)) ([45c93cb](https://github.com/iotaledger/inx-chronicle/commit/45c93cbc388dd487c2bcd866e5b1f75f41b34c8b))
+* **ci:** use `cargo-hack` in `canary` builds ([#570](https://github.com/iotaledger/inx-chronicle/issues/570)) ([706f018](https://github.com/iotaledger/inx-chronicle/commit/706f018c611eea25d3bbcfd560d4283293918bc4))
+
+
+### Features
+
+* **analytics:** add nft and native token activity endpoints ([#560](https://github.com/iotaledger/inx-chronicle/issues/560)) ([74f53d0](https://github.com/iotaledger/inx-chronicle/commit/74f53d0a8bdc7316dccb6a64c5c105d559e5f4e7))
+* **api:** add `max_page_size` configuration ([#563](https://github.com/iotaledger/inx-chronicle/issues/563)) ([ca7091d](https://github.com/iotaledger/inx-chronicle/commit/ca7091d6ed18cc973471f084984fb47fca17e10e))
+* **db:** use `insertMany` for initial unspent outputs ([#566](https://github.com/iotaledger/inx-chronicle/issues/566)) ([146d5b8](https://github.com/iotaledger/inx-chronicle/commit/146d5b83616b35cfd489faa80c757cacce26e6fb)), closes [#587](https://github.com/iotaledger/inx-chronicle/issues/587)
+* **metrics:** use `metrics` create and provide Grafana dashboard ([#577](https://github.com/iotaledger/inx-chronicle/issues/577)) ([e55eb0c](https://github.com/iotaledger/inx-chronicle/commit/e55eb0c91ff3111218a6bb9fbc2e18cec36a86fd))
+
+
+
 # [1.0.0-beta.10](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.9...v1.0.0-beta.10) (2022-08-17)
 
 
