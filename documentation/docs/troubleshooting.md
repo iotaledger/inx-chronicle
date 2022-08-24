@@ -25,5 +25,5 @@ answer! If there is no answer yet, submit your question and share it in the disc
 ## Join the Discussion
 
 If you want to get involved in discussions about this library, or you are looking for support, you can visit
-the [#iota-wiki-discussion](https://discord.com/channels/397872799483428865/930447461951082517) channel on
+the [#chronicle-discussion](https://discord.com/channels/397872799483428865/930616387397877820) channel on
 our [Discord](https://discord.iota.org).
