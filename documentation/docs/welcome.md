@@ -1,11 +1,13 @@
 ---
-description: Welcome to your project.
-image: /img/logo/iota_logo.svg
+description: Chronicle is the permanode solution for the different IOTA networks.
+image: /img/logo/bee_logo.png
 keywords:
-  - getting started
-  - explanation
+- Rust
+- Discord
+- Permanode
+- IOTA
 ---
 
-# Example Welcome Page
+# Welcome
 
-Introduce the user to your project.
+{@import ../../README.md}

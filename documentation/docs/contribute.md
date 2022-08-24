@@ -11,16 +11,16 @@ keywords:
 - reference
 ---
 
-# Contribute to the Project
+# Contribute to Chronicle
 
 Thank you for considering a contribution to this project. You can help it in the following ways:
 
 ## Contribute to the Project’s GitHub Repository
 
-All the code is open source and hosted on [GitHub](https://github.com/iotawiki/docs-tempalte) where you can:
+All the code is open source and hosted on [GitHub](https://github.com/iotaledger/inx-chronicle) where you can:
 
-- [Report a bug](https://github.com/iota-wiki/docs-template/issues/new?assignees=&labels=c-bug&template=bug_report.md&title=).
-- [Suggest a new feature](https://github.com/iota-wiki/docs-template/issues/new?assignees=&labels=&template=feature_request.md).
+- [Report a bug](https://github.com/iotaledger/inx-chronicle/issues/new?template=bug_report.md).
+- [Suggest a new feature](https://github.com/iotaledger/inx-chronicle/issues/new?template=feature_request.md).
 - [Contribute to the documentation](#contribute-to-the-documentation).
 
 ## Contribute to the Documentation
@@ -38,5 +38,5 @@ By sharing your knowledge with others, you can provide a lot of value to the com
 learn and contribute.
 
 Take a look at what discussions are going on in
-the [#iota-wiki-discussion](https://discord.com/channels/397872799483428865/930447461951082517) channel on
+the [#chronicle-discussion](https://discord.com/channels/397872799483428865/930616387397877820) channel on
 our [Discord](https://discord.iota.org).
