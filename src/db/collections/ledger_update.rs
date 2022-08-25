@@ -24,13 +24,19 @@ use crate::{
     },
 };
 
+/// The [`Id`] of a [`LedgerUpdateDocument`].
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct Id {
+    output_id: OutputId,
+    is_spent: bool,
+}
+
 /// Contains all information related to an output.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LedgerUpdateDocument {
+    _id: Id,
     address: Address,
-    output_id: OutputId,
     at: MilestoneIndexTimestamp,
-    is_spent: bool,
 }
 
 impl LedgerUpdateDocument {
@@ -85,11 +91,11 @@ impl FromStr for SortOrder {
 }
 
 fn newest() -> Document {
-    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "at.milestone_index": -1, "_id.output_id": -1, "_id.is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "address": 1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": 1, "at.milestone_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -130,10 +136,12 @@ impl MongoDb {
                  }| {
                     // Ledger updates
                     output.owning_address().map(|&address| LedgerUpdateDocument {
+                        _id: Id {
+                            output_id: *output_id,
+                            is_spent: true,
+                        },
                         address,
-                        output_id: *output_id,
                         at: spent_metadata.spent,
-                        is_spent: true,
                     })
                 },
             )
@@ -164,10 +172,12 @@ impl MongoDb {
                  }| {
                     // Ledger updates
                     output.owning_address().map(|&address| LedgerUpdateDocument {
+                        _id: Id {
+                            output_id: *output_id,
+                            is_spent: false,
+                        },
                         address,
-                        output_id: *output_id,
                         at: *booked,
-                        is_spent: false,
                     })
                 },
             )
@@ -201,12 +211,12 @@ impl MongoDb {
             if let Some((output_id, is_spent)) = rest {
                 cursor_queries.push(doc! {
                     "at.milestone_index": milestone_index,
-                    "output_id": { cmp1: output_id }
+                    "_id.output_id": { cmp1: output_id }
                 });
                 cursor_queries.push(doc! {
                     "at.milestone_index": milestone_index,
-                    "output_id": output_id,
-                    "is_spent": { cmp2: is_spent }
+                    "_id.output_id": output_id,
+                    "_id.is_spent": { cmp2: is_spent }
                 });
             }
             queries.push(doc! { "$or": cursor_queries });
@@ -233,10 +243,10 @@ impl MongoDb {
         let mut queries = vec![doc! { "at.milestone_index": milestone_index }];
 
         if let Some((output_id, is_spent)) = cursor {
-            let mut cursor_queries = vec![doc! { "output_id": { cmp1: output_id } }];
+            let mut cursor_queries = vec![doc! { "_id.output_id": { cmp1: output_id } }];
             cursor_queries.push(doc! {
-                "output_id": output_id,
-                "is_spent": { cmp2: is_spent }
+                "_id.output_id": output_id,
+                "_id.is_spent": { cmp2: is_spent }
             });
             queries.push(doc! { "$or": cursor_queries });
         }
