@@ -227,9 +227,10 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         try_join!(
             insert_unspent_outputs(&self.db, ledger_update.created),
             update_spent_outputs(&self.db, ledger_update.consumed),
-            handle_cone_stream(&self.db, &mut inx_clone, ledger_update.milestone_index),
-            handle_protocol_params(&self.db, inx, ledger_update.milestone_index),
         )?;
+
+        handle_cone_stream(&self.db, &mut inx_clone, ledger_update.milestone_index).await?;
+        handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
