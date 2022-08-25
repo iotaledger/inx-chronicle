@@ -220,7 +220,7 @@ impl MongoDb {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "id": output_id,
+                            "_id": output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
                         doc! { "$set": {
