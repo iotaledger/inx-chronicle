@@ -308,7 +308,12 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
     let blocks_with_metadata = cone_stream
         .map(|res| {
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
-            Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+            Result::<_, InxError>::Ok((
+                metadata.block_id.into(),
+                block.clone().inner()?.into(),
+                block.data(),
+                metadata.into(),
+            ))
         })
         .try_collect::<Vec<_>>()
         .await?;
