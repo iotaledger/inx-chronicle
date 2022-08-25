@@ -124,8 +124,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_spent_ledger_updates(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
         let ledger_updates = outputs
@@ -155,8 +154,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    /// Inserts unspent [`LedgerOutput`] updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_ledger_updates(
         &self,
