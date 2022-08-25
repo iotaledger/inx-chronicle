@@ -266,7 +266,6 @@ async fn output_metadata(
 
 async fn transaction_included_block(
     database: Extension<MongoDb>,
-    Path(_): Path<u32>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
