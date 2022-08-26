@@ -102,22 +102,25 @@ impl MongoDb {
 
 pub struct MongoDbCollection<T>(mongodb::Collection<T>);
 
+pub struct InsertResult {
+    pub ignored: usize,
+}
+
 impl<T: Serialize> MongoDbCollection<T> {
     /// Inserts many records and ignores duplicate key errors.
     pub async fn insert_many_ignore_duplicates(
         &self,
         docs: impl IntoIterator<Item = impl Borrow<T>>,
         options: impl Into<Option<InsertManyOptions>>,
-    ) -> Result<usize, Error> {
+    ) -> Result<InsertResult, Error> {
         use mongodb::error::ErrorKind;
         match self.insert_many(docs, options).await {
-            Ok(r) => Ok(r.inserted_ids.len()),
+            Ok(_) => Ok(InsertResult{ignored: 0}),
             Err(e) => match &*e.kind {
                 ErrorKind::BulkWrite(b) => {
                     if let Some(write_errs) = &b.write_errors {
-                        if write_errs.len() == 1 && write_errs[0].code == DUPLICATE_KEY_CODE {
-                            info!("{:?}", e);
-                            return Ok(0);
+                        if write_errs.iter().all(|e| e.code == DUPLICATE_KEY_CODE) {
+                            return Ok(InsertResult{ignored: write_errs.len()});
                         }
                     }
                     Err(e)
