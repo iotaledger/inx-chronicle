@@ -26,7 +26,6 @@ pub struct SpentMetadata {
 /// Block metadata.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct OutputMetadata {
-    pub output_id: OutputId,
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub spent_metadata: Option<SpentMetadata>,
