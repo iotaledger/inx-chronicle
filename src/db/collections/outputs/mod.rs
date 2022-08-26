@@ -7,7 +7,7 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc},
     error::Error,
-    options::{IndexOptions, InsertManyOptions},
+    options::{IndexOptions, InsertManyOptions, ReplaceOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
@@ -161,7 +161,11 @@ impl MongoDb {
         let output_id = output.output.output_id;
         self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .replace_one(doc! { "_id": output_id }, OutputDocument::from(output), None)
+            .replace_one(
+                doc! { "_id": output_id },
+                OutputDocument::from(output),
+                ReplaceOptions::builder().upsert(true).build(),
+            )
             .await?;
 
         Ok(())
