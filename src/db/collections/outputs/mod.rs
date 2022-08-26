@@ -156,7 +156,6 @@ impl MongoDb {
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip(self), err, level = "trace")]
     pub async fn update_spent_output(&self, output: &LedgerSpent) -> Result<(), Error> {
         let output_id = output.output.output_id;
         self.db
