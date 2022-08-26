@@ -24,6 +24,7 @@ pub struct ApiConfig {
     pub public_routes: Vec<String>,
     pub identity_path: Option<String>,
     pub max_page_size: usize,
+    pub argon_config: ArgonConfig,
 }
 
 impl Default for ApiConfig {
@@ -39,6 +40,7 @@ impl Default for ApiConfig {
             public_routes: Default::default(),
             identity_path: None,
             max_page_size: 1000,
+            argon_config: Default::default(),
         }
     }
 }
@@ -53,6 +55,7 @@ pub struct ApiData {
     pub public_routes: RegexSet,
     pub secret_key: SecretKey,
     pub max_page_size: usize,
+    pub argon_config: ArgonConfig,
 }
 
 impl ApiData {
@@ -82,6 +85,7 @@ impl TryFrom<ApiConfig> for ApiData {
                 }
             },
             max_page_size: config.max_page_size,
+            argon_config: config.argon_config,
         })
     }
 }
@@ -123,5 +127,85 @@ impl TryFrom<SingleOrMultiple<String>> for AllowOrigin {
                 AllowOrigin::list(value.into_iter().map(|v| v.parse()).collect::<Result<Vec<_>, _>>()?)
             }
         })
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ArgonConfig {
+    /// The associated data.
+    associated_data: Vec<u8>,
+    /// The length of the resulting hash.
+    hash_length: u32,
+    /// The number of lanes in parallel.
+    parallelism: u32,
+    /// The amount of memory requested (KB).
+    mem_cost: u32,
+    /// The secret key.
+    secret: Vec<u8>,
+    /// The number of passes.
+    iterations: u32,
+    /// The variant.
+    #[serde(with = "variant")]
+    variant: argon2::Variant,
+    /// The version.
+    #[serde(with = "version")]
+    version: argon2::Version,
+}
+
+impl Default for ArgonConfig {
+    fn default() -> Self {
+        Self {
+            associated_data: Default::default(),
+            hash_length: 32,
+            parallelism: 1,
+            mem_cost: 4096,
+            secret: Default::default(),
+            iterations: 3,
+            variant: Default::default(),
+            version: Default::default(),
+        }
+    }
+}
+
+impl<'a> From<&'a ArgonConfig> for argon2::Config<'a> {
+    fn from(val: &'a ArgonConfig) -> Self {
+        Self {
+            ad: &val.associated_data,
+            hash_length: val.hash_length,
+            lanes: val.parallelism,
+            mem_cost: val.mem_cost,
+            secret: &val.secret,
+            thread_mode: Default::default(),
+            time_cost: val.iterations,
+            variant: val.variant,
+            version: val.version,
+        }
+    }
+}
+
+mod variant {
+    use serde::Deserialize;
+
+    pub fn serialize<S: serde::Serializer>(val: &argon2::Variant, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(&val.to_string())
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<argon2::Variant, D::Error> {
+        argon2::Variant::from_str(&String::deserialize(d)?).map_err(serde::de::Error::custom)
+    }
+}
+
+mod version {
+    use serde::Deserialize;
+
+    pub fn serialize<S: serde::Serializer>(val: &argon2::Version, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(&format!("{:x}", val.as_u32()))
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<argon2::Version, D::Error> {
+        let mut decoded = prefix_hex::decode::<Vec<u8>>(&String::deserialize(d)?).map_err(serde::de::Error::custom)?;
+        decoded.resize(4, 0);
+        argon2::Version::from_u32(u32::from_le_bytes(decoded.try_into().unwrap())).map_err(serde::de::Error::custom)
     }
 }

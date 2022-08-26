@@ -21,7 +21,7 @@ port = 8042
 allow_origins = "0.0.0.0"
 
 ### JsonWebToken (JWT) credentials.
-password_hash = "c42cf2be3a442a29d8cd827a27099b0c" # "password"
+password_hash = "f36605441dd3b99a0448bc76f51f0e619f47051989cfcbf2fef18670f21799ad" # "password"
 password_salt = "saltines"
 jwt_expiration = "72h"
 
@@ -41,6 +41,24 @@ public_routes = [
 
 ### Maximum number of records returned by a single API call
 max_page_size = 1000
+
+[api.argon_config]
+### The associated data.
+associated_data = []
+### The length of the resulting hash.
+hash_length = 32
+### The number of lanes in parallel.
+parallelism = 1
+### The amount of memory requested (KB).
+mem_cost = 4096
+### The secret key.
+secret = []
+### The number of passes.
+iterations = 3
+### The variant.
+variant = "argon2i"
+### The version.
+version = "0x13"
 
 [inx]
 ### Whether INX is used (online mode).

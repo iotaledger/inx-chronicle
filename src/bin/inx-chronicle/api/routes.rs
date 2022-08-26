@@ -44,10 +44,11 @@ async fn login(
     Json(LoginInfo { password }): Json<LoginInfo>,
     Extension(config): Extension<ApiData>,
 ) -> Result<String, ApiError> {
-    if auth_helper::password::password_verify(
+    if password_verify(
         password.as_bytes(),
         config.password_salt.as_bytes(),
         &config.password_hash,
+        Into::into(&config.argon_config),
     )? {
         let jwt = JsonWebToken::new(
             Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)?
@@ -59,6 +60,16 @@ async fn login(
     } else {
         Err(ApiError::IncorrectPassword)
     }
+}
+
+/// Verifies if a password/salt pair matches a password hash.
+pub fn password_verify(
+    password: &[u8],
+    salt: &[u8],
+    hash: &[u8],
+    config: argon2::Config,
+) -> Result<bool, argon2::Error> {
+    Ok(hash == argon2::hash_raw(password, salt, &config)?)
 }
 
 fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {

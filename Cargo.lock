@@ -425,6 +425,7 @@ dependencies = [
  "primitive-types",
  "rand",
  "regex",
+ "rust-argon2",
  "serde",
  "serde_bytes",
  "serde_json",
