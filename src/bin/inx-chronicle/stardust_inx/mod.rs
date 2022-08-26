@@ -118,7 +118,9 @@ impl Actor for InxWorker {
                     protocol_parameters.network_name,
                 ));
             }
+            debug!("Found matching network in the database.");
             if latest.parameters != protocol_parameters {
+                debug!("Updating protocol parameters.");
                 self.db
                     .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
@@ -175,6 +177,8 @@ impl Actor for InxWorker {
         cx.add_stream(LedgerUpdateStream::new(
             inx.listen_to_ledger_updates((start_index.0..).into()).await?,
         ));
+
+        debug!("Started listening to ledger updates via INX.");
 
         metrics::describe_histogram!(
             METRIC_MILESTONE_SYNC_TIME,
