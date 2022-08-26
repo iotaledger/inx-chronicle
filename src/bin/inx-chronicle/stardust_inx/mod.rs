@@ -223,13 +223,10 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         tracing::Span::current().record("created", &ledger_update.created.len());
         tracing::Span::current().record("consumed", &ledger_update.consumed.len());
 
-        let mut inx_clone = inx.clone();
-        try_join!(
-            insert_unspent_outputs(&self.db, ledger_update.created),
-            update_spent_outputs(&self.db, ledger_update.consumed),
-        )?;
+        insert_unspent_outputs(&self.db, ledger_update.created).await?;
+        update_spent_outputs(&self.db, ledger_update.consumed).await?;
 
-        handle_cone_stream(&self.db, &mut inx_clone, ledger_update.milestone_index).await?;
+        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
         handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
