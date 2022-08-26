@@ -12,7 +12,6 @@ use mongodb::{
     Client,
 };
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 
@@ -115,12 +114,14 @@ impl<T: Serialize> MongoDbCollection<T> {
     ) -> Result<InsertResult, Error> {
         use mongodb::error::ErrorKind;
         match self.insert_many(docs, options).await {
-            Ok(_) => Ok(InsertResult{ignored: 0}),
+            Ok(_) => Ok(InsertResult { ignored: 0 }),
             Err(e) => match &*e.kind {
                 ErrorKind::BulkWrite(b) => {
                     if let Some(write_errs) = &b.write_errors {
                         if write_errs.iter().all(|e| e.code == DUPLICATE_KEY_CODE) {
-                            return Ok(InsertResult{ignored: write_errs.len()});
+                            return Ok(InsertResult {
+                                ignored: write_errs.len(),
+                            });
                         }
                     }
                     Err(e)

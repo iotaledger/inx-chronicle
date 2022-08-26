@@ -5,7 +5,7 @@ mod indexer;
 
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc, to_document},
+    bson::{self, doc},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -161,11 +161,7 @@ impl MongoDb {
         let output_id = output.output.output_id;
         self.db
             .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .update_one(
-                doc! { "_id": output_id },
-                doc! { "$set": { "metadata.spent_metadata": to_document(&output.spent_metadata)? } },
-                None,
-            )
+            .replace_one(doc! { "_id": output_id }, OutputDocument::from(output), None)
             .await?;
 
         Ok(())
