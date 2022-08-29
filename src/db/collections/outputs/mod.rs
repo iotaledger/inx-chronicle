@@ -5,7 +5,7 @@ mod indexer;
 
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, to_bson, to_document},
     error::Error,
     options::{IndexOptions, InsertManyOptions, ReplaceOptions},
     IndexModel,
@@ -148,14 +148,35 @@ impl MongoDb {
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn update_spent_outputs(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
-        for output in outputs {
-            self.update_spent_output(output).await?;
+        // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
+        let update_docs = outputs
+            .map(|output| {
+                Ok(doc! {
+                    "q": { "_id": output.output.output_id },
+                    "u": to_document(&OutputDocument::from(output))?,
+                    "upsert": true,
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        if !update_docs.is_empty() {
+            let mut command = doc! {
+                "update": OutputDocument::COLLECTION,
+                "updates": update_docs,
+            };
+            if let Some(ref write_concern) = self.db.write_concern() {
+                command.insert("writeConcern", to_bson(write_concern)?);
+            }
+            let selection_criteria = self.db.selection_criteria().cloned();
+            let _ = self.db.run_command(command, selection_criteria).await?;
         }
+
         Ok(())
     }
 
     /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[deprecated]
     pub async fn update_spent_output(&self, output: &LedgerSpent) -> Result<(), Error> {
         let output_id = output.output.output_id;
         self.db
@@ -181,7 +202,6 @@ impl MongoDb {
                 .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
-
         Ok(())
     }
 
