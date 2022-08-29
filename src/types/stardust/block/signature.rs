@@ -47,9 +47,8 @@ impl From<Signature> for bee::Signature {
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
-    use crate::types::stardust::util::signature::get_test_signature;
-
     use super::*;
+    use crate::types::stardust::util::signature::get_test_signature;
 
     #[test]
     fn test_signature_bson() {
