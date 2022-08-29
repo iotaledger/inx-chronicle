@@ -7,7 +7,7 @@ use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{self, doc, to_bson, to_document},
     error::Error,
-    options::{IndexOptions, InsertManyOptions, ReplaceOptions},
+    options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
