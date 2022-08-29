@@ -299,7 +299,10 @@ impl MongoDb {
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": &output_id } },
+                    doc! { "$match": {
+                        "_id": &output_id,
+                        "metadata.spent_metadata": { "$ne": null }
+                    } },
                     doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],
                 None,
@@ -969,7 +972,7 @@ mod test_db {
     use crate::{
         db::collections::{test::connect_to_test_db, OutputMetadataResult, OutputWithMetadataResult},
         types::{
-            ledger::{LedgerOutput, MilestoneIndexTimestamp},
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
             stardust::block::{
                 milestone::test::get_test_milestone_payload, tests::get_test_transaction_block, BlockId, MilestoneId,
                 OutputId, TransactionEssence, TransactionPayload,
@@ -1027,6 +1030,16 @@ mod test_db {
 
         for output in outputs.iter() {
             assert_eq!(
+                db.get_spending_transaction_metadata(&output.output_id)
+                    .await
+                    .unwrap()
+                    .as_ref(),
+                None,
+            );
+        }
+
+        for output in outputs.iter() {
+            assert_eq!(
                 db.get_output(&output.output_id).await.unwrap().as_ref(),
                 Some(&output.output),
             );
@@ -1058,6 +1071,68 @@ mod test_db {
                         ledger_index: 1.into()
                     }
                 }),
+            );
+        }
+
+        let outputs = outputs
+            .into_iter()
+            .map(|output| LedgerSpent {
+                output,
+                spent_metadata: SpentMetadata {
+                    transaction_id: bee_block_stardust::rand::transaction::rand_transaction_id().into(),
+                    spent: MilestoneIndexTimestamp {
+                        milestone_index: 1.into(),
+                        milestone_timestamp: 23456.into(),
+                    },
+                },
+            })
+            .collect::<Vec<_>>();
+
+        db.update_spent_outputs(outputs.iter()).await.unwrap();
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_output(&output.output.output_id).await.unwrap().as_ref(),
+                Some(&output.output.output),
+            );
+        }
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_output_metadata(&output.output.output_id).await.unwrap(),
+                Some(OutputMetadataResult {
+                    output_id: output.output.output_id,
+                    block_id,
+                    booked: output.output.booked,
+                    spent_metadata: Some(output.spent_metadata),
+                    ledger_index: 1.into()
+                }),
+            );
+        }
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_output_with_metadata(&output.output.output_id).await.unwrap(),
+                Some(OutputWithMetadataResult {
+                    output: output.output.output.clone(),
+                    metadata: OutputMetadataResult {
+                        output_id: output.output.output_id,
+                        block_id: output.output.block_id,
+                        booked: output.output.booked,
+                        spent_metadata: Some(output.spent_metadata),
+                        ledger_index: 1.into()
+                    }
+                }),
+            );
+        }
+
+        for output in outputs.iter() {
+            assert_eq!(
+                db.get_spending_transaction_metadata(&output.output.output_id)
+                    .await
+                    .unwrap()
+                    .as_ref(),
+                Some(&output.spent_metadata),
             );
         }
 
