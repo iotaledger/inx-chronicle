@@ -3,13 +3,17 @@
 
 //! Holds the `MongoDb` type and its config.
 
+use std::borrow::Borrow;
+
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential, TransactionOptions},
-    Client, ClientSession,
+    options::{ClientOptions, Credential, InsertManyOptions},
+    Client,
 };
 use serde::{Deserialize, Serialize};
+
+const DUPLICATE_KEY_CODE: i32 = 11000;
 
 pub struct MongoClient(pub mongodb::Client);
 
@@ -59,14 +63,9 @@ impl MongoDb {
         Ok(MongoClient::connect(config).await?.database(&config.database_name))
     }
 
-    /// Starts a transaction.
-    pub async fn start_transaction(
-        &self,
-        options: impl Into<Option<TransactionOptions>>,
-    ) -> Result<ClientSession, Error> {
-        let mut session = self.client.start_session(None).await?;
-        session.start_transaction(options).await?;
-        Ok(session)
+    /// Gets a collection of the provided type with the given name.
+    pub fn collection<T>(&self, name: impl AsRef<str>) -> MongoDbCollection<T> {
+        MongoDbCollection(self.db.collection(name.as_ref()))
     }
 
     /// Clears all the collections from the database.
@@ -118,6 +117,47 @@ impl MongoDb {
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
         self.db.name()
+    }
+}
+
+pub struct MongoDbCollection<T>(mongodb::Collection<T>);
+
+pub struct InsertResult {
+    pub ignored: usize,
+}
+
+impl<T: Serialize> MongoDbCollection<T> {
+    /// Inserts many records and ignores duplicate key errors.
+    pub async fn insert_many_ignore_duplicates(
+        &self,
+        docs: impl IntoIterator<Item = impl Borrow<T>>,
+        options: impl Into<Option<InsertManyOptions>>,
+    ) -> Result<InsertResult, Error> {
+        use mongodb::error::ErrorKind;
+        match self.insert_many(docs, options).await {
+            Ok(_) => Ok(InsertResult { ignored: 0 }),
+            Err(e) => match &*e.kind {
+                ErrorKind::BulkWrite(b) => {
+                    if let Some(write_errs) = &b.write_errors {
+                        if write_errs.iter().all(|e| e.code == DUPLICATE_KEY_CODE) {
+                            return Ok(InsertResult {
+                                ignored: write_errs.len(),
+                            });
+                        }
+                    }
+                    Err(e)
+                }
+                _ => Err(e),
+            },
+        }
+    }
+}
+
+impl<T> std::ops::Deref for MongoDbCollection<T> {
+    type Target = mongodb::Collection<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

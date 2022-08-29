@@ -4,12 +4,12 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{FindOneOptions, IndexOptions},
-    ClientSession, IndexModel,
+    options::{FindOneOptions, InsertManyOptions},
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
@@ -21,6 +21,7 @@ use crate::{
 /// Contains all information regarding the treasury.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct TreasuryDocument {
+    #[serde(rename = "_id")]
     milestone_index: MilestoneIndex,
     milestone_id: MilestoneId,
     amount: u64,
@@ -41,28 +42,6 @@ pub struct TreasuryResult {
 
 /// Queries that are related to the treasury.
 impl MongoDb {
-    /// Creates ledger update indexes.
-    pub async fn create_treasury_indexes(&self) -> Result<(), Error> {
-        let collection = self.db.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "milestone_index": -1, "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("treasury_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// Inserts treasury data.
     pub async fn insert_treasury(
         &self,
@@ -86,7 +65,6 @@ impl MongoDb {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_treasury_payloads(
         &self,
-        session: &mut ClientSession,
         payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
     ) -> Result<(), Error> {
         let payloads = payloads
@@ -97,10 +75,9 @@ impl MongoDb {
                 amount: payload.output_amount,
             })
             .collect::<Vec<_>>();
-        if !payloads.is_empty() {
-            self.db
-                .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many_with_session(payloads, None, session)
+        for batch in payloads.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -111,10 +88,7 @@ impl MongoDb {
     pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryResult>, Error> {
         self.db
             .collection::<TreasuryResult>(TreasuryDocument::COLLECTION)
-            .find_one(
-                doc! {},
-                FindOneOptions::builder().sort(doc! { "milestone_index": -1 }).build(),
-            )
+            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
             .await
     }
 }

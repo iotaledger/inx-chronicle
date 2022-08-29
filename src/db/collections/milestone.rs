@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc},
     error::Error,
     options::{FindOneOptions, FindOptions, IndexOptions},
-    ClientSession, IndexModel,
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -31,10 +31,11 @@ const BY_NEWEST: i32 = -1;
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct MilestoneDocument {
+    /// The [`MilestoneId`](MilestoneId) of the milestone.
+    #[serde(rename = "_id")]
+    milestone_id: MilestoneId,
     /// The milestone index and timestamp.
     at: MilestoneIndexTimestamp,
-    /// The [`MilestoneId`](MilestoneId) of the milestone.
-    milestone_id: MilestoneId,
     /// The milestone's payload.
     payload: MilestonePayload,
 }
@@ -88,21 +89,6 @@ impl MongoDb {
             )
             .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_id_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
         Ok(())
     }
 
@@ -116,7 +102,7 @@ impl MongoDb {
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "milestone_id": milestone_id } },
+                    doc! { "$match": { "_id": milestone_id } },
                     doc! { "$replaceWith": "$payload" },
                 ],
                 None,
@@ -160,8 +146,7 @@ impl MongoDb {
                 doc! { "at.milestone_index": index },
                 FindOneOptions::builder()
                     .projection(doc! {
-                        "milestone_id": "$milestone_id",
-
+                        "milestone_id": "$_id",
                     })
                     .build(),
             )
@@ -170,14 +155,9 @@ impl MongoDb {
     }
 
     /// Inserts the information of a milestone into the database.
-    #[instrument(
-        skip(self, session, milestone_id, milestone_timestamp, payload),
-        err,
-        level = "trace"
-    )]
+    #[instrument(skip(self, milestone_id, milestone_timestamp, payload), err, level = "trace")]
     pub async fn insert_milestone(
         &self,
-        session: &mut ClientSession,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
@@ -192,12 +172,9 @@ impl MongoDb {
             payload,
         };
 
-        let mut doc = bson::to_document(&milestone_document)?;
-        doc.insert("_id", milestone_document.milestone_id.to_hex());
-
         self.db
-            .collection::<bson::Document>(MilestoneDocument::COLLECTION)
-            .insert_one_with_session(doc, None, session)
+            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+            .insert_one(milestone_document, None)
             .await?;
 
         Ok(())
@@ -385,10 +362,7 @@ mod test_db {
                 .id(),
         );
 
-        let mut session = db.start_transaction(None).await.unwrap();
-
         db.insert_milestone(
-            &mut session,
             milestone_id,
             milestone.essence.index,
             milestone.essence.timestamp.into(),
@@ -396,8 +370,6 @@ mod test_db {
         )
         .await
         .unwrap();
-
-        session.commit_transaction().await.unwrap();
 
         assert_eq!(
             db.get_milestone_id(milestone.essence.index).await.unwrap(),

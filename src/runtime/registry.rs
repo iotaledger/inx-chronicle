@@ -37,8 +37,6 @@ pub(crate) const ROOT_SCOPE: Uuid = Uuid::nil();
 pub(crate) struct Scope {
     pub(crate) inner: Arc<ScopeInner>,
     valid: Arc<AtomicBool>,
-    #[cfg(feature = "metrics")]
-    metrics_registry: Arc<bee_metrics::Registry>,
 }
 
 /// Shared scope information.
@@ -64,8 +62,6 @@ impl Scope {
                 children: Default::default(),
             }),
             valid: Arc::new(AtomicBool::new(true)),
-            #[cfg(feature = "metrics")]
-            metrics_registry: Default::default(),
         }
     }
 
@@ -83,8 +79,6 @@ impl Scope {
                 children: Default::default(),
             }),
             valid: Arc::new(AtomicBool::new(true)),
-            #[cfg(feature = "metrics")]
-            metrics_registry: self.metrics_registry.clone(),
         };
         self.children.write().await.insert(id, child.clone());
         trace!("Added child to {:x}", self.id.as_fields().0);
@@ -158,11 +152,6 @@ impl Scope {
         }
         self.shutdown().await;
         trace!("Aborted scope {:x}", self.id.as_fields().0);
-    }
-
-    #[cfg(feature = "metrics")]
-    pub(crate) fn metrics_registry(&self) -> &Arc<bee_metrics::Registry> {
-        &self.metrics_registry
     }
 }
 

@@ -1,3 +1,46 @@
+# [1.0.0-beta.13](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.12...v1.0.0-beta.13) (2022-08-29)
+
+
+### Features
+
+* **db:** use `db.run_command` for faster bulk updates ([#604](https://github.com/iotaledger/inx-chronicle/issues/604)) ([efa5499](https://github.com/iotaledger/inx-chronicle/commit/efa5499a6d48440276d6345cc2d7e520391f44b7))
+
+
+
+# [1.0.0-beta.12](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.11...v1.0.0-beta.12) (2022-08-26)
+
+
+### Bug Fixes
+
+* **api:** remove `u32` from `transaction-included-block` endpoint ([#595](https://github.com/iotaledger/inx-chronicle/issues/595)) ([9a0c4d6](https://github.com/iotaledger/inx-chronicle/commit/9a0c4d6366f13c166865980fe018f51c3c376c1b))
+* **inx:** stop excess polling in the ledger update stream ([#602](https://github.com/iotaledger/inx-chronicle/issues/602)) ([baec10b](https://github.com/iotaledger/inx-chronicle/commit/baec10bf0fa14c160ddd196e0eb0d3ee8479d894))
+
+
+### Features
+
+* **bin:** add `INX_ADDR` environment var ([#599](https://github.com/iotaledger/inx-chronicle/issues/599)) ([4b19464](https://github.com/iotaledger/inx-chronicle/commit/4b194640015e68d098fb9fb0d03c9817a0ad3d8e)), closes [#595](https://github.com/iotaledger/inx-chronicle/issues/595) [#596](https://github.com/iotaledger/inx-chronicle/issues/596)
+
+
+
+# [1.0.0-beta.11](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.10...v1.0.0-beta.11) (2022-08-24)
+
+
+### Bug Fixes
+
+* **api:** unify Indexer responses to `IndexerOutputsResponse` ([#585](https://github.com/iotaledger/inx-chronicle/issues/585)) ([5e1edab](https://github.com/iotaledger/inx-chronicle/commit/5e1edab2dcae1930b8968ed63beccc7301857025))
+* **ci:** install `protoc` in `coverage` workflow ([#574](https://github.com/iotaledger/inx-chronicle/issues/574)) ([45c93cb](https://github.com/iotaledger/inx-chronicle/commit/45c93cbc388dd487c2bcd866e5b1f75f41b34c8b))
+* **ci:** use `cargo-hack` in `canary` builds ([#570](https://github.com/iotaledger/inx-chronicle/issues/570)) ([706f018](https://github.com/iotaledger/inx-chronicle/commit/706f018c611eea25d3bbcfd560d4283293918bc4))
+
+
+### Features
+
+* **analytics:** add nft and native token activity endpoints ([#560](https://github.com/iotaledger/inx-chronicle/issues/560)) ([74f53d0](https://github.com/iotaledger/inx-chronicle/commit/74f53d0a8bdc7316dccb6a64c5c105d559e5f4e7))
+* **api:** add `max_page_size` configuration ([#563](https://github.com/iotaledger/inx-chronicle/issues/563)) ([ca7091d](https://github.com/iotaledger/inx-chronicle/commit/ca7091d6ed18cc973471f084984fb47fca17e10e))
+* **db:** use `insertMany` for initial unspent outputs ([#566](https://github.com/iotaledger/inx-chronicle/issues/566)) ([146d5b8](https://github.com/iotaledger/inx-chronicle/commit/146d5b83616b35cfd489faa80c757cacce26e6fb)), closes [#587](https://github.com/iotaledger/inx-chronicle/issues/587)
+* **metrics:** use `metrics` create and provide Grafana dashboard ([#577](https://github.com/iotaledger/inx-chronicle/issues/577)) ([e55eb0c](https://github.com/iotaledger/inx-chronicle/commit/e55eb0c91ff3111218a6bb9fbc2e18cec36a86fd))
+
+
+
 # [1.0.0-beta.10](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.9...v1.0.0-beta.10) (2022-08-17)
 
 

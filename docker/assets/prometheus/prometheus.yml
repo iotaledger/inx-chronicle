@@ -9,3 +9,8 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets: ['hornet:9311']
+
+  - job_name: mongodb
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['mongo-exporter:9216']

@@ -9,8 +9,6 @@ use crate::types::{stardust::block::BlockId, tangle::MilestoneIndex};
 /// Block metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockMetadata {
-    /// The id of the corresponding block.
-    pub block_id: BlockId,
     /// The parents of the corresponding block.
     pub parents: Box<[BlockId]>,
     /// Status of the solidification process.
@@ -35,7 +33,6 @@ pub struct BlockMetadata {
 impl From<bee_inx::BlockMetadata> for BlockMetadata {
     fn from(metadata: bee_inx::BlockMetadata) -> Self {
         Self {
-            block_id: metadata.block_id.into(),
             parents: metadata.parents.iter().map(|&id| id.into()).collect(),
             is_solid: metadata.is_solid,
             should_promote: metadata.should_promote,

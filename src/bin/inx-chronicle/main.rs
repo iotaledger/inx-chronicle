@@ -9,7 +9,6 @@ mod api;
 mod cli;
 mod config;
 mod launcher;
-#[cfg(feature = "metrics")]
 mod metrics;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;

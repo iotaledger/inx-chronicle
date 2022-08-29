@@ -14,7 +14,7 @@ pub struct ClArgs {
     #[clap(long = "db")]
     pub db_addr: Option<String>,
     /// The address of the INX interface provided by the node.
-    #[clap(long = "inx")]
+    #[clap(long = "inx", env = "INX_ADDR")]
     pub inx_addr: Option<String>,
     /// Toggle INX (offline mode).
     #[clap(long, value_parser, env = "INX")]
@@ -32,6 +32,5 @@ pub struct ClArgs {
     pub enable_api: Option<bool>,
     /// Toggle the metrics server.
     #[clap(long, value_parser, env = "METRICS")]
-    #[cfg(feature = "metrics")]
     pub enable_metrics: Option<bool>,
 }

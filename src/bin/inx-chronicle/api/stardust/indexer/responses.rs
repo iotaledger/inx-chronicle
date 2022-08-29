@@ -7,18 +7,10 @@ use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct IndexerOutputResponse {
-    pub ledger_index: u32,
-    pub output_id: String,
-}
-
-impl_success_response!(IndexerOutputResponse);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct IndexerOutputsResponse {
     pub ledger_index: u32,
     pub items: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
 }
 

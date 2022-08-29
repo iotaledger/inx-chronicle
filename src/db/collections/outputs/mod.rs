@@ -5,10 +5,10 @@ mod indexer;
 
 use futures::{StreamExt, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::{self, doc, to_bson, to_document},
     error::Error,
-    options::{IndexOptions, UpdateOptions},
-    ClientSession, IndexModel,
+    options::{IndexOptions, InsertManyOptions},
+    IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -16,11 +16,13 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::OutputKind;
+use super::{OutputKind, INSERT_BATCH_SIZE};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata, RentStructureBytes, SpentMetadata},
+        ledger::{
+            LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
+        },
         stardust::block::{Address, BlockId, Output, OutputId},
         tangle::{MilestoneIndex, RentStructure},
     },
@@ -29,6 +31,8 @@ use crate::{
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OutputDocument {
+    #[serde(rename = "_id")]
+    output_id: OutputId,
     output: Output,
     metadata: OutputMetadata,
     details: OutputDetails,
@@ -48,15 +52,20 @@ struct OutputDetails {
     rent_structure: RentStructureBytes,
 }
 
-impl From<OutputWithMetadata> for OutputDocument {
-    fn from(rec: OutputWithMetadata) -> Self {
+impl From<&LedgerOutput> for OutputDocument {
+    fn from(rec: &LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
         let rent_structure = rec.output.rent_structure();
 
         Self {
-            output: rec.output,
-            metadata: rec.metadata,
+            output_id: rec.output_id,
+            output: rec.output.clone(),
+            metadata: OutputMetadata {
+                block_id: rec.block_id,
+                booked: rec.booked,
+                spent_metadata: None,
+            },
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
@@ -66,7 +75,15 @@ impl From<OutputWithMetadata> for OutputDocument {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+impl From<&LedgerSpent> for OutputDocument {
+    fn from(rec: &LedgerSpent) -> Self {
+        let mut res = Self::from(&rec.output);
+        res.metadata.spent_metadata.replace(rec.spent_metadata);
+        res
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[allow(missing_docs)]
 pub struct OutputMetadataResult {
     pub output_id: OutputId,
@@ -76,7 +93,7 @@ pub struct OutputMetadataResult {
     pub ledger_index: MilestoneIndex,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[allow(missing_docs)]
 pub struct OutputWithMetadataResult {
     pub output: Output,
@@ -107,21 +124,6 @@ impl MongoDb {
         collection
             .create_index(
                 IndexModel::builder()
-                    .keys(doc! { "metadata.output_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("output_id_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
                     .keys(doc! { "details.address": 1 })
                     .options(
                         IndexOptions::builder()
@@ -142,32 +144,47 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
+    /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[instrument(skip(self, session), err, level = "trace")]
-    pub async fn insert_output(&self, session: &mut ClientSession, output: OutputWithMetadata) -> Result<(), Error> {
-        if output.metadata.spent_metadata.is_none() {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$setOnInsert": bson::to_document(&OutputDocument::from(output))? },
-                    UpdateOptions::builder().upsert(true).build(),
-                    session,
-                )
-                .await?;
-        } else {
-            self.db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .update_one_with_session(
-                    doc! { "metadata.output_id": output.metadata.output_id },
-                    doc! { "$set": bson::to_document(&OutputDocument::from(output))? },
-                    UpdateOptions::builder().upsert(true).build(),
-                    session,
-                )
-                .await?;
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn update_spent_outputs(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
+        // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
+        let update_docs = outputs
+            .map(|output| {
+                Ok(doc! {
+                    "q": { "_id": output.output.output_id },
+                    "u": to_document(&OutputDocument::from(output))?,
+                    "upsert": true,
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        if !update_docs.is_empty() {
+            let mut command = doc! {
+                "update": OutputDocument::COLLECTION,
+                "updates": update_docs,
+            };
+            if let Some(ref write_concern) = self.db.write_concern() {
+                command.insert("writeConcern", to_bson(write_concern)?);
+            }
+            let selection_criteria = self.db.selection_criteria().cloned();
+            let _ = self.db.run_command(command, selection_criteria).await?;
         }
 
+        Ok(())
+    }
+
+    /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
+    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_unspent_outputs(&self, outputs: impl Iterator<Item = &LedgerOutput>) -> Result<(), Error> {
+        let outputs = outputs.map(Into::into).collect::<Vec<_>>();
+
+        for batch in outputs.chunks(INSERT_BATCH_SIZE) {
+            self.collection::<OutputDocument>(OutputDocument::COLLECTION)
+                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
+                .await?;
+        }
         Ok(())
     }
 
@@ -178,7 +195,7 @@ impl MongoDb {
             .collection::<Output>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "metadata.output_id": output_id } },
+                    doc! { "$match": { "_id": output_id } },
                     doc! { "$replaceWith": "$output" },
                 ],
                 None,
@@ -192,7 +209,7 @@ impl MongoDb {
         Ok(output)
     }
 
-    /// Get an [`OutputWithMetadata`] by [`OutputId`].
+    /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,
@@ -205,14 +222,21 @@ impl MongoDb {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "metadata.output_id": &output_id,
+                            "_id": output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
-                        doc! { "$set": {
-                            // The max fn will not consider the spent milestone index if it is null,
-                            // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
-                        } },
+                        doc! { "$project": {
+                            "output": "$output",
+                            "metadata": {
+                                "output_id": "$_id",
+                                "block_id": "$metadata.block_id",
+                                "booked": "$metadata.booked",
+                                "spent_metadata": "$metadata.spent_metadata",
+                                // The max fn will not consider the spent milestone index if it is null,
+                                // thus always setting the ledger index to our provided value
+                                "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                            },
+                        } }
                     ],
                     None,
                 )
@@ -238,15 +262,18 @@ impl MongoDb {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "metadata.output_id": &output_id,
+                            "_id": &output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
-                        doc! { "$set": {
+                        doc! { "$project": {
+                            "output_id": "$_id",
+                            "block_id": "$metadata.block_id",
+                            "booked": "$metadata.booked",
+                            "spent_metadata": "$metadata.spent_metadata",
                             // The max fn will not consider the spent milestone index if it is null,
                             // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
-                        } },
-                        doc! { "$replaceWith": "$metadata" },
+                            "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                        } }
                     ],
                     None,
                 )
@@ -272,7 +299,7 @@ impl MongoDb {
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "metadata.output_id": &output_id } },
+                    doc! { "$match": { "_id": &output_id } },
                     doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],
                 None,
@@ -346,11 +373,11 @@ impl MongoDb {
                             vec![doc! { "$facet": {
                                 "created_outputs": [
                                     { "$match": { "metadata.booked.milestone_index": index  } },
-                                    { "$replaceWith": "$metadata.output_id" },
+                                    { "$replaceWith": "$_id" },
                                 ],
                                 "consumed_outputs": [
                                     { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
-                                    { "$replaceWith": "$metadata.output_id" },
+                                    { "$replaceWith": "$_id" },
                                 ],
                             } }],
                             None,
@@ -940,9 +967,9 @@ mod test_db {
     use bee_block_stardust as bee;
 
     use crate::{
-        db::collections::test::connect_to_test_db,
+        db::collections::{test::connect_to_test_db, OutputMetadataResult, OutputWithMetadataResult},
         types::{
-            ledger::{MilestoneIndexTimestamp, OutputMetadata, OutputWithMetadata},
+            ledger::{LedgerOutput, MilestoneIndexTimestamp},
             stardust::block::{
                 milestone::test::get_test_milestone_payload, tests::get_test_transaction_block, BlockId, MilestoneId,
                 OutputId, TransactionEssence, TransactionPayload,
@@ -965,19 +992,16 @@ mod test_db {
             .into_vec()
             .into_iter()
             .enumerate()
-            .map(|(i, output)| OutputWithMetadata {
+            .map(|(i, output)| LedgerOutput {
+                output_id: OutputId {
+                    transaction_id,
+                    index: i as u16,
+                },
                 output,
-                metadata: OutputMetadata {
-                    output_id: OutputId {
-                        transaction_id,
-                        index: i as u16,
-                    },
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 1.into(),
-                        milestone_timestamp: 12345.into(),
-                    },
-                    spent_metadata: None,
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
                 },
             })
             .collect::<Vec<_>>();
@@ -990,14 +1014,9 @@ mod test_db {
                 .id(),
         );
 
-        let mut session = db.start_transaction(None).await.unwrap();
-
-        for output in outputs.iter().cloned() {
-            db.insert_output(&mut session, output).await.unwrap();
-        }
+        db.insert_unspent_outputs(outputs.iter()).await.unwrap();
 
         db.insert_milestone(
-            &mut session,
             milestone_id,
             milestone.essence.index,
             milestone.essence.timestamp.into(),
@@ -1006,47 +1025,39 @@ mod test_db {
         .await
         .unwrap();
 
-        session.commit_transaction().await.unwrap();
-
         for output in outputs.iter() {
             assert_eq!(
-                db.get_output(&output.metadata.output_id).await.unwrap().as_ref(),
+                db.get_output(&output.output_id).await.unwrap().as_ref(),
                 Some(&output.output),
             );
         }
 
         for output in outputs.iter() {
             assert_eq!(
-                db.get_output_metadata(&output.metadata.output_id)
-                    .await
-                    .unwrap()
-                    .map(|res| OutputMetadata {
-                        output_id: res.output_id,
-                        block_id: res.block_id,
-                        booked: res.booked,
-                        spent_metadata: res.spent_metadata
-                    })
-                    .as_ref(),
-                Some(&output.metadata),
+                db.get_output_metadata(&output.output_id).await.unwrap(),
+                Some(OutputMetadataResult {
+                    output_id: output.output_id,
+                    block_id,
+                    booked: output.booked,
+                    spent_metadata: None,
+                    ledger_index: 1.into()
+                }),
             );
         }
 
         for output in outputs.iter() {
             assert_eq!(
-                db.get_output_with_metadata(&output.metadata.output_id)
-                    .await
-                    .unwrap()
-                    .map(|res| OutputWithMetadata {
-                        output: res.output,
-                        metadata: OutputMetadata {
-                            output_id: res.metadata.output_id,
-                            block_id: res.metadata.block_id,
-                            booked: res.metadata.booked,
-                            spent_metadata: res.metadata.spent_metadata
-                        }
-                    })
-                    .as_ref(),
-                Some(output),
+                db.get_output_with_metadata(&output.output_id).await.unwrap(),
+                Some(OutputWithMetadataResult {
+                    output: output.output.clone(),
+                    metadata: OutputMetadataResult {
+                        output_id: output.output_id,
+                        block_id: output.block_id,
+                        booked: output.booked,
+                        spent_metadata: None,
+                        ledger_index: 1.into()
+                    }
+                }),
             );
         }
 

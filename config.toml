@@ -1,0 +1,56 @@
+[mongodb]
+### Listening address of the MongoDB instance.
+connect_url = "mongodb://localhost:27017"
+
+### Chronicle allows different database names, so multiple 
+### networks can run within the same MongoDB instance.
+database_name = "chronicle"
+
+[api]
+### Whether API requests will be served.
+enabled = true
+
+### API listening port. 
+port = 8000
+
+### CORS.
+allow_origins = "*"
+
+### JsonWebToken (JWT) credentials.
+password_hash = "c42cf2be3a442a29d8cd827a27099b0c" # "password"
+password_salt = "saltines"
+jwt_expiration = "72h"
+
+### Public API routes.
+public_routes = [
+    # General API routes that provide information about Chronicle.
+    "health",
+    "api/health",
+    "api/info",
+
+    # Activated APIs.
+    "api/analytics/v2/*",
+    "api/core/v2/*",
+    "api/explorer/v2/*",
+    "api/indexer/v1/*",
+]
+
+### Maximum number of records returned by a single API call
+max_page_size = 1000
+
+[inx]
+### Whether INX is used (online mode).
+enabled = true
+
+### Listening address of the node's INX interface.
+connect_url = "http://localhost:9012"
+
+### Time to wait until a new connection attempt is made.
+connection_retry_interval = "5s"
+
+### Maximum number of tries to establish an INX connection.
+connection_retry_count = 30
+
+[metrics]
+### Whether metrics will be served.
+enabled = false
