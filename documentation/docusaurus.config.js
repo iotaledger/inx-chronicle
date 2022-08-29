@@ -5,12 +5,19 @@ module.exports = {
     [
       '@docusaurus/plugin-content-docs',
       {
-        id: 'docs-template',  // Usually your repository's name, in this case docs-template
+        id: 'inx-chronicle-develop',
         path: path.resolve(__dirname, 'docs'),
-        routeBasePath: 'docs-template', // Usually your repository's name, in this case docs-template
+        routeBasePath: 'inx-chronicle',
         sidebarPath: path.resolve(__dirname, 'sidebars.js'),
-        editUrl: 'https://github.com/iotaledger/inx-chronicle/edit/main/documentation',// Example: https://github.com/iotacommunity/docs-template/edit/production/documentation
-        remarkPlugins: [require('remark-code-import'), require('remark-import-partial')],// You can add any remark or rehype extensions you may need here 
+        editUrl: 'https://github.com/iotaledger/inx-chronicle/edit/main/documentation',
+        remarkPlugins: [require('remark-code-import'), require('remark-import-partial')],
+        versions: {
+          current: {
+              label: 'Develop',
+              path: 'develop',
+              badge: true
+          },
+        },
       }
     ],
   ],
