@@ -32,7 +32,7 @@ impl MongoDb {
 
         client_options.app_name = Some("Chronicle".to_string());
         client_options.min_pool_size = config.min_pool_size;
-        
+
         if let (Some(username), Some(password)) = (&config.username, &config.password) {
             let credential = Credential::builder()
                 .username(username.clone())
@@ -156,7 +156,6 @@ pub struct MongoDbConfig {
     pub database_name: String,
     /// The minimum amount of connections in the pool.
     pub min_pool_size: Option<u32>,
-    
 }
 
 impl Default for MongoDbConfig {
