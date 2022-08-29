@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use futures::Stream;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, Document},
     error::Error,
@@ -19,18 +19,28 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{Address, OutputId},
+        stardust::{
+            block::{Address, OutputId},
+            milestone::MilestoneTimestamp,
+        },
         tangle::MilestoneIndex,
     },
 };
 
+/// The [`Id`] of a [`LedgerUpdateDocument`].
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct Id {
+    milestone_index: MilestoneIndex,
+    output_id: OutputId,
+    is_spent: bool,
+}
+
 /// Contains all information related to an output.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct LedgerUpdateDocument {
+    _id: Id,
     address: Address,
-    output_id: OutputId,
-    at: MilestoneIndexTimestamp,
-    is_spent: bool,
+    milestone_timestamp: MilestoneTimestamp,
 }
 
 impl LedgerUpdateDocument {
@@ -41,8 +51,8 @@ impl LedgerUpdateDocument {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct LedgerUpdateByAddressRecord {
-    pub output_id: OutputId,
     pub at: MilestoneIndexTimestamp,
+    pub output_id: OutputId,
     pub is_spent: bool,
 }
 
@@ -85,11 +95,11 @@ impl FromStr for SortOrder {
 }
 
 fn newest() -> Document {
-    doc! { "address": -1, "at.milestone_index": -1, "output_id": -1, "is_spent": -1 }
+    doc! { "address": -1, "_id.milestone_index": -1, "_id.output_id": -1, "_id.is_spent": -1 }
 }
 
 fn oldest() -> Document {
-    doc! { "address": 1, "at.milestone_index": 1, "output_id": 1, "is_spent": 1 }
+    doc! { "address": 1, "_id.milestone_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
@@ -118,8 +128,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_spent_ledger_updates(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
         let ledger_updates = outputs
@@ -130,10 +139,13 @@ impl MongoDb {
                  }| {
                     // Ledger updates
                     output.owning_address().map(|&address| LedgerUpdateDocument {
+                        _id: Id {
+                            milestone_index: spent_metadata.spent.milestone_index,
+                            output_id: *output_id,
+                            is_spent: true,
+                        },
                         address,
-                        output_id: *output_id,
-                        at: spent_metadata.spent,
-                        is_spent: true,
+                        milestone_timestamp: spent_metadata.spent.milestone_timestamp,
                     })
                 },
             )
@@ -147,8 +159,7 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    /// Inserts unspent [`LedgerOutput`] updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_ledger_updates(
         &self,
@@ -164,10 +175,13 @@ impl MongoDb {
                  }| {
                     // Ledger updates
                     output.owning_address().map(|&address| LedgerUpdateDocument {
+                        _id: Id {
+                            milestone_index: booked.milestone_index,
+                            output_id: *output_id,
+                            is_spent: false,
+                        },
                         address,
-                        output_id: *output_id,
-                        at: *booked,
-                        is_spent: false,
+                        milestone_timestamp: booked.milestone_timestamp,
                     })
                 },
             )
@@ -197,28 +211,38 @@ impl MongoDb {
         let mut queries = vec![doc! { "address": address }];
 
         if let Some((milestone_index, rest)) = cursor {
-            let mut cursor_queries = vec![doc! { "at.milestone_index": { cmp1: milestone_index } }];
+            let mut cursor_queries = vec![doc! { "_id.milestone_index": { cmp1: milestone_index } }];
             if let Some((output_id, is_spent)) = rest {
                 cursor_queries.push(doc! {
-                    "at.milestone_index": milestone_index,
-                    "output_id": { cmp1: output_id }
+                    "_id.milestone_index": milestone_index,
+                    "_id.output_id": { cmp1: output_id }
                 });
                 cursor_queries.push(doc! {
-                    "at.milestone_index": milestone_index,
-                    "output_id": output_id,
-                    "is_spent": { cmp2: is_spent }
+                    "_id.milestone_index": milestone_index,
+                    "_id.output_id": output_id,
+                    "_id.is_spent": { cmp2: is_spent }
                 });
             }
             queries.push(doc! { "$or": cursor_queries });
         }
 
         self.db
-            .collection::<LedgerUpdateByAddressRecord>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },
                 FindOptions::builder().limit(page_size as i64).sort(sort).build(),
             )
             .await
+            .map(|c| {
+                c.map_ok(|doc| LedgerUpdateByAddressRecord {
+                    at: MilestoneIndexTimestamp {
+                        milestone_index: doc._id.milestone_index,
+                        milestone_timestamp: doc.milestone_timestamp,
+                    },
+                    output_id: doc._id.output_id,
+                    is_spent: doc._id.is_spent,
+                })
+            })
     }
 
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
@@ -230,23 +254,30 @@ impl MongoDb {
     ) -> Result<impl Stream<Item = Result<LedgerUpdateByMilestoneRecord, Error>>, Error> {
         let (cmp1, cmp2) = ("$gt", "$gte");
 
-        let mut queries = vec![doc! { "at.milestone_index": milestone_index }];
+        let mut queries = vec![doc! { "_id.milestone_index": milestone_index }];
 
         if let Some((output_id, is_spent)) = cursor {
-            let mut cursor_queries = vec![doc! { "output_id": { cmp1: output_id } }];
+            let mut cursor_queries = vec![doc! { "_id.output_id": { cmp1: output_id } }];
             cursor_queries.push(doc! {
-                "output_id": output_id,
-                "is_spent": { cmp2: is_spent }
+                "_id.output_id": output_id,
+                "_id.is_spent": { cmp2: is_spent }
             });
             queries.push(doc! { "$or": cursor_queries });
         }
 
         self.db
-            .collection::<LedgerUpdateByMilestoneRecord>(LedgerUpdateDocument::COLLECTION)
+            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
             .find(
                 doc! { "$and": queries },
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
             .await
+            .map(|c| {
+                c.map_ok(|doc| LedgerUpdateByMilestoneRecord {
+                    address: doc.address,
+                    output_id: doc._id.output_id,
+                    is_spent: doc._id.is_spent,
+                })
+            })
     }
 }

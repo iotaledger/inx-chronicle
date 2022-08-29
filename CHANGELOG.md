@@ -1,3 +1,27 @@
+# [1.0.0-beta.13](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.12...v1.0.0-beta.13) (2022-08-29)
+
+
+### Features
+
+* **db:** use `db.run_command` for faster bulk updates ([#604](https://github.com/iotaledger/inx-chronicle/issues/604)) ([efa5499](https://github.com/iotaledger/inx-chronicle/commit/efa5499a6d48440276d6345cc2d7e520391f44b7))
+
+
+
+# [1.0.0-beta.12](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.11...v1.0.0-beta.12) (2022-08-26)
+
+
+### Bug Fixes
+
+* **api:** remove `u32` from `transaction-included-block` endpoint ([#595](https://github.com/iotaledger/inx-chronicle/issues/595)) ([9a0c4d6](https://github.com/iotaledger/inx-chronicle/commit/9a0c4d6366f13c166865980fe018f51c3c376c1b))
+* **inx:** stop excess polling in the ledger update stream ([#602](https://github.com/iotaledger/inx-chronicle/issues/602)) ([baec10b](https://github.com/iotaledger/inx-chronicle/commit/baec10bf0fa14c160ddd196e0eb0d3ee8479d894))
+
+
+### Features
+
+* **bin:** add `INX_ADDR` environment var ([#599](https://github.com/iotaledger/inx-chronicle/issues/599)) ([4b19464](https://github.com/iotaledger/inx-chronicle/commit/4b194640015e68d098fb9fb0d03c9817a0ad3d8e)), closes [#595](https://github.com/iotaledger/inx-chronicle/issues/595) [#596](https://github.com/iotaledger/inx-chronicle/issues/596)
+
+
+
 # [1.0.0-beta.11](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.10...v1.0.0-beta.11) (2022-08-24)
 
 

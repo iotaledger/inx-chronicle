@@ -31,10 +31,11 @@ const BY_NEWEST: i32 = -1;
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct MilestoneDocument {
+    /// The [`MilestoneId`](MilestoneId) of the milestone.
+    #[serde(rename = "_id")]
+    milestone_id: MilestoneId,
     /// The milestone index and timestamp.
     at: MilestoneIndexTimestamp,
-    /// The [`MilestoneId`](MilestoneId) of the milestone.
-    milestone_id: MilestoneId,
     /// The milestone's payload.
     payload: MilestonePayload,
 }
@@ -88,21 +89,6 @@ impl MongoDb {
             )
             .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_id_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
         Ok(())
     }
 
@@ -116,7 +102,7 @@ impl MongoDb {
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "milestone_id": milestone_id } },
+                    doc! { "$match": { "_id": milestone_id } },
                     doc! { "$replaceWith": "$payload" },
                 ],
                 None,
