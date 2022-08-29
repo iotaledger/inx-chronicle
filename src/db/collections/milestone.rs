@@ -18,7 +18,7 @@ use crate::{
     types::{
         ledger::MilestoneIndexTimestamp,
         stardust::{
-            block::{MilestoneId, MilestoneOption, MilestonePayload},
+            block::payload::milestone::{MilestoneId, MilestoneOption, MilestonePayload},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
@@ -337,58 +337,5 @@ impl MongoDb {
                 let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc?)?;
                 Ok((receipt, index))
             }))
-    }
-}
-
-#[cfg(all(test, feature = "test-db"))]
-mod test_db {
-    use bee_block_stardust as bee;
-
-    use crate::{
-        db::collections::test::connect_to_test_db,
-        types::stardust::block::{milestone::test::get_test_milestone_payload, MilestoneId},
-    };
-
-    #[tokio::test]
-    async fn test_milestones() {
-        let db = connect_to_test_db().await.unwrap().database("test-milestones");
-        db.clear().await.unwrap();
-        db.create_milestone_indexes().await.unwrap();
-
-        let milestone = get_test_milestone_payload();
-        let milestone_id = MilestoneId::from(
-            bee::payload::MilestonePayload::try_from(milestone.clone())
-                .unwrap()
-                .id(),
-        );
-
-        db.insert_milestone(
-            milestone_id,
-            milestone.essence.index,
-            milestone.essence.timestamp.into(),
-            milestone.clone(),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(
-            db.get_milestone_id(milestone.essence.index).await.unwrap(),
-            Some(milestone_id),
-        );
-
-        assert_eq!(
-            db.get_milestone_payload_by_id(&milestone_id).await.unwrap().as_ref(),
-            Some(&milestone)
-        );
-
-        assert_eq!(
-            db.get_milestone_payload(milestone.essence.index)
-                .await
-                .unwrap()
-                .as_ref(),
-            Some(&milestone)
-        );
-
-        db.drop().await.unwrap();
     }
 }

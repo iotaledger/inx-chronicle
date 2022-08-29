@@ -42,10 +42,11 @@ impl TryFrom<Unlock> for bee::Unlock {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
-    use super::{super::signature::test::get_test_signature, *};
+    use super::*;
+    use crate::types::stardust::util::unlock::get_test_signature_unlock;
 
     #[test]
     fn test_unlock_bson() {
@@ -64,23 +65,5 @@ pub(crate) mod test {
         let unlock = Unlock::Nft { index: 1 };
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_signature_unlock() -> Unlock {
-        Unlock::Signature {
-            signature: get_test_signature(),
-        }
-    }
-
-    pub(crate) fn get_test_reference_unlock() -> Unlock {
-        Unlock::Reference { index: 0 }
-    }
-
-    pub(crate) fn get_test_alias_unlock() -> Unlock {
-        Unlock::Alias { index: 0 }
-    }
-
-    pub(crate) fn get_test_nft_unlock() -> Unlock {
-        Unlock::Nft { index: 0 }
     }
 }

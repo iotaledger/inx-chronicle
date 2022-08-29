@@ -1,0 +1,28 @@
+[package]
+name = "inx_chronicle_tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "inx_chronicle_tests"
+path = "./src/lib.rs"
+
+[dependencies]
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [
+    "dto",
+    "rand",
+    "std",
+    "serde",
+] }
+chronicle = { path = "../.." }
+mongodb = { version = "2.2", default-features = false, features = [
+    "tokio-runtime",
+] }
+packable = { version = "0.5", default-features = false }
+thiserror = { version = "1.0", default-features = false }
+tokio = { version = "1.19", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+    "signal",
+] }
+toml = { version = "0.5", default-features = false }

@@ -1,18 +1,21 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod address;
-mod block_id;
-mod input;
-mod output;
-mod payload;
-mod signature;
-mod unlock;
+pub mod address;
+pub mod block_id;
+pub mod input;
+pub mod output;
+pub mod payload;
+pub mod signature;
+pub mod unlock;
 
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signature::*, unlock::*};
+pub use self::{
+    address::Address, block_id::BlockId, input::Input, output::Output, payload::Payload, signature::Signature,
+    unlock::Unlock,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
@@ -60,13 +63,12 @@ impl TryFrom<Block> for bee::BlockDto {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+
+mod test {
     use mongodb::bson::{from_bson, to_bson, Bson};
 
-    pub(crate) use super::{
-        payload::test::{get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload},
-        *,
-    };
+    use super::*;
+    use crate::types::stardust::util::*;
 
     #[test]
     fn test_block_id_bson() {
@@ -89,35 +91,5 @@ pub(crate) mod tests {
         let block = get_test_tagged_data_block();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_transaction_block() -> Block {
-        Block::from(
-            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
-                .with_nonce_provider(u64::MAX, 0.0)
-                .with_payload(get_test_transaction_payload().try_into().unwrap())
-                .finish()
-                .unwrap(),
-        )
-    }
-
-    pub(crate) fn get_test_milestone_block() -> Block {
-        Block::from(
-            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
-                .with_nonce_provider(u64::MAX, 0.0)
-                .with_payload(get_test_milestone_payload().try_into().unwrap())
-                .finish()
-                .unwrap(),
-        )
-    }
-
-    pub(crate) fn get_test_tagged_data_block() -> Block {
-        Block::from(
-            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
-                .with_nonce_provider(u64::MAX, 0.0)
-                .with_payload(get_test_tagged_data_payload().try_into().unwrap())
-                .finish()
-                .unwrap(),
-        )
     }
 }

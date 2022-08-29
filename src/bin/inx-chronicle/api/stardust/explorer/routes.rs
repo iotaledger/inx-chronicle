@@ -6,7 +6,7 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::MongoDb,
-    types::stardust::block::{Address, BlockId, MilestoneId},
+    types::stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
 };
 use futures::{StreamExt, TryStreamExt};
 

@@ -9,8 +9,8 @@ use chronicle::{
         MongoDb,
     },
     types::stardust::block::{
-        AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
-        TreasuryTransactionPayload,
+        output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+        payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
     },
 };
 

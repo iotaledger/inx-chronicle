@@ -3,9 +3,8 @@
 
 use std::path::Path;
 
+use chronicle::db::{MongoClient, MongoDbConfig};
 use thiserror::Error;
-
-use crate::db::{mongodb::MongoClient, MongoDbConfig};
 
 #[derive(Debug, Error)]
 pub enum TestDbError {
@@ -17,7 +16,7 @@ pub enum TestDbError {
     MongoDb(#[from] mongodb::error::Error),
 }
 
-pub(crate) async fn connect_to_test_db() -> Result<MongoClient, TestDbError> {
+pub async fn connect_to_test_db() -> Result<MongoClient, TestDbError> {
     let config = if let Ok(path) = std::env::var("CONFIG_PATH") {
         let val = std::fs::read_to_string(&path)
             .map_err(|e| TestDbError::FileRead(AsRef::<Path>::as_ref(&path).display().to_string(), e))

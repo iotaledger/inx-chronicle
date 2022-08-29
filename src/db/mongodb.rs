@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 
+/// A mongodb client wrapper to expand functionality.
 pub struct MongoClient(pub mongodb::Client);
 
 impl MongoClient {

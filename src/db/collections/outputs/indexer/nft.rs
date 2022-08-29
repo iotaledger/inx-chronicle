@@ -76,7 +76,7 @@ mod test {
     use primitive_types::U256;
 
     use super::NftOutputsQuery;
-    use crate::types::stardust::block::{Address, NativeTokenAmount};
+    use crate::types::stardust::block::{output::NativeTokenAmount, Address};
 
     #[test]
     fn test_nft_query_everything() {

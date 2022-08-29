@@ -20,7 +20,7 @@ use crate::{
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::{
-            block::{Address, OutputId},
+            block::{output::OutputId, Address},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,

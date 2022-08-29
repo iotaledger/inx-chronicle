@@ -25,7 +25,7 @@ use crate::{
     db::{collections::SortOrder, MongoDb},
     types::{
         ledger::OutputMetadata,
-        stardust::block::{AliasId, FoundryId, NftId, OutputId},
+        stardust::block::output::{AliasId, FoundryId, NftId, OutputId},
         tangle::MilestoneIndex,
     },
 };

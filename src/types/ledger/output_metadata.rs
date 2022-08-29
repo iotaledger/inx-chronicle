@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     stardust::{
-        block::{BlockId, Output, OutputId, TransactionId},
+        block::{
+            output::{Output, OutputId},
+            payload::transaction::TransactionId,
+            BlockId,
+        },
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,

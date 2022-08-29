@@ -9,7 +9,7 @@ use chronicle::{
         collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery},
         MongoDb,
     },
-    types::stardust::block::{AliasId, FoundryId, NftId},
+    types::stardust::block::output::{AliasId, FoundryId, NftId},
 };
 use mongodb::bson;
 

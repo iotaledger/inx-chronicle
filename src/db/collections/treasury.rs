@@ -13,7 +13,7 @@ use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
-        stardust::block::{MilestoneId, TreasuryTransactionPayload},
+        stardust::block::payload::{milestone::MilestoneId, treasury_transaction::TreasuryTransactionPayload},
         tangle::MilestoneIndex,
     },
 };

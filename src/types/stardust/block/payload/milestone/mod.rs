@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub use self::milestone_id::MilestoneId;
 use crate::types::{
-    stardust::block::{Address, BlockId, Signature, TreasuryTransactionPayload},
+    stardust::block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
     tangle::MilestoneIndex,
     util::bytify,
 };
@@ -212,25 +212,11 @@ impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
-    const TAIL_TRANSACTION_HASH1: [u8; 49] = [
-        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
-        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 10,
-    ];
-    const TAIL_TRANSACTION_HASH2: [u8; 49] = [
-        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
-        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 11,
-    ];
-    const TAIL_TRANSACTION_HASH3: [u8; 49] = [
-        222, 235, 107, 67, 2, 173, 253, 93, 165, 90, 166, 45, 102, 91, 19, 137, 71, 146, 156, 180, 248, 31, 56, 25, 68,
-        154, 98, 100, 64, 108, 203, 48, 76, 75, 114, 150, 34, 153, 203, 35, 225, 120, 194, 175, 169, 207, 80, 229, 12,
-    ];
-
-    use bee_block_stardust::payload::TreasuryTransactionPayload;
+mod test {
     use mongodb::bson::{from_bson, to_bson, Bson};
 
     use super::*;
-    use crate::types::stardust::block::signature::test::get_test_signature;
+    use crate::types::stardust::util::payload::milestone::get_test_milestone_payload;
 
     #[test]
     fn test_milestone_id_bson() {
@@ -245,81 +231,5 @@ pub(crate) mod test {
         let payload = get_test_milestone_payload();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_ed25519_migrated_funds_entry() -> MigratedFundsEntry {
-        MigratedFundsEntry::from(
-            &bee::option::MigratedFundsEntry::new(
-                bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH1).unwrap(),
-                bee_block_stardust::address::Address::Ed25519(bee_block_stardust::rand::address::rand_ed25519_address()),
-                2000000,
-            )
-            .unwrap(),
-        )
-    }
-
-    pub(crate) fn get_test_alias_migrated_funds_entry() -> MigratedFundsEntry {
-        MigratedFundsEntry::from(
-            &bee::option::MigratedFundsEntry::new(
-                bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH2).unwrap(),
-                bee_block_stardust::address::Address::Alias(bee_block_stardust::rand::address::rand_alias_address()),
-                2000000,
-            )
-            .unwrap(),
-        )
-    }
-
-    pub(crate) fn get_test_nft_migrated_funds_entry() -> MigratedFundsEntry {
-        MigratedFundsEntry::from(
-            &bee::option::MigratedFundsEntry::new(
-                bee::option::TailTransactionHash::new(TAIL_TRANSACTION_HASH3).unwrap(),
-                bee_block_stardust::address::Address::Nft(bee_block_stardust::rand::address::rand_nft_address()),
-                2000000,
-            )
-            .unwrap(),
-        )
-    }
-
-    pub(crate) fn get_test_milestone_essence() -> MilestoneEssence {
-        MilestoneEssence::from(
-            &bee::MilestoneEssence::new(
-                1.into(),
-                12345,
-                bee_block_stardust::rand::milestone::rand_milestone_id(),
-                bee_block_stardust::rand::parents::rand_parents(),
-                bee_block_stardust::rand::milestone::rand_merkle_root(),
-                bee_block_stardust::rand::milestone::rand_merkle_root(),
-                "Foo".as_bytes().to_vec(),
-                bee::MilestoneOptions::new(vec![bee::option::MilestoneOption::Receipt(
-                    bee::option::ReceiptMilestoneOption::new(
-                        1.into(),
-                        false,
-                        vec![
-                            get_test_ed25519_migrated_funds_entry().try_into().unwrap(),
-                            get_test_alias_migrated_funds_entry().try_into().unwrap(),
-                            get_test_nft_migrated_funds_entry().try_into().unwrap(),
-                        ],
-                        TreasuryTransactionPayload::new(
-                            bee_block_stardust::rand::input::rand_treasury_input(),
-                            bee_block_stardust::rand::output::rand_treasury_output(),
-                        )
-                        .unwrap(),
-                    )
-                    .unwrap(),
-                )])
-                .unwrap(),
-            )
-            .unwrap(),
-        )
-    }
-
-    pub(crate) fn get_test_milestone_payload() -> MilestonePayload {
-        MilestonePayload::from(
-            &bee::MilestonePayload::new(
-                get_test_milestone_essence().try_into().unwrap(),
-                vec![get_test_signature().try_into().unwrap()],
-            )
-            .unwrap(),
-        )
     }
 }

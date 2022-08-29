@@ -5,13 +5,13 @@ use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub(crate) mod milestone;
-pub(crate) mod tagged_data;
-pub(crate) mod transaction;
-pub(crate) mod treasury_transaction;
+pub mod milestone;
+pub mod tagged_data;
+pub mod transaction;
+pub mod treasury_transaction;
 
 pub use self::{
-    milestone::{MilestoneEssence, MilestoneId, MilestoneOption, MilestonePayload},
+    milestone::{MilestoneId, MilestonePayload},
     tagged_data::TaggedDataPayload,
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,
@@ -92,10 +92,10 @@ impl_coerce_payload!("treasury_transaction", TreasuryTransactionPayload, Treasur
 impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
-    use super::{milestone, tagged_data, transaction, treasury_transaction, *};
+    use crate::types::stardust::{block::Payload, util::payload::*};
 
     #[test]
     fn test_payload_bson() {
@@ -114,23 +114,5 @@ pub(crate) mod test {
         let payload = get_test_tagged_data_payload();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_transaction_payload() -> Payload {
-        Payload::Transaction(Box::new(transaction::test::get_test_transaction_payload()))
-    }
-
-    pub(crate) fn get_test_milestone_payload() -> Payload {
-        Payload::Milestone(Box::new(milestone::test::get_test_milestone_payload()))
-    }
-
-    pub(crate) fn get_test_treasury_transaction_payload() -> Payload {
-        Payload::TreasuryTransaction(Box::new(
-            treasury_transaction::test::get_test_treasury_transaction_payload(),
-        ))
-    }
-
-    pub(crate) fn get_test_tagged_data_payload() -> Payload {
-        Payload::TaggedData(Box::new(tagged_data::test::get_test_tagged_data_payload()))
     }
 }
