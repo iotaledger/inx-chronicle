@@ -1,3 +1,12 @@
+# [1.0.0-beta.13](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.12...v1.0.0-beta.13) (2022-08-29)
+
+
+### Features
+
+* **db:** use `db.run_command` for faster bulk updates ([#604](https://github.com/iotaledger/inx-chronicle/issues/604)) ([efa5499](https://github.com/iotaledger/inx-chronicle/commit/efa5499a6d48440276d6345cc2d7e520391f44b7))
+
+
+
 # [1.0.0-beta.12](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.11...v1.0.0-beta.12) (2022-08-26)
 
 
