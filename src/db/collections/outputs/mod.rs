@@ -174,23 +174,6 @@ impl MongoDb {
         Ok(())
     }
 
-    /// Upserts an [`Output`](crate::types::stardust::block::Output) together with its associated
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
-    #[deprecated]
-    pub async fn update_spent_output(&self, output: &LedgerSpent) -> Result<(), Error> {
-        let output_id = output.output.output_id;
-        self.db
-            .collection::<OutputDocument>(OutputDocument::COLLECTION)
-            .replace_one(
-                doc! { "_id": output_id },
-                OutputDocument::from(output),
-                ReplaceOptions::builder().upsert(true).build(),
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
