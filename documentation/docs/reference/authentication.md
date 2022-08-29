@@ -9,7 +9,7 @@ keywords:
 
 # Authentication
 
-Usage of the Chronicle API can be protected using [JWT](https://jwt.io/), by setting the following configuration settings under the `#[api]` table in [config.toml](bin/inx-chronicle/config.template.toml).
+Usage of the Chronicle API can be protected using [JWT](https://jwt.io/), by setting the following configuration settings under the `#[api]` table in [config.toml](https://github.com/iotaledger/inx-chronicle/blob/main/config.template.toml).
 
 - `password_hash` - The [argon2i](https://argon2.online/) hash of your chosen password.
 - `password_salt` - The salt used to hash the above password.
