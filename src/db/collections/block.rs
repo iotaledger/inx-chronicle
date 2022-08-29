@@ -367,19 +367,14 @@ mod test_db {
         })
         .collect::<Vec<_>>();
 
-        db.insert_blocks_with_metadata(blocks.clone())
-            .await
-            .unwrap();
+        db.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
 
         for (block_id, block, _, _) in blocks.iter() {
             assert_eq!(db.get_block(block_id).await.unwrap().as_ref(), Some(block));
         }
 
         for (block_id, _, raw, _) in blocks.iter() {
-            assert_eq!(
-                db.get_block_raw(block_id).await.unwrap().as_ref(),
-                Some(raw),
-            );
+            assert_eq!(db.get_block_raw(block_id).await.unwrap().as_ref(), Some(raw),);
         }
 
         assert_eq!(
