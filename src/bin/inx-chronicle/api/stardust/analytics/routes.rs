@@ -177,11 +177,9 @@ async fn richest_addresses_ledger_analytics(
         .ok_or(ApiError::NoResults)?;
 
     let hrp = database
-        .get_latest_protocol_parameters()
+        .get_protocol_parameters_for_ledger_index(res.ledger_index)
         .await?
-        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-            "no protocol parameters",
-        )))?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
         .parameters
         .bech32_hrp;
 
