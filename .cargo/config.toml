@@ -2,6 +2,7 @@
 ci-check-all = "check --all-targets --all-features"
 ci-check-inx = "check --all-targets --no-default-features --features inx,stardust"
 ci-check-api = "check --all-targets --no-default-features --features api,stardust"
+ci-check-features = "hack check --each-feature --no-dev-deps"
 
 ci-clippy-all = "clippy --all-targets --all-features -- -D warnings"
 ci-clippy-inx = "clippy --all-targets --no-default-features --features inx,stardust -- -D warnings"
