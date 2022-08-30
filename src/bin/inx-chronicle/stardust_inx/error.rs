@@ -22,10 +22,12 @@ pub enum InxError {
     NetworkChanged(String, String),
     #[error(transparent)]
     ParsingAddressFailed(#[from] url::ParseError),
-    #[error("node pruned required milestones between `{start}` and `{end}`")]
-    MilestoneGap { start: MilestoneIndex, end: MilestoneIndex },
     #[error(transparent)]
     Runtime(#[from] chronicle::runtime::RuntimeError),
+    #[error("node pruned required milestones between `{start}` and `{end}`")]
+    SyncMilestoneGap { start: MilestoneIndex, end: MilestoneIndex },
+    #[error("node confirmed milestone index `{node}` is less than index in database `{db}`")]
+    SyncMilestoneIndexMismatch { node: MilestoneIndex, db: MilestoneIndex },
     #[error("INX error: {0}")]
     BeeInx(#[from] bee_inx::Error),
 }
