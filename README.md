@@ -10,3 +10,6 @@ Through the INX interface, Chronicle listens to all blocks in the Tangle that ar
 
 Chronicle offers several APIs that are documented [here](https://wiki.iota.org/inx-chronicle/reference/api.md).
 
+## Documentation
+
+The documentation for Chronicle can be found in the IOTA wiki: https://wiki.iota.org/chronicle/welcome
