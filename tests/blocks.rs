@@ -14,7 +14,7 @@ use crate::common::connect_to_test_db;
 
 #[tokio::test]
 async fn test_blocks() {
-    let db = connect_to_test_db().await.unwrap().database("test-blocks");
+    let db = connect_to_test_db("test-blocks").await.unwrap();
     db.clear().await.unwrap();
     db.create_block_indexes().await.unwrap();
 

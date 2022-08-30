@@ -7,4 +7,4 @@ pub mod collections;
 
 mod mongodb;
 
-pub use self::mongodb::{MongoClient, MongoDb, MongoDbConfig};
+pub use self::mongodb::{MongoDb, MongoDbConfig};

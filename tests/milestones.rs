@@ -9,7 +9,7 @@ use common::connect_to_test_db;
 
 #[tokio::test]
 async fn test_milestones() {
-    let db = connect_to_test_db().await.unwrap().database("test-milestones");
+    let db = connect_to_test_db("test-milestones").await.unwrap();
     db.clear().await.unwrap();
     db.create_milestone_indexes().await.unwrap();
 

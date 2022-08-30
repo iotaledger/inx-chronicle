@@ -22,7 +22,7 @@ use common::connect_to_test_db;
 
 #[tokio::test]
 async fn test_outputs() {
-    let db = connect_to_test_db().await.unwrap().database("test-outputs");
+    let db = connect_to_test_db("test-outputs").await.unwrap();
     db.clear().await.unwrap();
     db.create_output_indexes().await.unwrap();
 

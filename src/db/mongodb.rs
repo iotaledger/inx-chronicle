@@ -15,10 +15,15 @@ use serde::{Deserialize, Serialize};
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 
-/// A mongodb client wrapper to expand functionality.
-pub struct MongoClient(pub mongodb::Client);
+/// A handle to the underlying `MongoDB` database.
+#[derive(Clone, Debug)]
+pub struct MongoDb {
+    pub(crate) db: mongodb::Database,
+    pub(crate) client: mongodb::Client,
+}
 
-impl MongoClient {
+impl MongoDb {
+    const DEFAULT_NAME: &'static str = "chronicle";
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
@@ -37,31 +42,10 @@ impl MongoClient {
 
         let client = Client::with_options(client_options)?;
 
-        Ok(Self(client))
-    }
-
-    /// Retrieves a database using this client.
-    pub fn database(&self, name: impl AsRef<str>) -> MongoDb {
-        MongoDb {
-            db: self.0.database(name.as_ref()),
-            client: self.0.clone(),
-        }
-    }
-}
-
-/// A handle to the underlying `MongoDB` database.
-#[derive(Clone, Debug)]
-pub struct MongoDb {
-    pub(crate) db: mongodb::Database,
-    pub(crate) client: mongodb::Client,
-}
-
-impl MongoDb {
-    const DEFAULT_NAME: &'static str = "chronicle";
-
-    /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
-        Ok(MongoClient::connect(config).await?.database(&config.database_name))
+        Ok(Self {
+            db: client.database(&config.database_name),
+            client,
+        })
     }
 
     /// Gets a collection of the provided type with the given name.
@@ -180,7 +164,7 @@ pub struct MongoDbConfig {
 impl Default for MongoDbConfig {
     fn default() -> Self {
         Self {
-            connect_url: MongoClient::DEFAULT_CONNECT_URL.to_string(),
+            connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
             database_name: MongoDb::DEFAULT_NAME.to_string(),
