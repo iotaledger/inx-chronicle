@@ -2,7 +2,7 @@
 
 **/.env
 
-/bin/inx-chronicle/config.toml
+config.toml
 
 .vscode
 

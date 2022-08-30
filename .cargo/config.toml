@@ -11,7 +11,8 @@ ci-clippy-api = "clippy --all-targets --no-default-features --features api,stard
 ci-doctest = "test --doc --all-features"
 ci-doc = "doc --all-features --no-deps --document-private-items"
 ci-fmt = "fmt --all -- --check"
-ci-test = "test --all-targets --all-features"
+ci-test = "test --all-features --bins --lib"
+ci-test-int = "test --all-features --test *"
 ci-toml = "sort --grouped --check"
 ci-udeps = "udeps --all-targets --all-features --backend=depinfo"
 

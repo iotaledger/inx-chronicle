@@ -23,7 +23,10 @@ use crate::{
         ledger::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
         },
-        stardust::block::{Address, BlockId, Output, OutputId},
+        stardust::block::{
+            output::{Output, OutputId},
+            Address, BlockId,
+        },
         tangle::{MilestoneIndex, RentStructure},
     },
 };
@@ -83,7 +86,7 @@ impl From<&LedgerSpent> for OutputDocument {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[allow(missing_docs)]
 pub struct OutputMetadataResult {
     pub output_id: OutputId,
@@ -93,7 +96,7 @@ pub struct OutputMetadataResult {
     pub ledger_index: MilestoneIndex,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[allow(missing_docs)]
 pub struct OutputWithMetadataResult {
     pub output: Output,
@@ -225,11 +228,18 @@ impl MongoDb {
                             "_id": output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
-                        doc! { "$set": {
-                            // The max fn will not consider the spent milestone index if it is null,
-                            // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
-                        } },
+                        doc! { "$project": {
+                            "output": "$output",
+                            "metadata": {
+                                "output_id": "$_id",
+                                "block_id": "$metadata.block_id",
+                                "booked": "$metadata.booked",
+                                "spent_metadata": "$metadata.spent_metadata",
+                                // The max fn will not consider the spent milestone index if it is null,
+                                // thus always setting the ledger index to our provided value
+                                "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                            },
+                        } }
                     ],
                     None,
                 )
@@ -258,12 +268,15 @@ impl MongoDb {
                             "_id": &output_id,
                             "metadata.booked.milestone_index": { "$lte": ledger_index }
                         } },
-                        doc! { "$set": {
+                        doc! { "$project": {
+                            "output_id": "$_id",
+                            "block_id": "$metadata.block_id",
+                            "booked": "$metadata.booked",
+                            "spent_metadata": "$metadata.spent_metadata",
                             // The max fn will not consider the spent milestone index if it is null,
                             // thus always setting the ledger index to our provided value
-                            "metadata.ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] },
-                        } },
-                        doc! { "$replaceWith": "$metadata" },
+                            "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                        } }
                     ],
                     None,
                 )
@@ -289,7 +302,10 @@ impl MongoDb {
             .collection::<SpentMetadata>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "_id": &output_id } },
+                    doc! { "$match": {
+                        "_id": &output_id,
+                        "metadata.spent_metadata": { "$ne": null }
+                    } },
                     doc! { "$replaceWith": "$metadata.spent_metadata" },
                 ],
                 None,
@@ -363,11 +379,11 @@ impl MongoDb {
                             vec![doc! { "$facet": {
                                 "created_outputs": [
                                     { "$match": { "metadata.booked.milestone_index": index  } },
-                                    { "$replaceWith": "$metadata.output_id" },
+                                    { "$replaceWith": "$_id" },
                                 ],
                                 "consumed_outputs": [
                                     { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
-                                    { "$replaceWith": "$metadata.output_id" },
+                                    { "$replaceWith": "$_id" },
                                 ],
                             } }],
                             None,

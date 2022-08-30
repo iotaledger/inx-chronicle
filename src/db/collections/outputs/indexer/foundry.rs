@@ -43,7 +43,7 @@ mod test {
     use primitive_types::U256;
 
     use super::FoundryOutputsQuery;
-    use crate::types::stardust::block::{Address, NativeTokenAmount};
+    use crate::types::stardust::block::{output::NativeTokenAmount, Address};
 
     #[test]
     fn test_foundry_query_everything() {

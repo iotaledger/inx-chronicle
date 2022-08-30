@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     stardust::{
-        block::{BlockId, Output, OutputId, TransactionId},
+        block::{
+            output::{Output, OutputId},
+            payload::transaction::TransactionId,
+            BlockId,
+        },
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
@@ -17,21 +21,21 @@ pub struct MilestoneIndexTimestamp {
     pub milestone_timestamp: MilestoneTimestamp,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SpentMetadata {
     pub transaction_id: TransactionId,
     pub spent: MilestoneIndexTimestamp,
 }
 
 /// Block metadata.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OutputMetadata {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub spent_metadata: Option<SpentMetadata>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerOutput {
     pub output_id: OutputId,
     pub block_id: BlockId,
@@ -39,7 +43,7 @@ pub struct LedgerOutput {
     pub output: Output,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerSpent {
     pub output: LedgerOutput,
     pub spent_metadata: SpentMetadata,

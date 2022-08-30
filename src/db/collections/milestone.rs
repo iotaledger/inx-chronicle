@@ -18,7 +18,7 @@ use crate::{
     types::{
         ledger::MilestoneIndexTimestamp,
         stardust::{
-            block::{MilestoneId, MilestoneOption, MilestonePayload},
+            block::payload::milestone::{MilestoneId, MilestoneOption, MilestonePayload},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
@@ -146,8 +146,7 @@ impl MongoDb {
                 doc! { "at.milestone_index": index },
                 FindOneOptions::builder()
                     .projection(doc! {
-                        "milestone_id": "$milestone_id",
-
+                        "milestone_id": "$_id",
                     })
                     .build(),
             )
@@ -173,12 +172,9 @@ impl MongoDb {
             payload,
         };
 
-        let mut doc = bson::to_document(&milestone_document)?;
-        doc.insert("_id", milestone_document.milestone_id.to_hex());
-
         self.db
-            .collection::<bson::Document>(MilestoneDocument::COLLECTION)
-            .insert_one(doc, None)
+            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+            .insert_one(milestone_document, None)
             .await?;
 
         Ok(())

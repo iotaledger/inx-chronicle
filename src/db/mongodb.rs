@@ -27,7 +27,7 @@ impl MongoDb {
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
+    pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
@@ -43,9 +43,10 @@ impl MongoDb {
 
         let client = Client::with_options(client_options)?;
 
-        let db = client.database(&config.database_name);
-
-        Ok(MongoDb { db, client })
+        Ok(Self {
+            db: client.database(&config.database_name),
+            client,
+        })
     }
 
     /// Gets a collection of the provided type with the given name.
@@ -62,6 +63,11 @@ impl MongoDb {
         }
 
         Ok(())
+    }
+
+    /// Drops the database.
+    pub async fn drop(self) -> Result<(), Error> {
+        self.db.drop(None).await
     }
 
     /// Returns the storage size of the database.

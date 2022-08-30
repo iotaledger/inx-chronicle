@@ -29,7 +29,11 @@ use chronicle::{
         MongoDb,
     },
     types::{
-        stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
+        stardust::block::{
+            output::OutputId,
+            payload::{milestone::MilestoneId, transaction::TransactionId},
+            BlockId,
+        },
         tangle::MilestoneIndex,
     },
 };

@@ -24,8 +24,8 @@ pub use self::{
     treasury::TreasuryResult,
 };
 use crate::types::stardust::block::{
-    AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
-    TreasuryTransactionPayload,
+    output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+    payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
 };
 
 /// Batch size for `insert_many` operations.

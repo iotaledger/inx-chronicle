@@ -28,7 +28,7 @@ impl TryFrom<TreasuryOutput> for bee::TreasuryOutput {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;

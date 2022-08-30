@@ -10,7 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::collections::SortOrder,
-    types::{stardust::block::OutputId, tangle::MilestoneIndex},
+    types::{stardust::block::output::OutputId, tangle::MilestoneIndex},
 };
 use serde::Deserialize;
 
