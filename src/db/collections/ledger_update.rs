@@ -152,7 +152,7 @@ impl MongoDb {
             .collect::<Vec<_>>();
         for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
             self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
+                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
@@ -188,7 +188,7 @@ impl MongoDb {
             .collect::<Vec<_>>();
         for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
             self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
+                .insert_many(batch, InsertManyOptions::builder().ordered(false).build())
                 .await?;
         }
 
