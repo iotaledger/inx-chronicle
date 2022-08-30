@@ -78,15 +78,19 @@ metrics-util = { version = "0.14.0", default-features = false }
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "rand", "std", "serde" ], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "std", "serde" ], optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
+[dev-dependencies]
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "rand", "std", "serde" ] }
+packable = { version = "0.5", default-features = false }
+
 [features]
 default = [ 
-    "api", 
-    "inx", 
+    "api",
+    "inx",
     "stardust",
 ]
 api = [
@@ -108,15 +112,15 @@ api = [
     "stardust",
 ]
 console = [ 
-    "dep:console-subscriber", 
+    "dep:console-subscriber",
     "tokio/tracing",
 ]
 inx = [ 
-    "dep:bee-inx", 
-    "dep:tonic", 
+    "dep:bee-inx",
+    "dep:tonic",
 ]
 stardust = [ 
-    "dep:bee-block-stardust", 
+    "dep:bee-block-stardust",
     "dep:bee-api-types-stardust",
 ]
 
