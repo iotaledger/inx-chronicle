@@ -20,5 +20,6 @@ jobs:
       - name: Test Build
         working-directory: documentation
         run: |
+          corepack enable
           yarn install --immutable
           yarn build

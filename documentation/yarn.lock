@@ -4800,17 +4800,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"docs-template@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "docs-template@workspace:."
-  dependencies:
-    "@iota-community/iota-wiki-cli": "iota-community/iota-wiki-cli#v2"
-    raw-loader: ^4.0.2
-    remark-code-import: ^0.3.0
-    remark-import-partial: ^0.0.2
-  languageName: unknown
-  linkType: soft
-
 "dom-converter@npm:^0.2.0":
   version: 0.2.0
   resolution: "dom-converter@npm:0.2.0"
@@ -6448,6 +6437,17 @@ __metadata:
   checksum: cc3182d793aad82a8d1f0af697b462939cb46066ec48bbf1707c150ad5fad6406137e91a262022c269702e01621f35ef60269f6c0d7fd178487959809acdfb14
   languageName: node
   linkType: hard
+
+"inx-chronicle-develop@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "inx-chronicle-develop@workspace:."
+  dependencies:
+    "@iota-community/iota-wiki-cli": "iota-community/iota-wiki-cli#v2"
+    raw-loader: ^4.0.2
+    remark-code-import: ^0.3.0
+    remark-import-partial: ^0.0.2
+  languageName: unknown
+  linkType: soft
 
 "ip@npm:^2.0.0":
   version: 2.0.0
