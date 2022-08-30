@@ -5,7 +5,7 @@ on:
     - cron: '4 20 * * SUN'
   pull_request:
     paths:
-      - "./.github/workflows/canary.yml"
+      - .github/workflows/canary.yml
 
 jobs:
 
