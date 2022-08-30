@@ -1,4 +1,4 @@
-name: Test Database
+name: Integration Tests
 
 on:
   workflow_call:
@@ -14,7 +14,7 @@ on:
         type: string
 
 jobs:
-  test-db:
+  test-int:
     name: "${{ inputs.os }}, ${{ inputs.rust }}"
     runs-on: ${{ inputs.os }}
     steps:
@@ -42,4 +42,4 @@ jobs:
       - name: Test DB
         uses: actions-rs/cargo@v1
         with:
-          command: ci-test-db
+          command: ci-test-int

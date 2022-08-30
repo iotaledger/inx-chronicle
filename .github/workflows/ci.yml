@@ -24,9 +24,9 @@ jobs:
     uses: ./.github/workflows/_check.yml
     with: { os: ubuntu-latest, rust: stable }
 
-  test-db:
-    name: "test database"
-    uses: ./.github/workflows/_test_db.yml
+  test-int:
+    name: "integration tests"
+    uses: ./.github/workflows/_test_int.yml
     with: { os: ubuntu-latest, rust: stable, mongodb: "5.0" }
 
   format:

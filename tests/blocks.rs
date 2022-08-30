@@ -1,13 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod common;
+
 use bee_block_stardust as bee;
 use chronicle::types::{
     ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
     stardust::{block::payload::TransactionPayload, util::*},
 };
-use inx_chronicle_tests::connect_to_test_db;
 use packable::PackableExt;
+
+use crate::common::connect_to_test_db;
 
 #[tokio::test]
 async fn test_blocks() {

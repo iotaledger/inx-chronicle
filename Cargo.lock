@@ -1259,19 +1259,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inx_chronicle_tests"
-version = "0.1.0"
-dependencies = [
- "bee-block",
- "chronicle",
- "mongodb",
- "packable",
- "thiserror",
- "tokio",
- "toml",
-]
-
-[[package]]
 name = "iota-crypto"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
