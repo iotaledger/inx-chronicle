@@ -91,12 +91,18 @@ impl Actor for InxWorker {
         }) = self.db.get_newest_milestone().await?
         {
             if node_status.tangle_pruning_index > latest_milestone.0 {
-                return Err(InxError::MilestoneGap {
+                return Err(InxError::SyncMilestoneGap {
                     start: latest_milestone + 1,
                     end: node_status.tangle_pruning_index.into(),
                 });
+            } else if node_status.confirmed_milestone.milestone_info.milestone_index < latest_milestone.0 {
+                return Err(InxError::SyncMilestoneIndexMismatch {
+                    node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
+                    db: latest_milestone,
+                });
+            } else {
+                latest_milestone + 1
             }
-            latest_milestone + 1
         } else {
             self.config
                 .sync_start_milestone

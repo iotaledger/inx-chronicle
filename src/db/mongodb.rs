@@ -31,6 +31,7 @@ impl MongoDb {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
+        client_options.min_pool_size = config.min_pool_size;
 
         if let (Some(username), Some(password)) = (&config.username, &config.password) {
             let credential = Credential::builder()
@@ -159,6 +160,8 @@ pub struct MongoDbConfig {
     pub password: Option<String>,
     /// The name of the database to connect to.
     pub database_name: String,
+    /// The minimum amount of connections in the pool.
+    pub min_pool_size: Option<u32>,
 }
 
 impl Default for MongoDbConfig {
@@ -168,6 +171,7 @@ impl Default for MongoDbConfig {
             username: None,
             password: None,
             database_name: MongoDb::DEFAULT_NAME.to_string(),
+            min_pool_size: None,
         }
     }
 }
