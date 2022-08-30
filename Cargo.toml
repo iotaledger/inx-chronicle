@@ -1,15 +1,15 @@
 [package]
-authors = [ "IOTA Stiftung" ]
-description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
-edition = "2021"
-homepage = "https://www.iota.org"
-keywords = [ "iota", "storage", "permanode", "chronicle", "inx" ]
-license = "Apache-2.0"
 name = "chronicle"
+version = "1.0.0-beta.13"
+authors = [ "IOTA Stiftung" ]
+edition = "2021"
+description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
 readme = "README.md"
 repository = "https://github.com/iotaledger/inx-chronicle"
+license = "Apache-2.0"
+keywords = [ "iota", "storage", "permanode", "chronicle", "inx" ]
+homepage = "https://www.iota.org"
 rust-version = "1.60"
-version = "1.0.0-beta.13"
 
 [lib]
 name = "chronicle"
@@ -84,6 +84,7 @@ bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 [features]
+default = [ "api", "inx", "stardust" ]
 api = [
     "dep:auth-helper",
     "dep:axum",
@@ -100,19 +101,27 @@ api = [
     "dep:tower",
     "dep:tower-http",
     "dep:zeroize",
-    "stardust"
+    "stardust",
 ]
-console = [ "dep:console-subscriber", "tokio/tracing" ]
-default = [ "api", "inx", "stardust" ]
-inx = [ "dep:bee-inx", "dep:tonic" ]
-stardust = [ "dep:bee-block-stardust", "dep:bee-api-types-stardust" ]
+console = [ 
+    "dep:console-subscriber", 
+    "tokio/tracing",
+]
+inx = [ 
+    "dep:bee-inx", 
+    "dep:tonic", 
+]
+stardust = [ 
+    "dep:bee-block-stardust", 
+    "dep:bee-api-types-stardust",
+]
 
 [profile.production]
-codegen-units = 1
 inherits = "release"
+codegen-units = 1
 lto = true
 strip = "symbols"
 
 [workspace]
-default-members = [ "." ]
 members = [ ".", "./src/tests" ]
+default-members = [ "." ]
