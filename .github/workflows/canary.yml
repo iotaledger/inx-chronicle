@@ -3,6 +3,9 @@ name: canary
 on:
   schedule:
     - cron: '4 20 * * SUN'
+  pull_request:
+    paths:
+      - "./.github/workflows/canary.yml"
 
 jobs:
 
@@ -49,6 +52,11 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions-rs/cargo@v1
         with:
           command: install
@@ -68,6 +76,11 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions-rs/cargo@v1
         with:
@@ -76,4 +89,4 @@ jobs:
 
       - uses: actions-rs/cargo@v1
         with:
-          command: hack check --each-feature --no-dev-deps
+          command: ci-check-features
