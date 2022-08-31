@@ -364,15 +364,19 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
         .map(|res| {
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
             Result::<_, InxError>::Ok((
-                metadata.block_id.into(),
-                block.clone().inner()?.into(),
+                BlockId::from(metadata.block_id),
+                Block::from(block.clone().inner()?),
                 block.data(),
-                metadata.into(),
+                BlockMetadata::from(metadata),
             ))
         })
         .try_collect::<Vec<_>>()
         .await?;
 
+    // Unfortunately, clippy is wrong here. As much as I would love to use the iterator directly
+    // rather than collecting, rust is unable to resolve the bounds and cannot adequately express
+    // what is actually wrong.
+    #[allow(clippy::needless_collect)]
     let payloads = blocks_with_metadata
         .iter()
         .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {

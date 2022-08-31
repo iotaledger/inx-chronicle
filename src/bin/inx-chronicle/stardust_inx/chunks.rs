@@ -3,7 +3,7 @@
 
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
+    Mutex,
 };
 
 pub trait ChunksExt: Iterator {
@@ -12,7 +12,7 @@ pub trait ChunksExt: Iterator {
         Self: Sized,
     {
         IntoChunks {
-            inner: Arc::new(Mutex::new(GroupInner {
+            inner: Mutex::new(GroupInner {
                 key: ChunkIndex::new(size),
                 iter: self,
                 current_key: None,
@@ -23,7 +23,7 @@ pub trait ChunksExt: Iterator {
                 bottom_group: 0,
                 buffer: Vec::new(),
                 dropped_group: !0,
-            })),
+            }),
             index: AtomicUsize::new(0),
         }
     }
@@ -31,7 +31,7 @@ pub trait ChunksExt: Iterator {
 impl<T: Iterator> ChunksExt for T {}
 
 pub struct IntoChunks<I: Iterator> {
-    inner: Arc<Mutex<GroupInner<usize, I, ChunkIndex>>>,
+    inner: Mutex<GroupInner<usize, I, ChunkIndex>>,
     index: AtomicUsize,
 }
 
@@ -66,8 +66,7 @@ impl<'a, I: Iterator> Iterator for Chunks<'a, I> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.parent.index.fetch_add(1, Ordering::Relaxed);
-        let inner = &mut *self.parent.inner.lock().unwrap();
-        inner.step(index).map(|elt| Chunk {
+        self.parent.step(index).map(|elt| Chunk {
             parent: self.parent,
             index,
             first: Some(elt),
