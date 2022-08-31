@@ -15,21 +15,23 @@ mod protocol_update;
 mod treasury;
 
 pub use self::{
-    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, ParseSortError, SortOrder},
-    milestone::SyncData,
+    block::BlockCollection,
+    ledger_update::{
+        LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, ParseSortError, SortOrder,
+    },
+    milestone::{MilestoneCollection, SyncData},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
+        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
+        UtxoChangesResult,
     },
-    treasury::TreasuryResult,
+    protocol_update::ProtocolUpdateCollection,
+    treasury::{TreasuryCollection, TreasuryResult},
 };
 use crate::types::stardust::block::{
     output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
     payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
 };
-
-/// Batch size for `insert_many` operations.
-pub const INSERT_BATCH_SIZE: usize = 10000;
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKind {

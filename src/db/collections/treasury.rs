@@ -9,9 +9,11 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::INSERT_BATCH_SIZE;
 use crate::{
-    db::MongoDb,
+    db::{
+        mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
+        MongoDb,
+    },
     types::{
         stardust::block::payload::{milestone::MilestoneId, treasury_transaction::TreasuryTransactionPayload},
         tangle::MilestoneIndex,
@@ -20,16 +22,29 @@ use crate::{
 
 /// Contains all information regarding the treasury.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct TreasuryDocument {
+pub struct TreasuryDocument {
     #[serde(rename = "_id")]
     milestone_index: MilestoneIndex,
     milestone_id: MilestoneId,
     amount: u64,
 }
 
-impl TreasuryDocument {
-    /// The treasury collection name.
-    const COLLECTION: &'static str = "stardust_treasury";
+/// The stardust treasury collection.
+pub struct TreasuryCollection {
+    collection: mongodb::Collection<TreasuryDocument>,
+}
+
+impl MongoDbCollection for TreasuryCollection {
+    const NAME: &'static str = "stardust_treasury";
+    type Document = TreasuryDocument;
+
+    fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self { collection }
+    }
+
+    fn collection(&self) -> &mongodb::Collection<Self::Document> {
+        &self.collection
+    }
 }
 
 /// The latest treasury information.
@@ -41,7 +56,7 @@ pub struct TreasuryResult {
 }
 
 /// Queries that are related to the treasury.
-impl MongoDb {
+impl TreasuryCollection {
     /// Inserts treasury data.
     pub async fn insert_treasury(
         &self,
@@ -53,42 +68,34 @@ impl MongoDb {
             milestone_id: payload.input_milestone_id,
             amount: payload.output_amount,
         };
-        self.db
-            .collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-            .insert_one(treasury_document, None)
-            .await?;
+        self.insert_one(treasury_document, None).await?;
 
         Ok(())
     }
 
     /// Inserts many treasury data.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_treasury_payloads(
-        &self,
-        payloads: impl IntoIterator<Item = (MilestoneIndex, &TreasuryTransactionPayload)>,
-    ) -> Result<(), Error> {
+    pub async fn insert_treasury_payloads<I>(&self, payloads: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = (MilestoneIndex, MilestoneId, u64)>,
+        I::IntoIter: Send + Sync,
+    {
         let payloads = payloads
             .into_iter()
-            .map(|(milestone_index, payload)| TreasuryDocument {
+            .map(|(milestone_index, milestone_id, amount)| TreasuryDocument {
                 milestone_index,
-                milestone_id: payload.input_milestone_id,
-                amount: payload.output_amount,
-            })
-            .collect::<Vec<_>>();
-        for batch in payloads.chunks(INSERT_BATCH_SIZE) {
-            self.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
-                .await?;
-        }
+                milestone_id,
+                amount,
+            });
+        self.insert_many_ignore_duplicates(payloads, InsertManyOptions::builder().ordered(false).build())
+            .await?;
 
         Ok(())
     }
 
     /// Returns the current state of the treasury.
     pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryResult>, Error> {
-        self.db
-            .collection::<TreasuryResult>(TreasuryDocument::COLLECTION)
-            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
+        self.find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
             .await
     }
 }
