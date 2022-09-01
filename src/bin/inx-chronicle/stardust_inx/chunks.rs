@@ -11,6 +11,7 @@ pub trait ChunksExt: Iterator {
     where
         Self: Sized,
     {
+        assert!(size != 0);
         IntoChunks {
             inner: Mutex::new(GroupInner {
                 key: ChunkIndex::new(size),
@@ -218,15 +219,10 @@ where
 
         while let Some(elt) = self.next_element() {
             let key = self.key.call_mut(&elt);
-            match self.current_key.take() {
-                None => {}
-                Some(old_key) => {
-                    if old_key != key {
-                        self.current_key = Some(key);
-                        first_elt = Some(elt);
-                        break;
-                    }
-                }
+            if matches!(self.current_key.take(), Some(old_key) if old_key != key) {
+                self.current_key = Some(key);
+                first_elt = Some(elt);
+                break;
             }
             self.current_key = Some(key);
             if self.top_group != self.dropped_group {
@@ -269,16 +265,11 @@ where
             None => None,
             Some(elt) => {
                 let key = self.key.call_mut(&elt);
-                match self.current_key.take() {
-                    None => {}
-                    Some(old_key) => {
-                        if old_key != key {
-                            self.current_key = Some(key);
-                            self.current_elt = Some(elt);
-                            self.top_group += 1;
-                            return None;
-                        }
-                    }
+                if matches!(self.current_key.take(), Some(old_key) if old_key != key) {
+                    self.current_key = Some(key);
+                    self.current_elt = Some(elt);
+                    self.top_group += 1;
+                    return None;
                 }
                 self.current_key = Some(key);
                 Some(elt)
@@ -294,7 +285,7 @@ where
     /// Called when a group is dropped
     fn drop_group(&mut self, client: usize) {
         // It's only useful to track the maximal index
-        if self.dropped_group == !0 || client > self.dropped_group {
+        if self.dropped_group != 0 || client > self.dropped_group {
             self.dropped_group = client;
         }
     }
@@ -340,5 +331,65 @@ impl<A> KeyFunction<A> for ChunkIndex {
         }
         self.index += 1;
         self.key
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use rand::seq::SliceRandom;
+
+    use super::*;
+
+    #[test]
+    fn test_borrow_chunks() {
+        // Iterate via borrowed
+        let data = (0..25).collect::<Vec<_>>();
+        for n in 1..30 {
+            let chunks = data.iter().chunks(n);
+            for (i, chunk) in chunks.into_iter().enumerate() {
+                assert_eq!(
+                    data.iter().by_ref().skip(n * i).take(n).collect::<Vec<_>>(),
+                    chunk.collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_async_chunks_iter() {
+        let mut rng = rand::thread_rng();
+        for n in 1..30 {
+            let data = (0..25).collect::<Vec<_>>();
+            // Iterate via owned
+            let chunks = data.clone().into_iter().chunks(n);
+            // Use the chunks in async futures
+            let mut tasks = Vec::new();
+            for (i, chunk) in chunks.into_iter().enumerate() {
+                let data = data.clone();
+                tasks.push(async move {
+                    // Manually collect the values so that we can yield to test the synchronization
+                    let mut chunk_data = Vec::new();
+                    for val in chunk {
+                        chunk_data.push(val);
+                        tokio::task::yield_now().await;
+                    }
+                    assert_eq!(data.into_iter().skip(n * i).take(n).collect::<Vec<_>>(), chunk_data);
+                });
+            }
+            // Shuffle up the tasks, because order shouldn't matter to the iterator
+            tasks.shuffle(&mut rng);
+            assert!(futures::future::join_all(tasks).await.len() > 0);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "size != 0")]
+    fn test_chunks_zero_len() {
+        // Shh...
+        std::panic::set_hook(Box::new(|_| {}));
+        let data = (0..25).collect::<Vec<_>>();
+        for chunk in &data.into_iter().chunks(0) {
+            let _ = chunk.collect::<Vec<_>>();
+        }
     }
 }
