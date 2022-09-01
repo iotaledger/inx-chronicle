@@ -96,6 +96,7 @@ pub enum TransactionEssence {
         inputs: Box<[Input]>,
         #[serde(with = "bytify")]
         inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
+        #[serde(skip_serializing)]
         outputs: Box<[Output]>,
         #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<Payload>,
