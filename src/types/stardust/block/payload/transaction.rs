@@ -160,7 +160,7 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
 
 #[cfg(test)]
 mod test {
-    use mongodb::bson::{from_bson, to_bson};
+    use mongodb::bson::{doc, from_bson, to_bson, to_document};
 
     use super::*;
     use crate::types::stardust::util::payload::transaction::get_test_transaction_payload;
@@ -176,7 +176,12 @@ mod test {
     #[test]
     fn test_transaction_payload_bson() {
         let payload = get_test_transaction_payload();
-        let bson = to_bson(&payload).unwrap();
+        let mut bson = to_bson(&payload).unwrap();
+        // Need to re-add outputs as they are not serialized
+        let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+        let outputs_doc = doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() };
+        let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
+        doc.extend(outputs_doc);
         assert_eq!(payload, from_bson::<TransactionPayload>(bson).unwrap());
     }
 }
