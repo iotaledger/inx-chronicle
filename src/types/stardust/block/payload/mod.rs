@@ -93,14 +93,26 @@ impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 
 #[cfg(test)]
 mod test {
-    use mongodb::bson::{from_bson, to_bson};
+    use mongodb::bson::{doc, from_bson, to_bson, to_document};
 
-    use crate::types::stardust::{block::Payload, util::payload::*};
+    use crate::types::stardust::{
+        block::{payload::TransactionEssence, Payload},
+        util::payload::*,
+    };
 
     #[test]
     fn test_payload_bson() {
         let payload = get_test_transaction_payload();
-        let bson = to_bson(&payload).unwrap();
+        let mut bson = to_bson(&payload).unwrap();
+        // Need to re-add outputs as they are not serialized
+        let outputs_doc = if let Payload::Transaction(payload) = &payload {
+            let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+            doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() }
+        } else {
+            unreachable!();
+        };
+        let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
+        doc.extend(outputs_doc);
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
         let payload = get_test_milestone_payload();
