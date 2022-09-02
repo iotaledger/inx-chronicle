@@ -74,6 +74,35 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/explorer/v2/milestones:
+    get:
+      tags:
+        - balance
+      summary: Returns an address's balance.
+      description: >-
+        Returns the balance of IOTA tokens owned by a given bech32 address.
+      parameters:
+        - $ref: "#/components/parameters/startTimestamp"
+        - $ref: "#/components/parameters/endTimestamp"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/balance-example"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/explorer/v2/ledger/updates/by-address/{address}:
     get:
       tags:
@@ -297,6 +326,20 @@ components:
       description: >-
         The milestone index at which to start retrieving results. This will be overridden 
         by the cursor if provided.
+    startTimestamp:
+      in: query
+      name: startTimestamp
+      schema:
+        type: integer
+      example: 1662139730
+      description: Start timestamp for filtering.
+    endTimestamp:
+      in: query
+      name: endTimestamp
+      schema:
+        type: integer
+      example: 1662139830
+      description: Start timestamp for filtering.
     cursor:
       in: query
       name: cursor
