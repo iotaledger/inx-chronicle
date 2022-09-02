@@ -18,8 +18,7 @@ use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
         AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, OutputAnalyticsResponse,
-        OutputDiffAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
-        TokenDistributionResponse,
+        RichestAddressesResponse, StorageDepositAnalyticsResponse, TokenAnalyticsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{error::InternalApiError, ApiError, ApiResult};
@@ -155,13 +154,13 @@ async fn storage_deposit_ledger_analytics(
 async fn nft_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
-) -> ApiResult<OutputDiffAnalyticsResponse> {
+) -> ApiResult<TokenAnalyticsResponse> {
     let res = database
         .collection::<OutputCollection>()
         .get_nft_output_analytics(start_index, end_index)
         .await?;
 
-    Ok(OutputDiffAnalyticsResponse {
+    Ok(TokenAnalyticsResponse {
         created_count: res.created_count.to_string(),
         transferred_count: res.transferred_count.to_string(),
         burned_count: res.burned_count.to_string(),
@@ -171,13 +170,13 @@ async fn nft_activity_analytics(
 async fn native_token_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
-) -> ApiResult<OutputDiffAnalyticsResponse> {
+) -> ApiResult<TokenAnalyticsResponse> {
     let res = database
         .collection::<OutputCollection>()
         .get_foundry_output_analytics(start_index, end_index)
         .await?;
 
-    Ok(OutputDiffAnalyticsResponse {
+    Ok(TokenAnalyticsResponse {
         created_count: res.created_count.to_string(),
         transferred_count: res.transferred_count.to_string(),
         burned_count: res.burned_count.to_string(),
