@@ -394,10 +394,19 @@ impl OutputCollection {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputAnalyticsResult {
     pub count: u64,
     pub total_value: String,
+}
+
+impl Default for OutputAnalyticsResult {
+    fn default() -> Self {
+        Self {
+            count: Default::default(),
+            total_value: "0".into(),
+        }
+    }
 }
 
 impl OutputCollection {
@@ -626,7 +635,8 @@ impl OutputCollection {
                 .get_protocol_parameters_for_ledger_index(ledger_index)
                 .await?
             {
-                #[derive(Default, Deserialize)]
+                #[derive(Deserialize)]
+                #[serde(default)]
                 struct StorageDepositAnalytics {
                     output_count: u64,
                     storage_deposit_return_count: u64,
@@ -634,6 +644,19 @@ impl OutputCollection {
                     total_key_bytes: String,
                     total_data_bytes: String,
                     total_byte_cost: String,
+                }
+
+                impl Default for StorageDepositAnalytics {
+                    fn default() -> Self {
+                        Self {
+                            output_count: Default::default(),
+                            storage_deposit_return_count: Default::default(),
+                            storage_deposit_return_total_value: "0".into(),
+                            total_key_bytes: "0".into(),
+                            total_data_bytes: "0".into(),
+                            total_byte_cost: "0".into(),
+                        }
+                    }
                 }
 
                 let rent_structure = protocol_params.parameters.rent_structure;
@@ -668,24 +691,11 @@ impl OutputCollection {
                                     ],
                                 }
                             },
-                            doc! {
-                                "$set": {
-                                    "total_byte_cost": { "$toString":
-                                        { "$multiply": [
-                                            rent_structure.v_byte_cost,
-                                            { "$add": [
-                                                { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
-                                                { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
-                                            ] },
-                                        ] }
-                                    }
-                                }
-                            },
                             doc! { "$project": {
                                 "output_count": { "$first": "$all.output_count" },
                                 "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
                                 "storage_deposit_return_total_value": { 
-                                    "$toString": { "$first": "$storage_deposit.return_total_value" } 
+                                    "$toString": { "$ifNull": [ { "$first": "$storage_deposit.return_total_value" }, 0 ] }
                                 },
                                 "total_key_bytes": { 
                                     "$toString": { "$first": "$all.total_key_bytes" } 
@@ -693,7 +703,15 @@ impl OutputCollection {
                                 "total_data_bytes": { 
                                     "$toString": { "$first": "$all.total_data_bytes" } 
                                 },
-                                "total_byte_cost": 1,
+                                "total_byte_cost": { "$toString":
+                                    { "$multiply": [
+                                        rent_structure.v_byte_cost,
+                                        { "$add": [
+                                            { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
+                                            { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
+                                        ] },
+                                    ] }
+                                },
                             } },
                         ],
                         None,
