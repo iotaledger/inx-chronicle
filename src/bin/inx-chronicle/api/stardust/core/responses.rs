@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
 
-/// Response of `GET /api/info`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoResponse {
