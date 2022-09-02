@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::{
-    db::collections::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord},
+    db::collections::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult},
     types::{
         stardust::{block::Address, milestone::MilestoneTimestamp},
         tangle::MilestoneIndex,
@@ -92,3 +92,27 @@ pub struct BlockChildrenResponse {
 }
 
 impl_success_response!(BlockChildrenResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MilestonesResponse {
+    pub items: Vec<MilestoneDto>,
+    pub cursor: Option<String>,
+}
+
+impl_success_response!(MilestonesResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MilestoneDto {
+    milestone_id: String,
+    index: MilestoneIndex,
+}
+
+impl From<MilestoneResult> for MilestoneDto {
+    fn from(res: MilestoneResult) -> Self {
+        Self {
+            milestone_id: res.milestone_id.to_hex(),
+            index: res.index,
+        }
+    }
+}

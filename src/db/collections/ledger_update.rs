@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
-
 use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, Document},
@@ -11,9 +9,9 @@ use mongodb::{
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use tracing::instrument;
 
+use super::SortOrder;
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
@@ -77,36 +75,6 @@ pub struct LedgerUpdateByMilestoneRecord {
     pub address: Address,
     pub output_id: OutputId,
     pub is_spent: bool,
-}
-
-#[allow(missing_docs)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum SortOrder {
-    Newest,
-    Oldest,
-}
-
-impl Default for SortOrder {
-    fn default() -> Self {
-        Self::Newest
-    }
-}
-
-#[derive(Debug, Error)]
-#[error("Invalid sort order descriptor. Expected `oldest` or `newest`, found `{0}`")]
-#[allow(missing_docs)]
-pub struct ParseSortError(String);
-
-impl FromStr for SortOrder {
-    type Err = ParseSortError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "oldest" => SortOrder::Oldest,
-            "newest" => SortOrder::Newest,
-            _ => Err(ParseSortError(s.to_string()))?,
-        })
-    }
 }
 
 fn newest() -> Document {
