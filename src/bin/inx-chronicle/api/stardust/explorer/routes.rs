@@ -5,7 +5,10 @@ use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
-    db::MongoDb,
+    db::{
+        collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
+        MongoDb,
+    },
     types::stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
 };
 use futures::{StreamExt, TryStreamExt};
@@ -45,6 +48,7 @@ async fn ledger_updates_by_address(
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
+        .collection::<LedgerUpdateCollection>()
         .stream_ledger_updates_by_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
@@ -84,6 +88,7 @@ async fn ledger_updates_by_milestone(
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
 
     let milestone_index = database
+        .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
         .await?
         .ok_or(ApiError::NotFound)?
@@ -91,6 +96,7 @@ async fn ledger_updates_by_milestone(
         .index;
 
     let mut record_stream = database
+        .collection::<LedgerUpdateCollection>()
         .stream_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
         .await?;
 
@@ -122,6 +128,7 @@ async fn ledger_updates_by_milestone(
 async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
     let res = database
+        .collection::<OutputCollection>()
         .get_address_balance(address)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -140,6 +147,7 @@ async fn block_children(
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let mut block_children = database
+        .collection::<BlockCollection>()
         .get_block_children(&block_id, page_size, page)
         .await
         .map_err(|_| ApiError::NoResults)?;

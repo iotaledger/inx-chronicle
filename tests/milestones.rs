@@ -4,14 +4,18 @@
 mod common;
 
 use bee_block_stardust as bee;
-use chronicle::types::stardust::{block::payload::MilestoneId, util::payload::milestone::get_test_milestone_payload};
+use chronicle::{
+    db::collections::MilestoneCollection,
+    types::stardust::{block::payload::MilestoneId, util::payload::milestone::get_test_milestone_payload},
+};
 use common::connect_to_test_db;
 
 #[tokio::test]
 async fn test_milestones() {
     let db = connect_to_test_db("test-milestones").await.unwrap();
     db.clear().await.unwrap();
-    db.create_milestone_indexes().await.unwrap();
+    let collection = db.collection::<MilestoneCollection>();
+    collection.create_indexes().await.unwrap();
 
     let milestone = get_test_milestone_payload();
     let milestone_id = MilestoneId::from(
@@ -20,27 +24,33 @@ async fn test_milestones() {
             .id(),
     );
 
-    db.insert_milestone(
-        milestone_id,
-        milestone.essence.index,
-        milestone.essence.timestamp.into(),
-        milestone.clone(),
-    )
-    .await
-    .unwrap();
+    collection
+        .insert_milestone(
+            milestone_id,
+            milestone.essence.index,
+            milestone.essence.timestamp.into(),
+            milestone.clone(),
+        )
+        .await
+        .unwrap();
 
     assert_eq!(
-        db.get_milestone_id(milestone.essence.index).await.unwrap(),
+        collection.get_milestone_id(milestone.essence.index).await.unwrap(),
         Some(milestone_id),
     );
 
     assert_eq!(
-        db.get_milestone_payload_by_id(&milestone_id).await.unwrap().as_ref(),
+        collection
+            .get_milestone_payload_by_id(&milestone_id)
+            .await
+            .unwrap()
+            .as_ref(),
         Some(&milestone)
     );
 
     assert_eq!(
-        db.get_milestone_payload(milestone.essence.index)
+        collection
+            .get_milestone_payload(milestone.essence.index)
             .await
             .unwrap()
             .as_ref(),
