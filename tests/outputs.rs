@@ -58,7 +58,7 @@ async fn test_outputs() {
             .id(),
     );
 
-    collection.insert_unspent_outputs(outputs.iter()).await.unwrap();
+    collection.insert_unspent_outputs(&outputs).await.unwrap();
 
     db.collection::<MilestoneCollection>()
         .insert_milestone(
@@ -70,7 +70,7 @@ async fn test_outputs() {
         .await
         .unwrap();
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection
                 .get_spending_transaction_metadata(&output.output_id)
@@ -81,14 +81,14 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection.get_output(&output.output_id).await.unwrap().as_ref(),
             Some(&output.output),
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection.get_output_metadata(&output.output_id).await.unwrap(),
             Some(OutputMetadataResult {
@@ -101,7 +101,7 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection.get_output_with_metadata(&output.output_id).await.unwrap(),
             Some(OutputWithMetadataResult {
@@ -131,16 +131,16 @@ async fn test_outputs() {
         })
         .collect::<Vec<_>>();
 
-    collection.update_spent_outputs(outputs.iter()).await.unwrap();
+    collection.update_spent_outputs(&outputs).await.unwrap();
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection.get_output(&output.output.output_id).await.unwrap().as_ref(),
             Some(&output.output.output),
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection.get_output_metadata(&output.output.output_id).await.unwrap(),
             Some(OutputMetadataResult {
@@ -153,7 +153,7 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection
                 .get_output_with_metadata(&output.output.output_id)
@@ -172,7 +172,7 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
             collection
                 .get_spending_transaction_metadata(&output.output.output_id)
