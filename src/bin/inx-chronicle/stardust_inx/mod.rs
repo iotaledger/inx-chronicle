@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod chunks;
 mod config;
 mod error;
 mod stream;
@@ -8,20 +9,29 @@ mod stream;
 use async_trait::async_trait;
 use bee_inx::client::Inx;
 use chronicle::{
-    db::{collections::INSERT_BATCH_SIZE, MongoDb},
+    db::{
+        collections::{
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
+            TreasuryCollection,
+        },
+        MongoDb,
+    },
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        stardust::block::{Block, BlockId, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
-pub use config::InxConfig;
-pub use error::InxError;
 use futures::{StreamExt, TryStreamExt};
 use tokio::try_join;
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
-use self::stream::LedgerUpdateStream;
+use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
+pub use self::{config::InxConfig, error::InxError};
+
+/// Batch size for insert operations.
+pub const INSERT_BATCH_SIZE: usize = 10000;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -88,7 +98,11 @@ impl Actor for InxWorker {
         let start_index = if let Some(MilestoneIndexTimestamp {
             milestone_index: latest_milestone,
             ..
-        }) = self.db.get_newest_milestone().await?
+        }) = self
+            .db
+            .collection::<MilestoneCollection>()
+            .get_newest_milestone()
+            .await?
         {
             if node_status.tangle_pruning_index > latest_milestone.0 {
                 return Err(InxError::SyncMilestoneGap {
@@ -117,7 +131,12 @@ impl Actor for InxWorker {
 
         debug!("Connected to network `{}`.", protocol_parameters.network_name);
 
-        if let Some(latest) = self.db.get_latest_protocol_parameters().await? {
+        if let Some(latest) = self
+            .db
+            .collection::<ProtocolUpdateCollection>()
+            .get_latest_protocol_parameters()
+            .await?
+        {
             if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
                     latest.parameters.network_name,
@@ -128,6 +147,7 @@ impl Actor for InxWorker {
             if latest.parameters != protocol_parameters {
                 debug!("Updating protocol parameters.");
                 self.db
+                    .collection::<ProtocolUpdateCollection>()
                     .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
@@ -176,6 +196,7 @@ impl Actor for InxWorker {
             );
 
             self.db
+                .collection::<ProtocolUpdateCollection>()
                 .insert_protocol_parameters(start_index, protocol_parameters)
                 .await?;
         }
@@ -252,19 +273,43 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
 async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
-    try_join!(
-        db.insert_unspent_outputs(outputs.iter()),
-        db.insert_unspent_ledger_updates(outputs.iter())
-    )?;
+    let output_collection = db.collection::<OutputCollection>();
+    let ledger_collection = db.collection::<LedgerUpdateCollection>();
+    try_join! {
+        async {
+            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+                output_collection.insert_unspent_outputs(batch).await?;
+            }
+            Result::<_, InxError>::Ok(())
+        },
+        async {
+            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+                ledger_collection.insert_unspent_ledger_updates(batch).await?;
+            }
+            Ok(())
+        }
+    }?;
     Ok(())
 }
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
 async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
-    try_join!(
-        db.update_spent_outputs(outputs.iter()),
-        db.insert_spent_ledger_updates(outputs.iter()),
-    )?;
+    let output_collection = db.collection::<OutputCollection>();
+    let ledger_collection = db.collection::<LedgerUpdateCollection>();
+    try_join! {
+        async {
+            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+                output_collection.update_spent_outputs(batch).await?;
+            }
+            Result::<_, InxError>::Ok(())
+        },
+        async {
+            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+                ledger_collection.insert_spent_ledger_updates(batch).await?;
+            }
+            Ok(())
+        }
+    }?;
     Ok(())
 }
 
@@ -276,7 +321,8 @@ async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: Mi
         .inner()?
         .into();
 
-    db.update_latest_protocol_parameters(milestone_index, parameters)
+    db.collection::<ProtocolUpdateCollection>()
+        .update_latest_protocol_parameters(milestone_index, parameters)
         .await?;
 
     Ok(())
@@ -300,7 +346,8 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
             .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
     );
 
-    db.insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+    db.collection::<MilestoneCollection>()
+        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
         .await?;
 
     metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
@@ -320,13 +367,43 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
                 metadata.block_id.into(),
                 block.clone().inner(&())?.into(),
                 block.data(),
-                metadata.into(),
+                BlockMetadata::from(metadata),
             ))
         })
         .try_collect::<Vec<_>>()
         .await?;
 
-    db.insert_blocks_with_metadata(blocks_with_metadata).await?;
+    // Unfortunately, clippy is wrong here. As much as I would love to use the iterator directly
+    // rather than collecting, rust is unable to resolve the bounds and cannot adequately express
+    // what is actually wrong.
+    #[allow(clippy::needless_collect)]
+    let payloads = blocks_with_metadata
+        .iter()
+        .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
+            if metadata.inclusion_state == LedgerInclusionState::Included {
+                if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
+                    return Some((
+                        metadata.referenced_by_milestone_index,
+                        payload.input_milestone_id,
+                        payload.output_amount,
+                    ));
+                }
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+
+    for batch in &payloads.into_iter().chunks(INSERT_BATCH_SIZE) {
+        db.collection::<TreasuryCollection>()
+            .insert_treasury_payloads(batch)
+            .await?;
+    }
+
+    for batch in &blocks_with_metadata.into_iter().chunks(INSERT_BATCH_SIZE) {
+        db.collection::<BlockCollection>()
+            .insert_blocks_with_metadata(batch)
+            .await?;
+    }
 
     Ok(())
 }

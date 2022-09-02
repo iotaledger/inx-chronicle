@@ -1,9 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{Stream, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::doc,
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -11,19 +11,22 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::{PayloadKind, INSERT_BATCH_SIZE};
+use super::PayloadKind;
 use crate::{
-    db::MongoDb,
+    db::{
+        mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
+        MongoDb,
+    },
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId, Payload},
+        stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
         tangle::MilestoneIndex,
     },
 };
 
 /// Chronicle Block record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct BlockDocument {
+pub struct BlockDocument {
     #[serde(rename = "_id")]
     block_id: BlockId,
     /// The block.
@@ -35,58 +38,61 @@ struct BlockDocument {
     metadata: BlockMetadata,
 }
 
-impl BlockDocument {
-    /// The stardust blocks collection name.
-    const COLLECTION: &'static str = "stardust_blocks";
+/// The stardust blocks collection.
+pub struct BlockCollection {
+    collection: mongodb::Collection<BlockDocument>,
+}
+
+impl MongoDbCollection for BlockCollection {
+    const NAME: &'static str = "stardust_blocks";
+    type Document = BlockDocument;
+
+    fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self { collection }
+    }
+
+    fn collection(&self) -> &mongodb::Collection<Self::Document> {
+        &self.collection
+    }
 }
 
 /// Implements the queries for the core API.
-impl MongoDb {
+impl BlockCollection {
     /// Creates block indexes.
-    pub async fn create_block_indexes(&self) -> Result<(), Error> {
-        let collection = self.db.collection::<BlockDocument>(BlockDocument::COLLECTION);
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "block.payload.transaction_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("transaction_id_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "block.payload.transaction_id": { "$exists": true },
-                                "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+    pub async fn create_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "block.payload.transaction_id": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .unique(true)
+                        .name("transaction_id_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "block.payload.transaction_id": { "$exists": true },
+                            "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
         Ok(())
     }
 
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
-        let block = self
-            .db
-            .collection::<Block>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "_id": block_id } },
-                    doc! { "$replaceWith": "$block" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(block)
+        self.aggregate(
+            vec![
+                doc! { "$match": { "_id": block_id } },
+                doc! { "$replaceWith": "$block" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
@@ -97,9 +103,7 @@ impl MongoDb {
             data: Vec<u8>,
         }
 
-        let raw = self
-            .db
-            .collection::<RawResult>(BlockDocument::COLLECTION)
+        Ok(self
             .aggregate(
                 vec![
                     doc! { "$match": { "_id": block_id } },
@@ -110,31 +114,21 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document::<RawResult>)
-            .transpose()?;
-
-        Ok(raw.map(|i| i.data))
+            .map(|RawResult { data }| data))
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
-        let block = self
-            .db
-            .collection::<BlockMetadata>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "_id": block_id } },
-                    doc! { "$replaceWith": "$metadata" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(block)
+        self.aggregate(
+            vec![
+                doc! { "$match": { "_id": block_id } },
+                doc! { "$replaceWith": "$metadata" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
@@ -150,8 +144,6 @@ impl MongoDb {
         }
 
         Ok(self
-            .db
-            .collection::<BlockIdResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": { "block.parents": block_id } },
@@ -163,46 +155,16 @@ impl MongoDb {
                 None,
             )
             .await?
-            .map(|doc| Ok(bson::from_document::<BlockIdResult>(doc?)?.block_id)))
-    }
-
-    /// Inserts a [`Block`] together with its associated [`BlockMetadata`].
-    pub async fn insert_block_with_metadata(
-        &self,
-        block_id: BlockId,
-        block: Block,
-        raw: Vec<u8>,
-        metadata: BlockMetadata,
-    ) -> Result<(), Error> {
-        if metadata.inclusion_state == LedgerInclusionState::Included {
-            if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
-                self.insert_treasury(metadata.referenced_by_milestone_index, payload.as_ref())
-                    .await?;
-            }
-        }
-
-        self.db
-            .collection::<BlockDocument>(BlockDocument::COLLECTION)
-            .insert_one(
-                BlockDocument {
-                    block_id,
-                    block,
-                    raw,
-                    metadata,
-                },
-                None,
-            )
-            .await?;
-
-        Ok(())
+            .map_ok(|BlockIdResult { block_id }| block_id))
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_blocks_with_metadata(
-        &self,
-        blocks_with_metadata: impl IntoIterator<Item = (BlockId, Block, Vec<u8>, BlockMetadata)>,
-    ) -> Result<(), Error> {
+    pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = (BlockId, Block, Vec<u8>, BlockMetadata)>,
+        I::IntoIter: Send + Sync,
+    {
         let blocks_with_metadata = blocks_with_metadata
             .into_iter()
             .map(|(block_id, block, raw, metadata)| BlockDocument {
@@ -210,72 +172,50 @@ impl MongoDb {
                 block,
                 raw,
                 metadata,
-            })
-            .collect::<Vec<_>>();
-        self.insert_treasury_payloads(blocks_with_metadata.iter().filter_map(|block_document| {
-            if block_document.metadata.inclusion_state == LedgerInclusionState::Included {
-                if let Some(Payload::TreasuryTransaction(payload)) = &block_document.block.payload {
-                    return Some((block_document.metadata.referenced_by_milestone_index, payload.as_ref()));
-                }
-            }
-            None
-        }))
-        .await?;
+            });
 
-        for batch in blocks_with_metadata.chunks(INSERT_BATCH_SIZE) {
-            self.collection::<BlockDocument>(BlockDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
-                .await?;
-        }
+        self.insert_many_ignore_duplicates(
+            blocks_with_metadata,
+            InsertManyOptions::builder().ordered(false).build(),
+        )
+        .await?;
 
         Ok(())
     }
 
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
     pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
-        let block = self
-            .db
-            .collection::<Block>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.transaction_id": transaction_id,
-                    } },
-                    doc! { "$replaceWith": "$block" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(block)
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
+                    "block.payload.transaction_id": transaction_id,
+                } },
+                doc! { "$replaceWith": "$block" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
-        Ok(self
-            .db
-            .collection::<Block>(BlockDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.inclusion_state": LedgerInclusionState::Included,
-                        "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
-                        "block.payload.essence.inputs.index": &(output_id.index as i32)
-                    } },
-                    doc! { "$replaceWith": "$block" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?)
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
+                    "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
+                    "block.payload.essence.inputs.index": &(output_id.index as i32)
+                } },
+                doc! { "$replaceWith": "$block" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 }
 
@@ -284,7 +224,7 @@ pub struct BlockAnalyticsResult {
     pub count: u64,
 }
 
-impl MongoDb {
+impl BlockCollection {
     /// Gathers block analytics.
     pub async fn get_block_analytics<B: PayloadKind>(
         &self,
@@ -301,8 +241,6 @@ impl MongoDb {
             queries.push(doc! { "block.payload.kind": kind });
         }
         Ok(self
-            .db
-            .collection::<BlockAnalyticsResult>(BlockDocument::COLLECTION)
             .aggregate(
                 vec![doc! { "$match": { "$and": queries } }, doc! { "$count": "count" }],
                 None,
@@ -310,8 +248,6 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
-            .transpose()?
             .unwrap_or_default())
     }
 }

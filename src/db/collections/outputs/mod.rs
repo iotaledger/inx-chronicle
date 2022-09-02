@@ -3,9 +3,11 @@
 
 mod indexer;
 
-use futures::{StreamExt, TryStreamExt};
+use std::borrow::Borrow;
+
+use futures::TryStreamExt;
 use mongodb::{
-    bson::{self, doc, to_bson, to_document},
+    bson::{doc, to_bson, to_document},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -16,9 +18,12 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::{OutputKind, INSERT_BATCH_SIZE};
+use super::{milestone::MilestoneCollection, protocol_update::ProtocolUpdateCollection, OutputKind};
 use crate::{
-    db::MongoDb,
+    db::{
+        mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
+        MongoDb,
+    },
     types::{
         ledger::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
@@ -33,7 +38,7 @@ use crate::{
 
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct OutputDocument {
+pub struct OutputDocument {
     #[serde(rename = "_id")]
     output_id: OutputId,
     output: Output,
@@ -41,9 +46,30 @@ struct OutputDocument {
     details: OutputDetails,
 }
 
-impl OutputDocument {
-    /// The stardust outputs collection name.
-    const COLLECTION: &'static str = "stardust_outputs";
+/// The stardust outputs collection.
+pub struct OutputCollection {
+    db: mongodb::Database,
+    collection: mongodb::Collection<OutputDocument>,
+    milestone_collection: MilestoneCollection,
+    protocol_param_collection: ProtocolUpdateCollection,
+}
+
+impl MongoDbCollection for OutputCollection {
+    const NAME: &'static str = "stardust_outputs";
+    type Document = OutputDocument;
+
+    fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self {
+            db: db.db.clone(),
+            collection,
+            milestone_collection: db.collection(),
+            protocol_param_collection: db.collection(),
+        }
+    }
+
+    fn collection(&self) -> &mongodb::Collection<Self::Document> {
+        &self.collection
+    }
 }
 
 /// Precalculated info and other output details.
@@ -119,30 +145,27 @@ pub struct UtxoChangesResult {
 }
 
 /// Implements the queries for the core API.
-impl MongoDb {
+impl OutputCollection {
     /// Creates output indexes.
-    pub async fn create_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
+    pub async fn create_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.address": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .unique(false)
+                        .name("address_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.address": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "details.address": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(false)
-                            .name("address_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "details.address": { "$exists": true },
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        self.create_indexer_output_indexes().await?;
+        self.create_indexer_indexes().await?;
 
         Ok(())
     }
@@ -150,9 +173,10 @@ impl MongoDb {
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn update_spent_outputs(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
+    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
+            .into_iter()
             .map(|output| {
                 Ok(doc! {
                     "q": { "_id": output.output.output_id },
@@ -164,7 +188,7 @@ impl MongoDb {
 
         if !update_docs.is_empty() {
             let mut command = doc! {
-                "update": OutputDocument::COLLECTION,
+                "update": Self::NAME,
                 "updates": update_docs,
             };
             if let Some(ref write_concern) = self.db.write_concern() {
@@ -180,36 +204,33 @@ impl MongoDb {
     /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_outputs(&self, outputs: impl Iterator<Item = &LedgerOutput>) -> Result<(), Error> {
-        let outputs = outputs.map(Into::into).collect::<Vec<_>>();
+    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = B>,
+        I::IntoIter: Send + Sync,
+        B: Borrow<LedgerOutput>,
+    {
+        self.insert_many_ignore_duplicates(
+            outputs.into_iter().map(|d| OutputDocument::from(d.borrow())),
+            InsertManyOptions::builder().ordered(false).build(),
+        )
+        .await?;
 
-        for batch in outputs.chunks(INSERT_BATCH_SIZE) {
-            self.collection::<OutputDocument>(OutputDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
-                .await?;
-        }
         Ok(())
     }
 
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
-        let output = self
-            .db
-            .collection::<Output>(OutputDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "_id": output_id } },
-                    doc! { "$replaceWith": "$output" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(output)
+        self.aggregate(
+            vec![
+                doc! { "$match": { "_id": output_id } },
+                doc! { "$replaceWith": "$output" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Get an [`Output`] with its [`OutputMetadata`] by [`OutputId`].
@@ -217,11 +238,9 @@ impl MongoDb {
         &self,
         output_id: &OutputId,
     ) -> Result<Option<OutputWithMetadataResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
+        let ledger_index = self.milestone_collection.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
-            let output = self
-                .db
-                .collection::<OutputWithMetadataResult>(OutputDocument::COLLECTION)
+            Ok(self
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -245,11 +264,7 @@ impl MongoDb {
                 )
                 .await?
                 .try_next()
-                .await?
-                .map(bson::from_document)
-                .transpose()?;
-
-            Ok(output)
+                .await?)
         } else {
             Ok(None)
         }
@@ -257,11 +272,9 @@ impl MongoDb {
 
     /// Get an [`OutputMetadata`] by [`OutputId`].
     pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadataResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
+        let ledger_index = self.milestone_collection.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
-            let metadata = self
-                .db
-                .collection::<OutputMetadataResult>(OutputDocument::COLLECTION)
+            Ok(self
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -282,11 +295,7 @@ impl MongoDb {
                 )
                 .await?
                 .try_next()
-                .await?
-                .map(bson::from_document)
-                .transpose()?;
-
-            Ok(metadata)
+                .await?)
         } else {
             Ok(None)
         }
@@ -297,35 +306,26 @@ impl MongoDb {
         &self,
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
-        let metadata = self
-            .db
-            .collection::<SpentMetadata>(OutputDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "_id": &output_id,
-                        "metadata.spent_metadata": { "$ne": null }
-                    } },
-                    doc! { "$replaceWith": "$metadata.spent_metadata" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?;
-
-        Ok(metadata)
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "_id": &output_id,
+                    "metadata.spent_metadata": { "$ne": null }
+                } },
+                doc! { "$replaceWith": "$metadata.spent_metadata" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
     pub async fn get_address_balance(&self, address: Address) -> Result<Option<BalanceResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
+        let ledger_index = self.milestone_collection.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
-            let balances = self
-                .db
-                .collection::<BalanceResult>(OutputDocument::COLLECTION)
+            Ok(self
                 .aggregate(
                     vec![
                         // Look at all (at ledger index o'clock) unspent output documents for the given address.
@@ -354,11 +354,7 @@ impl MongoDb {
                 )
                 .await?
                 .try_next()
-                .await?
-                .map(bson::from_document::<BalanceResult>)
-                .transpose()?;
-
-            Ok(balances)
+                .await?)
         } else {
             Ok(None)
         }
@@ -368,32 +364,28 @@ impl MongoDb {
     /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
     /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
     pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
-        if let Some(ledger_index) = self.get_ledger_index().await? {
+        if let Some(ledger_index) = self.milestone_collection.get_ledger_index().await? {
             if index > ledger_index {
                 Ok(None)
             } else {
                 Ok(Some(
-                    self.db
-                        .collection::<UtxoChangesResult>(OutputDocument::COLLECTION)
-                        .aggregate(
-                            vec![doc! { "$facet": {
-                                "created_outputs": [
-                                    { "$match": { "metadata.booked.milestone_index": index  } },
-                                    { "$replaceWith": "$_id" },
-                                ],
-                                "consumed_outputs": [
-                                    { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
-                                    { "$replaceWith": "$_id" },
-                                ],
-                            } }],
-                            None,
-                        )
-                        .await?
-                        .try_next()
-                        .await?
-                        .map(bson::from_document::<UtxoChangesResult>)
-                        .transpose()?
-                        .unwrap_or_default(),
+                    self.aggregate(
+                        vec![doc! { "$facet": {
+                            "created_outputs": [
+                                { "$match": { "metadata.booked.milestone_index": index  } },
+                                { "$replaceWith": "$_id" },
+                            ],
+                            "consumed_outputs": [
+                                { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                { "$replaceWith": "$_id" },
+                            ],
+                        } }],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default(),
                 ))
             }
         } else {
@@ -408,7 +400,7 @@ pub struct OutputAnalyticsResult {
     pub total_value: String,
 }
 
-impl MongoDb {
+impl OutputCollection {
     /// Gathers output analytics.
     pub async fn get_output_analytics<O: OutputKind>(
         &self,
@@ -425,8 +417,6 @@ impl MongoDb {
             queries.push(doc! { "output.kind": kind });
         }
         Ok(self
-            .db
-            .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": { "$and": queries } },
@@ -445,8 +435,6 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
-            .transpose()?
             .unwrap_or_default())
     }
 
@@ -456,7 +444,7 @@ impl MongoDb {
         ledger_index: Option<MilestoneIndex>,
     ) -> Result<Option<OutputAnalyticsResult>, Error> {
         let ledger_index = match ledger_index {
-            None => self.get_ledger_index().await?,
+            None => self.milestone_collection.get_ledger_index().await?,
             i => i,
         };
         if let Some(ledger_index) = ledger_index {
@@ -471,29 +459,25 @@ impl MongoDb {
                 queries.push(doc! { "output.kind": kind });
             }
             Ok(Some(
-                self.db
-                    .collection::<OutputAnalyticsResult>(OutputDocument::COLLECTION)
-                    .aggregate(
-                        vec![
-                            doc! { "$match": { "$and": queries } },
-                            doc! { "$group" : {
-                                "_id": null,
-                                "count": { "$sum": 1 },
-                                "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "count": 1,
-                                "total_value": { "$toString": "$total_value" },
-                            } },
-                        ],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .map(bson::from_document)
-                    .transpose()?
-                    .unwrap_or_default(),
+                self.aggregate(
+                    vec![
+                        doc! { "$match": { "$and": queries } },
+                        doc! { "$group" : {
+                            "_id": null,
+                            "count": { "$sum": 1 },
+                            "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$project": {
+                            "count": 1,
+                            "total_value": { "$toString": "$total_value" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default(),
             ))
         } else {
             Ok(None)
@@ -508,7 +492,7 @@ pub struct OutputDiffAnalyticsResult {
     pub burned_count: u64,
 }
 
-impl MongoDb {
+impl OutputCollection {
     /// Gathers nft output analytics.
     pub async fn get_nft_output_analytics(
         &self,
@@ -516,8 +500,6 @@ impl MongoDb {
         end_index: Option<MilestoneIndex>,
     ) -> Result<OutputDiffAnalyticsResult, Error> {
         Ok(self
-            .db
-            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": {
@@ -560,8 +542,6 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
-            .transpose()?
             .unwrap_or_default())
     }
 
@@ -572,8 +552,6 @@ impl MongoDb {
         end_index: Option<MilestoneIndex>,
     ) -> Result<OutputDiffAnalyticsResult, Error> {
         Ok(self
-            .db
-            .collection::<OutputDiffAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": {
@@ -616,8 +594,6 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
-            .transpose()?
             .unwrap_or_default())
     }
 }
@@ -634,18 +610,22 @@ pub struct StorageDepositAnalyticsResult {
     pub rent_structure: RentStructure,
 }
 
-impl MongoDb {
+impl OutputCollection {
     /// Gathers byte cost and storage deposit analytics.
     pub async fn get_storage_deposit_analytics(
         &self,
         ledger_index: Option<MilestoneIndex>,
     ) -> Result<Option<StorageDepositAnalyticsResult>, Error> {
         let ledger_index = match ledger_index {
-            None => self.get_ledger_index().await?,
+            None => self.milestone_collection.get_ledger_index().await?,
             i => i,
         };
         if let Some(ledger_index) = ledger_index {
-            if let Some(protocol_params) = self.get_protocol_parameters_for_ledger_index(ledger_index).await? {
+            if let Some(protocol_params) = self
+                .protocol_param_collection
+                .get_protocol_parameters_for_ledger_index(ledger_index)
+                .await?
+            {
                 #[derive(Default, Deserialize)]
                 struct StorageDepositAnalytics {
                     output_count: u64,
@@ -659,9 +639,7 @@ impl MongoDb {
                 let rent_structure = protocol_params.parameters.rent_structure;
 
                 let res = self
-                    .db
-                    .collection::<StorageDepositAnalytics>(OutputDocument::COLLECTION)
-                    .aggregate(
+                    .aggregate::<StorageDepositAnalytics>(
                         vec![
                             doc! { "$match": {
                                 "metadata.booked.milestone_index": { "$lte": ledger_index },
@@ -723,8 +701,6 @@ impl MongoDb {
                     .await?
                     .try_next()
                     .await?
-                    .map(bson::from_document::<StorageDepositAnalytics>)
-                    .transpose()?
                     .unwrap_or_default();
 
                 Ok(Some(StorageDepositAnalyticsResult {
@@ -758,7 +734,7 @@ pub struct AddressAnalyticsResult {
     pub sending_addresses: u64,
 }
 
-impl MongoDb {
+impl OutputCollection {
     /// Create aggregate statistics of all addresses.
     pub async fn get_address_analytics(
         &self,
@@ -766,8 +742,6 @@ impl MongoDb {
         end_index: Option<MilestoneIndex>,
     ) -> Result<AddressAnalyticsResult, Error> {
         Ok(self
-            .db
-            .collection::<AddressAnalyticsResult>(OutputDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$match": {
@@ -826,8 +800,6 @@ impl MongoDb {
             .await?
             .try_next()
             .await?
-            .map(bson::from_document)
-            .transpose()?
             .unwrap_or_default())
     }
 }
@@ -862,7 +834,7 @@ pub struct DistributionStat {
     pub total_balance: String,
 }
 
-impl MongoDb {
+impl OutputCollection {
     /// Create richest address statistics.
     pub async fn get_richest_addresses(
         &self,
@@ -870,13 +842,11 @@ impl MongoDb {
         top: usize,
     ) -> Result<Option<RichestAddresses>, Error> {
         let ledger_index = match ledger_index {
-            None => self.get_ledger_index().await?,
+            None => self.milestone_collection.get_ledger_index().await?,
             i => i,
         };
         if let Some(ledger_index) = ledger_index {
             let top = self
-                .db
-                .collection::<bson::Document>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -902,7 +872,6 @@ impl MongoDb {
                     None,
                 )
                 .await?
-                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
                 .try_collect()
                 .await?;
             Ok(Some(RichestAddresses { top, ledger_index }))
@@ -917,13 +886,11 @@ impl MongoDb {
         ledger_index: Option<MilestoneIndex>,
     ) -> Result<Option<TokenDistribution>, Error> {
         let ledger_index = match ledger_index {
-            None => self.get_ledger_index().await?,
+            None => self.milestone_collection.get_ledger_index().await?,
             i => i,
         };
         if let Some(ledger_index) = ledger_index {
             let distribution = self
-                .db
-                .collection::<bson::Document>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -955,7 +922,6 @@ impl MongoDb {
                     None,
                 )
                 .await?
-                .map(|doc| Result::<_, Error>::Ok(bson::from_document(doc?)?))
                 .try_collect()
                 .await?;
             Ok(Some(TokenDistribution {

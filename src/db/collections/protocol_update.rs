@@ -5,7 +5,10 @@ use mongodb::{bson::doc, error::Error, options::FindOneOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::MongoDb,
+    db::{
+        mongodb::{MongoCollectionExt, MongoDbCollection},
+        MongoDb,
+    },
     types::tangle::{MilestoneIndex, ProtocolParameters},
 };
 
@@ -17,17 +20,28 @@ pub struct ProtocolUpdateDocument {
     pub parameters: ProtocolParameters,
 }
 
-impl ProtocolUpdateDocument {
-    /// The stardust protocol update collection name.
-    const COLLECTION: &'static str = "stardust_protocol_updates";
+/// The stardust protocol parameters collection.
+pub struct ProtocolUpdateCollection {
+    collection: mongodb::Collection<ProtocolUpdateDocument>,
 }
 
-impl MongoDb {
+impl MongoDbCollection for ProtocolUpdateCollection {
+    const NAME: &'static str = "stardust_protocol_updates";
+    type Document = ProtocolUpdateDocument;
+
+    fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self { collection }
+    }
+
+    fn collection(&self) -> &mongodb::Collection<Self::Document> {
+        &self.collection
+    }
+}
+
+impl ProtocolUpdateCollection {
     /// Gets the latest protocol parameters.
     pub async fn get_latest_protocol_parameters(&self) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.db
-            .collection::<ProtocolUpdateDocument>(ProtocolUpdateDocument::COLLECTION)
-            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
+        self.find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
             .await
     }
 
@@ -36,13 +50,11 @@ impl MongoDb {
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<Option<ProtocolUpdateDocument>, Error> {
-        self.db
-            .collection::<ProtocolUpdateDocument>(ProtocolUpdateDocument::COLLECTION)
-            .find_one(
-                doc! { "_id": { "$lte": ledger_index } },
-                FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
-            )
-            .await
+        self.find_one(
+            doc! { "_id": { "$lte": ledger_index } },
+            FindOneOptions::builder().sort(doc! { "_id": -1 }).build(),
+        )
+        .await
     }
 
     /// Inserts a protocol parameters for a given milestone index.
@@ -51,16 +63,14 @@ impl MongoDb {
         tangle_index: MilestoneIndex,
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {
-        self.db
-            .collection::<ProtocolUpdateDocument>(ProtocolUpdateDocument::COLLECTION)
-            .insert_one(
-                ProtocolUpdateDocument {
-                    tangle_index,
-                    parameters,
-                },
-                None,
-            )
-            .await?;
+        self.insert_one(
+            ProtocolUpdateDocument {
+                tangle_index,
+                parameters,
+            },
+            None,
+        )
+        .await?;
 
         Ok(())
     }

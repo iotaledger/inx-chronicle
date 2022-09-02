@@ -8,7 +8,7 @@ mod nft;
 mod queries;
 
 use derive_more::From;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use mongodb::{
     bson::{self, doc, Bson},
     error::Error,
@@ -20,9 +20,9 @@ use serde::Deserialize;
 pub use self::{
     alias::AliasOutputsQuery, basic::BasicOutputsQuery, foundry::FoundryOutputsQuery, nft::NftOutputsQuery,
 };
-use super::OutputDocument;
+use super::{OutputCollection, OutputDocument};
 use crate::{
-    db::{collections::SortOrder, MongoDb},
+    db::{collections::SortOrder, mongodb::MongoCollectionExt},
     types::{
         ledger::OutputMetadata,
         stardust::block::output::{AliasId, FoundryId, NftId, OutputId},
@@ -69,13 +69,13 @@ pub struct IndexedOutputResult {
     pub output_id: OutputId,
 }
 
-impl MongoDb {
+impl OutputCollection {
     /// Gets the current unspent indexed output id with the given indexed id.
     pub async fn get_indexed_output_by_id(
         &self,
         id: impl Into<IndexedId>,
     ) -> Result<Option<IndexedOutputResult>, Error> {
-        let ledger_index = self.get_ledger_index().await?;
+        let ledger_index = self.milestone_collection.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let id = id.into();
             let id_string = match id {
@@ -84,8 +84,6 @@ impl MongoDb {
                 IndexedId::Nft(_) => "output.nft_id",
             };
             let mut res = self
-                .db
-                .collection::<OutputDocument>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -102,9 +100,7 @@ impl MongoDb {
                 )
                 .await?
                 .try_next()
-                .await?
-                .map(bson::from_document::<OutputDocument>)
-                .transpose()?;
+                .await?;
             if let Some(OutputDocument {
                 metadata:
                     OutputMetadata {
@@ -138,7 +134,7 @@ impl MongoDb {
     where
         bson::Document: From<Q>,
     {
-        let ledger_index = self.get_ledger_index().await?;
+        let ledger_index = self.milestone_collection.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let (sort, cmp1, cmp2) = match order {
                 SortOrder::Newest => (doc! { "metadata.booked.milestone_index": -1, "_id": -1 }, "$lt", "$lte"),
@@ -171,8 +167,6 @@ impl MongoDb {
                 ]
             } };
             let outputs = self
-                .db
-                .collection::<OutputResult>(OutputDocument::COLLECTION)
                 .aggregate(
                     vec![
                         match_doc,
@@ -186,7 +180,6 @@ impl MongoDb {
                     None,
                 )
                 .await?
-                .map(|doc| Result::<_, Error>::Ok(bson::from_document::<OutputResult>(doc?)?))
                 .try_collect::<Vec<_>>()
                 .await?;
             Ok(Some(OutputsResult { ledger_index, outputs }))
@@ -196,263 +189,246 @@ impl MongoDb {
     }
 
     /// Creates indexer output indexes.
-    pub async fn create_indexer_output_indexes(&self) -> Result<(), Error> {
-        let collection = self.db.collection::<OutputDocument>(OutputDocument::COLLECTION);
+    pub async fn create_indexer_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.kind": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_kind_index".to_string())
+                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.kind": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_kind_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata": null })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.alias_id": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_alias_id_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.alias_id": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.alias_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_alias_id_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.alias_id": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.foundry_id": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_foundry_id_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.foundry_id": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.foundry_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_foundry_id_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.foundry_id": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.nft_id": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_nft_id_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.nft_id": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.nft_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_nft_id_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.nft_id": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.address_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_address_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.address_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.address_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_address_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.address_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.storage_deposit_return_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_storage_deposit_return_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.storage_deposit_return_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.storage_deposit_return_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_storage_deposit_return_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.storage_deposit_return_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.timelock_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_timelock_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.timelock_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.timelock_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_timelock_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.timelock_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.expiration_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_expiration_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.expiration_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.expiration_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_expiration_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.expiration_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.state_controller_address_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_state_controller_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.state_controller_address_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.state_controller_address_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_state_controller_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.state_controller_address_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.governor_address_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_governor_address_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.governor_address_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.governor_address_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_governor_address_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.governor_address_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.immutable_alias_address_unlock_condition": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_immutable_alias_address_unlock_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.immutable_alias_address_unlock_condition": { "$exists": true },
+                            "metadata.spent_metadata": null
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.immutable_alias_address_unlock_condition": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_immutable_alias_address_unlock_index".to_string())
-                            .partial_filter_expression(doc! {
-                                "output.immutable_alias_address_unlock_condition": { "$exists": true },
-                                "metadata.spent_metadata": null
-                            })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.features": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_feature_index".to_string())
+                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.features": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_feature_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata": null })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.native_tokens": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_native_tokens_index".to_string())
+                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "output.native_tokens": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_native_tokens_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata": null })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.booked": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_booked_index".to_string())
+                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "metadata.booked": -1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_booked_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata": null })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "metadata.spent_metadata.spent": -1 })
-                    .options(
-                        IndexOptions::builder()
-                            .name("output_spent_index".to_string())
-                            .partial_filter_expression(doc! { "metadata.spent_metadata.spent": { "$exists": true } })
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.spent_metadata.spent": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_spent_index".to_string())
+                        .partial_filter_expression(doc! { "metadata.spent_metadata.spent": { "$exists": true } })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
         Ok(())
     }
