@@ -378,7 +378,7 @@ mod test {
             }
             // Shuffle up the tasks, because order shouldn't matter to the iterator
             tasks.shuffle(&mut rng);
-            assert!(futures::future::join_all(tasks).await.len() > 0);
+            assert!(!futures::future::join_all(tasks).await.is_empty());
         }
     }
 
@@ -387,8 +387,7 @@ mod test {
     fn test_chunks_zero_len() {
         // Shh...
         std::panic::set_hook(Box::new(|_| {}));
-        let data = (0..25).collect::<Vec<_>>();
-        for chunk in &data.into_iter().chunks(0) {
+        for chunk in &(0..25).chunks(0) {
             let _ = chunk.collect::<Vec<_>>();
         }
     }
