@@ -137,20 +137,20 @@ async fn milestone_stats(
 ) -> ApiResult<MilestoneStatsResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
 
-    let details = database
+    let stats = database
         .collection::<MilestoneCollection>()
         .get_milestone_stats(&milestone_id)
         .await?
         .ok_or(ApiError::NotFound)?;
 
     Ok(MilestoneStatsResponse {
-        blocks: details.num_blocks as usize,
+        blocks: stats.num_blocks as usize,
         per_payload_type: MilestoneStatsPerPayloadType {
-            no_payload: details.num_no_payload as usize,
-            txs_confirmed: details.num_confirmed as usize,
-            txs_conflicting: details.num_conflicting as usize,
-            tagged_data: details.num_tagged_data_payload as usize,
-            milestone: details.num_milestone_payload as usize,
+            no_payload: stats.num_no_payload as usize,
+            txs_confirmed: stats.num_confirmed as usize,
+            txs_conflicting: stats.num_conflicting as usize,
+            tagged_data: stats.num_tagged_data_payload as usize,
+            milestone: stats.num_milestone_payload as usize,
         },
     })
 }

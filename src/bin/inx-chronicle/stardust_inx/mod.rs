@@ -259,11 +259,11 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         insert_unspent_outputs(&self.db, ledger_update.created).await?;
         update_spent_outputs(&self.db, ledger_update.consumed).await?;
 
-        let details = handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
+        let stats = handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
         handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        handle_milestone(&self.db, inx, ledger_update.milestone_index, details).await?;
+        handle_milestone(&self.db, inx, ledger_update.milestone_index, stats).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -335,7 +335,7 @@ async fn handle_milestone(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-    details: MilestoneStats,
+    stats: MilestoneStats,
 ) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
@@ -354,7 +354,7 @@ async fn handle_milestone(
     );
 
     db.collection::<MilestoneCollection>()
-        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload, details)
+        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload, stats)
         .await?;
 
     metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
@@ -384,31 +384,31 @@ async fn handle_cone_stream(
         .try_collect::<Vec<_>>()
         .await?;
 
-    let details = blocks_with_metadata.iter().fold(
+    let stats = blocks_with_metadata.iter().fold(
         MilestoneStats::default(),
-        |mut details, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-            let f = |reason: ConflictReason, details: &mut MilestoneStats| {
+        |mut stats, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
+            let conf_stat = |reason: ConflictReason, stats: &mut MilestoneStats| {
                 if matches!(reason, ConflictReason::None) {
-                    details.num_confirmed += 1;
+                    stats.num_confirmed += 1;
                 } else {
-                    details.num_conflicting += 1;
+                    stats.num_conflicting += 1;
                 }
             };
-            details.num_blocks += 1;
+            stats.num_blocks += 1;
             match &block.payload {
                 Some(Payload::Transaction(_)) => {
-                    details.num_tx_payload += 1;
-                    f(metadata.conflict_reason, &mut details);
+                    stats.num_tx_payload += 1;
+                    conf_stat(metadata.conflict_reason, &mut stats);
                 }
-                Some(Payload::Milestone(_)) => details.num_milestone_payload += 1,
+                Some(Payload::Milestone(_)) => stats.num_milestone_payload += 1,
                 Some(Payload::TreasuryTransaction(_)) => {
-                    details.num_treasury_tx_payload += 1;
-                    f(metadata.conflict_reason, &mut details);
+                    stats.num_treasury_tx_payload += 1;
+                    conf_stat(metadata.conflict_reason, &mut stats);
                 }
-                Some(Payload::TaggedData(_)) => details.num_tagged_data_payload += 1,
-                None => details.num_no_payload += 1,
+                Some(Payload::TaggedData(_)) => stats.num_tagged_data_payload += 1,
+                None => stats.num_no_payload += 1,
             }
-            details
+            stats
         },
     );
 
@@ -444,5 +444,5 @@ async fn handle_cone_stream(
             .await?;
     }
 
-    Ok(details)
+    Ok(stats)
 }
