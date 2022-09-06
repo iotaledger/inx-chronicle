@@ -31,14 +31,18 @@ pub fn routes() -> Router {
         .route("/blocks/:block_id/children", get(block_children))
         .route("/milestones", get(milestones))
         .nest(
-            "/ledger/updates",
+            "/ledger",
             Router::new()
-                .route("/by-address/:address", get(ledger_updates_by_address))
-                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-        )
-        .nest(
-            "/ledger/stats",
-            Router::new().route("/by-milestone/:milestone_id", get(milestone_stats)),
+                .nest(
+                    "/updates",
+                    Router::new()
+                        .route("/by-address/:address", get(ledger_updates_by_address))
+                        .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+                )
+                .nest(
+                    "/stats",
+                    Router::new().route("/by-milestone/:milestone_id", get(milestone_stats)),
+                ),
         )
 }
 

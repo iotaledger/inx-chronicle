@@ -18,9 +18,7 @@ use chronicle::{
     },
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        ledger::{
-            BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp,
-        },
+        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
@@ -398,7 +396,7 @@ async fn handle_cone_stream(
             match metadata.inclusion_state {
                 LedgerInclusionState::Conflicting => stats.num_conflicting += 1,
                 LedgerInclusionState::Included => stats.num_confirmed += 1,
-                LedgerInclusionState::NoTransaction => {},
+                LedgerInclusionState::NoTransaction => {}
             }
             stats
         },
