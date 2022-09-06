@@ -53,13 +53,13 @@ impl_success_response!(StorageDepositAnalyticsResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OutputDiffAnalyticsResponse {
+pub struct TokenAnalyticsResponse {
     pub created_count: String,
     pub transferred_count: String,
     pub burned_count: String,
 }
 
-impl_success_response!(OutputDiffAnalyticsResponse);
+impl_success_response!(TokenAnalyticsResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

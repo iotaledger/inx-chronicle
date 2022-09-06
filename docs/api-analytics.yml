@@ -145,6 +145,42 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/native-tokens:
+    get:
+      tags:
+        - activity
+      summary: Returns native token activity.
+      description: >-
+        Returns the count of created, transferred, and burned native tokens in the 
+        specified milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Token"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/nfts:
+    get:
+      tags:
+        - activity
+      summary: Returns nft activity.
+      description: >-
+        Returns the count of created, transferred, and burned nfts in the specified 
+        milestone range.
+      parameters:
+        - $ref: "#/components/parameters/startIndex"
+        - $ref: "#/components/parameters/endIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/Token"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/blocks:
     get:
       tags:
@@ -353,6 +389,22 @@ components:
       required:
         - count
         - totalValue
+    TokenAnalyticsResponse:
+      description: Compiled token statistics.
+      properties:
+        createdCount:
+          type: string
+          description: The count of created tokens.
+        transferredCount:
+          type: string
+          description: The count of transferred tokens.
+        burnedCount:
+          type: string
+          description: The count of burned tokens.
+      required:
+        - createdCount
+        - transferredCount
+        - burnedCount
     StorageDepositAnalyticsResponse:
       description: Compiled storage deposit and byte cost statistics.
       properties:
@@ -475,6 +527,15 @@ components:
           examples:
             default:
               $ref: "#/components/examples/output-example"
+    Token:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TokenAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/token-example"
     Address:
       description: Successful operation.
       content:
@@ -571,6 +632,11 @@ components:
       value:
         count: "81"
         totalValue: "34903000"
+    token-example:
+      value:
+        createdCount: "100"
+        transferredCount: "999"
+        burnedCount: "2"
     addresses-example:
       value:
         totalActiveAddresses: "443"
