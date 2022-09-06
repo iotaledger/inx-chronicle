@@ -21,7 +21,7 @@ use thiserror::Error;
 pub use self::{
     block::BlockCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
-    milestone::{MilestoneCollection, MilestoneResult, SyncData},
+    milestone::{MilestoneCollection, MilestoneResult, MilestoneStats, SyncData},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,

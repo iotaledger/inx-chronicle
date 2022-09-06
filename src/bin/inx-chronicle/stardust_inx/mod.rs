@@ -11,14 +11,16 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
-            TreasuryCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, MilestoneStats, OutputCollection,
+            ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        ledger::{
+            BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp,
+        },
         stardust::block::{Block, BlockId, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
@@ -257,11 +259,11 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         insert_unspent_outputs(&self.db, ledger_update.created).await?;
         update_spent_outputs(&self.db, ledger_update.consumed).await?;
 
-        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
+        let details = handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
         handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
+        handle_milestone(&self.db, inx, ledger_update.milestone_index, details).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -329,7 +331,12 @@ async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: Mi
 }
 
 #[instrument(skip_all, level = "trace")]
-async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_milestone(
+    db: &MongoDb,
+    inx: &mut Inx,
+    milestone_index: MilestoneIndex,
+    details: MilestoneStats,
+) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
     let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
@@ -347,7 +354,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
     );
 
     db.collection::<MilestoneCollection>()
-        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload, details)
         .await?;
 
     metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
@@ -357,7 +364,11 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
 }
 
 #[instrument(skip(db, inx), level = "trace")]
-async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_cone_stream(
+    db: &MongoDb,
+    inx: &mut Inx,
+    milestone_index: MilestoneIndex,
+) -> Result<MilestoneStats, InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let blocks_with_metadata = cone_stream
@@ -373,11 +384,39 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
         .try_collect::<Vec<_>>()
         .await?;
 
+    let details = blocks_with_metadata.iter().fold(
+        MilestoneStats::default(),
+        |mut details, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
+            let f = |reason: ConflictReason, details: &mut MilestoneStats| {
+                if matches!(reason, ConflictReason::None) {
+                    details.num_confirmed += 1;
+                } else {
+                    details.num_conflicting += 1;
+                }
+            };
+            details.num_blocks += 1;
+            match &block.payload {
+                Some(Payload::Transaction(_)) => {
+                    details.num_tx_payload += 1;
+                    f(metadata.conflict_reason, &mut details);
+                }
+                Some(Payload::Milestone(_)) => details.num_milestone_payload += 1,
+                Some(Payload::TreasuryTransaction(_)) => {
+                    details.num_treasury_tx_payload += 1;
+                    f(metadata.conflict_reason, &mut details);
+                }
+                Some(Payload::TaggedData(_)) => details.num_tagged_data_payload += 1,
+                None => details.num_no_payload += 1,
+            }
+            details
+        },
+    );
+
     // Unfortunately, clippy is wrong here. As much as I would love to use the iterator directly
     // rather than collecting, rust is unable to resolve the bounds and cannot adequately express
     // what is actually wrong.
     #[allow(clippy::needless_collect)]
-    let payloads = blocks_with_metadata
+    let treasury_payloads = blocks_with_metadata
         .iter()
         .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
             if metadata.inclusion_state == LedgerInclusionState::Included {
@@ -393,7 +432,7 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
         })
         .collect::<Vec<_>>();
 
-    for batch in &payloads.into_iter().chunks(INSERT_BATCH_SIZE) {
+    for batch in &treasury_payloads.into_iter().chunks(INSERT_BATCH_SIZE) {
         db.collection::<TreasuryCollection>()
             .insert_treasury_payloads(batch)
             .await?;
@@ -405,5 +444,5 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
             .await?;
     }
 
-    Ok(())
+    Ok(details)
 }

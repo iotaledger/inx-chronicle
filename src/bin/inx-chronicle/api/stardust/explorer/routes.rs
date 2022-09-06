@@ -20,7 +20,7 @@ use super::{
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
-        MilestonesResponse,
+        MilestoneStatsPerPayloadType, MilestoneStatsResponse, MilestonesResponse,
     },
 };
 use crate::api::{extractors::Pagination, ApiError, ApiResult};
@@ -35,6 +35,10 @@ pub fn routes() -> Router {
             Router::new()
                 .route("/by-address/:address", get(ledger_updates_by_address))
                 .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+        )
+        .nest(
+            "/ledger/stats",
+            Router::new().route("/by-milestone/:milestone_id", get(milestone_stats)),
         )
 }
 
@@ -124,6 +128,30 @@ async fn ledger_updates_by_milestone(
         milestone_index,
         items,
         cursor,
+    })
+}
+
+async fn milestone_stats(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+) -> ApiResult<MilestoneStatsResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let details = database
+        .collection::<MilestoneCollection>()
+        .get_milestone_stats(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+
+    Ok(MilestoneStatsResponse {
+        blocks: details.num_blocks as usize,
+        per_payload_type: MilestoneStatsPerPayloadType {
+            no_payload: details.num_no_payload as usize,
+            txs_confirmed: details.num_confirmed as usize,
+            txs_conflicting: details.num_conflicting as usize,
+            tagged_data: details.num_tagged_data_payload as usize,
+            milestone: details.num_milestone_payload as usize,
+        },
     })
 }
 
