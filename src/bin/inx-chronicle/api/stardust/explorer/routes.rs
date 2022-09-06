@@ -16,10 +16,11 @@ use futures::{StreamExt, TryStreamExt};
 use super::{
     extractors::{
         LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
-        LedgerUpdatesByMilestonePagination,
+        LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination,
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
+        MilestonesResponse,
     },
 };
 use crate::api::{extractors::Pagination, ApiError, ApiResult};
@@ -28,6 +29,7 @@ pub fn routes() -> Router {
     Router::new()
         .route("/balance/:address", get(balance))
         .route("/blocks/:block_id/children", get(block_children))
+        .route("/milestones", get(milestones))
         .nest(
             "/ledger/updates",
             Router::new()
@@ -163,4 +165,39 @@ async fn block_children(
         count: children.len(),
         children,
     })
+}
+
+async fn milestones(
+    database: Extension<MongoDb>,
+    MilestonesPagination {
+        start_timestamp,
+        end_timestamp,
+        sort,
+        page_size,
+        cursor,
+    }: MilestonesPagination,
+) -> ApiResult<MilestonesResponse> {
+    let mut record_stream = database
+        .collection::<MilestoneCollection>()
+        .get_milestones(start_timestamp, end_timestamp, sort, page_size + 1, cursor)
+        .await?;
+
+    // Take all of the requested records first
+    let items = record_stream
+        .by_ref()
+        .take(page_size)
+        .map_ok(Into::into)
+        .try_collect()
+        .await?;
+
+    // If any record is left, use it to make the paging state
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        MilestonesCursor {
+            milestone_index: rec.index,
+            page_size,
+        }
+        .to_string()
+    });
+
+    Ok(MilestonesResponse { items, cursor })
 }
