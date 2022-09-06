@@ -19,7 +19,7 @@ use chronicle::{
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
         ledger::{
-            BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp,
+            BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp,
         },
         stardust::block::{Block, BlockId, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
@@ -387,26 +387,18 @@ async fn handle_cone_stream(
     let stats = blocks_with_metadata.iter().fold(
         MilestoneStats::default(),
         |mut stats, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-            let conf_stat = |reason: ConflictReason, stats: &mut MilestoneStats| {
-                if matches!(reason, ConflictReason::None) {
-                    stats.num_confirmed += 1;
-                } else {
-                    stats.num_conflicting += 1;
-                }
-            };
             stats.num_blocks += 1;
             match &block.payload {
-                Some(Payload::Transaction(_)) => {
-                    stats.num_tx_payload += 1;
-                    conf_stat(metadata.conflict_reason, &mut stats);
-                }
+                Some(Payload::Transaction(_)) => stats.num_tx_payload += 1,
                 Some(Payload::Milestone(_)) => stats.num_milestone_payload += 1,
-                Some(Payload::TreasuryTransaction(_)) => {
-                    stats.num_treasury_tx_payload += 1;
-                    conf_stat(metadata.conflict_reason, &mut stats);
-                }
+                Some(Payload::TreasuryTransaction(_)) => stats.num_treasury_tx_payload += 1,
                 Some(Payload::TaggedData(_)) => stats.num_tagged_data_payload += 1,
                 None => stats.num_no_payload += 1,
+            }
+            match metadata.inclusion_state {
+                LedgerInclusionState::Conflicting => stats.num_conflicting += 1,
+                LedgerInclusionState::Included => stats.num_confirmed += 1,
+                LedgerInclusionState::NoTransaction => {},
             }
             stats
         },
