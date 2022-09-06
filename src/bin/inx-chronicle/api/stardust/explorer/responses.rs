@@ -103,6 +103,7 @@ pub struct MilestonesResponse {
 impl_success_response!(MilestonesResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MilestoneDto {
     milestone_id: String,
     index: MilestoneIndex,
