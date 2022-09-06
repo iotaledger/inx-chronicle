@@ -10,7 +10,10 @@ use axum::{
 };
 use chronicle::{
     db::collections::SortOrder,
-    types::{stardust::block::output::OutputId, tangle::MilestoneIndex},
+    types::{
+        stardust::{block::output::OutputId, milestone::MilestoneTimestamp},
+        tangle::MilestoneIndex,
+    },
 };
 use serde::Deserialize;
 
@@ -167,6 +170,88 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
         };
 
         Ok(LedgerUpdatesByMilestonePagination {
+            page_size: page_size.min(config.max_page_size),
+            cursor,
+        })
+    }
+}
+
+pub struct MilestonesPagination {
+    pub start_timestamp: Option<MilestoneTimestamp>,
+    pub end_timestamp: Option<MilestoneTimestamp>,
+    pub sort: SortOrder,
+    pub page_size: usize,
+    pub cursor: Option<MilestoneIndex>,
+}
+
+#[derive(Clone, Deserialize, Default)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct MilestonesPaginationQuery {
+    pub start_timestamp: Option<u32>,
+    pub end_timestamp: Option<u32>,
+    pub sort: Option<String>,
+    pub page_size: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct MilestonesCursor {
+    pub milestone_index: MilestoneIndex,
+    pub page_size: usize,
+}
+
+impl FromStr for MilestonesCursor {
+    type Err = ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.split('.').collect();
+        Ok(match parts[..] {
+            [m, ps] => MilestonesCursor {
+                milestone_index: m.parse().map_err(ApiError::bad_parse)?,
+                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+            },
+            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+        })
+    }
+}
+
+impl Display for MilestonesCursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.milestone_index, self.page_size)
+    }
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for MilestonesPagination {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<MilestonesPaginationQuery>::from_request(req)
+            .await
+            .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+
+        if matches!((query.start_timestamp, query.end_timestamp), (Some(start), Some(end)) if end < start) {
+            return Err(ApiError::BadTimeRange);
+        }
+
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
+
+        let (page_size, cursor) = if let Some(cursor) = query.cursor {
+            let cursor: MilestonesCursor = cursor.parse()?;
+            (cursor.page_size, Some(cursor.milestone_index))
+        } else {
+            (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
+        };
+
+        Ok(MilestonesPagination {
+            start_timestamp: query.start_timestamp.map(Into::into),
+            end_timestamp: query.end_timestamp.map(Into::into),
+            sort,
             page_size: page_size.min(config.max_page_size),
             cursor,
         })
