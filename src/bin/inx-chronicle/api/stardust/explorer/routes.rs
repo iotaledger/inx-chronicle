@@ -224,19 +224,19 @@ async fn past_cone_stats(
         .essence
         .index;
 
-    let counts = database
+    let stats = database
         .collection::<BlockCollection>()
         .get_past_cone_stats(&milestone_index)
         .await?;
 
     Ok(PastConeStatsResponse {
-        blocks: counts.num_blocks as usize,
+        blocks: stats.num_blocks as usize,
         per_payload_type: PastConeStatsPerPayloadTypeDto {
-            no_payload: counts.num_no_payload as usize,
-            txs_confirmed: counts.num_confirmed as usize,
-            txs_conflicting: counts.num_conflicting as usize,
-            tagged_data: counts.num_tagged_data_payload as usize,
-            milestone: counts.num_milestone_payload as usize,
+            no_payload: stats.num_no_payload as usize,
+            txs_confirmed: stats.num_confirmed as usize,
+            txs_conflicting: stats.num_conflicting as usize,
+            tagged_data: stats.num_tagged_data_payload as usize,
+            milestone: stats.num_milestone_payload as usize,
         },
     })
 }
