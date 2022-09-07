@@ -11,7 +11,7 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, MilestoneStats, OutputCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection,
             ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
@@ -257,11 +257,11 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         insert_unspent_outputs(&self.db, ledger_update.created).await?;
         update_spent_outputs(&self.db, ledger_update.consumed).await?;
 
-        let stats = handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
+        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
         handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        handle_milestone(&self.db, inx, ledger_update.milestone_index, stats).await?;
+        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -333,7 +333,6 @@ async fn handle_milestone(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-    stats: MilestoneStats,
 ) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
@@ -352,7 +351,7 @@ async fn handle_milestone(
     );
 
     db.collection::<MilestoneCollection>()
-        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload, stats)
+        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
         .await?;
 
     metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
@@ -366,7 +365,7 @@ async fn handle_cone_stream(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-) -> Result<MilestoneStats, InxError> {
+) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let blocks_with_metadata = cone_stream
@@ -381,26 +380,6 @@ async fn handle_cone_stream(
         })
         .try_collect::<Vec<_>>()
         .await?;
-
-    let stats = blocks_with_metadata.iter().fold(
-        MilestoneStats::default(),
-        |mut stats, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-            stats.num_blocks += 1;
-            match &block.payload {
-                Some(Payload::Transaction(_)) => stats.num_tx_payload += 1,
-                Some(Payload::Milestone(_)) => stats.num_milestone_payload += 1,
-                Some(Payload::TreasuryTransaction(_)) => stats.num_treasury_tx_payload += 1,
-                Some(Payload::TaggedData(_)) => stats.num_tagged_data_payload += 1,
-                None => stats.num_no_payload += 1,
-            }
-            match metadata.inclusion_state {
-                LedgerInclusionState::Conflicting => stats.num_conflicting += 1,
-                LedgerInclusionState::Included => stats.num_confirmed += 1,
-                LedgerInclusionState::NoTransaction => {}
-            }
-            stats
-        },
-    );
 
     // Unfortunately, clippy is wrong here. As much as I would love to use the iterator directly
     // rather than collecting, rust is unable to resolve the bounds and cannot adequately express
@@ -434,5 +413,5 @@ async fn handle_cone_stream(
             .await?;
     }
 
-    Ok(stats)
+    Ok(())
 }

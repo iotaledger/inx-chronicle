@@ -20,7 +20,7 @@ use super::{
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
-        MilestoneStatsPerPayloadTypeDto, MilestoneStatsResponse, MilestonesResponse,
+        MilestoneAnalyticsPerPayloadTypeDto, MilestoneAnalyticsResponse, MilestonesResponse,
     },
 };
 use crate::api::{extractors::Pagination, ApiError, ApiResult};
@@ -41,7 +41,7 @@ pub fn routes() -> Router {
                 )
                 .nest(
                     "/stats",
-                    Router::new().route("/by-milestone/:milestone_id", get(milestone_stats)),
+                    Router::new().route("/by-milestone/:milestone_id", get(milestone_analytics)),
                 ),
         )
 }
@@ -135,30 +135,6 @@ async fn ledger_updates_by_milestone(
     })
 }
 
-async fn milestone_stats(
-    database: Extension<MongoDb>,
-    Path(milestone_id): Path<String>,
-) -> ApiResult<MilestoneStatsResponse> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
-
-    let stats = database
-        .collection::<MilestoneCollection>()
-        .get_milestone_stats(&milestone_id)
-        .await?
-        .ok_or(ApiError::NotFound)?;
-
-    Ok(MilestoneStatsResponse {
-        blocks: stats.num_blocks as usize,
-        per_payload_type: MilestoneStatsPerPayloadTypeDto {
-            no_payload: stats.num_no_payload as usize,
-            txs_confirmed: stats.num_confirmed as usize,
-            txs_conflicting: stats.num_conflicting as usize,
-            tagged_data: stats.num_tagged_data_payload as usize,
-            milestone: stats.num_milestone_payload as usize,
-        },
-    })
-}
-
 async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
     let res = database
@@ -232,4 +208,35 @@ async fn milestones(
     });
 
     Ok(MilestonesResponse { items, cursor })
+}
+
+async fn milestone_analytics(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+) -> ApiResult<MilestoneAnalyticsResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let milestone_index = database
+        .collection::<MilestoneCollection>()
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?
+        .essence
+        .index;
+
+    let analytics = database
+        .collection::<BlockCollection>()
+        .get_milestone_analytics(&milestone_index)
+        .await?;
+
+    Ok(MilestoneAnalyticsResponse {
+        blocks: analytics.num_blocks as usize,
+        per_payload_type: MilestoneAnalyticsPerPayloadTypeDto {
+            no_payload: analytics.num_no_payload as usize,
+            txs_confirmed: 0, //analytics.num_confirmed as usize,
+            txs_conflicting: 0, //analytics.num_conflicting as usize,
+            tagged_data: 0, //analytics.num_tagged_data_payload as usize,
+            milestone: 0, //analytics.num_milestone_payload as usize,
+        },
+    })
 }

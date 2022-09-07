@@ -118,14 +118,14 @@ impl From<MilestoneResult> for MilestoneDto {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MilestoneStatsResponse {
+pub struct MilestoneAnalyticsResponse {
     pub blocks: usize,
-    pub per_payload_type: MilestoneStatsPerPayloadTypeDto,
+    pub per_payload_type: MilestoneAnalyticsPerPayloadTypeDto,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MilestoneStatsPerPayloadTypeDto {
+pub struct MilestoneAnalyticsPerPayloadTypeDto {
     pub no_payload: usize,
     pub txs_confirmed: usize,
     pub txs_conflicting: usize,
@@ -133,4 +133,4 @@ pub struct MilestoneStatsPerPayloadTypeDto {
     pub milestone: usize,
 }
 
-impl_success_response!(MilestoneStatsResponse);
+impl_success_response!(MilestoneAnalyticsResponse);

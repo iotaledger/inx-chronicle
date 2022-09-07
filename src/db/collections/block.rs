@@ -279,3 +279,58 @@ impl BlockCollection {
             .unwrap_or_default())
     }
 }
+
+/// The milestone's details (number of referenced blocks, ledger mutations etc.).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct MilestoneAnalyticsResult {
+    /// The number of blocks referenced by a milestone.
+    pub num_blocks: u32,
+    /// The number of blocks referenced by a milestone that contain no payload.
+    pub num_no_payload: u32,
+    /// The number of blocks referenced by a milestone that contain a payload.
+    pub num_tx_payload: u32,
+    /// The number of blocks containing a treasury transaction payload.
+    pub num_treasury_tx_payload: u32,
+    /// The number of blocks containing a tagged data payload.
+    pub num_tagged_data_payload: u32,
+    /// The number of blocks containing a milestone payload.
+    pub num_milestone_payload: u32,
+    /// The number of blocks containing a confirmed transaction.
+    pub num_confirmed: u32,
+    /// The number of blocks containing a conflicting transaction.
+    pub num_conflicting: u32,
+}
+
+impl BlockCollection {
+    /// Gets the [`MilestoneStats`] of a milestone.
+    pub async fn get_milestone_analytics(&self, index: &MilestoneIndex) -> Result<MilestoneAnalyticsResult, Error> {
+        Ok(self.aggregate(
+            vec![
+                doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                doc! { "$group": {
+                    "_id": null,
+                    "num_blocks": { "$count": {} },
+                    "num_no_payload": { "$sum": {
+                        "$cond": [ { "block.payload": { "$exists": false } }, 1 , 0 ]
+                    } },
+                } },
+                // doc! { "$project": {
+                //     "num_blocks": { "$toString": "$total_balance" },
+                //     "num_no_payload": { "$toString": "$sig_locked_balance" },
+                //     "num_tx_payload": { "$literal": ledger_index },
+                //     "num_treasury_tx_payload": { "$literal": ledger_index },
+                //     "num_tagged_data_payload": { "$literal": ledger_index },
+                //     "num_milestone_payload": { "$literal": ledger_index },
+                //     "num_confirmed": { "$literal": ledger_index },
+                //     "num_conflicting": { "$literal": ledger_index },
+                // } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?
+        .unwrap_or_default())
+    }
+
+}

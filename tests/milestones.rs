@@ -5,7 +5,7 @@ mod common;
 
 use bee_block_stardust as bee;
 use chronicle::{
-    db::collections::{MilestoneCollection, MilestoneStats},
+    db::collections::MilestoneCollection,
     types::stardust::{block::payload::MilestoneId, util::payload::milestone::get_test_milestone_payload},
 };
 use common::connect_to_test_db;
@@ -30,7 +30,6 @@ async fn test_milestones() {
             milestone.essence.index,
             milestone.essence.timestamp.into(),
             milestone.clone(),
-            MilestoneStats::default(),
         )
         .await
         .unwrap();
