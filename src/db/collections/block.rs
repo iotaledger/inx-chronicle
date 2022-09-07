@@ -287,18 +287,18 @@ pub struct MilestoneAnalyticsResult {
     pub num_blocks: u32,
     /// The number of blocks referenced by a milestone that contain no payload.
     pub num_no_payload: u32,
-    /// The number of blocks referenced by a milestone that contain a payload.
-    pub num_tx_payload: u32,
-    /// The number of blocks containing a treasury transaction payload.
-    pub num_treasury_tx_payload: u32,
-    /// The number of blocks containing a tagged data payload.
-    pub num_tagged_data_payload: u32,
-    /// The number of blocks containing a milestone payload.
-    pub num_milestone_payload: u32,
-    /// The number of blocks containing a confirmed transaction.
-    pub num_confirmed: u32,
-    /// The number of blocks containing a conflicting transaction.
-    pub num_conflicting: u32,
+    // /// The number of blocks referenced by a milestone that contain a payload.
+    // pub num_tx_payload: u32,
+    // /// The number of blocks containing a treasury transaction payload.
+    // pub num_treasury_tx_payload: u32,
+    // /// The number of blocks containing a tagged data payload.
+    // pub num_tagged_data_payload: u32,
+    // /// The number of blocks containing a milestone payload.
+    // pub num_milestone_payload: u32,
+    // /// The number of blocks containing a confirmed transaction.
+    // pub num_confirmed: u32,
+    // /// The number of blocks containing a conflicting transaction.
+    // pub num_conflicting: u32,
 }
 
 impl BlockCollection {
