@@ -233,10 +233,10 @@ async fn milestone_analytics(
         blocks: analytics.num_blocks as usize,
         per_payload_type: MilestoneAnalyticsPerPayloadTypeDto {
             no_payload: analytics.num_no_payload as usize,
-            txs_confirmed: 0, //analytics.num_confirmed as usize,
-            txs_conflicting: 0, //analytics.num_conflicting as usize,
-            tagged_data: 0, //analytics.num_tagged_data_payload as usize,
-            milestone: 0, //analytics.num_milestone_payload as usize,
+            txs_confirmed: 0,   // analytics.num_confirmed as usize,
+            txs_conflicting: 0, // analytics.num_conflicting as usize,
+            tagged_data: 0,     // analytics.num_tagged_data_payload as usize,
+            milestone: 0,       // analytics.num_milestone_payload as usize,
         },
     })
 }

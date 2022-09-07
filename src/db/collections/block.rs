@@ -79,6 +79,19 @@ impl BlockCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.referenced_by_milestone_index": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("block_referenced_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         Ok(())
     }
 
@@ -304,33 +317,33 @@ pub struct MilestoneAnalyticsResult {
 impl BlockCollection {
     /// Gets the [`MilestoneStats`] of a milestone.
     pub async fn get_milestone_analytics(&self, index: &MilestoneIndex) -> Result<MilestoneAnalyticsResult, Error> {
-        Ok(self.aggregate(
-            vec![
-                doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                doc! { "$group": {
-                    "_id": null,
-                    "num_blocks": { "$count": {} },
-                    "num_no_payload": { "$sum": {
-                        "$cond": [ { "$eq": [ "$block.payload", null ] }, 1 , 0 ]
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "num_blocks": { "$count": {} },
+                        "num_no_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload", null ] }, 1 , 0 ]
+                        } },
                     } },
-                } },
-                // doc! { "$project": {
-                //     "num_blocks": { "$toString": "$total_balance" },
-                //     "num_no_payload": { "$toString": "$sig_locked_balance" },
-                //     "num_tx_payload": { "$literal": ledger_index },
-                //     "num_treasury_tx_payload": { "$literal": ledger_index },
-                //     "num_tagged_data_payload": { "$literal": ledger_index },
-                //     "num_milestone_payload": { "$literal": ledger_index },
-                //     "num_confirmed": { "$literal": ledger_index },
-                //     "num_conflicting": { "$literal": ledger_index },
-                // } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await?
-        .unwrap_or_default())
+                    // doc! { "$project": {
+                    //     "num_blocks": { "$toString": "$total_balance" },
+                    //     "num_no_payload": { "$toString": "$sig_locked_balance" },
+                    //     "num_tx_payload": { "$literal": ledger_index },
+                    //     "num_treasury_tx_payload": { "$literal": ledger_index },
+                    //     "num_tagged_data_payload": { "$literal": ledger_index },
+                    //     "num_milestone_payload": { "$literal": ledger_index },
+                    //     "num_confirmed": { "$literal": ledger_index },
+                    //     "num_conflicting": { "$literal": ledger_index },
+                    // } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
     }
-
 }
