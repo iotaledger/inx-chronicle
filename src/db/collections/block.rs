@@ -315,7 +315,7 @@ pub struct PastConeStatsResult {
 }
 
 impl BlockCollection {
-    /// Gets the [`PastConeAnalyticsResult`] of a milestone.
+    /// Gets the [`PastConeStatsResult`] of a milestone.
     pub async fn get_past_cone_stats(&self, index: &MilestoneIndex) -> Result<PastConeStatsResult, Error> {
         Ok(self
             .aggregate(
