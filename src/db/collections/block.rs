@@ -311,8 +311,7 @@ impl BlockCollection {
                     "_id": null,
                     "num_blocks": { "$count": {} },
                     "num_no_payload": { "$sum": {
-                        // "$cond": [ { "block.payload": { "$ne": null } }, 1 , 0 ]
-                        "$cond": [ { "$ne": [ "$block.payload", null ] }, 1 , 0 ]
+                        "$cond": [ { "$eq": [ "$block.payload", null ] }, 1 , 0 ]
                     } },
                 } },
                 // doc! { "$project": {
