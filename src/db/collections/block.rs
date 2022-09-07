@@ -302,16 +302,16 @@ pub struct PastConeAnalyticsResult {
     pub num_no_payload: u32,
     /// The number of blocks referenced by a milestone that contain a payload.
     pub num_tx_payload: u32,
-    // /// The number of blocks containing a treasury transaction payload.
-    // pub num_treasury_tx_payload: u32,
-    // /// The number of blocks containing a tagged data payload.
-    // pub num_tagged_data_payload: u32,
-    // /// The number of blocks containing a milestone payload.
-    // pub num_milestone_payload: u32,
-    // /// The number of blocks containing a confirmed transaction.
-    // pub num_confirmed: u32,
-    // /// The number of blocks containing a conflicting transaction.
-    // pub num_conflicting: u32,
+    /// The number of blocks containing a treasury transaction payload.
+    pub num_treasury_tx_payload: u32,
+    /// The number of blocks containing a tagged data payload.
+    pub num_tagged_data_payload: u32,
+    /// The number of blocks containing a milestone payload.
+    pub num_milestone_payload: u32,
+    /// The number of blocks containing a confirmed transaction.
+    pub num_confirmed: u32,
+    /// The number of blocks containing a conflicting transaction.
+    pub num_conflicting: u32,
 }
 
 impl BlockCollection {
@@ -330,17 +330,22 @@ impl BlockCollection {
                         "num_tx_payload": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
                         } },
+                        "num_treasury_tx_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
+                        } },
+                        "num_tagged_data_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
+                        } },
+                        "num_milestone_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
+                        } },
+                        "num_confirmed": { "$sum": {
+                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
+                        } },
+                        "num_conflicting": { "$sum": {
+                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
+                        } },
                     } },
-                    // doc! { "$project": {
-                    //     "num_blocks": { "$toString": "$total_balance" },
-                    //     "num_no_payload": { "$toString": "$sig_locked_balance" },
-                    //     "num_tx_payload": { "$literal": ledger_index },
-                    //     "num_treasury_tx_payload": { "$literal": ledger_index },
-                    //     "num_tagged_data_payload": { "$literal": ledger_index },
-                    //     "num_milestone_payload": { "$literal": ledger_index },
-                    //     "num_confirmed": { "$literal": ledger_index },
-                    //     "num_conflicting": { "$literal": ledger_index },
-                    // } },
                 ],
                 None,
             )
