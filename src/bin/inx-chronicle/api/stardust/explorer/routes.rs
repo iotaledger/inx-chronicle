@@ -20,7 +20,7 @@ use super::{
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
-        MilestoneAnalyticsPerPayloadTypeDto, MilestoneAnalyticsResponse, MilestonesResponse,
+        MilestonesResponse, PastConeStatsPerPayloadTypeDto, PastConeStatsResponse,
     },
 };
 use crate::api::{extractors::Pagination, ApiError, ApiResult};
@@ -41,7 +41,7 @@ pub fn routes() -> Router {
                 )
                 .nest(
                     "/stats",
-                    Router::new().route("/by-milestone/:milestone_id", get(milestone_analytics)),
+                    Router::new().route("/by-milestone/:milestone_id", get(past_cone_stats)),
                 ),
         )
 }
@@ -210,10 +210,10 @@ async fn milestones(
     Ok(MilestonesResponse { items, cursor })
 }
 
-async fn milestone_analytics(
+async fn past_cone_stats(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
-) -> ApiResult<MilestoneAnalyticsResponse> {
+) -> ApiResult<PastConeStatsResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
 
     let milestone_index = database
@@ -224,19 +224,19 @@ async fn milestone_analytics(
         .essence
         .index;
 
-    let analytics = database
+    let counts = database
         .collection::<BlockCollection>()
-        .get_past_cone_analytics(&milestone_index)
+        .get_past_cone_stats(&milestone_index)
         .await?;
 
-    Ok(MilestoneAnalyticsResponse {
-        blocks: analytics.num_blocks as usize,
-        per_payload_type: MilestoneAnalyticsPerPayloadTypeDto {
-            no_payload: analytics.num_no_payload as usize,
-            txs_confirmed: analytics.num_confirmed as usize,
-            txs_conflicting: analytics.num_conflicting as usize,
-            tagged_data: analytics.num_tagged_data_payload as usize,
-            milestone: analytics.num_milestone_payload as usize,
+    Ok(PastConeStatsResponse {
+        blocks: counts.num_blocks as usize,
+        per_payload_type: PastConeStatsPerPayloadTypeDto {
+            no_payload: counts.num_no_payload as usize,
+            txs_confirmed: counts.num_confirmed as usize,
+            txs_conflicting: counts.num_conflicting as usize,
+            tagged_data: counts.num_tagged_data_payload as usize,
+            milestone: counts.num_milestone_payload as usize,
         },
     })
 }

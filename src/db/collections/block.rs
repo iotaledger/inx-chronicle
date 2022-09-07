@@ -293,9 +293,9 @@ impl BlockCollection {
     }
 }
 
-/// The milestone's past-cone analytics (number of referenced blocks, confirmations, conflicts etc.).
+/// Relevant milestone past-cone counts (number of referenced blocks, confirmations, conflicts etc.).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct PastConeAnalyticsResult {
+pub struct PastConeStatsResult {
     /// The number of blocks referenced by a milestone.
     pub num_blocks: u32,
     /// The number of blocks referenced by a milestone that contain no payload.
@@ -315,8 +315,8 @@ pub struct PastConeAnalyticsResult {
 }
 
 impl BlockCollection {
-    /// Gets the [`MilestoneStats`] of a milestone.
-    pub async fn get_past_cone_analytics(&self, index: &MilestoneIndex) -> Result<PastConeAnalyticsResult, Error> {
+    /// Gets the [`PastConeAnalyticsResult`] of a milestone.
+    pub async fn get_past_cone_stats(&self, index: &MilestoneIndex) -> Result<PastConeStatsResult, Error> {
         Ok(self
             .aggregate(
                 vec![
