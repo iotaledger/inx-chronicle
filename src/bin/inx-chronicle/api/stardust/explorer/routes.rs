@@ -226,7 +226,7 @@ async fn milestone_analytics(
 
     let analytics = database
         .collection::<BlockCollection>()
-        .get_milestone_analytics(&milestone_index)
+        .get_past_cone_analytics(&milestone_index)
         .await?;
 
     Ok(MilestoneAnalyticsResponse {

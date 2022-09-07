@@ -293,15 +293,15 @@ impl BlockCollection {
     }
 }
 
-/// The milestone's details (number of referenced blocks, ledger mutations etc.).
+/// The milestone's past-cone analytics (number of referenced blocks, confirmations, conflicts etc.).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct MilestoneAnalyticsResult {
+pub struct PastConeAnalyticsResult {
     /// The number of blocks referenced by a milestone.
     pub num_blocks: u32,
     /// The number of blocks referenced by a milestone that contain no payload.
     pub num_no_payload: u32,
-    // /// The number of blocks referenced by a milestone that contain a payload.
-    // pub num_tx_payload: u32,
+    /// The number of blocks referenced by a milestone that contain a payload.
+    pub num_tx_payload: u32,
     // /// The number of blocks containing a treasury transaction payload.
     // pub num_treasury_tx_payload: u32,
     // /// The number of blocks containing a tagged data payload.
@@ -316,7 +316,7 @@ pub struct MilestoneAnalyticsResult {
 
 impl BlockCollection {
     /// Gets the [`MilestoneStats`] of a milestone.
-    pub async fn get_milestone_analytics(&self, index: &MilestoneIndex) -> Result<MilestoneAnalyticsResult, Error> {
+    pub async fn get_past_cone_analytics(&self, index: &MilestoneIndex) -> Result<PastConeAnalyticsResult, Error> {
         Ok(self
             .aggregate(
                 vec![
@@ -326,6 +326,9 @@ impl BlockCollection {
                         "num_blocks": { "$count": {} },
                         "num_no_payload": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload", null ] }, 1 , 0 ]
+                        } },
+                        "num_tx_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
                         } },
                     } },
                     // doc! { "$project": {
