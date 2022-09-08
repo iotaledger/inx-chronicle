@@ -293,7 +293,6 @@ impl BlockCollection {
     }
 }
 
-/// Relevant milestone past-cone counts (number of referenced blocks, confirmations, conflicts etc.).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PastConeStatsResult {
     /// The number of blocks referenced by a milestone.
@@ -315,7 +314,7 @@ pub struct PastConeStatsResult {
 }
 
 impl BlockCollection {
-    /// Gets the [`PastConeStatsResult`] of a milestone.
+    /// Gathers past-cone stats for a given milestone.
     pub async fn get_past_cone_stats(&self, index: &MilestoneIndex) -> Result<PastConeStatsResult, Error> {
         Ok(self
             .aggregate(
