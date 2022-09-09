@@ -1,3 +1,11 @@
+## [1.0.0-beta.15](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.14...v1.0.0-beta.15) (2022-09-09)
+
+
+### Bug Fixes
+
+* **ci:** start mongo in coverage CI ([cbca6a3](https://github.com/iotaledger/inx-chronicle/commit/cbca6a3ad43126ae0b236dd00e26d21ea581b184))
+* **config:** fix wrong config reset ([#642](https://github.com/iotaledger/inx-chronicle/issues/642)) ([9c468dd](https://github.com/iotaledger/inx-chronicle/commit/9c468dd6c758706b76191fc42e9ab75f3b9c1b99))
+
 ## [1.0.0-beta.14](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.13...v1.0.0-beta.14) (2022-08-30)
 
 
