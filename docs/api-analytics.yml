@@ -127,6 +127,24 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/ledger/stats/by-milestone/{milestone-id}:
+    get:
+      tags:
+        - ledger
+      summary: Returns milestone statistics.
+      description: >-
+        Returns various interesting counts that have been calculated for a given milestone for analysis.
+      parameters:
+        - $ref: "#/components/parameters/milestoneId"
+      responses:
+        "200":
+          $ref: "#/components/responses/MilestoneStatsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/addresses:
     get:
       tags:
@@ -508,6 +526,28 @@ components:
               - totalBalance
       required:
         - distribution
+    MilestoneStatsResponse:
+      description: Milestone statistics.
+      properties:
+        blocks:
+          type: usize
+          description: The number of blocks referenced by a milestone.
+        perPayloadType:
+          noPayload:
+            type: usize
+            description: The number of blocks referenced by a milestone that contain no payload.
+          txsConfirmed:
+            type: usize
+            description: The number of blocks containing a confirmed transaction.
+          txsConflicting:
+            type: usize
+            description: The number of blocks containing a conflicting transaction.
+          taggedData:
+            type: usize
+            description: The number of blocks containing a tagged data payload.
+          milestone:
+            type: usize
+            description: The number of blocks containing a milestone payload.
   responses:
     Block:
       description: Successful operation.
