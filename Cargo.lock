@@ -187,6 +187,7 @@ version = "1.0.0-beta.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ee8f42eece01082cb68ac6b56395799a4d1cf59efe223000fabd0aa2da3e612"
 dependencies = [
+ "axum",
  "bee-block",
  "bee-ledger-types",
  "serde",
