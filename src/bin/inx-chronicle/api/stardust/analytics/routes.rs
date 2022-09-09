@@ -1,24 +1,32 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{routing::get, Extension, Router};
+use std::str::FromStr;
+
+use axum::{extract::Path, routing::get, Extension, Router};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{BlockCollection, OutputCollection, OutputKind, PayloadKind, ProtocolUpdateCollection},
+        collections::{
+            BlockCollection, MilestoneAnalyticsCollection, OutputCollection, OutputKind, PayloadKind,
+            ProtocolUpdateCollection,
+        },
         MongoDb,
     },
     types::stardust::block::{
         output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-        payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
+        payload::{
+            milestone::MilestoneId, MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload,
+        },
     },
 };
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, OutputAnalyticsResponse,
-        RichestAddressesResponse, StorageDepositAnalyticsResponse, TokenAnalyticsResponse, TokenDistributionResponse,
+        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, MilestoneStatsPerPayloadTypeDto,
+        MilestoneStatsResponse, OutputAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
+        TokenAnalyticsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{error::InternalApiError, ApiError, ApiResult};
@@ -32,7 +40,11 @@ pub fn routes() -> Router {
                 .route("/native-tokens", get(unspent_output_ledger_analytics::<FoundryOutput>))
                 .route("/nfts", get(unspent_output_ledger_analytics::<NftOutput>))
                 .route("/richest-addresses", get(richest_addresses_ledger_analytics))
-                .route("/token-distribution", get(token_distribution_ledger_analytics)),
+                .route("/token-distribution", get(token_distribution_ledger_analytics))
+                .nest(
+                    "/stats",
+                    Router::new().route("/by-milestone/:milestone_id", get(milestone_stats)),
+                ),
         )
         .nest(
             "/activity",
@@ -227,5 +239,29 @@ async fn token_distribution_ledger_analytics(
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
         ledger_index: res.ledger_index.0,
+    })
+}
+
+async fn milestone_stats(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+) -> ApiResult<MilestoneStatsResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let stats = database
+        .collection::<MilestoneAnalyticsCollection>()
+        .get_milestone_stats(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+
+    Ok(MilestoneStatsResponse {
+        blocks: stats.num_blocks as usize,
+        per_payload_type: MilestoneStatsPerPayloadTypeDto {
+            no_payload: stats.num_no_payload as usize,
+            txs_confirmed: stats.num_confirmed as usize,
+            txs_conflicting: stats.num_conflicting as usize,
+            tagged_data: stats.num_tagged_data_payload as usize,
+            milestone: stats.num_milestone_payload as usize,
+        },
     })
 }

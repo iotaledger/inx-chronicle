@@ -6,10 +6,7 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{
-        collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneAnalyticsCollection, MilestoneCollection,
-            OutputCollection,
-        },
+        collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
         MongoDb,
     },
     types::stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
@@ -23,7 +20,7 @@ use super::{
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
-        MilestoneStatsPerPayloadTypeDto, MilestoneStatsResponse, MilestonesResponse,
+        MilestonesResponse,
     },
 };
 use crate::api::{extractors::Pagination, ApiError, ApiResult};
@@ -34,18 +31,10 @@ pub fn routes() -> Router {
         .route("/blocks/:block_id/children", get(block_children))
         .route("/milestones", get(milestones))
         .nest(
-            "/ledger",
+            "/ledger/updates",
             Router::new()
-                .nest(
-                    "/updates",
-                    Router::new()
-                        .route("/by-address/:address", get(ledger_updates_by_address))
-                        .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-                )
-                .nest(
-                    "/stats",
-                    Router::new().route("/by-milestone/:milestone_id", get(milestone_stats)),
-                ),
+                .route("/by-address/:address", get(ledger_updates_by_address))
+                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
         )
 }
 
@@ -135,30 +124,6 @@ async fn ledger_updates_by_milestone(
         milestone_index,
         items,
         cursor,
-    })
-}
-
-async fn milestone_stats(
-    database: Extension<MongoDb>,
-    Path(milestone_id): Path<String>,
-) -> ApiResult<MilestoneStatsResponse> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
-
-    let stats = database
-        .collection::<MilestoneAnalyticsCollection>()
-        .get_milestone_stats(&milestone_id)
-        .await?
-        .ok_or(ApiError::NotFound)?;
-
-    Ok(MilestoneStatsResponse {
-        blocks: stats.num_blocks as usize,
-        per_payload_type: MilestoneStatsPerPayloadTypeDto {
-            no_payload: stats.num_no_payload as usize,
-            txs_confirmed: stats.num_confirmed as usize,
-            txs_conflicting: stats.num_conflicting as usize,
-            tagged_data: stats.num_tagged_data_payload as usize,
-            milestone: stats.num_milestone_payload as usize,
-        },
     })
 }
 
