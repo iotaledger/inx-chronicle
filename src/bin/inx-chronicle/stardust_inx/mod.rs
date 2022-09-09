@@ -318,7 +318,7 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
             Result::<_, InxError>::Ok((
                 metadata.block_id.into(),
-                block.clone().inner()?.into(),
+                block.clone().inner(&())?.into(),
                 block.data(),
                 metadata.into(),
             ))
