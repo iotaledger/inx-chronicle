@@ -7,6 +7,8 @@ mod block;
 mod ledger_update;
 /// Module containing the Milestone document model.
 mod milestone;
+/// Module containing the MilestoneStats model.
+mod milestone_stats;
 /// Module containing Block outputs.
 mod outputs;
 /// Module containing the protocol parameters collection.
@@ -21,7 +23,8 @@ use thiserror::Error;
 pub use self::{
     block::BlockCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
-    milestone::{MilestoneCollection, MilestoneResult, MilestoneStats, SyncData},
+    milestone::{MilestoneCollection, MilestoneResult, SyncData},
+    milestone_stats::{MilestoneAnalyticsCollection, MilestoneStats},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,

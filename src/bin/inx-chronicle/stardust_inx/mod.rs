@@ -11,8 +11,8 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, MilestoneStats, OutputCollection,
-            ProtocolUpdateCollection, TreasuryCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneAnalyticsCollection, MilestoneCollection, MilestoneStats,
+            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -333,7 +333,7 @@ async fn handle_milestone(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-    stats: MilestoneStats,
+    milestone_stats: MilestoneStats,
 ) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
@@ -352,7 +352,11 @@ async fn handle_milestone(
     );
 
     db.collection::<MilestoneCollection>()
-        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload, stats)
+        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+        .await?;
+
+    db.collection::<MilestoneAnalyticsCollection>()
+        .insert_milestone_stats(milestone_id, milestone_stats)
         .await?;
 
     metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);

@@ -6,7 +6,10 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{
-        collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
+        collections::{
+            BlockCollection, LedgerUpdateCollection, MilestoneAnalyticsCollection, MilestoneCollection,
+            OutputCollection,
+        },
         MongoDb,
     },
     types::stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
@@ -142,7 +145,7 @@ async fn milestone_stats(
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
 
     let stats = database
-        .collection::<MilestoneCollection>()
+        .collection::<MilestoneAnalyticsCollection>()
         .get_milestone_stats(&milestone_id)
         .await?
         .ok_or(ApiError::NotFound)?;

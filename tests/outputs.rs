@@ -5,9 +5,7 @@ mod common;
 
 use bee_block_stardust as bee;
 use chronicle::{
-    db::collections::{
-        MilestoneCollection, MilestoneStats, OutputCollection, OutputMetadataResult, OutputWithMetadataResult,
-    },
+    db::collections::{MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
         stardust::{
@@ -68,7 +66,6 @@ async fn test_outputs() {
             milestone.essence.index,
             milestone.essence.timestamp.into(),
             milestone.clone(),
-            MilestoneStats::default(),
         )
         .await
         .unwrap();
