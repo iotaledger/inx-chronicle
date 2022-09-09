@@ -156,7 +156,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             version: protocol.version,
             network_name: protocol.network_name,
             bech32_hrp: protocol.bech32_hrp,
-            min_pow_score: protocol.min_pow_score as f64,
+            min_pow_score: protocol.min_pow_score,
             rent_structure: RentStructureResponse {
                 v_byte_cost: protocol.rent_structure.v_byte_cost,
                 v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,

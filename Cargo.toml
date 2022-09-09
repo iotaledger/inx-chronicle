@@ -59,7 +59,7 @@ ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_b
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
 lazy_static = { version = "1.4", default-features = false, optional = true }
-packable = { version = "0.5", default-features = false, optional = true }
+packable = { version = "=0.6.1", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
 regex = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
@@ -68,7 +68,7 @@ tower-http = { version = "0.3", default-features = false, features = [ "cors", "
 zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 
 # INX
-bee-inx = { version = "1.0.0-beta.4", default-features = false, optional = true }
+bee-inx = { version = "1.0.0-beta.5", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
@@ -77,14 +77,14 @@ metrics-exporter-prometheus = { version = "0.11.0", default-features = false, fe
 metrics-util = { version = "0.14.0", default-features = false }
 
 # Stardust types
-bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "rand", "std", "serde" ], optional = true }
+bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.7", default-features = false, features = ["axum"], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "rand", "std", "serde" ], optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-packable = { version = "0.5", default-features = false }
+packable = { version = "=0.6.1", default-features = false }
 
 [features]
 default = [ 
