@@ -230,8 +230,8 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         // Record the result as part of the current span.
         tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
-        tracing::Span::current().record("created", &ledger_update.created.len());
-        tracing::Span::current().record("consumed", &ledger_update.consumed.len());
+        tracing::Span::current().record("created", ledger_update.created.len());
+        tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
         insert_unspent_outputs(&self.db, ledger_update.created).await?;
         update_spent_outputs(&self.db, ledger_update.consumed).await?;
