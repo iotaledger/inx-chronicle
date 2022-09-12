@@ -20,7 +20,7 @@ use super::{
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
-        MilestonesResponse, PastConeStatsPerPayloadTypeDto, PastConeStatsResponse,
+        MilestonesResponse,
     },
 };
 use crate::api::{extractors::Pagination, ApiError, ApiResult};
@@ -31,18 +31,10 @@ pub fn routes() -> Router {
         .route("/blocks/:block_id/children", get(block_children))
         .route("/milestones", get(milestones))
         .nest(
-            "/ledger",
+            "/ledger/updates",
             Router::new()
-                .nest(
-                    "/updates",
-                    Router::new()
-                        .route("/by-address/:address", get(ledger_updates_by_address))
-                        .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
-                )
-                .nest(
-                    "/stats",
-                    Router::new().route("/by-milestone/:milestone_id", get(past_cone_stats)),
-                ),
+                .route("/by-address/:address", get(ledger_updates_by_address))
+                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
         )
 }
 
@@ -208,35 +200,4 @@ async fn milestones(
     });
 
     Ok(MilestonesResponse { items, cursor })
-}
-
-async fn past_cone_stats(
-    database: Extension<MongoDb>,
-    Path(milestone_id): Path<String>,
-) -> ApiResult<PastConeStatsResponse> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
-
-    let milestone_index = database
-        .collection::<MilestoneCollection>()
-        .get_milestone_payload_by_id(&milestone_id)
-        .await?
-        .ok_or(ApiError::NotFound)?
-        .essence
-        .index;
-
-    let stats = database
-        .collection::<BlockCollection>()
-        .get_past_cone_stats(&milestone_index)
-        .await?;
-
-    Ok(PastConeStatsResponse {
-        blocks: stats.num_blocks as usize,
-        per_payload_type: PastConeStatsPerPayloadTypeDto {
-            no_payload: stats.num_no_payload as usize,
-            txs_confirmed: stats.num_confirmed as usize,
-            txs_conflicting: stats.num_conflicting as usize,
-            tagged_data: stats.num_tagged_data_payload as usize,
-            milestone: stats.num_milestone_payload as usize,
-        },
-    })
 }

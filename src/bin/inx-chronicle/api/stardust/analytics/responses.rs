@@ -30,14 +30,6 @@ impl_success_response!(OutputAnalyticsResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlockAnalyticsResponse {
-    pub count: String,
-}
-
-impl_success_response!(BlockAnalyticsResponse);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct StorageDepositAnalyticsResponse {
     pub output_count: String,
     pub storage_deposit_return_count: String,
@@ -102,3 +94,30 @@ impl From<DistributionStat> for DistributionStatDto {
         }
     }
 }
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MilestoneActivityResponse {
+    pub blocks_count: u32,
+    pub per_payload_type: ActivityPerPayloadTypeDto,
+    pub per_inclusion_state: ActivityPerInclusionStateDto,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityPerPayloadTypeDto {
+    pub tx_payload_count: u32,
+    pub treasury_tx_payload_count: u32,
+    pub milestone_payload_count: u32,
+    pub tagged_data_payload_count: u32,
+    pub no_payload_count: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityPerInclusionStateDto {
+    pub confirmed_tx_count: u32,
+    pub conflicting_tx_count: u32,
+    pub no_tx_count: u32,
+}
+
+impl_success_response!(MilestoneActivityResponse);
