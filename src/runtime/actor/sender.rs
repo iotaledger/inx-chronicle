@@ -54,24 +54,6 @@ impl<E> IsClosed for tokio::sync::mpsc::UnboundedSender<E> {
     }
 }
 
-#[cfg(feature = "metrics-debug")]
-impl<A> Sender<Envelope<A>> for bee_metrics::metrics::sync::mpsc::UnboundedSender<Envelope<A>>
-where
-    A: Actor,
-{
-    fn send(&self, event: Envelope<A>) -> Result<(), RuntimeError> {
-        self.send(event)
-            .map_err(|_| RuntimeError::SendError("Failed to send event".into()))
-    }
-}
-
-#[cfg(feature = "metrics-debug")]
-impl<E> IsClosed for bee_metrics::metrics::sync::mpsc::UnboundedSender<E> {
-    fn is_closed(&self) -> bool {
-        self.is_closed()
-    }
-}
-
 impl<A, E> Sender<E> for Addr<A>
 where
     A: Actor,

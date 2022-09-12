@@ -7,7 +7,7 @@ use bee_block_stardust::address as bee;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::NftId;
+use crate::types::stardust::block::output::NftId;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]

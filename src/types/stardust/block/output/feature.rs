@@ -58,10 +58,11 @@ impl TryFrom<Feature> for bee::Feature {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
+    use crate::types::stardust::util::output::feature::*;
 
     #[test]
     fn test_feature_bson() {
@@ -80,25 +81,5 @@ pub(crate) mod test {
         let block = get_test_tag_block();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_sender_block(address: Address) -> Feature {
-        Feature::Sender { address }
-    }
-
-    pub(crate) fn get_test_issuer_block(address: Address) -> Feature {
-        Feature::Issuer { address }
-    }
-
-    pub(crate) fn get_test_metadata_block() -> Feature {
-        Feature::Metadata {
-            data: "Foo".as_bytes().to_vec().into_boxed_slice(),
-        }
-    }
-
-    pub(crate) fn get_test_tag_block() -> Feature {
-        Feature::Tag {
-            data: "Bar".as_bytes().to_vec().into_boxed_slice(),
-        }
     }
 }

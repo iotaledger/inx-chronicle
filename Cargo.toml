@@ -1,13 +1,13 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.10"
-authors = ["IOTA Stiftung"]
+version = "1.0.0-beta.15"
+authors = [ "IOTA Stiftung" ]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
 readme = "README.md"
 repository = "https://github.com/iotaledger/inx-chronicle"
 license = "Apache-2.0"
-keywords = ["iota", "storage", "permanode", "chronicle", "inx"]
+keywords = [ "iota", "storage", "permanode", "chronicle", "inx" ]
 homepage = "https://www.iota.org"
 rust-version = "1.60"
 
@@ -17,7 +17,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "inx-chronicle"
-path = "bin/inx-chronicle/src/main.rs"
+path = "src/bin/inx-chronicle/main.rs"
 
 [dependencies]
 
@@ -32,70 +32,70 @@ dyn-clone = { version = "1.0", default-features = false }
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
-mongodb = { version = "2.2", default-features = false, features = ["tokio-runtime"] }
+mongodb = { version = "2.2", default-features = false, features = [ "tokio-runtime" ] }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.4.0", default-features = false, features = [ "primitive-types" ] }
 primitive-types = { version = "0.11", default-features = false }
-serde = { version = "1.0", features = ["derive"], default-features = false }
+serde = { version = "1.0", features = [ "derive" ], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
-serde_json = { version = "1.0", default-features = false, features = ["std"] }
+serde_json = { version = "1.0", default-features = false, features = [ "std" ] }
 thiserror = { version = "1.0", default-features = false }
-time = { version = "0.3", default-features = false, features = ["std"] }
+time = { version = "0.3", default-features = false, features = [ "std" ] }
 tokio = { version = "1.19", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
-tracing = { version = "0.1", default-features = false, features = ["std", "attributes"] }
-tracing-futures = { version = "0.2", default-features = false, features = ["std", "std-future"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "ansi", "smallvec", "tracing-log", "local-time", "env-filter"] }
+tracing = { version = "0.1", default-features = false, features = [ "std", "attributes" ] }
+tracing-futures = { version = "0.2", default-features = false, features = [ "std", "std-future" ] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [ "std", "fmt", "ansi", "smallvec", "tracing-log", "local-time", "env-filter" ] }
 uint = { version = "0.9", default-features = false }
 url = { version = "2.2", default-features = false }
-uuid = { version = "1.1", default-features = false, features = ["v4"] }
+uuid = { version = "1.1", default-features = false, features = [ "v4" ] }
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
-axum = { version = "0.5", default-features = false, features = ["http1", "json", "query", "original-uri", "headers"], optional = true }
-ed25519 = { version = "1.5", default-features = false, features = ["alloc", "pkcs8", "pem"], optional = true }
-ed25519-dalek = { version = "1.0", default-features = false, features = ["u64_backend"], optional = true }
+axum = { version = "0.5", default-features = false, features = [ "http1", "json", "query", "original-uri", "headers" ], optional = true }
+ed25519 = { version = "1.5", default-features = false, features = [ "alloc", "pkcs8", "pem" ], optional = true }
+ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_backend" ], optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
-hyper = { version = "0.14", default-features = false, features = ["server", "tcp", "stream"], optional = true }
+hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
 lazy_static = { version = "1.4", default-features = false, optional = true }
-packable = { version = "0.5", default-features = false, optional = true }
-rand = { version = "0.8", default-features = false, features = ["std"], optional = true }
-regex = { version = "1.5", default-features = false, features = ["std"], optional = true }
+packable = { version = "=0.6.1", default-features = false, optional = true }
+rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
+regex = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
-tower-http = { version = "0.3", default-features = false, features = ["cors", "catch-panic", "trace"], optional = true }
-zeroize = { version = "1.5", default-features = false, features = ["std"], optional = true }
+tower-http = { version = "0.3", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
+zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 
 # INX
-bee-inx = { version = "1.0.0-beta.4", default-features = false, optional = true }
+bee-inx = { version = "1.0.0-beta.5", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
-bee-metrics = { git = "https://github.com/iotaledger/bee", branch = "mainnet-develop-0.4", default-features = false, features = ["sync"], optional = true }
+metrics = { version = "0.20.0", default-features = false }
+metrics-exporter-prometheus = { version = "0.11.0", default-features = false, features = [ "http-listener", "tokio" ] }
+metrics-util = { version = "0.14.0", default-features = false }
 opentelemetry = { version = "0.17", default-features = false, features = ["trace", "rt-tokio"], optional = true }
 opentelemetry-jaeger = { version = "0.16", default-features = false, features = ["rt-tokio"], optional = true }
 tracing-opentelemetry = { version = "0.17", default-features = false, features = ["tracing-log"], optional = true }
 
 # Stardust types
-bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.4", default-features = false, optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "std", "serde", ], optional = true }
+bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.7", default-features = false, features = ["axum"], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "rand", "std", "serde" ], optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.5", default-features = false, features = [ "dto", "rand", "std", "serde", ] }
-packable = { version = "0.5", default-features = false }
+packable = { version = "=0.6.1", default-features = false }
 
 [features]
-default = [
+default = [ 
     "api",
     "inx",
-    "metrics",
     "stardust",
 ]
-api = [ 
+api = [
     "dep:auth-helper",
     "dep:axum",
     "dep:ed25519",
@@ -113,23 +113,18 @@ api = [
     "dep:zeroize",
     "stardust",
 ]
-console = [
+console = [ 
     "dep:console-subscriber",
     "tokio/tracing",
 ]
-inx = [
+inx = [ 
     "dep:bee-inx",
     "dep:tonic",
 ]
-metrics = [
-    "dep:bee-metrics",
+opentelemetry = [
     "dep:opentelemetry",
     "dep:opentelemetry-jaeger",
     "dep:tracing-opentelemetry",
-]
-# The following feature enables metrics that can be used to debug the runtime.
-metrics-debug = [
-    "metrics",
 ]
 stardust = [
     "dep:bee-block-stardust",

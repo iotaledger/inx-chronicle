@@ -3,13 +3,17 @@
 
 //! Holds the `MongoDb` type and its config.
 
+use std::borrow::Borrow;
+
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential, TransactionOptions},
-    Client, ClientSession,
+    options::{ClientOptions, Credential, InsertManyOptions},
+    Client,
 };
 use serde::{Deserialize, Serialize};
+
+const DUPLICATE_KEY_CODE: i32 = 11000;
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
@@ -23,10 +27,11 @@ impl MongoDb {
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<MongoDb, Error> {
+    pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.connect_url).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
+        client_options.min_pool_size = config.min_pool_size;
 
         if let (Some(username), Some(password)) = (&config.username, &config.password) {
             let credential = Credential::builder()
@@ -38,19 +43,15 @@ impl MongoDb {
 
         let client = Client::with_options(client_options)?;
 
-        let db = client.database(&config.database_name);
-
-        Ok(MongoDb { db, client })
+        Ok(Self {
+            db: client.database(&config.database_name),
+            client,
+        })
     }
 
-    /// Starts a transaction.
-    pub async fn start_transaction(
-        &self,
-        options: impl Into<Option<TransactionOptions>>,
-    ) -> Result<ClientSession, Error> {
-        let mut session = self.client.start_session(None).await?;
-        session.start_transaction(options).await?;
-        Ok(session)
+    /// Gets a collection of the provided type with the given name.
+    pub fn collection<T>(&self, name: impl AsRef<str>) -> MongoDbCollection<T> {
+        MongoDbCollection(self.db.collection(name.as_ref()))
     }
 
     /// Clears all the collections from the database.
@@ -62,6 +63,11 @@ impl MongoDb {
         }
 
         Ok(())
+    }
+
+    /// Drops the database.
+    pub async fn drop(self) -> Result<(), Error> {
+        self.db.drop(None).await
     }
 
     /// Returns the storage size of the database.
@@ -100,6 +106,47 @@ impl MongoDb {
     }
 }
 
+pub struct MongoDbCollection<T>(mongodb::Collection<T>);
+
+pub struct InsertResult {
+    pub ignored: usize,
+}
+
+impl<T: Serialize> MongoDbCollection<T> {
+    /// Inserts many records and ignores duplicate key errors.
+    pub async fn insert_many_ignore_duplicates(
+        &self,
+        docs: impl IntoIterator<Item = impl Borrow<T>>,
+        options: impl Into<Option<InsertManyOptions>>,
+    ) -> Result<InsertResult, Error> {
+        use mongodb::error::ErrorKind;
+        match self.insert_many(docs, options).await {
+            Ok(_) => Ok(InsertResult { ignored: 0 }),
+            Err(e) => match &*e.kind {
+                ErrorKind::BulkWrite(b) => {
+                    if let Some(write_errs) = &b.write_errors {
+                        if write_errs.iter().all(|e| e.code == DUPLICATE_KEY_CODE) {
+                            return Ok(InsertResult {
+                                ignored: write_errs.len(),
+                            });
+                        }
+                    }
+                    Err(e)
+                }
+                _ => Err(e),
+            },
+        }
+    }
+}
+
+impl<T> std::ops::Deref for MongoDbCollection<T> {
+    type Target = mongodb::Collection<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// The [`MongoDb`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -113,6 +160,8 @@ pub struct MongoDbConfig {
     pub password: Option<String>,
     /// The name of the database to connect to.
     pub database_name: String,
+    /// The minimum amount of connections in the pool.
+    pub min_pool_size: Option<u32>,
 }
 
 impl Default for MongoDbConfig {
@@ -122,6 +171,7 @@ impl Default for MongoDbConfig {
             username: None,
             password: None,
             database_name: MongoDb::DEFAULT_NAME.to_string(),
+            min_pool_size: None,
         }
     }
 }

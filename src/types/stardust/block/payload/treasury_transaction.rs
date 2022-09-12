@@ -4,7 +4,7 @@
 use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 
-use super::MilestoneId;
+use super::milestone::MilestoneId;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
@@ -34,25 +34,16 @@ impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
+    use crate::types::stardust::util::payload::treasury_transaction::get_test_treasury_transaction_payload;
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
         let payload = get_test_treasury_transaction_payload();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TreasuryTransactionPayload>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_treasury_transaction_payload() -> TreasuryTransactionPayload {
-        TreasuryTransactionPayload::from(
-            &bee::TreasuryTransactionPayload::new(
-                bee_block_stardust::rand::input::rand_treasury_input(),
-                bee_block_stardust::rand::output::rand_treasury_output(),
-            )
-            .unwrap(),
-        )
     }
 }

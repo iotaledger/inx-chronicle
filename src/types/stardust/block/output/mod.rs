@@ -6,11 +6,11 @@ mod native_token;
 mod unlock_condition;
 
 // The different output types
-mod alias;
-mod basic;
-mod foundry;
-mod nft;
-pub(crate) mod treasury;
+pub mod alias;
+pub mod basic;
+pub mod foundry;
+pub mod nft;
+pub mod treasury;
 
 use std::str::FromStr;
 
@@ -28,7 +28,7 @@ pub use self::{
     treasury::TreasuryOutput,
 };
 use super::Address;
-use crate::types::{ledger::RentStructureBytes, stardust::block::TransactionId};
+use crate::types::{ledger::RentStructureBytes, stardust::block::payload::transaction::TransactionId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
@@ -227,10 +227,11 @@ impl TryFrom<Output> for bee::dto::OutputDto {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
-    use super::{alias, basic, foundry, nft, *};
+    use super::*;
+    use crate::types::stardust::util::output::*;
 
     #[test]
     fn test_output_id_bson() {
@@ -262,21 +263,5 @@ pub(crate) mod test {
         ));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_alias_output() -> Output {
-        Output::Alias(alias::test::get_test_alias_output())
-    }
-
-    pub(crate) fn get_test_basic_output() -> Output {
-        Output::Basic(basic::test::get_test_basic_output())
-    }
-
-    pub(crate) fn get_test_foundry_output() -> Output {
-        Output::Foundry(foundry::test::get_test_foundry_output())
-    }
-
-    pub(crate) fn get_test_nft_output() -> Output {
-        Output::Nft(nft::test::get_test_nft_output())
     }
 }

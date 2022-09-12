@@ -139,19 +139,11 @@ impl TryFrom<NftOutput> for bee::NftOutput {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
-    use bee_block_stardust::rand::output::unlock_condition::rand_address_unlock_condition;
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::block::output::{
-        feature::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block, get_test_tag_block},
-        native_token::test::get_test_native_token,
-        unlock_condition::test::{
-            rand_expiration_unlock_condition, rand_storage_deposit_return_unlock_condition,
-            rand_timelock_unlock_condition,
-        },
-    };
+    use crate::types::stardust::util::output::nft::*;
 
     #[test]
     fn test_nft_id_bson() {
@@ -166,38 +158,5 @@ pub(crate) mod test {
         let output = get_test_nft_output();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
-    }
-
-    pub(crate) fn rand_nft_id() -> bee::NftId {
-        bee_block_stardust::rand::bytes::rand_bytes_array().into()
-    }
-
-    pub(crate) fn get_test_nft_output() -> NftOutput {
-        NftOutput::from(
-            &bee::NftOutput::build_with_amount(100, rand_nft_id())
-                .unwrap()
-                .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
-                .with_unlock_conditions([
-                    rand_address_unlock_condition().into(),
-                    rand_storage_deposit_return_unlock_condition().into(),
-                    rand_timelock_unlock_condition().into(),
-                    rand_expiration_unlock_condition().into(),
-                ])
-                .with_features(vec![
-                    get_test_sender_block(bee_block_stardust::rand::address::rand_address().into())
-                        .try_into()
-                        .unwrap(),
-                    get_test_metadata_block().try_into().unwrap(),
-                    get_test_tag_block().try_into().unwrap(),
-                ])
-                .with_immutable_features(vec![
-                    get_test_issuer_block(bee_block_stardust::rand::address::rand_address().into())
-                        .try_into()
-                        .unwrap(),
-                    get_test_metadata_block().try_into().unwrap(),
-                ])
-                .finish()
-                .unwrap(),
-        )
     }
 }

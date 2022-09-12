@@ -119,10 +119,11 @@ impl TryFrom<NativeToken> for bee::NativeToken {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
+    use crate::types::stardust::util::output::native_token::*;
 
     #[test]
     fn test_token_id_bson() {
@@ -136,15 +137,5 @@ pub(crate) mod test {
         let native_token = get_test_native_token();
         let bson = to_bson(&native_token).unwrap();
         assert_eq!(native_token, from_bson::<NativeToken>(bson).unwrap());
-    }
-
-    pub(crate) fn rand_token_id() -> bee::TokenId {
-        bee_block_stardust::rand::bytes::rand_bytes_array().into()
-    }
-
-    pub(crate) fn get_test_native_token() -> NativeToken {
-        NativeToken::from(
-            &bee::NativeToken::new(bee_block_stardust::rand::bytes::rand_bytes_array().into(), 100.into()).unwrap(),
-        )
     }
 }
