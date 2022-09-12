@@ -2,14 +2,14 @@ name: ci
 
 on:
   push:
-    paths-ignore: 
+    paths-ignore:
       - "**.md"
       - "documentation/**"
       - "docker/**"
     branches:
       - main
   pull_request:
-    paths-ignore: 
+    paths-ignore:
       - "**.md"
       - "documentation/**"
       - "docker/**"
@@ -27,7 +27,7 @@ jobs:
   test-int:
     name: "integration tests"
     uses: ./.github/workflows/_test_int.yml
-    with: { os: ubuntu-latest, rust: stable, mongodb: "5.0" }
+    with: { os: ubuntu-latest, rust: stable, mongodb: "6.0" }
 
   format:
     uses: ./.github/workflows/_fmt.yml
