@@ -22,7 +22,7 @@ pub use self::{
 };
 use super::{OutputCollection, OutputDocument};
 use crate::{
-    db::{collections::SortOrder, mongodb::MongoCollectionExt},
+    db::{collections::SortOrder, mongodb::MongoDbCollectionExt},
     types::{
         ledger::OutputMetadata,
         stardust::block::output::{AliasId, FoundryId, NftId, OutputId},

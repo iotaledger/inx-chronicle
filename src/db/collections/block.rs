@@ -14,7 +14,7 @@ use tracing::instrument;
 use super::PayloadKind;
 use crate::{
     db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::{

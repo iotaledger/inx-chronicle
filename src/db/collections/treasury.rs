@@ -11,7 +11,7 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::{

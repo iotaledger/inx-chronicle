@@ -43,7 +43,7 @@ pub trait MongoDbCollection {
 /// [`Collection`](mongodb::Collection) that coerces the document type
 /// into the provided generic.
 #[async_trait]
-pub trait MongoCollectionExt: MongoDbCollection {
+pub trait MongoDbCollectionExt: MongoDbCollection {
     async fn create_index(
         &self,
         index: IndexModel,
@@ -112,7 +112,7 @@ pub trait MongoCollectionExt: MongoDbCollection {
         self.with_type().replace_one(query, replacement, options).await
     }
 }
-impl<T: MongoDbCollection> MongoCollectionExt for T {}
+impl<T: MongoDbCollection> MongoDbCollectionExt for T {}
 
 pub struct InsertResult {
     pub ignored: usize,
@@ -129,7 +129,7 @@ pub trait InsertIgnoreDuplicatesExt<T> {
 }
 
 #[async_trait]
-impl<T: MongoCollectionExt + Send + Sync, D: Serialize + Send + Sync> InsertIgnoreDuplicatesExt<D> for T {
+impl<T: MongoDbCollectionExt + Send + Sync, D: Serialize + Send + Sync> InsertIgnoreDuplicatesExt<D> for T {
     async fn insert_many_ignore_duplicates(
         &self,
         docs: impl IntoIterator<Item = impl Borrow<D> + Send + Sync> + Send + Sync,

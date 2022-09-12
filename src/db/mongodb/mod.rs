@@ -13,7 +13,7 @@ use mongodb::{
 };
 use serde::{Deserialize, Serialize};
 
-pub use self::collection::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection};
+pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 

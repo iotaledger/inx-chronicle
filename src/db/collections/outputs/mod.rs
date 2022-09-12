@@ -21,7 +21,7 @@ pub use self::indexer::{
 use super::{milestone::MilestoneCollection, protocol_update::ProtocolUpdateCollection, OutputKind};
 use crate::{
     db::{
-        mongodb::{InsertIgnoreDuplicatesExt, MongoCollectionExt, MongoDbCollection},
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::{

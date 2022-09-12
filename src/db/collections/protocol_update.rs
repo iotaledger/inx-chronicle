@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     db::{
-        mongodb::{MongoCollectionExt, MongoDbCollection},
+        mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::tangle::{MilestoneIndex, ProtocolParameters},

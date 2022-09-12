@@ -15,7 +15,7 @@ use tracing::instrument;
 
 use crate::{
     db::{
-        mongodb::{MongoCollectionExt, MongoDbCollection},
+        mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::{
