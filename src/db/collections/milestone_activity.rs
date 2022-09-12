@@ -71,49 +71,7 @@ impl MilestoneActivityCollection {
         Ok(())
     }
 
-    // /// Returns statistics for a given milestone.
-    // pub async fn get_milestone_activity(&self, milestone_id: &MilestoneId) -> Result<Option<MilestoneStats>, Error> {
-    //     self.aggregate(
-    //         vec![
-    //             doc! { "$match": { "_id": milestone_id } },
-    //             doc! { "$replaceWith": "$milestone_activity" },
-    //         ],
-    //         None,
-    //     )
-    //     .await?
-    //     .try_next()
-    //     .await
-    // }
-
-    /// Returns the activity statistics for a range of milestones.
-    pub async fn get_milestone_activity(
-        &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<MilestoneActivity, Error> {
-        let queries = vec![
-            doc! {
-            "$nor": [
-                { "metadata.referenced_by_milestone_index": { "$lt": start_index } },
-                { "metadata.referenced_by_milestone_index": { "$gte": end_index } },
-            ],
-        }];
-        Ok(self
-            .aggregate(
-                vec![doc! { 
-                    "$match": { "$and": queries 
-                } 
-                }, 
-                    doc! { "$count": "count" }],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .unwrap_or_default())
-    }
-
-    /// Inserts statistics associated with a milestone.
+    /// Inserts activity statistics associated with a milestone.
     #[instrument(skip(self, milestone_index), err, level = "trace")]
     pub async fn insert_milestone_activity(
         &self,
@@ -128,5 +86,41 @@ impl MilestoneActivityCollection {
         self.insert_one(milestone_analytics_document, None).await?;
 
         Ok(())
+    }
+
+    /// Returns the activity statistics for a range of milestones.
+    pub async fn get_milestone_activity(
+        &self,
+        start_index: Option<MilestoneIndex>,
+        end_index: Option<MilestoneIndex>,
+    ) -> Result<MilestoneActivity, Error> {
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "$nor": [
+                            { "milestone_index": { "$lt": start_index } },
+                            { "milestone_index": { "$gte": end_index } },
+                        ]
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "num_blocks": { "$sum": "$milestone_activity.num_blocks" },
+                        "num_tx_payload": { "$sum": "$milestone_activity.num_tx_payload" },
+                        "num_treasury_tx_payload": { "$sum": "$milestone_activity.num_treasury_tx_payload" },
+                        "num_milestone_payload": { "$sum": "$milestone_activity.num_milestone_payload" },
+                        "num_tagged_data_payload": { "$sum": "$milestone_activity.num_tagged_data_payload" },
+                        "num_no_payload": { "$sum": "$milestone_activity.num_no_payload" },
+                        "num_confirmed_tx": { "$sum": "$milestone_activity.num_confirmed_tx" },
+                        "num_conflicting_tx": { "$sum": "$milestone_activity.num_conflicting_tx" },
+                        "num_no_tx": { "$sum": "$milestone_activity.num_no_tx" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
     }
 }

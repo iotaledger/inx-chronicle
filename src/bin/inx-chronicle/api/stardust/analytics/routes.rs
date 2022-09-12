@@ -8,23 +8,20 @@ use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
         collections::{
-            MilestoneCollection, MilestoneActivityCollection, OutputCollection, OutputKind,
-            ProtocolUpdateCollection,
+            MilestoneActivityCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection,
         },
         MongoDb,
     },
     types::stardust::block::{
         output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-        payload::{
-            milestone::MilestoneId, 
-        },
+        payload::milestone::MilestoneId,
     },
 };
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, AddressStatDto, ActivityPerPayloadTypeDto, ActivityPerInclusionStateDto,
+        ActivityPerInclusionStateDto, ActivityPerPayloadTypeDto, AddressAnalyticsResponse, AddressStatDto,
         MilestoneActivityResponse, OutputAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
         TokenAnalyticsResponse, TokenDistributionResponse,
     },
@@ -40,7 +37,7 @@ pub fn routes() -> Router {
                 .route("/nfts", get(unspent_output_ledger_analytics::<NftOutput>))
                 .route("/richest-addresses", get(richest_addresses_ledger_analytics))
                 .route("/storage-deposit", get(storage_deposit_ledger_analytics))
-                .route("/token-distribution", get(token_distribution_ledger_analytics))
+                .route("/token-distribution", get(token_distribution_ledger_analytics)),
         )
         .nest(
             "/activity",
@@ -50,7 +47,7 @@ pub fn routes() -> Router {
                     "/milestones",
                     Router::new()
                         .route("/", get(milestone_activity_analytics))
-                        .route("/by-id/:milestone_id", get(milestone_activity_analytics_by_id))
+                        .route("/by-id/:milestone_id", get(milestone_activity_analytics_by_id)),
                 )
                 .route("/native-tokens", get(native_token_activity_analytics))
                 .route("/nfts", get(nft_activity_analytics))
@@ -240,7 +237,7 @@ async fn milestone_activity_analytics(
             confirmed_tx_count: activity.num_confirmed_tx,
             conflicting_tx_count: activity.num_conflicting_tx,
             no_tx_count: activity.num_no_tx,
-        }
+        },
     })
 }
 
@@ -276,6 +273,6 @@ async fn milestone_activity_analytics_by_id(
             confirmed_tx_count: activity.num_confirmed_tx,
             conflicting_tx_count: activity.num_conflicting_tx,
             no_tx_count: activity.num_no_tx,
-        }
+        },
     })
 }

@@ -11,8 +11,8 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneActivityCollection, MilestoneCollection, MilestoneActivity,
-            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneActivity, MilestoneActivityCollection,
+            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
