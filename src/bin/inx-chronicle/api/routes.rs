@@ -86,6 +86,7 @@ async fn list_routes(
     Extension(root): Extension<RouteNode>,
     bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> ApiResult<RoutesResponse> {
+    let depth = depth.or(Some(3));
     let routes = if let Some(TypedHeader(Authorization(bearer))) = bearer_header {
         let jwt = JsonWebToken(bearer.token().to_string());
 
