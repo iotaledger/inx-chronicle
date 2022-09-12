@@ -79,6 +79,19 @@ impl BlockCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.referenced_by_milestone_index": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("block_referenced_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         Ok(())
     }
 

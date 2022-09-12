@@ -24,7 +24,7 @@ use chronicle::{
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, MilestoneStatsPerPayloadTypeDto,
+        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, MilestoneStatsPerPayloadTypeDto, MilestoneStatsPerInclusionStateDto,
         MilestoneStatsResponse, OutputAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
         TokenAnalyticsResponse, TokenDistributionResponse,
     },
@@ -255,13 +255,18 @@ async fn milestone_stats(
         .ok_or(ApiError::NotFound)?;
 
     Ok(MilestoneStatsResponse {
-        blocks: stats.num_blocks as usize,
+        blocks_count: stats.num_blocks,
         per_payload_type: MilestoneStatsPerPayloadTypeDto {
-            no_payload: stats.num_no_payload as usize,
-            txs_confirmed: stats.num_confirmed as usize,
-            txs_conflicting: stats.num_conflicting as usize,
-            tagged_data: stats.num_tagged_data_payload as usize,
-            milestone: stats.num_milestone_payload as usize,
+            tx_payload_count: stats.num_tx_payload,
+            treasury_tx_payload_count: stats.num_treasury_tx_payload,
+            tagged_data_payload_count: stats.num_tagged_data_payload,
+            milestone_payload_count: stats.num_milestone_payload,
+            no_payload_count: stats.num_no_payload,
         },
+        per_inclusion_state: MilestoneStatsPerInclusionStateDto {
+            confirmed_tx_count: stats.num_confirmed_tx,
+            conflicting_tx_count: stats.num_conflicting_tx,
+            no_tx_count: stats.num_no_tx,
+        }
     })
 }

@@ -106,18 +106,27 @@ impl From<DistributionStat> for DistributionStatDto {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MilestoneStatsResponse {
-    pub blocks: usize,
+    pub blocks_count: u32,
     pub per_payload_type: MilestoneStatsPerPayloadTypeDto,
+    pub per_inclusion_state: MilestoneStatsPerInclusionStateDto,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MilestoneStatsPerPayloadTypeDto {
-    pub no_payload: usize,
-    pub txs_confirmed: usize,
-    pub txs_conflicting: usize,
-    pub tagged_data: usize,
-    pub milestone: usize,
+    pub tx_payload_count: u32,
+    pub treasury_tx_payload_count: u32,
+    pub milestone_payload_count: u32,
+    pub tagged_data_payload_count: u32,
+    pub no_payload_count: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MilestoneStatsPerInclusionStateDto {
+    pub confirmed_tx_count: u32,
+    pub conflicting_tx_count: u32,
+    pub no_tx_count: u32,
 }
 
 impl_success_response!(MilestoneStatsResponse);

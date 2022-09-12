@@ -392,15 +392,15 @@ async fn handle_cone_stream(
             stats.num_blocks += 1;
             match &block.payload {
                 Some(Payload::Transaction(_)) => stats.num_tx_payload += 1,
-                Some(Payload::Milestone(_)) => stats.num_milestone_payload += 1,
                 Some(Payload::TreasuryTransaction(_)) => stats.num_treasury_tx_payload += 1,
+                Some(Payload::Milestone(_)) => stats.num_milestone_payload += 1,
                 Some(Payload::TaggedData(_)) => stats.num_tagged_data_payload += 1,
                 None => stats.num_no_payload += 1,
             }
             match metadata.inclusion_state {
-                LedgerInclusionState::Conflicting => stats.num_conflicting += 1,
-                LedgerInclusionState::Included => stats.num_confirmed += 1,
-                LedgerInclusionState::NoTransaction => {}
+                LedgerInclusionState::Conflicting => stats.num_conflicting_tx += 1,
+                LedgerInclusionState::Included => stats.num_confirmed_tx += 1,
+                LedgerInclusionState::NoTransaction => stats.num_no_tx += 1,
             }
             stats
         },
