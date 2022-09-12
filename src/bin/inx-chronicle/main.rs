@@ -37,6 +37,31 @@ async fn main() {
 }
 
 fn set_up_logging() {
+    #[cfg(feature = "opentelemetry")]
+    {
+        use tracing_subscriber::prelude::*;
+
+        let tracer = opentelemetry_jaeger::new_pipeline()
+            .with_service_name("Chronicle")
+            .install_batch(opentelemetry::runtime::Tokio)
+            .unwrap();
+
+        let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+        tracing_subscriber::registry()
+        .with(opentelemetry)
+        // This filter should not exist, but if I remove it,
+        // it causes the buffer to overflow
+        .with(EnvFilter::from_default_env())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_span_events(FmtSpan::CLOSE)
+                // The filter should only be on the console logs
+                //.with_filter(EnvFilter::from_default_env()),
+        )
+        .init();
+    }
+    #[cfg(not(feature = "opentelemetry"))]
     tracing_subscriber::fmt()
         .with_span_events(FmtSpan::CLOSE)
         .with_env_filter(EnvFilter::from_default_env())

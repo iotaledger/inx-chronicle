@@ -2,17 +2,17 @@ name: ci
 
 on:
   push:
-    paths-ignore:
+    paths-ignore: 
       - "**.md"
-      - "bin/inx-chronicle/docker/**"
-      - "bin/inx-chronicle/docs/**"
+      - "documentation/**"
+      - "docker/**"
     branches:
       - main
   pull_request:
-    paths-ignore:
+    paths-ignore: 
       - "**.md"
-      - "bin/inx-chronicle/docker/**"
-      - "bin/inx-chronicle/docs/**"
+      - "documentation/**"
+      - "docker/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
