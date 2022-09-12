@@ -8,7 +8,7 @@ mod ledger_update;
 /// Module containing the Milestone document model.
 mod milestone;
 /// Module containing the MilestoneStats model.
-mod milestone_stats;
+mod milestone_activity;
 /// Module containing Block outputs.
 mod outputs;
 /// Module containing the protocol parameters collection.
@@ -24,7 +24,7 @@ pub use self::{
     block::BlockCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
     milestone::{MilestoneCollection, MilestoneResult, SyncData},
-    milestone_stats::{MilestoneAnalyticsCollection, MilestoneStats},
+    milestone_activity::{MilestoneActivityCollection, MilestoneActivity},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,

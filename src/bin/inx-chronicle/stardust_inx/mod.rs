@@ -11,7 +11,7 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneAnalyticsCollection, MilestoneCollection, MilestoneStats,
+            BlockCollection, LedgerUpdateCollection, MilestoneActivityCollection, MilestoneCollection, MilestoneActivity,
             OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
@@ -333,7 +333,7 @@ async fn handle_milestone(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-    milestone_stats: MilestoneStats,
+    milestone_activity: MilestoneActivity,
 ) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
@@ -355,8 +355,8 @@ async fn handle_milestone(
         .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
         .await?;
 
-    db.collection::<MilestoneAnalyticsCollection>()
-        .insert_milestone_stats(milestone_id, milestone_stats)
+    db.collection::<MilestoneActivityCollection>()
+        .insert_milestone_activity(milestone_index, milestone_activity)
         .await?;
 
     metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
@@ -370,7 +370,7 @@ async fn handle_cone_stream(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-) -> Result<MilestoneStats, InxError> {
+) -> Result<MilestoneActivity, InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let blocks_with_metadata = cone_stream
@@ -386,23 +386,23 @@ async fn handle_cone_stream(
         .try_collect::<Vec<_>>()
         .await?;
 
-    let stats = blocks_with_metadata.iter().fold(
-        MilestoneStats::default(),
-        |mut stats, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-            stats.num_blocks += 1;
+    let activity = blocks_with_metadata.iter().fold(
+        MilestoneActivity::default(),
+        |mut activity, (_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
+            activity.num_blocks += 1;
             match &block.payload {
-                Some(Payload::Transaction(_)) => stats.num_tx_payload += 1,
-                Some(Payload::TreasuryTransaction(_)) => stats.num_treasury_tx_payload += 1,
-                Some(Payload::Milestone(_)) => stats.num_milestone_payload += 1,
-                Some(Payload::TaggedData(_)) => stats.num_tagged_data_payload += 1,
-                None => stats.num_no_payload += 1,
+                Some(Payload::Transaction(_)) => activity.num_tx_payload += 1,
+                Some(Payload::TreasuryTransaction(_)) => activity.num_treasury_tx_payload += 1,
+                Some(Payload::Milestone(_)) => activity.num_milestone_payload += 1,
+                Some(Payload::TaggedData(_)) => activity.num_tagged_data_payload += 1,
+                None => activity.num_no_payload += 1,
             }
             match metadata.inclusion_state {
-                LedgerInclusionState::Conflicting => stats.num_conflicting_tx += 1,
-                LedgerInclusionState::Included => stats.num_confirmed_tx += 1,
-                LedgerInclusionState::NoTransaction => stats.num_no_tx += 1,
+                LedgerInclusionState::Conflicting => activity.num_conflicting_tx += 1,
+                LedgerInclusionState::Included => activity.num_confirmed_tx += 1,
+                LedgerInclusionState::NoTransaction => activity.num_no_tx += 1,
             }
-            stats
+            activity
         },
     );
 
@@ -438,5 +438,5 @@ async fn handle_cone_stream(
             .await?;
     }
 
-    Ok(stats)
+    Ok(activity)
 }
