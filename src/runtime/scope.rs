@@ -23,7 +23,6 @@ use super::{
     error::RuntimeError,
     registry::{Scope, ScopeId, ROOT_SCOPE},
     shutdown::{ShutdownHandle, ShutdownStream},
-    spawn_task,
     task::{
         error::TaskError,
         report::{TaskErrorReport, TaskReport, TaskSuccessReport},
@@ -196,7 +195,7 @@ impl RuntimeScope {
     {
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let mut child_scope = self.child(abort_handle.clone()).await;
-        let child_task = spawn_task(task.name().as_ref(), async move {
+        let child_task = tokio::spawn(async move {
             let fut = task.run();
             let res = Abortable::new(AssertUnwindSafe(fut).catch_unwind(), abort_registration).await;
             child_scope.join().await;
@@ -236,7 +235,7 @@ impl RuntimeScope {
     {
         let SpawnConfig { mut actor, config } = actor.into();
         let (handle, mut cx, abort_reg, shutdown_handle) = self.common_spawn(&actor, config).await;
-        let child_task = spawn_task(actor.name().as_ref(), async move {
+        let child_task = tokio::spawn(async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg, shutdown_handle).await;
             match res {
@@ -280,7 +279,7 @@ impl RuntimeScope {
     {
         let SpawnConfig { mut actor, config } = actor.into();
         let (handle, mut cx, abort_reg, shutdown_handle) = self.common_spawn(&actor, config).await;
-        let child_task = spawn_task(actor.name().as_ref(), async move {
+        let child_task = tokio::spawn(async move {
             let mut data = None;
             let res = cx.start(&mut actor, &mut data, abort_reg, shutdown_handle).await;
             match res {

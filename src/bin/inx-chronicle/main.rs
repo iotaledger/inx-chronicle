@@ -15,7 +15,7 @@ mod stardust_inx;
 
 use std::error::Error;
 
-use chronicle::runtime::{spawn_task, Runtime, RuntimeScope};
+use chronicle::runtime::{Runtime, RuntimeScope};
 use launcher::Launcher;
 use tracing::error;
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
@@ -24,8 +24,6 @@ use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 async fn main() {
     dotenv::dotenv().ok();
     set_up_logging();
-    #[cfg(all(tokio_unstable, feature = "console"))]
-    console_subscriber::init();
 
     std::panic::set_hook(Box::new(|p| {
         error!("{}", p);
@@ -71,7 +69,7 @@ fn set_up_logging() {
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
     let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
-    spawn_task("shutdown listener", async move {
+    tokio::spawn(async move {
         shutdown_signal_listener().await;
         launcher_addr.abort().await;
     });
