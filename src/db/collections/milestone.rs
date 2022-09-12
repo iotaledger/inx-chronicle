@@ -18,7 +18,7 @@ use crate::{
     types::{
         ledger::MilestoneIndexTimestamp,
         stardust::{
-            block::{MilestoneId, MilestoneOption, MilestonePayload},
+            block::payload::milestone::{MilestoneId, MilestoneOption, MilestonePayload},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
@@ -31,10 +31,11 @@ const BY_NEWEST: i32 = -1;
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct MilestoneDocument {
+    /// The [`MilestoneId`](MilestoneId) of the milestone.
+    #[serde(rename = "_id")]
+    milestone_id: MilestoneId,
     /// The milestone index and timestamp.
     at: MilestoneIndexTimestamp,
-    /// The [`MilestoneId`](MilestoneId) of the milestone.
-    milestone_id: MilestoneId,
     /// The milestone's payload.
     payload: MilestonePayload,
 }
@@ -88,21 +89,6 @@ impl MongoDb {
             )
             .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_id_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
         Ok(())
     }
 
@@ -116,7 +102,7 @@ impl MongoDb {
             .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
-                    doc! { "$match": { "milestone_id": milestone_id } },
+                    doc! { "$match": { "_id": milestone_id } },
                     doc! { "$replaceWith": "$payload" },
                 ],
                 None,
@@ -160,8 +146,7 @@ impl MongoDb {
                 doc! { "at.milestone_index": index },
                 FindOneOptions::builder()
                     .projection(doc! {
-                        "milestone_id": "$milestone_id",
-
+                        "milestone_id": "$_id",
                     })
                     .build(),
             )
@@ -187,12 +172,9 @@ impl MongoDb {
             payload,
         };
 
-        let mut doc = bson::to_document(&milestone_document)?;
-        doc.insert("_id", milestone_document.milestone_id.to_hex());
-
         self.db
-            .collection::<bson::Document>(MilestoneDocument::COLLECTION)
-            .insert_one(doc, None)
+            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
+            .insert_one(milestone_document, None)
             .await?;
 
         Ok(())

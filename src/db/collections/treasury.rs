@@ -4,8 +4,7 @@
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{FindOneOptions, IndexOptions, InsertManyOptions},
-    IndexModel,
+    options::{FindOneOptions, InsertManyOptions},
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -14,7 +13,7 @@ use super::INSERT_BATCH_SIZE;
 use crate::{
     db::MongoDb,
     types::{
-        stardust::block::{MilestoneId, TreasuryTransactionPayload},
+        stardust::block::payload::{milestone::MilestoneId, treasury_transaction::TreasuryTransactionPayload},
         tangle::MilestoneIndex,
     },
 };
@@ -22,6 +21,7 @@ use crate::{
 /// Contains all information regarding the treasury.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct TreasuryDocument {
+    #[serde(rename = "_id")]
     milestone_index: MilestoneIndex,
     milestone_id: MilestoneId,
     amount: u64,
@@ -42,28 +42,6 @@ pub struct TreasuryResult {
 
 /// Queries that are related to the treasury.
 impl MongoDb {
-    /// Creates ledger update indexes.
-    pub async fn create_treasury_indexes(&self) -> Result<(), Error> {
-        let collection = self.db.collection::<TreasuryDocument>(TreasuryDocument::COLLECTION);
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "milestone_index": -1, "milestone_id": 1 })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("treasury_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// Inserts treasury data.
     pub async fn insert_treasury(
         &self,
@@ -110,10 +88,7 @@ impl MongoDb {
     pub async fn get_latest_treasury(&self) -> Result<Option<TreasuryResult>, Error> {
         self.db
             .collection::<TreasuryResult>(TreasuryDocument::COLLECTION)
-            .find_one(
-                doc! {},
-                FindOneOptions::builder().sort(doc! { "milestone_index": -1 }).build(),
-            )
+            .find_one(doc! {}, FindOneOptions::builder().sort(doc! { "_id": -1 }).build())
             .await
     }
 }

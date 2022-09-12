@@ -25,7 +25,7 @@ use crate::{
     db::{collections::SortOrder, MongoDb},
     types::{
         ledger::OutputMetadata,
-        stardust::block::{AliasId, FoundryId, NftId, OutputId},
+        stardust::block::output::{AliasId, FoundryId, NftId, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -119,7 +119,7 @@ impl MongoDb {
             }
             Ok(res.map(|doc| IndexedOutputResult {
                 ledger_index,
-                output_id: doc.metadata.output_id,
+                output_id: doc.output_id,
             }))
         } else {
             Ok(None)
@@ -141,16 +141,8 @@ impl MongoDb {
         let ledger_index = self.get_ledger_index().await?;
         if let Some(ledger_index) = ledger_index {
             let (sort, cmp1, cmp2) = match order {
-                SortOrder::Newest => (
-                    doc! { "metadata.booked.milestone_index": -1, "metadata.output_id": -1 },
-                    "$lt",
-                    "$lte",
-                ),
-                SortOrder::Oldest => (
-                    doc! { "metadata.booked.milestone_index": 1, "metadata.output_id": 1 },
-                    "$gt",
-                    "$gte",
-                ),
+                SortOrder::Newest => (doc! { "metadata.booked.milestone_index": -1, "_id": -1 }, "$lt", "$lte"),
+                SortOrder::Oldest => (doc! { "metadata.booked.milestone_index": 1, "_id": 1 }, "$gt", "$gte"),
             };
 
             let query_doc = bson::Document::from(query);
@@ -168,7 +160,7 @@ impl MongoDb {
                     doc! { "metadata.booked.milestone_index": { cmp1: start_ms } },
                     doc! {
                         "metadata.booked.milestone_index": start_ms,
-                        "metadata.output_id": { cmp2: start_output_id }
+                        "_id": { cmp2: start_output_id }
                     },
                 ] });
             }

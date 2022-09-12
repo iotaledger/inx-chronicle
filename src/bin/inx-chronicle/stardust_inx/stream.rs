@@ -112,6 +112,8 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                         break None;
                     }
                 }
+            } else {
+                return Poll::Pending;
             }
         })
     }

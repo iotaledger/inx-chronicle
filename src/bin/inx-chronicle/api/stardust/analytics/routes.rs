@@ -9,19 +9,20 @@ use chronicle::{
         MongoDb,
     },
     types::stardust::block::{
-        AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
-        TreasuryTransactionPayload,
+        output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+        payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
     },
 };
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse,
-        RichestAddressesResponse, StorageDepositAnalyticsResponse, TokenDistributionResponse,
+        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, OutputAnalyticsResponse,
+        OutputDiffAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
+        TokenDistributionResponse,
     },
 };
-use crate::api::{router::Router, ApiError, ApiResult};
+use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -175,8 +176,22 @@ async fn richest_addresses_ledger_analytics(
         .await?
         .ok_or(ApiError::NoResults)?;
 
+    let hrp = database
+        .get_protocol_parameters_for_ledger_index(res.ledger_index)
+        .await?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .parameters
+        .bech32_hrp;
+
     Ok(RichestAddressesResponse {
-        top: res.top.into_iter().map(Into::into).collect(),
+        top: res
+            .top
+            .into_iter()
+            .map(|stat| AddressStatDto {
+                address: bee_block_stardust::address::Address::from(stat.address).to_bech32(hrp.clone()),
+                balance: stat.balance,
+            })
+            .collect(),
         ledger_index: res.ledger_index.0,
     })
 }

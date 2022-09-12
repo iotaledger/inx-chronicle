@@ -28,7 +28,11 @@ use chronicle::{
         MongoDb,
     },
     types::{
-        stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
+        stardust::block::{
+            output::OutputId,
+            payload::{milestone::MilestoneId, transaction::TransactionId},
+            BlockId,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -152,7 +156,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             version: protocol.version,
             network_name: protocol.network_name,
             bech32_hrp: protocol.bech32_hrp,
-            min_pow_score: protocol.min_pow_score as f64,
+            min_pow_score: protocol.min_pow_score,
             rent_structure: RentStructureResponse {
                 v_byte_cost: protocol.rent_structure.v_byte_cost,
                 v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,
@@ -190,16 +194,16 @@ async fn block(
 
 async fn block_metadata(
     database: Extension<MongoDb>,
-    Path(block_id): Path<String>,
+    Path(block_id_str): Path<String>,
 ) -> ApiResult<BlockMetadataResponse> {
-    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
+    let block_id = BlockId::from_str(&block_id_str).map_err(ApiError::bad_parse)?;
     let metadata = database
         .get_block_metadata(&block_id)
         .await?
         .ok_or(ApiError::NoResults)?;
 
     Ok(BlockMetadataResponse {
-        block_id: metadata.block_id.to_hex(),
+        block_id: block_id_str,
         parents: metadata.parents.iter().map(|id| id.to_hex()).collect(),
         is_solid: metadata.is_solid,
         referenced_by_milestone_index: Some(*metadata.referenced_by_milestone_index),
@@ -266,7 +270,6 @@ async fn output_metadata(
 
 async fn transaction_included_block(
     database: Extension<MongoDb>,
-    Path(_): Path<u32>,
     Path(transaction_id): Path<String>,
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;

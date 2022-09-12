@@ -4,7 +4,7 @@
 use bee_block_stardust::input as bee;
 use serde::{Deserialize, Serialize};
 
-use super::{MilestoneId, OutputId};
+use super::{output::OutputId, payload::milestone::MilestoneId};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
@@ -36,10 +36,11 @@ impl TryFrom<Input> for bee::Input {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
+    use crate::types::stardust::util::input::{get_test_treasury_input, get_test_utxo_input};
 
     #[test]
     fn test_input_bson() {
@@ -50,15 +51,5 @@ pub(crate) mod test {
         let input = get_test_treasury_input();
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_utxo_input() -> Input {
-        Input::Utxo(bee_block_stardust::rand::output::rand_output_id().into())
-    }
-
-    pub(crate) fn get_test_treasury_input() -> Input {
-        Input::Treasury {
-            milestone_id: bee_block_stardust::rand::milestone::rand_milestone_id().into(),
-        }
     }
 }

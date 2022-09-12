@@ -91,12 +91,18 @@ impl Actor for InxWorker {
         }) = self.db.get_newest_milestone().await?
         {
             if node_status.tangle_pruning_index > latest_milestone.0 {
-                return Err(InxError::MilestoneGap {
+                return Err(InxError::SyncMilestoneGap {
                     start: latest_milestone + 1,
                     end: node_status.tangle_pruning_index.into(),
                 });
+            } else if node_status.confirmed_milestone.milestone_info.milestone_index < latest_milestone.0 {
+                return Err(InxError::SyncMilestoneIndexMismatch {
+                    node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
+                    db: latest_milestone,
+                });
+            } else {
+                latest_milestone + 1
             }
-            latest_milestone + 1
         } else {
             self.config
                 .sync_start_milestone
@@ -118,7 +124,9 @@ impl Actor for InxWorker {
                     protocol_parameters.network_name,
                 ));
             }
+            debug!("Found matching network in the database.");
             if latest.parameters != protocol_parameters {
+                debug!("Updating protocol parameters.");
                 self.db
                     .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
@@ -176,6 +184,8 @@ impl Actor for InxWorker {
             inx.listen_to_ledger_updates((start_index.0..).into()).await?,
         ));
 
+        debug!("Started listening to ledger updates via INX.");
+
         metrics::describe_histogram!(
             METRIC_MILESTONE_SYNC_TIME,
             metrics::Unit::Seconds,
@@ -220,16 +230,14 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 
         // Record the result as part of the current span.
         tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
-        tracing::Span::current().record("created", &ledger_update.created.len());
-        tracing::Span::current().record("consumed", &ledger_update.consumed.len());
+        tracing::Span::current().record("created", ledger_update.created.len());
+        tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-        let mut inx_clone = inx.clone();
-        try_join!(
-            insert_unspent_outputs(&self.db, ledger_update.created),
-            update_spent_outputs(&self.db, ledger_update.consumed),
-            handle_cone_stream(&self.db, &mut inx_clone, ledger_update.milestone_index),
-            handle_protocol_params(&self.db, inx, ledger_update.milestone_index),
-        )?;
+        insert_unspent_outputs(&self.db, ledger_update.created).await?;
+        update_spent_outputs(&self.db, ledger_update.consumed).await?;
+
+        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
+        handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
@@ -308,7 +316,12 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
     let blocks_with_metadata = cone_stream
         .map(|res| {
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
-            Result::<_, InxError>::Ok((block.clone().inner()?.into(), block.data(), metadata.into()))
+            Result::<_, InxError>::Ok((
+                metadata.block_id.into(),
+                block.clone().inner(&())?.into(),
+                block.data(),
+                metadata.into(),
+            ))
         })
         .try_collect::<Vec<_>>()
         .await?;
