@@ -25,11 +25,18 @@ use bee_block_stardust::{
 };
 use chronicle::{
     db::{
-        collections::{OutputMetadataResult, OutputWithMetadataResult, UtxoChangesResult},
+        collections::{
+            BlockCollection, MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult,
+            ProtocolUpdateCollection, TreasuryCollection, UtxoChangesResult,
+        },
         MongoDb,
     },
     types::{
-        stardust::block::{BlockId, MilestoneId, OutputId, TransactionId},
+        stardust::block::{
+            output::OutputId,
+            payload::{milestone::MilestoneId, transaction::TransactionId},
+            BlockId,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -97,6 +104,7 @@ pub fn routes() -> Router {
 
 pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
     let protocol = database
+        .collection::<ProtocolUpdateCollection>()
         .get_latest_protocol_parameters()
         .await?
         .ok_or(ApiError::Internal(InternalApiError::CorruptState(
@@ -109,26 +117,27 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         false
     });
 
-    let newest_milestone =
-        database
-            .get_newest_milestone()
-            .await?
-            .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-                "no milestone in the database",
-            )))?;
-    let oldest_milestone =
-        database
-            .get_oldest_milestone()
-            .await?
-            .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-                "no milestone in the database",
-            )))?;
+    let newest_milestone = database
+        .collection::<MilestoneCollection>()
+        .get_newest_milestone()
+        .await?
+        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+            "no milestone in the database",
+        )))?;
+    let oldest_milestone = database
+        .collection::<MilestoneCollection>()
+        .get_oldest_milestone()
+        .await?
+        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+            "no milestone in the database",
+        )))?;
 
     let latest_milestone = LatestMilestoneResponse {
         index: newest_milestone.milestone_index.0,
         timestamp: newest_milestone.milestone_timestamp.0,
         milestone_id: bee_block_stardust::payload::milestone::MilestoneId::from(
             database
+                .collection::<MilestoneCollection>()
                 .get_milestone_id(newest_milestone.milestone_index)
                 .await?
                 .ok_or(ApiError::Internal(InternalApiError::CorruptState(
@@ -152,7 +161,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             version: protocol.version,
             network_name: protocol.network_name,
             bech32_hrp: protocol.bech32_hrp,
-            min_pow_score: protocol.min_pow_score as f64,
+            min_pow_score: protocol.min_pow_score,
             rent_structure: RentStructureResponse {
                 v_byte_cost: protocol.rent_structure.v_byte_cost,
                 v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,
@@ -179,12 +188,20 @@ async fn block(
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
             return Ok(BlockResponse::Raw(
-                database.get_block_raw(&block_id).await?.ok_or(ApiError::NoResults)?,
+                database
+                    .collection::<BlockCollection>()
+                    .get_block_raw(&block_id)
+                    .await?
+                    .ok_or(ApiError::NoResults)?,
             ));
         }
     }
 
-    let block = database.get_block(&block_id).await?.ok_or(ApiError::NoResults)?;
+    let block = database
+        .collection::<BlockCollection>()
+        .get_block(&block_id)
+        .await?
+        .ok_or(ApiError::NoResults)?;
     Ok(BlockResponse::Json(BlockDto::try_from(block)?))
 }
 
@@ -194,6 +211,7 @@ async fn block_metadata(
 ) -> ApiResult<BlockMetadataResponse> {
     let block_id = BlockId::from_str(&block_id_str).map_err(ApiError::bad_parse)?;
     let metadata = database
+        .collection::<BlockCollection>()
         .get_block_metadata(&block_id)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -239,6 +257,7 @@ fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMeta
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let OutputWithMetadataResult { output, metadata } = database
+        .collection::<OutputCollection>()
         .get_output_with_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -257,6 +276,7 @@ async fn output_metadata(
 ) -> ApiResult<OutputMetadataResponse> {
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let metadata = database
+        .collection::<OutputCollection>()
         .get_output_metadata(&output_id)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -270,6 +290,7 @@ async fn transaction_included_block(
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
     let block = database
+        .collection::<BlockCollection>()
         .get_block_for_transaction(&transaction_id)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -278,7 +299,10 @@ async fn transaction_included_block(
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
-    let mut receipts_at = database.stream_all_receipts().await?;
+    let mut receipts_at = database
+        .collection::<MilestoneCollection>()
+        .stream_all_receipts()
+        .await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
         let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
@@ -297,7 +321,10 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
 }
 
 async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
-    let mut receipts_at = database.stream_receipts_migrated_at(index.into()).await?;
+    let mut receipts_at = database
+        .collection::<MilestoneCollection>()
+        .stream_receipts_migrated_at(index.into())
+        .await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
         let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
@@ -317,6 +344,7 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
 
 async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
     database
+        .collection::<TreasuryCollection>()
         .get_latest_treasury()
         .await?
         .ok_or(ApiError::NoResults)
@@ -333,6 +361,7 @@ async fn milestone(
 ) -> ApiResult<MilestoneResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let milestone_payload = database
+        .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -355,6 +384,7 @@ async fn milestone_by_index(
     headers: HeaderMap,
 ) -> ApiResult<MilestoneResponse> {
     let milestone_payload = database
+        .collection::<MilestoneCollection>()
         .get_milestone_payload(index)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -377,6 +407,7 @@ async fn utxo_changes(
 ) -> ApiResult<UtxoChangesResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let milestone_index = database
+        .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
         .await?
         .ok_or(ApiError::NoResults)?
@@ -397,6 +428,7 @@ async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneInde
         created_outputs,
         consumed_outputs,
     } = database
+        .collection::<OutputCollection>()
         .get_utxo_changes(milestone_index)
         .await?
         .ok_or(ApiError::NoResults)?;

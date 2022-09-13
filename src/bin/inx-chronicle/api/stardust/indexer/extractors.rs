@@ -11,7 +11,7 @@ use axum::{
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
     types::{
-        stardust::block::{Address, OutputId},
+        stardust::block::{output::OutputId, Address},
         tangle::MilestoneIndex,
     },
 };

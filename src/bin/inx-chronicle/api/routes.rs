@@ -8,7 +8,10 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chronicle::{db::MongoDb, types::stardust::milestone::MilestoneTimestamp};
+use chronicle::{
+    db::{collections::MilestoneCollection, MongoDb},
+    types::stardust::milestone::MilestoneTimestamp,
+};
 use hyper::StatusCode;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
@@ -81,7 +84,11 @@ fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
 pub async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
     #[cfg(feature = "stardust")]
     {
-        let newest = match database.get_newest_milestone().await? {
+        let newest = match database
+            .collection::<MilestoneCollection>()
+            .get_newest_milestone()
+            .await?
+        {
             Some(last) => last,
             None => return Ok(false),
         };

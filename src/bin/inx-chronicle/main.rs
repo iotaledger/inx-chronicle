@@ -15,7 +15,7 @@ mod stardust_inx;
 
 use std::error::Error;
 
-use chronicle::runtime::{spawn_task, Runtime, RuntimeScope};
+use chronicle::runtime::{Runtime, RuntimeScope};
 use launcher::Launcher;
 use tracing::error;
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
@@ -24,8 +24,6 @@ use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 async fn main() {
     dotenv::dotenv().ok();
     set_up_logging();
-    #[cfg(all(tokio_unstable, feature = "console"))]
-    console_subscriber::init();
 
     std::panic::set_hook(Box::new(|p| {
         error!("{}", p);
@@ -37,6 +35,31 @@ async fn main() {
 }
 
 fn set_up_logging() {
+    #[cfg(feature = "opentelemetry")]
+    {
+        use tracing_subscriber::prelude::*;
+
+        let tracer = opentelemetry_jaeger::new_pipeline()
+            .with_service_name("Chronicle")
+            .install_batch(opentelemetry::runtime::Tokio)
+            .unwrap();
+
+        let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+        tracing_subscriber::registry()
+        .with(opentelemetry)
+        // This filter should not exist, but if I remove it,
+        // it causes the buffer to overflow
+        .with(EnvFilter::from_default_env())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_span_events(FmtSpan::CLOSE)
+                // The filter should only be on the console logs
+                //.with_filter(EnvFilter::from_default_env()),
+        )
+        .init();
+    }
+    #[cfg(not(feature = "opentelemetry"))]
     tracing_subscriber::fmt()
         .with_span_events(FmtSpan::CLOSE)
         .with_env_filter(EnvFilter::from_default_env())
@@ -46,7 +69,7 @@ fn set_up_logging() {
 async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
     let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
 
-    spawn_task("shutdown listener", async move {
+    tokio::spawn(async move {
         shutdown_signal_listener().await;
         launcher_addr.abort().await;
     });

@@ -7,9 +7,9 @@ mkdir coverage
 
 # Run tests with profiling instrumentation
 echo "Running instrumented unit tests..."
-RUSTFLAGS="-Zinstrument-coverage" LLVM_PROFILE_FILE="bee-%m.profraw" cargo +nightly test --tests --all --all-features
+RUSTFLAGS="-Zinstrument-coverage" LLVM_PROFILE_FILE="chronicle-%m.profraw" cargo +nightly test --tests --all --all-features
 
-# Merge all .profraw files into "bee.profdata"
+# Merge all .profraw files into "chronicle.profdata"
 echo "Merging coverage data..."
 PROFRAW=""
 for file in $(find . -type f -name "*.profraw");
@@ -18,7 +18,7 @@ do
   PROFRAW="${PROFRAW} $file"
 done
 
-cargo +nightly profdata -- merge ${PROFRAW} -o bee.profdata
+cargo +nightly profdata -- merge ${PROFRAW} -o chronicle.profdata
 
 # List the test binaries
 echo "Locating test binaries..."
@@ -39,7 +39,7 @@ done
 # Generate and export the coverage report to lcov format
 echo "Generating lcov file..."
 cargo +nightly cov -- export ${BINARIES} \
-  --instr-profile=bee.profdata \
+  --instr-profile=chronicle.profdata \
   --ignore-filename-regex="/.cargo|rustc|target|tests|/.rustup" \
   --format=lcov --Xdemangler=rustfilt \
   >> coverage/coverage.info

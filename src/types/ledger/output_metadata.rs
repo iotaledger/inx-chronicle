@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     stardust::{
-        block::{BlockId, Output, OutputId, TransactionId},
+        block::{
+            output::{Output, OutputId},
+            payload::transaction::TransactionId,
+            BlockId,
+        },
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
@@ -17,21 +21,21 @@ pub struct MilestoneIndexTimestamp {
     pub milestone_timestamp: MilestoneTimestamp,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SpentMetadata {
     pub transaction_id: TransactionId,
     pub spent: MilestoneIndexTimestamp,
 }
 
 /// Block metadata.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OutputMetadata {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub spent_metadata: Option<SpentMetadata>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerOutput {
     pub output_id: OutputId,
     pub block_id: BlockId,
@@ -39,7 +43,7 @@ pub struct LedgerOutput {
     pub output: Output,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerSpent {
     pub output: LedgerOutput,
     pub spent_metadata: SpentMetadata,
@@ -51,7 +55,7 @@ impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
         Ok(Self {
-            output: Into::into(&value.output.inner()?),
+            output: Into::into(&value.output.inner(&())?),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
             booked: MilestoneIndexTimestamp {

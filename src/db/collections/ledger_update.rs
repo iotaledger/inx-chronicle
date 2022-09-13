@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
-
 use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, Document},
@@ -11,16 +9,18 @@ use mongodb::{
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use tracing::instrument;
 
-use super::INSERT_BATCH_SIZE;
+use super::SortOrder;
 use crate::{
-    db::MongoDb,
+    db::{
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::{
-            block::{Address, OutputId},
+            block::{output::OutputId, Address},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
@@ -37,15 +37,28 @@ struct Id {
 
 /// Contains all information related to an output.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-struct LedgerUpdateDocument {
+pub struct LedgerUpdateDocument {
     _id: Id,
     address: Address,
     milestone_timestamp: MilestoneTimestamp,
 }
 
-impl LedgerUpdateDocument {
-    /// The stardust outputs collection name.
-    const COLLECTION: &'static str = "stardust_ledger_updates";
+/// The stardust ledger updates collection.
+pub struct LedgerUpdateCollection {
+    collection: mongodb::Collection<LedgerUpdateDocument>,
+}
+
+impl MongoDbCollection for LedgerUpdateCollection {
+    const NAME: &'static str = "stardust_ledger_updates";
+    type Document = LedgerUpdateDocument;
+
+    fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self { collection }
+    }
+
+    fn collection(&self) -> &mongodb::Collection<Self::Document> {
+        &self.collection
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,36 +77,6 @@ pub struct LedgerUpdateByMilestoneRecord {
     pub is_spent: bool,
 }
 
-#[allow(missing_docs)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum SortOrder {
-    Newest,
-    Oldest,
-}
-
-impl Default for SortOrder {
-    fn default() -> Self {
-        Self::Newest
-    }
-}
-
-#[derive(Debug, Error)]
-#[error("Invalid sort order descriptor. Expected `oldest` or `newest`, found `{0}`")]
-#[allow(missing_docs)]
-pub struct ParseSortError(String);
-
-impl FromStr for SortOrder {
-    type Err = ParseSortError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "oldest" => SortOrder::Oldest,
-            "newest" => SortOrder::Newest,
-            _ => Err(ParseSortError(s.to_string()))?,
-        })
-    }
-}
-
 fn newest() -> Document {
     doc! { "address": -1, "_id.milestone_index": -1, "_id.output_id": -1, "_id.is_spent": -1 }
 }
@@ -103,94 +86,84 @@ fn oldest() -> Document {
 }
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
-impl MongoDb {
+impl LedgerUpdateCollection {
     /// Creates ledger update indexes.
-    pub async fn create_ledger_update_indexes(&self) -> Result<(), Error> {
-        let collection = self
-            .db
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION);
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(newest())
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("ledger_update_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+    pub async fn create_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(newest())
+                .options(
+                    IndexOptions::builder()
+                        .unique(true)
+                        .name("ledger_update_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
         Ok(())
     }
 
     /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_spent_ledger_updates(&self, outputs: impl Iterator<Item = &LedgerSpent>) -> Result<(), Error> {
-        let ledger_updates = outputs
-            .filter_map(
-                |LedgerSpent {
-                     output: LedgerOutput { output_id, output, .. },
-                     spent_metadata,
-                 }| {
-                    // Ledger updates
-                    output.owning_address().map(|&address| LedgerUpdateDocument {
-                        _id: Id {
-                            milestone_index: spent_metadata.spent.milestone_index,
-                            output_id: *output_id,
-                            is_spent: true,
-                        },
-                        address,
-                        milestone_timestamp: spent_metadata.spent.milestone_timestamp,
-                    })
-                },
-            )
-            .collect::<Vec<_>>();
-        for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
-            self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
-                .await?;
-        }
+    pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = &'a LedgerSpent>,
+        I::IntoIter: Send + Sync,
+    {
+        let ledger_updates = outputs.into_iter().filter_map(
+            |LedgerSpent {
+                 output: LedgerOutput { output_id, output, .. },
+                 spent_metadata,
+             }| {
+                // Ledger updates
+                output.owning_address().map(|&address| LedgerUpdateDocument {
+                    _id: Id {
+                        milestone_index: spent_metadata.spent.milestone_index,
+                        output_id: *output_id,
+                        is_spent: true,
+                    },
+                    address,
+                    milestone_timestamp: spent_metadata.spent.milestone_timestamp,
+                })
+            },
+        );
+        self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
+            .await?;
 
         Ok(())
     }
 
     /// Inserts unspent [`LedgerOutput`] updates.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_ledger_updates(
-        &self,
-        outputs: impl Iterator<Item = &LedgerOutput>,
-    ) -> Result<(), Error> {
-        let ledger_updates = outputs
-            .filter_map(
-                |LedgerOutput {
-                     output_id,
-                     booked,
-                     output,
-                     ..
-                 }| {
-                    // Ledger updates
-                    output.owning_address().map(|&address| LedgerUpdateDocument {
-                        _id: Id {
-                            milestone_index: booked.milestone_index,
-                            output_id: *output_id,
-                            is_spent: false,
-                        },
-                        address,
-                        milestone_timestamp: booked.milestone_timestamp,
-                    })
-                },
-            )
-            .collect::<Vec<_>>();
-        for batch in ledger_updates.chunks(INSERT_BATCH_SIZE) {
-            self.collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-                .insert_many_ignore_duplicates(batch, InsertManyOptions::builder().ordered(false).build())
-                .await?;
-        }
+    pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = &'a LedgerOutput>,
+        I::IntoIter: Send + Sync,
+    {
+        let ledger_updates = outputs.into_iter().filter_map(
+            |LedgerOutput {
+                 output_id,
+                 booked,
+                 output,
+                 ..
+             }| {
+                // Ledger updates
+                output.owning_address().map(|&address| LedgerUpdateDocument {
+                    _id: Id {
+                        milestone_index: booked.milestone_index,
+                        output_id: *output_id,
+                        is_spent: false,
+                    },
+                    address,
+                    milestone_timestamp: booked.milestone_timestamp,
+                })
+            },
+        );
+        self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
+            .await?;
 
         Ok(())
     }
@@ -226,23 +199,20 @@ impl MongoDb {
             queries.push(doc! { "$or": cursor_queries });
         }
 
-        self.db
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-            .find(
+        Ok(self
+            .find::<LedgerUpdateDocument>(
                 doc! { "$and": queries },
                 FindOptions::builder().limit(page_size as i64).sort(sort).build(),
             )
-            .await
-            .map(|c| {
-                c.map_ok(|doc| LedgerUpdateByAddressRecord {
-                    at: MilestoneIndexTimestamp {
-                        milestone_index: doc._id.milestone_index,
-                        milestone_timestamp: doc.milestone_timestamp,
-                    },
-                    output_id: doc._id.output_id,
-                    is_spent: doc._id.is_spent,
-                })
-            })
+            .await?
+            .map_ok(|doc| LedgerUpdateByAddressRecord {
+                at: MilestoneIndexTimestamp {
+                    milestone_index: doc._id.milestone_index,
+                    milestone_timestamp: doc.milestone_timestamp,
+                },
+                output_id: doc._id.output_id,
+                is_spent: doc._id.is_spent,
+            }))
     }
 
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
@@ -265,19 +235,16 @@ impl MongoDb {
             queries.push(doc! { "$or": cursor_queries });
         }
 
-        self.db
-            .collection::<LedgerUpdateDocument>(LedgerUpdateDocument::COLLECTION)
-            .find(
+        Ok(self
+            .find::<LedgerUpdateDocument>(
                 doc! { "$and": queries },
                 FindOptions::builder().limit(page_size as i64).sort(oldest()).build(),
             )
-            .await
-            .map(|c| {
-                c.map_ok(|doc| LedgerUpdateByMilestoneRecord {
-                    address: doc.address,
-                    output_id: doc._id.output_id,
-                    is_spent: doc._id.is_spent,
-                })
-            })
+            .await?
+            .map_ok(|doc| LedgerUpdateByMilestoneRecord {
+                address: doc.address,
+                output_id: doc._id.output_id,
+                is_spent: doc._id.is_spent,
+            }))
     }
 }

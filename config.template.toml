@@ -10,6 +10,9 @@ password = "root"
 ### networks can run within the same MongoDB instance.
 database_name = "chronicle"
 
+### The minimum amount of connections in the pool.
+min_pool_size = 2
+
 [api]
 ### Whether API requests will be served.
 enabled = true

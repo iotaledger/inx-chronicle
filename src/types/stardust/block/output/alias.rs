@@ -143,17 +143,11 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::block::output::{
-        feature::test::{get_test_issuer_block, get_test_metadata_block, get_test_sender_block},
-        native_token::test::get_test_native_token,
-        unlock_condition::test::{
-            rand_governor_address_unlock_condition, rand_state_controller_address_unlock_condition,
-        },
-    };
+    use crate::types::stardust::util::output::alias::get_test_alias_output;
 
     #[test]
     fn test_alias_id_bson() {
@@ -168,34 +162,5 @@ pub(crate) mod test {
         let output = get_test_alias_output();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
-    }
-
-    pub(crate) fn get_test_alias_output() -> AliasOutput {
-        AliasOutput::from(
-            &bee::AliasOutput::build_with_amount(100, bee_block_stardust::rand::output::rand_alias_id())
-                .unwrap()
-                .with_native_tokens(vec![get_test_native_token().try_into().unwrap()])
-                .with_state_index(0)
-                .with_state_metadata("Foo".as_bytes().to_vec())
-                .with_foundry_counter(0)
-                .with_unlock_conditions([
-                    rand_state_controller_address_unlock_condition().into(),
-                    rand_governor_address_unlock_condition().into(),
-                ])
-                .with_features(vec![
-                    get_test_sender_block(bee_block_stardust::rand::address::rand_address().into())
-                        .try_into()
-                        .unwrap(),
-                    get_test_metadata_block().try_into().unwrap(),
-                ])
-                .with_immutable_features(vec![
-                    get_test_issuer_block(bee_block_stardust::rand::address::rand_address().into())
-                        .try_into()
-                        .unwrap(),
-                    get_test_metadata_block().try_into().unwrap(),
-                ])
-                .finish()
-                .unwrap(),
-        )
     }
 }

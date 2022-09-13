@@ -5,10 +5,10 @@ on:
     branches:
       - main
     paths:
-      - '**.rs'
-      - '**.toml'
-      - '.github/workflows/coverage.yml'
-      - '.github/workflows/scripts/coverage.sh'
+      - "**.rs"
+      - "**.toml"
+      - ".github/workflows/coverage.yml"
+      - ".github/workflows/scripts/coverage.sh"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,6 +41,12 @@ jobs:
         with:
           crate: rustfilt
           version: 0.2.1
+
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.8.0
+        with:
+          mongodb-version: "6.0"
+          mongodb-replica-set: test-rs
 
       - name: Run test coverage
         run: bash .github/workflows/scripts/coverage.sh

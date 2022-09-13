@@ -5,23 +5,24 @@ use axum::{routing::get, Extension, Router};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{OutputKind, PayloadKind},
+        collections::{BlockCollection, OutputCollection, OutputKind, PayloadKind, ProtocolUpdateCollection},
         MongoDb,
     },
     types::stardust::block::{
-        AliasOutput, BasicOutput, FoundryOutput, MilestonePayload, NftOutput, TaggedDataPayload, TransactionPayload,
-        TreasuryTransactionPayload,
+        output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+        payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
     },
 };
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, BlockAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse,
-        RichestAddressesResponse, StorageDepositAnalyticsResponse, TokenDistributionResponse,
+        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, OutputAnalyticsResponse,
+        OutputDiffAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
+        TokenDistributionResponse,
     },
 };
-use crate::api::{ApiError, ApiResult};
+use crate::api::{error::InternalApiError, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -68,7 +69,10 @@ async fn address_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let res = database.get_address_analytics(start_index, end_index).await?;
+    let res = database
+        .collection::<OutputCollection>()
+        .get_address_analytics(start_index, end_index)
+        .await?;
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
@@ -81,7 +85,10 @@ async fn block_activity_analytics<B: PayloadKind>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<BlockAnalyticsResponse> {
-    let res = database.get_block_analytics::<B>(start_index, end_index).await?;
+    let res = database
+        .collection::<BlockCollection>()
+        .get_block_analytics::<B>(start_index, end_index)
+        .await?;
 
     Ok(BlockAnalyticsResponse {
         count: res.count.to_string(),
@@ -92,7 +99,10 @@ async fn output_activity_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database.get_output_analytics::<O>(start_index, end_index).await?;
+    let res = database
+        .collection::<OutputCollection>()
+        .get_output_analytics::<O>(start_index, end_index)
+        .await?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -105,6 +115,7 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
     let res = database
+        .collection::<OutputCollection>()
         .get_unspent_output_analytics::<O>(ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -120,6 +131,7 @@ async fn storage_deposit_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let res = database
+        .collection::<OutputCollection>()
         .get_storage_deposit_analytics(ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -144,7 +156,10 @@ async fn nft_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputDiffAnalyticsResponse> {
-    let res = database.get_nft_output_analytics(start_index, end_index).await?;
+    let res = database
+        .collection::<OutputCollection>()
+        .get_nft_output_analytics(start_index, end_index)
+        .await?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),
@@ -157,7 +172,10 @@ async fn native_token_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputDiffAnalyticsResponse> {
-    let res = database.get_foundry_output_analytics(start_index, end_index).await?;
+    let res = database
+        .collection::<OutputCollection>()
+        .get_foundry_output_analytics(start_index, end_index)
+        .await?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),
@@ -171,12 +189,28 @@ async fn richest_addresses_ledger_analytics(
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let res = database
+        .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
         .await?
         .ok_or(ApiError::NoResults)?;
 
+    let hrp = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(res.ledger_index)
+        .await?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .parameters
+        .bech32_hrp;
+
     Ok(RichestAddressesResponse {
-        top: res.top.into_iter().map(Into::into).collect(),
+        top: res
+            .top
+            .into_iter()
+            .map(|stat| AddressStatDto {
+                address: bee_block_stardust::address::Address::from(stat.address).to_bech32(hrp.clone()),
+                balance: stat.balance,
+            })
+            .collect(),
         ledger_index: res.ledger_index.0,
     })
 }
@@ -186,6 +220,7 @@ async fn token_distribution_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let res = database
+        .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;

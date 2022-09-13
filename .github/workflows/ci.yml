@@ -2,13 +2,17 @@ name: ci
 
 on:
   push:
-    paths-ignore: 
-      - '**.md'
-      - 'bin/inx-chronicle/docker/**'
+    paths-ignore:
+      - "**.md"
+      - "documentation/**"
+      - "docker/**"
+    branches:
+      - main
   pull_request:
-    paths-ignore: 
-      - '**.md'
-      - 'bin/inx-chronicle/docker/**'
+    paths-ignore:
+      - "**.md"
+      - "documentation/**"
+      - "docker/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +24,11 @@ jobs:
     uses: ./.github/workflows/_check.yml
     with: { os: ubuntu-latest, rust: stable }
 
+  test-int:
+    name: "integration tests"
+    uses: ./.github/workflows/_test_int.yml
+    with: { os: ubuntu-latest, rust: stable, mongodb: "6.0" }
+
   format:
     uses: ./.github/workflows/_fmt.yml
     with: { os: ubuntu-latest, rust: nightly }
@@ -27,7 +36,7 @@ jobs:
   clippy:
     uses: ./.github/workflows/_clippy.yml
     with: { os: ubuntu-latest, rust: stable }
-  
+
   check-toml:
     runs-on: ubuntu-latest
     steps:
@@ -56,9 +65,9 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: nightly
-            override: true
+          profile: minimal
+          toolchain: nightly
+          override: true
 
       - uses: Swatinem/rust-cache@v1
 

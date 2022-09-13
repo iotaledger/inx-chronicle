@@ -20,6 +20,8 @@ tags:
     description: Everything about blocks.
   - name: ledger
     description: Everything about the ledger.
+  - name: milestones
+    description: Everything about milestones.
 paths:
   /api/explorer/v2/balance/{address}:
     get:
@@ -68,6 +70,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BlockChildrenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/explorer/v2/milestones:
+    get:
+      tags:
+        - milestones
+      summary: Returns milestones based on given query parameters.
+      description: >-
+        Returns a list of milestones matching provided query parameters.
+      parameters:
+        - $ref: "#/components/parameters/startTimestamp"
+        - $ref: "#/components/parameters/endTimestamp"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestonesResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/milestones-example"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -232,6 +263,28 @@ components:
       required:
         - address
         - items
+    MilestonesResponse:
+      description: Paged milestones.
+      properties:
+        items:
+          type: array
+          description: A list of milestones.
+          items:
+            properties:
+              milestoneId:
+                type: string
+                description: The milestone ID.
+              index:
+                type: integer
+                description: The index of the milestone.
+            required:
+              - milestoneId
+              - index
+        cursor:
+          type: string
+          description: The cursor which can be used to retrieve the next logical page of results.
+      required:
+        - items
   responses:
     NoResults:
       description: >-
@@ -297,6 +350,20 @@ components:
       description: >-
         The milestone index at which to start retrieving results. This will be overridden 
         by the cursor if provided.
+    startTimestamp:
+      in: query
+      name: startTimestamp
+      schema:
+        type: integer
+      example: 1662139730
+      description: Start timestamp for filtering.
+    endTimestamp:
+      in: query
+      name: endTimestamp
+      schema:
+        type: integer
+      example: 1662139830
+      description: End timestamp for filtering.
     cursor:
       in: query
       name: cursor
@@ -334,3 +401,11 @@ components:
             outputId: fa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20000
             isSpent: true
         cursor: fa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a20100.true.100
+    milestones-example:
+      value:
+        items:
+          - milestoneId: "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
+            index: 100
+          - milestoneId: "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2"
+            index: 101
+        cursor: 102.2

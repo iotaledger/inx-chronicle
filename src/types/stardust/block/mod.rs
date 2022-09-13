@@ -1,18 +1,21 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod address;
-mod block_id;
-mod input;
-mod output;
-mod payload;
-mod signature;
-mod unlock;
+pub mod address;
+pub mod block_id;
+pub mod input;
+pub mod output;
+pub mod payload;
+pub mod signature;
+pub mod unlock;
 
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-pub use self::{address::*, block_id::*, input::*, output::*, payload::*, signature::*, unlock::*};
+pub use self::{
+    address::Address, block_id::BlockId, input::Input, output::Output, payload::Payload, signature::Signature,
+    unlock::Unlock,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
@@ -42,7 +45,7 @@ impl TryFrom<Block> for bee::Block {
         let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
             Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
         )?)
-        .with_nonce_provider(value.nonce, 0.0);
+        .with_nonce_provider(value.nonce, 0);
         if let Some(payload) = value.payload {
             builder = builder.with_payload(payload.try_into()?)
         }
@@ -60,13 +63,12 @@ impl TryFrom<Block> for bee::BlockDto {
 }
 
 #[cfg(test)]
-mod tests {
-    use mongodb::bson::{from_bson, to_bson, Bson};
 
-    use super::{
-        payload::test::{get_test_milestone_payload, get_test_tagged_data_payload, get_test_transaction_payload},
-        *,
-    };
+mod test {
+    use mongodb::bson::{doc, from_bson, to_bson, to_document, Bson};
+
+    use super::*;
+    use crate::types::stardust::{block::payload::TransactionEssence, util::*};
 
     #[test]
     fn test_block_id_bson() {
@@ -79,7 +81,22 @@ mod tests {
     #[test]
     fn test_block_bson() {
         let block = get_test_transaction_block();
-        let bson = to_bson(&block).unwrap();
+        let mut bson = to_bson(&block).unwrap();
+        // Need to re-add outputs as they are not serialized
+        let outputs_doc = if let Some(Payload::Transaction(payload)) = &block.payload {
+            let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+            doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() }
+        } else {
+            unreachable!();
+        };
+        let doc = bson
+            .as_document_mut()
+            .unwrap()
+            .get_document_mut("payload")
+            .unwrap()
+            .get_document_mut("essence")
+            .unwrap();
+        doc.extend(outputs_doc);
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
 
         let block = get_test_milestone_block();
@@ -89,35 +106,5 @@ mod tests {
         let block = get_test_tagged_data_block();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
-    }
-
-    fn get_test_transaction_block() -> Block {
-        Block::from(
-            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
-                .with_nonce_provider(u64::MAX, 0.0)
-                .with_payload(get_test_transaction_payload().try_into().unwrap())
-                .finish()
-                .unwrap(),
-        )
-    }
-
-    fn get_test_milestone_block() -> Block {
-        Block::from(
-            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
-                .with_nonce_provider(u64::MAX, 0.0)
-                .with_payload(get_test_milestone_payload().try_into().unwrap())
-                .finish()
-                .unwrap(),
-        )
-    }
-
-    fn get_test_tagged_data_block() -> Block {
-        Block::from(
-            bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
-                .with_nonce_provider(u64::MAX, 0.0)
-                .with_payload(get_test_tagged_data_payload().try_into().unwrap())
-                .finish()
-                .unwrap(),
-        )
     }
 }

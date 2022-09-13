@@ -51,7 +51,7 @@ mod test {
     use primitive_types::U256;
 
     use super::AliasOutputsQuery;
-    use crate::types::stardust::block::{Address, NativeTokenAmount};
+    use crate::types::stardust::block::{output::NativeTokenAmount, Address};
 
     #[test]
     fn test_alias_query_everything() {
