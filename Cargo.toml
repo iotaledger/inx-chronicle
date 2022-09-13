@@ -48,7 +48,7 @@ tracing = { version = "0.1", default-features = false, features = [ "std", "attr
 tracing-futures = { version = "0.2", default-features = false, features = [ "std", "std-future" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "std", "fmt", "ansi", "smallvec", "tracing-log", "local-time", "env-filter" ] }
 uint = { version = "0.9", default-features = false }
-url = { version = "2.2", default-features = false }
+url = { version = "2.3", default-features = false }
 uuid = { version = "1.1", default-features = false, features = [ "v4" ] }
 
 # API
@@ -81,13 +81,11 @@ tracing-opentelemetry = { version = "0.17", default-features = false, features =
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.7", default-features = false, features = ["axum"], optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "std", "serde" ], optional = true }
-
-# Tokio Console
-console-subscriber = { version = "0.1", default-features = false, optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "rand", "std", "serde" ], optional = true }
 
 [dev-dependencies]
 packable = { version = "=0.6.1", default-features = false }
+rand = { version = "0.8", default-features = false, features = [ "std" ] }
 test_util = { path = "./test_util" }
 
 [features]
@@ -113,10 +111,6 @@ api = [
     "dep:tower-http",
     "dep:zeroize",
     "stardust",
-]
-console = [ 
-    "dep:console-subscriber",
-    "tokio/tracing",
 ]
 inx = [ 
     "dep:bee-inx",

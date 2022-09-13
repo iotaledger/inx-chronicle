@@ -96,6 +96,7 @@ pub enum TransactionEssence {
         inputs: Box<[Input]>,
         #[serde(with = "bytify")]
         inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
+        #[serde(skip_serializing)]
         outputs: Box<[Output]>,
         #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<Payload>,
@@ -160,7 +161,7 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
 #[cfg(test)]
 mod test {
     use bee_block_stardust::rand::bytes::rand_bytes_array;
-    use mongodb::bson::{from_bson, to_bson};
+    use mongodb::bson::{doc, from_bson, to_bson, to_document};
     use test_util::payload::transaction::rand_transaction_payload;
 
     use super::*;
@@ -176,7 +177,12 @@ mod test {
     #[test]
     fn test_transaction_payload_bson() {
         let payload = TransactionPayload::from(&rand_transaction_payload());
-        let bson = to_bson(&payload).unwrap();
+        let mut bson = to_bson(&payload).unwrap();
+        // Need to re-add outputs as they are not serialized
+        let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+        let outputs_doc = doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() };
+        let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
+        doc.extend(outputs_doc);
         assert_eq!(payload, from_bson::<TransactionPayload>(bson).unwrap());
     }
 }

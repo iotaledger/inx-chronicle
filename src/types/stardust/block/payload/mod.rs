@@ -94,16 +94,25 @@ impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 #[cfg(test)]
 mod test {
     use bee_block_stardust::rand::payload::{rand_tagged_data_payload, rand_treasury_transaction_payload};
-    use mongodb::bson::{from_bson, to_bson};
+    use mongodb::bson::{doc, from_bson, to_bson, to_document};
     use test_util::payload::{milestone::rand_milestone_payload, transaction::rand_transaction_payload};
 
     use super::*;
-    use crate::types::stardust::block::Payload;
+    use crate::types::stardust::block::{payload::TransactionEssence, Payload};
 
     #[test]
     fn test_payload_bson() {
         let payload = Payload::from(&bee::Payload::from(rand_transaction_payload()));
-        let bson = to_bson(&payload).unwrap();
+        let mut bson = to_bson(&payload).unwrap();
+        // Need to re-add outputs as they are not serialized
+        let outputs_doc = if let Payload::Transaction(payload) = &payload {
+            let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+            doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() }
+        } else {
+            unreachable!();
+        };
+        let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
+        doc.extend(outputs_doc);
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
         let payload = Payload::from(&bee::Payload::from(rand_milestone_payload(1)));

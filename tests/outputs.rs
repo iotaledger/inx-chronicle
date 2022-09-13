@@ -4,7 +4,7 @@
 mod common;
 
 use chronicle::{
-    db::collections::{OutputMetadataResult, OutputWithMetadataResult},
+    db::collections::{MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
         stardust::block::{
@@ -21,7 +21,8 @@ use test_util::{payload::milestone::rand_milestone_payload, rand_transaction_blo
 async fn test_outputs() {
     let db = connect_to_test_db("test-outputs").await.unwrap();
     db.clear().await.unwrap();
-    db.create_output_indexes().await.unwrap();
+    let collection = db.collection::<OutputCollection>();
+    collection.create_indexes().await.unwrap();
 
     let block = rand_transaction_block();
     let block_id = BlockId::from(block.id());
@@ -52,20 +53,22 @@ async fn test_outputs() {
     let milestone_id = MilestoneId::from(milestone.id());
     let milestone = MilestonePayload::from(&milestone);
 
-    db.insert_unspent_outputs(outputs.iter()).await.unwrap();
+    collection.insert_unspent_outputs(&outputs).await.unwrap();
 
-    db.insert_milestone(
-        milestone_id,
-        milestone.essence.index,
-        milestone.essence.timestamp.into(),
-        milestone.clone(),
-    )
-    .await
-    .unwrap();
+    db.collection::<MilestoneCollection>()
+        .insert_milestone(
+            milestone_id,
+            milestone.essence.index,
+            milestone.essence.timestamp.into(),
+            milestone.clone(),
+        )
+        .await
+        .unwrap();
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_spending_transaction_metadata(&output.output_id)
+            collection
+                .get_spending_transaction_metadata(&output.output_id)
                 .await
                 .unwrap()
                 .as_ref(),
@@ -73,16 +76,16 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_output(&output.output_id).await.unwrap().as_ref(),
+            collection.get_output(&output.output_id).await.unwrap().as_ref(),
             Some(&output.output),
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_output_metadata(&output.output_id).await.unwrap(),
+            collection.get_output_metadata(&output.output_id).await.unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output_id,
                 block_id,
@@ -93,9 +96,9 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_output_with_metadata(&output.output_id).await.unwrap(),
+            collection.get_output_with_metadata(&output.output_id).await.unwrap(),
             Some(OutputWithMetadataResult {
                 output: output.output.clone(),
                 metadata: OutputMetadataResult {
@@ -123,18 +126,18 @@ async fn test_outputs() {
         })
         .collect::<Vec<_>>();
 
-    db.update_spent_outputs(outputs.iter()).await.unwrap();
+    collection.update_spent_outputs(&outputs).await.unwrap();
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_output(&output.output.output_id).await.unwrap().as_ref(),
+            collection.get_output(&output.output.output_id).await.unwrap().as_ref(),
             Some(&output.output.output),
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_output_metadata(&output.output.output_id).await.unwrap(),
+            collection.get_output_metadata(&output.output.output_id).await.unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output.output_id,
                 block_id,
@@ -145,9 +148,12 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_output_with_metadata(&output.output.output_id).await.unwrap(),
+            collection
+                .get_output_with_metadata(&output.output.output_id)
+                .await
+                .unwrap(),
             Some(OutputWithMetadataResult {
                 output: output.output.output.clone(),
                 metadata: OutputMetadataResult {
@@ -161,9 +167,10 @@ async fn test_outputs() {
         );
     }
 
-    for output in outputs.iter() {
+    for output in &outputs {
         assert_eq!(
-            db.get_spending_transaction_metadata(&output.output.output_id)
+            collection
+                .get_spending_transaction_metadata(&output.output.output_id)
                 .await
                 .unwrap()
                 .as_ref(),
