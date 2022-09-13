@@ -160,18 +160,18 @@ impl BlockCollection {
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), Error>
+    pub async fn insert_blocks_with_metadata<'a, I>(&self, blocks_with_metadata: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = (BlockId, Block, Vec<u8>, BlockMetadata)>,
+        I: IntoIterator<Item = &'a (BlockId, Block, Vec<u8>, BlockMetadata)>,
         I::IntoIter: Send + Sync,
     {
         let blocks_with_metadata = blocks_with_metadata
             .into_iter()
             .map(|(block_id, block, raw, metadata)| BlockDocument {
-                block_id,
-                block,
-                raw,
-                metadata,
+                block_id: *block_id,
+                block: block.clone(),
+                raw: raw.clone(),
+                metadata: metadata.clone(),
             });
 
         self.insert_many_ignore_duplicates(

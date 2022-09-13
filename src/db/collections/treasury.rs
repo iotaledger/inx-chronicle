@@ -75,14 +75,14 @@ impl TreasuryCollection {
 
     /// Inserts many treasury data.
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_treasury_payloads<I>(&self, payloads: I) -> Result<(), Error>
+    pub async fn insert_treasury_payloads<'a, I>(&self, payloads: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = (MilestoneIndex, MilestoneId, u64)>,
+        I: IntoIterator<Item = &'a (MilestoneIndex, MilestoneId, u64)>,
         I::IntoIter: Send + Sync,
     {
         let payloads = payloads
             .into_iter()
-            .map(|(milestone_index, milestone_id, amount)| TreasuryDocument {
+            .map(|&(milestone_index, milestone_id, amount)| TreasuryDocument {
                 milestone_index,
                 milestone_id,
                 amount,

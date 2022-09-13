@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod chunks;
 mod config;
 mod error;
 mod stream;
@@ -27,7 +26,7 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::try_join;
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
-use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
+use self::{stream::LedgerUpdateStream};
 pub use self::{config::InxConfig, error::InxError};
 
 /// Batch size for insert operations.
@@ -277,13 +276,13 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Res
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+            for batch in outputs.chunks(INSERT_BATCH_SIZE) {
                 output_collection.insert_unspent_outputs(batch).await?;
             }
             Result::<_, InxError>::Ok(())
         },
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+            for batch in outputs.chunks(INSERT_BATCH_SIZE) {
                 ledger_collection.insert_unspent_ledger_updates(batch).await?;
             }
             Ok(())
@@ -298,13 +297,13 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+            for batch in outputs.chunks(INSERT_BATCH_SIZE) {
                 output_collection.update_spent_outputs(batch).await?;
             }
             Ok(())
         },
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+            for batch in outputs.chunks(INSERT_BATCH_SIZE) {
                 ledger_collection.insert_spent_ledger_updates(batch).await?;
             }
             Ok(())
@@ -373,10 +372,6 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
         .try_collect::<Vec<_>>()
         .await?;
 
-    // Unfortunately, clippy is wrong here. As much as I would love to use the iterator directly
-    // rather than collecting, rust is unable to resolve the bounds and cannot adequately express
-    // what is actually wrong.
-    #[allow(clippy::needless_collect)]
     let payloads = blocks_with_metadata
         .iter()
         .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
@@ -393,13 +388,13 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
         })
         .collect::<Vec<_>>();
 
-    for batch in &payloads.into_iter().chunks(INSERT_BATCH_SIZE) {
+    for batch in payloads.chunks(INSERT_BATCH_SIZE) {
         db.collection::<TreasuryCollection>()
             .insert_treasury_payloads(batch)
             .await?;
     }
 
-    for batch in &blocks_with_metadata.into_iter().chunks(INSERT_BATCH_SIZE) {
+    for batch in blocks_with_metadata.chunks(INSERT_BATCH_SIZE) {
         db.collection::<BlockCollection>()
             .insert_blocks_with_metadata(batch)
             .await?;
