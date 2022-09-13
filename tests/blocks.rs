@@ -51,7 +51,7 @@ async fn test_blocks() {
     })
     .collect::<Vec<_>>();
 
-    collection.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
+    collection.insert_blocks_with_metadata(blocks.iter()).await.unwrap();
 
     for (block_id, block, _, _) in blocks.iter() {
         assert_eq!(collection.get_block(block_id).await.unwrap().as_ref(), Some(block));
