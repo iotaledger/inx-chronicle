@@ -19,7 +19,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use super::{MongoDb, DUPLICATE_KEY_CODE};
 
-/// A mongodb collection.
+/// A MongoDB collection.
 pub trait MongoDbCollection {
     /// The collection name.
     const NAME: &'static str;
@@ -29,7 +29,7 @@ pub trait MongoDbCollection {
     /// Creates an instance of this collection type.
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self;
 
-    /// Gets the underlying mongodb collection. This must return a collection of the type
+    /// Gets the underlying MongoDB collection. This must return a collection of the type
     /// specified by this trait, which will be coerced if necessary.
     fn collection(&self) -> &mongodb::Collection<Self::Document>;
 

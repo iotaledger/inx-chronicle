@@ -301,7 +301,7 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
             for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
                 output_collection.update_spent_outputs(batch).await?;
             }
-            Result::<_, InxError>::Ok(())
+            Ok(())
         },
         async {
             for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
@@ -309,8 +309,7 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
             }
             Ok(())
         }
-    }?;
-    Ok(())
+    }.and(Ok(()))
 }
 
 #[instrument(skip_all, level = "trace")]
