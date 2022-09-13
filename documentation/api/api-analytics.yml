@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Analytics REST API test
+  title: Analytics REST API
   description: This document specifies the analytics REST API for Chronicle software.
   contact:
     email: contact@iota.org
@@ -29,7 +29,7 @@ paths:
         as well as the byte costs associated with output storage at the ledger state 
         specified by the provided index.
       parameters:
-        - $ref: "#/components/parameters/ledgerIndex"
+        - $ref: "#/components/parameters/ledgerInd"
       responses:
         "200":
           $ref: "#/components/responses/StorageDeposit"
