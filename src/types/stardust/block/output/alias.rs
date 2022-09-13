@@ -144,14 +144,14 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::output::{rand_alias_id, rand_alias_output};
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::alias::get_test_alias_output;
 
     #[test]
     fn test_alias_id_bson() {
-        let alias_id = AliasId::from(bee_block_stardust::rand::output::rand_alias_id());
+        let alias_id = AliasId::from(rand_alias_id());
         let bson = to_bson(&alias_id).unwrap();
         assert_eq!(Bson::from(alias_id), bson);
         assert_eq!(alias_id, from_bson::<AliasId>(bson).unwrap());
@@ -159,7 +159,7 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let output = get_test_alias_output();
+        let output = AliasOutput::from(&rand_alias_output());
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }

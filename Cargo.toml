@@ -81,13 +81,14 @@ tracing-opentelemetry = { version = "0.17", default-features = false, features =
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0-beta.7", default-features = false, features = ["axum"], optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "rand", "std", "serde" ], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "std", "serde" ], optional = true }
 
 # Tokio Console
 console-subscriber = { version = "0.1", default-features = false, optional = true }
 
 [dev-dependencies]
 packable = { version = "=0.6.1", default-features = false }
+test_util = { path = "./test_util" }
 
 [features]
 default = [ 
@@ -136,3 +137,7 @@ inherits = "release"
 codegen-units = 1
 lto = true
 strip = "symbols"
+
+[workspace]
+default-members = [".", "test_util"]
+members = [".", "test_util"]

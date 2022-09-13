@@ -59,26 +59,28 @@ impl TryFrom<Feature> for bee::Feature {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::output::feature::{
+        rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,
+    };
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::feature::*;
 
     #[test]
     fn test_feature_bson() {
-        let block = get_test_sender_block(bee_block_stardust::rand::address::rand_address().into());
+        let block = Feature::from(&bee::Feature::from(rand_sender_feature()));
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = get_test_issuer_block(bee_block_stardust::rand::address::rand_address().into());
+        let block = Feature::from(&bee::Feature::from(rand_issuer_feature()));
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = get_test_metadata_block();
+        let block = Feature::from(&bee::Feature::from(rand_metadata_feature()));
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = get_test_tag_block();
+        let block = Feature::from(&bee::Feature::from(rand_tag_feature()));
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
     }

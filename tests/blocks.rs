@@ -6,9 +6,10 @@ mod common;
 use bee_block_stardust as bee;
 use chronicle::types::{
     ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-    stardust::{block::payload::TransactionPayload, util::*},
+    stardust::block::{payload::TransactionPayload, Block},
 };
 use packable::PackableExt;
+use test_util::{rand_milestone_block, rand_transaction_block};
 
 use crate::common::connect_to_test_db;
 
@@ -19,9 +20,9 @@ async fn test_blocks() {
     db.create_block_indexes().await.unwrap();
 
     let blocks = vec![
-        get_test_transaction_block(),
-        get_test_milestone_block(),
-        get_test_tagged_data_block(),
+        Block::from(rand_transaction_block()),
+        Block::from(rand_milestone_block()),
+        Block::from(bee::rand::block::rand_block()),
     ]
     .into_iter()
     .enumerate()

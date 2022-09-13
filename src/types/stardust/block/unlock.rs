@@ -44,25 +44,25 @@ impl TryFrom<Unlock> for bee::Unlock {
 #[cfg(test)]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
+    use test_util::unlock::{rand_alias_unlock, rand_nft_unlock, rand_reference_unlock, rand_signature_unlock};
 
     use super::*;
-    use crate::types::stardust::util::unlock::get_test_signature_unlock;
 
     #[test]
     fn test_unlock_bson() {
-        let unlock = get_test_signature_unlock();
+        let unlock = Unlock::from(&bee::Unlock::from(rand_signature_unlock()));
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
 
-        let unlock = Unlock::Reference { index: 1 };
+        let unlock = Unlock::from(&bee::Unlock::from(rand_reference_unlock()));
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
 
-        let unlock = Unlock::Alias { index: 1 };
+        let unlock = Unlock::from(&bee::Unlock::from(rand_alias_unlock()));
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
 
-        let unlock = Unlock::Nft { index: 1 };
+        let unlock = Unlock::from(&bee::Unlock::from(rand_nft_unlock()));
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
     }

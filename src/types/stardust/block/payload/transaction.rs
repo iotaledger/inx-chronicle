@@ -159,14 +159,15 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::bytes::rand_bytes_array;
     use mongodb::bson::{from_bson, to_bson};
+    use test_util::payload::transaction::rand_transaction_payload;
 
     use super::*;
-    use crate::types::stardust::util::payload::transaction::get_test_transaction_payload;
 
     #[test]
     fn test_transaction_id_bson() {
-        let transaction_id = TransactionId::from(bee_block_stardust::rand::transaction::rand_transaction_id());
+        let transaction_id = TransactionId::from(bee::TransactionId::new(rand_bytes_array()));
         let bson = to_bson(&transaction_id).unwrap();
         assert_eq!(Bson::from(transaction_id), bson);
         assert_eq!(transaction_id, from_bson::<TransactionId>(bson).unwrap());
@@ -174,7 +175,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let payload = get_test_transaction_payload();
+        let payload = TransactionPayload::from(&rand_transaction_payload());
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TransactionPayload>(bson).unwrap());
     }

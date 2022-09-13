@@ -93,25 +93,28 @@ impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::payload::{rand_tagged_data_payload, rand_treasury_transaction_payload};
     use mongodb::bson::{from_bson, to_bson};
+    use test_util::payload::{milestone::rand_milestone_payload, transaction::rand_transaction_payload};
 
-    use crate::types::stardust::{block::Payload, util::payload::*};
+    use super::*;
+    use crate::types::stardust::block::Payload;
 
     #[test]
     fn test_payload_bson() {
-        let payload = get_test_transaction_payload();
+        let payload = Payload::from(&bee::Payload::from(rand_transaction_payload()));
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = get_test_milestone_payload();
+        let payload = Payload::from(&bee::Payload::from(rand_milestone_payload()));
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = get_test_treasury_transaction_payload();
+        let payload = Payload::from(&bee::Payload::from(rand_treasury_transaction_payload()));
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = get_test_tagged_data_payload();
+        let payload = Payload::from(&bee::Payload::from(rand_tagged_data_payload()));
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }

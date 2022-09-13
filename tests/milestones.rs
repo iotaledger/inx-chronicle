@@ -3,9 +3,9 @@
 
 mod common;
 
-use bee_block_stardust as bee;
-use chronicle::types::stardust::{block::payload::MilestoneId, util::payload::milestone::get_test_milestone_payload};
+use chronicle::types::stardust::block::payload::{MilestoneId, MilestonePayload};
 use common::connect_to_test_db;
+use test_util::payload::milestone::rand_milestone_payload;
 
 #[tokio::test]
 async fn test_milestones() {
@@ -13,12 +13,9 @@ async fn test_milestones() {
     db.clear().await.unwrap();
     db.create_milestone_indexes().await.unwrap();
 
-    let milestone = get_test_milestone_payload();
-    let milestone_id = MilestoneId::from(
-        bee::payload::MilestonePayload::try_from(milestone.clone())
-            .unwrap()
-            .id(),
-    );
+    let milestone = rand_milestone_payload();
+    let milestone_id = MilestoneId::from(milestone.id());
+    let milestone = MilestonePayload::from(&milestone);
 
     db.insert_milestone(
         milestone_id,

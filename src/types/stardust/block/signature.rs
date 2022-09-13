@@ -46,13 +46,13 @@ impl From<Signature> for bee::Signature {
 #[cfg(test)]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
+    use test_util::signature::rand_signature;
 
     use super::*;
-    use crate::types::stardust::util::signature::get_test_signature;
 
     #[test]
     fn test_signature_bson() {
-        let signature = get_test_signature();
+        let signature = Signature::from(&rand_signature());
         let bson = to_bson(&signature).unwrap();
         assert_eq!(signature, from_bson::<Signature>(bson).unwrap());
     }

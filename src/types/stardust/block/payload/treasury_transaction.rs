@@ -35,14 +35,14 @@ impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::payload::rand_treasury_transaction_payload;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::payload::treasury_transaction::get_test_treasury_transaction_payload;
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let payload = get_test_treasury_transaction_payload();
+        let payload = TreasuryTransactionPayload::from(&rand_treasury_transaction_payload());
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TreasuryTransactionPayload>(bson).unwrap());
     }

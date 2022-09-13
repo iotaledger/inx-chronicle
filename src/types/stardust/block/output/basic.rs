@@ -84,14 +84,14 @@ impl TryFrom<BasicOutput> for bee::BasicOutput {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::output::rand_basic_output;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::basic::*;
 
     #[test]
     fn test_basic_output_bson() {
-        let output = get_test_basic_output();
+        let output = BasicOutput::from(&rand_basic_output());
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<BasicOutput>(bson).unwrap());
     }

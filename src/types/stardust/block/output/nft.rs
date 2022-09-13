@@ -140,14 +140,14 @@ impl TryFrom<NftOutput> for bee::NftOutput {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::{bytes::rand_bytes_array, output::rand_nft_output};
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::nft::*;
 
     #[test]
     fn test_nft_id_bson() {
-        let nft_id = NftId::from(rand_nft_id());
+        let nft_id = NftId::from(bee::NftId::from(rand_bytes_array()));
         let bson = to_bson(&nft_id).unwrap();
         assert_eq!(Bson::from(nft_id), bson);
         assert_eq!(nft_id, from_bson::<NftId>(bson).unwrap());
@@ -155,7 +155,7 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let output = get_test_nft_output();
+        let output = NftOutput::from(&rand_nft_output());
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }

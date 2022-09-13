@@ -3,22 +3,19 @@
 
 mod common;
 
-use bee_block_stardust as bee;
 use chronicle::{
     db::collections::{OutputMetadataResult, OutputWithMetadataResult},
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
-        stardust::{
-            block::{
-                output::OutputId,
-                payload::{MilestoneId, TransactionEssence, TransactionPayload},
-                BlockId,
-            },
-            util::{get_test_transaction_block, payload::milestone::get_test_milestone_payload},
+        stardust::block::{
+            output::OutputId,
+            payload::{MilestoneId, MilestonePayload, TransactionEssence, TransactionPayload},
+            Block, BlockId,
         },
     },
 };
 use common::connect_to_test_db;
+use test_util::{payload::milestone::rand_milestone_payload, rand_transaction_block};
 
 #[tokio::test]
 async fn test_outputs() {
@@ -26,8 +23,9 @@ async fn test_outputs() {
     db.clear().await.unwrap();
     db.create_output_indexes().await.unwrap();
 
-    let block = get_test_transaction_block();
-    let block_id = BlockId::from(bee::Block::try_from(block.clone()).unwrap().id());
+    let block = rand_transaction_block();
+    let block_id = BlockId::from(block.id());
+    let block = Block::from(block);
     let transaction_payload = TransactionPayload::try_from(block.payload.unwrap()).unwrap();
     let transaction_id = transaction_payload.transaction_id;
     let TransactionEssence::Regular { outputs, .. } = transaction_payload.essence;
@@ -50,12 +48,9 @@ async fn test_outputs() {
         .collect::<Vec<_>>();
 
     // Need to insert a milestone to be the ledger index
-    let milestone = get_test_milestone_payload();
-    let milestone_id = MilestoneId::from(
-        bee::payload::MilestonePayload::try_from(milestone.clone())
-            .unwrap()
-            .id(),
-    );
+    let milestone = rand_milestone_payload();
+    let milestone_id = MilestoneId::from(milestone.id());
+    let milestone = MilestonePayload::from(&milestone);
 
     db.insert_unspent_outputs(outputs.iter()).await.unwrap();
 

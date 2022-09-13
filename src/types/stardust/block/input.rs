@@ -37,18 +37,18 @@ impl TryFrom<Input> for bee::Input {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::input::{rand_treasury_input, rand_utxo_input};
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::input::{get_test_treasury_input, get_test_utxo_input};
 
     #[test]
     fn test_input_bson() {
-        let input = get_test_utxo_input();
+        let input = Input::from(&bee::Input::from(rand_utxo_input()));
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());
 
-        let input = get_test_treasury_input();
+        let input = Input::from(&bee::Input::from(rand_treasury_input()));
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());
     }

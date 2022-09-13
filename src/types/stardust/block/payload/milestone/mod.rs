@@ -213,14 +213,15 @@ impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::milestone::rand_milestone_id;
     use mongodb::bson::{from_bson, to_bson, Bson};
+    use test_util::payload::milestone::rand_milestone_payload;
 
     use super::*;
-    use crate::types::stardust::util::payload::milestone::get_test_milestone_payload;
 
     #[test]
     fn test_milestone_id_bson() {
-        let milestone_id = MilestoneId::from(bee_block_stardust::rand::milestone::rand_milestone_id());
+        let milestone_id = MilestoneId::from(rand_milestone_id());
         let bson = to_bson(&milestone_id).unwrap();
         assert_eq!(Bson::from(milestone_id), bson);
         assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
@@ -228,7 +229,7 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let payload = get_test_milestone_payload();
+        let payload = MilestonePayload::from(&rand_milestone_payload());
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }

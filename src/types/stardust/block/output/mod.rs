@@ -228,39 +228,37 @@ impl TryFrom<Output> for bee::dto::OutputDto {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::*;
 
     #[test]
     fn test_output_id_bson() {
-        let output_id = OutputId::from(bee_block_stardust::rand::output::rand_output_id());
+        let output_id = OutputId::from(rand::output::rand_output_id());
         let bson = to_bson(&output_id).unwrap();
         from_bson::<OutputId>(bson).unwrap();
     }
 
     #[test]
     fn test_output_bson() {
-        let output = get_test_alias_output();
+        let output = Output::from(&bee::Output::from(rand::output::rand_alias_output()));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = get_test_basic_output();
+        let output = Output::from(&bee::Output::from(rand::output::rand_basic_output()));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = get_test_foundry_output();
+        let output = Output::from(&bee::Output::from(rand::output::rand_foundry_output()));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = get_test_nft_output();
+        let output = Output::from(&bee::Output::from(rand::output::rand_nft_output()));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = Output::from(&bee::Output::Treasury(
-            bee_block_stardust::rand::output::rand_treasury_output(),
-        ));
+        let output = Output::from(&bee::Output::from(rand::output::rand_treasury_output()));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }

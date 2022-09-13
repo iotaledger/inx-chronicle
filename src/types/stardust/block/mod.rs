@@ -65,10 +65,11 @@ impl TryFrom<Block> for bee::BlockDto {
 #[cfg(test)]
 
 mod test {
+    use bee::rand::block::rand_block;
     use mongodb::bson::{from_bson, to_bson, Bson};
+    use test_util::{rand_milestone_block, rand_transaction_block};
 
     use super::*;
-    use crate::types::stardust::util::*;
 
     #[test]
     fn test_block_id_bson() {
@@ -80,15 +81,15 @@ mod test {
 
     #[test]
     fn test_block_bson() {
-        let block = get_test_transaction_block();
+        let block = Block::from(rand_transaction_block());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
 
-        let block = get_test_milestone_block();
+        let block = Block::from(rand_milestone_block());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
 
-        let block = get_test_tagged_data_block();
+        let block = Block::from(rand_block());
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }

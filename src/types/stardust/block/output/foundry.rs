@@ -116,14 +116,14 @@ impl TryFrom<FoundryOutput> for bee::FoundryOutput {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::output::rand_foundry_output;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::foundry::*;
 
     #[test]
     fn test_foundry_output_bson() {
-        let output = get_test_foundry_output();
+        let output = FoundryOutput::from(&rand_foundry_output());
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<FoundryOutput>(bson).unwrap());
     }
