@@ -47,8 +47,8 @@ pub fn routes() -> Router {
                 .nest(
                     "/milestones",
                     Router::new()
-                        .route("/by-id/:milestone_id", get(milestone_activity_analytics_by_id)),
-                        .route("/by-index/:milestone_index", get(milestone_activity_analytics))
+                        .route("/by-id/:milestone_id", get(milestone_activity_analytics_by_id))
+                        .route("/by-index/:milestone_index", get(milestone_activity_analytics)),
                 )
                 .route("/native-tokens", get(native_token_activity_analytics))
                 .route("/nfts", get(nft_activity_analytics))
