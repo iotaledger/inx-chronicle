@@ -26,7 +26,7 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::try_join;
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
-use self::{stream::LedgerUpdateStream};
+use self::stream::LedgerUpdateStream;
 pub use self::{config::InxConfig, error::InxError};
 
 /// Batch size for insert operations.
