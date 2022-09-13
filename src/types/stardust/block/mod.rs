@@ -65,10 +65,10 @@ impl TryFrom<Block> for bee::BlockDto {
 #[cfg(test)]
 
 mod test {
-    use mongodb::bson::{from_bson, to_bson, Bson};
+    use mongodb::bson::{doc, from_bson, to_bson, to_document, Bson};
 
     use super::*;
-    use crate::types::stardust::util::*;
+    use crate::types::stardust::{block::payload::TransactionEssence, util::*};
 
     #[test]
     fn test_block_id_bson() {
@@ -81,7 +81,22 @@ mod test {
     #[test]
     fn test_block_bson() {
         let block = get_test_transaction_block();
-        let bson = to_bson(&block).unwrap();
+        let mut bson = to_bson(&block).unwrap();
+        // Need to re-add outputs as they are not serialized
+        let outputs_doc = if let Some(Payload::Transaction(payload)) = &block.payload {
+            let TransactionEssence::Regular { outputs, .. } = &payload.essence;
+            doc! { "outputs": outputs.iter().map(to_document).collect::<Result<Vec<_>, _>>().unwrap() }
+        } else {
+            unreachable!();
+        };
+        let doc = bson
+            .as_document_mut()
+            .unwrap()
+            .get_document_mut("payload")
+            .unwrap()
+            .get_document_mut("essence")
+            .unwrap();
+        doc.extend(outputs_doc);
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
 
         let block = get_test_milestone_block();
