@@ -255,10 +255,15 @@ fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMeta
 }
 
 async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
+    let ledger_index = database
+        .collection::<MilestoneCollection>()
+        .get_ledger_index()
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let OutputWithMetadataResult { output, metadata } = database
         .collection::<OutputCollection>()
-        .get_output_with_metadata(&output_id)
+        .get_output_with_metadata(&output_id, ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
@@ -274,10 +279,15 @@ async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<OutputMetadataResponse> {
+    let ledger_index = database
+        .collection::<MilestoneCollection>()
+        .get_ledger_index()
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
     let metadata = database
         .collection::<OutputCollection>()
-        .get_output_metadata(&output_id)
+        .get_output_metadata(&output_id, ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
@@ -424,12 +434,17 @@ async fn utxo_changes_by_index(
 }
 
 async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
+    let ledger_index = database
+        .collection::<MilestoneCollection>()
+        .get_ledger_index()
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let UtxoChangesResult {
         created_outputs,
         consumed_outputs,
     } = database
         .collection::<OutputCollection>()
-        .get_utxo_changes(milestone_index)
+        .get_utxo_changes(milestone_index, ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 

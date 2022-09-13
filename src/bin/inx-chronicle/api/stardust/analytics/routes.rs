@@ -5,7 +5,9 @@ use axum::{routing::get, Extension, Router};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{BlockCollection, OutputCollection, OutputKind, PayloadKind, ProtocolUpdateCollection},
+        collections::{
+            BlockCollection, MilestoneCollection, OutputCollection, OutputKind, PayloadKind, ProtocolUpdateCollection,
+        },
         MongoDb,
     },
     types::stardust::block::{
@@ -114,6 +116,15 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
+    let ledger_index = if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(ApiError::NoResults)?
+    };
     let res = database
         .collection::<OutputCollection>()
         .get_unspent_output_analytics::<O>(ledger_index)
@@ -130,11 +141,25 @@ async fn storage_deposit_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
+    let ledger_index = if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(ApiError::NoResults)?
+    };
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(ledger_index)
+        .await?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .parameters;
     let res = database
         .collection::<OutputCollection>()
-        .get_storage_deposit_analytics(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .get_storage_deposit_analytics(ledger_index, protocol_params)
+        .await?;
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),
@@ -188,11 +213,19 @@ async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
+    let ledger_index = if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(ApiError::NoResults)?
+    };
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     let hrp = database
         .collection::<ProtocolUpdateCollection>()
@@ -219,11 +252,19 @@ async fn token_distribution_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
+    let ledger_index = if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(ApiError::NoResults)?
+    };
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),

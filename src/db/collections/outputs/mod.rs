@@ -18,7 +18,7 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::{milestone::MilestoneCollection, protocol_update::ProtocolUpdateCollection, OutputKind};
+use super::OutputKind;
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
@@ -32,7 +32,7 @@ use crate::{
             output::{Output, OutputId},
             Address, BlockId,
         },
-        tangle::{MilestoneIndex, RentStructure},
+        tangle::{MilestoneIndex, ProtocolParameters, RentStructure},
     },
 };
 
@@ -50,8 +50,6 @@ pub struct OutputDocument {
 pub struct OutputCollection {
     db: mongodb::Database,
     collection: mongodb::Collection<OutputDocument>,
-    milestone_collection: MilestoneCollection,
-    protocol_param_collection: ProtocolUpdateCollection,
 }
 
 impl MongoDbCollection for OutputCollection {
@@ -62,8 +60,6 @@ impl MongoDbCollection for OutputCollection {
         Self {
             db: db.db.clone(),
             collection,
-            milestone_collection: db.collection(),
-            protocol_param_collection: db.collection(),
         }
     }
 
@@ -237,10 +233,9 @@ impl OutputCollection {
     pub async fn get_output_with_metadata(
         &self,
         output_id: &OutputId,
+        ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputWithMetadataResult>, Error> {
-        let ledger_index = self.milestone_collection.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            Ok(self
+        Ok(self
                 .aggregate(
                     vec![
                         doc! { "$match": {
@@ -265,40 +260,36 @@ impl OutputCollection {
                 .await?
                 .try_next()
                 .await?)
-        } else {
-            Ok(None)
-        }
     }
 
     /// Get an [`OutputMetadata`] by [`OutputId`].
-    pub async fn get_output_metadata(&self, output_id: &OutputId) -> Result<Option<OutputMetadataResult>, Error> {
-        let ledger_index = self.milestone_collection.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "_id": &output_id,
-                            "metadata.booked.milestone_index": { "$lte": ledger_index }
-                        } },
-                        doc! { "$project": {
-                            "output_id": "$_id",
-                            "block_id": "$metadata.block_id",
-                            "booked": "$metadata.booked",
-                            "spent_metadata": "$metadata.spent_metadata",
-                            // The max fn will not consider the spent milestone index if it is null,
-                            // thus always setting the ledger index to our provided value
-                            "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
-                        } }
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?)
-        } else {
-            Ok(None)
-        }
+    pub async fn get_output_metadata(
+        &self,
+        output_id: &OutputId,
+        ledger_index: MilestoneIndex,
+    ) -> Result<Option<OutputMetadataResult>, Error> {
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "_id": &output_id,
+                        "metadata.booked.milestone_index": { "$lte": ledger_index }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "spent_metadata": "$metadata.spent_metadata",
+                        // The max fn will not consider the spent milestone index if it is null,
+                        // thus always setting the ledger index to our provided value
+                        "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?)
     }
 
     /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
@@ -322,74 +313,73 @@ impl OutputCollection {
     }
 
     /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
-    pub async fn get_address_balance(&self, address: Address) -> Result<Option<BalanceResult>, Error> {
-        let ledger_index = self.milestone_collection.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            Ok(self
-                .aggregate(
-                    vec![
-                        // Look at all (at ledger index o'clock) unspent output documents for the given address.
-                        doc! { "$match": {
-                            "details.address": &address,
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "$or": [
-                                { "metadata.spent_metadata.spent": null },
-                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                            ]
+    pub async fn get_address_balance(
+        &self,
+        address: Address,
+        ledger_index: MilestoneIndex,
+    ) -> Result<Option<BalanceResult>, Error> {
+        Ok(self
+            .aggregate(
+                vec![
+                    // Look at all (at ledger index o'clock) unspent output documents for the given address.
+                    doc! { "$match": {
+                        "details.address": &address,
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "$or": [
+                            { "metadata.spent_metadata.spent": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                        ]
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "sig_locked_balance": { "$sum": { 
+                            "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
                         } },
-                        doc! { "$group": {
-                            "_id": null,
-                            "total_balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                            "sig_locked_balance": { "$sum": { 
-                                "$cond": [ { "$eq": [ "$details.is_trivial_unlock", true] }, { "$toDecimal": "$output.amount" }, 0 ]
-                            } },
-                        } },
-                        doc! { "$project": {
-                            "total_balance": { "$toString": "$total_balance" },
-                            "sig_locked_balance": { "$toString": "$sig_locked_balance" },
-                            "ledger_index": { "$literal": ledger_index },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?)
-        } else {
-            Ok(None)
-        }
+                    } },
+                    doc! { "$project": {
+                        "total_balance": { "$toString": "$total_balance" },
+                        "sig_locked_balance": { "$toString": "$sig_locked_balance" },
+                        "ledger_index": { "$literal": ledger_index },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?)
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
     /// `index`. It returns `None` if the provided `index` is out of bounds (beyond Chronicle's ledger index). If
     /// the associated milestone did not perform any changes to the ledger, the returned `Vec`s will be empty.
-    pub async fn get_utxo_changes(&self, index: MilestoneIndex) -> Result<Option<UtxoChangesResult>, Error> {
-        if let Some(ledger_index) = self.milestone_collection.get_ledger_index().await? {
-            if index > ledger_index {
-                Ok(None)
-            } else {
-                Ok(Some(
-                    self.aggregate(
-                        vec![doc! { "$facet": {
-                            "created_outputs": [
-                                { "$match": { "metadata.booked.milestone_index": index  } },
-                                { "$replaceWith": "$_id" },
-                            ],
-                            "consumed_outputs": [
-                                { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
-                                { "$replaceWith": "$_id" },
-                            ],
-                        } }],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .unwrap_or_default(),
-                ))
-            }
-        } else {
+    pub async fn get_utxo_changes(
+        &self,
+        index: MilestoneIndex,
+        ledger_index: MilestoneIndex,
+    ) -> Result<Option<UtxoChangesResult>, Error> {
+        if index > ledger_index {
             Ok(None)
+        } else {
+            Ok(Some(
+                self.aggregate(
+                    vec![doc! { "$facet": {
+                        "created_outputs": [
+                            { "$match": { "metadata.booked.milestone_index": index  } },
+                            { "$replaceWith": "$_id" },
+                        ],
+                        "consumed_outputs": [
+                            { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                            { "$replaceWith": "$_id" },
+                        ],
+                    } }],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default(),
+            ))
         }
     }
 }
@@ -441,47 +431,39 @@ impl OutputCollection {
     /// Gathers unspent output analytics.
     pub async fn get_unspent_output_analytics<O: OutputKind>(
         &self,
-        ledger_index: Option<MilestoneIndex>,
+        ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputAnalyticsResult>, Error> {
-        let ledger_index = match ledger_index {
-            None => self.milestone_collection.get_ledger_index().await?,
-            i => i,
-        };
-        if let Some(ledger_index) = ledger_index {
-            let mut queries = vec![doc! {
-                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                "$or": [
-                    { "metadata.spent_metadata.spent": null },
-                    { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                ],
-            }];
-            if let Some(kind) = O::kind() {
-                queries.push(doc! { "output.kind": kind });
-            }
-            Ok(Some(
-                self.aggregate(
-                    vec![
-                        doc! { "$match": { "$and": queries } },
-                        doc! { "$group" : {
-                            "_id": null,
-                            "count": { "$sum": 1 },
-                            "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$project": {
-                            "count": 1,
-                            "total_value": { "$toString": "$total_value" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default(),
-            ))
-        } else {
-            Ok(None)
+        let mut queries = vec![doc! {
+            "metadata.booked.milestone_index": { "$lte": ledger_index },
+            "$or": [
+                { "metadata.spent_metadata.spent": null },
+                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+            ],
+        }];
+        if let Some(kind) = O::kind() {
+            queries.push(doc! { "output.kind": kind });
         }
+        Ok(Some(
+            self.aggregate(
+                vec![
+                    doc! { "$match": { "$and": queries } },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                    } },
+                    doc! { "$project": {
+                        "count": 1,
+                        "total_value": { "$toString": "$total_value" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default(),
+        ))
     }
 }
 
@@ -614,111 +596,96 @@ impl OutputCollection {
     /// Gathers byte cost and storage deposit analytics.
     pub async fn get_storage_deposit_analytics(
         &self,
-        ledger_index: Option<MilestoneIndex>,
-    ) -> Result<Option<StorageDepositAnalyticsResult>, Error> {
-        let ledger_index = match ledger_index {
-            None => self.milestone_collection.get_ledger_index().await?,
-            i => i,
-        };
-        if let Some(ledger_index) = ledger_index {
-            if let Some(protocol_params) = self
-                .protocol_param_collection
-                .get_protocol_parameters_for_ledger_index(ledger_index)
-                .await?
-            {
-                #[derive(Default, Deserialize)]
-                struct StorageDepositAnalytics {
-                    output_count: u64,
-                    storage_deposit_return_count: u64,
-                    storage_deposit_return_total_value: String,
-                    total_key_bytes: String,
-                    total_data_bytes: String,
-                    total_byte_cost: String,
-                }
-
-                let rent_structure = protocol_params.parameters.rent_structure;
-
-                let res = self
-                    .aggregate::<StorageDepositAnalytics>(
-                        vec![
-                            doc! { "$match": {
-                                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                                "$or": [
-                                    { "metadata.spent_metadata.spent": null },
-                                    { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                                ],
-                            } },
-                            doc! {
-                                "$facet": {
-                                    "all": [
-                                        { "$group" : {
-                                            "_id": null,
-                                            "output_count": { "$sum": 1 },
-                                            "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                                            "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                                        } },
-                                    ],
-                                    "storage_deposit": [
-                                        { "$match": { "output.storage_deposit_return_unlock_condition": { "$exists": true } } },
-                                        { "$group" : {
-                                            "_id": null,
-                                            "return_count": { "$sum": 1 },
-                                            "return_total_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
-                                        } },
-                                    ],
-                                }
-                            },
-                            doc! {
-                                "$set": {
-                                    "total_byte_cost": { "$toString":
-                                        { "$multiply": [
-                                            rent_structure.v_byte_cost,
-                                            { "$add": [
-                                                { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
-                                                { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
-                                            ] },
-                                        ] }
-                                    }
-                                }
-                            },
-                            doc! { "$project": {
-                                "output_count": { "$first": "$all.output_count" },
-                                "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
-                                "storage_deposit_return_total_value": { 
-                                    "$toString": { "$first": "$storage_deposit.return_total_value" } 
-                                },
-                                "total_key_bytes": { 
-                                    "$toString": { "$first": "$all.total_key_bytes" } 
-                                },
-                                "total_data_bytes": { 
-                                    "$toString": { "$first": "$all.total_data_bytes" } 
-                                },
-                                "total_byte_cost": 1,
-                            } },
-                        ],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .unwrap_or_default();
-
-                Ok(Some(StorageDepositAnalyticsResult {
-                    output_count: res.output_count,
-                    storage_deposit_return_count: res.storage_deposit_return_count,
-                    storage_deposit_return_total_value: res.storage_deposit_return_total_value,
-                    total_key_bytes: res.total_key_bytes,
-                    total_data_bytes: res.total_data_bytes,
-                    total_byte_cost: res.total_byte_cost,
-                    ledger_index,
-                    rent_structure,
-                }))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
+        ledger_index: MilestoneIndex,
+        protocol_params: ProtocolParameters,
+    ) -> Result<StorageDepositAnalyticsResult, Error> {
+        #[derive(Default, Deserialize)]
+        struct StorageDepositAnalytics {
+            output_count: u64,
+            storage_deposit_return_count: u64,
+            storage_deposit_return_total_value: String,
+            total_key_bytes: String,
+            total_data_bytes: String,
+            total_byte_cost: String,
         }
+
+        let rent_structure = protocol_params.rent_structure;
+
+        let res = self
+            .aggregate::<StorageDepositAnalytics>(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "$or": [
+                            { "metadata.spent_metadata.spent": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                        ],
+                    } },
+                    doc! {
+                        "$facet": {
+                            "all": [
+                                { "$group" : {
+                                    "_id": null,
+                                    "output_count": { "$sum": 1 },
+                                    "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                    "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                                } },
+                            ],
+                            "storage_deposit": [
+                                { "$match": { "output.storage_deposit_return_unlock_condition": { "$exists": true } } },
+                                { "$group" : {
+                                    "_id": null,
+                                    "return_count": { "$sum": 1 },
+                                    "return_total_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
+                                } },
+                            ],
+                        }
+                    },
+                    doc! {
+                        "$set": {
+                            "total_byte_cost": { "$toString":
+                                { "$multiply": [
+                                    rent_structure.v_byte_cost,
+                                    { "$add": [
+                                        { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
+                                        { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
+                                    ] },
+                                ] }
+                            }
+                        }
+                    },
+                    doc! { "$project": {
+                        "output_count": { "$first": "$all.output_count" },
+                        "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
+                        "storage_deposit_return_total_value": { 
+                            "$toString": { "$first": "$storage_deposit.return_total_value" } 
+                        },
+                        "total_key_bytes": { 
+                            "$toString": { "$first": "$all.total_key_bytes" } 
+                        },
+                        "total_data_bytes": { 
+                            "$toString": { "$first": "$all.total_data_bytes" } 
+                        },
+                        "total_byte_cost": 1,
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default();
+
+        Ok(StorageDepositAnalyticsResult {
+            output_count: res.output_count,
+            storage_deposit_return_count: res.storage_deposit_return_count,
+            storage_deposit_return_total_value: res.storage_deposit_return_total_value,
+            total_key_bytes: res.total_key_bytes,
+            total_data_bytes: res.total_data_bytes,
+            total_byte_cost: res.total_byte_cost,
+            ledger_index,
+            rent_structure,
+        })
     }
 }
 
@@ -838,98 +805,79 @@ impl OutputCollection {
     /// Create richest address statistics.
     pub async fn get_richest_addresses(
         &self,
-        ledger_index: Option<MilestoneIndex>,
+        ledger_index: MilestoneIndex,
         top: usize,
-    ) -> Result<Option<RichestAddresses>, Error> {
-        let ledger_index = match ledger_index {
-            None => self.milestone_collection.get_ledger_index().await?,
-            i => i,
-        };
-        if let Some(ledger_index) = ledger_index {
-            let top = self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "details.address": { "$exists": true },
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "$or": [
-                                { "metadata.spent_metadata.spent": null },
-                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                            ]
-                        } },
-                        doc! { "$group" : {
-                            "_id": "$details.address",
-                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$sort": { "balance": -1 } },
-                        doc! { "$limit": top as i64 },
-                        doc! { "$project": {
-                            "_id": 0,
-                            "address": "$_id",
-                            "balance": { "$toString": "$balance" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_collect()
-                .await?;
-            Ok(Some(RichestAddresses { top, ledger_index }))
-        } else {
-            Ok(Default::default())
-        }
+    ) -> Result<RichestAddresses, Error> {
+        let top = self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "details.address": { "$exists": true },
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "$or": [
+                            { "metadata.spent_metadata.spent": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                        ]
+                    } },
+                    doc! { "$group" : {
+                        "_id": "$details.address",
+                        "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                    } },
+                    doc! { "$sort": { "balance": -1 } },
+                    doc! { "$limit": top as i64 },
+                    doc! { "$project": {
+                        "_id": 0,
+                        "address": "$_id",
+                        "balance": { "$toString": "$balance" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_collect()
+            .await?;
+        Ok(RichestAddresses { top, ledger_index })
     }
 
     /// Create token distribution statistics.
-    pub async fn get_token_distribution(
-        &self,
-        ledger_index: Option<MilestoneIndex>,
-    ) -> Result<Option<TokenDistribution>, Error> {
-        let ledger_index = match ledger_index {
-            None => self.milestone_collection.get_ledger_index().await?,
-            i => i,
-        };
-        if let Some(ledger_index) = ledger_index {
-            let distribution = self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "details.address": { "$exists": true },
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "$or": [
-                                { "metadata.spent_metadata.spent": null },
-                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                            ]
-                        } },
-                        doc! { "$group" : {
-                            "_id": "$details.address",
-                            "balance": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
-                        doc! { "$group" : {
-                            "_id": "$index",
-                            "address_count": { "$sum": 1 },
-                            "total_balance": { "$sum": "$balance" },
-                        } },
-                        doc! { "$sort": { "_id": 1 } },
-                        doc! { "$project": {
-                            "_id": 0,
-                            "index": "$_id",
-                            "address_count": 1,
-                            "total_balance": { "$toString": "$total_balance" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_collect()
-                .await?;
-            Ok(Some(TokenDistribution {
-                distribution,
-                ledger_index,
-            }))
-        } else {
-            Ok(Default::default())
-        }
+    pub async fn get_token_distribution(&self, ledger_index: MilestoneIndex) -> Result<TokenDistribution, Error> {
+        let distribution = self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "details.address": { "$exists": true },
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "$or": [
+                            { "metadata.spent_metadata.spent": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                        ]
+                    } },
+                    doc! { "$group" : {
+                        "_id": "$details.address",
+                        "balance": { "$sum": { "$toDecimal": "$output.amount" } },
+                    } },
+                    doc! { "$set": { "index": { "$toInt": { "$log10": "$balance" } } } },
+                    doc! { "$group" : {
+                        "_id": "$index",
+                        "address_count": { "$sum": 1 },
+                        "total_balance": { "$sum": "$balance" },
+                    } },
+                    doc! { "$sort": { "_id": 1 } },
+                    doc! { "$project": {
+                        "_id": 0,
+                        "index": "$_id",
+                        "address_count": 1,
+                        "total_balance": { "$toString": "$total_balance" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_collect()
+            .await?;
+        Ok(TokenDistribution {
+            distribution,
+            ledger_index,
+        })
     }
 }
