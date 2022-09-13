@@ -6,7 +6,9 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{
-        collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery},
+        collections::{
+            AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection,
+        },
         MongoDb,
     },
     types::stardust::block::output::{AliasId, FoundryId, NftId},
@@ -52,6 +54,7 @@ where
 {
     let id = ID::from_str(&id).map_err(ApiError::bad_parse)?;
     let res = database
+        .collection::<OutputCollection>()
         .get_indexed_output_by_id(id)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -76,6 +79,7 @@ where
     bson::Document: From<Q>,
 {
     let res = database
+        .collection::<OutputCollection>()
         .get_indexed_outputs(
             query,
             // Get one extra record so that we can create the cursor.
