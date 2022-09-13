@@ -1,0 +1,35 @@
+name: Swagger Validate
+
+on:
+  push:
+    paths:
+      - "documentation/api/**"
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "documentation/api/**"
+
+jobs:
+  list-docs:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+      - id: set-matrix
+        run: echo "::set-output name=matrix::$(ls documentation/api/*.yml | jq -Rsc 'split("\n")[:-1]')"
+
+  validate-swagger-docs:
+    needs: list-docs
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        doc: ${{ fromJson(needs.list-docs.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Validate API definition
+        uses: char0n/swagger-editor-validate@v1
+        with:
+          definition-file: ${{ matrix.doc }}
