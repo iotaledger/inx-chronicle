@@ -9,7 +9,10 @@ use axum::{
     routing::{get, post},
     Extension, Json, TypedHeader,
 };
-use chronicle::{db::MongoDb, types::stardust::milestone::MilestoneTimestamp};
+use chronicle::{
+    db::{collections::MilestoneCollection, MongoDb},
+    types::stardust::milestone::MilestoneTimestamp,
+};
 use hyper::StatusCode;
 use regex::RegexSet;
 use serde::Deserialize;
@@ -116,7 +119,11 @@ async fn list_routes(
 pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
     #[cfg(feature = "stardust")]
     {
-        let newest = match database.get_newest_milestone().await? {
+        let newest = match database
+            .collection::<MilestoneCollection>()
+            .get_newest_milestone()
+            .await?
+        {
             Some(last) => last,
             None => return Ok(false),
         };

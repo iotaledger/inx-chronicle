@@ -17,7 +17,6 @@ macro_rules! impl_success_response {
 
 pub(crate) use impl_success_response;
 
-/// Response of `GET /api/routes`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RoutesResponse {
@@ -25,41 +24,3 @@ pub struct RoutesResponse {
 }
 
 impl_success_response!(RoutesResponse);
-
-/// An aggregation type that represents the ranges of completed milestones and gaps.
-#[cfg(feature = "stardust")]
-mod stardust {
-
-    use chronicle::{
-        db::collections::SyncData,
-        types::{ledger::LedgerInclusionState, tangle::MilestoneIndex},
-    };
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-    pub struct SyncDataDto(pub SyncData);
-
-    impl_success_response!(SyncDataDto);
-
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Record {
-        pub id: String,
-        pub inclusion_state: Option<LedgerInclusionState>,
-        pub milestone_index: Option<MilestoneIndex>,
-    }
-
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Transfer {
-        pub transaction_id: String,
-        pub output_index: u16,
-        pub is_spending: bool,
-        pub inclusion_state: Option<LedgerInclusionState>,
-        pub block_id: String,
-        pub amount: u64,
-    }
-}
-
-#[cfg(feature = "stardust")]
-pub use stardust::*;

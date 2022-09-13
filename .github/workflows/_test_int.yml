@@ -34,7 +34,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
 
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.7.0
+        uses: supercharge/mongodb-github-action@1.8.0
         with:
           mongodb-version: ${{ inputs.mongodb }}
           mongodb-replica-set: test-rs

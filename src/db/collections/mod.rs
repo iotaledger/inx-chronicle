@@ -14,22 +14,26 @@ mod protocol_update;
 /// Module containing the treasury model.
 mod treasury;
 
+use std::str::FromStr;
+
+use thiserror::Error;
+
 pub use self::{
-    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, ParseSortError, SortOrder},
-    milestone::SyncData,
+    block::BlockCollection,
+    ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
+    milestone::{MilestoneCollection, MilestoneResult, SyncData},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputMetadataResult, OutputWithMetadataResult, OutputsResult, UtxoChangesResult,
+        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
+        UtxoChangesResult,
     },
-    treasury::TreasuryResult,
+    protocol_update::ProtocolUpdateCollection,
+    treasury::{TreasuryCollection, TreasuryResult},
 };
 use crate::types::stardust::block::{
     output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
     payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
 };
-
-/// Batch size for `insert_many` operations.
-pub const INSERT_BATCH_SIZE: usize = 10000;
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKind {
@@ -78,3 +82,33 @@ impl_payload_kind!(TransactionPayload, "transaction");
 impl_payload_kind!(MilestonePayload, "milestone");
 impl_payload_kind!(TaggedDataPayload, "tagged_data");
 impl_payload_kind!(TreasuryTransactionPayload, "treasury_transaction");
+
+#[allow(missing_docs)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SortOrder {
+    Newest,
+    Oldest,
+}
+
+impl Default for SortOrder {
+    fn default() -> Self {
+        Self::Newest
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("Invalid sort order descriptor. Expected `oldest` or `newest`, found `{0}`")]
+#[allow(missing_docs)]
+pub struct ParseSortError(String);
+
+impl FromStr for SortOrder {
+    type Err = ParseSortError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "oldest" => SortOrder::Oldest,
+            "newest" => SortOrder::Newest,
+            _ => Err(ParseSortError(s.to_string()))?,
+        })
+    }
+}

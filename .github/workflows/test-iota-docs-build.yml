@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "documentation/**"
   pull_request:
-    branches:
-      - main
+    paths:
+      - "documentation/**"
+    
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}

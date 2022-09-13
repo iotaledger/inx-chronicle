@@ -5,7 +5,10 @@ use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
-    db::MongoDb,
+    db::{
+        collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
+        MongoDb,
+    },
     types::stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
 };
 use futures::{StreamExt, TryStreamExt};
@@ -13,10 +16,11 @@ use futures::{StreamExt, TryStreamExt};
 use super::{
     extractors::{
         LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
-        LedgerUpdatesByMilestonePagination,
+        LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination,
     },
     responses::{
         BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
+        MilestonesResponse,
     },
 };
 use crate::api::{extractors::Pagination, router::Router, ApiError, ApiResult};
@@ -25,6 +29,7 @@ pub fn routes() -> Router {
     Router::new()
         .route("/balance/:address", get(balance))
         .route("/blocks/:block_id/children", get(block_children))
+        .route("/milestones", get(milestones))
         .nest(
             "/ledger/updates",
             Router::new()
@@ -45,6 +50,7 @@ async fn ledger_updates_by_address(
     let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
 
     let mut record_stream = database
+        .collection::<LedgerUpdateCollection>()
         .stream_ledger_updates_by_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
@@ -84,6 +90,7 @@ async fn ledger_updates_by_milestone(
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
 
     let milestone_index = database
+        .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
         .await?
         .ok_or(ApiError::NotFound)?
@@ -91,6 +98,7 @@ async fn ledger_updates_by_milestone(
         .index;
 
     let mut record_stream = database
+        .collection::<LedgerUpdateCollection>()
         .stream_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
         .await?;
 
@@ -122,6 +130,7 @@ async fn ledger_updates_by_milestone(
 async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
     let res = database
+        .collection::<OutputCollection>()
         .get_address_balance(address)
         .await?
         .ok_or(ApiError::NoResults)?;
@@ -140,6 +149,7 @@ async fn block_children(
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
     let mut block_children = database
+        .collection::<BlockCollection>()
         .get_block_children(&block_id, page_size, page)
         .await
         .map_err(|_| ApiError::NoResults)?;
@@ -155,4 +165,39 @@ async fn block_children(
         count: children.len(),
         children,
     })
+}
+
+async fn milestones(
+    database: Extension<MongoDb>,
+    MilestonesPagination {
+        start_timestamp,
+        end_timestamp,
+        sort,
+        page_size,
+        cursor,
+    }: MilestonesPagination,
+) -> ApiResult<MilestonesResponse> {
+    let mut record_stream = database
+        .collection::<MilestoneCollection>()
+        .get_milestones(start_timestamp, end_timestamp, sort, page_size + 1, cursor)
+        .await?;
+
+    // Take all of the requested records first
+    let items = record_stream
+        .by_ref()
+        .take(page_size)
+        .map_ok(Into::into)
+        .try_collect()
+        .await?;
+
+    // If any record is left, use it to make the paging state
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        MilestonesCursor {
+            milestone_index: rec.index,
+            page_size,
+        }
+        .to_string()
+    });
+
+    Ok(MilestonesResponse { items, cursor })
 }
