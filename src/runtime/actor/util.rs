@@ -11,7 +11,7 @@ use super::{
     report::Report,
     Actor,
 };
-use crate::runtime::{config::SpawnConfig, spawn_task, Sender};
+use crate::runtime::{config::SpawnConfig, Sender};
 
 /// A wrapper that can be used to delay an event until a specified time.
 #[derive(Debug)]
@@ -42,7 +42,7 @@ where
         _state: &mut Self::State,
     ) -> Result<(), Self::Error> {
         let handle = cx.handle().clone();
-        spawn_task("delay event sleeper", async move {
+        tokio::spawn(async move {
             tokio::time::sleep(event.delay).await;
             handle.send(event.event).unwrap();
         });

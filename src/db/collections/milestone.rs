@@ -3,9 +3,9 @@
 
 use std::ops::RangeInclusive;
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{Stream, TryStreamExt};
 use mongodb::{
-    bson::{self, doc},
+    bson::doc,
     error::Error,
     options::{FindOneOptions, FindOptions, IndexOptions},
     IndexModel,
@@ -13,8 +13,12 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::SortOrder;
 use crate::{
-    db::MongoDb,
+    db::{
+        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        MongoDb,
+    },
     types::{
         ledger::MilestoneIndexTimestamp,
         stardust::{
@@ -30,7 +34,7 @@ const BY_NEWEST: i32 = -1;
 
 /// A milestone's metadata.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct MilestoneDocument {
+pub struct MilestoneDocument {
     /// The [`MilestoneId`](MilestoneId) of the milestone.
     #[serde(rename = "_id")]
     milestone_id: MilestoneId,
@@ -40,9 +44,22 @@ struct MilestoneDocument {
     payload: MilestonePayload,
 }
 
-impl MilestoneDocument {
-    /// The stardust milestone collection name.
-    const COLLECTION: &'static str = "stardust_milestones";
+/// The stardust milestones collection.
+pub struct MilestoneCollection {
+    collection: mongodb::Collection<MilestoneDocument>,
+}
+
+impl MongoDbCollection for MilestoneCollection {
+    const NAME: &'static str = "stardust_milestones";
+    type Document = MilestoneDocument;
+
+    fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self { collection }
+    }
+
+    fn collection(&self) -> &mongodb::Collection<Self::Document> {
+        &self.collection
+    }
 }
 
 /// An aggregation type that represents the ranges of completed milestones and gaps.
@@ -54,40 +71,36 @@ pub struct SyncData {
     pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
 }
 
-impl MongoDb {
+impl MilestoneCollection {
     /// Creates ledger update indexes.
-    pub async fn create_milestone_indexes(&self) -> Result<(), Error> {
-        let collection = self.db.collection::<MilestoneDocument>(MilestoneDocument::COLLECTION);
+    pub async fn create_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "at.milestone_index": BY_OLDEST })
+                .options(
+                    IndexOptions::builder()
+                        .unique(true)
+                        .name("milestone_idx_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "at.milestone_index": BY_OLDEST })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_idx_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
-
-        collection
-            .create_index(
-                IndexModel::builder()
-                    .keys(doc! { "at.milestone_timestamp": BY_OLDEST })
-                    .options(
-                        IndexOptions::builder()
-                            .unique(true)
-                            .name("milestone_timestamp_index".to_string())
-                            .build(),
-                    )
-                    .build(),
-                None,
-            )
-            .await?;
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "at.milestone_timestamp": BY_OLDEST })
+                .options(
+                    IndexOptions::builder()
+                        .unique(true)
+                        .name("milestone_timestamp_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
 
         Ok(())
     }
@@ -97,40 +110,30 @@ impl MongoDb {
         &self,
         milestone_id: &MilestoneId,
     ) -> Result<Option<MilestonePayload>, Error> {
-        Ok(self
-            .db
-            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "_id": milestone_id } },
-                    doc! { "$replaceWith": "$payload" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?)
+        self.aggregate(
+            vec![
+                doc! { "$match": { "_id": milestone_id } },
+                doc! { "$replaceWith": "$payload" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
-        Ok(self
-            .db
-            .collection::<MilestonePayload>(MilestoneDocument::COLLECTION)
-            .aggregate(
-                vec![
-                    doc! { "$match": { "at.milestone_index": index } },
-                    doc! { "$replaceWith": "$payload" },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .map(bson::from_document)
-            .transpose()?)
+        self.aggregate(
+            vec![
+                doc! { "$match": { "at.milestone_index": index } },
+                doc! { "$replaceWith": "$payload" },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Gets the id of a milestone by the [`MilestoneIndex`].
@@ -140,9 +143,7 @@ impl MongoDb {
             milestone_id: MilestoneId,
         }
         Ok(self
-            .db
-            .collection::<MilestoneIdResult>(MilestoneDocument::COLLECTION)
-            .find_one(
+            .find_one::<MilestoneIdResult>(
                 doc! { "at.milestone_index": index },
                 FindOneOptions::builder()
                     .projection(doc! {
@@ -172,10 +173,7 @@ impl MongoDb {
             payload,
         };
 
-        self.db
-            .collection::<MilestoneDocument>(MilestoneDocument::COLLECTION)
-            .insert_one(milestone_document, None)
-            .await?;
+        self.insert_one(milestone_document, None).await?;
 
         Ok(())
     }
@@ -185,24 +183,22 @@ impl MongoDb {
         &self,
         start_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! {
-                    "at.milestone_timestamp": { "$gte": start_timestamp },
-                },
-                FindOptions::builder()
-                    .sort(doc! { "at.milestone_index": 1 })
-                    .limit(1)
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await?
-            .try_next()
-            .await
+        self.find(
+            doc! {
+                "at.milestone_timestamp": { "$gte": start_timestamp },
+            },
+            FindOptions::builder()
+                .sort(doc! { "at.milestone_index": 1 })
+                .limit(1)
+                .projection(doc! {
+                    "milestone_index": "$at.milestone_index",
+                    "milestone_timestamp": "$at.milestone_timestamp",
+                })
+                .build(),
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Find the end milestone.
@@ -210,58 +206,52 @@ impl MongoDb {
         &self,
         end_timestamp: MilestoneTimestamp,
     ) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find(
-                doc! {
-                    "at.milestone_timestamp": { "$lte": end_timestamp },
-                },
-                FindOptions::builder()
-                    .sort(doc! { "at.milestone_index": -1 })
-                    .limit(1)
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await?
-            .try_next()
-            .await
+        self.find(
+            doc! {
+                "at.milestone_timestamp": { "$lte": end_timestamp },
+            },
+            FindOptions::builder()
+                .sort(doc! { "at.milestone_index": -1 })
+                .limit(1)
+                .projection(doc! {
+                    "milestone_index": "$at.milestone_index",
+                    "milestone_timestamp": "$at.milestone_timestamp",
+                })
+                .build(),
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Find the newest milestone.
     pub async fn get_newest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find_one(
-                doc! {},
-                FindOneOptions::builder()
-                    .sort(doc! { "at.milestone_index": BY_NEWEST })
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await
+        self.find_one(
+            doc! {},
+            FindOneOptions::builder()
+                .sort(doc! { "at.milestone_index": BY_NEWEST })
+                .projection(doc! {
+                    "milestone_index": "$at.milestone_index",
+                    "milestone_timestamp": "$at.milestone_timestamp",
+                })
+                .build(),
+        )
+        .await
     }
 
     /// Find the oldest milestone.
     pub async fn get_oldest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.db
-            .collection::<MilestoneIndexTimestamp>(MilestoneDocument::COLLECTION)
-            .find_one(
-                doc! {},
-                FindOneOptions::builder()
-                    .sort(doc! { "at.milestone_index": BY_OLDEST })
-                    .projection(doc! {
-                        "milestone_index": "$at.milestone_index",
-                        "milestone_timestamp": "$at.milestone_timestamp",
-                    })
-                    .build(),
-            )
-            .await
+        self.find_one(
+            doc! {},
+            FindOneOptions::builder()
+                .sort(doc! { "at.milestone_index": BY_OLDEST })
+                .projection(doc! {
+                    "milestone_index": "$at.milestone_index",
+                    "milestone_timestamp": "$at.milestone_timestamp",
+                })
+                .build(),
+        )
+        .await
     }
 
     /// Gets the current ledger index.
@@ -280,9 +270,7 @@ impl MongoDb {
         }
 
         Ok(self
-            .db
-            .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
-            .aggregate(
+            .aggregate::<ReceiptAtIndex>(
                 vec![
                     doc! { "$unwind": "payload.essence.options"},
                     doc! { "$match": {
@@ -297,10 +285,7 @@ impl MongoDb {
                 None,
             )
             .await?
-            .map(|doc| {
-                let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc?)?;
-                Ok((receipt, index))
-            }))
+            .map_ok(|ReceiptAtIndex { receipt, index }| (receipt, index)))
     }
 
     /// Streams all available receipt milestone options together with their corresponding `MilestoneIndex` that were
@@ -316,8 +301,6 @@ impl MongoDb {
         }
 
         Ok(self
-            .db
-            .collection::<ReceiptAtIndex>(MilestoneDocument::COLLECTION)
             .aggregate(
                 vec![
                     doc! { "$unwind": "payload.essence.options"},
@@ -333,9 +316,50 @@ impl MongoDb {
                 None,
             )
             .await?
-            .map(|doc| {
-                let ReceiptAtIndex { receipt, index } = bson::from_document::<ReceiptAtIndex>(doc?)?;
-                Ok((receipt, index))
-            }))
+            .map_ok(|ReceiptAtIndex { receipt, index }| (receipt, index)))
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+#[allow(missing_docs)]
+pub struct MilestoneResult {
+    pub milestone_id: MilestoneId,
+    pub index: MilestoneIndex,
+}
+
+impl MilestoneCollection {
+    /// Get milestones matching given conditions.
+    pub async fn get_milestones(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+        order: SortOrder,
+        page_size: usize,
+        cursor: Option<MilestoneIndex>,
+    ) -> Result<impl Stream<Item = Result<MilestoneResult, Error>>, Error> {
+        let (sort, cmp) = match order {
+            SortOrder::Newest => (doc! { "at.milestone_index": -1 }, "$gt"),
+            SortOrder::Oldest => (doc! { "at.milestone_index": 1 }, "$lt"),
+        };
+
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "$nor": [
+                        { "at.milestone_timestamp": { "$lt": start_timestamp } },
+                        { "at.milestone_timestamp": { "$gt": end_timestamp } },
+                        { "at.milestone_index": { cmp: cursor } }
+                    ]
+                } },
+                doc! { "$sort": sort },
+                doc! { "$limit": page_size as i64 },
+                doc! { "$project": {
+                    "milestone_id": "$_id",
+                    "index": "$at.milestone_index"
+                } },
+            ],
+            None,
+        )
+        .await
     }
 }
