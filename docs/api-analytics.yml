@@ -671,6 +671,22 @@ components:
       description: >-
         The milestone index to be used to determine the ledger state. Defaults to the 
         application's current ledger index.
+    milestoneId:
+      in: query
+      name: milestoneId
+      schema:
+        type: string
+      example: "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
+      required: true
+      description: The milestone id with which to query a specific milestone.
+    milestoneIndex:
+      in: query
+      name: milestoneIndex
+      schema:
+        type: integer
+      example: 100000
+      required: true
+      description: The milestone index with which to query a specific milestone.
     top:
       in: query
       name: top
