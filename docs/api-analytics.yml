@@ -145,6 +145,42 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/milestones/by-id/{milestone-id}:
+    get:
+      tags:
+        - ledger
+      summary: Returns milestone activity statistics.
+      description: >-
+        Returns various activity counts for a given milestone.
+      parameters:
+        - $ref: "#/components/parameters/milestoneId"
+      responses:
+        "200":
+          $ref: "#/components/responses/MilestoneActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/analytics/v2/activity/milestones/by-index/{milestone-index}:
+    get:
+      tags:
+        - ledger
+      summary: Returns milestone activity statistics.
+      description: >-
+        Returns various activity counts for a given milestone.
+      parameters:
+        - $ref: "#/components/parameters/milestoneIndex"
+      responses:
+        "200":
+          $ref: "#/components/responses/MilestoneActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/native-tokens:
     get:
       tags:
@@ -508,6 +544,38 @@ components:
               - totalBalance
       required:
         - distribution
+    MilestoneActivityResponse:
+      description: Milestone activity statistics.
+      properties:
+        blocks_count:
+          type: u32
+          description: The number of blocks referenced by the requested milestone.
+        perPayloadType:
+          txPayloadCount:
+            type: u32
+            description: The number of transaction payloads referenced by the requested milestone.
+          txTreasuryPayloadCount:
+            type: u32
+            description: The number of treasury transaction payloads referenced by the requested milestone.
+          milestonePayloadCount:
+            type: u32
+            description: The number of milestone payloads referenced by the requested milestone.
+          taggedDataPayloadCount:
+            type: u32
+            description: The number of tagged data payloads referenced by the requested milestone.
+          noPayloadCount:
+            type: u32
+            description: The number of blocks without payload referenced by the requested milestone.
+        perInclusionState:
+          confirmed_tx_count:
+            type: u32
+            description: The number of confirmed transactions referenced by the requested milestone.
+          conflicting_tx_count:
+            type: u32
+            description: The number of conflicting transactions referenced by the requested milestone.
+          no_tx_count:
+            type: u32
+            description: The number of non-transaction blocks referenced by the requested milestone.
   responses:
     Block:
       description: Successful operation.
