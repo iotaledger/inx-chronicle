@@ -29,7 +29,7 @@ paths:
         as well as the byte costs associated with output storage at the ledger state 
         specified by the provided index.
       parameters:
-        - $ref: "#/components/parameters/ledgerInd"
+        - $ref: "#/components/parameters/ledgerIndex"
       responses:
         "200":
           $ref: "#/components/responses/StorageDeposit"
