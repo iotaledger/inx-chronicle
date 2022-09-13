@@ -14,8 +14,9 @@ use tracing::instrument;
 use super::PayloadKind;
 use crate::{
     db::{
+        collections::OutputCollection,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
-        MongoDb, collections::OutputCollection,
+        MongoDb,
     },
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
