@@ -228,37 +228,38 @@ impl TryFrom<Output> for bee::dto::OutputDto {
 
 #[cfg(test)]
 mod test {
-    use bee_block_stardust::rand;
+    use bee_block_stardust::rand::output::{rand_output_id, rand_treasury_output};
     use mongodb::bson::{from_bson, to_bson};
+    use test_util::output::{rand_alias_output, rand_basic_output, rand_foundry_output, rand_nft_output};
 
     use super::*;
 
     #[test]
     fn test_output_id_bson() {
-        let output_id = OutputId::from(rand::output::rand_output_id());
+        let output_id = OutputId::from(rand_output_id());
         let bson = to_bson(&output_id).unwrap();
         from_bson::<OutputId>(bson).unwrap();
     }
 
     #[test]
     fn test_output_bson() {
-        let output = Output::from(&bee::Output::from(rand::output::rand_alias_output()));
+        let output = Output::from(&bee::Output::from(rand_alias_output(None, None)));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = Output::from(&bee::Output::from(rand::output::rand_basic_output()));
+        let output = Output::from(&bee::Output::from(rand_basic_output(None, None)));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = Output::from(&bee::Output::from(rand::output::rand_foundry_output()));
+        let output = Output::from(&bee::Output::from(rand_foundry_output(None, None)));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = Output::from(&bee::Output::from(rand::output::rand_nft_output()));
+        let output = Output::from(&bee::Output::from(rand_nft_output(None, None)));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
 
-        let output = Output::from(&bee::Output::from(rand::output::rand_treasury_output()));
+        let output = Output::from(&bee::Output::from(rand_treasury_output()));
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }

@@ -21,7 +21,7 @@ async fn test_blocks() {
 
     let blocks = vec![
         Block::from(rand_transaction_block()),
-        Block::from(rand_milestone_block()),
+        Block::from(rand_milestone_block(1)),
         Block::from(bee::rand::block::rand_block()),
     ]
     .into_iter()

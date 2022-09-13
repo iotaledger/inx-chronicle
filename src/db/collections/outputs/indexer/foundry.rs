@@ -38,7 +38,7 @@ impl From<FoundryOutputsQuery> for bson::Document {
 
 #[cfg(test)]
 mod test {
-    use bee_block_stardust::address as bee;
+    use bee_block_stardust::{address as bee, rand::address::rand_ed25519_address};
     use mongodb::bson::{self, doc};
     use primitive_types::U256;
 
@@ -47,9 +47,7 @@ mod test {
 
     #[test]
     fn test_foundry_query_everything() {
-        let address = Address::from(bee::Address::Ed25519(
-            bee_block_stardust::rand::address::rand_ed25519_address(),
-        ));
+        let address = Address::from(bee::Address::Ed25519(rand_ed25519_address()));
         let query = FoundryOutputsQuery {
             alias_address: Some(address),
             has_native_tokens: Some(true),

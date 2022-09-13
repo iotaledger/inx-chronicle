@@ -13,7 +13,7 @@ async fn test_milestones() {
     db.clear().await.unwrap();
     db.create_milestone_indexes().await.unwrap();
 
-    let milestone = rand_milestone_payload();
+    let milestone = rand_milestone_payload(1);
     let milestone_id = MilestoneId::from(milestone.id());
     let milestone = MilestonePayload::from(&milestone);
 

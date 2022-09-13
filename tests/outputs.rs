@@ -48,7 +48,7 @@ async fn test_outputs() {
         .collect::<Vec<_>>();
 
     // Need to insert a milestone to be the ledger index
-    let milestone = rand_milestone_payload();
+    let milestone = rand_milestone_payload(1);
     let milestone_id = MilestoneId::from(milestone.id());
     let milestone = MilestonePayload::from(&milestone);
 

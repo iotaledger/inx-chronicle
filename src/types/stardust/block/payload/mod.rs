@@ -106,7 +106,7 @@ mod test {
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = Payload::from(&bee::Payload::from(rand_milestone_payload()));
+        let payload = Payload::from(&bee::Payload::from(rand_milestone_payload(1)));
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 

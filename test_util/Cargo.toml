@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 bee-block-stardust = { package = "bee-block", version = "1.0.0-beta.7", default-features = false, features = [ "dto", "rand", "std", "serde" ]}
+primitive-types = { version = "0.11", default-features = false }

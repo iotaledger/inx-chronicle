@@ -29,13 +29,14 @@ impl TryFrom<TreasuryOutput> for bee::TreasuryOutput {
 
 #[cfg(test)]
 mod test {
+    use bee_block_stardust::rand::output::rand_treasury_output;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_treasury_output_bson() {
-        let output = TreasuryOutput::from(&bee_block_stardust::rand::output::rand_treasury_output());
+        let output = TreasuryOutput::from(&rand_treasury_output());
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<TreasuryOutput>(bson).unwrap());
     }

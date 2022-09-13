@@ -229,7 +229,7 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let payload = MilestonePayload::from(&rand_milestone_payload());
+        let payload = MilestonePayload::from(&rand_milestone_payload(1));
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }
