@@ -13,6 +13,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::SortOrder;
 use crate::{
     db::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
@@ -316,5 +317,49 @@ impl MilestoneCollection {
             )
             .await?
             .map_ok(|ReceiptAtIndex { receipt, index }| (receipt, index)))
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+#[allow(missing_docs)]
+pub struct MilestoneResult {
+    pub milestone_id: MilestoneId,
+    pub index: MilestoneIndex,
+}
+
+impl MilestoneCollection {
+    /// Get milestones matching given conditions.
+    pub async fn get_milestones(
+        &self,
+        start_timestamp: Option<MilestoneTimestamp>,
+        end_timestamp: Option<MilestoneTimestamp>,
+        order: SortOrder,
+        page_size: usize,
+        cursor: Option<MilestoneIndex>,
+    ) -> Result<impl Stream<Item = Result<MilestoneResult, Error>>, Error> {
+        let (sort, cmp) = match order {
+            SortOrder::Newest => (doc! { "at.milestone_index": -1 }, "$gt"),
+            SortOrder::Oldest => (doc! { "at.milestone_index": 1 }, "$lt"),
+        };
+
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "$nor": [
+                        { "at.milestone_timestamp": { "$lt": start_timestamp } },
+                        { "at.milestone_timestamp": { "$gt": end_timestamp } },
+                        { "at.milestone_index": { cmp: cursor } }
+                    ]
+                } },
+                doc! { "$sort": sort },
+                doc! { "$limit": page_size as i64 },
+                doc! { "$project": {
+                    "milestone_id": "$_id",
+                    "index": "$at.milestone_index"
+                } },
+            ],
+            None,
+        )
+        .await
     }
 }
