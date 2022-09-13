@@ -12,6 +12,7 @@ on:
 
 jobs:
   list-docs:
+    name: Gather API definitions
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -22,6 +23,7 @@ jobs:
 
   validate-swagger-docs:
     needs: list-docs
+    name: ${{ format('Validating {0}', matrix.doc) }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
