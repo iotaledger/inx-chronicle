@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Analytics REST API
+  title: Analytics REST API test
   description: This document specifies the analytics REST API for Chronicle software.
   contact:
     email: contact@iota.org
