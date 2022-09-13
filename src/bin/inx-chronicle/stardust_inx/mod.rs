@@ -309,7 +309,8 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
             }
             Ok(())
         }
-    }.and(Ok(()))
+    }
+    .and(Ok(()))
 }
 
 #[instrument(skip_all, level = "trace")]
