@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod chunks;
 mod config;
 mod error;
 mod stream;
@@ -279,7 +280,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Res
             for batch in outputs.chunks(INSERT_BATCH_SIZE) {
                 output_collection.insert_unspent_outputs(batch).await?;
             }
-            Result::<_, InxError>::Ok(())
+            Ok(())
         },
         async {
             for batch in outputs.chunks(INSERT_BATCH_SIZE) {
@@ -287,8 +288,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Res
             }
             Ok(())
         }
-    }?;
-    Ok(())
+    }.and(Ok(()))
 }
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
