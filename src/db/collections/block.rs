@@ -14,6 +14,7 @@ use tracing::instrument;
 use super::PayloadKind;
 use crate::{
     db::{
+        collections::OutputCollection,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -86,6 +87,15 @@ impl BlockCollection {
         self.aggregate(
             vec![
                 doc! { "$match": { "_id": block_id } },
+                doc! { "$lookup": {
+                    "from": OutputCollection::NAME,
+                    "localField": "_id",
+                    "foreignField": "metadata.block_id",
+                    "pipeline": [
+                        { "$replaceWith": "$output" }
+                    ],
+                    "as": "block.payload.essence.outputs"
+                } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -191,6 +201,15 @@ impl BlockCollection {
                     "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.transaction_id": transaction_id,
                 } },
+                doc! { "$lookup": {
+                    "from": OutputCollection::NAME,
+                    "localField": "_id",
+                    "foreignField": "metadata.block_id",
+                    "pipeline": [
+                        { "$replaceWith": "$output" }
+                    ],
+                    "as": "block.payload.essence.outputs"
+                } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -208,6 +227,15 @@ impl BlockCollection {
                     "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
                     "block.payload.essence.inputs.index": &(output_id.index as i32)
+                } },
+                doc! { "$lookup": {
+                    "from": OutputCollection::NAME,
+                    "localField": "_id",
+                    "foreignField": "metadata.block_id",
+                    "pipeline": [
+                        { "$replaceWith": "$output" }
+                    ],
+                    "as": "block.payload.essence.outputs"
                 } },
                 doc! { "$replaceWith": "$block" },
             ],
