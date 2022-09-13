@@ -168,7 +168,7 @@ impl BlockCollection {
         let blocks_with_metadata = blocks_with_metadata
             .into_iter()
             .map(|(block_id, block, raw, metadata)| BlockDocument {
-                block_id: block_id.clone(),
+                block_id: *block_id,
                 block: block.clone(),
                 raw: raw.clone(),
                 metadata: metadata.clone(),

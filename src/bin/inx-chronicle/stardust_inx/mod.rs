@@ -287,7 +287,8 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Res
             }
             Ok(())
         }
-    }.and(Ok(()))
+    }
+    .and(Ok(()))
 }
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
