@@ -15,7 +15,7 @@ use super::PayloadKind;
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
-        MongoDb,
+        MongoDb, collections::OutputCollection,
     },
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
