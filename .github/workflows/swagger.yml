@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - "documentation/api/**"
+      - ".github/workflows/swagger.yml"
     branches:
       - main
   pull_request:
     paths:
       - "documentation/api/**"
+      - ".github/workflows/swagger.yml"
 
 jobs:
   list-docs:
