@@ -291,7 +291,6 @@ components:
           type: integer
           description: The number of blocks referenced by the requested milestone.
         perPayloadType:
-          type: object
           description: The various per payload type counts.
           properties:
             txPayloadCount:
@@ -309,14 +308,13 @@ components:
             noPayloadCount:
               type: integer
               description: The number of blocks without payload referenced by the requested milestone.
-            required:
-              - txPayloadCount
-              - txTreasuryPayloadCount
-              - milestonePayloadCount
-              - taggedDataPayloadCount
-              - noPayloadCount
+          required:
+            - txPayloadCount
+            - txTreasuryPayloadCount
+            - milestonePayloadCount
+            - taggedDataPayloadCount
+            - noPayloadCount
         perInclusionState:
-          type: object
           description: The various per inclusion state counts.
           properties:
             confirmedTxCount:
@@ -328,10 +326,10 @@ components:
             noTxCount:
               type: integer
               description: The number of non-transaction blocks referenced by the requested milestone.
-            required:
-              - confirmedTxCount
-              - conflictingTxCount
-              - noTxCount
+          required:
+            - confirmedTxCount
+            - conflictingTxCount
+            - noTxCount
       required:
         - blocksCount
         - perPayloadType
