@@ -140,7 +140,7 @@ paths:
         - $ref: "#/components/parameters/endIndex"
       responses:
         "200":
-          $ref: "#/components/responses/Block"
+          $ref: "#/components/responses/Address"
         "400":
           $ref: "#/components/responses/BadRequest"
         "500":
@@ -291,6 +291,7 @@ components:
           type: integer
           description: The number of blocks referenced by the requested milestone.
         perPayloadType:
+          type: object
           description: The various per payload type counts.
           properties:
             txPayloadCount:
@@ -315,6 +316,7 @@ components:
               - taggedDataPayloadCount
               - noPayloadCount
         perInclusionState:
+          type: object
           description: The various per inclusion state counts.
           properties:
             confirmedTxCount:
@@ -544,21 +546,21 @@ components:
       required: false
       description: The milestone index to be used to determine the ledger state. Defaults to 200.
     milestoneId:
-      in: query
+      in: path
       name: milestoneId
       schema:
         type: string
       example: "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
       required: true
-      description: The milestone id with which to query a specific milestone.
+      description: Milestone id for which to receive milestone analytics.
     milestoneIndex:
-      in: query
+      in: path
       name: milestoneIndex
       schema:
         type: integer
       example: 100000
       required: true
-      description: The milestone index with which to query a specific milestone.
+      description: Milestone index for which to receive milestone analytics.
   examples:
     storage-deposit-example:
       value:
