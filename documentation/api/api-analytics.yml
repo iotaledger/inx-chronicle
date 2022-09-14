@@ -288,25 +288,25 @@ components:
       description: Compiled statistics about milestones.
       properties:
         blocksCount:
-          type: u32
+          type: integer
           description: The number of blocks referenced by the requested milestone.
         perPayloadType:
           description: The various per payload type counts.
           properties:
             txPayloadCount:
-              type: u32
+              type: integer
               description: The number of transaction payloads referenced by the requested milestone.
             txTreasuryPayloadCount:
-              type: u32
+              type: integer
               description: The number of treasury transaction payloads referenced by the requested milestone.
             milestonePayloadCount:
-              type: u32
+              type: integer
               description: The number of milestone payloads referenced by the requested milestone.
             taggedDataPayloadCount:
-              type: u32
+              type: integer
               description: The number of tagged data payloads referenced by the requested milestone.
             noPayloadCount:
-              type: u32
+              type: integer
               description: The number of blocks without payload referenced by the requested milestone.
             required:
               - txPayloadCount
@@ -318,13 +318,13 @@ components:
           description: The various per inclusion state counts.
           properties:
             confirmedTxCount:
-              type: u32
+              type: integer
               description: The number of confirmed transactions referenced by the requested milestone.
             conflictingTxCount:
-              type: u32
+              type: integer
               description: The number of conflicting transactions referenced by the requested milestone.
             noTxCount:
-              type: u32
+              type: integer
               description: The number of non-transaction blocks referenced by the requested milestone.
             required:
               - confirmedTxCount
@@ -450,15 +450,6 @@ components:
       required:
         - distribution
   responses:
-    Block:
-      description: Successful operation.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/BlockAnalyticsResponse"
-          examples:
-            default:
-              $ref: "#/components/examples/block-example"
     Output:
       description: Successful operation.
       content:
@@ -582,9 +573,6 @@ components:
           - vByteCost: 500
             vByteFactorData: 1
             vByteFactorKey: 10
-    block-example:
-      value:
-        count: "17400"
     output-example:
       value:
         count: "81"
