@@ -235,31 +235,30 @@ impl OutputCollection {
         output_id: &OutputId,
         ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputWithMetadataResult>, Error> {
-        Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "_id": output_id,
-                            "metadata.booked.milestone_index": { "$lte": ledger_index }
-                        } },
-                        doc! { "$project": {
-                            "output": "$output",
-                            "metadata": {
-                                "output_id": "$_id",
-                                "block_id": "$metadata.block_id",
-                                "booked": "$metadata.booked",
-                                "spent_metadata": "$metadata.spent_metadata",
-                                // The max fn will not consider the spent milestone index if it is null,
-                                // thus always setting the ledger index to our provided value
-                                "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
-                            },
-                        } }
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?)
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "_id": output_id,
+                    "metadata.booked.milestone_index": { "$lte": ledger_index }
+                } },
+                doc! { "$project": {
+                    "output": "$output",
+                    "metadata": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "spent_metadata": "$metadata.spent_metadata",
+                        // The max fn will not consider the spent milestone index if it is null,
+                        // thus always setting the ledger index to our provided value
+                        "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                    },
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Get an [`OutputMetadata`] by [`OutputId`].
@@ -268,28 +267,27 @@ impl OutputCollection {
         output_id: &OutputId,
         ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputMetadataResult>, Error> {
-        Ok(self
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "_id": &output_id,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index }
-                    } },
-                    doc! { "$project": {
-                        "output_id": "$_id",
-                        "block_id": "$metadata.block_id",
-                        "booked": "$metadata.booked",
-                        "spent_metadata": "$metadata.spent_metadata",
-                        // The max fn will not consider the spent milestone index if it is null,
-                        // thus always setting the ledger index to our provided value
-                        "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?)
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "_id": &output_id,
+                    "metadata.booked.milestone_index": { "$lte": ledger_index }
+                } },
+                doc! { "$project": {
+                    "output_id": "$_id",
+                    "block_id": "$metadata.block_id",
+                    "booked": "$metadata.booked",
+                    "spent_metadata": "$metadata.spent_metadata",
+                    // The max fn will not consider the spent milestone index if it is null,
+                    // thus always setting the ledger index to our provided value
+                    "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
@@ -318,7 +316,7 @@ impl OutputCollection {
         address: Address,
         ledger_index: MilestoneIndex,
     ) -> Result<Option<BalanceResult>, Error> {
-        Ok(self
+        self
             .aggregate(
                 vec![
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
@@ -347,7 +345,7 @@ impl OutputCollection {
             )
             .await?
             .try_next()
-            .await?)
+            .await
     }
 
     /// Returns the changes to the UTXO ledger (as consumed and created output ids) that were applied at the given
