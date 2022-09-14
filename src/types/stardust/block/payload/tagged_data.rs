@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Borrow;
+
 use bee_block_stardust::payload::tagged_data as bee;
 use serde::{Deserialize, Serialize};
 
@@ -12,11 +14,11 @@ pub struct TaggedDataPayload {
     data: Box<[u8]>,
 }
 
-impl From<&bee::TaggedDataPayload> for TaggedDataPayload {
-    fn from(value: &bee::TaggedDataPayload) -> Self {
+impl<T: Borrow<bee::TaggedDataPayload>> From<T> for TaggedDataPayload {
+    fn from(value: T) -> Self {
         Self {
-            tag: value.tag().to_vec().into_boxed_slice(),
-            data: value.data().to_vec().into_boxed_slice(),
+            tag: value.borrow().tag().to_vec().into_boxed_slice(),
+            data: value.borrow().data().to_vec().into_boxed_slice(),
         }
     }
 }
@@ -29,16 +31,30 @@ impl TryFrom<TaggedDataPayload> for bee::TaggedDataPayload {
     }
 }
 
-#[cfg(test)]
-mod test {
+#[cfg(feature = "rand")]
+mod rand {
     use bee_block_stardust::rand::payload::rand_tagged_data_payload;
+
+    use super::*;
+
+    impl TaggedDataPayload {
+        /// Generates a random [`TaggedDataPayload`].
+        pub fn rand() -> Self {
+            rand_tagged_data_payload().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_tagged_data_payload_bson() {
-        let payload = TaggedDataPayload::from(&rand_tagged_data_payload());
+        let payload = TaggedDataPayload::rand();
+        bee::TaggedDataPayload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TaggedDataPayload>(bson).unwrap());
     }

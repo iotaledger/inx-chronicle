@@ -96,6 +96,14 @@ impl BlockCollection {
                     ],
                     "as": "block.payload.essence.outputs"
                 } },
+                // Stupidly, if the block has no payload, then the above lookup
+                // will add the structure, causing the deserialization to fail.
+                // So this is needed to make sure we remove it if necessary.
+                doc! { "$set": { "block.payload": { "$cond": [
+                    { "$not": [ "$block.payload.kind" ] },
+                    "$$REMOVE",
+                    "$block.payload",
+                ] } } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -210,6 +218,14 @@ impl BlockCollection {
                     ],
                     "as": "block.payload.essence.outputs"
                 } },
+                // Stupidly, if the block has no payload, then the above lookup
+                // will add the structure, causing the deserialization to fail.
+                // So this is needed to make sure we remove it if necessary.
+                doc! { "$set": { "block.payload": { "$cond": [
+                    { "$not": [ "$block.payload.kind" ] },
+                    "$$REMOVE",
+                    "$block.payload",
+                ] } } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -237,6 +253,14 @@ impl BlockCollection {
                     ],
                     "as": "block.payload.essence.outputs"
                 } },
+                // Stupidly, if the block has no payload, then the above lookup
+                // will add the structure, causing the deserialization to fail.
+                // So this is needed to make sure we remove it if necessary.
+                doc! { "$set": { "block.payload": { "$cond": [
+                    { "$not": [ "$block.payload.kind" ] },
+                    "$$REMOVE",
+                    "$block.payload",
+                ] } } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,

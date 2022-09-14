@@ -17,61 +17,31 @@ pub use self::{
 };
 use super::OutputAmount;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rand"))]
 mod test {
-
     use std::fmt::Debug;
 
-    use bee_block_stardust::{
-        output::unlock_condition as bee,
-        rand::{
-            number::rand_number,
-            output::{
-                rand_alias_id,
-                unlock_condition::{
-                    rand_address_unlock_condition, rand_governor_address_unlock_condition_different_from,
-                    rand_state_controller_address_unlock_condition_different_from,
-                },
-            },
-        },
-    };
     use mongodb::bson::{from_bson, to_bson};
     use serde::{de::DeserializeOwned, Serialize};
-    use test_util::output::unlock_condition::{
-        rand_expiration_unlock_condition, rand_immutable_alias_address_unlock_condition,
-        rand_storage_deposit_return_unlock_condition,
-    };
 
     use super::*;
 
-    fn test<U, T>(unlock: T)
+    fn test<T>(t: T)
     where
-        for<'a> U: From<&'a T>,
-        U: Serialize + DeserializeOwned + Debug + Eq,
+        T: Serialize + DeserializeOwned + Debug + Eq,
     {
-        let uc = U::from(&unlock);
-        let bson = to_bson(&uc).unwrap();
-        assert_eq!(uc, from_bson::<U>(bson).unwrap());
+        let bson = to_bson(&t).unwrap();
+        assert_eq!(t, from_bson::<T>(bson).unwrap());
     }
 
     #[test]
     fn test_unlock_condition_bson() {
-        test::<AddressUnlockCondition, bee::AddressUnlockCondition>(rand_address_unlock_condition());
-        test::<StorageDepositReturnUnlockCondition, bee::StorageDepositReturnUnlockCondition>(
-            rand_storage_deposit_return_unlock_condition(),
-        );
-        test::<TimelockUnlockCondition, bee::TimelockUnlockCondition>(
-            bee::TimelockUnlockCondition::new(rand_number()).unwrap(),
-        );
-        test::<ExpirationUnlockCondition, bee::ExpirationUnlockCondition>(rand_expiration_unlock_condition());
-        test::<GovernorAddressUnlockCondition, bee::GovernorAddressUnlockCondition>(
-            rand_governor_address_unlock_condition_different_from(&rand_alias_id()),
-        );
-        test::<StateControllerAddressUnlockCondition, bee::StateControllerAddressUnlockCondition>(
-            rand_state_controller_address_unlock_condition_different_from(&rand_alias_id()),
-        );
-        test::<ImmutableAliasAddressUnlockCondition, bee::ImmutableAliasAddressUnlockCondition>(
-            rand_immutable_alias_address_unlock_condition(),
-        );
+        test(AddressUnlockCondition::rand());
+        test(StorageDepositReturnUnlockCondition::rand());
+        test(TimelockUnlockCondition::rand());
+        test(ExpirationUnlockCondition::rand());
+        test(GovernorAddressUnlockCondition::rand());
+        test(StateControllerAddressUnlockCondition::rand());
+        test(ImmutableAliasAddressUnlockCondition::rand());
     }
 }

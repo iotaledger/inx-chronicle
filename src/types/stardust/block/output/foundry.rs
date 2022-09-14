@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
@@ -61,8 +61,9 @@ pub struct FoundryOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
-impl From<&bee::FoundryOutput> for FoundryOutput {
-    fn from(value: &bee::FoundryOutput) -> Self {
+impl<T: Borrow<bee::FoundryOutput>> From<T> for FoundryOutput {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             amount: value.amount().into(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -114,16 +115,37 @@ impl TryFrom<FoundryOutput> for bee::FoundryOutput {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::{bytes::rand_bytes_array, output::rand_foundry_output};
+
+    use super::*;
+
+    impl FoundryId {
+        /// Generates a random [`FoundryId`].
+        pub fn rand() -> Self {
+            Self(rand_bytes_array())
+        }
+    }
+
+    impl FoundryOutput {
+        /// Generates a random [`FoundryOutput`].
+        pub fn rand() -> Self {
+            rand_foundry_output().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
-    use bee_block_stardust::rand::output::rand_foundry_output;
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_foundry_output_bson() {
-        let output = FoundryOutput::from(&rand_foundry_output());
+        let output = FoundryOutput::rand();
+        bee::FoundryOutput::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<FoundryOutput>(bson).unwrap());
     }

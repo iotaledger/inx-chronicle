@@ -41,28 +41,75 @@ impl TryFrom<Unlock> for bee::Unlock {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
+
+    use super::*;
+
+    impl Unlock {
+        /// Generates a random [`Unlock`].
+        pub fn rand() -> Self {
+            match rand_number_range(0..4) {
+                0 => Self::rand_signature(),
+                1 => Self::rand_reference(),
+                2 => Self::rand_alias(),
+                3 => Self::rand_nft(),
+                _ => unreachable!(),
+            }
+        }
+
+        /// Generates a random signature [`Unlock`].
+        pub fn rand_signature() -> Self {
+            Self::Signature {
+                signature: Signature::rand(),
+            }
+        }
+
+        /// Generates a random reference [`Unlock`].
+        pub fn rand_reference() -> Self {
+            Self::Reference {
+                index: rand_number_range(UNLOCK_INDEX_RANGE),
+            }
+        }
+
+        /// Generates a random alias [`Unlock`].
+        pub fn rand_alias() -> Self {
+            Self::Alias {
+                index: rand_number_range(UNLOCK_INDEX_RANGE),
+            }
+        }
+
+        /// Generates a random nft [`Unlock`].
+        pub fn rand_nft() -> Self {
+            Self::Nft {
+                index: rand_number_range(UNLOCK_INDEX_RANGE),
+            }
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
-    use test_util::unlock::{rand_alias_unlock, rand_nft_unlock, rand_reference_unlock, rand_signature_unlock};
 
     use super::*;
 
     #[test]
     fn test_unlock_bson() {
-        let unlock = Unlock::from(&bee::Unlock::from(rand_signature_unlock()));
+        let unlock = Unlock::rand_signature();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
 
-        let unlock = Unlock::from(&bee::Unlock::from(rand_reference_unlock()));
+        let unlock = Unlock::rand_reference();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
 
-        let unlock = Unlock::from(&bee::Unlock::from(rand_alias_unlock()));
+        let unlock = Unlock::rand_alias();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
 
-        let unlock = Unlock::from(&bee::Unlock::from(rand_nft_unlock()));
+        let unlock = Unlock::rand_nft();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
     }

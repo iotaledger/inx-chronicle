@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Borrow;
+
 use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -37,9 +39,9 @@ impl Payload {
     }
 }
 
-impl From<&bee::Payload> for Payload {
-    fn from(value: &bee::Payload) -> Self {
-        match value {
+impl<T: Borrow<bee::Payload>> From<T> for Payload {
+    fn from(value: T) -> Self {
+        match value.borrow() {
             bee::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
             bee::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
             bee::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
@@ -91,18 +93,67 @@ impl_coerce_payload!("milestone", MilestonePayload, Milestone);
 impl_coerce_payload!("treasury_transaction", TreasuryTransactionPayload, TreasuryTransaction);
 impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 
-#[cfg(test)]
-mod test {
-    use bee_block_stardust::rand::payload::{rand_tagged_data_payload, rand_treasury_transaction_payload};
-    use mongodb::bson::{doc, from_bson, to_bson, to_document};
-    use test_util::payload::{milestone::rand_milestone_payload, transaction::rand_transaction_payload};
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::number::rand_number_range;
 
     use super::*;
-    use crate::types::stardust::block::{payload::TransactionEssence, Payload};
+
+    impl Payload {
+        /// Generates a random [`Payload`].
+        pub fn rand() -> Self {
+            match rand_number_range(0..4) {
+                0 => Self::rand_transaction(),
+                1 => Self::rand_milestone(),
+                2 => Self::rand_tagged_data(),
+                3 => Self::rand_treasury_transaction(),
+                _ => unreachable!(),
+            }
+        }
+
+        /// Generates a random, optional [`Payload`].
+        pub fn rand_opt() -> Option<Self> {
+            match rand_number_range(0..5) {
+                0 => Self::rand_transaction().into(),
+                1 => Self::rand_milestone().into(),
+                2 => Self::rand_tagged_data().into(),
+                3 => Self::rand_treasury_transaction().into(),
+                4 => None,
+                _ => unreachable!(),
+            }
+        }
+
+        /// Generates a random transaction [`Payload`].
+        pub fn rand_transaction() -> Self {
+            Self::Transaction(Box::new(TransactionPayload::rand()))
+        }
+
+        /// Generates a random milestone [`Payload`].
+        pub fn rand_milestone() -> Self {
+            Self::Milestone(Box::new(MilestonePayload::rand()))
+        }
+
+        /// Generates a random tagged data [`Payload`].
+        pub fn rand_tagged_data() -> Self {
+            Self::TaggedData(Box::new(TaggedDataPayload::rand()))
+        }
+
+        /// Generates a random treasury transaction [`Payload`].
+        pub fn rand_treasury_transaction() -> Self {
+            Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand()))
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
+mod test {
+    use mongodb::bson::{doc, from_bson, to_bson, to_document};
+
+    use super::*;
 
     #[test]
     fn test_payload_bson() {
-        let payload = Payload::from(&bee::Payload::from(rand_transaction_payload()));
+        let payload = Payload::rand_transaction();
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
         let outputs_doc = if let Payload::Transaction(payload) = &payload {
@@ -115,15 +166,18 @@ mod test {
         doc.extend(outputs_doc);
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = Payload::from(&bee::Payload::from(rand_milestone_payload(1)));
+        let payload = Payload::rand_milestone();
+        bee::Payload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = Payload::from(&bee::Payload::from(rand_treasury_transaction_payload()));
+        let payload = Payload::rand_treasury_transaction();
+        bee::Payload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
 
-        let payload = Payload::from(&bee::Payload::from(rand_tagged_data_payload()));
+        let payload = Payload::rand_tagged_data();
+        bee::Payload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }

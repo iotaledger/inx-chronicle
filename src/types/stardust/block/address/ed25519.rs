@@ -46,3 +46,17 @@ impl From<Ed25519Address> for Bson {
         .into()
     }
 }
+
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::address::rand_ed25519_address;
+
+    use super::*;
+
+    impl Ed25519Address {
+        /// Generates a random [`Ed25519Address`].
+        pub fn rand() -> Self {
+            rand_ed25519_address().into()
+        }
+    }
+}

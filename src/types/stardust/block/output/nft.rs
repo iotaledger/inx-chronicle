@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
@@ -73,8 +73,9 @@ pub struct NftOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
-impl From<&bee::NftOutput> for NftOutput {
-    fn from(value: &bee::NftOutput) -> Self {
+impl<T: Borrow<bee::NftOutput>> From<T> for NftOutput {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             amount: value.amount().into(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -138,16 +139,36 @@ impl TryFrom<NftOutput> for bee::NftOutput {
     }
 }
 
-#[cfg(test)]
-mod test {
+#[cfg(feature = "rand")]
+mod rand {
     use bee_block_stardust::rand::{bytes::rand_bytes_array, output::rand_nft_output};
+
+    use super::*;
+
+    impl NftId {
+        /// Generates a random [`NftId`].
+        pub fn rand() -> Self {
+            Self(rand_bytes_array())
+        }
+    }
+
+    impl NftOutput {
+        /// Generates a random [`NftOutput`].
+        pub fn rand() -> Self {
+            rand_nft_output().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_nft_id_bson() {
-        let nft_id = NftId::from(bee::NftId::from(rand_bytes_array()));
+        let nft_id = NftId::rand();
         let bson = to_bson(&nft_id).unwrap();
         assert_eq!(Bson::from(nft_id), bson);
         assert_eq!(nft_id, from_bson::<NftId>(bson).unwrap());
@@ -155,7 +176,8 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let output = NftOutput::from(&rand_nft_output());
+        let output = NftOutput::rand();
+        bee::NftOutput::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }

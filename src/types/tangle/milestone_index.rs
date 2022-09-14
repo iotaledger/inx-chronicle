@@ -92,7 +92,7 @@ impl FromStr for MilestoneIndex {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use super::*;
 

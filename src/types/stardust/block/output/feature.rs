@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Borrow;
+
 use bee_block_stardust::output::feature as bee;
 use serde::{Deserialize, Serialize};
 
@@ -25,9 +27,9 @@ pub enum Feature {
     },
 }
 
-impl From<&bee::Feature> for Feature {
-    fn from(value: &bee::Feature) -> Self {
-        match value {
+impl<T: Borrow<bee::Feature>> From<T> for Feature {
+    fn from(value: T) -> Self {
+        match value.borrow() {
             bee::Feature::Sender(a) => Self::Sender {
                 address: (*a.address()).into(),
             },
@@ -57,30 +59,73 @@ impl TryFrom<Feature> for bee::Feature {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use bee_block_stardust::rand::output::feature::{
-        rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::{
+        output::feature::FeatureFlags,
+        rand::output::feature::{
+            rand_allowed_features, rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,
+        },
     };
+
+    use super::*;
+
+    impl Feature {
+        /// Generates a random [`Feature`].
+        pub fn rand_allowed_features(allowed_features: FeatureFlags) -> Vec<Self> {
+            rand_allowed_features(allowed_features)
+                .into_iter()
+                .map(Into::into)
+                .collect()
+        }
+
+        /// Generates a random sender [`Feature`].
+        pub fn rand_sender() -> Self {
+            bee::Feature::from(rand_sender_feature()).into()
+        }
+
+        /// Generates a random issuer [`Feature`].
+        pub fn rand_issuer() -> Self {
+            bee::Feature::from(rand_issuer_feature()).into()
+        }
+
+        /// Generates a random metadata [`Feature`].
+        pub fn rand_metadata() -> Self {
+            bee::Feature::from(rand_metadata_feature()).into()
+        }
+
+        /// Generates a random tag [`Feature`].
+        pub fn rand_tag() -> Self {
+            bee::Feature::from(rand_tag_feature()).into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_feature_bson() {
-        let block = Feature::from(&bee::Feature::from(rand_sender_feature()));
+        let block = Feature::rand_sender();
+        bee::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = Feature::from(&bee::Feature::from(rand_issuer_feature()));
+        let block = Feature::rand_issuer();
+        bee::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = Feature::from(&bee::Feature::from(rand_metadata_feature()));
+        let block = Feature::rand_metadata();
+        bee::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
-        let block = Feature::from(&bee::Feature::from(rand_tag_feature()));
+        let block = Feature::rand_tag();
+        bee::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
     }

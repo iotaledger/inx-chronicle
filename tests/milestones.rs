@@ -8,18 +8,17 @@ use chronicle::{
     types::stardust::block::payload::{MilestoneId, MilestonePayload},
 };
 use common::connect_to_test_db;
-use test_util::payload::milestone::rand_milestone_payload;
 
 #[tokio::test]
+#[cfg(feature = "rand")]
 async fn test_milestones() {
     let db = connect_to_test_db("test-milestones").await.unwrap();
     db.clear().await.unwrap();
     let collection = db.collection::<MilestoneCollection>();
     collection.create_indexes().await.unwrap();
 
-    let milestone = rand_milestone_payload(1);
-    let milestone_id = MilestoneId::from(milestone.id());
-    let milestone = MilestonePayload::from(&milestone);
+    let milestone = MilestonePayload::rand();
+    let milestone_id = MilestoneId::rand();
 
     collection
         .insert_milestone(

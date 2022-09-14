@@ -3,6 +3,8 @@
 
 mod milestone_id;
 
+use std::borrow::Borrow;
+
 use bee_block_stardust::payload::milestone as bee;
 use serde::{Deserialize, Serialize};
 
@@ -19,11 +21,11 @@ pub struct MilestonePayload {
     pub signatures: Box<[Signature]>,
 }
 
-impl From<&bee::MilestonePayload> for MilestonePayload {
-    fn from(value: &bee::MilestonePayload) -> Self {
+impl<T: Borrow<bee::MilestonePayload>> From<T> for MilestonePayload {
+    fn from(value: T) -> Self {
         Self {
-            essence: MilestoneEssence::from(value.essence()),
-            signatures: value.signatures().iter().map(Into::into).collect(),
+            essence: MilestoneEssence::from(value.borrow().essence()),
+            signatures: value.borrow().signatures().iter().map(Into::into).collect(),
         }
     }
 }
@@ -70,8 +72,9 @@ impl MilestoneEssence {
     const MERKLE_PROOF_LENGTH: usize = bee::MerkleRoot::LENGTH;
 }
 
-impl From<&bee::MilestoneEssence> for MilestoneEssence {
-    fn from(value: &bee::MilestoneEssence) -> Self {
+impl<T: Borrow<bee::MilestoneEssence>> From<T> for MilestoneEssence {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             index: value.index().0.into(),
             timestamp: value.timestamp(),
@@ -125,9 +128,9 @@ pub enum MilestoneOption {
     },
 }
 
-impl From<&bee::MilestoneOption> for MilestoneOption {
-    fn from(value: &bee::MilestoneOption) -> Self {
-        match value {
+impl<T: Borrow<bee::MilestoneOption>> From<T> for MilestoneOption {
+    fn from(value: T) -> Self {
+        match value.borrow() {
             bee::MilestoneOption::Receipt(r) => Self::Receipt {
                 migrated_at: r.migrated_at().into(),
                 last: r.last(),
@@ -188,8 +191,9 @@ impl MigratedFundsEntry {
     const TAIL_TRANSACTION_HASH_LENGTH: usize = bee::option::TailTransactionHash::LENGTH;
 }
 
-impl From<&bee::option::MigratedFundsEntry> for MigratedFundsEntry {
-    fn from(value: &bee::option::MigratedFundsEntry) -> Self {
+impl<T: Borrow<bee::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             // Unwrap: Should not fail as the length is defined by the struct
             tail_transaction_hash: value.tail_transaction_hash().as_ref().try_into().unwrap(),
@@ -211,17 +215,71 @@ impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::{
+        bytes::rand_bytes, milestone::rand_merkle_root, milestone_option::rand_receipt_milestone_option,
+        number::rand_number, payload::rand_milestone_payload, receipt::rand_migrated_funds_entry,
+    };
+
+    use super::*;
+
+    impl MilestonePayload {
+        /// Generates a random [`MilestonePayload`].
+        pub fn rand() -> Self {
+            rand_milestone_payload().into()
+        }
+    }
+
+    impl MilestoneEssence {
+        /// Generates a random [`MilestoneEssence`].
+        pub fn rand() -> Self {
+            Self {
+                index: rand_number::<u32>().into(),
+                timestamp: rand_number::<u32>().into(),
+                previous_milestone_id: MilestoneId::rand(),
+                parents: BlockId::rand_parents(),
+                inclusion_merkle_root: *rand_merkle_root(),
+                applied_merkle_root: *rand_merkle_root(),
+                metadata: rand_bytes(32),
+                options: Box::new([MilestoneOption::rand_receipt()]),
+            }
+        }
+    }
+
+    impl MilestoneOption {
+        /// Generates a random receipt [`MilestoneOption`].
+        pub fn rand_receipt() -> Self {
+            bee::MilestoneOption::from(rand_receipt_milestone_option()).into()
+        }
+
+        /// Generates a random parameters [`MilestoneOption`].
+        pub fn rand_parameters() -> Self {
+            Self::Parameters {
+                target_milestone_index: rand_number::<u32>().into(),
+                protocol_version: rand_number(),
+                binary_parameters: rand_bytes(100).into_boxed_slice(),
+            }
+        }
+    }
+
+    impl MigratedFundsEntry {
+        /// Generates a random [`MigratedFundsEntry`].
+        pub fn rand() -> Self {
+            rand_migrated_funds_entry().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
-    use bee_block_stardust::rand::milestone::rand_milestone_id;
     use mongodb::bson::{from_bson, to_bson, Bson};
-    use test_util::payload::milestone::rand_milestone_payload;
 
     use super::*;
 
     #[test]
     fn test_milestone_id_bson() {
-        let milestone_id = MilestoneId::from(rand_milestone_id());
+        let milestone_id = MilestoneId::rand();
         let bson = to_bson(&milestone_id).unwrap();
         assert_eq!(Bson::from(milestone_id), bson);
         assert_eq!(milestone_id, from_bson::<MilestoneId>(bson).unwrap());
@@ -229,7 +287,8 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let payload = MilestonePayload::from(&rand_milestone_payload(1));
+        let payload = MilestonePayload::rand();
+        bee::MilestonePayload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }

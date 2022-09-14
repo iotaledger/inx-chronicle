@@ -39,3 +39,17 @@ impl From<AliasAddress> for Bson {
         mongodb::bson::to_bson(&val).unwrap()
     }
 }
+
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::address::rand_alias_address;
+
+    use super::*;
+
+    impl AliasAddress {
+        /// Generates a random [`AliasAddress`].
+        pub fn rand() -> Self {
+            rand_alias_address().into()
+        }
+    }
+}

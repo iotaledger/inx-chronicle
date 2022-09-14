@@ -426,7 +426,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "serde_urlencoded",
- "test_util",
  "thiserror",
  "time 0.3.14",
  "tokio",
@@ -2438,14 +2437,6 @@ dependencies = [
  "redox_syscall",
  "remove_dir_all",
  "winapi",
-]
-
-[[package]]
-name = "test_util"
-version = "0.1.0"
-dependencies = [
- "bee-block",
- "primitive-types",
 ]
 
 [[package]]

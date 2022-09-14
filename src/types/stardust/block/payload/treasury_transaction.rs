@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Borrow;
+
 use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
 
@@ -13,11 +15,11 @@ pub struct TreasuryTransactionPayload {
     pub output_amount: u64,
 }
 
-impl From<&bee::TreasuryTransactionPayload> for TreasuryTransactionPayload {
-    fn from(value: &bee::TreasuryTransactionPayload) -> Self {
+impl<T: Borrow<bee::TreasuryTransactionPayload>> From<T> for TreasuryTransactionPayload {
+    fn from(value: T) -> Self {
         Self {
-            input_milestone_id: (*value.input().milestone_id()).into(),
-            output_amount: value.output().amount(),
+            input_milestone_id: (*value.borrow().input().milestone_id()).into(),
+            output_amount: value.borrow().output().amount(),
         }
     }
 }
@@ -33,16 +35,30 @@ impl TryFrom<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
     }
 }
 
-#[cfg(test)]
-mod test {
+#[cfg(feature = "rand")]
+mod rand {
     use bee_block_stardust::rand::payload::rand_treasury_transaction_payload;
+
+    use super::*;
+
+    impl TreasuryTransactionPayload {
+        /// Generates a random [`TreasuryTransactionPayload`].
+        pub fn rand() -> Self {
+            rand_treasury_transaction_payload().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
+mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let payload = TreasuryTransactionPayload::from(&rand_treasury_transaction_payload());
+        let payload = TreasuryTransactionPayload::rand();
+        bee::TreasuryTransactionPayload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TreasuryTransactionPayload>(bson).unwrap());
     }

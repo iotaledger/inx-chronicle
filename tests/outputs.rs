@@ -4,43 +4,28 @@
 mod common;
 
 use chronicle::{
-    db::collections::{MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
+    db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
-        stardust::block::{
-            output::OutputId,
-            payload::{MilestoneId, MilestonePayload, TransactionEssence, TransactionPayload},
-            Block, BlockId,
-        },
+        stardust::block::{output::OutputId, payload::TransactionId, BlockId, Output},
     },
 };
 use common::connect_to_test_db;
-use test_util::{payload::milestone::rand_milestone_payload, rand_transaction_block};
 
 #[tokio::test]
+#[cfg(feature = "rand")]
 async fn test_outputs() {
     let db = connect_to_test_db("test-outputs").await.unwrap();
     db.clear().await.unwrap();
     let collection = db.collection::<OutputCollection>();
     collection.create_indexes().await.unwrap();
 
-    let block = rand_transaction_block();
-    let block_id = BlockId::from(block.id());
-    let block = Block::from(block);
-    let transaction_payload = TransactionPayload::try_from(block.payload.unwrap()).unwrap();
-    let transaction_id = transaction_payload.transaction_id;
-    let TransactionEssence::Regular { outputs, .. } = transaction_payload.essence;
-    let outputs = outputs
-        .into_vec()
-        .into_iter()
-        .enumerate()
-        .map(|(i, output)| LedgerOutput {
-            output_id: OutputId {
-                transaction_id,
-                index: i as u16,
-            },
+    let outputs = std::iter::repeat_with(Output::rand)
+        .take(100)
+        .map(|output| LedgerOutput {
+            output_id: OutputId::rand(),
             output,
-            block_id,
+            block_id: BlockId::rand(),
             booked: MilestoneIndexTimestamp {
                 milestone_index: 1.into(),
                 milestone_timestamp: 12345.into(),
@@ -48,22 +33,7 @@ async fn test_outputs() {
         })
         .collect::<Vec<_>>();
 
-    // Need to insert a milestone to be the ledger index
-    let milestone = rand_milestone_payload(1);
-    let milestone_id = MilestoneId::from(milestone.id());
-    let milestone = MilestonePayload::from(&milestone);
-
     collection.insert_unspent_outputs(&outputs).await.unwrap();
-
-    db.collection::<MilestoneCollection>()
-        .insert_milestone(
-            milestone_id,
-            milestone.essence.index,
-            milestone.essence.timestamp.into(),
-            milestone.clone(),
-        )
-        .await
-        .unwrap();
 
     for output in &outputs {
         assert_eq!(
@@ -88,7 +58,7 @@ async fn test_outputs() {
             collection.get_output_metadata(&output.output_id).await.unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output_id,
-                block_id,
+                block_id: output.block_id,
                 booked: output.booked,
                 spent_metadata: None,
                 ledger_index: 1.into()
@@ -117,7 +87,7 @@ async fn test_outputs() {
         .map(|output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
-                transaction_id: bee_block_stardust::rand::transaction::rand_transaction_id().into(),
+                transaction_id: TransactionId::rand(),
                 spent: MilestoneIndexTimestamp {
                     milestone_index: 1.into(),
                     milestone_timestamp: 23456.into(),
@@ -140,7 +110,7 @@ async fn test_outputs() {
             collection.get_output_metadata(&output.output.output_id).await.unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output.output_id,
-                block_id,
+                block_id: output.output.block_id,
                 booked: output.output.booked,
                 spent_metadata: Some(output.spent_metadata),
                 ledger_index: 1.into()
