@@ -7,8 +7,7 @@ use axum::{
     extract::{Extension, Path},
     handler::Handler,
     http::header::{HeaderMap, HeaderValue},
-    routing::*,
-    Router,
+    routing::get,
 };
 use bee_api_types_stardust::{
     dtos::ReceiptDto,
@@ -47,6 +46,7 @@ use packable::PackableExt;
 use super::responses::InfoResponse;
 use crate::api::{
     error::{ApiError, InternalApiError},
+    router::Router,
     routes::{is_healthy, not_implemented},
     ApiResult,
 };

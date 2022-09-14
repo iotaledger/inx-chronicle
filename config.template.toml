@@ -24,22 +24,15 @@ port = 8042
 allow_origins = "0.0.0.0"
 
 ### JsonWebToken (JWT) credentials.
-password_hash = "c42cf2be3a442a29d8cd827a27099b0c" # "password"
+password_hash = "f36605441dd3b99a0448bc76f51f0e619f47051989cfcbf2fef18670f21799ad" # "password"
 password_salt = "saltines"
 jwt_expiration = "72h"
 
 ### Public API routes.
 public_routes = [
-    # General API routes that provide information about Chronicle.
-    "health",
-    "api/health",
-    "api/info",
-
     # Activated APIs.
     "api/analytics/v2/*",
     "api/core/v2/*",
-    "api/explorer/v2/*",
-    "api/indexer/v1/*",
 ]
 
 ### Maximum number of records returned by a single API call
