@@ -145,7 +145,7 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/milestones/by-id/{milestoneId}:
+  /api/analytics/v2/activity/milestones/{milestoneId}:
     get:
       tags:
         - activity

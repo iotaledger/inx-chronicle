@@ -284,7 +284,7 @@ pub struct MilestoneActivityResult {
 impl BlockCollection {
     /// Gathers past-cone activity statistics for a given milestone.
     pub async fn get_milestone_activity(&self, index: MilestoneIndex) -> Result<MilestoneActivityResult, Error> {
-        let mut activity: MilestoneActivityResult = self
+        Ok(self
             .aggregate(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
@@ -303,7 +303,9 @@ impl BlockCollection {
                         "num_tagged_data_payload": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
                         } },
-                        "num_no_payload": { "$sum": 0 },
+                        "num_no_payload": { "$sum": {
+                            "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
+                        } },
                         "num_confirmed_tx": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
                         } },
@@ -320,14 +322,6 @@ impl BlockCollection {
             .await?
             .try_next()
             .await?
-            .unwrap_or_default();
-
-        activity.num_no_payload = self
-            .find::<BlockCollection>(doc! { "block.payload": { "$exists": false }}, None)
-            .await
-            .iter()
-            .len() as u32;
-
-        Ok(activity)
+            .unwrap_or_default())
     }
 }
