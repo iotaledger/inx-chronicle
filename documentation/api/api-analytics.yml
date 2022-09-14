@@ -145,7 +145,7 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/milestones/by-id/{milestone-id}:
+  /api/analytics/v2/activity/milestones/by-id/{milestoneId}:
     get:
       tags:
         - activity
@@ -156,14 +156,14 @@ paths:
         - $ref: "#/components/parameters/milestoneId"
       responses:
         "200":
-          $ref: "#/components/responses/MilestoneAnalyticsResponse"
+          $ref: "#/components/responses/Milestone"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/milestones/by-index/{milestone-index}:
+  /api/analytics/v2/activity/milestones/by-index/{milestoneIndex}:
     get:
       tags:
         - activity
@@ -174,7 +174,7 @@ paths:
         - $ref: "#/components/parameters/milestoneIndex"
       responses:
         "200":
-          $ref: "#/components/responses/MilestoneAnalyticsResponse"
+          $ref: "#/components/responses/Milestone"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -486,6 +486,15 @@ components:
           examples:
             default:
               $ref: "#/components/examples/storage-deposit-example"
+    Milestone:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MilestoneAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/milestone-example"
     NoResults:
       description: >-
         Unsuccessful operation: indicates that the requested data was not found.
@@ -585,6 +594,19 @@ components:
         totalActiveAddresses: "443"
         receivingAddresses: "443"
         sendingAddresses: "0"
+    milestone-example:
+      value:
+        blocksCount: 100
+        perPayloadType:
+            - txPayloadCount: 20
+              txTreasuryPayloadCount: 2
+              milestonePayloadCount: 1
+              taggedDataPayloadCount: 27
+              noPayloadCount: 50
+        perInclusionState:
+            - confirmedTxCount: 20
+              conflictingTxCount: 2
+              noTxCount: 78
     richest-addresses-example:
       value:
         top:
