@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
@@ -23,7 +23,7 @@ use super::{
         MilestonesResponse,
     },
 };
-use crate::api::{extractors::Pagination, ApiError, ApiResult};
+use crate::api::{extractors::Pagination, router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
