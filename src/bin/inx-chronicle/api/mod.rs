@@ -15,6 +15,7 @@ mod secret_key;
 mod responses;
 mod auth;
 mod config;
+mod router;
 mod routes;
 
 use async_trait::async_trait;

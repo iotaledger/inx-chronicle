@@ -42,6 +42,24 @@ impl<B: Send> FromRequest<B> for Pagination {
 
 #[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct ListRoutesQuery {
+    pub depth: Option<usize>,
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for ListRoutesQuery {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<ListRoutesQuery>::from_request(req)
+            .await
+            .map_err(ApiError::QueryError)?;
+        Ok(query)
+    }
+}
+
+#[derive(Copy, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct TimeRangeQuery {
     start_timestamp: Option<u32>,
     end_timestamp: Option<u32>,

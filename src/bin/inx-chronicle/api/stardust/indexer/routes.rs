@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         collections::{
@@ -16,7 +16,9 @@ use chronicle::{
 use mongodb::bson;
 
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
-use crate::api::{error::ParseError, stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult};
+use crate::api::{
+    error::ParseError, router::Router, stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult,
+};
 
 pub fn routes() -> Router {
     Router::new().nest(
