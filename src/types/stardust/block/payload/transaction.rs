@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::{output::InputsCommitment, payload::transaction as bee};
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
@@ -61,8 +61,9 @@ pub struct TransactionPayload {
     pub unlocks: Box<[Unlock]>,
 }
 
-impl From<&bee::TransactionPayload> for TransactionPayload {
-    fn from(value: &bee::TransactionPayload) -> Self {
+impl<T: Borrow<bee::TransactionPayload>> From<T> for TransactionPayload {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             transaction_id: value.id().into(),
             essence: value.essence().into(),
@@ -107,8 +108,9 @@ impl TransactionEssence {
     const INPUTS_COMMITMENT_LENGTH: usize = InputsCommitment::LENGTH;
 }
 
-impl From<&bee::TransactionEssence> for TransactionEssence {
-    fn from(value: &bee::TransactionEssence) -> Self {
+impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         match value {
             bee::TransactionEssence::Regular(essence) => Self::Regular {
                 network_id: essence.network_id(),
@@ -158,16 +160,67 @@ impl TryFrom<TransactionEssence> for bee::TransactionEssence {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::{
+        bytes::rand_bytes_array,
+        number::{rand_number, rand_number_range},
+        output::rand_inputs_commitment,
+    };
+
+    use super::*;
+
+    impl TransactionId {
+        /// Generates a random [`TransactionId`].
+        pub fn rand() -> Self {
+            Self(rand_bytes_array())
+        }
+    }
+
+    impl TransactionEssence {
+        /// Generates a random [`TransactionEssence`].
+        pub fn rand() -> Self {
+            Self::Regular {
+                network_id: rand_number(),
+                inputs: std::iter::repeat_with(Input::rand)
+                    .take(rand_number_range(0..10))
+                    .collect(),
+                inputs_commitment: *rand_inputs_commitment(),
+                outputs: std::iter::repeat_with(Output::rand)
+                    .take(rand_number_range(0..10))
+                    .collect(),
+                payload: if rand_number_range(0..=1) == 1 {
+                    Some(Payload::rand_tagged_data())
+                } else {
+                    None
+                },
+            }
+        }
+    }
+
+    impl TransactionPayload {
+        /// Generates a random [`TransactionPayload`].
+        pub fn rand() -> Self {
+            Self {
+                transaction_id: TransactionId::rand(),
+                essence: TransactionEssence::rand(),
+                unlocks: std::iter::repeat_with(Unlock::rand)
+                    .take(rand_number_range(1..10))
+                    .collect(),
+            }
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{doc, from_bson, to_bson, to_document};
 
     use super::*;
-    use crate::types::stardust::util::payload::transaction::get_test_transaction_payload;
 
     #[test]
     fn test_transaction_id_bson() {
-        let transaction_id = TransactionId::from(bee_block_stardust::rand::transaction::rand_transaction_id());
+        let transaction_id = TransactionId::rand();
         let bson = to_bson(&transaction_id).unwrap();
         assert_eq!(Bson::from(transaction_id), bson);
         assert_eq!(transaction_id, from_bson::<TransactionId>(bson).unwrap());
@@ -175,7 +228,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let payload = get_test_transaction_payload();
+        let payload = TransactionPayload::rand();
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
         let TransactionEssence::Regular { outputs, .. } = &payload.essence;

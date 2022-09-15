@@ -16,6 +16,7 @@ pub enum TestDbError {
     MongoDb(#[from] mongodb::error::Error),
 }
 
+#[allow(unused)]
 pub async fn connect_to_test_db(database_name: impl ToString) -> Result<MongoDb, TestDbError> {
     let mut config = if let Ok(path) = std::env::var("CONFIG_PATH") {
         let val = std::fs::read_to_string(&path)

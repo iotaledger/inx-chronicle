@@ -66,29 +66,53 @@ impl From<Address> for Bson {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use super::*;
+
+    impl Address {
+        /// Generates a random alias [`Address`].
+        pub fn rand_alias() -> Self {
+            Self::Alias(AliasAddress::rand())
+        }
+
+        /// Generates a random nft [`Address`].
+        pub fn rand_nft() -> Self {
+            Self::Nft(NftAddress::rand())
+        }
+
+        /// Generates a ed25519 [`Address`].
+        pub fn rand_ed25519() -> Self {
+            Self::Ed25519(Ed25519Address::rand())
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
 
     #[test]
-    fn test_address_bson() {
-        let address = Address::from(bee::Address::Ed25519(
-            bee_block_stardust::rand::address::rand_ed25519_address(),
-        ));
+    fn test_ed25519_address_bson() {
+        let address = Address::rand_ed25519();
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
+    }
 
-        let address = Address::from(bee::Address::Alias(
-            bee_block_stardust::rand::address::rand_alias_address(),
-        ));
+    #[test]
+    fn test_alias_address_bson() {
+        let address = Address::rand_alias();
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
+    }
 
-        let address = Address::from(bee::Address::Nft(bee_block_stardust::rand::address::rand_nft_address()));
+    #[test]
+    fn test_nft_address_bson() {
+        let address = Address::rand_nft();
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());

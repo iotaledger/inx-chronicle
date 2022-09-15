@@ -50,3 +50,26 @@ impl From<BlockId> for Bson {
         .into()
     }
 }
+
+#[cfg(feature = "rand")]
+mod rand {
+    use bee::rand::block::{rand_block_id, rand_block_ids};
+
+    use super::*;
+
+    impl BlockId {
+        /// Generates a random [`BlockId`].
+        pub fn rand() -> Self {
+            rand_block_id().into()
+        }
+
+        /// Generates multiple random [`BlockIds`](BlockId).
+        pub fn rand_many(len: usize) -> impl Iterator<Item = Self> {
+            rand_block_ids(len).into_iter().map(Into::into)
+        }
+
+        pub fn rand_parents() -> Box<[Self]> {
+            Self::rand_many(*bee::parent::Parents::COUNT_RANGE.end() as _).collect()
+        }
+    }
+}

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{mem::size_of, str::FromStr};
+use std::{borrow::Borrow, mem::size_of, str::FromStr};
 
 use bee_block_stardust::output as bee;
 use primitive_types::U256;
@@ -13,10 +13,10 @@ use crate::types::util::bytify;
 #[serde(transparent)]
 pub struct NativeTokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
 
-impl From<&U256> for NativeTokenAmount {
-    fn from(value: &U256) -> Self {
+impl<T: Borrow<U256>> From<T> for NativeTokenAmount {
+    fn from(value: T) -> Self {
         let mut amount = [0; size_of::<U256>()];
-        value.to_big_endian(&mut amount);
+        value.borrow().to_big_endian(&mut amount);
         Self(amount)
     }
 }
@@ -65,9 +65,9 @@ pub enum TokenScheme {
     },
 }
 
-impl From<&bee::TokenScheme> for TokenScheme {
-    fn from(value: &bee::TokenScheme) -> Self {
-        match value {
+impl<T: Borrow<bee::TokenScheme>> From<T> for TokenScheme {
+    fn from(value: T) -> Self {
+        match value.borrow() {
             bee::TokenScheme::Simple(a) => Self::Simple {
                 minted_tokens: a.minted_tokens().into(),
                 melted_tokens: a.melted_tokens().into(),
@@ -101,11 +101,11 @@ pub struct NativeToken {
     pub amount: NativeTokenAmount,
 }
 
-impl From<&bee::NativeToken> for NativeToken {
-    fn from(value: &bee::NativeToken) -> Self {
+impl<T: Borrow<bee::NativeToken>> From<T> for NativeToken {
+    fn from(value: T) -> Self {
         Self {
-            token_id: NativeTokenId(**value.token_id()),
-            amount: value.amount().into(),
+            token_id: NativeTokenId(**value.borrow().token_id()),
+            amount: value.borrow().amount().into(),
         }
     }
 }
@@ -118,24 +118,76 @@ impl TryFrom<NativeToken> for bee::NativeToken {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::{
+        bytes::{rand_bytes, rand_bytes_array},
+        output::rand_token_scheme,
+    };
+
+    use super::*;
+
+    impl NativeTokenAmount {
+        /// Generates a random [`NativeToken`].
+        pub fn rand() -> Self {
+            U256::from_little_endian(&rand_bytes(32)).max(1.into()).into()
+        }
+    }
+
+    impl NativeTokenId {
+        /// Generates a random [`NativeTokenId`].
+        pub fn rand() -> Self {
+            Self(rand_bytes_array())
+        }
+    }
+
+    impl NativeToken {
+        /// Generates a random [`NativeToken`].
+        pub fn rand() -> Self {
+            Self {
+                token_id: NativeTokenId::rand(),
+                amount: NativeTokenAmount::rand(),
+            }
+        }
+
+        /// Generates multiple random [`NativeTokens`](NativeToken).
+        pub fn rand_many(len: usize) -> impl Iterator<Item = Self> {
+            std::iter::repeat_with(NativeToken::rand).take(len)
+        }
+    }
+
+    impl TokenScheme {
+        /// Generates a random [`TokenScheme`].
+        pub fn rand() -> Self {
+            rand_token_scheme().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::native_token::*;
 
     #[test]
     fn test_token_id_bson() {
-        let token_id = NativeTokenId::from(rand_token_id());
+        let token_id = NativeTokenId::rand();
         let bson = to_bson(&token_id).unwrap();
         assert_eq!(token_id, from_bson::<NativeTokenId>(bson).unwrap());
     }
 
     #[test]
     fn test_native_token_bson() {
-        let native_token = get_test_native_token();
+        let native_token = NativeToken::rand();
         let bson = to_bson(&native_token).unwrap();
         assert_eq!(native_token, from_bson::<NativeToken>(bson).unwrap());
+    }
+
+    #[test]
+    fn test_token_scheme_bson() {
+        let scheme = TokenScheme::rand();
+        let bson = to_bson(&scheme).unwrap();
+        assert_eq!(scheme, from_bson::<TokenScheme>(bson).unwrap());
     }
 }

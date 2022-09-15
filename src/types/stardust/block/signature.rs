@@ -43,16 +43,32 @@ impl From<Signature> for bee::Signature {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::bytes::rand_bytes_array;
+
+    use super::*;
+
+    impl Signature {
+        /// Generates a random [`Signature`] with an [`Ed25519Signature`].
+        pub fn rand() -> Self {
+            Self::from(&bee::Signature::Ed25519(bee::Ed25519Signature::new(
+                rand_bytes_array(),
+                rand_bytes_array(),
+            )))
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::signature::get_test_signature;
 
     #[test]
     fn test_signature_bson() {
-        let signature = get_test_signature();
+        let signature = Signature::rand();
         let bson = to_bson(&signature).unwrap();
         assert_eq!(signature, from_bson::<Signature>(bson).unwrap());
     }

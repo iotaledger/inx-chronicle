@@ -12,7 +12,7 @@ pub mod foundry;
 pub mod nft;
 pub mod treasury;
 
-use std::str::FromStr;
+use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output::{self as bee, Rent};
 use mongodb::bson::{doc, Bson};
@@ -191,9 +191,9 @@ impl Output {
     }
 }
 
-impl From<&bee::Output> for Output {
-    fn from(value: &bee::Output) -> Self {
-        match value {
+impl<T: Borrow<bee::Output>> From<T> for Output {
+    fn from(value: T) -> Self {
+        match value.borrow() {
             bee::Output::Treasury(o) => Self::Treasury(o.into()),
             bee::Output::Basic(o) => Self::Basic(o.into()),
             bee::Output::Alias(o) => Self::Alias(o.into()),
@@ -226,41 +226,115 @@ impl TryFrom<Output> for bee::dto::OutputDto {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::{number::rand_number_range, output::rand_output_id};
+
+    use super::*;
+
+    impl OutputAmount {
+        /// Generates a random [`OutputAmount`].
+        pub fn rand() -> Self {
+            rand_number_range(bee::Output::AMOUNT_RANGE).into()
+        }
+    }
+
+    impl OutputId {
+        /// Generates a random [`OutputId`].
+        pub fn rand() -> Self {
+            rand_output_id().into()
+        }
+    }
+
+    impl Output {
+        /// Generates a random [`Output`].
+        pub fn rand() -> Self {
+            match rand_number_range(0..5) {
+                0 => Self::rand_basic(),
+                1 => Self::rand_alias(),
+                2 => Self::rand_foundry(),
+                3 => Self::rand_nft(),
+                4 => Self::rand_treasury(),
+                _ => unreachable!(),
+            }
+        }
+
+        /// Generates a random basic [`Output`].
+        pub fn rand_basic() -> Self {
+            Self::Basic(BasicOutput::rand())
+        }
+
+        /// Generates a random alias [`Output`].
+        pub fn rand_alias() -> Self {
+            Self::Alias(AliasOutput::rand())
+        }
+
+        /// Generates a random nft [`Output`].
+        pub fn rand_nft() -> Self {
+            Self::Nft(NftOutput::rand())
+        }
+
+        /// Generates a random foundry [`Output`].
+        pub fn rand_foundry() -> Self {
+            Self::Foundry(FoundryOutput::rand())
+        }
+
+        /// Generates a random treasury [`Output`].
+        pub fn rand_treasury() -> Self {
+            Self::Treasury(TreasuryOutput::rand())
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::*;
 
     #[test]
     fn test_output_id_bson() {
-        let output_id = OutputId::from(bee_block_stardust::rand::output::rand_output_id());
+        let output_id = OutputId::rand();
         let bson = to_bson(&output_id).unwrap();
         from_bson::<OutputId>(bson).unwrap();
     }
 
     #[test]
-    fn test_output_bson() {
-        let output = get_test_alias_output();
+    fn test_basic_output_bson() {
+        let output = Output::rand_basic();
+        bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
-        let output = get_test_basic_output();
+    #[test]
+    fn test_alias_output_bson() {
+        let output = Output::rand_alias();
+        bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
-        let output = get_test_foundry_output();
+    #[test]
+    fn test_nft_output_bson() {
+        let output = Output::rand_nft();
+        bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
-        let output = get_test_nft_output();
+    #[test]
+    fn test_foundry_output_bson() {
+        let output = Output::rand_foundry();
+        bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
-        let output = Output::from(&bee::Output::Treasury(
-            bee_block_stardust::rand::output::rand_treasury_output(),
-        ));
+    #[test]
+    fn test_treasury_output_bson() {
+        let output = Output::rand_treasury();
+        bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
