@@ -1,3 +1,10 @@
+## [1.0.0-beta.17](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.16...v1.0.0-beta.17) (2022-09-15)
+
+
+### Features
+
+* **db:** separate ledger/protocol_param logic from collections ([#677](https://github.com/iotaledger/inx-chronicle/issues/677)) ([81178c8](https://github.com/iotaledger/inx-chronicle/commit/81178c8b822d3f2c2a9182976d42b2dcfd2f32b0))
+
 ## [1.0.0-beta.16](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.15...v1.0.0-beta.16) (2022-09-14)
 
 
