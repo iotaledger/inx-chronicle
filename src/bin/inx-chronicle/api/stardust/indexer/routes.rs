@@ -7,7 +7,8 @@ use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         collections::{
-            AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputCollection,
+            AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, MilestoneCollection, NftOutputsQuery,
+            OutputCollection,
         },
         MongoDb,
     },
@@ -54,14 +55,19 @@ where
     ID: Into<IndexedId> + FromStr,
     ParseError: From<ID::Err>,
 {
+    let ledger_index = database
+        .collection::<MilestoneCollection>()
+        .get_ledger_index()
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let id = ID::from_str(&id).map_err(ApiError::bad_parse)?;
     let res = database
         .collection::<OutputCollection>()
-        .get_indexed_output_by_id(id)
+        .get_indexed_output_by_id(id, ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
     Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
+        ledger_index,
         items: vec![res.output_id.to_hex()],
         cursor: None,
     })
@@ -80,6 +86,11 @@ async fn indexed_outputs<Q>(
 where
     bson::Document: From<Q>,
 {
+    let ledger_index = database
+        .collection::<MilestoneCollection>()
+        .get_ledger_index()
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let res = database
         .collection::<OutputCollection>()
         .get_indexed_outputs(
@@ -89,9 +100,9 @@ where
             cursor,
             sort,
             include_spent,
+            ledger_index,
         )
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     let mut iter = res.outputs.iter();
 
@@ -109,7 +120,7 @@ where
     });
 
     Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
+        ledger_index,
         items,
         cursor,
     })

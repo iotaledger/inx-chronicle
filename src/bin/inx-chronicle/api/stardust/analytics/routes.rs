@@ -13,7 +13,7 @@ use chronicle::{
     types::{
         stardust::block::{
             output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-            payload::milestone::MilestoneId,
+            payload::MilestoneId,
         },
         tangle::MilestoneIndex,
     },
@@ -165,7 +165,7 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
 ) -> ApiResult<OutputAnalyticsResponse> {
     let res = database
         .collection::<OutputCollection>()
-        .get_unspent_output_analytics::<O>(ledger_index)
+        .get_unspent_output_analytics::<O>(resolve_ledger_index(&database, ledger_index).await?)
         .await?
         .ok_or(ApiError::NoResults)?;
 
@@ -179,11 +179,17 @@ async fn storage_deposit_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(ledger_index)
+        .await?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .parameters;
     let res = database
         .collection::<OutputCollection>()
-        .get_storage_deposit_analytics(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .get_storage_deposit_analytics(ledger_index, protocol_params)
+        .await?;
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),
@@ -192,7 +198,7 @@ async fn storage_deposit_ledger_analytics(
         total_key_bytes: res.total_key_bytes,
         total_data_bytes: res.total_data_bytes,
         total_byte_cost: res.total_byte_cost,
-        ledger_index: res.ledger_index.0,
+        ledger_index,
         rent_structure: RentStructureResponse {
             v_byte_cost: res.rent_structure.v_byte_cost,
             v_byte_factor_key: res.rent_structure.v_byte_factor_key,
@@ -237,15 +243,15 @@ async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     let hrp = database
         .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(res.ledger_index)
+        .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
         .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
         .parameters
@@ -260,7 +266,7 @@ async fn richest_addresses_ledger_analytics(
                 balance: stat.balance,
             })
             .collect(),
-        ledger_index: res.ledger_index.0,
+        ledger_index,
     })
 }
 
@@ -268,14 +274,28 @@ async fn token_distribution_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
-        ledger_index: res.ledger_index.0,
+        ledger_index,
+    })
+}
+
+/// This is just a helper fn to either unwrap an optional ledger index param or fetch the latest
+/// index from the database.
+async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<MilestoneIndex>) -> ApiResult<MilestoneIndex> {
+    Ok(if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(ApiError::NoResults)?
     })
 }

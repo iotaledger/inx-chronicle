@@ -40,7 +40,6 @@ pub struct OutputResult {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct OutputsResult {
-    pub ledger_index: MilestoneIndex,
     pub outputs: Vec<OutputResult>,
 }
 
@@ -65,7 +64,6 @@ impl From<IndexedId> for Bson {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct IndexedOutputResult {
-    pub ledger_index: MilestoneIndex,
     pub output_id: OutputId,
 }
 
@@ -74,52 +72,46 @@ impl OutputCollection {
     pub async fn get_indexed_output_by_id(
         &self,
         id: impl Into<IndexedId>,
+        ledger_index: MilestoneIndex,
     ) -> Result<Option<IndexedOutputResult>, Error> {
-        let ledger_index = self.milestone_collection.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            let id = id.into();
-            let id_string = match id {
-                IndexedId::Alias(_) => "output.alias_id",
-                IndexedId::Foundry(_) => "output.foundry_id",
-                IndexedId::Nft(_) => "output.nft_id",
-            };
-            let mut res = self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            id_string: id,
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "$or": [
-                                { "metadata.spent_metadata": null },
-                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                            ]
-                        } },
-                        doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?;
-            if let Some(OutputDocument {
-                metadata:
-                    OutputMetadata {
-                        spent_metadata: spent @ Some(_),
-                        ..
-                    },
+        let id = id.into();
+        let id_string = match id {
+            IndexedId::Alias(_) => "output.alias_id",
+            IndexedId::Foundry(_) => "output.foundry_id",
+            IndexedId::Nft(_) => "output.nft_id",
+        };
+        let mut res = self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        id_string: id,
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "$or": [
+                            { "metadata.spent_metadata": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                        ]
+                    } },
+                    doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?;
+        if let Some(OutputDocument {
+            metadata: OutputMetadata {
+                spent_metadata: spent @ Some(_),
                 ..
-            }) = res.as_mut()
-            {
-                // TODO: record that we got an output that is spent past the ledger_index to metrics
-                spent.take();
-            }
-            Ok(res.map(|doc| IndexedOutputResult {
-                ledger_index,
-                output_id: doc.output_id,
-            }))
-        } else {
-            Ok(None)
+            },
+            ..
+        }) = res.as_mut()
+        {
+            // TODO: record that we got an output that is spent past the ledger_index to metrics
+            spent.take();
         }
+        Ok(res.map(|doc| IndexedOutputResult {
+            output_id: doc.output_id,
+        }))
     }
 
     /// Gets any indexed output kind that match the provided query.
@@ -130,62 +122,58 @@ impl OutputCollection {
         cursor: Option<(MilestoneIndex, OutputId)>,
         order: SortOrder,
         include_spent: bool,
-    ) -> Result<Option<OutputsResult>, Error>
+        ledger_index: MilestoneIndex,
+    ) -> Result<OutputsResult, Error>
     where
         bson::Document: From<Q>,
     {
-        let ledger_index = self.milestone_collection.get_ledger_index().await?;
-        if let Some(ledger_index) = ledger_index {
-            let (sort, cmp1, cmp2) = match order {
-                SortOrder::Newest => (doc! { "metadata.booked.milestone_index": -1, "_id": -1 }, "$lt", "$lte"),
-                SortOrder::Oldest => (doc! { "metadata.booked.milestone_index": 1, "_id": 1 }, "$gt", "$gte"),
-            };
+        let (sort, cmp1, cmp2) = match order {
+            SortOrder::Newest => (doc! { "metadata.booked.milestone_index": -1, "_id": -1 }, "$lt", "$lte"),
+            SortOrder::Oldest => (doc! { "metadata.booked.milestone_index": 1, "_id": 1 }, "$gt", "$gte"),
+        };
 
-            let query_doc = bson::Document::from(query);
-            let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
-            if !include_spent {
-                additional_queries.push(doc! {
-                    "$or": [
-                        { "metadata.spent_metadata": null },
-                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                    ]
-                });
-            }
-            if let Some((start_ms, start_output_id)) = cursor {
-                additional_queries.push(doc! { "$or": [
-                    doc! { "metadata.booked.milestone_index": { cmp1: start_ms } },
-                    doc! {
-                        "metadata.booked.milestone_index": start_ms,
-                        "_id": { cmp2: start_output_id }
-                    },
-                ] });
-            }
-            let match_doc = doc! { "$match": {
-                "$and": [
-                    query_doc,
-                    { "$and": additional_queries }
+        let query_doc = bson::Document::from(query);
+        let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
+        if !include_spent {
+            additional_queries.push(doc! {
+                "$or": [
+                    { "metadata.spent_metadata": null },
+                    { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                 ]
-            } };
-            let outputs = self
-                .aggregate(
-                    vec![
-                        match_doc,
-                        doc! { "$sort": sort },
-                        doc! { "$limit": page_size as i64 },
-                        doc! { "$replaceWith": {
-                            "output_id": "$metadata.output_id",
-                            "booked_index": "$metadata.booked.milestone_index"
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_collect::<Vec<_>>()
-                .await?;
-            Ok(Some(OutputsResult { ledger_index, outputs }))
-        } else {
-            Ok(None)
+            });
         }
+        if let Some((start_ms, start_output_id)) = cursor {
+            additional_queries.push(doc! { "$or": [
+                doc! { "metadata.booked.milestone_index": { cmp1: start_ms } },
+                doc! {
+                    "metadata.booked.milestone_index": start_ms,
+                    "_id": { cmp2: start_output_id }
+                },
+            ] });
+        }
+        let match_doc = doc! { "$match": {
+            "$and": [
+                query_doc,
+                { "$and": additional_queries }
+            ]
+        } };
+        let outputs = self
+            .aggregate(
+                vec![
+                    match_doc,
+                    doc! { "$sort": sort },
+                    doc! { "$limit": page_size as i64 },
+                    doc! { "$replaceWith": {
+                        "output_id": "$metadata.output_id",
+                        "booked_index": "$metadata.booked.milestone_index"
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_collect::<Vec<_>>()
+            .await?;
+        Ok(OutputsResult { outputs })
     }
 
     /// Creates indexer output indexes.

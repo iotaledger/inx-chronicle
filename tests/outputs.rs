@@ -55,20 +55,25 @@ async fn test_outputs() {
 
     for output in &outputs {
         assert_eq!(
-            collection.get_output_metadata(&output.output_id).await.unwrap(),
+            collection
+                .get_output_metadata(&output.output_id, 1.into())
+                .await
+                .unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output_id,
                 block_id: output.block_id,
                 booked: output.booked,
                 spent_metadata: None,
-                ledger_index: 1.into()
             }),
         );
     }
 
     for output in &outputs {
         assert_eq!(
-            collection.get_output_with_metadata(&output.output_id).await.unwrap(),
+            collection
+                .get_output_with_metadata(&output.output_id, 1.into())
+                .await
+                .unwrap(),
             Some(OutputWithMetadataResult {
                 output: output.output.clone(),
                 metadata: OutputMetadataResult {
@@ -76,7 +81,6 @@ async fn test_outputs() {
                     block_id: output.block_id,
                     booked: output.booked,
                     spent_metadata: None,
-                    ledger_index: 1.into()
                 }
             }),
         );
@@ -107,13 +111,15 @@ async fn test_outputs() {
 
     for output in &outputs {
         assert_eq!(
-            collection.get_output_metadata(&output.output.output_id).await.unwrap(),
+            collection
+                .get_output_metadata(&output.output.output_id, 1.into())
+                .await
+                .unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output.output_id,
                 block_id: output.output.block_id,
                 booked: output.output.booked,
                 spent_metadata: Some(output.spent_metadata),
-                ledger_index: 1.into()
             }),
         );
     }
@@ -121,7 +127,7 @@ async fn test_outputs() {
     for output in &outputs {
         assert_eq!(
             collection
-                .get_output_with_metadata(&output.output.output_id)
+                .get_output_with_metadata(&output.output.output_id, 1.into())
                 .await
                 .unwrap(),
             Some(OutputWithMetadataResult {
@@ -131,7 +137,6 @@ async fn test_outputs() {
                     block_id: output.output.block_id,
                     booked: output.output.booked,
                     spent_metadata: Some(output.spent_metadata),
-                    ledger_index: 1.into()
                 }
             }),
         );
