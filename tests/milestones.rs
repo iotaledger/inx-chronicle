@@ -3,55 +3,58 @@
 
 mod common;
 
-use chronicle::{
-    db::collections::MilestoneCollection,
-    types::stardust::block::payload::{MilestoneId, MilestonePayload},
-};
-use common::connect_to_test_db;
-
-#[tokio::test]
 #[cfg(feature = "rand")]
-async fn test_milestones() {
-    let db = connect_to_test_db("test-milestones").await.unwrap();
-    db.clear().await.unwrap();
-    let collection = db.collection::<MilestoneCollection>();
-    collection.create_indexes().await.unwrap();
+mod test_rand {
+    use chronicle::{
+        db::collections::MilestoneCollection,
+        types::stardust::block::payload::{MilestoneId, MilestonePayload},
+    };
 
-    let milestone = MilestonePayload::rand();
-    let milestone_id = MilestoneId::rand();
+    use super::common::connect_to_test_db;
 
-    collection
-        .insert_milestone(
-            milestone_id,
-            milestone.essence.index,
-            milestone.essence.timestamp.into(),
-            milestone.clone(),
-        )
-        .await
-        .unwrap();
+    #[tokio::test]
+    async fn test_milestones() {
+        let db = connect_to_test_db("test-milestones").await.unwrap();
+        db.clear().await.unwrap();
+        let collection = db.collection::<MilestoneCollection>();
+        collection.create_indexes().await.unwrap();
 
-    assert_eq!(
-        collection.get_milestone_id(milestone.essence.index).await.unwrap(),
-        Some(milestone_id),
-    );
+        let milestone = MilestonePayload::rand();
+        let milestone_id = MilestoneId::rand();
 
-    assert_eq!(
         collection
-            .get_milestone_payload_by_id(&milestone_id)
+            .insert_milestone(
+                milestone_id,
+                milestone.essence.index,
+                milestone.essence.timestamp.into(),
+                milestone.clone(),
+            )
             .await
-            .unwrap()
-            .as_ref(),
-        Some(&milestone)
-    );
+            .unwrap();
 
-    assert_eq!(
-        collection
-            .get_milestone_payload(milestone.essence.index)
-            .await
-            .unwrap()
-            .as_ref(),
-        Some(&milestone)
-    );
+        assert_eq!(
+            collection.get_milestone_id(milestone.essence.index).await.unwrap(),
+            Some(milestone_id),
+        );
 
-    db.drop().await.unwrap();
+        assert_eq!(
+            collection
+                .get_milestone_payload_by_id(&milestone_id)
+                .await
+                .unwrap()
+                .as_ref(),
+            Some(&milestone)
+        );
+
+        assert_eq!(
+            collection
+                .get_milestone_payload(milestone.essence.index)
+                .await
+                .unwrap()
+                .as_ref(),
+            Some(&milestone)
+        );
+
+        db.drop().await.unwrap();
+    }
 }
