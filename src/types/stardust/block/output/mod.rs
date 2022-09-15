@@ -300,27 +300,39 @@ mod test {
     }
 
     #[test]
-    fn test_output_bson() {
+    fn test_basic_output_bson() {
         let output = Output::rand_basic();
         bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_alias_output_bson() {
         let output = Output::rand_alias();
         bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_nft_output_bson() {
         let output = Output::rand_nft();
         bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_foundry_output_bson() {
         let output = Output::rand_foundry();
         bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_treasury_output_bson() {
         let output = Output::rand_treasury();
         bee::Output::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

@@ -152,7 +152,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_payload_bson() {
+    fn test_transaction_payload_bson() {
         let payload = Payload::rand_transaction();
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -165,17 +165,26 @@ mod test {
         let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
         doc.extend(outputs_doc);
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_milestone_payload_bson() {
         let payload = Payload::rand_milestone();
         bee::Payload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_treasury_transaction_payload_bson() {
         let payload = Payload::rand_treasury_transaction();
         bee::Payload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_tagged_data_payload_bson() {
         let payload = Payload::rand_tagged_data();
         bee::Payload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();

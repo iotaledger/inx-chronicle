@@ -19,29 +19,56 @@ use super::OutputAmount;
 
 #[cfg(all(test, feature = "rand"))]
 mod test {
-    use std::fmt::Debug;
-
     use mongodb::bson::{from_bson, to_bson};
-    use serde::{de::DeserializeOwned, Serialize};
 
     use super::*;
 
-    fn test<T>(t: T)
-    where
-        T: Serialize + DeserializeOwned + Debug + Eq,
-    {
-        let bson = to_bson(&t).unwrap();
-        assert_eq!(t, from_bson::<T>(bson).unwrap());
+    #[test]
+    fn test_address_unlock_bson() {
+        let unlock = AddressUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<AddressUnlockCondition>(bson).unwrap();
     }
 
     #[test]
-    fn test_unlock_condition_bson() {
-        test(AddressUnlockCondition::rand());
-        test(StorageDepositReturnUnlockCondition::rand());
-        test(TimelockUnlockCondition::rand());
-        test(ExpirationUnlockCondition::rand());
-        test(GovernorAddressUnlockCondition::rand());
-        test(StateControllerAddressUnlockCondition::rand());
-        test(ImmutableAliasAddressUnlockCondition::rand());
+    fn test_storage_deposit_unlock_bson() {
+        let unlock = StorageDepositReturnUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<StorageDepositReturnUnlockCondition>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_timelock_unlock_bson() {
+        let unlock = TimelockUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<TimelockUnlockCondition>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_expiration_unlock_bson() {
+        let unlock = ExpirationUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<ExpirationUnlockCondition>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_governor_unlock_bson() {
+        let unlock = GovernorAddressUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<GovernorAddressUnlockCondition>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_state_controller_unlock_bson() {
+        let unlock = StateControllerAddressUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<StateControllerAddressUnlockCondition>(bson).unwrap();
+    }
+
+    #[test]
+    fn test_immut_alias_unlock_bson() {
+        let unlock = ImmutableAliasAddressUnlockCondition::rand();
+        let bson = to_bson(&unlock).unwrap();
+        from_bson::<ImmutableAliasAddressUnlockCondition>(bson).unwrap();
     }
 }

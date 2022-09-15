@@ -119,6 +119,15 @@ mod rand {
                 nonce: rand_number(),
             }
         }
+        /// Generates a random [`Block`] with no payload.
+        pub fn rand_no_payload() -> Self {
+            Self {
+                protocol_version: rand_number(),
+                parents: BlockId::rand_parents(),
+                payload: None,
+                nonce: rand_number(),
+            }
+        }
     }
 }
 
@@ -139,7 +148,7 @@ mod test {
     }
 
     #[test]
-    fn test_block_bson() {
+    fn test_transaction_block_bson() {
         let block = Block::rand_transaction();
         let mut bson = to_bson(&block).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -158,18 +167,35 @@ mod test {
             .unwrap();
         doc.extend(outputs_doc);
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_milestone_block_bson() {
         let block = Block::rand_milestone();
         bee::Block::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_tagged_data_block_bson() {
         let block = Block::rand_tagged_data();
         bee::Block::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_treasury_transaction_block_bson() {
         let block = Block::rand_treasury_transaction();
+        let bson = to_bson(&block).unwrap();
+        assert_eq!(block, from_bson::<Block>(bson).unwrap());
+    }
+
+    #[test]
+    fn test_no_payload_block_bson() {
+        let block = Block::rand_no_payload();
+        bee::Block::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }

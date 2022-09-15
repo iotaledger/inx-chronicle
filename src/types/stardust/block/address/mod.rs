@@ -95,17 +95,23 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_address_bson() {
+    fn test_ed25519_address_bson() {
         let address = Address::rand_ed25519();
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_alias_address_bson() {
         let address = Address::rand_alias();
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);
         assert_eq!(address, from_bson::<Address>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_nft_address_bson() {
         let address = Address::rand_nft();
         let bson = to_bson(&address).unwrap();
         assert_eq!(Bson::from(address), bson);

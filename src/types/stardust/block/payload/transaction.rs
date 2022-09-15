@@ -189,7 +189,11 @@ mod rand {
                 outputs: std::iter::repeat_with(Output::rand)
                     .take(rand_number_range(0..10))
                     .collect(),
-                payload: None,
+                payload: if rand_number_range(0..=1) == 1 {
+                    Some(Payload::rand_tagged_data())
+                } else {
+                    None
+                },
             }
         }
     }

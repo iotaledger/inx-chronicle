@@ -74,11 +74,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_input_bson() {
+    fn test_utxo_input_bson() {
         let input = Input::rand_utxo();
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_treasury_input_bson() {
         let input = Input::rand_treasury();
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());

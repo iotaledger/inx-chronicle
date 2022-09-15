@@ -96,19 +96,28 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_unlock_bson() {
+    fn test_signature_unlock_bson() {
         let unlock = Unlock::rand_signature();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_reference_unlock_bson() {
         let unlock = Unlock::rand_reference();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_alias_unlock_bson() {
         let unlock = Unlock::rand_alias();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
+    }
 
+    #[test]
+    fn test_nft_unlock_bson() {
         let unlock = Unlock::rand_nft();
         let bson = to_bson(&unlock).unwrap();
         assert_eq!(unlock, from_bson::<Unlock>(bson).unwrap());
