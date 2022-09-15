@@ -67,7 +67,7 @@ where
         .await?
         .ok_or(ApiError::NoResults)?;
     Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
+        ledger_index,
         items: vec![res.output_id.to_hex()],
         cursor: None,
     })
@@ -120,7 +120,7 @@ where
     });
 
     Ok(IndexerOutputsResponse {
-        ledger_index: res.ledger_index.0,
+        ledger_index,
         items,
         cursor,
     })

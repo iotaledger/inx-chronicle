@@ -115,7 +115,6 @@ pub struct OutputMetadataResult {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub spent_metadata: Option<SpentMetadata>,
-    pub ledger_index: MilestoneIndex,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -130,7 +129,6 @@ pub struct OutputWithMetadataResult {
 pub struct BalanceResult {
     pub total_balance: String,
     pub sig_locked_balance: String,
-    pub ledger_index: MilestoneIndex,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -248,9 +246,6 @@ impl OutputCollection {
                         "block_id": "$metadata.block_id",
                         "booked": "$metadata.booked",
                         "spent_metadata": "$metadata.spent_metadata",
-                        // The max fn will not consider the spent milestone index if it is null,
-                        // thus always setting the ledger index to our provided value
-                        "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
                     },
                 } },
             ],
@@ -278,9 +273,6 @@ impl OutputCollection {
                     "block_id": "$metadata.block_id",
                     "booked": "$metadata.booked",
                     "spent_metadata": "$metadata.spent_metadata",
-                    // The max fn will not consider the spent milestone index if it is null,
-                    // thus always setting the ledger index to our provided value
-                    "ledger_index": { "$max": [ ledger_index, "$metadata.spent_metadata.spent.milestone_index" ] }
                 } },
             ],
             None,
@@ -338,7 +330,6 @@ impl OutputCollection {
                     doc! { "$project": {
                         "total_balance": { "$toString": "$total_balance" },
                         "sig_locked_balance": { "$toString": "$sig_locked_balance" },
-                        "ledger_index": { "$literal": ledger_index },
                     } },
                 ],
                 None,
@@ -586,7 +577,6 @@ pub struct StorageDepositAnalyticsResult {
     pub total_key_bytes: String,
     pub total_data_bytes: String,
     pub total_byte_cost: String,
-    pub ledger_index: MilestoneIndex,
     pub rent_structure: RentStructure,
 }
 
@@ -681,7 +671,6 @@ impl OutputCollection {
             total_key_bytes: res.total_key_bytes,
             total_data_bytes: res.total_data_bytes,
             total_byte_cost: res.total_byte_cost,
-            ledger_index,
             rent_structure,
         })
     }
@@ -772,7 +761,6 @@ impl OutputCollection {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RichestAddresses {
     pub top: Vec<AddressStat>,
-    pub ledger_index: MilestoneIndex,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -785,7 +773,6 @@ pub struct AddressStat {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenDistribution {
     pub distribution: Vec<DistributionStat>,
-    pub ledger_index: MilestoneIndex,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -834,7 +821,7 @@ impl OutputCollection {
             .await?
             .try_collect()
             .await?;
-        Ok(RichestAddresses { top, ledger_index })
+        Ok(RichestAddresses { top })
     }
 
     /// Create token distribution statistics.
@@ -873,9 +860,6 @@ impl OutputCollection {
             .await?
             .try_collect()
             .await?;
-        Ok(TokenDistribution {
-            distribution,
-            ledger_index,
-        })
+        Ok(TokenDistribution { distribution })
     }
 }

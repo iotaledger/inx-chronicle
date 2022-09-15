@@ -40,7 +40,6 @@ pub struct OutputResult {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct OutputsResult {
-    pub ledger_index: MilestoneIndex,
     pub outputs: Vec<OutputResult>,
 }
 
@@ -65,7 +64,6 @@ impl From<IndexedId> for Bson {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct IndexedOutputResult {
-    pub ledger_index: MilestoneIndex,
     pub output_id: OutputId,
 }
 
@@ -112,7 +110,6 @@ impl OutputCollection {
             spent.take();
         }
         Ok(res.map(|doc| IndexedOutputResult {
-            ledger_index,
             output_id: doc.output_id,
         }))
     }
@@ -176,7 +173,7 @@ impl OutputCollection {
             .await?
             .try_collect::<Vec<_>>()
             .await?;
-        Ok(OutputsResult { ledger_index, outputs })
+        Ok(OutputsResult { outputs })
     }
 
     /// Creates indexer output indexes.

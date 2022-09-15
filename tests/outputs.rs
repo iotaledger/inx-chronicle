@@ -81,7 +81,6 @@ async fn test_outputs() {
                 block_id,
                 booked: output.booked,
                 spent_metadata: None,
-                ledger_index: 1.into()
             }),
         );
     }
@@ -99,7 +98,6 @@ async fn test_outputs() {
                     block_id: output.block_id,
                     booked: output.booked,
                     spent_metadata: None,
-                    ledger_index: 1.into()
                 }
             }),
         );
@@ -139,7 +137,6 @@ async fn test_outputs() {
                 block_id,
                 booked: output.output.booked,
                 spent_metadata: Some(output.spent_metadata),
-                ledger_index: 1.into()
             }),
         );
     }
@@ -157,7 +154,6 @@ async fn test_outputs() {
                     block_id: output.output.block_id,
                     booked: output.output.booked,
                     spent_metadata: Some(output.spent_metadata),
-                    ledger_index: 1.into()
                 }
             }),
         );

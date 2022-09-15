@@ -230,7 +230,10 @@ async fn block_metadata(
     })
 }
 
-fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMetadataResponse {
+fn create_output_metadata_response(
+    metadata: OutputMetadataResult,
+    ledger_index: MilestoneIndex,
+) -> OutputMetadataResponse {
     OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.output_id.transaction_id.to_hex(),
@@ -250,7 +253,7 @@ fn create_output_metadata_response(metadata: OutputMetadataResult) -> OutputMeta
             .map(|spent_md| spent_md.transaction_id.to_hex()),
         milestone_index_booked: *metadata.booked.milestone_index,
         milestone_timestamp_booked: *metadata.booked.milestone_timestamp,
-        ledger_index: metadata.ledger_index.0,
+        ledger_index: ledger_index.0,
     }
 }
 
@@ -267,7 +270,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let metadata = create_output_metadata_response(metadata);
+    let metadata = create_output_metadata_response(metadata, ledger_index);
 
     Ok(OutputResponse {
         metadata,
@@ -291,7 +294,7 @@ async fn output_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(create_output_metadata_response(metadata))
+    Ok(create_output_metadata_response(metadata, ledger_index))
 }
 
 async fn transaction_included_block(

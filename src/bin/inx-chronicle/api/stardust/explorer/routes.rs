@@ -143,7 +143,7 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> A
     Ok(BalanceResponse {
         total_balance: res.total_balance,
         sig_locked_balance: res.sig_locked_balance,
-        ledger_index: res.ledger_index,
+        ledger_index,
     })
 }
 
