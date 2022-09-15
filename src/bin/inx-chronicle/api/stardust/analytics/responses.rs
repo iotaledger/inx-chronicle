@@ -4,7 +4,7 @@
 use std::ops::Range;
 
 use bee_api_types_stardust::responses::RentStructureResponse;
-use chronicle::db::collections::DistributionStat;
+use chronicle::{db::collections::DistributionStat, types::tangle::MilestoneIndex};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -37,7 +37,7 @@ pub struct StorageDepositAnalyticsResponse {
     pub total_key_bytes: String,
     pub total_data_bytes: String,
     pub total_byte_cost: String,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
     pub rent_structure: RentStructureResponse,
 }
 
@@ -57,7 +57,7 @@ impl_success_response!(OutputDiffAnalyticsResponse);
 #[serde(rename_all = "camelCase")]
 pub struct RichestAddressesResponse {
     pub top: Vec<AddressStatDto>,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
 }
 
 impl_success_response!(RichestAddressesResponse);
@@ -72,7 +72,7 @@ pub struct AddressStatDto {
 #[serde(rename_all = "camelCase")]
 pub struct TokenDistributionResponse {
     pub distribution: Vec<DistributionStatDto>,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
 }
 
 impl_success_response!(TokenDistributionResponse);

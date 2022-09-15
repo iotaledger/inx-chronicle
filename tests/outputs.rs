@@ -5,16 +5,16 @@ mod common;
 
 use bee_block_stardust as bee;
 use chronicle::{
-    db::collections::{MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
+    db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
         stardust::{
             block::{
                 output::OutputId,
-                payload::{MilestoneId, TransactionEssence, TransactionPayload},
+                payload::{TransactionEssence, TransactionPayload},
                 BlockId,
             },
-            util::{get_test_transaction_block, payload::milestone::get_test_milestone_payload},
+            util::get_test_transaction_block,
         },
     },
 };
@@ -50,25 +50,7 @@ async fn test_outputs() {
         })
         .collect::<Vec<_>>();
 
-    // Need to insert a milestone to be the ledger index
-    let milestone = get_test_milestone_payload();
-    let milestone_id = MilestoneId::from(
-        bee::payload::MilestonePayload::try_from(milestone.clone())
-            .unwrap()
-            .id(),
-    );
-
     collection.insert_unspent_outputs(&outputs).await.unwrap();
-
-    db.collection::<MilestoneCollection>()
-        .insert_milestone(
-            milestone_id,
-            milestone.essence.index,
-            milestone.essence.timestamp.into(),
-            milestone.clone(),
-        )
-        .await
-        .unwrap();
 
     for output in &outputs {
         assert_eq!(
@@ -90,20 +72,25 @@ async fn test_outputs() {
 
     for output in &outputs {
         assert_eq!(
-            collection.get_output_metadata(&output.output_id).await.unwrap(),
+            collection
+                .get_output_metadata(&output.output_id, 1.into())
+                .await
+                .unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output_id,
                 block_id,
                 booked: output.booked,
                 spent_metadata: None,
-                ledger_index: 1.into()
             }),
         );
     }
 
     for output in &outputs {
         assert_eq!(
-            collection.get_output_with_metadata(&output.output_id).await.unwrap(),
+            collection
+                .get_output_with_metadata(&output.output_id, 1.into())
+                .await
+                .unwrap(),
             Some(OutputWithMetadataResult {
                 output: output.output.clone(),
                 metadata: OutputMetadataResult {
@@ -111,7 +98,6 @@ async fn test_outputs() {
                     block_id: output.block_id,
                     booked: output.booked,
                     spent_metadata: None,
-                    ledger_index: 1.into()
                 }
             }),
         );
@@ -142,13 +128,15 @@ async fn test_outputs() {
 
     for output in &outputs {
         assert_eq!(
-            collection.get_output_metadata(&output.output.output_id).await.unwrap(),
+            collection
+                .get_output_metadata(&output.output.output_id, 1.into())
+                .await
+                .unwrap(),
             Some(OutputMetadataResult {
                 output_id: output.output.output_id,
                 block_id,
                 booked: output.output.booked,
                 spent_metadata: Some(output.spent_metadata),
-                ledger_index: 1.into()
             }),
         );
     }
@@ -156,7 +144,7 @@ async fn test_outputs() {
     for output in &outputs {
         assert_eq!(
             collection
-                .get_output_with_metadata(&output.output.output_id)
+                .get_output_with_metadata(&output.output.output_id, 1.into())
                 .await
                 .unwrap(),
             Some(OutputWithMetadataResult {
@@ -166,7 +154,6 @@ async fn test_outputs() {
                     block_id: output.output.block_id,
                     booked: output.output.booked,
                     spent_metadata: Some(output.spent_metadata),
-                    ledger_index: 1.into()
                 }
             }),
         );
