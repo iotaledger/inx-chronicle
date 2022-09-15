@@ -1,25 +1,30 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{routing::get, Extension};
+use std::str::FromStr;
+
+use axum::{extract::Path, routing::get, Extension};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{BlockCollection, OutputCollection, OutputKind, PayloadKind, ProtocolUpdateCollection},
+        collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
         MongoDb,
     },
-    types::stardust::block::{
-        output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-        payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
+    types::{
+        stardust::block::{
+            output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+            payload::milestone::MilestoneId,
+        },
+        tangle::MilestoneIndex,
     },
 };
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, OutputAnalyticsResponse,
-        OutputDiffAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
-        TokenDistributionResponse,
+        ActivityPerInclusionStateDto, ActivityPerPayloadTypeDto, AddressAnalyticsResponse, AddressStatDto,
+        MilestoneAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse, RichestAddressesResponse,
+        StorageDepositAnalyticsResponse, TokenDistributionResponse,
     },
 };
 use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
@@ -39,20 +44,14 @@ pub fn routes() -> Router {
             "/activity",
             Router::new()
                 .route("/addresses", get(address_activity_analytics))
+                .nest(
+                    "/milestones",
+                    Router::new()
+                        .route("/:milestone_id", get(milestone_activity_analytics_by_id))
+                        .route("/by-index/:milestone_index", get(milestone_activity_analytics)),
+                )
                 .route("/native-tokens", get(native_token_activity_analytics))
                 .route("/nfts", get(nft_activity_analytics))
-                .nest(
-                    "/blocks",
-                    Router::new()
-                        .route("/", get(block_activity_analytics::<()>))
-                        .route("/milestone", get(block_activity_analytics::<MilestonePayload>))
-                        .route("/transaction", get(block_activity_analytics::<TransactionPayload>))
-                        .route("/tagged-data", get(block_activity_analytics::<TaggedDataPayload>))
-                        .route(
-                            "/treasury-transaction",
-                            get(block_activity_analytics::<TreasuryTransactionPayload>),
-                        ),
-                )
                 .nest(
                     "/outputs",
                     Router::new()
@@ -81,17 +80,67 @@ async fn address_activity_analytics(
     })
 }
 
-async fn block_activity_analytics<B: PayloadKind>(
+async fn milestone_activity_analytics(
     database: Extension<MongoDb>,
-    MilestoneRange { start_index, end_index }: MilestoneRange,
-) -> ApiResult<BlockAnalyticsResponse> {
-    let res = database
+    Path(milestone_index): Path<String>,
+) -> ApiResult<MilestoneAnalyticsResponse> {
+    let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
+
+    let activity = database
         .collection::<BlockCollection>()
-        .get_block_analytics::<B>(start_index, end_index)
+        .get_milestone_activity(index)
         .await?;
 
-    Ok(BlockAnalyticsResponse {
-        count: res.count.to_string(),
+    Ok(MilestoneAnalyticsResponse {
+        blocks_count: activity.num_blocks,
+        per_payload_type: ActivityPerPayloadTypeDto {
+            tx_payload_count: activity.num_tx_payload,
+            treasury_tx_payload_count: activity.num_treasury_tx_payload,
+            tagged_data_payload_count: activity.num_tagged_data_payload,
+            milestone_payload_count: activity.num_milestone_payload,
+            no_payload_count: activity.num_no_payload,
+        },
+        per_inclusion_state: ActivityPerInclusionStateDto {
+            confirmed_tx_count: activity.num_confirmed_tx,
+            conflicting_tx_count: activity.num_conflicting_tx,
+            no_tx_count: activity.num_no_tx,
+        },
+    })
+}
+
+async fn milestone_activity_analytics_by_id(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+) -> ApiResult<MilestoneAnalyticsResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let index = database
+        .collection::<MilestoneCollection>()
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?
+        .essence
+        .index;
+
+    let activity = database
+        .collection::<BlockCollection>()
+        .get_milestone_activity(index)
+        .await?;
+
+    Ok(MilestoneAnalyticsResponse {
+        blocks_count: activity.num_blocks,
+        per_payload_type: ActivityPerPayloadTypeDto {
+            tx_payload_count: activity.num_tx_payload,
+            treasury_tx_payload_count: activity.num_treasury_tx_payload,
+            tagged_data_payload_count: activity.num_tagged_data_payload,
+            milestone_payload_count: activity.num_milestone_payload,
+            no_payload_count: activity.num_no_payload,
+        },
+        per_inclusion_state: ActivityPerInclusionStateDto {
+            confirmed_tx_count: activity.num_confirmed_tx,
+            conflicting_tx_count: activity.num_conflicting_tx,
+            no_tx_count: activity.num_no_tx,
+        },
     })
 }
 

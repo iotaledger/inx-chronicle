@@ -1,6 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! This `Router` wraps the functionality we use from [`axum::Router`] and tracks the string routes
+//! as they are added in a tree node structure. The reason for this ugliness is to provide a routes
+//! endpoint which can output a list of unique routes at any depth level. The most critical part of
+//! this is the [`Router::into_make_service()`] function, which adds an [`Extension`] containing the
+//! root [`RouteNode`]. These routes can also be filtered using a [`RegexSet`] to allow the exclusion
+//! of unauthorized routes.
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::Infallible,

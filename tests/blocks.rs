@@ -104,3 +104,66 @@ async fn test_blocks() {
 
     db.drop().await.unwrap();
 }
+
+#[tokio::test]
+async fn test_milestone_activity() {
+    let db = connect_to_test_db("test-milestone-activity").await.unwrap();
+    db.clear().await.unwrap();
+    let collection = db.collection::<BlockCollection>();
+    collection.create_indexes().await.unwrap();
+
+    // Note that we cannot build a block with a treasury transaction payload.
+    let blocks = vec![
+        Block::rand_transaction(),
+        Block::rand_transaction(),
+        Block::rand_milestone(),
+        Block::rand_tagged_data(),
+        Block::rand_no_payload(),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, block)| {
+        let parents = block.parents.clone();
+        (
+            BlockId::rand(),
+            block,
+            bee_block_stardust::rand::bytes::rand_bytes(100),
+            BlockMetadata {
+                parents,
+                is_solid: true,
+                should_promote: false,
+                should_reattach: false,
+                referenced_by_milestone_index: 1.into(),
+                milestone_index: 0.into(),
+                inclusion_state: match i {
+                    0 => LedgerInclusionState::Included,
+                    1 => LedgerInclusionState::Conflicting,
+                    _ => LedgerInclusionState::NoTransaction,
+                },
+                conflict_reason: match i {
+                    0 => ConflictReason::None,
+                    1 => ConflictReason::InputUtxoNotFound,
+                    _ => ConflictReason::None,
+                },
+                white_flag_index: i as u32,
+            },
+        )
+    })
+    .collect::<Vec<_>>();
+
+    collection.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
+
+    let activity = collection.get_milestone_activity(1.into()).await.unwrap();
+
+    assert_eq!(activity.num_blocks, 5);
+    assert_eq!(activity.num_tx_payload, 2);
+    assert_eq!(activity.num_treasury_tx_payload, 0);
+    assert_eq!(activity.num_milestone_payload, 1);
+    assert_eq!(activity.num_tagged_data_payload, 1);
+    assert_eq!(activity.num_no_payload, 1);
+    assert_eq!(activity.num_confirmed_tx, 1);
+    assert_eq!(activity.num_conflicting_tx, 1);
+    assert_eq!(activity.num_no_tx, 3);
+
+    db.drop().await.unwrap();
+}

@@ -58,6 +58,10 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    # There is an ICE in rustc nightly which prevents this workflow from running:
+    # https://github.com/rust-lang/rust/issues/101844
+    # Until this is resolved, we allow this job to fail.
+    continue-on-error: true
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
