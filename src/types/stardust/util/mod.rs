@@ -41,3 +41,12 @@ pub fn get_test_tagged_data_block() -> Block {
             .unwrap(),
     )
 }
+
+pub fn get_test_no_payload_block() -> Block {
+    Block::from(
+        bee::BlockBuilder::<u64>::new(bee_block_stardust::rand::parents::rand_parents())
+            .with_nonce_provider(u64::MAX, 0)
+            .finish()
+            .unwrap(),
+    )
+}

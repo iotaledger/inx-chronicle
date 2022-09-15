@@ -140,96 +140,47 @@ paths:
         - $ref: "#/components/parameters/endIndex"
       responses:
         "200":
-          $ref: "#/components/responses/Block"
+          $ref: "#/components/responses/Address"
         "400":
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/blocks:
+  /api/analytics/v2/activity/milestones/{milestoneId}:
     get:
       tags:
         - activity
-      summary: Returns total block count.
+      summary: Returns milestone activity.
       description: >-
-        Returns the count of blocks created within the specified milestone range.
+        Returns various activity counts for a given milestone.
       parameters:
-        - $ref: "#/components/parameters/startIndex"
-        - $ref: "#/components/parameters/endIndex"
+        - $ref: "#/components/parameters/milestoneId"
       responses:
         "200":
-          $ref: "#/components/responses/Block"
+          $ref: "#/components/responses/Milestone"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/blocks/transaction:
+  /api/analytics/v2/activity/milestones/by-index/{milestoneIndex}:
     get:
       tags:
         - activity
-      summary: Returns total transaction type block count.
+      summary: Returns milestone activity.
       description: >-
-        Returns the count of transaction blocks created within the specified milestone range.
+        Returns various activity counts for a given milestone.
       parameters:
-        - $ref: "#/components/parameters/startIndex"
-        - $ref: "#/components/parameters/endIndex"
+        - $ref: "#/components/parameters/milestoneIndex"
       responses:
         "200":
-          $ref: "#/components/responses/Block"
+          $ref: "#/components/responses/Milestone"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
         "500":
-          $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/blocks/milestone:
-    get:
-      tags:
-        - activity
-      summary: Returns total milestone type block count.
-      description: >-
-        Returns the count of milestone blocks created within the specified milestone range.
-      parameters:
-        - $ref: "#/components/parameters/startIndex"
-        - $ref: "#/components/parameters/endIndex"
-      responses:
-        "200":
-          $ref: "#/components/responses/Block"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/blocks/tagged-data:
-    get:
-      tags:
-        - activity
-      summary: Returns total tagged data type block count.
-      description: >-
-        Returns the count of tagged data blocks created within the specified milestone range.
-      parameters:
-        - $ref: "#/components/parameters/startIndex"
-        - $ref: "#/components/parameters/endIndex"
-      responses:
-        "200":
-          $ref: "#/components/responses/Block"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/blocks/treasury-transaction:
-    get:
-      tags:
-        - activity
-      summary: Returns total treasury transaction type block count.
-      description: >-
-        Returns the count of treasury transaction blocks created within the specified milestone range.
-      parameters:
-        - $ref: "#/components/parameters/startIndex"
-        - $ref: "#/components/parameters/endIndex"
-      responses:
-        "200":
-          $ref: "#/components/responses/Block"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
+          $ref: "#/components/responses/InternalError" 
   /api/analytics/v2/activity/outputs:
     get:
       tags:
@@ -333,14 +284,56 @@ components:
         - totalActiveAddresses
         - receivingAddresses
         - sendingAddresses
-    BlockAnalyticsResponse:
-      description: Compiled block statistics.
+    MilestoneAnalyticsResponse:
+      description: Compiled statistics about milestones.
       properties:
-        count:
-          type: string
-          description: The total count of blocks.
+        blocksCount:
+          type: integer
+          description: The number of blocks referenced by the requested milestone.
+        perPayloadType:
+          description: The various per payload type counts.
+          properties:
+            txPayloadCount:
+              type: integer
+              description: The number of transaction payloads referenced by the requested milestone.
+            txTreasuryPayloadCount:
+              type: integer
+              description: The number of treasury transaction payloads referenced by the requested milestone.
+            milestonePayloadCount:
+              type: integer
+              description: The number of milestone payloads referenced by the requested milestone.
+            taggedDataPayloadCount:
+              type: integer
+              description: The number of tagged data payloads referenced by the requested milestone.
+            noPayloadCount:
+              type: integer
+              description: The number of blocks without payload referenced by the requested milestone.
+          required:
+            - txPayloadCount
+            - txTreasuryPayloadCount
+            - milestonePayloadCount
+            - taggedDataPayloadCount
+            - noPayloadCount
+        perInclusionState:
+          description: The various per inclusion state counts.
+          properties:
+            confirmedTxCount:
+              type: integer
+              description: The number of confirmed transactions referenced by the requested milestone.
+            conflictingTxCount:
+              type: integer
+              description: The number of conflicting transactions referenced by the requested milestone.
+            noTxCount:
+              type: integer
+              description: The number of non-transaction blocks referenced by the requested milestone.
+          required:
+            - confirmedTxCount
+            - conflictingTxCount
+            - noTxCount
       required:
-        - count
+        - blocksCount
+        - perPayloadType
+        - perInclusionState
     OutputAnalyticsResponse:
       description: Compiled output statistics.
       properties:
@@ -457,15 +450,6 @@ components:
       required:
         - distribution
   responses:
-    Block:
-      description: Successful operation.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/BlockAnalyticsResponse"
-          examples:
-            default:
-              $ref: "#/components/examples/block-example"
     Output:
       description: Successful operation.
       content:
@@ -493,6 +477,15 @@ components:
           examples:
             default:
               $ref: "#/components/examples/storage-deposit-example"
+    Milestone:
+      description: Successful operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MilestoneAnalyticsResponse"
+          examples:
+            default:
+              $ref: "#/components/examples/milestone-example"
     NoResults:
       description: >-
         Unsuccessful operation: indicates that the requested data was not found.
@@ -550,6 +543,22 @@ components:
       example: 100
       required: false
       description: The milestone index to be used to determine the ledger state. Defaults to 200.
+    milestoneId:
+      in: path
+      name: milestoneId
+      schema:
+        type: string
+      example: "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
+      required: true
+      description: Milestone id for which to receive milestone analytics.
+    milestoneIndex:
+      in: path
+      name: milestoneIndex
+      schema:
+        type: integer
+      example: 100000
+      required: true
+      description: Milestone index for which to receive milestone analytics.
   examples:
     storage-deposit-example:
       value:
@@ -564,9 +573,6 @@ components:
           - vByteCost: 500
             vByteFactorData: 1
             vByteFactorKey: 10
-    block-example:
-      value:
-        count: "17400"
     output-example:
       value:
         count: "81"
@@ -576,6 +582,19 @@ components:
         totalActiveAddresses: "443"
         receivingAddresses: "443"
         sendingAddresses: "0"
+    milestone-example:
+      value:
+        blocksCount: 100
+        perPayloadType:
+            - txPayloadCount: 20
+              txTreasuryPayloadCount: 2
+              milestonePayloadCount: 1
+              taggedDataPayloadCount: 27
+              noPayloadCount: 50
+        perInclusionState:
+            - confirmedTxCount: 20
+              conflictingTxCount: 2
+              noTxCount: 78
     richest-addresses-example:
       value:
         top:
