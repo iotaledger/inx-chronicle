@@ -58,7 +58,7 @@ mod test {
     #[test]
     fn test_treasury_transaction_payload_bson() {
         let payload = TreasuryTransactionPayload::rand();
-        bee::TreasuryTransactionPayload::try_from(payload.clone()).unwrap();
+        bee::TreasuryTransactionPayload::try_from(payload).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TreasuryTransactionPayload>(bson).unwrap());
     }

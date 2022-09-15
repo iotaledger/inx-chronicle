@@ -52,7 +52,7 @@ mod test {
     #[test]
     fn test_treasury_output_bson() {
         let output = TreasuryOutput::rand();
-        bee::TreasuryOutput::try_from(output.clone()).unwrap();
+        bee::TreasuryOutput::try_from(output).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<TreasuryOutput>(bson).unwrap());
     }
