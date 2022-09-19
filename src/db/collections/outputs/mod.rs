@@ -21,6 +21,7 @@ pub use self::indexer::{
 use super::OutputKind;
 use crate::{
     db::{
+        collections::LedgerUpdateCollection,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -210,6 +211,76 @@ impl OutputCollection {
         )
         .await?;
 
+        Ok(())
+    }
+
+    /// Create the initial ledger updates materialized view by pulling all output data.
+    pub async fn create_ledger_updates(&self) -> Result<(), Error> {
+        self.aggregate::<OutputDocument>(
+            vec![
+                doc! { "$set": { "owning_address": { "$switch": {
+                    "branches": [
+                        { "case": { "$eq": [ "$output.kind", "basic" ] }, "then": "$output.address_unlock_condition.address" },
+                        { "case": { "$eq": [ "$output.kind", "alias" ] }, "then": "$output.state_controller_address_unlock_condition.address" },
+                        { "case": { "$eq": [ "$output.kind", "foundry" ] }, "then": "$output.immutable_alias_address_unlock_condition.address" },
+                        { "case": { "$eq": [ "$output.kind", "nft" ] }, "then": "$output.address_unlock_condition.address" },
+                    ],
+                    "default": null,
+                } } } },
+                doc! { "$match": { "owning_address": { "$ne": null } } },
+                doc! { "$project": {
+                    "_id": {
+                        "milestone_index": "$metadata.booked.milestone_index",
+                        "output_id": "$_id",
+                        "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
+                    },
+                    "address": "$owning_address",
+                    "milestone_timestamp": "$metadata.booked.milestone_timestamp",
+                } },
+                doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?;
+        Ok(())
+    }
+
+    /// Merges the outputs table into the ledger updates materialized view.
+    pub async fn merge_into_ledger_updates(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
+        self.aggregate::<OutputDocument>(
+            vec![
+                doc! { "$match": { "$or": [
+                    { "metadata.booked.milestone_index": milestone_index },
+                    { "metadata.spent_metadata.spent.milestone_index": milestone_index },
+                ] } },
+                doc! { "$set": { "owning_address": { "$switch": {
+                    "branches": [
+                        { "case": { "$eq": [ "$output.kind", "basic" ] }, "then": "$output.address_unlock_condition.address" },
+                        { "case": { "$eq": [ "$output.kind", "alias" ] }, "then": "$output.state_controller_address_unlock_condition.address" },
+                        { "case": { "$eq": [ "$output.kind", "foundry" ] }, "then": "$output.immutable_alias_address_unlock_condition.address" },
+                        { "case": { "$eq": [ "$output.kind", "nft" ] }, "then": "$output.address_unlock_condition.address" },
+                    ],
+                    "default": null,
+                } } } },
+                doc! { "$match": { "owning_address": { "$ne": null } } },
+                doc! { "$project": {
+                    "_id": {
+                        "milestone_index": "$metadata.booked.milestone_index",
+                        "output_id": "$_id",
+                        "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
+                    },
+                    "address": "$owning_address",
+                    "milestone_timestamp": "$metadata.booked.milestone_timestamp",
+                } },
+                doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?;
         Ok(())
     }
 
