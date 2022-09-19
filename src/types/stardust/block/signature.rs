@@ -50,7 +50,7 @@ mod rand {
     use super::*;
 
     impl Signature {
-        /// Generates a random [`Signature`] with an [`Ed25519Signature`].
+        /// Generates a random [`Signature`] with an [`bee::Ed25519Signature`].
         pub fn rand() -> Self {
             Self::from(&bee::Signature::Ed25519(bee::Ed25519Signature::new(
                 rand_bytes_array(),
