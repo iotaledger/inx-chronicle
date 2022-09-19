@@ -36,7 +36,7 @@ mod rand {
     use super::*;
 
     impl TimelockUnlockCondition {
-        /// Generates a random [`StorageDepositReturnUnlockCondition`].
+        /// Generates a random [`TimelockUnlockCondition`].
         pub fn rand() -> Self {
             Self {
                 timestamp: rand_number::<u32>().into(),
