@@ -215,6 +215,7 @@ impl OutputCollection {
     }
 
     /// Create the initial ledger updates materialized view by pulling all output data.
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn create_ledger_updates(&self) -> Result<(), Error> {
         self.aggregate::<OutputDocument>(
             vec![
@@ -248,6 +249,7 @@ impl OutputCollection {
     }
 
     /// Merges the outputs table into the ledger updates materialized view.
+    #[instrument(skip_all, err, level = "trace")]
     pub async fn merge_into_ledger_updates(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
         self.aggregate::<OutputDocument>(
             vec![
