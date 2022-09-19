@@ -35,20 +35,54 @@ impl TryFrom<Input> for bee::Input {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+
+    use bee_block_stardust::rand::{
+        input::{rand_treasury_input, rand_utxo_input},
+        number::rand_number_range,
+    };
+
+    use super::*;
+
+    impl Input {
+        /// Generates a random [`Input`].
+        pub fn rand() -> Self {
+            match rand_number_range(0..2) {
+                0 => Self::rand_utxo(),
+                1 => Self::rand_treasury(),
+                _ => unreachable!(),
+            }
+        }
+
+        /// Generates a random utxo [`Input`].
+        pub fn rand_utxo() -> Self {
+            Self::from(&bee::Input::from(rand_utxo_input()))
+        }
+
+        /// Generates a random treasury [`Input`].
+        pub fn rand_treasury() -> Self {
+            Self::from(&bee::Input::from(rand_treasury_input()))
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::input::{get_test_treasury_input, get_test_utxo_input};
 
     #[test]
-    fn test_input_bson() {
-        let input = get_test_utxo_input();
+    fn test_utxo_input_bson() {
+        let input = Input::rand_utxo();
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());
+    }
 
-        let input = get_test_treasury_input();
+    #[test]
+    fn test_treasury_input_bson() {
+        let input = Input::rand_treasury();
         let bson = to_bson(&input).unwrap();
         assert_eq!(input, from_bson::<Input>(bson).unwrap());
     }

@@ -39,3 +39,17 @@ impl From<NftAddress> for Bson {
         mongodb::bson::to_bson(&val).unwrap()
     }
 }
+
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::address::rand_nft_address;
+
+    use super::*;
+
+    impl NftAddress {
+        /// Generates a random [`NftAddress`].
+        pub fn rand() -> Self {
+            rand_nft_address().into()
+        }
+    }
+}

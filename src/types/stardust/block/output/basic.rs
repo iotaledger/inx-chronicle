@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Borrow;
+
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
@@ -25,8 +27,9 @@ pub struct BasicOutput {
     pub features: Box<[Feature]>,
 }
 
-impl From<&bee::BasicOutput> for BasicOutput {
-    fn from(value: &bee::BasicOutput) -> Self {
+impl<T: Borrow<bee::BasicOutput>> From<T> for BasicOutput {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             amount: value.amount().into(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -82,16 +85,30 @@ impl TryFrom<BasicOutput> for bee::BasicOutput {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::output::rand_basic_output;
+
+    use super::*;
+
+    impl BasicOutput {
+        /// Generates a random [`BasicOutput`].
+        pub fn rand() -> Self {
+            rand_basic_output().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::basic::*;
 
     #[test]
     fn test_basic_output_bson() {
-        let output = get_test_basic_output();
+        let output = BasicOutput::rand();
+        bee::BasicOutput::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<BasicOutput>(bson).unwrap());
     }

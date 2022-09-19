@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
@@ -23,7 +23,7 @@ use super::{
         MilestonesResponse,
     },
 };
-use crate::api::{extractors::Pagination, ApiError, ApiResult};
+use crate::api::{extractors::Pagination, router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -128,17 +128,22 @@ async fn ledger_updates_by_milestone(
 }
 
 async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
+    let ledger_index = database
+        .collection::<MilestoneCollection>()
+        .get_ledger_index()
+        .await?
+        .ok_or(ApiError::NoResults)?;
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
     let res = database
         .collection::<OutputCollection>()
-        .get_address_balance(address)
+        .get_address_balance(address, ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
     Ok(BalanceResponse {
         total_balance: res.total_balance,
         sig_locked_balance: res.sig_locked_balance,
-        ledger_index: res.ledger_index,
+        ledger_index,
     })
 }
 

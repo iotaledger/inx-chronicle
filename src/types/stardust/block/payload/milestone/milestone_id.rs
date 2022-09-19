@@ -50,3 +50,17 @@ impl From<MilestoneId> for Bson {
         .into()
     }
 }
+
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::milestone::rand_milestone_id;
+
+    use super::*;
+
+    impl MilestoneId {
+        /// Generates a random [`MilestoneId`].
+        pub fn rand() -> Self {
+            rand_milestone_id().into()
+        }
+    }
+}

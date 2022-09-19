@@ -1,3 +1,33 @@
+## [1.0.0-beta.17](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.16...v1.0.0-beta.17) (2022-09-15)
+
+
+### Features
+
+* **db:** separate ledger/protocol_param logic from collections ([#677](https://github.com/iotaledger/inx-chronicle/issues/677)) ([81178c8](https://github.com/iotaledger/inx-chronicle/commit/81178c8b822d3f2c2a9182976d42b2dcfd2f32b0))
+
+## [1.0.0-beta.16](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.15...v1.0.0-beta.16) (2022-09-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **db:** separate database collections into individual types (#626) (#650)
+
+### Features
+
+* **api:** add milestone activity endpoint ([#678](https://github.com/iotaledger/inx-chronicle/issues/678)) ([c107174](https://github.com/iotaledger/inx-chronicle/commit/c107174f9579f437317ad8d121c74de079393a21))
+* **api:** add milestones endpoint to explorer API ([#666](https://github.com/iotaledger/inx-chronicle/issues/666)) ([3d221bf](https://github.com/iotaledger/inx-chronicle/commit/3d221bf9b858fd317094c1623aadbf668f6f0f2f)), closes [#633](https://github.com/iotaledger/inx-chronicle/issues/633)
+* **api:** add routes endpoint ([#537](https://github.com/iotaledger/inx-chronicle/issues/537)) ([b1719c3](https://github.com/iotaledger/inx-chronicle/commit/b1719c362d2a76ab143be759401d2a3282a87589))
+* **ci:** add swagger validation CI ([#675](https://github.com/iotaledger/inx-chronicle/issues/675)) ([4153113](https://github.com/iotaledger/inx-chronicle/commit/4153113ca4d1e043abf29b6db8a997319070b03c))
+* **db:** remove outputs from blocks table ([#664](https://github.com/iotaledger/inx-chronicle/issues/664)) ([4329690](https://github.com/iotaledger/inx-chronicle/commit/4329690267a9ca0a0a3f6849a56514a76fea88eb)), closes [#632](https://github.com/iotaledger/inx-chronicle/issues/632)
+* **db:** separate database collections into individual types ([#626](https://github.com/iotaledger/inx-chronicle/issues/626)) ([#650](https://github.com/iotaledger/inx-chronicle/issues/650)) ([5d5499d](https://github.com/iotaledger/inx-chronicle/commit/5d5499d834ed2c23fede23c7d2ad8c61dfbae4af))
+* **telemetry:** add jaeger support ([#575](https://github.com/iotaledger/inx-chronicle/issues/575)) ([e1e4dc8](https://github.com/iotaledger/inx-chronicle/commit/e1e4dc8dc1d5cc33f7ab4afb2382708dba857d06))
+
+
+### Bug Fixes
+
+* **ci:** fix coverage CI and update mongo version ([#658](https://github.com/iotaledger/inx-chronicle/issues/658)) ([e231e09](https://github.com/iotaledger/inx-chronicle/commit/e231e09c672ad6bfb6ae714ff5aea6d3a93c2095))
+* **tracing:** remove console ([#660](https://github.com/iotaledger/inx-chronicle/issues/660)) ([a514fc9](https://github.com/iotaledger/inx-chronicle/commit/a514fc9378c9ae832cbf4893f9f07e34c049bbdd))
+
 ## [1.0.0-beta.15](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.14...v1.0.0-beta.15) (2022-09-09)
 
 

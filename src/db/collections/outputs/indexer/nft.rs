@@ -69,9 +69,8 @@ impl From<NftOutputsQuery> for bson::Document {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rand"))]
 mod test {
-    use bee_block_stardust::address as bee;
     use mongodb::bson::{self, doc};
     use primitive_types::U256;
 
@@ -80,9 +79,7 @@ mod test {
 
     #[test]
     fn test_nft_query_everything() {
-        let address = Address::from(bee::Address::Ed25519(
-            bee_block_stardust::rand::address::rand_ed25519_address(),
-        ));
+        let address = Address::rand_ed25519();
         let query = NftOutputsQuery {
             address: Some(address),
             issuer: Some(address),
@@ -148,9 +145,7 @@ mod test {
 
     #[test]
     fn test_nft_query_all_false() {
-        let address = Address::from(bee::Address::Ed25519(
-            bee_block_stardust::rand::address::rand_ed25519_address(),
-        ));
+        let address = Address::rand_ed25519();
         let query = NftOutputsQuery {
             address: Some(address),
             issuer: None,

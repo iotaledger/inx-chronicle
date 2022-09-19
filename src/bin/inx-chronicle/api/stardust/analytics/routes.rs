@@ -1,28 +1,33 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use axum::{routing::get, Extension, Router};
+use std::str::FromStr;
+
+use axum::{extract::Path, routing::get, Extension};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{BlockCollection, OutputCollection, OutputKind, PayloadKind, ProtocolUpdateCollection},
+        collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
         MongoDb,
     },
-    types::stardust::block::{
-        output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-        payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
+    types::{
+        stardust::block::{
+            output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+            payload::MilestoneId,
+        },
+        tangle::MilestoneIndex,
     },
 };
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
-        AddressAnalyticsResponse, AddressStatDto, BlockAnalyticsResponse, OutputAnalyticsResponse,
-        OutputDiffAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
-        TokenDistributionResponse,
+        ActivityPerInclusionStateDto, ActivityPerPayloadTypeDto, AddressAnalyticsResponse, AddressStatDto,
+        MilestoneAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse, RichestAddressesResponse,
+        StorageDepositAnalyticsResponse, TokenDistributionResponse,
     },
 };
-use crate::api::{error::InternalApiError, ApiError, ApiResult};
+use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -39,20 +44,14 @@ pub fn routes() -> Router {
             "/activity",
             Router::new()
                 .route("/addresses", get(address_activity_analytics))
+                .nest(
+                    "/milestones",
+                    Router::new()
+                        .route("/:milestone_id", get(milestone_activity_analytics_by_id))
+                        .route("/by-index/:milestone_index", get(milestone_activity_analytics)),
+                )
                 .route("/native-tokens", get(native_token_activity_analytics))
                 .route("/nfts", get(nft_activity_analytics))
-                .nest(
-                    "/blocks",
-                    Router::new()
-                        .route("/", get(block_activity_analytics::<()>))
-                        .route("/milestone", get(block_activity_analytics::<MilestonePayload>))
-                        .route("/transaction", get(block_activity_analytics::<TransactionPayload>))
-                        .route("/tagged-data", get(block_activity_analytics::<TaggedDataPayload>))
-                        .route(
-                            "/treasury-transaction",
-                            get(block_activity_analytics::<TreasuryTransactionPayload>),
-                        ),
-                )
                 .nest(
                     "/outputs",
                     Router::new()
@@ -81,17 +80,67 @@ async fn address_activity_analytics(
     })
 }
 
-async fn block_activity_analytics<B: PayloadKind>(
+async fn milestone_activity_analytics(
     database: Extension<MongoDb>,
-    MilestoneRange { start_index, end_index }: MilestoneRange,
-) -> ApiResult<BlockAnalyticsResponse> {
-    let res = database
+    Path(milestone_index): Path<String>,
+) -> ApiResult<MilestoneAnalyticsResponse> {
+    let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
+
+    let activity = database
         .collection::<BlockCollection>()
-        .get_block_analytics::<B>(start_index, end_index)
+        .get_milestone_activity(index)
         .await?;
 
-    Ok(BlockAnalyticsResponse {
-        count: res.count.to_string(),
+    Ok(MilestoneAnalyticsResponse {
+        blocks_count: activity.num_blocks,
+        per_payload_type: ActivityPerPayloadTypeDto {
+            tx_payload_count: activity.num_tx_payload,
+            treasury_tx_payload_count: activity.num_treasury_tx_payload,
+            tagged_data_payload_count: activity.num_tagged_data_payload,
+            milestone_payload_count: activity.num_milestone_payload,
+            no_payload_count: activity.num_no_payload,
+        },
+        per_inclusion_state: ActivityPerInclusionStateDto {
+            confirmed_tx_count: activity.num_confirmed_tx,
+            conflicting_tx_count: activity.num_conflicting_tx,
+            no_tx_count: activity.num_no_tx,
+        },
+    })
+}
+
+async fn milestone_activity_analytics_by_id(
+    database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
+) -> ApiResult<MilestoneAnalyticsResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+
+    let index = database
+        .collection::<MilestoneCollection>()
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NotFound)?
+        .essence
+        .index;
+
+    let activity = database
+        .collection::<BlockCollection>()
+        .get_milestone_activity(index)
+        .await?;
+
+    Ok(MilestoneAnalyticsResponse {
+        blocks_count: activity.num_blocks,
+        per_payload_type: ActivityPerPayloadTypeDto {
+            tx_payload_count: activity.num_tx_payload,
+            treasury_tx_payload_count: activity.num_treasury_tx_payload,
+            tagged_data_payload_count: activity.num_tagged_data_payload,
+            milestone_payload_count: activity.num_milestone_payload,
+            no_payload_count: activity.num_no_payload,
+        },
+        per_inclusion_state: ActivityPerInclusionStateDto {
+            confirmed_tx_count: activity.num_confirmed_tx,
+            conflicting_tx_count: activity.num_conflicting_tx,
+            no_tx_count: activity.num_no_tx,
+        },
     })
 }
 
@@ -116,7 +165,7 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
 ) -> ApiResult<OutputAnalyticsResponse> {
     let res = database
         .collection::<OutputCollection>()
-        .get_unspent_output_analytics::<O>(ledger_index)
+        .get_unspent_output_analytics::<O>(resolve_ledger_index(&database, ledger_index).await?)
         .await?
         .ok_or(ApiError::NoResults)?;
 
@@ -130,11 +179,17 @@ async fn storage_deposit_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(ledger_index)
+        .await?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .parameters;
     let res = database
         .collection::<OutputCollection>()
-        .get_storage_deposit_analytics(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .get_storage_deposit_analytics(ledger_index, protocol_params)
+        .await?;
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),
@@ -143,7 +198,7 @@ async fn storage_deposit_ledger_analytics(
         total_key_bytes: res.total_key_bytes,
         total_data_bytes: res.total_data_bytes,
         total_byte_cost: res.total_byte_cost,
-        ledger_index: res.ledger_index.0,
+        ledger_index,
         rent_structure: RentStructureResponse {
             v_byte_cost: res.rent_structure.v_byte_cost,
             v_byte_factor_key: res.rent_structure.v_byte_factor_key,
@@ -188,15 +243,15 @@ async fn richest_addresses_ledger_analytics(
     database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     let hrp = database
         .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(res.ledger_index)
+        .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
         .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
         .parameters
@@ -211,7 +266,7 @@ async fn richest_addresses_ledger_analytics(
                 balance: stat.balance,
             })
             .collect(),
-        ledger_index: res.ledger_index.0,
+        ledger_index,
     })
 }
 
@@ -219,14 +274,28 @@ async fn token_distribution_ledger_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
-        ledger_index: res.ledger_index.0,
+        ledger_index,
+    })
+}
+
+/// This is just a helper fn to either unwrap an optional ledger index param or fetch the latest
+/// index from the database.
+async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<MilestoneIndex>) -> ApiResult<MilestoneIndex> {
+    Ok(if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(ApiError::NoResults)?
     })
 }

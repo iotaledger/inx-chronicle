@@ -1,22 +1,34 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use auth_helper::jwt::{Claims, JsonWebToken};
+use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
     handler::Handler,
+    headers::{authorization::Bearer, Authorization},
     middleware::from_extractor,
     routing::{get, post},
-    Extension, Json, Router,
+    Extension, Json, TypedHeader,
 };
 use chronicle::{
     db::{collections::MilestoneCollection, MongoDb},
     types::stardust::milestone::MilestoneTimestamp,
 };
 use hyper::StatusCode;
+use regex::RegexSet;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
-use super::{auth::Auth, config::ApiData, error::ApiError};
+use super::{
+    auth::Auth,
+    config::ApiData,
+    error::ApiError,
+    extractors::ListRoutesQuery,
+    responses::RoutesResponse,
+    router::{RouteNode, Router},
+    ApiResult,
+};
+
+const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 
 // Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
@@ -34,6 +46,7 @@ pub fn routes() -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/login", post(login))
+        .route("/routes", get(list_routes))
         .nest("/api", router.route_layer(from_extractor::<Auth>()))
         .fallback(not_found.into_service())
 }
@@ -81,7 +94,40 @@ fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
     OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
 }
 
-pub async fn is_healthy(database: &MongoDb) -> Result<bool, ApiError> {
+async fn list_routes(
+    ListRoutesQuery { depth }: ListRoutesQuery,
+    Extension(config): Extension<ApiData>,
+    Extension(root): Extension<RouteNode>,
+    bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
+) -> ApiResult<RoutesResponse> {
+    let depth = depth.or(Some(3));
+    let routes = if let Some(TypedHeader(Authorization(bearer))) = bearer_header {
+        let jwt = JsonWebToken(bearer.token().to_string());
+
+        jwt.validate(
+            Validation::default()
+                .with_issuer(ApiData::ISSUER)
+                .with_audience(ApiData::AUDIENCE)
+                .validate_nbf(true),
+            config.secret_key.as_ref(),
+        )
+        .map_err(ApiError::InvalidJwt)?;
+
+        root.list_routes(None, depth)
+    } else {
+        let public_routes = RegexSet::new(
+            ALWAYS_AVAILABLE_ROUTES
+                .iter()
+                .copied()
+                .chain(config.public_routes.patterns().iter().map(String::as_str)),
+        )
+        .unwrap(); // Panic: Safe as we know previous regex compiled and ALWAYS_AVAILABLE_ROUTES is const
+        root.list_routes(public_routes, depth)
+    };
+    Ok(RoutesResponse { routes })
+}
+
+pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
     #[cfg(feature = "stardust")]
     {
         let newest = match database

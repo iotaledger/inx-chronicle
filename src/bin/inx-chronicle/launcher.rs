@@ -4,10 +4,7 @@
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use chronicle::{
-    db::{
-        collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
-        MongoDb,
-    },
+    db::MongoDb,
     runtime::{Actor, ActorContext, ErrorLevel, RuntimeError},
 };
 use clap::Parser;
@@ -80,10 +77,18 @@ impl Actor for Launcher {
 
         #[cfg(feature = "stardust")]
         {
-            db.collection::<OutputCollection>().create_indexes().await?;
-            db.collection::<BlockCollection>().create_indexes().await?;
-            db.collection::<LedgerUpdateCollection>().create_indexes().await?;
-            db.collection::<MilestoneCollection>().create_indexes().await?;
+            db.collection::<chronicle::db::collections::OutputCollection>()
+                .create_indexes()
+                .await?;
+            db.collection::<chronicle::db::collections::BlockCollection>()
+                .create_indexes()
+                .await?;
+            db.collection::<chronicle::db::collections::LedgerUpdateCollection>()
+                .create_indexes()
+                .await?;
+            db.collection::<chronicle::db::collections::MilestoneCollection>()
+                .create_indexes()
+                .await?;
         }
 
         #[cfg(all(feature = "inx", feature = "stardust"))]

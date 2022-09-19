@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
@@ -74,8 +74,9 @@ pub struct AliasOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
-impl From<&bee::AliasOutput> for AliasOutput {
-    fn from(value: &bee::AliasOutput) -> Self {
+impl<T: Borrow<bee::AliasOutput>> From<T> for AliasOutput {
+    fn from(value: T) -> Self {
+        let value = value.borrow();
         Self {
             amount: value.amount().into(),
             native_tokens: value.native_tokens().iter().map(Into::into).collect(),
@@ -142,16 +143,36 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "rand")]
+mod rand {
+    use bee_block_stardust::rand::output::{rand_alias_id, rand_alias_output};
+
+    use super::*;
+
+    impl AliasId {
+        /// Generates a random [`AliasId`].
+        pub fn rand() -> Self {
+            rand_alias_id().into()
+        }
+    }
+
+    impl AliasOutput {
+        /// Generates a random [`AliasOutput`].
+        pub fn rand() -> Self {
+            rand_alias_output().into()
+        }
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use mongodb::bson::{from_bson, to_bson};
 
     use super::*;
-    use crate::types::stardust::util::output::alias::get_test_alias_output;
 
     #[test]
     fn test_alias_id_bson() {
-        let alias_id = AliasId::from(bee_block_stardust::rand::output::rand_alias_id());
+        let alias_id = AliasId::rand();
         let bson = to_bson(&alias_id).unwrap();
         assert_eq!(Bson::from(alias_id), bson);
         assert_eq!(alias_id, from_bson::<AliasId>(bson).unwrap());
@@ -159,7 +180,8 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let output = get_test_alias_output();
+        let output = AliasOutput::rand();
+        bee::AliasOutput::try_from(output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }

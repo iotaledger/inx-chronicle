@@ -4,7 +4,7 @@
 use std::ops::Range;
 
 use bee_api_types_stardust::responses::RentStructureResponse;
-use chronicle::db::collections::DistributionStat;
+use chronicle::{db::collections::DistributionStat, types::tangle::MilestoneIndex};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -30,14 +30,6 @@ impl_success_response!(OutputAnalyticsResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlockAnalyticsResponse {
-    pub count: String,
-}
-
-impl_success_response!(BlockAnalyticsResponse);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct StorageDepositAnalyticsResponse {
     pub output_count: String,
     pub storage_deposit_return_count: String,
@@ -45,7 +37,7 @@ pub struct StorageDepositAnalyticsResponse {
     pub total_key_bytes: String,
     pub total_data_bytes: String,
     pub total_byte_cost: String,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
     pub rent_structure: RentStructureResponse,
 }
 
@@ -65,7 +57,7 @@ impl_success_response!(OutputDiffAnalyticsResponse);
 #[serde(rename_all = "camelCase")]
 pub struct RichestAddressesResponse {
     pub top: Vec<AddressStatDto>,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
 }
 
 impl_success_response!(RichestAddressesResponse);
@@ -80,7 +72,7 @@ pub struct AddressStatDto {
 #[serde(rename_all = "camelCase")]
 pub struct TokenDistributionResponse {
     pub distribution: Vec<DistributionStatDto>,
-    pub ledger_index: u32,
+    pub ledger_index: MilestoneIndex,
 }
 
 impl_success_response!(TokenDistributionResponse);
@@ -102,3 +94,31 @@ impl From<DistributionStat> for DistributionStatDto {
         }
     }
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MilestoneAnalyticsResponse {
+    pub blocks_count: u32,
+    pub per_payload_type: ActivityPerPayloadTypeDto,
+    pub per_inclusion_state: ActivityPerInclusionStateDto,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityPerPayloadTypeDto {
+    pub tx_payload_count: u32,
+    pub treasury_tx_payload_count: u32,
+    pub milestone_payload_count: u32,
+    pub tagged_data_payload_count: u32,
+    pub no_payload_count: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityPerInclusionStateDto {
+    pub confirmed_tx_count: u32,
+    pub conflicting_tx_count: u32,
+    pub no_tx_count: u32,
+}
+
+impl_success_response!(MilestoneAnalyticsResponse);

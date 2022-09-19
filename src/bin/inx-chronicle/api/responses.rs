@@ -16,18 +16,11 @@ macro_rules! impl_success_response {
 }
 
 pub(crate) use impl_success_response;
-use serde_json::Value;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MaybeSpentOutput {
-    pub output: Value,
-    pub spending_block_id: Option<String>,
+pub struct RoutesResponse {
+    pub routes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Unlock {
-    pub block_id: String,
-    pub block: Value,
-}
+impl_success_response!(RoutesResponse);

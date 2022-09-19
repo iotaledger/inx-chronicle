@@ -11,7 +11,6 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::PayloadKind;
 use crate::{
     db::{
         collections::OutputCollection,
@@ -79,6 +78,19 @@ impl BlockCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.referenced_by_milestone_index": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("block_referenced_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         Ok(())
     }
 
@@ -96,6 +108,14 @@ impl BlockCollection {
                     ],
                     "as": "block.payload.essence.outputs"
                 } },
+                // Stupidly, if the block has no payload, then the above lookup
+                // will add the structure, causing the deserialization to fail.
+                // So this is needed to make sure we remove it if necessary.
+                doc! { "$set": { "block.payload": { "$cond": [
+                    { "$not": [ "$block.payload.kind" ] },
+                    "$$REMOVE",
+                    "$block.payload",
+                ] } } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -210,6 +230,14 @@ impl BlockCollection {
                     ],
                     "as": "block.payload.essence.outputs"
                 } },
+                // Stupidly, if the block has no payload, then the above lookup
+                // will add the structure, causing the deserialization to fail.
+                // So this is needed to make sure we remove it if necessary.
+                doc! { "$set": { "block.payload": { "$cond": [
+                    { "$not": [ "$block.payload.kind" ] },
+                    "$$REMOVE",
+                    "$block.payload",
+                ] } } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -237,6 +265,14 @@ impl BlockCollection {
                     ],
                     "as": "block.payload.essence.outputs"
                 } },
+                // Stupidly, if the block has no payload, then the above lookup
+                // will add the structure, causing the deserialization to fail.
+                // So this is needed to make sure we remove it if necessary.
+                doc! { "$set": { "block.payload": { "$cond": [
+                    { "$not": [ "$block.payload.kind" ] },
+                    "$$REMOVE",
+                    "$block.payload",
+                ] } } },
                 doc! { "$replaceWith": "$block" },
             ],
             None,
@@ -247,30 +283,64 @@ impl BlockCollection {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct BlockAnalyticsResult {
-    pub count: u64,
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct MilestoneActivityResult {
+    /// The number of blocks referenced by a milestone.
+    pub num_blocks: u32,
+    /// The number of blocks referenced by a milestone that contain a payload.
+    pub num_tx_payload: u32,
+    /// The number of blocks containing a treasury transaction payload.
+    pub num_treasury_tx_payload: u32,
+    /// The number of blocks containing a milestone payload.
+    pub num_milestone_payload: u32,
+    /// The number of blocks containing a tagged data payload.
+    pub num_tagged_data_payload: u32,
+    /// The number of blocks referenced by a milestone that contain no payload.
+    pub num_no_payload: u32,
+    /// The number of blocks containing a confirmed transaction.
+    pub num_confirmed_tx: u32,
+    /// The number of blocks containing a conflicting transaction.
+    pub num_conflicting_tx: u32,
+    /// The number of blocks containing no transaction.
+    pub num_no_tx: u32,
 }
 
 impl BlockCollection {
-    /// Gathers block analytics.
-    pub async fn get_block_analytics<B: PayloadKind>(
-        &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<BlockAnalyticsResult, Error> {
-        let mut queries = vec![doc! {
-            "$nor": [
-                { "metadata.referenced_by_milestone_index": { "$lt": start_index } },
-                { "metadata.referenced_by_milestone_index": { "$gte": end_index } },
-            ],
-        }];
-        if let Some(kind) = B::kind() {
-            queries.push(doc! { "block.payload.kind": kind });
-        }
+    /// Gathers past-cone activity statistics for a given milestone.
+    pub async fn get_milestone_activity(&self, index: MilestoneIndex) -> Result<MilestoneActivityResult, Error> {
         Ok(self
             .aggregate(
-                vec![doc! { "$match": { "$and": queries } }, doc! { "$count": "count" }],
+                vec![
+                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "num_blocks": { "$count": {} },
+                        "num_tx_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
+                        } },
+                        "num_treasury_tx_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
+                        } },
+                        "num_milestone_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
+                        } },
+                        "num_tagged_data_payload": { "$sum": {
+                            "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
+                        } },
+                        "num_no_payload": { "$sum": {
+                            "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
+                        } },
+                        "num_confirmed_tx": { "$sum": {
+                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
+                        } },
+                        "num_conflicting_tx": { "$sum": {
+                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
+                        } },
+                        "num_no_tx": { "$sum": {
+                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
+                        } },
+                    } },
+                ],
                 None,
             )
             .await?
