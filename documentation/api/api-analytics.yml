@@ -145,7 +145,7 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/activity/claiming:
+  /api/analytics/v2/activity/claimed-tokens:
     get:
       tags:
         - activity

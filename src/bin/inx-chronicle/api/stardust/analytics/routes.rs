@@ -45,7 +45,7 @@ pub fn routes() -> Router {
             "/activity",
             Router::new()
                 .route("/addresses", get(address_activity_analytics))
-                .route("/claiming", get(claimed_tokens_analytics))
+                .route("/claimed-tokens", get(claimed_tokens_analytics))
                 .nest(
                     "/milestones",
                     Router::new()
