@@ -5,9 +5,13 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
+    use std::collections::HashSet;
 
     use chronicle::{
-        db::collections::{BlockCollection, OutputCollection},
+        db::{
+            collections::{BlockCollection, OutputCollection},
+            MongoDb,
+        },
         types::{
             ledger::{
                 BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp,
@@ -16,15 +20,25 @@ mod test_rand {
             stardust::block::{output::OutputId, payload::TransactionEssence, Block, BlockId, Payload},
         },
     };
+    use futures::TryStreamExt;
 
     use super::common::connect_to_test_db;
 
-    #[tokio::test]
-    async fn test_blocks() {
-        let db = connect_to_test_db("test-blocks").await.unwrap();
+    async fn setup(database_name: impl ToString) -> (MongoDb, BlockCollection) {
+        let db = connect_to_test_db(database_name).await.unwrap();
         db.clear().await.unwrap();
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
+        (db, collection)
+    }
+
+    async fn teardown(db: MongoDb) {
+        db.drop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_blocks() {
+        let (db, collection) = setup("test-blocks").await;
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -110,22 +124,75 @@ mod test_rand {
                 Some(metadata),
             );
         }
+        teardown(db).await;
+    }
 
-        db.drop().await.unwrap();
+    #[tokio::test]
+    async fn test_block_children() {
+        let (db, collection) = setup("test-children").await;
+
+        let parents = std::iter::repeat_with(|| BlockId::rand())
+            .take(2)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let mut children = HashSet::new();
+
+        let f = |(i, (block_id, block)): (usize, (BlockId, Block))| {
+            let parents = block.parents.clone();
+            (
+                block_id,
+                block,
+                bee_block_stardust::rand::bytes::rand_bytes(100),
+                BlockMetadata {
+                    parents,
+                    is_solid: true,
+                    should_promote: false,
+                    should_reattach: false,
+                    referenced_by_milestone_index: 1.into(),
+                    milestone_index: 0.into(),
+                    inclusion_state: LedgerInclusionState::Included,
+                    conflict_reason: ConflictReason::None,
+                    white_flag_index: i as u32,
+                },
+            )
+        };
+
+        let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand_no_payload_with_parents(parents.clone())))
+            .take(5)
+            .inspect(|(block_id, _)| {
+                children.insert(block_id.clone());
+            })
+            .enumerate()
+            .map(f)
+            .chain(
+                std::iter::repeat_with(|| (BlockId::rand(), Block::rand_no_payload()))
+                    .take(5)
+                    .enumerate()
+                    .map(f),
+            )
+            .collect::<Vec<_>>();
+
+        collection.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
+        assert_eq!(collection.len().await.unwrap(), 10);
+
+        let mut s = collection.get_block_children(&parents[0], 100, 0).await.unwrap();
+
+        while let Some(child_id) = s.try_next().await.unwrap() {
+            assert!(children.remove(&child_id))
+        }
+        assert!(children.is_empty());
+
+        teardown(db).await;
     }
 
     #[tokio::test]
     async fn test_milestone_activity() {
-        let db = connect_to_test_db("test-milestone-activity").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<BlockCollection>();
-        collection.create_indexes().await.unwrap();
+        let (db, collection) = setup("test-milestone-activity").await;
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
-        // Note that we cannot build a block with a treasury transaction payload.
         let blocks = vec![
-            Block::rand_transaction(&protocol_params),
+            Block::rand_treasury_transaction(&protocol_params),
             Block::rand_transaction(&protocol_params),
             Block::rand_milestone(&protocol_params),
             Block::rand_tagged_data(),
@@ -167,8 +234,8 @@ mod test_rand {
         let activity = collection.get_milestone_activity(1.into()).await.unwrap();
 
         assert_eq!(activity.num_blocks, 5);
-        assert_eq!(activity.num_tx_payload, 2);
-        assert_eq!(activity.num_treasury_tx_payload, 0);
+        assert_eq!(activity.num_tx_payload, 1);
+        assert_eq!(activity.num_treasury_tx_payload, 1);
         assert_eq!(activity.num_milestone_payload, 1);
         assert_eq!(activity.num_tagged_data_payload, 1);
         assert_eq!(activity.num_no_payload, 1);
@@ -176,6 +243,6 @@ mod test_rand {
         assert_eq!(activity.num_conflicting_tx, 1);
         assert_eq!(activity.num_no_tx, 3);
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 }

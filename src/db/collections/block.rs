@@ -94,6 +94,16 @@ impl BlockCollection {
         Ok(())
     }
 
+    /// Gets the length of the collection.
+    pub async fn len(&self) -> Result<usize, Error> {
+        Ok(self
+            .find(doc! {}, None)
+            .await?
+            .try_collect::<Vec<BlockDocument>>()
+            .await?
+            .len())
+    }
+
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         self.aggregate(
@@ -169,6 +179,7 @@ impl BlockCollection {
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
+
         #[derive(Deserialize)]
         struct BlockIdResult {
             block_id: BlockId,
@@ -181,7 +192,7 @@ impl BlockCollection {
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
                     doc! { "$limit": page_size as i64 },
-                    doc! { "$replaceWith": { "block_id": "$metadata.block_id" } },
+                    doc! { "$replaceWith": { "block_id": "$_id" } },
                 ],
                 None,
             )
