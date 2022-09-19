@@ -222,7 +222,10 @@ impl OutputCollection {
                 doc! { "$match": { "details.address": { "$ne": null } } },
                 doc! { "$project": {
                     "_id": {
-                        "milestone_index": "$metadata.booked.milestone_index",
+                        "milestone_index": { "$ifNull": [
+                            "$metadata.spent_metadata.spent.milestone_index",
+                            "$metadata.booked.milestone_index"
+                        ] },
                         "output_id": "$_id",
                         "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
                     },
@@ -253,7 +256,10 @@ impl OutputCollection {
                 } },
                 doc! { "$project": {
                     "_id": {
-                        "milestone_index": "$metadata.booked.milestone_index",
+                        "milestone_index": { "$ifNull": [
+                            "$metadata.spent_metadata.spent.milestone_index",
+                            "$metadata.booked.milestone_index"
+                        ] },
                         "output_id": "$_id",
                         "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
                     },
