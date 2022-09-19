@@ -23,8 +23,9 @@ use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
     responses::{
         ActivityPerInclusionStateDto, ActivityPerPayloadTypeDto, AddressAnalyticsResponse, AddressStatDto,
-        MilestoneAnalyticsResponse, OutputAnalyticsResponse, OutputDiffAnalyticsResponse, RichestAddressesResponse,
-        StorageDepositAnalyticsResponse, TokenDistributionResponse,
+        ClaimedTokensAnalyticsResponse, MilestoneAnalyticsResponse, OutputAnalyticsResponse,
+        OutputDiffAnalyticsResponse, RichestAddressesResponse, StorageDepositAnalyticsResponse,
+        TokenDistributionResponse,
     },
 };
 use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
@@ -44,6 +45,7 @@ pub fn routes() -> Router {
             "/activity",
             Router::new()
                 .route("/addresses", get(address_activity_analytics))
+                .route("/claiming", get(claimed_tokens_analytics))
                 .nest(
                     "/milestones",
                     Router::new()
@@ -298,4 +300,17 @@ async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<Milestone
             .await?
             .ok_or(ApiError::NoResults)?
     })
+}
+
+async fn claimed_tokens_analytics(
+    database: Extension<MongoDb>,
+    LedgerIndex { ledger_index }: LedgerIndex,
+) -> ApiResult<ClaimedTokensAnalyticsResponse> {
+    let res = database
+        .collection::<OutputCollection>()
+        .get_claimed_token_analytics(ledger_index)
+        .await?
+        .ok_or(ApiError::NoResults)?;
+
+    Ok(ClaimedTokensAnalyticsResponse { count: res.count })
 }
