@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-use crate::{config::ConfigError, api::ApiError};
+use crate::{config::ConfigError, api::ApiError, stardust_inx::InxError};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -14,4 +14,7 @@ pub enum Error {
     #[cfg(feature = "api")]
     #[error(transparent)]
     Api(#[from] ApiError),
+    #[cfg(feature = "inx")]
+    #[error(transparent)]
+    Inx(#[from] InxError),
 }

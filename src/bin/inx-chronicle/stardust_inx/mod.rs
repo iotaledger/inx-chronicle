@@ -25,6 +25,8 @@ use chronicle::{
 use futures::{StreamExt, TryStreamExt};
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
+use crate::shutdown::ShutdownSignal;
+
 use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
 pub use self::{config::InxConfig, error::InxError};
 
@@ -49,7 +51,7 @@ impl InxWorker {
         }
     }
 
-    pub async fn connect(inx_config: &InxConfig) -> Result<Inx, InxError> {
+    async fn connect(inx_config: &InxConfig) -> Result<Inx, InxError> {
         let url = url::Url::parse(&inx_config.connect_url)?;
 
         if url.scheme() != "http" {
@@ -70,6 +72,13 @@ impl InxWorker {
             }
         }
         Err(InxError::ConnectionError)
+    }
+
+    pub async fn start(&self, shutdown: ShutdownSignal) -> Result<(),InxError> {
+        
+        tracing::info!("shutdown complete");
+        
+        Ok(())
     }
 }
 

@@ -33,7 +33,7 @@ use tower_http::{
 };
 use tracing::{debug, error, info, log::trace};
 
-use crate::shutdown::{self, ShutdownSignal};
+use crate::shutdown::{ShutdownSignal};
 
 pub use self::{
     config::ApiConfig,

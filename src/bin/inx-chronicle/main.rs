@@ -77,13 +77,16 @@ let cl_args = ClArgs::parse();
 
         #[cfg(all(feature = "inx", feature = "stardust"))]
         if config.inx.enabled {
-            // cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
-            //     .await;
+            let shutdown_signal = shutdown_signal.clone();
+            let worker = stardust_inx::InxWorker::new(&db, &config.inx);
+            tasks.spawn(async move {
+                worker.start(shutdown_signal).await?;
+                Ok(())
+            });
         }
 
         #[cfg(feature = "api")]
         if config.api.enabled {
-            let shutdown_signal = shutdown_signal.clone();
             tasks.spawn(async move {
                 let worker = api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?;
                 worker.start(shutdown_signal).await?;
@@ -104,9 +107,6 @@ let cl_args = ClArgs::parse();
 
 
     /////////
-    // let api_handle = tokio::spawn(api_worker.start(shutdown_signal.clone()));
-
-
 
     if let Err(e) = Runtime::launch(startup).await {
         error!("{}", e);
