@@ -230,7 +230,7 @@ mod rand {
     impl Output {
         /// Generates a random [`Output`].
         pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
-            match rand_number_range(0..5) {
+            match rand_number_range(0..4) {
                 0 => Self::rand_basic(ctx),
                 1 => Self::rand_alias(ctx),
                 2 => Self::rand_foundry(ctx),
