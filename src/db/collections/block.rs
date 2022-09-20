@@ -179,7 +179,6 @@ impl BlockCollection {
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-
         #[derive(Deserialize)]
         struct BlockIdResult {
             block_id: BlockId,
