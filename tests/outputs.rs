@@ -9,12 +9,12 @@ mod test_rand {
 
     use chronicle::{
         db::collections::{
-            LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, OutputCollection, OutputMetadataResult,
-            OutputWithMetadataResult,
+            LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, OutputCollection,
+            OutputMetadataResult, OutputWithMetadataResult, SortOrder,
         },
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
-            stardust::block::{output::OutputId, payload::TransactionId, BlockId, Output},
+            stardust::block::{output::OutputId, payload::TransactionId, Address, BlockId, Output},
         },
     };
     use futures::stream::TryStreamExt;
@@ -171,16 +171,23 @@ mod test_rand {
         let collection = db.collection::<OutputCollection>();
         collection.create_indexes().await.unwrap();
 
+        let address = Address::rand_ed25519();
+
         let outputs = std::iter::repeat_with(Output::rand)
             .take(100)
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                output,
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 12345.into(),
-                },
+            .map(|mut output| {
+                if let Output::Basic(o) = &mut output {
+                    o.address_unlock_condition.address = address;
+                }
+                LedgerOutput {
+                    output_id: OutputId::rand(),
+                    output,
+                    block_id: BlockId::rand(),
+                    booked: MilestoneIndexTimestamp {
+                        milestone_index: 1.into(),
+                        milestone_timestamp: 12345.into(),
+                    },
+                }
             })
             .collect::<Vec<_>>();
 
@@ -208,7 +215,7 @@ mod test_rand {
 
         let ledger_updates = db
             .collection::<LedgerUpdateCollection>()
-            .stream_ledger_updates_by_milestone(1.into(), 100, None)
+            .get_ledger_updates_by_milestone(1.into(), 100, None)
             .await
             .unwrap()
             .try_collect::<Vec<_>>()
@@ -221,12 +228,12 @@ mod test_rand {
 
         // Spend some of the previous outputs
         let spent_outputs = outputs
-            .into_iter()
+            .iter()
             .enumerate()
             .filter_map(|(i, output)| {
                 if i % 2 == 0 {
                     Some(LedgerSpent {
-                        output,
+                        output: output.clone(),
                         spent_metadata: SpentMetadata {
                             transaction_id: TransactionId::rand(),
                             spent: MilestoneIndexTimestamp {
@@ -246,14 +253,19 @@ mod test_rand {
         // Create some new unspent outputs
         let unspent_outputs = std::iter::repeat_with(Output::rand)
             .take(100)
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                output,
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 2.into(),
-                    milestone_timestamp: 23456.into(),
-                },
+            .map(|mut output| {
+                if let Output::Basic(o) = &mut output {
+                    o.address_unlock_condition.address = address;
+                }
+                LedgerOutput {
+                    output_id: OutputId::rand(),
+                    output,
+                    block_id: BlockId::rand(),
+                    booked: MilestoneIndexTimestamp {
+                        milestone_index: 2.into(),
+                        milestone_timestamp: 23456.into(),
+                    },
+                }
             })
             .collect::<Vec<_>>();
 
@@ -283,7 +295,7 @@ mod test_rand {
 
         let ledger_updates = db
             .collection::<LedgerUpdateCollection>()
-            .stream_ledger_updates_by_milestone(2.into(), 200, None)
+            .get_ledger_updates_by_milestone(2.into(), 200, None)
             .await
             .unwrap()
             .try_collect::<Vec<_>>()
@@ -292,6 +304,44 @@ mod test_rand {
         assert!(ledger_updates.len() == outputs_map.len());
         for update in &ledger_updates {
             assert_eq!(outputs_map.get(&update.output_id).unwrap(), update);
+        }
+
+        let outputs_map = spent_outputs
+            .iter()
+            .map(|o| (&o.output, Some(o.spent_metadata)))
+            .chain(unspent_outputs.iter().map(|o| (o, None)))
+            .chain(outputs.iter().map(|o| (o, None)))
+            .filter_map(|(o, spent_metadata)| {
+                if o.output.owning_address() == Some(&address) {
+                    Some((
+                        (o.output_id, spent_metadata.is_some()),
+                        LedgerUpdateByAddressRecord {
+                            at: if let Some(spent_metadata) = spent_metadata {
+                                spent_metadata.spent
+                            } else {
+                                o.booked
+                            },
+                            output_id: o.output_id,
+                            is_spent: spent_metadata.is_some(),
+                        },
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect::<HashMap<_, _>>();
+
+        let ledger_updates = db
+            .collection::<LedgerUpdateCollection>()
+            .get_ledger_updates_by_address(&address, 200, None, SortOrder::Newest)
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+        assert!(ledger_updates.len() == outputs_map.len());
+        for update in &ledger_updates {
+            assert_eq!(outputs_map.get(&(update.output_id, update.is_spent)).unwrap(), update);
         }
     }
 }

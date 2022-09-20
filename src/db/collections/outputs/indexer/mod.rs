@@ -164,7 +164,7 @@ impl OutputCollection {
                     doc! { "$sort": sort },
                     doc! { "$limit": page_size as i64 },
                     doc! { "$replaceWith": {
-                        "output_id": "$metadata.output_id",
+                        "output_id": "$_id",
                         "booked_index": "$metadata.booked.milestone_index"
                     } },
                 ],
