@@ -8,7 +8,7 @@ use clap::Parser;
 #[clap(author, version, about)]
 pub struct ClArgs {
     /// The location of the configuration file.
-    #[clap(short, long)]
+    #[clap(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
     /// The address of the MongoDB database.
     #[clap(long = "db")]

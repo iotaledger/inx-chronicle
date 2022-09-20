@@ -31,7 +31,9 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, log::trace};
+
+use crate::shutdown::{self, ShutdownSignal};
 
 pub use self::{
     config::ApiConfig,
@@ -50,6 +52,7 @@ pub type ApiResult<T> = Result<T, ApiError>;
 pub struct ApiWorker {
     db: MongoDb,
     api_data: ApiData,
+    #[deprecated]
     server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
@@ -61,6 +64,33 @@ impl ApiWorker {
             api_data: config.clone().try_into()?,
             server_handle: None,
         })
+    }
+
+    pub async fn start(&self, shutdown: ShutdownSignal) -> Result<(),ApiError> {
+        info!("Starting API server on port `{}`", self.api_data.port);
+        let port = self.api_data.port;
+        let routes = routes()
+            .layer(Extension(self.db.clone()))
+            .layer(Extension(self.api_data.clone()))
+            .layer(CatchPanicLayer::new())
+            .layer(TraceLayer::new_for_http())
+            .layer(
+                CorsLayer::new()
+                    .allow_origin(self.api_data.allow_origins.clone())
+                    .allow_methods(vec![Method::GET, Method::OPTIONS])
+                    .allow_headers(Any)
+                    .allow_credentials(false),
+            );
+
+            let _ = Server::bind(&([0, 0, 0, 0], port).into())
+            .serve(routes.into_make_service())
+            .with_graceful_shutdown(shutdown.listen())
+            .await?;
+
+            // TODO: consider sending shutdown signal, depending on error or cause for shutdown.
+            trace!("Shutting down API worker.");
+
+            Ok(())
     }
 }
 

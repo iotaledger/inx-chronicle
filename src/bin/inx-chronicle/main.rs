@@ -1,27 +1,35 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! TODO
+//! The entry point to Chronicle.
 
 /// Module containing the API.
 #[cfg(feature = "api")]
 mod api;
 mod cli;
 mod config;
+mod error;
 mod launcher;
 mod metrics;
+mod process;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
+mod shutdown;
 
 use std::error::Error;
 
-use chronicle::runtime::{Runtime, RuntimeScope};
-use launcher::Launcher;
-use tracing::error;
+use bytesize::ByteSize;
+use chronicle::{runtime::{Runtime, RuntimeScope}, db::MongoDb};
+use launcher::{Launcher, LauncherError};
+use clap::Parser;
+use tokio::task::JoinSet;
+use tracing::{info, error, debug, log::warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
+use crate::{cli::ClArgs, config::{ChronicleConfig, ConfigError}};
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), LauncherError> {
     dotenv::dotenv().ok();
     set_up_logging();
 
@@ -29,9 +37,105 @@ async fn main() {
         error!("{}", p);
     }));
 
+    let (mut shutdown_from_app, shutdown_notifier, shutdown_signal) = shutdown::shutdown_handles();
+/////////
+
+let cl_args = ClArgs::parse();
+
+        let mut config = cl_args.config.as_ref().map(ChronicleConfig::from_file).transpose()?.unwrap_or_default();
+        config.apply_cl_args(&cl_args);
+
+        info!(
+            "Connecting to database at bind address `{}`.",
+            config.mongodb.connect_url
+        );
+        let db = MongoDb::connect(&config.mongodb).await?;
+        debug!("Available databases: `{:?}`", db.get_databases().await?);
+        info!(
+            "Connected to database `{}` ({})",
+            db.name(),
+            ByteSize::b(db.size().await?)
+        );
+
+        #[cfg(feature = "stardust")]
+        {
+            db.collection::<chronicle::db::collections::OutputCollection>()
+                .create_indexes()
+                .await?;
+            db.collection::<chronicle::db::collections::BlockCollection>()
+                .create_indexes()
+                .await?;
+            db.collection::<chronicle::db::collections::LedgerUpdateCollection>()
+                .create_indexes()
+                .await?;
+            db.collection::<chronicle::db::collections::MilestoneCollection>()
+                .create_indexes()
+                .await?;
+        }
+
+        let mut tasks: JoinSet<Result<(), error::Error>> = JoinSet::new();
+
+        #[cfg(all(feature = "inx", feature = "stardust"))]
+        if config.inx.enabled {
+            // cx.spawn_child(super::stardust_inx::InxWorker::new(&db, &config.inx))
+            //     .await;
+        }
+
+        #[cfg(feature = "api")]
+        if config.api.enabled {
+            let shutdown_signal = shutdown_signal.clone();
+            tasks.spawn(async move {
+                let worker = api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?;
+                worker.start(shutdown_signal).await?;
+                Ok(())
+            });
+        }
+
+        if config.metrics.enabled {
+            if let Err(err) = crate::metrics::setup(&config.metrics) {
+                warn!("Failed to build Prometheus exporter: {err}");
+            } else {
+                info!(
+                    "Exporting to Prometheus at bind address: {}:{}",
+                    config.metrics.address, config.metrics.port
+                );
+            };
+        }
+
+
+    /////////
+    // let api_handle = tokio::spawn(api_worker.start(shutdown_signal.clone()));
+
+
+
     if let Err(e) = Runtime::launch(startup).await {
         error!("{}", e);
     }
+
+    // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
+    tokio::select! {
+        _ = process::interupt_or_terminate() => {
+            tracing::info!("received ctrl-c or terminate");
+        },
+        _ = shutdown_from_app.recv() => {
+            tracing::info!("received shutdown signal from component");
+        },
+        // TODO: better error handling/reporting
+        _ = tasks.join_next() => (),
+        // res = inx_handle => {
+        //     match res.expect("joining the handle should not fail.") {
+        //         Ok(_) => (),
+        //         Err(err) => tracing::error!("INX task failed with error: {err}"),
+        //     }
+        // },
+    }
+
+    // We send the shutdown signal to all tasks that have an instance of the `shutdown_signal`.
+    shutdown_notifier.emit().await;
+
+    tracing::info!("shutdown complete");
+
+    Ok(())
 }
 
 fn set_up_logging() {
@@ -77,6 +181,7 @@ async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + 
     Ok(())
 }
 
+#[deprecated]
 async fn shutdown_signal_listener() {
     #[cfg(unix)]
     {

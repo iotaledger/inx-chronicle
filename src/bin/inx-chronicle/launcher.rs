@@ -18,6 +18,7 @@ use super::{
 
 const ENV_CONFIG_PATH: &str = "CONFIG_PATH";
 
+// TODO: Move into on error module.
 #[derive(Debug, Error)]
 pub enum LauncherError {
     #[error(transparent)]
