@@ -7,7 +7,7 @@ use axum::{
     extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
-use chronicle::{db::collections::ParseSortError};
+use chronicle::db::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
