@@ -83,7 +83,7 @@ async fn main() -> Result<(), Error> {
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
         let shutdown_signal = shutdown_signal.clone();
-        let worker = stardust_inx::InxWorker::new(&db, &config.inx);
+        let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
         tasks.spawn(async move {
             worker.start(shutdown_signal).await?;
             Ok(())

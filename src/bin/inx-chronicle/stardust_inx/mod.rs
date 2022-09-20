@@ -6,7 +6,6 @@ mod config;
 mod error;
 mod stream;
 
-use async_trait::async_trait;
 use bee_inx::client::Inx;
 use chronicle::{
     db::{
@@ -15,7 +14,6 @@ use chronicle::{
         },
         MongoDb,
     },
-    runtime::{Actor, ActorContext, HandleEvent},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -73,20 +71,32 @@ impl InxWorker {
         Err(InxError::ConnectionError)
     }
 
-    pub async fn start(&self, _: ShutdownSignal) -> Result<(), InxError> {
-        tracing::info!("shutdown complete");
+    pub async fn start(&mut self, shutdown: ShutdownSignal) -> Result<(), InxError> {
+        let (start_index, mut inx) = self.init().await?;
+
+        let mut stream = LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?)
+            .take_until(shutdown.listen());
+
+        debug!("Started listening to ledger updates via INX.");
+
+        while let Some(ledger_update) = stream.try_next().await? {
+            handle_ledger_update(ledger_update, &mut inx, &self.db).await?;
+        }
+
+        // We check why the stream ended and notify the rest of the application.
+        match stream.take_result() {
+            Some(_) => tracing::info!("INX stream closed due to shutdown signal"),
+            None => {
+                tracing::info!("INX stream closed unexpectedly, sending shutdown signal to app");
+                shutdown.signal().await;
+            }
+        }
 
         Ok(())
     }
-}
-
-#[async_trait]
-impl Actor for InxWorker {
-    type State = Inx;
-    type Error = InxError;
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxError> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx = Self::connect(&self.config).await?;
         info!("Connected to INX.");
@@ -157,6 +167,7 @@ impl Actor for InxWorker {
                     .await?;
             }
         } else {
+            // We clear the database, becase at this point it can contain incomplete data from previous unfinished runs.
             self.db.clear().await?;
             info!("Reading unspent outputs.");
             let unspent_output_stream = inx
@@ -208,12 +219,6 @@ impl Actor for InxWorker {
                 .await?;
         }
 
-        cx.add_stream(LedgerUpdateStream::new(
-            inx.listen_to_ledger_updates((start_index.0..).into()).await?,
-        ));
-
-        debug!("Started listening to ledger updates via INX.");
-
         metrics::describe_histogram!(
             METRIC_MILESTONE_SYNC_TIME,
             metrics::Unit::Seconds,
@@ -222,11 +227,7 @@ impl Actor for InxWorker {
         metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
         metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
 
-        Ok(inx)
-    }
-
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        "Inx Worker".into()
+        Ok((start_index, inx))
     }
 }
 
@@ -237,49 +238,32 @@ pub struct LedgerUpdateRecord {
     consumed: Vec<LedgerSpent>,
 }
 
-#[async_trait]
-impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
-    #[instrument(
-        skip_all,
-        fields(milestone_index, created, consumed),
-        err,
-        level = "debug",
-        name = "handle_ledger_update"
-    )]
-    async fn handle_event(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        ledger_update_result: Result<LedgerUpdateRecord, InxError>,
-        inx: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        let start_time = std::time::Instant::now();
+#[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
+async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, db: &MongoDb) -> Result<(), InxError> {
+    let start_time = std::time::Instant::now();
 
-        let ledger_update = ledger_update_result?;
+    // Record the result as part of the current span.
+    tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
+    tracing::Span::current().record("created", ledger_update.created.len());
+    tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-        // Record the result as part of the current span.
-        tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
-        tracing::Span::current().record("created", ledger_update.created.len());
-        tracing::Span::current().record("consumed", ledger_update.consumed.len());
+    insert_unspent_outputs(db, ledger_update.created).await?;
+    update_spent_outputs(db, ledger_update.consumed).await?;
+    db.collection::<OutputCollection>()
+        .merge_into_ledger_updates(ledger_update.milestone_index)
+        .await?;
 
-        insert_unspent_outputs(&self.db, ledger_update.created).await?;
-        update_spent_outputs(&self.db, ledger_update.consumed).await?;
-        self.db
-            .collection::<OutputCollection>()
-            .merge_into_ledger_updates(ledger_update.milestone_index)
-            .await?;
+    handle_cone_stream(db, inx, ledger_update.milestone_index).await?;
+    handle_protocol_params(db, inx, ledger_update.milestone_index).await?;
 
-        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
-        handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
+    // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
+    handle_milestone(db, inx, ledger_update.milestone_index).await?;
 
-        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
+    let elapsed = start_time.elapsed();
 
-        let elapsed = start_time.elapsed();
+    metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
 
-        metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
-
-        Ok(())
-    }
+    Ok(())
 }
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
