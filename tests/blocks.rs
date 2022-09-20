@@ -24,18 +24,6 @@ mod test_rand {
 
     use super::common::connect_to_test_db;
 
-    async fn setup(database_name: impl ToString) -> (MongoDb, BlockCollection) {
-        let db = connect_to_test_db(database_name).await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<BlockCollection>();
-        collection.create_indexes().await.unwrap();
-        (db, collection)
-    }
-
-    async fn teardown(db: MongoDb) {
-        db.drop().await.unwrap();
-    }
-
     #[tokio::test]
     async fn test_blocks() {
         let (db, collection) = setup("test-blocks").await;
@@ -199,7 +187,7 @@ mod test_rand {
             unreachable!();
         };
         let parents = block.parents.clone();
-        let raw = bee_block_stardust::rand::bytes::rand_bytes(10);
+        let raw = bee_block_stardust::rand::bytes::rand_bytes(100);
         let metadata = BlockMetadata {
             parents,
             is_solid: true,
@@ -215,10 +203,32 @@ mod test_rand {
         let blocks = vec![(block_id, block.clone(), raw, metadata)];
         collection.insert_blocks_with_metadata(blocks).await.unwrap();
 
-        assert_eq!(collection.get_spending_transaction(&output_id).await.unwrap().map(|b| b.protocol_version), Some(block.protocol_version));
-        assert_eq!(collection.get_spending_transaction(&output_id).await.unwrap().map(|b| b.parents), Some(block.parents));
-        // assert_eq!(collection.get_spending_transaction(&output_id).await.unwrap().map(|b| b.payload), Some(block.payload));
-        assert_eq!(collection.get_spending_transaction(&output_id).await.unwrap().map(|b| b.nonce), Some(block.nonce));
+        assert_eq!(
+            collection
+                .get_spending_transaction(&output_id)
+                .await
+                .unwrap()
+                .map(|b| b.protocol_version),
+            Some(block.protocol_version)
+        );
+        assert_eq!(
+            collection
+                .get_spending_transaction(&output_id)
+                .await
+                .unwrap()
+                .map(|b| b.parents),
+            Some(block.parents)
+        );
+        // assert_eq!(collection.get_spending_transaction(&output_id).await.unwrap().map(|b| b.payload),
+        // Some(block.payload));
+        assert_eq!(
+            collection
+                .get_spending_transaction(&output_id)
+                .await
+                .unwrap()
+                .map(|b| b.nonce),
+            Some(block.nonce)
+        );
 
         teardown(db).await;
     }
@@ -282,5 +292,17 @@ mod test_rand {
         assert_eq!(activity.num_no_tx, 3);
 
         teardown(db).await;
+    }
+
+    async fn setup(database_name: impl ToString) -> (MongoDb, BlockCollection) {
+        let db = connect_to_test_db(database_name).await.unwrap();
+        db.clear().await.unwrap();
+        let collection = db.collection::<BlockCollection>();
+        collection.create_indexes().await.unwrap();
+        (db, collection)
+    }
+
+    async fn teardown(db: MongoDb) {
+        db.drop().await.unwrap();
     }
 }

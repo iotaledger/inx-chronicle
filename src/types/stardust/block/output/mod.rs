@@ -27,6 +27,11 @@ pub use self::{
     native_token::{NativeToken, NativeTokenAmount, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
+    unlock_condition::{
+        AddressUnlockCondition, ExpirationUnlockCondition, GovernorAddressUnlockCondition,
+        ImmutableAliasAddressUnlockCondition, StateControllerAddressUnlockCondition,
+        StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
+    },
 };
 use super::Address;
 use crate::types::{
@@ -40,7 +45,7 @@ pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64
 
 pub type OutputIndex = u16;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct OutputId {
     pub transaction_id: TransactionId,
     pub index: OutputIndex,
