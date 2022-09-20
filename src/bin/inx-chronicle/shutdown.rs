@@ -26,7 +26,7 @@ impl ShutdownSignal {
     /// Signals the whole application to shut down.
     pub async fn signal(&self) {
         match self.tx.send(()).await {
-            Ok(_) => tracing::info!("sent shutdown request"),
+            Ok(_) => tracing::trace!("sent shutdown request"),
             Err(_) => tracing::error!("failed to send shutdown request"),
         }
     }
@@ -41,16 +41,16 @@ pub struct ShutdownEmit {
 impl ShutdownEmit {
     pub async fn emit(mut self) {
         match self.shutdown_tx.send(()) {
-            Ok(n) => tracing::info!("sent `notify_shutdown` to {n} tasks"),
+            Ok(n) => tracing::trace!("sent `notify_shutdown` to {n} tasks"),
             Err(_) => tracing::error!("failed to send `notify_shutdown`"),
         }
 
         drop(self.drop_ref);
 
-        tracing::info!("dropped `shutdown_complete_tx`, now waiting for others...");
+        tracing::trace!("dropped `shutdown_complete_tx`, now waiting for others...");
         match self.wait.recv().await {
             Some(_) => tracing::error!("received a message, that should not happen"),
-            None => tracing::info!("all other tasks shut down and the sender was dropped"),
+            None => tracing::trace!("all other tasks shut down and the sender was dropped"),
         };
     }
 }
