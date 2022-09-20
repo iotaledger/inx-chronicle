@@ -230,7 +230,10 @@ impl OutputCollection {
                         "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
                     },
                     "address": "$details.address",
-                    "milestone_timestamp": "$metadata.booked.milestone_timestamp",
+                    "milestone_timestamp": { "$ifNull": [
+                        "$metadata.spent_metadata.spent.milestone_timestamp",
+                        "$metadata.booked.milestone_timestamp"
+                    ] },
                 } },
                 doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
             ],
@@ -264,7 +267,10 @@ impl OutputCollection {
                         "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
                     },
                     "address": "$details.address",
-                    "milestone_timestamp": "$metadata.booked.milestone_timestamp",
+                    "milestone_timestamp": { "$ifNull": [
+                        "$metadata.spent_metadata.spent.milestone_timestamp",
+                        "$metadata.booked.milestone_timestamp"
+                    ] },
                 } },
                 doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
             ],
