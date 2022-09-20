@@ -18,22 +18,15 @@ mod config;
 mod router;
 mod routes;
 
-use async_trait::async_trait;
 use axum::{Extension, Server};
-use chronicle::{
-    db::MongoDb,
-    runtime::{Actor, ActorContext},
-};
+use chronicle::db::MongoDb;
 use hyper::Method;
-use tokio::{sync::oneshot, task::JoinHandle};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use tracing::{debug, error, info, log::trace};
-
-use crate::shutdown::{ShutdownSignal};
+use tracing::{info, log::trace};
 
 pub use self::{
     config::ApiConfig,
@@ -41,6 +34,7 @@ pub use self::{
     secret_key::SecretKey,
 };
 use self::{config::ApiData, routes::routes};
+use crate::shutdown::ShutdownSignal;
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
@@ -52,8 +46,6 @@ pub type ApiResult<T> = Result<T, ApiError>;
 pub struct ApiWorker {
     db: MongoDb,
     api_data: ApiData,
-    #[deprecated]
-    server_handle: Option<(JoinHandle<hyper::Result<()>>, oneshot::Sender<()>)>,
 }
 
 impl ApiWorker {
@@ -62,11 +54,10 @@ impl ApiWorker {
         Ok(Self {
             db: db.clone(),
             api_data: config.clone().try_into()?,
-            server_handle: None,
         })
     }
 
-    pub async fn start(&self, shutdown: ShutdownSignal) -> Result<(),ApiError> {
+    pub async fn start(&self, shutdown: ShutdownSignal) -> Result<(), ApiError> {
         info!("Starting API server on port `{}`", self.api_data.port);
         let port = self.api_data.port;
         let routes = routes()
@@ -82,81 +73,14 @@ impl ApiWorker {
                     .allow_credentials(false),
             );
 
-            let _ = Server::bind(&([0, 0, 0, 0], port).into())
+        let _ = Server::bind(&([0, 0, 0, 0], port).into())
             .serve(routes.into_make_service())
             .with_graceful_shutdown(shutdown.listen())
             .await?;
 
-            // TODO: consider sending shutdown signal, depending on error or cause for shutdown.
-            trace!("Shutting down API worker.");
+        // TODO: consider sending shutdown signal, depending on error or cause for shutdown.
+        trace!("Shutting down API worker.");
 
-            Ok(())
-    }
-}
-
-#[async_trait]
-impl Actor for ApiWorker {
-    type State = ();
-
-    type Error = ApiError;
-
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        let (sender, receiver) = oneshot::channel();
-        info!("Starting API server on port `{}`", self.api_data.port);
-        let api_handle = cx.handle().clone();
-        let port = self.api_data.port;
-        let routes = routes()
-            .layer(Extension((***cx).clone())) // Pull ScopeView from the context
-            .layer(Extension(self.db.clone()))
-            .layer(Extension(self.api_data.clone()))
-            .layer(CatchPanicLayer::new())
-            .layer(TraceLayer::new_for_http())
-            .layer(
-                CorsLayer::new()
-                    .allow_origin(self.api_data.allow_origins.clone())
-                    .allow_methods(vec![Method::GET, Method::OPTIONS])
-                    .allow_headers(Any)
-                    .allow_credentials(false),
-            );
-
-        let join_handle = tokio::spawn(async move {
-            let res = Server::bind(&([0, 0, 0, 0], port).into())
-                .serve(routes.into_make_service())
-                .with_graceful_shutdown(shutdown_signal(receiver))
-                .await;
-            // If the Axum server shuts down, we should also shutdown the API actor
-            api_handle.shutdown().await;
-            res
-        });
-        self.server_handle = Some((join_handle, sender));
         Ok(())
-    }
-
-    async fn shutdown(
-        &mut self,
-        cx: &mut ActorContext<Self>,
-        _state: &mut Self::State,
-        run_result: Result<(), Self::Error>,
-    ) -> Result<(), Self::Error> {
-        debug!("{} shutting down ({})", self.name(), cx.id());
-        if let Some((join_handle, shutdown_handle)) = self.server_handle.take() {
-            // Try to shut down axum. It may have already shut down, which is fine.
-            shutdown_handle.send(()).ok();
-            // Wait to shutdown until the child task is complete.
-            // Unwrap: Failures to join on this handle can safely be propagated as panics via the runtime.
-            join_handle.await.unwrap()?;
-        }
-        info!("Stopping API server");
-        run_result
-    }
-
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        "API Worker".into()
-    }
-}
-
-async fn shutdown_signal(recv: oneshot::Receiver<()>) {
-    if let Err(e) = recv.await {
-        error!("Error receiving shutdown signal: {}", e);
     }
 }

@@ -25,10 +25,9 @@ use chronicle::{
 use futures::{StreamExt, TryStreamExt};
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
-use crate::shutdown::ShutdownSignal;
-
 use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
 pub use self::{config::InxConfig, error::InxError};
+use crate::shutdown::ShutdownSignal;
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 10000;
@@ -74,10 +73,9 @@ impl InxWorker {
         Err(InxError::ConnectionError)
     }
 
-    pub async fn start(&self, shutdown: ShutdownSignal) -> Result<(),InxError> {
-        
+    pub async fn start(&self, _: ShutdownSignal) -> Result<(), InxError> {
         tracing::info!("shutdown complete");
-        
+
         Ok(())
     }
 }

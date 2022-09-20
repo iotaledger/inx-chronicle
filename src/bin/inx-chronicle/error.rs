@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-use crate::{config::ConfigError, api::ApiError, stardust_inx::InxError};
+use crate::{api::ApiError, config::ConfigError, stardust_inx::InxError};
 
 #[derive(Debug, Error)]
 pub enum Error {

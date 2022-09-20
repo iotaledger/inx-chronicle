@@ -1,5 +1,7 @@
-use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::mpsc;
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::mpsc,
+};
 
 pub async fn interupt_or_terminate() -> mpsc::UnboundedReceiver<()> {
     let (shutdown_send, shutdown_recv) = mpsc::unbounded_channel();
@@ -17,9 +19,7 @@ pub async fn interupt_or_terminate() -> mpsc::UnboundedReceiver<()> {
             }
         }
 
-        shutdown_send
-            .send(())
-            .expect("Could not send shutdown signal");
+        shutdown_send.send(()).expect("Could not send shutdown signal");
     })
     .await;
 
