@@ -863,3 +863,42 @@ impl OutputCollection {
         Ok(TokenDistribution { distribution })
     }
 }
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[allow(missing_docs)]
+pub struct ClaimedTokensResult {
+    pub count: String,
+}
+
+impl OutputCollection {
+    /// Gets the number of claimed tokens.
+    pub async fn get_claimed_token_analytics(
+        &self,
+        index: Option<MilestoneIndex>,
+    ) -> Result<Option<ClaimedTokensResult>, Error> {
+        let spent_query = match index {
+            Some(index) => doc! { "$eq": index },
+            None => doc! { "$exists": true },
+        };
+
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.booked.milestone_index": { "$eq": 0 },
+                    "metadata.spent_metadata.spent.milestone_index": spent_query,
+                } },
+                doc! { "$group": {
+                    "_id": null,
+                    "count": { "$sum": { "$toDecimal": "$output.amount" } },
+                } },
+                doc! { "$project": {
+                    "count": { "$toString": "$count" },
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
+    }
+}
