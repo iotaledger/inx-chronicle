@@ -5,7 +5,7 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use bee_block_stardust::rand::number::rand_number_range;
     use chronicle::{
@@ -133,13 +133,18 @@ mod test_rand {
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
+        let mut outputs = HashMap::new();
         let ledger_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
             .take(100)
-            .map(|(block_id, output, output_id)| LedgerOutput {
+            .enumerate()
+            .inspect(|(i, (_, _, output_id))| {
+                assert!(outputs.insert(output_id.clone(), *i as u32 / 5).is_none());
+            })
+            .map(|(i, (block_id, output, output_id))| LedgerOutput {
                 block_id,
                 booked: MilestoneIndexTimestamp {
-                    milestone_index: 0.into(),
-                    milestone_timestamp: 12345.into(),
+                    milestone_index: (i as u32 / 5).into(),
+                    milestone_timestamp: (12345 + (i as u32 / 5)).into(),
                 },
                 output,
                 output_id,
@@ -150,24 +155,28 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
+        assert_eq!(ledger_outputs.len(), 100);
+
         collection
             .insert_unspent_ledger_updates(ledger_outputs.iter())
             .await
             .unwrap();
+
+        assert_eq!(collection.len().await.unwrap(), 100);
 
         let mut s = collection
             .get_ledger_updates_by_milestone(0.into(), 100, None)
             .await
             .unwrap();
 
-        while let Some(update) = s.try_next().await.unwrap() {
-            let LedgerUpdateByMilestoneRecord {
-                address: _,
-                output_id: _,
-                is_spent,
-            } = update;
+        while let Some(LedgerUpdateByMilestoneRecord {
+            output_id, is_spent, ..
+        }) = s.try_next().await.unwrap()
+        {
+            assert_eq!(outputs.remove(&output_id), Some(0));
             assert!(!is_spent);
         }
+        assert_eq!(outputs.len(), 95);
 
         teardown(db).await;
     }
