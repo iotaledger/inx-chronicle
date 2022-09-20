@@ -21,6 +21,7 @@ pub use self::indexer::{
 use super::OutputKind;
 use crate::{
     db::{
+        collections::LedgerUpdateCollection,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -210,6 +211,74 @@ impl OutputCollection {
         )
         .await?;
 
+        Ok(())
+    }
+
+    /// Create the initial ledger updates materialized view by pulling all output data.
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn create_ledger_updates(&self) -> Result<(), Error> {
+        self.aggregate::<OutputDocument>(
+            vec![
+                doc! { "$match": { "details.address": { "$ne": null } } },
+                doc! { "$project": {
+                    "_id": {
+                        "milestone_index": { "$ifNull": [
+                            "$metadata.spent_metadata.spent.milestone_index",
+                            "$metadata.booked.milestone_index"
+                        ] },
+                        "output_id": "$_id",
+                        "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
+                    },
+                    "address": "$details.address",
+                    "milestone_timestamp": { "$ifNull": [
+                        "$metadata.spent_metadata.spent.milestone_timestamp",
+                        "$metadata.booked.milestone_timestamp"
+                    ] },
+                } },
+                doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?;
+        Ok(())
+    }
+
+    /// Merges the outputs table into the ledger updates materialized view.
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn merge_into_ledger_updates(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
+        self.aggregate::<OutputDocument>(
+            vec![
+                doc! { "$match": {
+                    "details.address": { "$ne": null },
+                    "$or": [
+                        { "metadata.booked.milestone_index": milestone_index },
+                        { "metadata.spent_metadata.spent.milestone_index": milestone_index },
+                    ]
+                } },
+                doc! { "$project": {
+                    "_id": {
+                        "milestone_index": { "$ifNull": [
+                            "$metadata.spent_metadata.spent.milestone_index",
+                            "$metadata.booked.milestone_index"
+                        ] },
+                        "output_id": "$_id",
+                        "is_spent": { "$ne": [ "$metadata.spent_metadata", null ] },
+                    },
+                    "address": "$details.address",
+                    "milestone_timestamp": { "$ifNull": [
+                        "$metadata.spent_metadata.spent.milestone_timestamp",
+                        "$metadata.booked.milestone_timestamp"
+                    ] },
+                } },
+                doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?;
         Ok(())
     }
 
