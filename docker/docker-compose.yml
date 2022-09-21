@@ -63,6 +63,8 @@ services:
       - "config.json"
       - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"
+      - "--prometheus.enabled=true"
+      - "--prometheus.bindAddress=0.0.0.0:9311"
 
 ################################################################################
 # The following services can be enabled by setting the `debug` profile.
