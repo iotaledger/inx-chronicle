@@ -24,7 +24,7 @@ use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 use crate::{
     cli::ClArgs,
-    config::{ChronicleConfig, ConfigError},
+    config::{ChronicleConfig},
     error::Error,
 };
 
@@ -93,7 +93,7 @@ async fn main() -> Result<(), Error> {
     #[cfg(feature = "api")]
     if config.api.enabled {
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?;
+            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
             worker.run(shutdown_signal).await?;
             Ok(())
         });

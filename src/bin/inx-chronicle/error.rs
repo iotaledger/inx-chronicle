@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-use crate::{api::ApiError, config::ConfigError, stardust_inx::InxError};
+use crate::config::ConfigError;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -13,8 +13,8 @@ pub enum Error {
     MongoDb(#[from] mongodb::error::Error),
     #[cfg(feature = "api")]
     #[error(transparent)]
-    Api(#[from] ApiError),
+    Api(#[from] super::api::ApiError),
     #[cfg(feature = "inx")]
     #[error(transparent)]
-    Inx(#[from] InxError),
+    Inx(#[from] super::stardust_inx::InxError),
 }

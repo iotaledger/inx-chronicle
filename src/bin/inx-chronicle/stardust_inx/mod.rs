@@ -186,7 +186,8 @@ impl InxWorker {
                     let db = self.db.clone();
                     tasks.spawn(async move { insert_unspent_outputs(&db, batch).await });
                     Ok(tasks)
-                }).await?;
+                })
+                .await?;
 
             let mut count = 0;
             while let Some(res) = tasks.join_next().await {
