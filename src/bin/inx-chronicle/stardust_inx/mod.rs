@@ -175,7 +175,7 @@ impl InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
-            let (tasks, count) = unspent_output_stream
+            let tasks = unspent_output_stream
                 // Convert to `LedgerOutput`
                 .map(|res| Ok(res?.output.try_into()?))
                 // Break into chunks
@@ -185,22 +185,20 @@ impl InxWorker {
                 // Convert batches to tasks
                 .map_ok(|batch| {
                     let db = self.db.clone();
-                    (
-                        batch.len(),
-                        tokio::spawn(async move { insert_unspent_outputs(&db, batch).await }),
-                    )
+                    tokio::spawn(async move { insert_unspent_outputs(&db, batch).await })
                 })
                 // Fold everything into a total count and list of tasks
-                .try_fold((Vec::new(), 0), |(mut tasks, count), (batch_size, task)| async move {
+                .try_fold(Vec::new(), |mut tasks, task| async move {
                     tasks.push(task);
-                    Result::<_, InxError>::Ok((tasks, count + batch_size))
+                    Result::<_, InxError>::Ok(tasks)
                 })
                 .instrument(trace_span!("initial_insert_unspent_outputs"))
                 .await?;
 
+            let mut count = 0;
             for task in tasks {
                 // Panic: Acceptable risk
-                task.await.unwrap()?;
+                count += task.await.unwrap()?;
             }
 
             self.db.collection::<OutputCollection>().create_ledger_updates().await?;
@@ -266,24 +264,24 @@ async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, 
 }
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<usize, InxError> {
     let output_collection = db.collection::<OutputCollection>();
 
     for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
         output_collection.insert_unspent_outputs(batch).await?;
     }
 
-    Ok(())
+    Ok(outputs.len())
 }
 
 #[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<usize, InxError> {
     let output_collection = db.collection::<OutputCollection>();
 
     for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
         output_collection.update_spent_outputs(batch).await?;
     }
-    Ok(())
+    Ok(outputs.len())
 }
 
 #[instrument(skip_all, level = "trace")]
