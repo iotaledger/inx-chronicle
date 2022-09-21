@@ -57,7 +57,7 @@ impl ApiWorker {
         })
     }
 
-    pub async fn start(&self, shutdown: ShutdownSignal) -> Result<(), ApiError> {
+    pub async fn run(&self, shutdown: ShutdownSignal) -> Result<(), ApiError> {
         info!("Starting API server on port `{}`", self.api_data.port);
         let port = self.api_data.port;
         let routes = routes()

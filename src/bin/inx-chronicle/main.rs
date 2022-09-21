@@ -85,7 +85,7 @@ async fn main() -> Result<(), Error> {
         let shutdown_signal = shutdown_signal.clone();
         let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
         tasks.spawn(async move {
-            worker.start(shutdown_signal).await?;
+            worker.run(shutdown_signal).await?;
             Ok(())
         });
     }
@@ -94,7 +94,7 @@ async fn main() -> Result<(), Error> {
     if config.api.enabled {
         tasks.spawn(async move {
             let worker = api::ApiWorker::new(&db, &config.api).map_err(ConfigError::Api)?;
-            worker.start(shutdown_signal).await?;
+            worker.run(shutdown_signal).await?;
             Ok(())
         });
     }

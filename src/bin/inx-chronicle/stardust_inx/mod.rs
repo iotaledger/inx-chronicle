@@ -48,30 +48,30 @@ impl InxWorker {
         }
     }
 
-    async fn connect(inx_config: &InxConfig) -> Result<Inx, InxError> {
-        let url = url::Url::parse(&inx_config.connect_url)?;
+    async fn connect(&self) -> Result<Inx, InxError> {
+        let url = url::Url::parse(&self.config.connect_url)?;
 
         if url.scheme() != "http" {
-            return Err(InxError::InvalidAddress(inx_config.connect_url.clone()));
+            return Err(InxError::InvalidAddress(self.config.connect_url.clone()));
         }
 
-        for i in 0..inx_config.connection_retry_count {
-            match Inx::connect(inx_config.connect_url.clone()).await {
+        for i in 0..self.config.connection_retry_count {
+            match Inx::connect(self.config.connect_url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
                     warn!(
                         "INX connection failed. Retrying in {}s. {} retries remaining.",
-                        inx_config.connection_retry_interval.as_secs(),
-                        inx_config.connection_retry_count - i
+                        self.config.connection_retry_interval.as_secs(),
+                        self.config.connection_retry_count - i
                     );
-                    tokio::time::sleep(inx_config.connection_retry_interval).await;
+                    tokio::time::sleep(self.config.connection_retry_interval).await;
                 }
             }
         }
         Err(InxError::ConnectionError)
     }
 
-    pub async fn start(&mut self, shutdown: ShutdownSignal) -> Result<(), InxError> {
+    pub async fn run(&mut self, shutdown: ShutdownSignal) -> Result<(), InxError> {
         let (start_index, mut inx) = self.init().await?;
 
         let mut stream = LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?)
@@ -98,7 +98,7 @@ impl InxWorker {
     #[instrument(skip_all, err, level = "trace")]
     async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxError> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
-        let mut inx = Self::connect(&self.config).await?;
+        let mut inx = self.connect().await?;
         info!("Connected to INX.");
 
         // Request the node status so we can get the pruning index and latest confirmed milestone
@@ -255,7 +255,6 @@ async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, 
 
     handle_cone_stream(db, inx, ledger_update.milestone_index).await?;
     handle_protocol_params(db, inx, ledger_update.milestone_index).await?;
-
     // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
     handle_milestone(db, inx, ledger_update.milestone_index).await?;
 
