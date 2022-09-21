@@ -8,6 +8,9 @@ services:
     command: ["--quiet", "--logpath", "/dev/null"]  
     volumes:
       - ./data/chronicle/mongodb:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
     ports:
       - 27017:27017
 
@@ -111,7 +114,7 @@ services:
     ports:
       - '9216:9261'
     command:
-      - '--mongodb.uri=mongodb://mongo:27017'
+      - '--mongodb.uri=mongodb://root:root@mongo:27017'
       - '--mongodb.direct-connect=true'
       - '--web.listen-address=:9216'
       - '--log.level=info'
