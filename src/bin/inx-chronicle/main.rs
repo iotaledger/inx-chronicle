@@ -131,7 +131,7 @@ async fn main() -> Result<(), Error> {
     // We send the shutdown signal to all tasks that have an instance of the `shutdown_signal`.
     shutdown_notifier.emit().await;
 
-    tracing::info!("shutdown complete");
+    tracing::info!("Shutdown successful.");
 
     Ok(())
 }

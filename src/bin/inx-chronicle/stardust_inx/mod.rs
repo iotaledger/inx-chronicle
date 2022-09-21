@@ -86,9 +86,9 @@ impl InxWorker {
 
         // We check why the stream ended and notify the rest of the application.
         match stream.take_result() {
-            Some(_) => tracing::info!("INX stream closed due to shutdown signal"),
+            Some(_) => tracing::trace!("INX stream closed due to shutdown signal"),
             None => {
-                tracing::info!("INX stream closed unexpectedly, sending shutdown signal to app");
+                tracing::debug!("INX stream closed unexpectedly, sending shutdown signal to app");
                 shutdown.signal().await;
             }
         }
