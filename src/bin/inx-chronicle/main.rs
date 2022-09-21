@@ -118,14 +118,12 @@ async fn main() -> Result<(), Error> {
         _ = shutdown_from_app.recv() => {
             tracing::info!("received shutdown signal from component");
         },
-        // TODO: better error handling/reporting
-        _ = tasks.join_next() => (),
-        // res = inx_handle => {
-        //     match res.expect("joining the handle should not fail.") {
-        //         Ok(_) => (),
-        //         Err(err) => tracing::error!("INX task failed with error: {err}"),
-        //     }
-        // },
+        res = tasks.join_next() => {
+            match res {
+                Some(Ok(Err(err))) => tracing::error!("A worker failed with error: {err}"),
+                _ => {},
+            }
+        },
     }
 
     // We send the shutdown signal to all tasks that have an instance of the `shutdown_signal`.
