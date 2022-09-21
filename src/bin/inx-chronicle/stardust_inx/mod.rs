@@ -21,6 +21,7 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
+use tokio::task::JoinSet;
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
 use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
@@ -175,30 +176,22 @@ impl InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
-            let tasks = unspent_output_stream
-                // Convert to `LedgerOutput`
-                .map(|res| Ok(res?.output.try_into()?))
-                // Break into chunks
+            let mut tasks = unspent_output_stream
+                .map(|res| Ok(LedgerOutput::try_from(res?.output)?))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
-                .map_err(|e| e.1)
+                .map_err(|e| InxError::BeeInx(e.1))
                 // Convert batches to tasks
-                .map_ok(|batch| {
+                .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
-                    tokio::spawn(async move { insert_unspent_outputs(&db, batch).await })
-                })
-                // Fold everything into a total count and list of tasks
-                .try_fold(Vec::new(), |mut tasks, task| async move {
-                    tasks.push(task);
-                    Result::<_, InxError>::Ok(tasks)
-                })
-                .instrument(trace_span!("initial_insert_unspent_outputs"))
-                .await?;
+                    tasks.spawn(async move { insert_unspent_outputs(&db, batch).await });
+                    Ok(tasks)
+                }).await?;
 
             let mut count = 0;
-            for task in tasks {
+            while let Some(res) = tasks.join_next().await {
                 // Panic: Acceptable risk
-                count += task.await.unwrap()?;
+                count += res.unwrap()?;
             }
 
             self.db.collection::<OutputCollection>().create_ledger_updates().await?;
