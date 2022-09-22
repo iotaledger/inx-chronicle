@@ -5,19 +5,20 @@ use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{FindOptions, IndexOptions},
+    options::{FindOptions, IndexOptions, InsertManyOptions},
     IndexModel,
 };
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use super::SortOrder;
 use crate::{
     db::{
-        mongodb::{MongoDbCollection, MongoDbCollectionExt},
+        mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::{
-        ledger::MilestoneIndexTimestamp,
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::{
             block::{output::OutputId, Address},
             milestone::MilestoneTimestamp,
@@ -60,7 +61,7 @@ impl MongoDbCollection for LedgerUpdateCollection {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct LedgerUpdateByAddressRecord {
     pub at: MilestoneIndexTimestamp,
@@ -68,7 +69,7 @@ pub struct LedgerUpdateByAddressRecord {
     pub is_spent: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct LedgerUpdateByMilestoneRecord {
     pub address: Address,
@@ -105,8 +106,70 @@ impl LedgerUpdateCollection {
         Ok(())
     }
 
+    /// Inserts [`LedgerSpent`] updates.
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = &'a LedgerSpent>,
+        I::IntoIter: Send + Sync,
+    {
+        let ledger_updates = outputs.into_iter().filter_map(
+            |LedgerSpent {
+                 output: LedgerOutput { output_id, output, .. },
+                 spent_metadata,
+             }| {
+                // Ledger updates
+                output.owning_address().map(|&address| LedgerUpdateDocument {
+                    _id: Id {
+                        milestone_index: spent_metadata.spent.milestone_index,
+                        output_id: *output_id,
+                        is_spent: true,
+                    },
+                    address,
+                    milestone_timestamp: spent_metadata.spent.milestone_timestamp,
+                })
+            },
+        );
+        self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
+            .await?;
+
+        Ok(())
+    }
+
+    /// Inserts unspent [`LedgerOutput`] updates.
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = &'a LedgerOutput>,
+        I::IntoIter: Send + Sync,
+    {
+        let ledger_updates = outputs.into_iter().filter_map(
+            |LedgerOutput {
+                 output_id,
+                 booked,
+                 output,
+                 ..
+             }| {
+                // Ledger updates
+                output.owning_address().map(|&address| LedgerUpdateDocument {
+                    _id: Id {
+                        milestone_index: booked.milestone_index,
+                        output_id: *output_id,
+                        is_spent: false,
+                    },
+                    address,
+                    milestone_timestamp: booked.milestone_timestamp,
+                })
+            },
+        );
+        self.insert_many_ignore_duplicates(ledger_updates, InsertManyOptions::builder().ordered(false).build())
+            .await?;
+
+        Ok(())
+    }
+
     /// Streams updates to the ledger for a given address.
-    pub async fn get_ledger_updates_by_address(
+    pub async fn stream_ledger_updates_by_address(
         &self,
         address: &Address,
         page_size: usize,
@@ -153,7 +216,7 @@ impl LedgerUpdateCollection {
     }
 
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
-    pub async fn get_ledger_updates_by_milestone(
+    pub async fn stream_ledger_updates_by_milestone(
         &self,
         milestone_index: MilestoneIndex,
         page_size: usize,
