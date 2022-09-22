@@ -392,11 +392,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.booked": -1 })
+                .keys(doc! { "metadata.booked.milestone_index": -1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_booked_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
+                        .name("output_booked_milestone_index".to_string())
                         .build(),
                 )
                 .build(),
@@ -406,11 +405,13 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.spent_metadata.spent": -1 })
+                .keys(doc! { "metadata.spent_metadata.spent.milestone_index": -1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_spent_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata.spent": { "$exists": true } })
+                        .name("output_spent_milestone_index".to_string())
+                        .partial_filter_expression(
+                            doc! { "metadata.spent_metadata.spent.milestone_index": { "$exists": true } },
+                        )
                         .build(),
                 )
                 .build(),
