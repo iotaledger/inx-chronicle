@@ -8,6 +8,7 @@ mod test_rand {
     use chronicle::{
         db::collections::MilestoneCollection,
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
+        db::MongoDbCollectionExt,
     };
 
     use super::common::connect_to_test_db;
