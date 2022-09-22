@@ -6,7 +6,7 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::collections::MilestoneCollection,
+        db::{collections::MilestoneCollection, MongoDb},
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
     };
 
@@ -55,6 +55,18 @@ mod test_rand {
             Some(&milestone)
         );
 
+        db.drop().await.unwrap();
+    }
+
+    async fn setup(database_name: impl ToString) -> (MongoDb, MilestoneCollection) {
+        let db = connect_to_test_db(database_name).await.unwrap();
+        db.clear().await.unwrap();
+        let collection = db.collection::<MilestoneCollection>();
+        collection.create_indexes().await.unwrap();
+        (db, collection)
+    }
+
+    async fn teardown(db: MongoDb) {
         db.drop().await.unwrap();
     }
 }

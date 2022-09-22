@@ -106,15 +106,15 @@ impl LedgerUpdateCollection {
         Ok(())
     }
 
-    /// Gets the length of the collection.
-    pub async fn len(&self) -> Result<usize, Error> {
-        Ok(self
-            .find(doc! {}, None)
-            .await?
-            .try_collect::<Vec<LedgerUpdateDocument>>()
-            .await?
-            .len())
-    }
+    // /// Gets the length of the collection.
+    // pub async fn len(&self) -> Result<usize, Error> {
+    //     Ok(self
+    //         .find(doc! {}, None)
+    //         .await?
+    //         .try_collect::<Vec<LedgerUpdateDocument>>()
+    //         .await?
+    //         .len())
+    // }
 
     /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
