@@ -6,7 +6,7 @@ services:
 
   hornet:
     container_name: hornet
-    image: iotaledger/hornet-nest:2.0.0-beta
+    image: iotaledger/hornet-nest:2.0-beta
     ports:
       - "14265:14265/tcp"
       - "8081:8081/tcp"
