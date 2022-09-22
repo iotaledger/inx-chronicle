@@ -52,7 +52,7 @@ mod test_rand {
             Some(&milestone)
         );
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 
     async fn setup(database_name: impl ToString) -> (MongoDb, MilestoneCollection) {
