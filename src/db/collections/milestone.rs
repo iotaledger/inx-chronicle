@@ -260,7 +260,7 @@ impl MilestoneCollection {
     }
 
     /// Streams all available receipt milestone options together with their corresponding `MilestoneIndex`.
-    pub async fn stream_all_receipts(
+    pub async fn get_all_receipts(
         &self,
     ) -> Result<impl Stream<Item = Result<(MilestoneOption, MilestoneIndex), Error>>, Error> {
         #[derive(Deserialize)]
@@ -290,7 +290,7 @@ impl MilestoneCollection {
 
     /// Streams all available receipt milestone options together with their corresponding `MilestoneIndex` that were
     /// migrated at the given index.
-    pub async fn stream_receipts_migrated_at(
+    pub async fn get_receipts_migrated_at(
         &self,
         migrated_at: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<(MilestoneOption, MilestoneIndex), Error>>, Error> {

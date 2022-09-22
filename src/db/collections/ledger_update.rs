@@ -169,7 +169,7 @@ impl LedgerUpdateCollection {
     }
 
     /// Streams updates to the ledger for a given address.
-    pub async fn stream_ledger_updates_by_address(
+    pub async fn get_ledger_updates_by_address(
         &self,
         address: &Address,
         page_size: usize,
@@ -216,7 +216,7 @@ impl LedgerUpdateCollection {
     }
 
     /// Streams updates to the ledger for a given milestone index (sorted by [`OutputId`]).
-    pub async fn stream_ledger_updates_by_milestone(
+    pub async fn get_ledger_updates_by_milestone(
         &self,
         milestone_index: MilestoneIndex,
         page_size: usize,
