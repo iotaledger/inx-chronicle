@@ -38,6 +38,24 @@ public_routes = [
 ### Maximum number of records returned by a single API call
 max_page_size = 1000
 
+[api.argon_config]
+### The associated data.
+associated_data = []
+### The length of the resulting hash.
+hash_length = 32
+### The number of lanes in parallel.
+parallelism = 1
+### The amount of memory requested (KB).
+mem_cost = 4096
+### The secret key.
+secret = []
+### The number of passes.
+iterations = 3
+### The variant.
+variant = "argon2i"
+### The version.
+version = "0x13"
+
 [inx]
 ### Whether INX is used (online mode).
 enabled = true
