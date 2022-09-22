@@ -396,7 +396,6 @@ impl OutputCollection {
                 .options(
                     IndexOptions::builder()
                         .name("output_booked_milestone_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
                         .build(),
                 )
                 .build(),
@@ -410,7 +409,7 @@ impl OutputCollection {
                 .options(
                     IndexOptions::builder()
                         .name("output_spent_milestone_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata": { "$exists": true } })
+                        .partial_filter_expression(doc! { "metadata.spent_metadata.spent.milestone_index": { "$exists": true } })
                         .build(),
                 )
                 .build(),
