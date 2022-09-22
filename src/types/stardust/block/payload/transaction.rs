@@ -12,7 +12,7 @@ use crate::types::{
     util::bytify,
 };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
