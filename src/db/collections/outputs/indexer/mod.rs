@@ -409,7 +409,9 @@ impl OutputCollection {
                 .options(
                     IndexOptions::builder()
                         .name("output_spent_milestone_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata.spent.milestone_index": { "$exists": true } })
+                        .partial_filter_expression(
+                            doc! { "metadata.spent_metadata.spent.milestone_index": { "$exists": true } },
+                        )
                         .build(),
                 )
                 .build(),
