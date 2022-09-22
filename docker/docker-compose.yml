@@ -8,6 +8,9 @@ services:
     command: ["--quiet", "--logpath", "/dev/null"]  
     volumes:
       - ./data/chronicle/mongodb:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
     ports:
       - 27017:27017
 
@@ -35,7 +38,7 @@ services:
       - ../config.template.toml:/app/config.toml:ro
 
   hornet:
-    image: iotaledger/hornet:2.0.0-beta.8
+    image: iotaledger/hornet:2.0-beta
     container_name: hornet
     ulimits:
       nofile:
@@ -60,6 +63,8 @@ services:
       - "config.json"
       - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"
+      - "--prometheus.enabled=true"
+      - "--prometheus.bindAddress=0.0.0.0:9311"
 
 ################################################################################
 # The following services can be enabled by setting the `debug` profile.
@@ -111,7 +116,7 @@ services:
     ports:
       - '9216:9261'
     command:
-      - '--mongodb.uri=mongodb://mongo:27017'
+      - '--mongodb.uri=mongodb://root:root@mongo:27017'
       - '--mongodb.direct-connect=true'
       - '--web.listen-address=:9216'
       - '--log.level=info'
@@ -132,3 +137,16 @@ services:
       - ./assets/grafana/:/etc/grafana/provisioning/
     environment:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    profiles:
+      - metrics
+    container_name: jaeger
+    restart: unless-stopped
+    user: "65532"
+    ports:
+      - 6831:6831/udp # accept jaeger.thrift over compact thrift protocol
+      - 6832:6832/udp # accept jaeger.thrift over binary thrift protocol
+      - 5778:5778 # serve configs
+      - 16686:16686 # serve frontend

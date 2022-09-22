@@ -122,3 +122,11 @@ pub struct ActivityPerInclusionStateDto {
 }
 
 impl_success_response!(MilestoneAnalyticsResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaimedTokensAnalyticsResponse {
+    pub count: String,
+}
+
+impl_success_response!(ClaimedTokensAnalyticsResponse);

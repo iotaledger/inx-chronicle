@@ -51,7 +51,7 @@ async fn ledger_updates_by_address(
 
     let mut record_stream = database
         .collection::<LedgerUpdateCollection>()
-        .stream_ledger_updates_by_address(
+        .get_ledger_updates_by_address(
             &address_dto,
             // Get one extra record so that we can create the cursor.
             page_size + 1,
@@ -99,7 +99,7 @@ async fn ledger_updates_by_milestone(
 
     let mut record_stream = database
         .collection::<LedgerUpdateCollection>()
-        .stream_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
+        .get_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
         .await?;
 
     // Take all of the requested records first

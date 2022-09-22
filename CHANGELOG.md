@@ -1,3 +1,16 @@
+## [1.0.0-beta.18](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.17...1.0.0-beta.18) (2022-09-20)
+
+
+### Features
+
+* add `claiming` endpoint to `anlytics/v2` ([#692](https://github.com/iotaledger/inx-chronicle/issues/692)) ([4ecad7b](https://github.com/iotaledger/inx-chronicle/commit/4ecad7b594220e49b8dbc36e8ca2fa0aa5dda50c))
+* **db:** use a materialized view for ledger updates ([#698](https://github.com/iotaledger/inx-chronicle/issues/698)) ([493ab8e](https://github.com/iotaledger/inx-chronicle/commit/493ab8e2caf06be95a8b51568ba1b7dd6a496827))
+
+
+### Bug Fixes
+
+* **ci:** fix `canary` build and re-enable `docs` ([#690](https://github.com/iotaledger/inx-chronicle/issues/690)) ([973349f](https://github.com/iotaledger/inx-chronicle/commit/973349f4c6b2f400b15a3b802b849d154c2ce680))
+
 ## [1.0.0-beta.17](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.16...v1.0.0-beta.17) (2022-09-15)
 
 

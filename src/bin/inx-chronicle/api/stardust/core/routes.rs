@@ -312,10 +312,7 @@ async fn transaction_included_block(
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
-    let mut receipts_at = database
-        .collection::<MilestoneCollection>()
-        .stream_all_receipts()
-        .await?;
+    let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
         let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
@@ -336,7 +333,7 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
 async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
     let mut receipts_at = database
         .collection::<MilestoneCollection>()
-        .stream_receipts_migrated_at(index.into())
+        .get_receipts_migrated_at(index.into())
         .await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
