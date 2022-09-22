@@ -39,7 +39,7 @@ fn set_up_logging() {
     {
         use tracing_subscriber::prelude::*;
 
-        let tracer = opentelemetry_jaeger::new_pipeline()
+        let tracer = opentelemetry_jaeger::new_agent_pipeline()
             .with_service_name("Chronicle")
             .install_batch(opentelemetry::runtime::Tokio)
             .unwrap();
