@@ -1,3 +1,18 @@
+## [v1.0.0-beta.19](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.18...v1.0.0-beta.19) (2022-09-22)
+
+
+### Features
+
+* **api:** allow configuring argon for JWT ([#601](https://github.com/iotaledger/inx-chronicle/issues/601)) ([d696a6a](https://github.com/iotaledger/inx-chronicle/commit/d696a6ae73bcae17de38cd33c4b666875aae4764))
+* **metrics:** add MongoDB panel to Grafana ([#712](https://github.com/iotaledger/inx-chronicle/issues/712)) ([1c43dba](https://github.com/iotaledger/inx-chronicle/commit/1c43dbaf30f671b073b4cd44e2b53470a19b02d5))
+
+
+### Bug Fixes
+
+* **db:** create indexes on `.milestone_index` ([#717](https://github.com/iotaledger/inx-chronicle/issues/717)) ([692e6c4](https://github.com/iotaledger/inx-chronicle/commit/692e6c45c8eccf421f95d6eea3b3fd89143777b5))
+* **db:** revert 493ab8e due to regression ([#716](https://github.com/iotaledger/inx-chronicle/issues/716)) ([45f08e2](https://github.com/iotaledger/inx-chronicle/commit/45f08e227fcaeabe2ef4c38610ab2459ad5126a4))
+* **db:** use `_id` instead of `metadata.output_id` ([#718](https://github.com/iotaledger/inx-chronicle/issues/718)) ([fec5b66](https://github.com/iotaledger/inx-chronicle/commit/fec5b66a1910948bb65afe8e1c26b0c17a6c9206))
+
 ## [1.0.0-beta.18](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.17...1.0.0-beta.18) (2022-09-20)
 
 

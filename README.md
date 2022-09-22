@@ -13,3 +13,11 @@ Chronicle offers several APIs that are documented [here](https://wiki.iota.org/i
 ## Documentation
 
 The documentation for Chronicle can be found in the IOTA wiki: https://wiki.iota.org/chronicle/welcome
+
+## Development
+
+This project uses [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) to automatically generate a [`CHANGELOG.md`](CHANGELOG.md) which signals breaking changes.
+The changelog can be created using the following command (requires the [`conventional-changelog-cli`](https://www.npmjs.com/package/conventional-changelog-cli) package on NPM):
+```sh
+conventional-changelog -p conventionalcommits -i CHANGELOG.md -s
+```
