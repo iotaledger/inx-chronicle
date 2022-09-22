@@ -16,8 +16,6 @@ use super::{
     config::{ChronicleConfig, ConfigError},
 };
 
-const ENV_CONFIG_PATH: &str = "CONFIG_PATH";
-
 #[derive(Debug, Error)]
 pub enum LauncherError {
     #[error(transparent)]
@@ -48,20 +46,12 @@ impl Actor for Launcher {
 
     #[allow(unused_variables)]
     async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
-        // TODO: move parsing command-line args to `main.rs` (only async closures make this low effort though)
         let cl_args = ClArgs::parse();
-
-        let mut config = match &cl_args.config {
-            Some(path) => ChronicleConfig::from_file(path)?,
-            None => {
-                if let Ok(path) = std::env::var(ENV_CONFIG_PATH) {
-                    ChronicleConfig::from_file(path)?
-                } else {
-                    ChronicleConfig::default()
-                }
-            }
-        };
-        config.apply_cl_args(&cl_args);
+        let config = cl_args.get_config()?;
+        if cl_args.process_subcommands(&config) {
+            cx.shutdown().await;
+            return Ok(config);
+        }
 
         info!(
             "Connecting to database at bind address `{}`.",
