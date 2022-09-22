@@ -35,7 +35,7 @@ pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64
 
 pub type OutputIndex = u16;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputId {
     pub transaction_id: TransactionId,
     pub index: OutputIndex,
