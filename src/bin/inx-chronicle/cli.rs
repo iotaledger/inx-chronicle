@@ -1,13 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use auth_helper::jwt::{Claims, JsonWebToken};
 use clap::{Parser, Subcommand};
 
-use crate::{
-    api::ApiData,
-    config::{ChronicleConfig, ConfigError},
-};
+use crate::config::{ChronicleConfig, ConfigError};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -99,22 +95,31 @@ impl ClArgs {
     }
 
     /// Process subcommands and return whether the app should early exit.
+    #[allow(unused)]
+    #[allow(clippy::collapsible_match)]
     pub fn process_subcommands(&self, config: &ChronicleConfig) -> bool {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
+                #[cfg(feature = "api")]
                 Subcommands::GenerateJWT => {
+                    use crate::api::ApiData;
                     let api_data = ApiData::try_from(config.api.clone()).expect("invalid API config");
-                    let jwt = JsonWebToken::new(
-                        Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)
-                            .unwrap()
-                            .expires_after_duration(api_data.jwt_expiration)
-                            .expect("invalid JWT config"),
+                    let jwt = auth_helper::jwt::JsonWebToken::new(
+                        auth_helper::jwt::Claims::new(
+                            ApiData::ISSUER,
+                            uuid::Uuid::new_v4().to_string(),
+                            ApiData::AUDIENCE,
+                        )
+                        .unwrap()
+                        .expires_after_duration(api_data.jwt_expiration)
+                        .expect("invalid JWT config"),
                         api_data.secret_key.as_ref(),
                     )
                     .expect("invalid JWT config");
                     println!("Bearer {}", jwt);
                     return true;
                 }
+                _ => (),
             }
         }
         false
@@ -124,5 +129,6 @@ impl ClArgs {
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
     /// Generate a JWT token using the available config.
+    #[cfg(feature = "api")]
     GenerateJWT,
 }
