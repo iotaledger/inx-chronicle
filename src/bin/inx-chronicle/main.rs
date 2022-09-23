@@ -22,7 +22,7 @@ use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
     set_up_logging();
 
     std::panic::set_hook(Box::new(|p| {
