@@ -14,10 +14,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_milestones() {
-        let db = connect_to_test_db("test-milestones").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<MilestoneCollection>();
-        collection.create_indexes().await.unwrap();
+        let (db, collection) = setup("test-milestones").await;
 
         let milestone = MilestonePayload::rand(&bee_block_stardust::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();
