@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
+    context::TryFromWithContext,
     stardust::{
         block::{
             output::{Output, OutputId},
@@ -50,12 +51,15 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
-    fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: bee_inx::LedgerOutput,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
-            output: Into::into(&value.output.inner(&())?),
+            output: Into::into(&value.output.inner(ctx)?),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
             booked: MilestoneIndexTimestamp {
@@ -67,11 +71,14 @@ impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerSpent> for LedgerSpent {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, bee_inx::LedgerSpent> for LedgerSpent {
     type Error = bee_inx::Error;
 
-    fn try_from(value: bee_inx::LedgerSpent) -> Result<Self, Self::Error> {
-        let output = LedgerOutput::try_from(value.output)?;
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: bee_inx::LedgerSpent,
+    ) -> Result<Self, Self::Error> {
+        let output = LedgerOutput::try_from_with_context(ctx, value.output)?;
 
         Ok(Self {
             output,

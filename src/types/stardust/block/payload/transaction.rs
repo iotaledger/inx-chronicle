@@ -8,8 +8,9 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
+    context::{TryFromWithContext, TryIntoWithContext},
     stardust::block::{Input, Output, Payload, Unlock},
-    util::bytify, context::{TryFromWithContext, TryIntoWithContext},
+    util::bytify,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,10 +73,15 @@ impl<T: Borrow<bee::TransactionPayload>> From<T> for TransactionPayload {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, TransactionPayload> for bee::TransactionPayload {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, TransactionPayload>
+    for bee::TransactionPayload
+{
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: TransactionPayload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: TransactionPayload,
+    ) -> Result<Self, Self::Error> {
         bee::TransactionPayload::new(
             value.essence.try_into_with_context(ctx)?,
             bee_block_stardust::unlock::Unlocks::new(
@@ -123,10 +129,15 @@ impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, TransactionEssence> for bee::TransactionEssence {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, TransactionEssence>
+    for bee::TransactionEssence
+{
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: TransactionEssence) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: TransactionEssence,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
             TransactionEssence::Regular {
                 network_id,
@@ -151,7 +162,7 @@ impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Transa
                         .collect::<Result<Vec<_>, _>>()?,
                 );
                 if let Some(payload) = payload {
-                    builder = builder.with_payload(payload.try_into()?);
+                    builder = builder.with_payload(payload.try_into_with_context(ctx)?);
                 }
                 bee::TransactionEssence::Regular(builder.finish(ctx)?)
             }

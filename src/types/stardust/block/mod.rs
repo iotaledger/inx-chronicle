@@ -13,12 +13,11 @@ use bee::protocol::ProtocolParameters;
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::context::TryFromWithContext;
-
 pub use self::{
     address::Address, block_id::BlockId, input::Input, output::Output, payload::Payload, signature::Signature,
     unlock::Unlock,
 };
+use crate::types::context::{TryFromWithContext, TryIntoWithContext};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
@@ -50,7 +49,7 @@ impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Block>
         )?)
         .with_nonce_provider(value.nonce);
         if let Some(payload) = value.payload {
-            builder = builder.with_payload(payload.try_into()?)
+            builder = builder.with_payload(payload.try_into_with_context(ctx)?)
         }
         builder.finish(ctx.min_pow_score())
     }
@@ -73,17 +72,17 @@ mod rand {
 
     impl Block {
         /// Generates a random [`Block`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
-                payload: Payload::rand_opt(),
+                payload: Payload::rand_opt(ctx),
                 nonce: rand_number(),
             }
         }
 
         /// Generates a random [`Block`] with a [`TransactionPayload`](payload::TransactionPayload).
-        pub fn rand_transaction() -> Self {
+        pub fn rand_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -93,11 +92,11 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a [`MilestonePayload`](payload::MilestonePayload).
-        pub fn rand_milestone() -> Self {
+        pub fn rand_milestone(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
-                payload: Some(Payload::rand_milestone()),
+                payload: Some(Payload::rand_milestone(ctx)),
                 nonce: rand_number(),
             }
         }
@@ -114,11 +113,11 @@ mod rand {
 
         /// Generates a random [`Block`] with a
         /// [`TreasuryTransactionPayload`](payload::TreasuryTransactionPayload).
-        pub fn rand_treasury_transaction() -> Self {
+        pub fn rand_treasury_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
-                payload: Some(Payload::rand_treasury_transaction()),
+                payload: Some(Payload::rand_treasury_transaction(ctx)),
                 nonce: rand_number(),
             }
         }
@@ -151,7 +150,8 @@ mod test {
 
     #[test]
     fn test_transaction_block_bson() {
-        let block = Block::rand_transaction();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let block = Block::rand_transaction(&ctx);
         let mut bson = to_bson(&block).unwrap();
         // Need to re-add outputs as they are not serialized
         let outputs_doc = if let Some(Payload::Transaction(payload)) = &block.payload {
@@ -173,7 +173,8 @@ mod test {
 
     #[test]
     fn test_milestone_block_bson() {
-        let block = Block::rand_milestone();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let block = Block::rand_milestone(&ctx);
         let ctx = bee_block_stardust::protocol::protocol_parameters();
         bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
@@ -191,7 +192,8 @@ mod test {
 
     #[test]
     fn test_treasury_transaction_block_bson() {
-        let block = Block::rand_treasury_transaction();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let block = Block::rand_treasury_transaction(&ctx);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }

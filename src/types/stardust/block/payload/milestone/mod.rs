@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 
 pub use self::milestone_id::MilestoneId;
 use crate::types::{
+    context::{TryFromWithContext, TryIntoWithContext},
     stardust::block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
-    tangle::{MilestoneIndex, ProtocolParameters},
-    util::bytify, context::{TryFromWithContext, TryIntoWithContext},
+    tangle::{MilestoneIndex},
+    util::bytify,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,7 +34,10 @@ impl<T: Borrow<bee::MilestonePayload>> From<T> for MilestonePayload {
 impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload> for bee::MilestonePayload {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MilestonePayload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: MilestonePayload,
+    ) -> Result<Self, Self::Error> {
         bee::MilestonePayload::new(
             value.essence.try_into_with_context(ctx)?,
             Vec::from(value.signatures)
@@ -44,10 +48,15 @@ impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Milest
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload> for bee::dto::MilestonePayloadDto {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload>
+    for bee::dto::MilestonePayloadDto
+{
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MilestonePayload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: MilestonePayload,
+    ) -> Result<Self, Self::Error> {
         let stardust = bee::MilestonePayload::try_from_with_context(ctx, value)?;
         Ok(Self::from(&stardust))
     }
@@ -91,7 +100,10 @@ impl<T: Borrow<bee::MilestoneEssence>> From<T> for MilestoneEssence {
 impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestoneEssence> for bee::MilestoneEssence {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MilestoneEssence) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: MilestoneEssence,
+    ) -> Result<Self, Self::Error> {
         bee::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
@@ -106,7 +118,7 @@ impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Milest
             bee_block_stardust::payload::MilestoneOptions::new(
                 Vec::from(value.options)
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(|x| x.try_into_with_context(ctx))
                     .collect::<Result<Vec<_>, _>>()?,
             )?,
         )
@@ -147,10 +159,13 @@ impl<T: Borrow<bee::MilestoneOption>> From<T> for MilestoneOption {
     }
 }
 
-impl TryFrom<MilestoneOption> for bee::MilestoneOption {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestoneOption> for bee::MilestoneOption {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: MilestoneOption) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: MilestoneOption,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
             MilestoneOption::Receipt {
                 migrated_at,
@@ -162,9 +177,10 @@ impl TryFrom<MilestoneOption> for bee::MilestoneOption {
                 last,
                 Vec::from(funds)
                     .into_iter()
-                    .map(TryInto::try_into)
+                    .map(|x| x.try_into_with_context(ctx))
                     .collect::<Result<Vec<_>, _>>()?,
-                transaction.try_into()?,
+                transaction.try_into_with_context(ctx)?,
+                ctx.token_supply(),
             )?),
             MilestoneOption::Parameters {
                 target_milestone_index,
@@ -204,15 +220,15 @@ impl<T: Borrow<bee::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry 
     }
 }
 
-impl TryFromWithContext<ProtocolParameters, MigratedFundsEntry> for bee::option::MigratedFundsEntry {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MigratedFundsEntry> for bee::option::MigratedFundsEntry {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &ProtocolParameters, value: MigratedFundsEntry) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Self::new(
             bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
             value.address.into(),
             value.amount,
-            ctx.token_supply,
+            ctx.token_supply(),
         )
     }
 }
@@ -229,7 +245,7 @@ mod rand {
     impl MilestonePayload {
         /// Generates a random [`MilestonePayload`].
         pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
-            rand_milestone_payload(ctx.version).into()
+            rand_milestone_payload(ctx.protocol_version()).into()
         }
     }
 
@@ -291,7 +307,7 @@ mod test {
     fn test_milestone_payload_bson() {
         let ctx = bee_block_stardust::protocol::protocol_parameters();
         let payload = MilestonePayload::rand(&ctx);
-        bee::MilestonePayload::try_from(payload.clone()).unwrap();
+        bee::MilestonePayload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }

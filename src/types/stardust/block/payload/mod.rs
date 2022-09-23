@@ -12,13 +12,14 @@ pub mod tagged_data;
 pub mod transaction;
 pub mod treasury_transaction;
 
-use crate::types::{stardust, context::TryFromWithContext};
-
 pub use self::{
     milestone::{MilestoneId, MilestonePayload},
     tagged_data::TaggedDataPayload,
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,
+};
+use crate::types::{
+    context::{TryFromWithContext, TryIntoWithContext},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,11 +56,16 @@ impl<T: Borrow<bee::Payload>> From<T> for Payload {
 impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Payload> for bee::Payload {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: Payload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: Payload,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
-            Payload::Transaction(p) => bee::Payload::Transaction(Box::new((*p).try_into()?)),
-            Payload::Milestone(p) => bee::Payload::Milestone(Box::new((*p).try_into()?)),
-            Payload::TreasuryTransaction(p) => bee::Payload::TreasuryTransaction(Box::new((*p).try_into()?)),
+            Payload::Transaction(p) => bee::Payload::Transaction(Box::new((*p).try_into_with_context(ctx)?)),
+            Payload::Milestone(p) => bee::Payload::Milestone(Box::new((*p).try_into_with_context(ctx)?)),
+            Payload::TreasuryTransaction(p) => {
+                bee::Payload::TreasuryTransaction(Box::new((*p).try_into_with_context(ctx)?))
+            }
             Payload::TaggedData(p) => bee::Payload::TaggedData(Box::new((*p).try_into()?)),
         })
     }
@@ -103,23 +109,23 @@ mod rand {
 
     impl Payload {
         /// Generates a random [`Payload`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..4) {
                 0 => Self::rand_transaction(),
-                1 => Self::rand_milestone(),
+                1 => Self::rand_milestone(ctx),
                 2 => Self::rand_tagged_data(),
-                3 => Self::rand_treasury_transaction(),
+                3 => Self::rand_treasury_transaction(ctx),
                 _ => unreachable!(),
             }
         }
 
         /// Generates a random, optional [`Payload`].
-        pub fn rand_opt() -> Option<Self> {
+        pub fn rand_opt(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Option<Self> {
             match rand_number_range(0..5) {
                 0 => Self::rand_transaction().into(),
-                1 => Self::rand_milestone().into(),
+                1 => Self::rand_milestone(ctx).into(),
                 2 => Self::rand_tagged_data().into(),
-                3 => Self::rand_treasury_transaction().into(),
+                3 => Self::rand_treasury_transaction(ctx).into(),
                 4 => None,
                 _ => unreachable!(),
             }
@@ -131,8 +137,8 @@ mod rand {
         }
 
         /// Generates a random milestone [`Payload`].
-        pub fn rand_milestone() -> Self {
-            Self::Milestone(Box::new(MilestonePayload::rand()))
+        pub fn rand_milestone(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Milestone(Box::new(MilestonePayload::rand(ctx)))
         }
 
         /// Generates a random tagged data [`Payload`].
@@ -141,8 +147,8 @@ mod rand {
         }
 
         /// Generates a random treasury transaction [`Payload`].
-        pub fn rand_treasury_transaction() -> Self {
-            Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand()))
+        pub fn rand_treasury_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand(ctx)))
         }
     }
 }
@@ -171,24 +177,27 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let payload = Payload::rand_milestone();
-        bee::Payload::try_from(payload.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let payload = Payload::rand_milestone(&ctx);
+        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let payload = Payload::rand_treasury_transaction();
-        bee::Payload::try_from(payload.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let payload = Payload::rand_treasury_transaction(&ctx);
+        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
     #[test]
     fn test_tagged_data_payload_bson() {
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
         let payload = Payload::rand_tagged_data();
-        bee::Payload::try_from(payload.clone()).unwrap();
+        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }

@@ -13,7 +13,7 @@ use super::{
     },
     Feature, NativeToken, OutputAmount,
 };
-use crate::types::util::bytify;
+use crate::types::{util::bytify, context::TryFromWithContext};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -91,10 +91,10 @@ impl<T: Borrow<bee::NftOutput>> From<T> for NftOutput {
     }
 }
 
-impl TryFrom<NftOutput> for bee::NftOutput {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, NftOutput> for bee::NftOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: NftOutput) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(bee::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
@@ -135,7 +135,7 @@ impl TryFrom<NftOutput> for bee::NftOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
     }
 }
 
@@ -154,7 +154,7 @@ mod rand {
 
     impl NftOutput {
         /// Generates a random [`NftOutput`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             rand_nft_output().into()
         }
     }
