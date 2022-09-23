@@ -12,6 +12,8 @@ pub mod tagged_data;
 pub mod transaction;
 pub mod treasury_transaction;
 
+use crate::types::{stardust, context::TryFromWithContext};
+
 pub use self::{
     milestone::{MilestoneId, MilestonePayload},
     tagged_data::TaggedDataPayload,
@@ -50,10 +52,10 @@ impl<T: Borrow<bee::Payload>> From<T> for Payload {
     }
 }
 
-impl TryFrom<Payload> for bee::Payload {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Payload> for bee::Payload {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: Payload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: Payload) -> Result<Self, Self::Error> {
         Ok(match value {
             Payload::Transaction(p) => bee::Payload::Transaction(Box::new((*p).try_into()?)),
             Payload::Milestone(p) => bee::Payload::Milestone(Box::new((*p).try_into()?)),

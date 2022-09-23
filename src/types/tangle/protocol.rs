@@ -38,7 +38,7 @@ pub struct ProtocolParameters {
 impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
     fn from(value: bee::protocol::ProtocolParameters) -> Self {
         Self {
-            version: value.version(),
+            version: value.protocol_version(),
             network_name: value.network_name().into(),
             bech32_hrp: value.bech32_hrp().into(),
             min_pow_score: value.min_pow_score(),

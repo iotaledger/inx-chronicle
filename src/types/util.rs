@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module contain utility functions.
+
 pub mod stringify {
     use std::{fmt::Display, marker::PhantomData, str::FromStr};
 

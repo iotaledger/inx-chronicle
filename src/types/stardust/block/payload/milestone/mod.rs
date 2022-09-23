@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 pub use self::milestone_id::MilestoneId;
 use crate::types::{
     stardust::block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
-    tangle::MilestoneIndex,
-    util::bytify,
+    tangle::{MilestoneIndex, ProtocolParameters},
+    util::bytify, context::{TryFromWithContext, TryIntoWithContext},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,12 +30,12 @@ impl<T: Borrow<bee::MilestonePayload>> From<T> for MilestonePayload {
     }
 }
 
-impl TryFrom<MilestonePayload> for bee::MilestonePayload {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload> for bee::MilestonePayload {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MilestonePayload) -> Result<Self, Self::Error> {
         bee::MilestonePayload::new(
-            value.essence.try_into()?,
+            value.essence.try_into_with_context(ctx)?,
             Vec::from(value.signatures)
                 .into_iter()
                 .map(Into::into)
@@ -44,11 +44,11 @@ impl TryFrom<MilestonePayload> for bee::MilestonePayload {
     }
 }
 
-impl TryFrom<MilestonePayload> for bee::dto::MilestonePayloadDto {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload> for bee::dto::MilestonePayloadDto {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: MilestonePayload) -> Result<Self, Self::Error> {
-        let stardust = bee::MilestonePayload::try_from(value)?;
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MilestonePayload) -> Result<Self, Self::Error> {
+        let stardust = bee::MilestonePayload::try_from_with_context(ctx, value)?;
         Ok(Self::from(&stardust))
     }
 }
@@ -88,13 +88,14 @@ impl<T: Borrow<bee::MilestoneEssence>> From<T> for MilestoneEssence {
     }
 }
 
-impl TryFrom<MilestoneEssence> for bee::MilestoneEssence {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestoneEssence> for bee::MilestoneEssence {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: MilestoneEssence) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MilestoneEssence) -> Result<Self, Self::Error> {
         bee::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
+            ctx.protocol_version(),
             value.previous_milestone_id.into(),
             bee_block_stardust::parent::Parents::new(
                 Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
@@ -203,14 +204,15 @@ impl<T: Borrow<bee::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry 
     }
 }
 
-impl TryFrom<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
+impl TryFromWithContext<ProtocolParameters, MigratedFundsEntry> for bee::option::MigratedFundsEntry {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: MigratedFundsEntry) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &ProtocolParameters, value: MigratedFundsEntry) -> Result<Self, Self::Error> {
         Self::new(
             bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
             value.address.into(),
             value.amount,
+            ctx.token_supply,
         )
     }
 }
@@ -226,14 +228,14 @@ mod rand {
 
     impl MilestonePayload {
         /// Generates a random [`MilestonePayload`].
-        pub fn rand() -> Self {
-            rand_milestone_payload().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_milestone_payload(ctx.version).into()
         }
     }
 
     impl MilestoneEssence {
         /// Generates a random [`MilestoneEssence`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {
                 index: rand_number::<u32>().into(),
                 timestamp: rand_number::<u32>(),
@@ -242,15 +244,15 @@ mod rand {
                 inclusion_merkle_root: *rand_merkle_root(),
                 applied_merkle_root: *rand_merkle_root(),
                 metadata: rand_bytes(32),
-                options: Box::new([MilestoneOption::rand_receipt()]),
+                options: Box::new([MilestoneOption::rand_receipt(ctx)]),
             }
         }
     }
 
     impl MilestoneOption {
         /// Generates a random receipt [`MilestoneOption`].
-        pub fn rand_receipt() -> Self {
-            bee::MilestoneOption::from(rand_receipt_milestone_option()).into()
+        pub fn rand_receipt(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            bee::MilestoneOption::from(rand_receipt_milestone_option(ctx.token_supply())).into()
         }
 
         /// Generates a random parameters [`MilestoneOption`].
@@ -265,8 +267,8 @@ mod rand {
 
     impl MigratedFundsEntry {
         /// Generates a random [`MigratedFundsEntry`].
-        pub fn rand() -> Self {
-            rand_migrated_funds_entry().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_migrated_funds_entry(ctx.token_supply()).into()
         }
     }
 }
@@ -287,7 +289,8 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let payload = MilestonePayload::rand();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let payload = MilestonePayload::rand(&ctx);
         bee::MilestonePayload::try_from(payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());

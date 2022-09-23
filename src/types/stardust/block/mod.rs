@@ -9,8 +9,11 @@ pub mod payload;
 pub mod signature;
 pub mod unlock;
 
+use bee::protocol::ProtocolParameters;
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
+
+use crate::types::context::TryFromWithContext;
 
 pub use self::{
     address::Address, block_id::BlockId, input::Input, output::Output, payload::Payload, signature::Signature,
@@ -38,26 +41,26 @@ impl From<bee::Block> for Block {
     }
 }
 
-impl TryFrom<Block> for bee::Block {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Block> for bee::Block {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: Block) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
         let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
             Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
         )?)
-        .with_nonce_provider(value.nonce, 0);
+        .with_nonce_provider(value.nonce);
         if let Some(payload) = value.payload {
             builder = builder.with_payload(payload.try_into()?)
         }
-        builder.finish()
+        builder.finish(ctx.min_pow_score())
     }
 }
 
-impl TryFrom<Block> for bee::BlockDto {
+impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Block> for bee::BlockDto {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: Block) -> Result<Self, Self::Error> {
-        let stardust = bee::Block::try_from(value)?;
+    fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
+        let stardust = bee::Block::try_from_with_context(ctx, value)?;
         Ok(Self::from(&stardust))
     }
 }
@@ -171,7 +174,8 @@ mod test {
     #[test]
     fn test_milestone_block_bson() {
         let block = Block::rand_milestone();
-        bee::Block::try_from(block.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }
@@ -179,7 +183,8 @@ mod test {
     #[test]
     fn test_tagged_data_block_bson() {
         let block = Block::rand_tagged_data();
-        bee::Block::try_from(block.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }
@@ -194,7 +199,8 @@ mod test {
     #[test]
     fn test_no_payload_block_bson() {
         let block = Block::rand_no_payload();
-        bee::Block::try_from(block.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }
