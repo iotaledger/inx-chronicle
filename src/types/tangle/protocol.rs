@@ -24,6 +24,16 @@ impl From<&bee::output::RentStructure> for RentStructure {
     }
 }
 
+impl From<RentStructure> for bee::output::RentStructure {
+    fn from(value: RentStructure) -> Self {
+        Self::build()
+            .byte_cost(value.v_byte_cost)
+            .data_factor(value.v_byte_factor_data)
+            .key_factor(value.v_byte_factor_key)
+            .finish()
+    }
+}
+
 /// Protocol parameters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolParameters {
@@ -48,5 +58,20 @@ impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
             rent_structure: value.rent_structure().into(),
             token_supply: value.token_supply(),
         }
+    }
+}
+
+impl From<ProtocolParameters> for bee::protocol::ProtocolParameters {
+    fn from(value: ProtocolParameters) -> Self {
+        Self::new(
+            value.version,
+            value.network_name,
+            value.bech32_hrp,
+            value.min_pow_score,
+            value.below_max_depth,
+            value.rent_structure.into(),
+            value.token_supply,
+        )
+        .unwrap()
     }
 }

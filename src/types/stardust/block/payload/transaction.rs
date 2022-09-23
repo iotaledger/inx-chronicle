@@ -130,7 +130,10 @@ impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
 impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: TransactionEssence) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: TransactionEssence,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
             TransactionEssence::Regular {
                 network_id: _,
@@ -157,7 +160,7 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                 if let Some(payload) = payload {
                     builder = builder.with_payload(payload.try_into_with_context(ctx)?);
                 }
-                bee::TransactionEssence::Regular(builder.finish(ctx.try_into()?)?)
+                bee::TransactionEssence::Regular(builder.finish(ctx)?)
             }
         })
     }

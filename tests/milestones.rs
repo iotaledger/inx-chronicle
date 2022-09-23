@@ -19,7 +19,7 @@ mod test_rand {
         let collection = db.collection::<MilestoneCollection>();
         collection.create_indexes().await.unwrap();
 
-        let milestone = MilestonePayload::rand();
+        let milestone = MilestonePayload::rand(&Default::default());
         let milestone_id = MilestoneId::rand();
 
         collection

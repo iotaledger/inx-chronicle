@@ -6,6 +6,7 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
 
+    use bee_block_stardust::protocol::ProtocolParameters;
     use chronicle::{
         db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         types::{
@@ -23,7 +24,9 @@ mod test_rand {
         let collection = db.collection::<OutputCollection>();
         collection.create_indexes().await.unwrap();
 
-        let outputs = std::iter::repeat_with(Output::rand)
+        let protocol_params = ProtocolParameters::default();
+
+        let outputs = std::iter::repeat_with(|| Output::rand(&protocol_params))
             .take(100)
             .map(|output| LedgerOutput {
                 output_id: OutputId::rand(),
