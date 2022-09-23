@@ -1,3 +1,10 @@
+## [v1.0.0-beta.20](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.19...v1.0.0-beta.20) (2022-09-23)
+
+
+### Bug Fixes
+
+* **db:** enforce transaction blocks output lookup sort order ([#730](https://github.com/iotaledger/inx-chronicle/issues/730)) ([aeddb04](https://github.com/iotaledger/inx-chronicle/commit/aeddb046d891f322e0e25c8014491e576929c630))
+
 ## [v1.0.0-beta.19](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.18...v1.0.0-beta.19) (2022-09-22)
 
 
