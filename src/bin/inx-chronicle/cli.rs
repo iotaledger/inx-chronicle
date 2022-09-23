@@ -104,19 +104,19 @@ impl ClArgs {
                 Subcommands::GenerateJWT => {
                     use crate::api::ApiData;
                     let api_data = ApiData::try_from(config.api.clone()).expect("invalid API config");
-                    let jwt = auth_helper::jwt::JsonWebToken::new(
-                        auth_helper::jwt::Claims::new(
-                            ApiData::ISSUER,
-                            uuid::Uuid::new_v4().to_string(),
-                            ApiData::AUDIENCE,
-                        )
-                        .unwrap()
-                        .expires_after_duration(api_data.jwt_expiration)
-                        .expect("invalid JWT config"),
-                        api_data.secret_key.as_ref(),
+                    let claims = auth_helper::jwt::Claims::new(
+                        ApiData::ISSUER,
+                        uuid::Uuid::new_v4().to_string(),
+                        ApiData::AUDIENCE,
                     )
+                    .unwrap()
+                    .expires_after_duration(api_data.jwt_expiration)
                     .expect("invalid JWT config");
+                    let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
+                    let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
+                        .expect("invalid JWT config");
                     println!("Bearer {}", jwt);
+                    println!("Expires: {}", exp_ts);
                     return true;
                 }
                 _ => (),
