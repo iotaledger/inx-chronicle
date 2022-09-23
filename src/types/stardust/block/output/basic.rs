@@ -6,6 +6,8 @@ use std::borrow::Borrow;
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
+use crate::types::context::TryFromWithContext;
+
 use super::{
     unlock_condition::{
         AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
@@ -43,16 +45,16 @@ impl<T: Borrow<bee::BasicOutput>> From<T> for BasicOutput {
     }
 }
 
-impl TryFrom<BasicOutput> for bee::BasicOutput {
+impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: BasicOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: BasicOutput) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(bee::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
             value
                 .storage_deposit_return_unlock_condition
-                .map(bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from)
+                .map(|x| bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
                 .transpose()?
                 .map(Into::into),
             value
@@ -81,7 +83,7 @@ impl TryFrom<BasicOutput> for bee::BasicOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
     }
 }
 
@@ -93,8 +95,8 @@ mod rand {
 
     impl BasicOutput {
         /// Generates a random [`BasicOutput`].
-        pub fn rand() -> Self {
-            rand_basic_output().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_basic_output(ctx.token_supply()).into()
         }
     }
 }
@@ -107,8 +109,9 @@ mod test {
 
     #[test]
     fn test_basic_output_bson() {
-        let output = BasicOutput::rand();
-        bee::BasicOutput::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = BasicOutput::rand(&ctx);
+        bee::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<BasicOutput>(bson).unwrap());
     }

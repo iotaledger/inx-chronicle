@@ -18,9 +18,7 @@ pub use self::{
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,
 };
-use crate::types::{
-    context::{TryFromWithContext, TryIntoWithContext},
-};
+use crate::types::context::{TryFromWithContext, TryIntoWithContext};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
@@ -53,7 +51,7 @@ impl<T: Borrow<bee::Payload>> From<T> for Payload {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Payload> for bee::Payload {
+impl TryFromWithContext<Payload> for bee::Payload {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(
@@ -111,7 +109,7 @@ mod rand {
         /// Generates a random [`Payload`].
         pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..4) {
-                0 => Self::rand_transaction(),
+                0 => Self::rand_transaction(ctx),
                 1 => Self::rand_milestone(ctx),
                 2 => Self::rand_tagged_data(),
                 3 => Self::rand_treasury_transaction(ctx),
@@ -122,7 +120,7 @@ mod rand {
         /// Generates a random, optional [`Payload`].
         pub fn rand_opt(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Option<Self> {
             match rand_number_range(0..5) {
-                0 => Self::rand_transaction().into(),
+                0 => Self::rand_transaction(ctx).into(),
                 1 => Self::rand_milestone(ctx).into(),
                 2 => Self::rand_tagged_data().into(),
                 3 => Self::rand_treasury_transaction(ctx).into(),
@@ -132,8 +130,8 @@ mod rand {
         }
 
         /// Generates a random transaction [`Payload`].
-        pub fn rand_transaction() -> Self {
-            Self::Transaction(Box::new(TransactionPayload::rand()))
+        pub fn rand_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Transaction(Box::new(TransactionPayload::rand(ctx)))
         }
 
         /// Generates a random milestone [`Payload`].
@@ -161,7 +159,8 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let payload = Payload::rand_transaction();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let payload = Payload::rand_transaction(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
         let outputs_doc = if let Payload::Transaction(payload) = &payload {

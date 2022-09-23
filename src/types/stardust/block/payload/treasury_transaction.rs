@@ -25,9 +25,7 @@ impl<T: Borrow<bee::TreasuryTransactionPayload>> From<T> for TreasuryTransaction
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, TreasuryTransactionPayload>
-    for bee::TreasuryTransactionPayload
-{
+impl TryFromWithContext<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(

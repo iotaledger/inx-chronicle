@@ -12,7 +12,7 @@ pub use self::milestone_id::MilestoneId;
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
     stardust::block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
-    tangle::{MilestoneIndex},
+    tangle::MilestoneIndex,
     util::bytify,
 };
 
@@ -31,7 +31,7 @@ impl<T: Borrow<bee::MilestonePayload>> From<T> for MilestonePayload {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload> for bee::MilestonePayload {
+impl TryFromWithContext<MilestonePayload> for bee::MilestonePayload {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(
@@ -48,9 +48,7 @@ impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Milest
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestonePayload>
-    for bee::dto::MilestonePayloadDto
-{
+impl TryFromWithContext<MilestonePayload> for bee::dto::MilestonePayloadDto {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(
@@ -97,7 +95,7 @@ impl<T: Borrow<bee::MilestoneEssence>> From<T> for MilestoneEssence {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestoneEssence> for bee::MilestoneEssence {
+impl TryFromWithContext<MilestoneEssence> for bee::MilestoneEssence {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(
@@ -159,7 +157,7 @@ impl<T: Borrow<bee::MilestoneOption>> From<T> for MilestoneOption {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MilestoneOption> for bee::MilestoneOption {
+impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(
@@ -220,10 +218,13 @@ impl<T: Borrow<bee::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry 
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, MigratedFundsEntry> for bee::option::MigratedFundsEntry {
+impl TryFromWithContext<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: MigratedFundsEntry) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: MigratedFundsEntry,
+    ) -> Result<Self, Self::Error> {
         Self::new(
             bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
             value.address.into(),

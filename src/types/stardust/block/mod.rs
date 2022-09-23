@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+#![allow(missing_docs)]
+
 pub mod address;
 pub mod block_id;
 pub mod input;
@@ -40,7 +42,7 @@ impl From<bee::Block> for Block {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Block> for bee::Block {
+impl TryFromWithContext<Block> for bee::Block {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
@@ -55,7 +57,7 @@ impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Block>
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, Block> for bee::BlockDto {
+impl TryFromWithContext<Block> for bee::BlockDto {
     type Error = bee_block_stardust::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
@@ -86,7 +88,7 @@ mod rand {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
-                payload: Some(Payload::rand_transaction()),
+                payload: Some(Payload::rand_transaction(ctx)),
                 nonce: rand_number(),
             }
         }

@@ -6,9 +6,8 @@ use std::borrow::Borrow;
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::context::TryFromWithContext;
-
 use super::OutputAmount;
+use crate::types::context::TryFromWithContext;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
@@ -23,10 +22,13 @@ impl<T: Borrow<bee::TreasuryOutput>> From<T> for TreasuryOutput {
     }
 }
 
-impl TryFromWithContext<bee_block_stardust::protocol::ProtocolParameters, TreasuryOutput> for bee::TreasuryOutput {
+impl TryFromWithContext<TreasuryOutput> for bee::TreasuryOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: TreasuryOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: TreasuryOutput,
+    ) -> Result<Self, Self::Error> {
         Self::new(value.amount.0, ctx.token_supply())
     }
 }

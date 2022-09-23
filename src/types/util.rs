@@ -3,6 +3,7 @@
 
 //! Module contain utility functions.
 
+/// A Serde helper module for converting values to [`String`].
 pub mod stringify {
     use std::{fmt::Display, marker::PhantomData, str::FromStr};
 

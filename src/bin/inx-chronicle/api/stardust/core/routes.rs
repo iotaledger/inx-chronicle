@@ -160,6 +160,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         protocol: ProtocolResponse {
             version: protocol.version,
             network_name: protocol.network_name,
+            below_max_depth: protocol.below_max_depth,
             bech32_hrp: protocol.bech32_hrp,
             min_pow_score: protocol.min_pow_score,
             rent_structure: RentStructureResponse {
