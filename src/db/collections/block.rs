@@ -104,6 +104,7 @@ impl BlockCollection {
                     "localField": "_id",
                     "foreignField": "metadata.block_id",
                     "pipeline": [
+                        { "$sort": { "_id": 1 } },
                         { "$replaceWith": "$output" }
                     ],
                     "as": "block.payload.essence.outputs"
@@ -226,6 +227,7 @@ impl BlockCollection {
                     "localField": "_id",
                     "foreignField": "metadata.block_id",
                     "pipeline": [
+                        { "$sort": { "_id": 1 } },
                         { "$replaceWith": "$output" }
                     ],
                     "as": "block.payload.essence.outputs"
@@ -261,6 +263,7 @@ impl BlockCollection {
                     "localField": "_id",
                     "foreignField": "metadata.block_id",
                     "pipeline": [
+                        { "$sort": { "_id": 1 } },
                         { "$replaceWith": "$output" }
                     ],
                     "as": "block.payload.essence.outputs"
