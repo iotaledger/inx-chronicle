@@ -28,7 +28,11 @@ pub use self::{
     treasury::TreasuryOutput,
 };
 use super::Address;
-use crate::types::{ledger::RentStructureBytes, stardust::block::payload::transaction::TransactionId, context::{TryFromWithContext, TryIntoWithContext}};
+use crate::types::{
+    context::{TryFromWithContext, TryIntoWithContext},
+    ledger::RentStructureBytes,
+    stardust::block::payload::transaction::TransactionId,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
@@ -155,8 +159,8 @@ impl Output {
         let ctx = bee_block_stardust::protocol::protocol_parameters();
         match self {
             output @ (Self::Basic(_) | Self::Alias(_) | Self::Foundry(_) | Self::Nft(_)) => {
-                let bee_output =
-                    bee::Output::try_from_with_context(&ctx, output.clone()).expect("`Output` has to be convertible to `bee::Output`");
+                let bee_output = bee::Output::try_from_with_context(&ctx, output.clone())
+                    .expect("`Output` has to be convertible to `bee::Output`");
 
                 // The following computations of `data_bytes` and `key_bytes` makec use of the fact that the byte cost
                 // computation is a linear combination with respect to the type of the fields and their weight.
@@ -208,7 +212,10 @@ impl<T: Borrow<bee::Output>> From<T> for Output {
 impl TryFromWithContext<Output> for bee::Output {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: Output) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: Output,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
             Output::Treasury(o) => bee::Output::Treasury(o.try_into_with_context(ctx)?),
             Output::Basic(o) => bee::Output::Basic(o.try_into_with_context(ctx)?),
@@ -222,7 +229,10 @@ impl TryFromWithContext<Output> for bee::Output {
 impl TryFromWithContext<Output> for bee::dto::OutputDto {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: Output) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: Output,
+    ) -> Result<Self, Self::Error> {
         let stardust = bee::Output::try_from_with_context(ctx, value)?;
         Ok(bee::dto::OutputDto::from(&stardust))
     }

@@ -7,7 +7,7 @@ use bee_block_stardust::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use super::OutputAmount;
-use crate::types::{stardust::block::Address, context::TryFromWithContext};
+use crate::types::{context::TryFromWithContext, stardust::block::Address};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageDepositReturnUnlockCondition {
@@ -27,7 +27,10 @@ impl<T: Borrow<bee::StorageDepositReturnUnlockCondition>> From<T> for StorageDep
 impl TryFromWithContext<StorageDepositReturnUnlockCondition> for bee::StorageDepositReturnUnlockCondition {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: StorageDepositReturnUnlockCondition) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: StorageDepositReturnUnlockCondition,
+    ) -> Result<Self, Self::Error> {
         bee::StorageDepositReturnUnlockCondition::new(value.return_address.into(), value.amount.0, ctx.token_supply())
     }
 }

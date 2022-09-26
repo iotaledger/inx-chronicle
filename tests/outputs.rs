@@ -24,7 +24,7 @@ mod test_rand {
         let collection = db.collection::<OutputCollection>();
         collection.create_indexes().await.unwrap();
 
-        let protocol_params = ProtocolParameters::default();
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
         let outputs = std::iter::repeat_with(|| Output::rand(&protocol_params))
             .take(100)

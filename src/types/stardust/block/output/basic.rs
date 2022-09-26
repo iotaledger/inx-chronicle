@@ -6,14 +6,13 @@ use std::borrow::Borrow;
 use bee_block_stardust::output as bee;
 use serde::{Deserialize, Serialize};
 
-use crate::types::context::TryFromWithContext;
-
 use super::{
     unlock_condition::{
         AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
     },
     Feature, NativeToken, OutputAmount,
 };
+use crate::types::context::TryFromWithContext;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicOutput {
@@ -48,7 +47,10 @@ impl<T: Borrow<bee::BasicOutput>> From<T> for BasicOutput {
 impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: BasicOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: BasicOutput,
+    ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(bee::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),

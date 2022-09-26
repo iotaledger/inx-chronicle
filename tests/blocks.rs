@@ -23,7 +23,7 @@ mod test_rand {
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
 
-        let protocol_params = ProtocolParameters::default();
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
         let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&protocol_params)))
             .take(100)
@@ -116,7 +116,7 @@ mod test_rand {
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
 
-        let protocol_params = ProtocolParameters::default();
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
         // Note that we cannot build a block with a treasury transaction payload.
         let blocks = vec![

@@ -8,7 +8,7 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
-use crate::types::{util::bytify, context::TryFromWithContext};
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -85,7 +85,10 @@ impl<T: Borrow<bee::FoundryOutput>> From<T> for FoundryOutput {
 impl TryFromWithContext<FoundryOutput> for bee::FoundryOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: FoundryOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: FoundryOutput,
+    ) -> Result<Self, Self::Error> {
         let u: bee::UnlockCondition = bee::unlock_condition::ImmutableAliasAddressUnlockCondition::try_from(
             value.immutable_alias_address_unlock_condition,
         )?

@@ -13,7 +13,7 @@ use super::{
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
     OutputAmount,
 };
-use crate::types::{util::bytify, context::TryFromWithContext};
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -101,7 +101,10 @@ impl<T: Borrow<bee::AliasOutput>> From<T> for AliasOutput {
 impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from_with_context(ctx: &bee_block_stardust::protocol::ProtocolParameters, value: AliasOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: AliasOutput,
+    ) -> Result<Self, Self::Error> {
         // The order of the conditions is important here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(
