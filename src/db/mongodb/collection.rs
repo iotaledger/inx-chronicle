@@ -114,11 +114,12 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
     }
 
     /// Returns the number of documents in the collection.
-    #[cfg(feature = "rand")]
-    async fn len(&self) -> Result<usize, Error> {
-        self.collection().count_documents(None, None).await.map(|len| len as usize)
+    async fn count(&self) -> Result<usize, Error> {
+        self.collection()
+            .count_documents(None, None)
+            .await
+            .map(|count| count as usize)
     }
-
 }
 impl<T: MongoDbCollection> MongoDbCollectionExt for T {}
 
