@@ -299,7 +299,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     }
 }
 
-#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+#[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
 async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
@@ -320,7 +320,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Res
     Ok(())
 }
 
-#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+#[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
 async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
@@ -341,7 +341,7 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
     .and(Ok(()))
 }
 
-#[instrument(skip_all, level = "trace")]
+#[instrument(skip_all, err, level = "trace")]
 async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
@@ -365,7 +365,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
     Ok(())
 }
 
-#[instrument(skip(db, inx), level = "trace")]
+#[instrument(skip(db, inx), err, level = "trace")]
 async fn handle_cone_stream(
     db: &MongoDb,
     inx: &mut Inx,
