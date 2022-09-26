@@ -5,7 +5,7 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-    use bee_block_stardust::protocol::ProtocolParameters;
+
     use chronicle::{
         db::collections::{BlockCollection, OutputCollection},
         types::{
