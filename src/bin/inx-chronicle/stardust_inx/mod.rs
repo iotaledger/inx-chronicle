@@ -354,12 +354,13 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
         .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
         .into();
     
-    tracing::trace!("Milestone {:#?}", milestone);
-    let bee_payload: bee_block_stardust::payload::MilestonePayload = milestone.milestone.inner_unverified()?;
-    tracing::trace!("Bee Milestone {:#?}", bee_payload);
-    let payload = chronicle::types::stardust::block::payload::MilestonePayload::from(&bee_payload);
-    tracing::trace!("Chronicle Milestone {:#?}", payload);
-
+     let payload = if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
+        chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
+     } else {
+        // The raw data is guaranteed to contain a milestone payload.
+        unreachable!();
+     };
+    
     db.collection::<MilestoneCollection>()
         .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
         .await?;
