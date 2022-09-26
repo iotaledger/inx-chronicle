@@ -180,7 +180,7 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 [[package]]
 name = "bee-api-types"
 version = "1.0.0-beta.7"
-source = "git+https://github.com/grtlr/bee.git?branch=chore/bee-inx/unverified#fdeaec717d8619fb1d3b1f1ece3a3543fea60d51"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
 dependencies = [
  "axum",
  "bee-block",
@@ -192,7 +192,7 @@ dependencies = [
 [[package]]
 name = "bee-block"
 version = "1.0.0-beta.7"
-source = "git+https://github.com/grtlr/bee.git?branch=chore/bee-inx/unverified#fdeaec717d8619fb1d3b1f1ece3a3543fea60d51"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -218,7 +218,7 @@ dependencies = [
 [[package]]
 name = "bee-inx"
 version = "1.0.0-beta.6"
-source = "git+https://github.com/grtlr/bee.git?branch=chore/bee-inx/unverified#fdeaec717d8619fb1d3b1f1ece3a3543fea60d51"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
 dependencies = [
  "bee-block",
  "futures",
@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "bee-ledger-types"
 version = "1.0.0-beta.5"
-source = "git+https://github.com/grtlr/bee.git?branch=chore/bee-inx/unverified#fdeaec717d8619fb1d3b1f1ece3a3543fea60d51"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
 dependencies = [
  "bee-block",
  "packable",
@@ -239,8 +239,8 @@ dependencies = [
 
 [[package]]
 name = "bee-pow"
-version = "1.0.0-beta.1"
-source = "git+https://github.com/grtlr/bee.git?branch=chore/bee-inx/unverified#fdeaec717d8619fb1d3b1f1ece3a3543fea60d51"
+version = "1.0.0"
+source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -249,9 +249,9 @@ dependencies = [
 
 [[package]]
 name = "bee-ternary"
-version = "1.0.0-alpha.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9252b65ddd9a863b0efc06ddab6c26334ecbe00fb8fa47bbde10babda2981b2"
+checksum = "303a046c924e0b635640033126ca5d87c1e905b070f8c3251478fb606acb55b3"
 dependencies = [
  "autocfg",
  "num-traits",
@@ -1226,9 +1226,9 @@ dependencies = [
 
 [[package]]
 name = "iota-crypto"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d67b0725fbfe9e75950848bf0304df70ecb71a58526b1a36a087d0bc089499"
+checksum = "d53239ace29cccec48af2f3b509090d546bcc52648c6147866d88bc70f4352b3"
 dependencies = [
  "bee-ternary",
  "blake2",
