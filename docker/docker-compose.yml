@@ -57,7 +57,7 @@ services:
       - ALL
     volumes:
       - ./data/hornet:/app/alphanet
-      - ./config.alphanet.hornet.json:/app/config.json:ro
+      - ./config.testnet.hornet.json:/app/config.json:ro
     command:
       - "-c"
       - "config.json"
