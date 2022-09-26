@@ -56,7 +56,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ./data/hornet:/app/alphanet
+      - ./data/hornet:/app/testnet
       - ./config.testnet.hornet.json:/app/config.json:ro
     command:
       - "-c"
