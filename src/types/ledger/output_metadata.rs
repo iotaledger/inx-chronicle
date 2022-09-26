@@ -6,7 +6,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    context::TryFromWithContext,
     stardust::{
         block::{
             output::{Output, OutputId},
@@ -53,7 +52,7 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
-impl TryFromWithContext<bee_inx::LedgerOutput> for LedgerOutput {
+impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
     fn try_from_with_context(
@@ -73,7 +72,7 @@ impl TryFromWithContext<bee_inx::LedgerOutput> for LedgerOutput {
 }
 
 #[cfg(feature = "inx")]
-impl TryFromWithContext<bee_inx::LedgerSpent> for LedgerSpent {
+impl crate::types::context::TryFromWithContext<bee_inx::LedgerSpent> for LedgerSpent {
     type Error = bee_inx::Error;
 
     fn try_from_with_context(

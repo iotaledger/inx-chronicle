@@ -247,7 +247,7 @@ mod rand {
     impl OutputAmount {
         /// Generates a random [`OutputAmount`].
         pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
-            rand_number_range(0..ctx.token_supply()).into()
+            rand_number_range(bee::Output::AMOUNT_MIN..ctx.token_supply()).into()
         }
     }
 

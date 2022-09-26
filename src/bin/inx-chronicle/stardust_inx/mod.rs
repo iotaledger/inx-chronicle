@@ -7,7 +7,6 @@ mod error;
 mod stream;
 
 use async_trait::async_trait;
-use bee_block_stardust::protocol::ProtocolParameters;
 use bee_inx::client::Inx;
 use chronicle::{
     db::{
@@ -282,7 +281,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         )
         .await?;
 
-        handle_cone_stream(&self.db, inx, ledger_update.milestone_index, &parameters).await?;
+        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
 
         self.db
             .collection::<ProtocolUpdateCollection>()
@@ -290,7 +289,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             .await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        handle_milestone(&self.db, inx, ledger_update.milestone_index, &parameters).await?;
+        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -343,12 +342,7 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
 }
 
 #[instrument(skip_all, level = "trace")]
-async fn handle_milestone(
-    db: &MongoDb,
-    inx: &mut Inx,
-    milestone_index: MilestoneIndex,
-    parameters: &ProtocolParameters,
-) -> Result<(), InxError> {
+async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
     let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
@@ -359,7 +353,7 @@ async fn handle_milestone(
         .milestone_id
         .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
         .into();
-    let payload = Into::into(&milestone.milestone.inner(parameters)?);
+    let payload = Into::into(&milestone.milestone.inner_unverified()?);
 
     db.collection::<MilestoneCollection>()
         .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
@@ -376,7 +370,7 @@ async fn handle_cone_stream(
     db: &MongoDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
-    parameters: &ProtocolParameters,
+    // parameters: &ProtocolParameters,
 ) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
@@ -385,7 +379,7 @@ async fn handle_cone_stream(
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
             Result::<_, InxError>::Ok((
                 metadata.block_id.into(),
-                block.clone().inner(parameters)?.into(),
+                block.clone().inner_unverified()?.into(),
                 block.data(),
                 BlockMetadata::from(metadata),
             ))
