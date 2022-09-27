@@ -135,17 +135,19 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
 
     let latest_milestone = LatestMilestoneResponse {
         index: newest_milestone.milestone_index.0,
-        timestamp: newest_milestone.milestone_timestamp.0,
-        milestone_id: bee_block_stardust::payload::milestone::MilestoneId::from(
-            database
-                .collection::<MilestoneCollection>()
-                .get_milestone_id(newest_milestone.milestone_index)
-                .await?
-                .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-                    "no milestone in the database",
-                )))?,
-        )
-        .to_string(),
+        timestamp: Some(newest_milestone.milestone_timestamp.0),
+        milestone_id: Some(
+            bee_block_stardust::payload::milestone::MilestoneId::from(
+                database
+                    .collection::<MilestoneCollection>()
+                    .get_milestone_id(newest_milestone.milestone_index)
+                    .await?
+                    .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                        "no milestone in the database",
+                    )))?,
+            )
+            .to_string(),
+        ),
     };
 
     // Unfortunately, there is a distinction between `LatestMilestoneResponse` and `ConfirmedMilestoneResponse` in Bee.

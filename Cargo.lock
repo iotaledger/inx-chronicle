@@ -179,9 +179,9 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "bee-api-types"
-version = "1.0.0-beta.7"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ee8f42eece01082cb68ac6b56395799a4d1cf59efe223000fabd0aa2da3e612"
+checksum = "539b26b6963b744909bfa6d130a85d2abc0f45a9aaad2400633100604521422b"
 dependencies = [
  "axum",
  "bee-block",
@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "bee-ledger-types"
-version = "1.0.0-beta.5"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda485ea7a4c023f99b485288bb2c7f79bbbf24de4940ff80be2ab6504a9462"
+checksum = "8bb8f7b8c5bf371243e6fe36c6feb0985a84ff15ca6251b60749be490d2fd05a"
 dependencies = [
  "bee-block",
  "packable",
