@@ -468,7 +468,7 @@
 * **metrics:** add solidification counter metric ([#170](https://github.com/iotaledger/inx-chronicle/issues/170)) ([46f5bcb](https://github.com/iotaledger/inx-chronicle/commit/46f5bcb83afccb1b01cabadb16f150fab59a9b7a))
 * **model:** use arrays to store bytes when possible ([#206](https://github.com/iotaledger/inx-chronicle/issues/206)) ([a304a94](https://github.com/iotaledger/inx-chronicle/commit/a304a94125282df0ca38921e9b25531f7b2fd248))
 * syncer based on `inx::ReadMilestoneConeMetadata` ([#177](https://github.com/iotaledger/inx-chronicle/issues/177)) ([1a2da15](https://github.com/iotaledger/inx-chronicle/commit/1a2da15b8039176db9f178e4e79428f3f33825ee))
-* **types:** add Copy and Into<Bson> impls ([#230](https://github.com/iotaledger/inx-chronicle/issues/230)) ([165303c](https://github.com/iotaledger/inx-chronicle/commit/165303c064034a8a20ffd09df8c6217bd60ffaa0))
+* **types:** add Copy and `Into<Bson>` impls ([#230](https://github.com/iotaledger/inx-chronicle/issues/230)) ([165303c](https://github.com/iotaledger/inx-chronicle/commit/165303c064034a8a20ffd09df8c6217bd60ffaa0))
 
 
 ### Bug Fixes

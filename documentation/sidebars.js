@@ -17,6 +17,11 @@ module.exports = {
       label: "Welcome",
     },
     {
+      type: "doc",
+      id: "changelog",
+      label: "Changelog",
+    },
+    {
       type: "category",
       label: "Getting Started",
       collapsed: false,
