@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+#![allow(missing_docs)]
+
 use bee_block_stardust as bee;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +24,16 @@ impl From<&bee::output::RentStructure> for RentStructure {
     }
 }
 
+impl From<RentStructure> for bee::output::RentStructure {
+    fn from(value: RentStructure) -> Self {
+        Self::build()
+            .byte_cost(value.v_byte_cost)
+            .data_factor(value.v_byte_factor_data)
+            .key_factor(value.v_byte_factor_key)
+            .finish()
+    }
+}
+
 /// Protocol parameters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolParameters {
@@ -38,7 +50,7 @@ pub struct ProtocolParameters {
 impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
     fn from(value: bee::protocol::ProtocolParameters) -> Self {
         Self {
-            version: value.version(),
+            version: value.protocol_version(),
             network_name: value.network_name().into(),
             bech32_hrp: value.bech32_hrp().into(),
             min_pow_score: value.min_pow_score(),
@@ -46,5 +58,21 @@ impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
             rent_structure: value.rent_structure().into(),
             token_supply: value.token_supply(),
         }
+    }
+}
+
+impl TryFrom<ProtocolParameters> for bee::protocol::ProtocolParameters {
+    type Error = bee_block_stardust::Error;
+
+    fn try_from(value: ProtocolParameters) -> Result<Self, Self::Error> {
+        Self::new(
+            value.version,
+            value.network_name,
+            value.bech32_hrp,
+            value.min_pow_score,
+            value.below_max_depth,
+            value.rent_structure.into(),
+            value.token_supply,
+        )
     }
 }

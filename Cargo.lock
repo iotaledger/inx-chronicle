@@ -179,9 +179,9 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "bee-api-types"
-version = "1.0.0-beta.7"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ee8f42eece01082cb68ac6b56395799a4d1cf59efe223000fabd0aa2da3e612"
+checksum = "539b26b6963b744909bfa6d130a85d2abc0f45a9aaad2400633100604521422b"
 dependencies = [
  "axum",
  "bee-block",
@@ -192,9 +192,9 @@ dependencies = [
 
 [[package]]
 name = "bee-block"
-version = "1.0.0-beta.7"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71668eae085ca48a59582e1c63a0d245b70c9fdbddd8fb31b37f1eb15a42bff5"
+checksum = "7d124ffdd80872942bb979a0b2b21e9fe069b5eca6c38997e33de30749b94261"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -219,9 +219,9 @@ dependencies = [
 
 [[package]]
 name = "bee-inx"
-version = "1.0.0-beta.5"
+version = "1.0.0-beta.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1feb0cd06440474d6d18d00425ae80c64a9c386de9f01e42d3d4e2f099cb481"
+checksum = "966482b32a4549cda89ee7b455e0470bca1e58b7f4d698bbed6d434ac57cd512"
 dependencies = [
  "bee-block",
  "futures",
@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "bee-ledger-types"
-version = "1.0.0-beta.5"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda485ea7a4c023f99b485288bb2c7f79bbbf24de4940ff80be2ab6504a9462"
+checksum = "8bb8f7b8c5bf371243e6fe36c6feb0985a84ff15ca6251b60749be490d2fd05a"
 dependencies = [
  "bee-block",
  "packable",
@@ -243,9 +243,9 @@ dependencies = [
 
 [[package]]
 name = "bee-pow"
-version = "1.0.0-beta.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f97ca064b7895679b723b1e188bad6103adad5cd712168185fb73fbfe6c205f0"
+checksum = "740c63e550d741613893a432c03db714bc1d6ff85882b88ded0f0920c06e98a6"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
@@ -254,9 +254,9 @@ dependencies = [
 
 [[package]]
 name = "bee-ternary"
-version = "1.0.0-alpha.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9252b65ddd9a863b0efc06ddab6c26334ecbe00fb8fa47bbde10babda2981b2"
+checksum = "303a046c924e0b635640033126ca5d87c1e905b070f8c3251478fb606acb55b3"
 dependencies = [
  "autocfg",
  "num-traits",
@@ -1231,9 +1231,9 @@ dependencies = [
 
 [[package]]
 name = "iota-crypto"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d67b0725fbfe9e75950848bf0304df70ecb71a58526b1a36a087d0bc089499"
+checksum = "d53239ace29cccec48af2f3b509090d546bcc52648c6147866d88bc70f4352b3"
 dependencies = [
  "bee-ternary",
  "blake2",
@@ -1682,9 +1682,9 @@ checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 
 [[package]]
 name = "packable"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4ab4403d49f4fe5ca6ca8d3dd3db64d1fd047d3aeb9fbee43a7b20791bcfe53"
+checksum = "a7e6da5d02b6ba18afdb21b1813fa25b97ad997201aed5883a9ef9141024cfbf"
 dependencies = [
  "autocfg",
  "packable-derive",
@@ -1694,9 +1694,9 @@ dependencies = [
 
 [[package]]
 name = "packable-derive"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ffcf5c713b0a4dc013dedd903c76d17bcf15a99ea29fb4516d80ca9e57e8aae"
+checksum = "00b336fd071ce4e492a7842a2c73fd742326468e0f6e6bb22d58b2dcb48565f8"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",

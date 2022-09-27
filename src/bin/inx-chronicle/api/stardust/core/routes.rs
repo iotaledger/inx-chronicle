@@ -31,6 +31,7 @@ use chronicle::{
         MongoDb,
     },
     types::{
+        context::{TryFromWithContext, TryIntoWithContext},
         stardust::block::{
             output::OutputId,
             payload::{milestone::MilestoneId, transaction::TransactionId},
@@ -134,17 +135,19 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
 
     let latest_milestone = LatestMilestoneResponse {
         index: newest_milestone.milestone_index.0,
-        timestamp: newest_milestone.milestone_timestamp.0,
-        milestone_id: bee_block_stardust::payload::milestone::MilestoneId::from(
-            database
-                .collection::<MilestoneCollection>()
-                .get_milestone_id(newest_milestone.milestone_index)
-                .await?
-                .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-                    "no milestone in the database",
-                )))?,
-        )
-        .to_string(),
+        timestamp: Some(newest_milestone.milestone_timestamp.0),
+        milestone_id: Some(
+            bee_block_stardust::payload::milestone::MilestoneId::from(
+                database
+                    .collection::<MilestoneCollection>()
+                    .get_milestone_id(newest_milestone.milestone_index)
+                    .await?
+                    .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                        "no milestone in the database",
+                    )))?,
+            )
+            .to_string(),
+        ),
     };
 
     // Unfortunately, there is a distinction between `LatestMilestoneResponse` and `ConfirmedMilestoneResponse` in Bee.
@@ -160,6 +163,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         protocol: ProtocolResponse {
             version: protocol.version,
             network_name: protocol.network_name,
+            below_max_depth: protocol.below_max_depth,
             bech32_hrp: protocol.bech32_hrp,
             min_pow_score: protocol.min_pow_score,
             rent_structure: RentStructureResponse {
@@ -202,7 +206,19 @@ async fn block(
         .get_block(&block_id)
         .await?
         .ok_or(ApiError::NoResults)?;
-    Ok(BlockResponse::Json(BlockDto::try_from(block)?))
+
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_version(block.protocol_version)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .parameters
+        .try_into()?;
+
+    Ok(BlockResponse::Json(BlockDto::try_from_with_context(
+        &protocol_params,
+        block,
+    )?))
 }
 
 async fn block_metadata(
@@ -272,9 +288,17 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
 
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(ledger_index)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .parameters
+        .try_into()?;
+
     Ok(OutputResponse {
         metadata,
-        output: OutputDto::try_from(output)?,
+        output: OutputDto::try_from_with_context(&protocol_params, output)?,
     })
 }
 
@@ -308,14 +332,33 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(BlockDto::try_from(block)?))
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_version(block.protocol_version)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .parameters
+        .try_into()?;
+
+    Ok(BlockResponse::Json(BlockDto::try_from_with_context(
+        &protocol_params,
+        block,
+    )?))
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
     let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
-        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
+        let protocol_params = database
+            .collection::<ProtocolUpdateCollection>()
+            .get_protocol_parameters_for_ledger_index(at)
+            .await?
+            .ok_or(ApiError::NoResults)?
+            .parameters
+            .try_into()?;
+        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption =
+            &receipt.try_into_with_context(&protocol_params)?;
         let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
 
         if let MilestoneOptionDto::Receipt(receipt) = receipt {
@@ -335,9 +378,17 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
         .collection::<MilestoneCollection>()
         .get_receipts_migrated_at(index.into())
         .await?;
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(index.into())
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .parameters
+        .try_into()?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
-        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
+        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption =
+            &receipt.try_into_with_context(&protocol_params)?;
         let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
 
         if let MilestoneOptionDto::Receipt(receipt) = receipt {
@@ -376,14 +427,26 @@ async fn milestone(
         .await?
         .ok_or(ApiError::NoResults)?;
 
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .parameters
+        .try_into()?;
+
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from(milestone_payload)?;
+            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
+                &protocol_params,
+                milestone_payload,
+            )?;
             return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from(
+    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from_with_context(
+        &protocol_params,
         milestone_payload,
     )?))
 }
@@ -399,14 +462,26 @@ async fn milestone_by_index(
         .await?
         .ok_or(ApiError::NoResults)?;
 
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .parameters
+        .try_into()?;
+
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from(milestone_payload)?;
+            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
+                &protocol_params,
+                milestone_payload,
+            )?;
             return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from(
+    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from_with_context(
+        &protocol_params,
         milestone_payload,
     )?))
 }

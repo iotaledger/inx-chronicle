@@ -28,7 +28,11 @@ pub use self::{
     treasury::TreasuryOutput,
 };
 use super::Address;
-use crate::types::{ledger::RentStructureBytes, stardust::block::payload::transaction::TransactionId};
+use crate::types::{
+    context::{TryFromWithContext, TryIntoWithContext},
+    ledger::RentStructureBytes,
+    stardust::block::payload::transaction::TransactionId,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
@@ -151,10 +155,12 @@ impl Output {
     }
 
     pub fn rent_structure(&self) -> RentStructureBytes {
+        // Computing the rent structure is independent of the protocol parameters, we just need this for conversion.
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
         match self {
             output @ (Self::Basic(_) | Self::Alias(_) | Self::Foundry(_) | Self::Nft(_)) => {
-                let bee_output =
-                    bee::Output::try_from(output.clone()).expect("`Output` has to be convertible to `bee::Output`");
+                let bee_output = bee::Output::try_from_with_context(&ctx, output.clone())
+                    .expect("`Output` has to be convertible to `bee::Output`");
 
                 // The following computations of `data_bytes` and `key_bytes` makec use of the fact that the byte cost
                 // computation is a linear combination with respect to the type of the fields and their weight.
@@ -203,25 +209,31 @@ impl<T: Borrow<bee::Output>> From<T> for Output {
     }
 }
 
-impl TryFrom<Output> for bee::Output {
+impl TryFromWithContext<Output> for bee::Output {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: Output) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: Output,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
-            Output::Treasury(o) => bee::Output::Treasury(o.try_into()?),
-            Output::Basic(o) => bee::Output::Basic(o.try_into()?),
-            Output::Alias(o) => bee::Output::Alias(o.try_into()?),
-            Output::Foundry(o) => bee::Output::Foundry(o.try_into()?),
-            Output::Nft(o) => bee::Output::Nft(o.try_into()?),
+            Output::Treasury(o) => bee::Output::Treasury(o.try_into_with_context(ctx)?),
+            Output::Basic(o) => bee::Output::Basic(o.try_into_with_context(ctx)?),
+            Output::Alias(o) => bee::Output::Alias(o.try_into_with_context(ctx)?),
+            Output::Foundry(o) => bee::Output::Foundry(o.try_into_with_context(ctx)?),
+            Output::Nft(o) => bee::Output::Nft(o.try_into_with_context(ctx)?),
         })
     }
 }
 
-impl TryFrom<Output> for bee::dto::OutputDto {
+impl TryFromWithContext<Output> for bee::dto::OutputDto {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: Output) -> Result<Self, Self::Error> {
-        let stardust = bee::Output::try_from(value)?;
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: Output,
+    ) -> Result<Self, Self::Error> {
+        let stardust = bee::Output::try_from_with_context(ctx, value)?;
         Ok(bee::dto::OutputDto::from(&stardust))
     }
 }
@@ -234,8 +246,8 @@ mod rand {
 
     impl OutputAmount {
         /// Generates a random [`OutputAmount`].
-        pub fn rand() -> Self {
-            rand_number_range(bee::Output::AMOUNT_RANGE).into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_number_range(bee::Output::AMOUNT_MIN..ctx.token_supply()).into()
         }
     }
 
@@ -248,40 +260,40 @@ mod rand {
 
     impl Output {
         /// Generates a random [`Output`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..5) {
-                0 => Self::rand_basic(),
-                1 => Self::rand_alias(),
-                2 => Self::rand_foundry(),
-                3 => Self::rand_nft(),
-                4 => Self::rand_treasury(),
+                0 => Self::rand_basic(ctx),
+                1 => Self::rand_alias(ctx),
+                2 => Self::rand_foundry(ctx),
+                3 => Self::rand_nft(ctx),
+                4 => Self::rand_treasury(ctx),
                 _ => unreachable!(),
             }
         }
 
         /// Generates a random basic [`Output`].
-        pub fn rand_basic() -> Self {
-            Self::Basic(BasicOutput::rand())
+        pub fn rand_basic(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Basic(BasicOutput::rand(ctx))
         }
 
         /// Generates a random alias [`Output`].
-        pub fn rand_alias() -> Self {
-            Self::Alias(AliasOutput::rand())
+        pub fn rand_alias(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Alias(AliasOutput::rand(ctx))
         }
 
         /// Generates a random nft [`Output`].
-        pub fn rand_nft() -> Self {
-            Self::Nft(NftOutput::rand())
+        pub fn rand_nft(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Nft(NftOutput::rand(ctx))
         }
 
         /// Generates a random foundry [`Output`].
-        pub fn rand_foundry() -> Self {
-            Self::Foundry(FoundryOutput::rand())
+        pub fn rand_foundry(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Foundry(FoundryOutput::rand(ctx))
         }
 
         /// Generates a random treasury [`Output`].
-        pub fn rand_treasury() -> Self {
-            Self::Treasury(TreasuryOutput::rand())
+        pub fn rand_treasury(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            Self::Treasury(TreasuryOutput::rand(ctx))
         }
     }
 }
@@ -301,40 +313,45 @@ mod test {
 
     #[test]
     fn test_basic_output_bson() {
-        let output = Output::rand_basic();
-        bee::Output::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = Output::rand_basic(&ctx);
+        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
     #[test]
     fn test_alias_output_bson() {
-        let output = Output::rand_alias();
-        bee::Output::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = Output::rand_alias(&ctx);
+        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
     #[test]
     fn test_nft_output_bson() {
-        let output = Output::rand_nft();
-        bee::Output::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = Output::rand_nft(&ctx);
+        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
     #[test]
     fn test_foundry_output_bson() {
-        let output = Output::rand_foundry();
-        bee::Output::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = Output::rand_foundry(&ctx);
+        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
     #[test]
     fn test_treasury_output_bson() {
-        let output = Output::rand_treasury();
-        bee::Output::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = Output::rand_treasury(&ctx);
+        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }

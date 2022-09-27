@@ -13,7 +13,7 @@ use super::{
     },
     Feature, NativeToken, OutputAmount,
 };
-use crate::types::util::bytify;
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -91,16 +91,19 @@ impl<T: Borrow<bee::NftOutput>> From<T> for NftOutput {
     }
 }
 
-impl TryFrom<NftOutput> for bee::NftOutput {
+impl TryFromWithContext<NftOutput> for bee::NftOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: NftOutput,
+    ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(bee::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
             value
                 .storage_deposit_return_unlock_condition
-                .map(bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from)
+                .map(|x| bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
                 .transpose()?
                 .map(Into::into),
             value
@@ -135,7 +138,7 @@ impl TryFrom<NftOutput> for bee::NftOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
     }
 }
 
@@ -154,8 +157,8 @@ mod rand {
 
     impl NftOutput {
         /// Generates a random [`NftOutput`].
-        pub fn rand() -> Self {
-            rand_nft_output().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_nft_output(ctx.token_supply()).into()
         }
     }
 }
@@ -176,8 +179,9 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let output = NftOutput::rand();
-        bee::NftOutput::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = NftOutput::rand(&ctx);
+        bee::NftOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }
