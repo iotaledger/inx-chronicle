@@ -18,7 +18,6 @@ use chronicle::{
     },
     runtime::{Actor, ActorContext, HandleEvent},
     types::{
-        context::TryIntoWithContext,
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
         tangle::MilestoneIndex,
@@ -128,7 +127,7 @@ impl Actor for InxWorker {
             .read_protocol_parameters(start_index.0.into())
             .await?
             .params
-            .inner(&())?;
+            .inner_unverified()?;
 
         debug!("Connected to network `{}`.", protocol_parameters.network_name());
 
@@ -163,7 +162,7 @@ impl Actor for InxWorker {
 
             let (tasks, count) = unspent_output_stream
                 // Convert to `LedgerOutput`
-                .map(|res| Ok(res?.output.try_into_with_context(&protocol_parameters)?))
+                .map(|res| Ok(res?.output.try_into()?))
                 // Break into chunks
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
@@ -267,7 +266,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             ledger_update
                 .created
                 .into_iter()
-                .map(|o| o.try_into_with_context(&parameters))
+                .map(|o| o.try_into())
                 .collect::<Result<_, _>>()?,
         )
         .await?;
@@ -276,7 +275,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
             ledger_update
                 .consumed
                 .into_iter()
-                .map(|o| o.try_into_with_context(&parameters))
+                .map(|o| o.try_into())
                 .collect::<Result<_, _>>()?,
         )
         .await?;

@@ -52,6 +52,23 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
+impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
+    type Error = bee_inx::Error;
+
+    fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
+        Ok(Self {
+            output: Into::into(&value.output.inner_unverified()?),
+            output_id: value.output_id.into(),
+            block_id: value.block_id.into(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: value.milestone_index_booked.into(),
+                milestone_timestamp: value.milestone_timestamp_booked.into(),
+            },
+        })
+    }
+}
+
+#[cfg(feature = "inx")]
 impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
@@ -66,6 +83,26 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for Ledger
             booked: MilestoneIndexTimestamp {
                 milestone_index: value.milestone_index_booked.into(),
                 milestone_timestamp: value.milestone_timestamp_booked.into(),
+            },
+        })
+    }
+}
+
+#[cfg(feature = "inx")]
+impl TryFrom<bee_inx::LedgerSpent> for LedgerSpent {
+    type Error = bee_inx::Error;
+
+    fn try_from(value: bee_inx::LedgerSpent) -> Result<Self, Self::Error> {
+        let output = LedgerOutput::try_from(value.output)?;
+
+        Ok(Self {
+            output,
+            spent_metadata: SpentMetadata {
+                transaction_id: value.transaction_id_spent.into(),
+                spent: MilestoneIndexTimestamp {
+                    milestone_index: value.milestone_index_spent.into(),
+                    milestone_timestamp: value.milestone_timestamp_spent.into(),
+                },
             },
         })
     }
