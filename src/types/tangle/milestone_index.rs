@@ -8,6 +8,7 @@ use derive_more::{Add, Deref, DerefMut, Sub};
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
+/// The index of a given milestone.
 #[derive(
     Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut,
 )]

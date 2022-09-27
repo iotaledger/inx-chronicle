@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+#![allow(missing_docs)]
+
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
@@ -50,12 +52,15 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
+impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
-    fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: bee_inx::LedgerOutput,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
-            output: Into::into(&value.output.inner(&())?),
+            output: Into::into(&value.output.inner(ctx)?),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
             booked: MilestoneIndexTimestamp {
@@ -67,11 +72,14 @@ impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerSpent> for LedgerSpent {
+impl crate::types::context::TryFromWithContext<bee_inx::LedgerSpent> for LedgerSpent {
     type Error = bee_inx::Error;
 
-    fn try_from(value: bee_inx::LedgerSpent) -> Result<Self, Self::Error> {
-        let output = LedgerOutput::try_from(value.output)?;
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: bee_inx::LedgerSpent,
+    ) -> Result<Self, Self::Error> {
+        let output = LedgerOutput::try_from_with_context(ctx, value.output)?;
 
         Ok(Self {
             output,
@@ -89,6 +97,8 @@ impl TryFrom<bee_inx::LedgerSpent> for LedgerSpent {
 /// The different number of bytes that are used for computing the rent cost.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RentStructureBytes {
+    /// The number of key bytes in an output.
     pub num_key_bytes: u64,
+    /// The number of data bytes in an output.
     pub num_data_bytes: u64,
 }

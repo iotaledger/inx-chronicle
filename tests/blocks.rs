@@ -5,6 +5,7 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
+
     use chronicle::{
         db::collections::{BlockCollection, OutputCollection},
         types::{
@@ -22,7 +23,9 @@ mod test_rand {
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
 
-        let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand()))
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+
+        let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&protocol_params)))
             .take(100)
             .enumerate()
             .map(|(i, (block_id, block))| {
@@ -113,11 +116,13 @@ mod test_rand {
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
 
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+
         // Note that we cannot build a block with a treasury transaction payload.
         let blocks = vec![
-            Block::rand_transaction(),
-            Block::rand_transaction(),
-            Block::rand_milestone(),
+            Block::rand_transaction(&protocol_params),
+            Block::rand_transaction(&protocol_params),
+            Block::rand_milestone(&protocol_params),
             Block::rand_tagged_data(),
             Block::rand_no_payload(),
         ]
