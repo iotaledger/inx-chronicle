@@ -180,7 +180,8 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 [[package]]
 name = "bee-api-types"
 version = "1.0.0-beta.7"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ee8f42eece01082cb68ac6b56395799a4d1cf59efe223000fabd0aa2da3e612"
 dependencies = [
  "axum",
  "bee-block",
@@ -191,8 +192,9 @@ dependencies = [
 
 [[package]]
 name = "bee-block"
-version = "1.0.0-beta.7"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d124ffdd80872942bb979a0b2b21e9fe069b5eca6c38997e33de30749b94261"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -218,7 +220,8 @@ dependencies = [
 [[package]]
 name = "bee-inx"
 version = "1.0.0-beta.6"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "966482b32a4549cda89ee7b455e0470bca1e58b7f4d698bbed6d434ac57cd512"
 dependencies = [
  "bee-block",
  "futures",
@@ -230,7 +233,8 @@ dependencies = [
 [[package]]
 name = "bee-ledger-types"
 version = "1.0.0-beta.5"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fda485ea7a4c023f99b485288bb2c7f79bbbf24de4940ff80be2ab6504a9462"
 dependencies = [
  "bee-block",
  "packable",
@@ -240,7 +244,8 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "1.0.0"
-source = "git+https://github.com/iotaledger/bee.git?branch=shimmer-develop#e88dc5305e648d20859c8f4c54f25b519bdd73a0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "740c63e550d741613893a432c03db714bc1d6ff85882b88ded0f0920c06e98a6"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
