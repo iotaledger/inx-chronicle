@@ -213,7 +213,7 @@ async fn block(
         .await?
         .ok_or(ApiError::NoResults)?
         .parameters
-        .into();
+        .try_into()?;
 
     Ok(BlockResponse::Json(BlockDto::try_from_with_context(
         &protocol_params,
@@ -294,7 +294,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
         .await?
         .ok_or(ApiError::NoResults)?
         .parameters
-        .into();
+        .try_into()?;
 
     Ok(OutputResponse {
         metadata,
@@ -338,7 +338,7 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?
         .parameters
-        .into();
+        .try_into()?;
 
     Ok(BlockResponse::Json(BlockDto::try_from_with_context(
         &protocol_params,
@@ -356,7 +356,7 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
             .await?
             .ok_or(ApiError::NoResults)?
             .parameters
-            .into();
+            .try_into()?;
         let receipt: &bee_block_stardust::payload::milestone::MilestoneOption =
             &receipt.try_into_with_context(&protocol_params)?;
         let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
@@ -384,7 +384,7 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
         .await?
         .ok_or(ApiError::NoResults)?
         .parameters
-        .into();
+        .try_into()?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
         let receipt: &bee_block_stardust::payload::milestone::MilestoneOption =
@@ -433,7 +433,7 @@ async fn milestone(
         .await?
         .ok_or(ApiError::NoResults)?
         .parameters
-        .into();
+        .try_into()?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
@@ -468,7 +468,7 @@ async fn milestone_by_index(
         .await?
         .ok_or(ApiError::NoResults)?
         .parameters
-        .into();
+        .try_into()?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {

@@ -61,8 +61,10 @@ impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
     }
 }
 
-impl From<ProtocolParameters> for bee::protocol::ProtocolParameters {
-    fn from(value: ProtocolParameters) -> Self {
+impl TryFrom<ProtocolParameters> for bee::protocol::ProtocolParameters {
+    type Error = bee_block_stardust::Error;
+
+    fn try_from(value: ProtocolParameters) -> Result<Self, Self::Error> {
         Self::new(
             value.version,
             value.network_name,
@@ -72,6 +74,5 @@ impl From<ProtocolParameters> for bee::protocol::ProtocolParameters {
             value.rent_structure.into(),
             value.token_supply,
         )
-        .unwrap()
     }
 }
