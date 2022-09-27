@@ -159,6 +159,20 @@ impl OutputCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.block_id": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .unique(false)
+                        .name("metadata_block_id".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         self.create_indexer_indexes().await?;
 
         Ok(())
