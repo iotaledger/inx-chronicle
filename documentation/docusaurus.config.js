@@ -14,7 +14,7 @@ module.exports = {
         versions: {
           current: {
               label: 'Develop',
-              path: 'main',
+              path: 'develop',
               badge: true
           },
         },
