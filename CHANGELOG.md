@@ -1,3 +1,15 @@
+## [v1.0.0-beta.21](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.20...v1.0.0-beta.21) (2022-09-27)
+
+
+### Features
+
+* **inx:** update to latest version of `packable` and `bee-inx` ([#729](https://github.com/iotaledger/inx-chronicle/issues/729)) ([d6d1120](https://github.com/iotaledger/inx-chronicle/commit/d6d11206cd4691f3d5a9ba228cb21fab6d079d36)), closes [#735](https://github.com/iotaledger/inx-chronicle/issues/735)
+
+
+### Bug Fixes
+
+* **db:** add index on `metadata.block_id` ([#744](https://github.com/iotaledger/inx-chronicle/issues/744)) ([46509d6](https://github.com/iotaledger/inx-chronicle/commit/46509d6aa7a4ec1a3b4dba2d2494a18546581093))
+
 ## [v1.0.0-beta.20](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.19...v1.0.0-beta.20) (2022-09-23)
 
 
