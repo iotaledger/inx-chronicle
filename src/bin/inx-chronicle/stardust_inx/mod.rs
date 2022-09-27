@@ -255,12 +255,6 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         tracing::Span::current().record("created", ledger_update.created.len());
         tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-        let parameters = inx
-            .read_protocol_parameters(ledger_update.milestone_index.0.into())
-            .await?
-            .params
-            .inner(&())?;
-
         insert_unspent_outputs(
             &self.db,
             ledger_update
@@ -281,11 +275,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         .await?;
 
         handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
-
-        self.db
-            .collection::<ProtocolUpdateCollection>()
-            .update_latest_protocol_parameters(ledger_update.milestone_index, parameters.clone().into())
-            .await?;
+        handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
@@ -340,6 +330,21 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
     .and(Ok(()))
 }
 
+#[instrument(skip_all, level = "trace")]
+async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    let parameters = inx
+        .read_protocol_parameters(milestone_index.0.into())
+        .await?
+        .params
+        .inner(&())?;
+
+    db.collection::<ProtocolUpdateCollection>()
+        .update_latest_protocol_parameters(milestone_index, parameters.into())
+        .await?;
+
+    Ok(())
+}
+
 #[instrument(skip_all, err, level = "trace")]
 async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
@@ -372,12 +377,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
 }
 
 #[instrument(skip(db, inx), err, level = "trace")]
-async fn handle_cone_stream(
-    db: &MongoDb,
-    inx: &mut Inx,
-    milestone_index: MilestoneIndex,
-    // parameters: &ProtocolParameters,
-) -> Result<(), InxError> {
+async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let blocks_with_metadata = cone_stream
