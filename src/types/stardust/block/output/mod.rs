@@ -42,7 +42,8 @@ pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64
 /// The index of an output within a transaction.
 pub type OutputIndex = u16;
 
-/// An id which uniquely identifies an output. It is computed from the corresponding [`TransactionId`], as well as the [`OutputIndex`].
+/// An id which uniquely identifies an output. It is computed from the corresponding [`TransactionId`], as well as the
+/// [`OutputIndex`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputId {
     /// The transaction id part of the [`OutputId`].
@@ -107,7 +108,6 @@ pub enum Output {
 }
 
 impl Output {
-    
     /// Returns the [`Address`] that is in control of the output.
     pub fn owning_address(&self) -> Option<&Address> {
         Some(match self {
