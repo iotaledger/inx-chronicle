@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Unlock`] types.
+
 use bee_block_stardust::unlock as bee;
 use serde::{Deserialize, Serialize};
 

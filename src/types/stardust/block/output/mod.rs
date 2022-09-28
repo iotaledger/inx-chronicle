@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Output`] types.
+
 mod feature;
 mod native_token;
 mod unlock_condition;

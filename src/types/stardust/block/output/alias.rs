@@ -15,6 +15,7 @@ use super::{
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 
+/// Uniquely identifies an Alias.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -22,6 +23,7 @@ pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl AliasId {
     const LENGTH: usize = bee::AliasId::LENGTH;
 
+    /// The [`AliasId`] is derived from the [`OutputId`] that created the Alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
         Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }
@@ -57,20 +59,31 @@ impl From<AliasId> for Bson {
     }
 }
 
+/// Represents an Alias in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasOutput {
+    /// The output amount.
     pub amount: OutputAmount,
+    /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
+    /// The associated id of the alias.
     pub alias_id: AliasId,
+    /// The current state index.
     pub state_index: u32,
+    /// The metadata corresponding to the current state.
     #[serde(with = "serde_bytes")]
     pub state_metadata: Box<[u8]>,
+    /// The foundry counter.
     pub foundry_counter: u32,
     // The governor address unlock condition and the state controller unlock conditions are mandatory for now, but this
     // could change in the protocol in the future for compression reasons.
+    /// The state controller address unlock condition.
     pub state_controller_address_unlock_condition: StateControllerAddressUnlockCondition,
+    /// The governer address unlock condition.
     pub governor_address_unlock_condition: GovernorAddressUnlockCondition,
+    /// The corresponding list of [`Feature`]s.
     pub features: Box<[Feature]>,
+    /// The corresponding list of immutable [`Feature`]s.
     pub immutable_features: Box<[Feature]>,
 }
 

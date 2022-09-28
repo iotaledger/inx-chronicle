@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-#![allow(missing_docs)]
-
 pub mod address;
 pub mod block_id;
 pub mod input;
@@ -21,12 +19,17 @@ pub use self::{
 };
 use crate::types::context::{TryFromWithContext, TryIntoWithContext};
 
+/// The Block type.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Block {
+    /// The protocol version from when the block was issued.
     pub protocol_version: u8,
+    /// The parents of the block.
     pub parents: Box<[BlockId]>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The payload of the block.
     pub payload: Option<Payload>,
+    /// The nonce used for proof-of-work.
     #[serde(with = "crate::types::util::stringify")]
     pub nonce: u64,
 }

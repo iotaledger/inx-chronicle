@@ -1,16 +1,24 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Input`] type.
+
 use bee_block_stardust::input as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{output::OutputId, payload::milestone::MilestoneId};
 
+/// The type for [`Input`]s in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Input {
+    /// The id of the corresponding output.
     Utxo(OutputId),
-    Treasury { milestone_id: MilestoneId },
+    /// A treasury that corresponds to a milestone.
+    Treasury {
+        /// The [`MilestoneId`] corresponding to the treasury.
+        milestone_id: MilestoneId
+    },
 }
 
 impl From<&bee::Input> for Input {

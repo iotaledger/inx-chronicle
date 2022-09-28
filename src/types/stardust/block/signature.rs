@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Signature`] type.
+
 use bee_block_stardust::signature as bee;
 use serde::{Deserialize, Serialize};
 
