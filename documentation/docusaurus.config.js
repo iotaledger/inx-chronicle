@@ -5,19 +5,12 @@ module.exports = {
     [
       '@docusaurus/plugin-content-docs',
       {
-        id: 'inx-chronicle-develop',
+        id: 'inx-chronicle',
         path: path.resolve(__dirname, 'docs'),
         routeBasePath: 'chronicle',
         sidebarPath: path.resolve(__dirname, 'sidebars.js'),
         editUrl: 'https://github.com/iotaledger/inx-chronicle/edit/main/documentation',
         remarkPlugins: [require('remark-code-import'), require('remark-import-partial')],
-        versions: {
-          current: {
-              label: 'Develop',
-              path: 'develop',
-              badge: true
-          },
-        },
       }
     ],
   ],
