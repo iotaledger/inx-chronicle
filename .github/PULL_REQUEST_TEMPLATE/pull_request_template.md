@@ -12,13 +12,20 @@ about: A regular pull request that usually has a corresponding issue.
 ## Notes to Reviewer
 
 <!--
-The following are notes and particular points of the code that the reviewer should pay attention to.
-Please uncomment or delete the points that don't apply.
+The following are examples of particular points that you would like reviewers to pay attention to. Add or remove
+items as appropriate for this PR.
 -->
 
-* [ ] API Changes — The corresponding API endpoints work locally.
-* [ ] Testcases — All relevant test cases are covered.
-* [ ] INX — Chronicle syncs locally with the latest Hornet version.
-* [ ] DB - Queries are supported by indexes.
+<!-- API Changes -->
+* [ ] Test the API endpoints which were added/changed.
+* [ ] Review the API documentation changes and confirm that it matches the actual functionality.
+<!-- Test cases -->
+* [ ] Review tests that were added/changed.
+* [ ] Suggest places that may benefit from test cases.
+<!-- INX Changes -->
+* [ ] Run chronicle using an INX connection.
+<!-- Database Changes -->
+* [ ] Review database queries for correctness/conciseness.
+* [ ] Ensure queries are supported by indexes if needed.
  
-As a reviewer, please tick the above boxes after you have completed the steps.
+As a reviewer, please pay particular attention to the following areas when reviewing this PR and tick the above boxes after you have completed the steps.
