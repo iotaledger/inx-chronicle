@@ -18,6 +18,7 @@ Please uncomment or delete the points that don't apply.
 
 * [ ] API Changes — The corresponding API endpoints work locally.
 * [ ] Testcases — All relevant test cases are covered.
-* [ ] INX — Chronicle syncs with the latest Hornet version.
+* [ ] INX — Chronicle syncs locally with the latest Hornet version.
+* [ ] DB - Queries are supported by indexes.
  
-As a reviewer, please tick the above boxes after you have complete the steps.
+As a reviewer, please tick the above boxes after you have completed the steps.
