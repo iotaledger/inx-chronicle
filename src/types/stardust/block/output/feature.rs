@@ -8,20 +8,29 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
+/// The different [`Feature`] variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Feature {
+    /// The sender feature.
     Sender {
+        /// The address associated with the feature.
         address: Address,
     },
+    /// The issuer feature.
     Issuer {
+        /// The address associated with the feature.
         address: Address,
     },
+    /// The metadata feature.
     Metadata {
+        /// The data of the feature.
         #[serde(with = "serde_bytes")]
         data: Box<[u8]>,
     },
+    /// The tag feature.
     Tag {
+        /// The data of the feature.
         #[serde(with = "serde_bytes")]
         data: Box<[u8]>,
     },

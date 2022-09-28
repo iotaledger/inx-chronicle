@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`TreasuryOutput`].
+
 use std::borrow::Borrow;
 
 use bee_block_stardust::output as bee;

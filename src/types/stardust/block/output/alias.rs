@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`AliasOutput`].
+
 use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
@@ -59,7 +61,7 @@ impl From<AliasId> for Bson {
     }
 }
 
-/// Represents an Alias in the UTXO model.
+/// Represents an alias in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasOutput {
     /// The output amount.

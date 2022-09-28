@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`FoundryOutput`].
+
 use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
@@ -10,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
 use crate::types::{context::TryFromWithContext, util::bytify};
 
+/// The id of a foundry.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FoundryId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -48,16 +51,25 @@ impl From<FoundryId> for Bson {
     }
 }
 
+/// Represents a foundry in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
+    /// The output amount.
     pub amount: OutputAmount,
+    /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
+    /// The associated id of the foundry.
     pub foundry_id: FoundryId,
+    /// The serial number of the foundry.
     #[serde(with = "crate::types::util::stringify")]
     pub serial_number: u32,
+    /// The [`TokenScheme`] of the underlying token.
     pub token_scheme: TokenScheme,
+    /// The immutable alias address unlock condition.
     pub immutable_alias_address_unlock_condition: ImmutableAliasAddressUnlockCondition,
+    /// The corresponding list of [`Feature`]s.
     pub features: Box<[Feature]>,
+    /// The corresponding list of immutable [`Feature`]s.
     pub immutable_features: Box<[Feature]>,
 }
 

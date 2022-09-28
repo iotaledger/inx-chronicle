@@ -17,7 +17,7 @@ pub enum Input {
     /// A treasury that corresponds to a milestone.
     Treasury {
         /// The [`MilestoneId`] corresponding to the treasury.
-        milestone_id: MilestoneId
+        milestone_id: MilestoneId,
     },
 }
 
