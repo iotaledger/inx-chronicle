@@ -1,3 +1,22 @@
+## [v1.0.0-beta.21](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.20...v1.0.0-beta.21) (2022-09-27)
+
+
+### Features
+
+* **inx:** update to latest version of `packable` and `bee-inx` ([#729](https://github.com/iotaledger/inx-chronicle/issues/729)) ([d6d1120](https://github.com/iotaledger/inx-chronicle/commit/d6d11206cd4691f3d5a9ba228cb21fab6d079d36)), closes [#735](https://github.com/iotaledger/inx-chronicle/issues/735)
+
+
+### Bug Fixes
+
+* **db:** add index on `metadata.block_id` ([#744](https://github.com/iotaledger/inx-chronicle/issues/744)) ([46509d6](https://github.com/iotaledger/inx-chronicle/commit/46509d6aa7a4ec1a3b4dba2d2494a18546581093))
+
+## [v1.0.0-beta.20](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.19...v1.0.0-beta.20) (2022-09-23)
+
+
+### Bug Fixes
+
+* **db:** enforce transaction blocks output lookup sort order ([#730](https://github.com/iotaledger/inx-chronicle/issues/730)) ([aeddb04](https://github.com/iotaledger/inx-chronicle/commit/aeddb046d891f322e0e25c8014491e576929c630))
+
 ## [v1.0.0-beta.19](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.18...v1.0.0-beta.19) (2022-09-22)
 
 
@@ -461,7 +480,7 @@
 * **metrics:** add solidification counter metric ([#170](https://github.com/iotaledger/inx-chronicle/issues/170)) ([46f5bcb](https://github.com/iotaledger/inx-chronicle/commit/46f5bcb83afccb1b01cabadb16f150fab59a9b7a))
 * **model:** use arrays to store bytes when possible ([#206](https://github.com/iotaledger/inx-chronicle/issues/206)) ([a304a94](https://github.com/iotaledger/inx-chronicle/commit/a304a94125282df0ca38921e9b25531f7b2fd248))
 * syncer based on `inx::ReadMilestoneConeMetadata` ([#177](https://github.com/iotaledger/inx-chronicle/issues/177)) ([1a2da15](https://github.com/iotaledger/inx-chronicle/commit/1a2da15b8039176db9f178e4e79428f3f33825ee))
-* **types:** add Copy and Into<Bson> impls ([#230](https://github.com/iotaledger/inx-chronicle/issues/230)) ([165303c](https://github.com/iotaledger/inx-chronicle/commit/165303c064034a8a20ffd09df8c6217bd60ffaa0))
+* **types:** add Copy and `Into<Bson>` impls ([#230](https://github.com/iotaledger/inx-chronicle/issues/230)) ([165303c](https://github.com/iotaledger/inx-chronicle/commit/165303c064034a8a20ffd09df8c6217bd60ffaa0))
 
 
 ### Bug Fixes

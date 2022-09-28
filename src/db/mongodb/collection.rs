@@ -44,6 +44,7 @@ pub trait MongoDbCollection {
 /// into the provided generic.
 #[async_trait]
 pub trait MongoDbCollectionExt: MongoDbCollection {
+    /// Calls [`mongodb::Collection::create_index()`] and coerces the document type.
     async fn create_index(
         &self,
         index: IndexModel,
@@ -110,6 +111,14 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
         options: impl Into<Option<ReplaceOptions>> + Send + Sync,
     ) -> Result<UpdateResult, Error> {
         self.with_type().replace_one(query, replacement, options).await
+    }
+
+    /// Returns the number of documents in the collection.
+    async fn count(&self) -> Result<usize, Error> {
+        self.collection()
+            .count_documents(None, None)
+            .await
+            .map(|count| count as usize)
     }
 }
 impl<T: MongoDbCollection> MongoDbCollectionExt for T {}

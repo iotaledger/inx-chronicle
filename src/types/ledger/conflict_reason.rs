@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[serde(rename_all = "snake_case")]
+#[allow(missing_docs)]
 pub enum ConflictReason {
     None = 0,
     InputUtxoAlreadySpent = 1,

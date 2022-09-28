@@ -527,13 +527,13 @@ components:
       content:
         application/json:
           schema:
-            $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NotFoundResponse"
+            $ref: "https://raw.githubusercontent.com/iotaledger/tips/main/tips/TIP-0025/core-rest-api.yaml#/components/schemas/NotFoundResponse"
     BadRequest:
       description: "Unsuccessful operation: indicates that the provided start or end milestone is invalid."
       content:
         application/json:
           schema:
-            $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/BadRequestResponse"
+            $ref: "https://raw.githubusercontent.com/iotaledger/tips/main/tips/TIP-0025/core-rest-api.yaml#/components/schemas/BadRequestResponse"
     InternalError:
       description: >-
         Unsuccessful operation: indicates that an unexpected, internal
@@ -542,7 +542,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "https://raw.githubusercontent.com/iotaledger/tips/stardust-api/tips/TIP-0025/core-rest-api.yaml#/components/schemas/InternalErrorResponse"
+            $ref: "https://raw.githubusercontent.com/iotaledger/tips/main/tips/TIP-0025/core-rest-api.yaml#/components/schemas/InternalErrorResponse"
   parameters:
     startIndex:
       in: query

@@ -22,7 +22,7 @@ mod test_rand {
 
     fn rand_output_with_value(amount: OutputAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
-        let mut output = BasicOutput::rand();
+        let mut output = BasicOutput::rand(&bee_block_stardust::protocol::protocol_parameters());
         output.amount = amount;
         Output::Basic(output)
     }

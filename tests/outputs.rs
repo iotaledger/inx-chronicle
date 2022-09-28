@@ -23,7 +23,9 @@ mod test_rand {
         let collection = db.collection::<OutputCollection>();
         collection.create_indexes().await.unwrap();
 
-        let outputs = std::iter::repeat_with(Output::rand)
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+
+        let outputs = std::iter::repeat_with(|| Output::rand(&protocol_params))
             .take(100)
             .map(|output| LedgerOutput {
                 output_id: OutputId::rand(),

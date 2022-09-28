@@ -20,7 +20,7 @@ use chronicle::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
-        tangle::{MilestoneIndex, ProtocolParameters},
+        tangle::MilestoneIndex,
     },
 };
 use futures::{StreamExt, TryStreamExt};
@@ -104,12 +104,12 @@ impl Actor for InxWorker {
             .get_newest_milestone()
             .await?
         {
-            if node_status.tangle_pruning_index > latest_milestone.0 {
+            if node_status.tangle_pruning_index.0 > latest_milestone.0 {
                 return Err(InxError::SyncMilestoneGap {
                     start: latest_milestone + 1,
                     end: node_status.tangle_pruning_index.into(),
                 });
-            } else if node_status.confirmed_milestone.milestone_info.milestone_index < latest_milestone.0 {
+            } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
                 return Err(InxError::SyncMilestoneIndexMismatch {
                     node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
                     db: latest_milestone,
@@ -123,13 +123,13 @@ impl Actor for InxWorker {
                 .max((node_status.tangle_pruning_index + 1).into())
         };
 
-        let protocol_parameters: ProtocolParameters = inx
+        let protocol_parameters = inx
             .read_protocol_parameters(start_index.0.into())
             .await?
-            .inner()?
-            .into();
+            .params
+            .inner_unverified()?;
 
-        debug!("Connected to network `{}`.", protocol_parameters.network_name);
+        debug!("Connected to network `{}`.", protocol_parameters.network_name());
 
         if let Some(latest) = self
             .db
@@ -137,6 +137,7 @@ impl Actor for InxWorker {
             .get_latest_protocol_parameters()
             .await?
         {
+            let protocol_parameters = chronicle::types::tangle::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
                 return Err(InxError::NetworkChanged(
                     latest.parameters.network_name,
@@ -192,12 +193,12 @@ impl Actor for InxWorker {
             info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
-                protocol_parameters.network_name
+                protocol_parameters.network_name()
             );
 
             self.db
                 .collection::<ProtocolUpdateCollection>()
-                .insert_protocol_parameters(start_index, protocol_parameters)
+                .insert_protocol_parameters(start_index, protocol_parameters.into())
                 .await?;
         }
 
@@ -226,8 +227,8 @@ impl Actor for InxWorker {
 #[derive(Debug)]
 pub struct LedgerUpdateRecord {
     milestone_index: MilestoneIndex,
-    created: Vec<LedgerOutput>,
-    consumed: Vec<LedgerSpent>,
+    created: Vec<bee_inx::LedgerOutput>,
+    consumed: Vec<bee_inx::LedgerSpent>,
 }
 
 #[async_trait]
@@ -254,8 +255,24 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
         tracing::Span::current().record("created", ledger_update.created.len());
         tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-        insert_unspent_outputs(&self.db, ledger_update.created).await?;
-        update_spent_outputs(&self.db, ledger_update.consumed).await?;
+        insert_unspent_outputs(
+            &self.db,
+            ledger_update
+                .created
+                .into_iter()
+                .map(|o| o.try_into())
+                .collect::<Result<_, _>>()?,
+        )
+        .await?;
+        update_spent_outputs(
+            &self.db,
+            ledger_update
+                .consumed
+                .into_iter()
+                .map(|o| o.try_into())
+                .collect::<Result<_, _>>()?,
+        )
+        .await?;
 
         handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
         handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
@@ -271,7 +288,7 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
     }
 }
 
-#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+#[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
 async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
@@ -292,7 +309,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Res
     Ok(())
 }
 
-#[instrument(skip_all, fields(num = outputs.len()), level = "trace")]
+#[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
 async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
@@ -315,20 +332,20 @@ async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result
 
 #[instrument(skip_all, level = "trace")]
 async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-    let parameters: ProtocolParameters = inx
+    let parameters = inx
         .read_protocol_parameters(milestone_index.0.into())
         .await?
-        .inner()?
-        .into();
+        .params
+        .inner(&())?;
 
     db.collection::<ProtocolUpdateCollection>()
-        .update_latest_protocol_parameters(milestone_index, parameters)
+        .update_latest_protocol_parameters(milestone_index, parameters.into())
         .await?;
 
     Ok(())
 }
 
-#[instrument(skip_all, level = "trace")]
+#[instrument(skip_all, err, level = "trace")]
 async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
@@ -340,11 +357,14 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
         .milestone_id
         .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
         .into();
-    let payload = Into::into(
-        &milestone
-            .milestone
-            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?,
-    );
+
+    let payload =
+        if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
+            chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
+        } else {
+            // The raw data is guaranteed to contain a milestone payload.
+            unreachable!();
+        };
 
     db.collection::<MilestoneCollection>()
         .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
@@ -356,7 +376,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
     Ok(())
 }
 
-#[instrument(skip(db, inx), level = "trace")]
+#[instrument(skip(db, inx), err, level = "trace")]
 async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
@@ -365,7 +385,7 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
             Result::<_, InxError>::Ok((
                 metadata.block_id.into(),
-                block.clone().inner(&())?.into(),
+                block.clone().inner_unverified()?.into(),
                 block.data(),
                 BlockMetadata::from(metadata),
             ))

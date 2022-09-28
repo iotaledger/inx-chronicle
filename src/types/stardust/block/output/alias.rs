@@ -13,7 +13,7 @@ use super::{
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
     OutputAmount,
 };
-use crate::types::util::bytify;
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -98,10 +98,13 @@ impl<T: Borrow<bee::AliasOutput>> From<T> for AliasOutput {
     }
 }
 
-impl TryFrom<AliasOutput> for bee::AliasOutput {
+impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: AliasOutput,
+    ) -> Result<Self, Self::Error> {
         // The order of the conditions is important here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(
@@ -139,7 +142,7 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
     }
 }
 
@@ -158,8 +161,8 @@ mod rand {
 
     impl AliasOutput {
         /// Generates a random [`AliasOutput`].
-        pub fn rand() -> Self {
-            rand_alias_output().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_alias_output(ctx.token_supply()).into()
         }
     }
 }
@@ -180,8 +183,9 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let output = AliasOutput::rand();
-        bee::AliasOutput::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = AliasOutput::rand(&ctx);
+        bee::AliasOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }
