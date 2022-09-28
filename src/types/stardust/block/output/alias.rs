@@ -39,6 +39,12 @@ impl From<AliasId> for bee::AliasId {
     }
 }
 
+impl From<AliasId> for bee::dto::AliasIdDto {
+    fn from(value: AliasId) -> Self {
+        Into::into(&bee::AliasId::from(value))
+    }
+}
+
 impl FromStr for AliasId {
     type Err = bee_block_stardust::Error;
 
@@ -143,6 +149,31 @@ impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .finish(ctx.token_supply())
+    }
+}
+
+impl From<AliasOutput> for bee::dto::AliasOutputDto {
+    fn from(value: AliasOutput) -> Self {
+        let unlock_conditions = vec![
+            bee::unlock_condition::dto::UnlockConditionDto::StateControllerAddress(
+                value.state_controller_address_unlock_condition.into(),
+            ),
+            bee::unlock_condition::dto::UnlockConditionDto::GovernorAddress(
+                value.governor_address_unlock_condition.into(),
+            ),
+        ];
+        Self {
+            kind: bee::AliasOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.to_vec().into_iter().map(Into::into).collect(),
+            alias_id: value.alias_id.into(),
+            state_index: value.state_index,
+            state_metadata: prefix_hex::encode(value.state_metadata),
+            foundry_counter: value.foundry_counter,
+            unlock_conditions,
+            features: value.features.to_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features.to_vec().into_iter().map(Into::into).collect(),
+        }
     }
 }
 

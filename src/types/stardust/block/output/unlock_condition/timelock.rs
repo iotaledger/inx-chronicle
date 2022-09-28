@@ -29,6 +29,15 @@ impl TryFrom<TimelockUnlockCondition> for bee::TimelockUnlockCondition {
     }
 }
 
+impl From<TimelockUnlockCondition> for bee::dto::TimelockUnlockConditionDto {
+    fn from(value: TimelockUnlockCondition) -> Self {
+        Self {
+            kind: bee::TimelockUnlockCondition::KIND,
+            timestamp: value.timestamp.0,
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::number::rand_number;

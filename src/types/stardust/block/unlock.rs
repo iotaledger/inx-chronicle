@@ -41,6 +41,29 @@ impl TryFrom<Unlock> for bee::Unlock {
     }
 }
 
+impl From<Unlock> for bee::dto::UnlockDto {
+    fn from(value: Unlock) -> Self {
+        match value {
+            Unlock::Signature { signature } => Self::Signature(bee::dto::SignatureUnlockDto {
+                kind: bee::SignatureUnlock::KIND,
+                signature: signature.into(),
+            }),
+            Unlock::Reference { index } => Self::Reference(bee::dto::ReferenceUnlockDto {
+                kind: bee::ReferenceUnlock::KIND,
+                index,
+            }),
+            Unlock::Alias { index } => Self::Alias(bee::dto::AliasUnlockDto {
+                kind: bee::AliasUnlock::KIND,
+                index,
+            }),
+            Unlock::Nft { index } => Self::Nft(bee::dto::NftUnlockDto {
+                kind: bee::NftUnlock::KIND,
+                index,
+            }),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};

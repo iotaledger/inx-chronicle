@@ -92,6 +92,16 @@ impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
     }
 }
 
+impl From<TransactionPayload> for bee::dto::TransactionPayloadDto {
+    fn from(value: TransactionPayload) -> Self {
+        Self {
+            kind: bee::TransactionPayload::KIND,
+            essence: value.essence.into(),
+            unlocks: value.unlocks.to_vec().into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TransactionEssence {
@@ -163,6 +173,28 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                 bee::TransactionEssence::Regular(builder.finish(ctx)?)
             }
         })
+    }
+}
+
+impl From<TransactionEssence> for bee::dto::TransactionEssenceDto {
+    fn from(value: TransactionEssence) -> Self {
+        todo!()
+        // match value {
+        //     TransactionEssence::Regular {
+        //         network_id,
+        //         inputs,
+        //         inputs_commitment,
+        //         outputs,
+        //         payload,
+        //     } => Self::Regular(bee::essence::regular::dto::RegularTransactionEssenceDto {
+        //         kind: bee::RegularTransactionEssence::KIND,
+        //         network_id: network_id.to_string(),
+        //         inputs: inputs.to_vec().into_iter().map(Into::into).collect(),
+        //         inputs_commitment: prefix_hex::encode(inputs_commitment),
+        //         outputs: outputs.to_vec().into_iter().map(Into::into).collect(),
+        //         payload: payload.map(Into::into),
+        //     }),
+        // }
     }
 }
 

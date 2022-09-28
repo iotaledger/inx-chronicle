@@ -17,11 +17,7 @@ use bee_api_types_stardust::{
         StatusResponse, TreasuryResponse, UtxoChangesResponse,
     },
 };
-use bee_block_stardust::{
-    output::dto::OutputDto,
-    payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
-    BlockDto,
-};
+use bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto;
 use chronicle::{
     db::{
         collections::{
@@ -31,7 +27,7 @@ use chronicle::{
         MongoDb,
     },
     types::{
-        context::{TryFromWithContext, TryIntoWithContext},
+        context::TryFromWithContext,
         stardust::block::{
             output::OutputId,
             payload::{milestone::MilestoneId, transaction::TransactionId},
@@ -207,18 +203,7 @@ async fn block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_version(block.protocol_version)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .parameters
-        .try_into()?;
-
-    Ok(BlockResponse::Json(BlockDto::try_from_with_context(
-        &protocol_params,
-        block,
-    )?))
+    Ok(BlockResponse::Json(block.into()))
 }
 
 async fn block_metadata(
@@ -288,17 +273,9 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
 
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .parameters
-        .try_into()?;
-
     Ok(OutputResponse {
         metadata,
-        output: OutputDto::try_from_with_context(&protocol_params, output)?,
+        output: output.into(),
     })
 }
 
@@ -332,36 +309,14 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_version(block.protocol_version)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .parameters
-        .try_into()?;
-
-    Ok(BlockResponse::Json(BlockDto::try_from_with_context(
-        &protocol_params,
-        block,
-    )?))
+    Ok(BlockResponse::Json(block.into()))
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
     let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
-        let protocol_params = database
-            .collection::<ProtocolUpdateCollection>()
-            .get_protocol_parameters_for_ledger_index(at)
-            .await?
-            .ok_or(ApiError::NoResults)?
-            .parameters
-            .try_into()?;
-        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption =
-            &receipt.try_into_with_context(&protocol_params)?;
-        let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
-
-        if let MilestoneOptionDto::Receipt(receipt) = receipt {
+        if let MilestoneOptionDto::Receipt(receipt) = receipt.into() {
             receipts.push(ReceiptDto {
                 receipt,
                 milestone_index: *at,
@@ -378,20 +333,9 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
         .collection::<MilestoneCollection>()
         .get_receipts_migrated_at(index.into())
         .await?;
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(index.into())
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .parameters
-        .try_into()?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
-        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption =
-            &receipt.try_into_with_context(&protocol_params)?;
-        let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
-
-        if let MilestoneOptionDto::Receipt(receipt) = receipt {
+        if let MilestoneOptionDto::Receipt(receipt) = receipt.into() {
             receipts.push(ReceiptDto {
                 receipt,
                 milestone_index: *at,
@@ -427,15 +371,15 @@ async fn milestone(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .parameters
-        .try_into()?;
-
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        let protocol_params = database
+            .collection::<ProtocolUpdateCollection>()
+            .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+            .await?
+            .ok_or(ApiError::NoResults)?
+            .parameters
+            .try_into()?;
+
         if value.eq(&*BYTE_CONTENT_HEADER) {
             let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
                 &protocol_params,
@@ -445,10 +389,7 @@ async fn milestone(
         }
     }
 
-    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from_with_context(
-        &protocol_params,
-        milestone_payload,
-    )?))
+    Ok(MilestoneResponse::Json(milestone_payload.into()))
 }
 
 async fn milestone_by_index(
@@ -462,16 +403,16 @@ async fn milestone_by_index(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .parameters
-        .try_into()?;
-
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
+            let protocol_params = database
+                .collection::<ProtocolUpdateCollection>()
+                .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+                .await?
+                .ok_or(ApiError::NoResults)?
+                .parameters
+                .try_into()?;
+
             let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
                 &protocol_params,
                 milestone_payload,
@@ -480,10 +421,7 @@ async fn milestone_by_index(
         }
     }
 
-    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from_with_context(
-        &protocol_params,
-        milestone_payload,
-    )?))
+    Ok(MilestoneResponse::Json(milestone_payload.into()))
 }
 
 async fn utxo_changes(

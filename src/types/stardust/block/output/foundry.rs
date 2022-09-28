@@ -118,6 +118,24 @@ impl TryFromWithContext<FoundryOutput> for bee::FoundryOutput {
     }
 }
 
+impl From<FoundryOutput> for bee::dto::FoundryOutputDto {
+    fn from(value: FoundryOutput) -> Self {
+        let unlock_conditions = vec![bee::unlock_condition::dto::UnlockConditionDto::ImmutableAliasAddress(
+            value.immutable_alias_address_unlock_condition.into(),
+        )];
+        Self {
+            kind: bee::FoundryOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.to_vec().into_iter().map(Into::into).collect(),
+            serial_number: value.serial_number,
+            token_scheme: value.token_scheme.into(),
+            unlock_conditions,
+            features: value.features.to_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value.immutable_features.to_vec().into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::{bytes::rand_bytes_array, output::rand_foundry_output};

@@ -66,6 +66,17 @@ impl TryFromWithContext<Block> for bee::BlockDto {
     }
 }
 
+impl From<Block> for bee::BlockDto {
+    fn from(value: Block) -> Self {
+        Self {
+            protocol_version: value.protocol_version,
+            parents: value.parents.to_vec().iter().map(BlockId::to_hex).collect(),
+            payload: value.payload.map(Into::into),
+            nonce: value.nonce.to_string(),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee::rand::number::rand_number;

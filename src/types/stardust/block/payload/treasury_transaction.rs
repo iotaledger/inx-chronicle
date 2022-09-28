@@ -39,6 +39,26 @@ impl TryFromWithContext<TreasuryTransactionPayload> for bee::TreasuryTransaction
     }
 }
 
+impl From<TreasuryTransactionPayload> for bee::dto::TreasuryTransactionPayloadDto {
+    fn from(value: TreasuryTransactionPayload) -> Self {
+        Self {
+            kind: bee::TreasuryTransactionPayload::KIND,
+            input: bee_block_stardust::input::dto::InputDto::Treasury(
+                bee_block_stardust::input::dto::TreasuryInputDto {
+                    kind: bee_block_stardust::input::TreasuryInput::KIND,
+                    milestone_id: value.input_milestone_id.to_hex(),
+                },
+            ),
+            output: bee_block_stardust::output::dto::OutputDto::Treasury(
+                bee_block_stardust::output::dto::TreasuryOutputDto {
+                    kind: bee_block_stardust::output::TreasuryOutput::KIND,
+                    amount: value.output_amount.to_string(),
+                },
+            ),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::payload::rand_treasury_transaction_payload;
