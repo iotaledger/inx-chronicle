@@ -219,7 +219,7 @@ async fn block_metadata(
 
     Ok(BlockMetadataResponse {
         block_id: block_id_str,
-        parents: metadata.parents.iter().map(|id| id.to_hex()).collect(),
+        parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
         is_solid: metadata.is_solid,
         referenced_by_milestone_index: Some(*metadata.referenced_by_milestone_index),
         milestone_index: Some(*metadata.milestone_index),

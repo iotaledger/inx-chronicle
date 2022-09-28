@@ -127,7 +127,9 @@ impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
 
         Self::build_with_amount(value.amount.0, value.alias_id.into())?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -137,13 +139,17 @@ impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
             .with_foundry_counter(value.foundry_counter)
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
-                Vec::from(value.immutable_features)
+                value
+                    .immutable_features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -165,14 +171,19 @@ impl From<AliasOutput> for bee::dto::AliasOutputDto {
         Self {
             kind: bee::AliasOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.to_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
             alias_id: value.alias_id.into(),
             state_index: value.state_index,
             state_metadata: prefix_hex::encode(value.state_metadata),
             foundry_counter: value.foundry_counter,
             unlock_conditions,
-            features: value.features.to_vec().into_iter().map(Into::into).collect(),
-            immutable_features: value.immutable_features.to_vec().into_iter().map(Into::into).collect(),
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value
+                .immutable_features
+                .into_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         }
     }
 }

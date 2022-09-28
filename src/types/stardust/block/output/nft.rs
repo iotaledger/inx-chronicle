@@ -126,20 +126,26 @@ impl TryFromWithContext<NftOutput> for bee::NftOutput {
 
         Self::build_with_amount(value.amount.0, value.nft_id.into())?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
-                Vec::from(value.immutable_features)
+                value
+                    .immutable_features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -167,11 +173,16 @@ impl From<NftOutput> for bee::dto::NftOutputDto {
         Self {
             kind: bee::NftOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.to_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
             nft_id: value.nft_id.into(),
             unlock_conditions,
-            features: value.features.to_vec().into_iter().map(Into::into).collect(),
-            immutable_features: value.immutable_features.to_vec().into_iter().map(Into::into).collect(),
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value
+                .immutable_features
+                .into_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         }
     }
 }

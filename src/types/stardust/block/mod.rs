@@ -47,7 +47,7 @@ impl TryFromWithContext<Block> for bee::Block {
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
         let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
-            Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
+            value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
         )?)
         .with_nonce_provider(value.nonce);
         if let Some(payload) = value.payload {

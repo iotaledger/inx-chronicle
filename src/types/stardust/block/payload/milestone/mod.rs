@@ -40,7 +40,9 @@ impl TryFromWithContext<MilestonePayload> for bee::MilestonePayload {
     ) -> Result<Self, Self::Error> {
         bee::MilestonePayload::new(
             value.essence.try_into_with_context(ctx)?,
-            Vec::from(value.signatures)
+            value
+                .signatures
+                .into_vec()
                 .into_iter()
                 .map(Into::into)
                 .collect::<Vec<_>>(),
@@ -59,15 +61,15 @@ impl From<MilestonePayload> for bee::dto::MilestonePayloadDto {
             parents: value
                 .essence
                 .parents
-                .to_vec()
+                .into_vec()
                 .into_iter()
                 .map(|id| id.to_hex())
                 .collect(),
             inclusion_merkle_root: prefix_hex::encode(value.essence.inclusion_merkle_root),
             applied_merkle_root: prefix_hex::encode(value.essence.applied_merkle_root),
-            options: value.essence.options.to_vec().into_iter().map(Into::into).collect(),
+            options: value.essence.options.into_vec().into_iter().map(Into::into).collect(),
             metadata: prefix_hex::encode(value.essence.metadata),
-            signatures: value.signatures.to_vec().into_iter().map(Into::into).collect(),
+            signatures: value.signatures.into_vec().into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -122,13 +124,15 @@ impl TryFromWithContext<MilestoneEssence> for bee::MilestoneEssence {
             value.protocol_version,
             value.previous_milestone_id.into(),
             bee_block_stardust::parent::Parents::new(
-                Vec::from(value.parents).into_iter().map(Into::into).collect::<Vec<_>>(),
+                value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
             )?,
             bee_block_stardust::payload::milestone::MerkleRoot::from(value.inclusion_merkle_root),
             bee_block_stardust::payload::milestone::MerkleRoot::from(value.applied_merkle_root),
             value.metadata,
             bee_block_stardust::payload::MilestoneOptions::new(
-                Vec::from(value.options)
+                value
+                    .options
+                    .into_vec()
                     .into_iter()
                     .map(|x| x.try_into_with_context(ctx))
                     .collect::<Result<Vec<_>, _>>()?,
@@ -187,7 +191,8 @@ impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
             } => Self::Receipt(bee::ReceiptMilestoneOption::new(
                 migrated_at.into(),
                 last,
-                Vec::from(funds)
+                funds
+                    .into_vec()
                     .into_iter()
                     .map(|x| x.try_into_with_context(ctx))
                     .collect::<Result<Vec<_>, _>>()?,
@@ -209,33 +214,32 @@ impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
 
 impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
     fn from(value: MilestoneOption) -> Self {
-        todo!()
-        // match value {
-        //     MilestoneOption::Receipt {
-        //         migrated_at,
-        //         last,
-        //         funds,
-        //         transaction,
-        //     } => Self::Receipt(bee::option::dto::ReceiptMilestoneOptionDto {
-        //         kind: bee::option::ReceiptMilestoneOption::KIND,
-        //         migrated_at: migrated_at.0,
-        //         funds: funds.to_vec().into_iter().map(Into::into).collect(),
-        //         transaction: bee_block_stardust::payload::dto::PayloadDto::TreasuryTransaction(Box::new(
-        //             transaction.into(),
-        //         )),
-        //         last,
-        //     }),
-        //     MilestoneOption::Parameters {
-        //         target_milestone_index,
-        //         protocol_version,
-        //         binary_parameters,
-        //     } => Self::Parameters(bee::option::dto::ParametersMilestoneOptionDto {
-        //         kind: bee::option::ParametersMilestoneOption::KIND,
-        //         target_milestone_index: target_milestone_index.0,
-        //         protocol_version,
-        //         binary_parameters: prefix_hex::encode(binary_parameters),
-        //     }),
-        // }
+        match value {
+            MilestoneOption::Receipt {
+                migrated_at,
+                last,
+                funds,
+                transaction,
+            } => Self::Receipt(bee::option::dto::ReceiptMilestoneOptionDto {
+                kind: bee::option::ReceiptMilestoneOption::KIND,
+                migrated_at: migrated_at.0,
+                funds: funds.into_vec().into_iter().map(Into::into).collect(),
+                transaction: bee_block_stardust::payload::dto::PayloadDto::TreasuryTransaction(Box::new(
+                    transaction.into(),
+                )),
+                last,
+            }),
+            MilestoneOption::Parameters {
+                target_milestone_index,
+                protocol_version,
+                binary_parameters,
+            } => Self::Parameters(bee::option::dto::ParametersMilestoneOptionDto {
+                kind: bee::option::ParametersMilestoneOption::KIND,
+                target_milestone_index: target_milestone_index.0,
+                protocol_version,
+                binary_parameters: prefix_hex::encode(binary_parameters),
+            }),
+        }
     }
 }
 
@@ -280,15 +284,15 @@ impl TryFromWithContext<MigratedFundsEntry> for bee::option::MigratedFundsEntry 
     }
 }
 
-// impl From<MigratedFundsEntry> for bee::option::receipt::dto::MigratedFundsEntryDto {
-//     fn from(value: MigratedFundsEntry) -> Self {
-//         Self {
-//             tail_transaction_hash: prefix_hex::encode(value.tail_transaction_hash),
-//             address: value.address.into(),
-//             deposit: value.amount,
-//         }
-//     }
-// }
+impl From<MigratedFundsEntry> for bee::option::dto::MigratedFundsEntryDto {
+    fn from(value: MigratedFundsEntry) -> Self {
+        Self {
+            tail_transaction_hash: prefix_hex::encode(value.tail_transaction_hash),
+            address: value.address.into(),
+            deposit: value.amount,
+        }
+    }
+}
 
 #[cfg(feature = "rand")]
 mod rand {

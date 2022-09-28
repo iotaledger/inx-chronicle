@@ -73,14 +73,18 @@ impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
 
         Self::build_with_amount(value.amount.0)?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -108,9 +112,9 @@ impl From<BasicOutput> for bee::dto::BasicOutputDto {
         Self {
             kind: bee::BasicOutput::KIND,
             amount: value.amount.0.to_string(),
-            native_tokens: value.native_tokens.to_vec().into_iter().map(Into::into).collect(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
             unlock_conditions,
-            features: value.features.to_vec().into_iter().map(Into::into).collect(),
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
         }
     }
 }
