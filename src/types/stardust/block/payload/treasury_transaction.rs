@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Contains the [`TreasuryTransactionPayload`].
+
 use std::borrow::Borrow;
 
 use bee_block_stardust::payload as bee;

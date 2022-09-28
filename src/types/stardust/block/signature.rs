@@ -8,12 +8,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
+/// Represents a signature used to unlock an output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Signature {
+    /// An Ed25519 signature.
     Ed25519 {
+        /// The public key as bytes.
         #[serde(with = "bytify")]
         public_key: [u8; Self::PUBLIC_KEY_LENGTH],
+        /// The signature as bytes.
         #[serde(with = "bytify")]
         signature: [u8; Self::SIGNATURE_LENGTH],
     },

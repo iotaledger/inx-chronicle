@@ -1,11 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`TaggedDataPayload`] type.
+
 use std::borrow::Borrow;
 
 use bee_block_stardust::payload::tagged_data as bee;
 use serde::{Deserialize, Serialize};
 
+/// Represents the tagged data payload for data blocks.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaggedDataPayload {
     #[serde(with = "serde_bytes")]
