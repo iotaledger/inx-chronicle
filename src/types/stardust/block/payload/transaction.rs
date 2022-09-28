@@ -13,6 +13,7 @@ use crate::types::{
     util::bytify,
 };
 
+/// Uniquely identifies a transaction.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -20,6 +21,7 @@ pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl TransactionId {
     const LENGTH: usize = bee::TransactionId::LENGTH;
 
+    /// Converts the [`TransactionId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
         prefix_hex::encode(self.0.as_ref())
     }
@@ -55,10 +57,14 @@ impl From<TransactionId> for Bson {
     }
 }
 
+/// Represents the transaction payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionPayload {
+    /// The id of the transaction.
     pub transaction_id: TransactionId,
+    /// The transaction essence.
     pub essence: TransactionEssence,
+    /// The list of unlocks.
     pub unlocks: Box<[Unlock]>,
 }
 
@@ -92,17 +98,24 @@ impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
     }
 }
 
+/// Represents the essence of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TransactionEssence {
+    /// The regular transaction essence.
     Regular {
+        /// The network id.
         #[serde(with = "crate::types::util::stringify")]
         network_id: u64,
+        /// The list of [`Input`]s.
         inputs: Box<[Input]>,
         #[serde(with = "bytify")]
+        /// The input commitment.
         inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
+        /// The list of [`Output`]s.
         #[serde(skip_serializing)]
         outputs: Box<[Output]>,
+        /// The [`Payload`].
         #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<Payload>,
     },

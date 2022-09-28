@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
+/// Represents the amount of native tokens.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NativeTokenAmount(#[serde(with = "bytify")] pub [u8; size_of::<U256>()]);
@@ -55,12 +56,17 @@ impl FromStr for NativeTokenId {
     }
 }
 
+/// Defines information about the underlying token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TokenScheme {
+    /// The simple token scheme.
     Simple {
+        /// The amount of minted tokens.
         minted_tokens: NativeTokenAmount,
+        /// The amount of melted tokens.
         melted_tokens: NativeTokenAmount,
+        /// The amount of maximum supply of tokens.
         maximum_supply: NativeTokenAmount,
     },
 }
@@ -95,9 +101,12 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
     }
 }
 
+/// Represents a native token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeToken {
+    /// The corresponding token id.
     pub token_id: NativeTokenId,
+    /// The amount of native tokens.
     pub amount: NativeTokenAmount,
 }
 

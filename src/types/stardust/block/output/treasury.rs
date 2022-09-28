@@ -11,8 +11,10 @@ use serde::{Deserialize, Serialize};
 use super::OutputAmount;
 use crate::types::context::TryFromWithContext;
 
+/// Represents a treasury in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
+    /// The output amount.
     pub amount: OutputAmount,
 }
 

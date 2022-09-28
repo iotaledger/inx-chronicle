@@ -25,7 +25,7 @@ pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl AliasId {
     const LENGTH: usize = bee::AliasId::LENGTH;
 
-    /// The [`AliasId`] is derived from the [`OutputId`] that created the Alias.
+    /// The [`AliasId`] is derived from the [`super::OutputId`] that created the alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
         Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }

@@ -108,7 +108,7 @@ pub enum Output {
 
 impl Output {
     
-    /// The [`Address`] that is in control of the output.
+    /// Returns the [`Address`] that is in control of the output.
     pub fn owning_address(&self) -> Option<&Address> {
         Some(match self {
             Self::Treasury(_) => return None,
@@ -131,6 +131,7 @@ impl Output {
         })
     }
 
+    /// Returns the amount associated with an output.
     pub fn amount(&self) -> OutputAmount {
         match self {
             Self::Treasury(TreasuryOutput { amount, .. }) => *amount,
@@ -141,6 +142,7 @@ impl Output {
         }
     }
 
+    /// Checks if an output is trivially unlockable by only providing a signature.
     pub fn is_trivial_unlock(&self) -> bool {
         match self {
             Self::Treasury(_) => false,
@@ -169,6 +171,7 @@ impl Output {
         }
     }
 
+    /// Returns the rent structure that can be use to compute the storage deposit for an output.
     pub fn rent_structure(&self) -> RentStructureBytes {
         // Computing the rent structure is independent of the protocol parameters, we just need this for conversion.
         let ctx = bee_block_stardust::protocol::protocol_parameters();
