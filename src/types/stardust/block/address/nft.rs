@@ -25,6 +25,12 @@ impl From<NftAddress> for bee::NftAddress {
     }
 }
 
+impl From<NftAddress> for bee::dto::NftAddressDto {
+    fn from(value: NftAddress) -> Self {
+        Into::into(&bee::NftAddress::from(value))
+    }
+}
+
 impl FromStr for NftAddress {
     type Err = bee_block_stardust::Error;
 

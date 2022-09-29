@@ -25,6 +25,12 @@ impl From<AliasAddress> for bee::AliasAddress {
     }
 }
 
+impl From<AliasAddress> for bee::dto::AliasAddressDto {
+    fn from(value: AliasAddress) -> Self {
+        Into::into(&bee::AliasAddress::from(value))
+    }
+}
+
 impl FromStr for AliasAddress {
     type Err = bee_block_stardust::Error;
 

@@ -31,6 +31,16 @@ impl TryFrom<TaggedDataPayload> for bee::TaggedDataPayload {
     }
 }
 
+impl From<TaggedDataPayload> for bee::dto::TaggedDataPayloadDto {
+    fn from(value: TaggedDataPayload) -> Self {
+        Self {
+            kind: bee::TaggedDataPayload::KIND,
+            tag: prefix_hex::encode(value.tag),
+            data: prefix_hex::encode(value.data),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::payload::rand_tagged_data_payload;

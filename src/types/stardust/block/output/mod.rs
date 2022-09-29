@@ -226,15 +226,15 @@ impl TryFromWithContext<Output> for bee::Output {
     }
 }
 
-impl TryFromWithContext<Output> for bee::dto::OutputDto {
-    type Error = bee_block_stardust::Error;
-
-    fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        value: Output,
-    ) -> Result<Self, Self::Error> {
-        let stardust = bee::Output::try_from_with_context(ctx, value)?;
-        Ok(bee::dto::OutputDto::from(&stardust))
+impl From<Output> for bee::dto::OutputDto {
+    fn from(value: Output) -> Self {
+        match value {
+            Output::Treasury(o) => Self::Treasury(o.into()),
+            Output::Basic(o) => Self::Basic(o.into()),
+            Output::Alias(o) => Self::Alias(o.into()),
+            Output::Foundry(o) => Self::Foundry(o.into()),
+            Output::Nft(o) => Self::Nft(o.into()),
+        }
     }
 }
 

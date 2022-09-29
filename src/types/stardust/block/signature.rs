@@ -43,6 +43,18 @@ impl From<Signature> for bee::Signature {
     }
 }
 
+impl From<Signature> for bee::dto::SignatureDto {
+    fn from(value: Signature) -> Self {
+        match value {
+            Signature::Ed25519 { public_key, signature } => Self::Ed25519(bee::dto::Ed25519SignatureDto {
+                kind: bee::Ed25519Signature::KIND,
+                public_key: prefix_hex::encode(public_key),
+                signature: prefix_hex::encode(signature),
+            }),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::bytes::rand_bytes_array;
