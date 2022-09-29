@@ -1,8 +1,3 @@
----
-name: Pull Request
-about: A regular pull request that usually has a corresponding issue.
----
-
 ## Linked Issues
 
 <!-- Please provide the isse number corresponding to this PR. -->
