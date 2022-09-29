@@ -13,8 +13,8 @@ pub struct ClArgs {
     #[clap(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
     /// The MongoDB connection string.
-    #[clap(long, env = "MONGODB_CONN_URI")]
-    pub mongodb_conn_url: Option<String>,
+    #[clap(long, env = "MONGODB_CONN_STR")]
+    pub mongodb_conn_str: Option<String>,
     /// The address of the INX interface provided by the node.
     #[clap(long, env = "INX_ADDR")]
     #[cfg(feature = "inx")]
@@ -53,8 +53,8 @@ impl ClArgs {
             .transpose()?
             .unwrap_or_default();
 
-        if let Some(connect_url) = &self.mongodb_conn_url {
-            config.mongodb.connect_url = connect_url.clone();
+        if let Some(conn_str) = &self.mongodb_conn_str {
+            config.mongodb.conn_str = conn_str.clone();
         }
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -109,7 +109,7 @@ impl ClArgs {
                         uuid::Uuid::new_v4().to_string(),
                         ApiData::AUDIENCE,
                     )
-                    .unwrap()
+                    .unwrap() // Panic: Cannot fail.
                     .expires_after_duration(api_data.jwt_expiration)
                     .expect("invalid JWT config");
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();

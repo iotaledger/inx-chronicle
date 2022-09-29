@@ -53,10 +53,7 @@ impl Actor for Launcher {
             return Ok(config);
         }
 
-        info!(
-            "Connecting to database at bind address `{}`.",
-            config.mongodb.connect_url
-        );
+        info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
         let db = MongoDb::connect(&config.mongodb).await?;
         debug!("Available databases: `{:?}`", db.get_databases().await?);
         info!(
