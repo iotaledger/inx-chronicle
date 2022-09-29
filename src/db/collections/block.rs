@@ -249,6 +249,30 @@ impl BlockCollection {
         .await
     }
 
+    /// Finds the raw bytes of the block that included a transaction by [`TransactionId`].
+    pub async fn get_block_raw_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Vec<u8>>, Error> {
+        #[derive(Deserialize)]
+        struct RawResult {
+            #[serde(with = "serde_bytes")]
+            data: Vec<u8>,
+        }
+
+        Ok(self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
+                    "block.payload.transaction_id": transaction_id,
+                } },
+                doc! { "$replaceWith": { "data": "$raw" } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await?
+        .map(|RawResult { data }| data))
+    }
+
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         self.aggregate(
