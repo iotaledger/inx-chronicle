@@ -3,7 +3,6 @@
 
 #![allow(missing_docs)]
 
-use bee_block_stardust::output::{Rent, RentStructureBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
@@ -58,6 +57,7 @@ impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
+        use bee_block_stardust::output::{Rent, RentStructureBuilder};
         let bee_output = value.output.inner_unverified()?;
         let num_data_bytes = {
             let config = RentStructureBuilder::new()
@@ -101,6 +101,7 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for Ledger
         ctx: &bee_block_stardust::protocol::ProtocolParameters,
         value: bee_inx::LedgerOutput,
     ) -> Result<Self, Self::Error> {
+        use bee_block_stardust::output::{Rent, RentStructureBuilder};
         let bee_output = value.output.inner(ctx)?;
         let num_data_bytes = {
             let config = RentStructureBuilder::new()
