@@ -101,7 +101,7 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for Ledger
         ctx: &bee_block_stardust::protocol::ProtocolParameters,
         value: bee_inx::LedgerOutput,
     ) -> Result<Self, Self::Error> {
-        let bee_output = value.output.inner(&ctx)?;
+        let bee_output = value.output.inner(ctx)?;
         let num_data_bytes = {
             let config = RentStructureBuilder::new()
                 .byte_cost(1)
