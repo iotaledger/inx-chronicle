@@ -179,9 +179,8 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "bee-api-types"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "539b26b6963b744909bfa6d130a85d2abc0f45a9aaad2400633100604521422b"
+version = "1.0.1"
+source = "git+http://github.com/Alex6323/bee.git?branch=feat/bee-inx/additional-wrappers#463bb58d73d154c704bf606567f0d08ed80a9b7b"
 dependencies = [
  "axum",
  "bee-block",
@@ -192,9 +191,8 @@ dependencies = [
 
 [[package]]
 name = "bee-block"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d124ffdd80872942bb979a0b2b21e9fe069b5eca6c38997e33de30749b94261"
+version = "1.0.1"
+source = "git+http://github.com/Alex6323/bee.git?branch=feat/bee-inx/additional-wrappers#463bb58d73d154c704bf606567f0d08ed80a9b7b"
 dependencies = [
  "bech32",
  "bee-pow",
@@ -219,9 +217,8 @@ dependencies = [
 
 [[package]]
 name = "bee-inx"
-version = "1.0.0-beta.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "966482b32a4549cda89ee7b455e0470bca1e58b7f4d698bbed6d434ac57cd512"
+version = "1.0.0-rc.1"
+source = "git+http://github.com/Alex6323/bee.git?branch=feat/bee-inx/additional-wrappers#463bb58d73d154c704bf606567f0d08ed80a9b7b"
 dependencies = [
  "bee-block",
  "futures",
@@ -232,9 +229,8 @@ dependencies = [
 
 [[package]]
 name = "bee-ledger-types"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bb8f7b8c5bf371243e6fe36c6feb0985a84ff15ca6251b60749be490d2fd05a"
+version = "1.0.1"
+source = "git+http://github.com/Alex6323/bee.git?branch=feat/bee-inx/additional-wrappers#463bb58d73d154c704bf606567f0d08ed80a9b7b"
 dependencies = [
  "bee-block",
  "packable",
@@ -244,8 +240,7 @@ dependencies = [
 [[package]]
 name = "bee-pow"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "740c63e550d741613893a432c03db714bc1d6ff85882b88ded0f0920c06e98a6"
+source = "git+http://github.com/Alex6323/bee.git?branch=feat/bee-inx/additional-wrappers#463bb58d73d154c704bf606567f0d08ed80a9b7b"
 dependencies = [
  "bee-ternary",
  "iota-crypto",
