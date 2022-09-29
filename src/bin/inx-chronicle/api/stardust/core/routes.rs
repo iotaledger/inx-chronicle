@@ -301,8 +301,22 @@ async fn output_metadata(
 async fn transaction_included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
+    headers: HeaderMap,
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
+
+    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        if value.eq(&*BYTE_CONTENT_HEADER) {
+            return Ok(BlockResponse::Raw(
+                database
+                    .collection::<BlockCollection>()
+                    .get_block_raw_for_transaction(&transaction_id)
+                    .await?
+                    .ok_or(ApiError::NoResults)?,
+            ));
+        }
+    }
+
     let block = database
         .collection::<BlockCollection>()
         .get_block_for_transaction(&transaction_id)
