@@ -56,7 +56,9 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ./data/hornet:/app/
+      - ./data/hornet/alphanet/:/app/alphanet
+      - ./data/hornet/testnet/:/app/testnet
+      - ./data/hornet/shimmer/:/app/shimmer
       - ./config.testnet.hornet.json:/app/config_testnet.json:ro
       - ./config.alphanet.hornet.json:/app/config_alphanet.json:ro
     command:
