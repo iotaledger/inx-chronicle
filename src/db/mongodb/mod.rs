@@ -53,6 +53,11 @@ impl MongoDb {
         })
     }
 
+    /// Creates a collection if it does not exist.
+    pub async fn create_collection<T: MongoDbCollection>(&self) {
+        self.db.create_collection(T::NAME, None).await.ok();
+    }
+
     /// Gets a collection of the provided type.
     pub fn collection<T: MongoDbCollection>(&self) -> T {
         T::instantiate(self, self.db.collection(T::NAME))

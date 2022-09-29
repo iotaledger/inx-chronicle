@@ -79,6 +79,10 @@ impl Actor for Launcher {
         {
             use chronicle::db::collections;
             let start_indexes = db.get_index_names().await?;
+            db.create_collection::<collections::OutputCollection>().await;
+            db.create_collection::<collections::BlockCollection>().await;
+            db.create_collection::<collections::LedgerUpdateCollection>().await;
+            db.create_collection::<collections::MilestoneCollection>().await;
             db.collection::<collections::OutputCollection>()
                 .create_indexes()
                 .await?;
