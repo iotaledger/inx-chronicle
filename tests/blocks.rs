@@ -63,19 +63,17 @@ mod test_rand {
         }) {
             if !outputs.is_empty() {
                 db.collection::<OutputCollection>()
-                    .insert_unspent_outputs(Vec::from(outputs.clone()).into_iter().enumerate().map(|(i, output)| {
-                        LedgerOutput {
-                            output_id: OutputId {
-                                transaction_id,
-                                index: i as u16,
-                            },
-                            block_id: *block_id,
-                            booked: MilestoneIndexTimestamp {
-                                milestone_index: 0.into(),
-                                milestone_timestamp: 12345.into(),
-                            },
-                            output,
-                        }
+                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| LedgerOutput {
+                        output_id: OutputId {
+                            transaction_id,
+                            index: i as u16,
+                        },
+                        block_id: *block_id,
+                        booked: MilestoneIndexTimestamp {
+                            milestone_index: 0.into(),
+                            milestone_timestamp: 12345.into(),
+                        },
+                        output,
                     }))
                     .await
                     .unwrap();
