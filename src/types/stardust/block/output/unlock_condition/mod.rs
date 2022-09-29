@@ -32,7 +32,8 @@ mod test {
 
     #[test]
     fn test_storage_deposit_unlock_bson() {
-        let unlock = StorageDepositReturnUnlockCondition::rand();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let unlock = StorageDepositReturnUnlockCondition::rand(&ctx);
         let bson = to_bson(&unlock).unwrap();
         from_bson::<StorageDepositReturnUnlockCondition>(bson).unwrap();
     }

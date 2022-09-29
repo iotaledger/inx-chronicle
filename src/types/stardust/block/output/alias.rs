@@ -13,7 +13,7 @@ use super::{
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
     OutputAmount,
 };
-use crate::types::util::bytify;
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -36,6 +36,12 @@ impl From<bee::AliasId> for AliasId {
 impl From<AliasId> for bee::AliasId {
     fn from(value: AliasId) -> Self {
         bee::AliasId::new(value.0)
+    }
+}
+
+impl From<AliasId> for bee::dto::AliasIdDto {
+    fn from(value: AliasId) -> Self {
+        Into::into(&bee::AliasId::from(value))
     }
 }
 
@@ -98,10 +104,13 @@ impl<T: Borrow<bee::AliasOutput>> From<T> for AliasOutput {
     }
 }
 
-impl TryFrom<AliasOutput> for bee::AliasOutput {
+impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: AliasOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: AliasOutput,
+    ) -> Result<Self, Self::Error> {
         // The order of the conditions is important here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(
@@ -118,7 +127,9 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
 
         Self::build_with_amount(value.amount.0, value.alias_id.into())?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -128,18 +139,52 @@ impl TryFrom<AliasOutput> for bee::AliasOutput {
             .with_foundry_counter(value.foundry_counter)
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
-                Vec::from(value.immutable_features)
+                value
+                    .immutable_features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
+    }
+}
+
+impl From<AliasOutput> for bee::dto::AliasOutputDto {
+    fn from(value: AliasOutput) -> Self {
+        let unlock_conditions = vec![
+            bee::unlock_condition::dto::UnlockConditionDto::StateControllerAddress(
+                value.state_controller_address_unlock_condition.into(),
+            ),
+            bee::unlock_condition::dto::UnlockConditionDto::GovernorAddress(
+                value.governor_address_unlock_condition.into(),
+            ),
+        ];
+        Self {
+            kind: bee::AliasOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            alias_id: value.alias_id.into(),
+            state_index: value.state_index,
+            state_metadata: prefix_hex::encode(value.state_metadata),
+            foundry_counter: value.foundry_counter,
+            unlock_conditions,
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value
+                .immutable_features
+                .into_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        }
     }
 }
 
@@ -158,8 +203,8 @@ mod rand {
 
     impl AliasOutput {
         /// Generates a random [`AliasOutput`].
-        pub fn rand() -> Self {
-            rand_alias_output().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_alias_output(ctx.token_supply()).into()
         }
     }
 }
@@ -180,8 +225,9 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let output = AliasOutput::rand();
-        bee::AliasOutput::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = AliasOutput::rand(&ctx);
+        bee::AliasOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }

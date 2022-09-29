@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::types::ledger::{LedgerOutput, LedgerSpent};
 use futures::Stream;
 use pin_project::pin_project;
 
@@ -55,28 +54,14 @@ impl<S: Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>>> Stream for
                             }
                             LedgerUpdate::Consumed(consumed) => {
                                 if let Some(mut record) = this.record.as_mut().as_pin_mut() {
-                                    match LedgerSpent::try_from(consumed) {
-                                        Ok(consumed) => {
-                                            record.consumed.push(consumed);
-                                        }
-                                        Err(e) => {
-                                            break Some(Err(e.into()));
-                                        }
-                                    }
+                                    record.consumed.push(consumed);
                                 } else {
                                     break Some(Err(InxError::InvalidMilestoneState));
                                 }
                             }
                             LedgerUpdate::Created(created) => {
                                 if let Some(mut record) = this.record.as_mut().as_pin_mut() {
-                                    match LedgerOutput::try_from(created) {
-                                        Ok(created) => {
-                                            record.created.push(created);
-                                        }
-                                        Err(e) => {
-                                            break Some(Err(e.into()));
-                                        }
-                                    }
+                                    record.created.push(created);
                                 } else {
                                     break Some(Err(InxError::InvalidMilestoneState));
                                 }

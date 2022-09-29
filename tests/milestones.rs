@@ -19,7 +19,7 @@ mod test_rand {
         let collection = db.collection::<MilestoneCollection>();
         collection.create_indexes().await.unwrap();
 
-        let milestone = MilestonePayload::rand();
+        let milestone = MilestonePayload::rand(&bee_block_stardust::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();
 
         collection

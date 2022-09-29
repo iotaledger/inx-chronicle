@@ -5,6 +5,7 @@ use derive_more::{Add, Deref, DerefMut, Sub};
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
+/// The Unix timestamp of a milestone.
 #[derive(
     Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut,
 )]

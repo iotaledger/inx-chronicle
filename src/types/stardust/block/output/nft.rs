@@ -13,7 +13,7 @@ use super::{
     },
     Feature, NativeToken, OutputAmount,
 };
-use crate::types::util::bytify;
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -36,6 +36,12 @@ impl From<bee::NftId> for NftId {
 impl From<NftId> for bee::NftId {
     fn from(value: NftId) -> Self {
         bee::NftId::new(value.0)
+    }
+}
+
+impl From<NftId> for bee::dto::NftIdDto {
+    fn from(value: NftId) -> Self {
+        Into::into(&bee::NftId::from(value))
     }
 }
 
@@ -91,16 +97,19 @@ impl<T: Borrow<bee::NftOutput>> From<T> for NftOutput {
     }
 }
 
-impl TryFrom<NftOutput> for bee::NftOutput {
+impl TryFromWithContext<NftOutput> for bee::NftOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: NftOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: NftOutput,
+    ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(bee::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
             value
                 .storage_deposit_return_unlock_condition
-                .map(bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from)
+                .map(|x| bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
                 .transpose()?
                 .map(Into::into),
             value
@@ -117,25 +126,64 @@ impl TryFrom<NftOutput> for bee::NftOutput {
 
         Self::build_with_amount(value.amount.0, value.nft_id.into())?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
-                Vec::from(value.immutable_features)
+                value
+                    .immutable_features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
+    }
+}
+
+impl From<NftOutput> for bee::dto::NftOutputDto {
+    fn from(value: NftOutput) -> Self {
+        let mut unlock_conditions = vec![bee::unlock_condition::dto::UnlockConditionDto::Address(
+            value.address_unlock_condition.into(),
+        )];
+        if let Some(uc) = value.storage_deposit_return_unlock_condition {
+            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::StorageDepositReturn(
+                uc.into(),
+            ));
+        }
+        if let Some(uc) = value.timelock_unlock_condition {
+            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::Timelock(uc.into()));
+        }
+        if let Some(uc) = value.expiration_unlock_condition {
+            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
+        }
+        Self {
+            kind: bee::NftOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            nft_id: value.nft_id.into(),
+            unlock_conditions,
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value
+                .immutable_features
+                .into_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        }
     }
 }
 
@@ -154,8 +202,8 @@ mod rand {
 
     impl NftOutput {
         /// Generates a random [`NftOutput`].
-        pub fn rand() -> Self {
-            rand_nft_output().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_nft_output(ctx.token_supply()).into()
         }
     }
 }
@@ -176,8 +224,9 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let output = NftOutput::rand();
-        bee::NftOutput::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = NftOutput::rand(&ctx);
+        bee::NftOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<NftOutput>(bson).unwrap());
     }

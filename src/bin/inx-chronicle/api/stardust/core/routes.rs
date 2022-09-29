@@ -17,11 +17,7 @@ use bee_api_types_stardust::{
         StatusResponse, TreasuryResponse, UtxoChangesResponse,
     },
 };
-use bee_block_stardust::{
-    output::dto::OutputDto,
-    payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
-    BlockDto,
-};
+use bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto;
 use chronicle::{
     db::{
         collections::{
@@ -31,6 +27,7 @@ use chronicle::{
         MongoDb,
     },
     types::{
+        context::TryFromWithContext,
         stardust::block::{
             output::OutputId,
             payload::{milestone::MilestoneId, transaction::TransactionId},
@@ -134,17 +131,19 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
 
     let latest_milestone = LatestMilestoneResponse {
         index: newest_milestone.milestone_index.0,
-        timestamp: newest_milestone.milestone_timestamp.0,
-        milestone_id: bee_block_stardust::payload::milestone::MilestoneId::from(
-            database
-                .collection::<MilestoneCollection>()
-                .get_milestone_id(newest_milestone.milestone_index)
-                .await?
-                .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-                    "no milestone in the database",
-                )))?,
-        )
-        .to_string(),
+        timestamp: Some(newest_milestone.milestone_timestamp.0),
+        milestone_id: Some(
+            bee_block_stardust::payload::milestone::MilestoneId::from(
+                database
+                    .collection::<MilestoneCollection>()
+                    .get_milestone_id(newest_milestone.milestone_index)
+                    .await?
+                    .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+                        "no milestone in the database",
+                    )))?,
+            )
+            .to_string(),
+        ),
     };
 
     // Unfortunately, there is a distinction between `LatestMilestoneResponse` and `ConfirmedMilestoneResponse` in Bee.
@@ -160,6 +159,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         protocol: ProtocolResponse {
             version: protocol.version,
             network_name: protocol.network_name,
+            below_max_depth: protocol.below_max_depth,
             bech32_hrp: protocol.bech32_hrp,
             min_pow_score: protocol.min_pow_score,
             rent_structure: RentStructureResponse {
@@ -202,7 +202,8 @@ async fn block(
         .get_block(&block_id)
         .await?
         .ok_or(ApiError::NoResults)?;
-    Ok(BlockResponse::Json(BlockDto::try_from(block)?))
+
+    Ok(BlockResponse::Json(block.into()))
 }
 
 async fn block_metadata(
@@ -218,7 +219,7 @@ async fn block_metadata(
 
     Ok(BlockMetadataResponse {
         block_id: block_id_str,
-        parents: metadata.parents.iter().map(|id| id.to_hex()).collect(),
+        parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
         is_solid: metadata.is_solid,
         referenced_by_milestone_index: Some(*metadata.referenced_by_milestone_index),
         milestone_index: Some(*metadata.milestone_index),
@@ -274,7 +275,7 @@ async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> 
 
     Ok(OutputResponse {
         metadata,
-        output: OutputDto::try_from(output)?,
+        output: output.into(),
     })
 }
 
@@ -308,17 +309,14 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(BlockDto::try_from(block)?))
+    Ok(BlockResponse::Json(block.into()))
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
     let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
-        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
-        let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
-
-        if let MilestoneOptionDto::Receipt(receipt) = receipt {
+        if let MilestoneOptionDto::Receipt(receipt) = receipt.into() {
             receipts.push(ReceiptDto {
                 receipt,
                 milestone_index: *at,
@@ -337,10 +335,7 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
         .await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
-        let receipt: &bee_block_stardust::payload::milestone::MilestoneOption = &receipt.try_into()?;
-        let receipt: bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto = receipt.into();
-
-        if let MilestoneOptionDto::Receipt(receipt) = receipt {
+        if let MilestoneOptionDto::Receipt(receipt) = receipt.into() {
             receipts.push(ReceiptDto {
                 receipt,
                 milestone_index: *at,
@@ -377,15 +372,24 @@ async fn milestone(
         .ok_or(ApiError::NoResults)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        let protocol_params = database
+            .collection::<ProtocolUpdateCollection>()
+            .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+            .await?
+            .ok_or(ApiError::NoResults)?
+            .parameters
+            .try_into()?;
+
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from(milestone_payload)?;
+            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
+                &protocol_params,
+                milestone_payload,
+            )?;
             return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from(
-        milestone_payload,
-    )?))
+    Ok(MilestoneResponse::Json(milestone_payload.into()))
 }
 
 async fn milestone_by_index(
@@ -401,14 +405,23 @@ async fn milestone_by_index(
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from(milestone_payload)?;
+            let protocol_params = database
+                .collection::<ProtocolUpdateCollection>()
+                .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+                .await?
+                .ok_or(ApiError::NoResults)?
+                .parameters
+                .try_into()?;
+
+            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
+                &protocol_params,
+                milestone_payload,
+            )?;
             return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(MilestoneResponse::Json(MilestonePayloadDto::try_from(
-        milestone_payload,
-    )?))
+    Ok(MilestoneResponse::Json(milestone_payload.into()))
 }
 
 async fn utxo_changes(

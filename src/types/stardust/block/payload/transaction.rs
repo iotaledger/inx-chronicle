@@ -8,6 +8,7 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
+    context::{TryFromWithContext, TryIntoWithContext},
     stardust::block::{Input, Output, Payload, Unlock},
     util::bytify,
 };
@@ -72,19 +73,34 @@ impl<T: Borrow<bee::TransactionPayload>> From<T> for TransactionPayload {
     }
 }
 
-impl TryFrom<TransactionPayload> for bee::TransactionPayload {
+impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: TransactionPayload) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: TransactionPayload,
+    ) -> Result<Self, Self::Error> {
         bee::TransactionPayload::new(
-            value.essence.try_into()?,
+            value.essence.try_into_with_context(ctx)?,
             bee_block_stardust::unlock::Unlocks::new(
-                Vec::from(value.unlocks)
+                value
+                    .unlocks
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )?,
         )
+    }
+}
+
+impl From<TransactionPayload> for bee::dto::TransactionPayloadDto {
+    fn from(value: TransactionPayload) -> Self {
+        Self {
+            kind: bee::TransactionPayload::KIND,
+            essence: value.essence.into(),
+            unlocks: value.unlocks.into_vec().into_iter().map(Into::into).collect(),
+        }
     }
 }
 
@@ -123,40 +139,65 @@ impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
     }
 }
 
-impl TryFrom<TransactionEssence> for bee::TransactionEssence {
+impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: TransactionEssence) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: TransactionEssence,
+    ) -> Result<Self, Self::Error> {
         Ok(match value {
             TransactionEssence::Regular {
-                network_id,
+                network_id: _,
                 inputs,
                 inputs_commitment,
                 outputs,
                 payload,
             } => {
                 let mut builder = bee::RegularTransactionEssence::builder(
-                    network_id,
                     bee_block_stardust::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
-                    Vec::from(inputs)
+                    inputs
+                        .into_vec()
                         .into_iter()
                         .map(TryInto::try_into)
                         .collect::<Result<Vec<_>, _>>()?,
                 )
                 .with_outputs(
-                    Vec::from(outputs)
+                    outputs
+                        .into_vec()
                         .into_iter()
-                        .map(TryInto::try_into)
+                        .map(|x| x.try_into_with_context(ctx))
                         .collect::<Result<Vec<_>, _>>()?,
                 );
                 if let Some(payload) = payload {
-                    builder = builder.with_payload(payload.try_into()?);
+                    builder = builder.with_payload(payload.try_into_with_context(ctx)?);
                 }
-                bee::TransactionEssence::Regular(builder.finish()?)
+                bee::TransactionEssence::Regular(builder.finish(ctx)?)
             }
         })
+    }
+}
+
+impl From<TransactionEssence> for bee::dto::TransactionEssenceDto {
+    fn from(value: TransactionEssence) -> Self {
+        match value {
+            TransactionEssence::Regular {
+                network_id,
+                inputs,
+                inputs_commitment,
+                outputs,
+                payload,
+            } => Self::Regular(bee::dto::RegularTransactionEssenceDto {
+                kind: bee::RegularTransactionEssence::KIND,
+                network_id: network_id.to_string(),
+                inputs: inputs.into_vec().into_iter().map(Into::into).collect(),
+                inputs_commitment: prefix_hex::encode(inputs_commitment),
+                outputs: outputs.into_vec().into_iter().map(Into::into).collect(),
+                payload: payload.map(Into::into),
+            }),
+        }
     }
 }
 
@@ -179,14 +220,14 @@ mod rand {
 
     impl TransactionEssence {
         /// Generates a random [`TransactionEssence`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self::Regular {
                 network_id: rand_number(),
                 inputs: std::iter::repeat_with(Input::rand)
                     .take(rand_number_range(0..10))
                     .collect(),
                 inputs_commitment: *rand_inputs_commitment(),
-                outputs: std::iter::repeat_with(Output::rand)
+                outputs: std::iter::repeat_with(|| Output::rand(ctx))
                     .take(rand_number_range(0..10))
                     .collect(),
                 payload: if rand_number_range(0..=1) == 1 {
@@ -200,10 +241,10 @@ mod rand {
 
     impl TransactionPayload {
         /// Generates a random [`TransactionPayload`].
-        pub fn rand() -> Self {
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {
                 transaction_id: TransactionId::rand(),
-                essence: TransactionEssence::rand(),
+                essence: TransactionEssence::rand(ctx),
                 unlocks: std::iter::repeat_with(Unlock::rand)
                     .take(rand_number_range(1..10))
                     .collect(),
@@ -228,7 +269,8 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let payload = TransactionPayload::rand();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let payload = TransactionPayload::rand(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
         let TransactionEssence::Regular { outputs, .. } = &payload.essence;

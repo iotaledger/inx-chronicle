@@ -8,7 +8,7 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
-use crate::types::util::bytify;
+use crate::types::{context::TryFromWithContext, util::bytify};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -82,10 +82,13 @@ impl<T: Borrow<bee::FoundryOutput>> From<T> for FoundryOutput {
     }
 }
 
-impl TryFrom<FoundryOutput> for bee::FoundryOutput {
+impl TryFromWithContext<FoundryOutput> for bee::FoundryOutput {
     type Error = bee_block_stardust::Error;
 
-    fn try_from(value: FoundryOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        value: FoundryOutput,
+    ) -> Result<Self, Self::Error> {
         let u: bee::UnlockCondition = bee::unlock_condition::ImmutableAliasAddressUnlockCondition::try_from(
             value.immutable_alias_address_unlock_condition,
         )?
@@ -93,25 +96,54 @@ impl TryFrom<FoundryOutput> for bee::FoundryOutput {
 
         Self::build_with_amount(value.amount.0, value.serial_number, value.token_scheme.try_into()?)?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_unlock_conditions([u])
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
-                Vec::from(value.immutable_features)
+                value
+                    .immutable_features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-            .finish()
+            .finish(ctx.token_supply())
+    }
+}
+
+impl From<FoundryOutput> for bee::dto::FoundryOutputDto {
+    fn from(value: FoundryOutput) -> Self {
+        let unlock_conditions = vec![bee::unlock_condition::dto::UnlockConditionDto::ImmutableAliasAddress(
+            value.immutable_alias_address_unlock_condition.into(),
+        )];
+        Self {
+            kind: bee::FoundryOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            serial_number: value.serial_number,
+            token_scheme: value.token_scheme.into(),
+            unlock_conditions,
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value
+                .immutable_features
+                .into_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        }
     }
 }
 
@@ -130,8 +162,8 @@ mod rand {
 
     impl FoundryOutput {
         /// Generates a random [`FoundryOutput`].
-        pub fn rand() -> Self {
-            rand_foundry_output().into()
+        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+            rand_foundry_output(ctx.token_supply()).into()
         }
     }
 }
@@ -144,8 +176,9 @@ mod test {
 
     #[test]
     fn test_foundry_output_bson() {
-        let output = FoundryOutput::rand();
-        bee::FoundryOutput::try_from(output.clone()).unwrap();
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let output = FoundryOutput::rand(&ctx);
+        bee::FoundryOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<FoundryOutput>(bson).unwrap());
     }

@@ -5,6 +5,7 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
+
     use chronicle::{
         db::collections::{BlockCollection, OutputCollection},
         types::{
@@ -22,7 +23,9 @@ mod test_rand {
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
 
-        let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand()))
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+
+        let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&protocol_params)))
             .take(100)
             .enumerate()
             .map(|(i, (block_id, block))| {
@@ -60,19 +63,17 @@ mod test_rand {
         }) {
             if !outputs.is_empty() {
                 db.collection::<OutputCollection>()
-                    .insert_unspent_outputs(Vec::from(outputs.clone()).into_iter().enumerate().map(|(i, output)| {
-                        LedgerOutput {
-                            output_id: OutputId {
-                                transaction_id,
-                                index: i as u16,
-                            },
-                            block_id: *block_id,
-                            booked: MilestoneIndexTimestamp {
-                                milestone_index: 0.into(),
-                                milestone_timestamp: 12345.into(),
-                            },
-                            output,
-                        }
+                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| LedgerOutput {
+                        output_id: OutputId {
+                            transaction_id,
+                            index: i as u16,
+                        },
+                        block_id: *block_id,
+                        booked: MilestoneIndexTimestamp {
+                            milestone_index: 0.into(),
+                            milestone_timestamp: 12345.into(),
+                        },
+                        output,
                     }))
                     .await
                     .unwrap();
@@ -113,11 +114,13 @@ mod test_rand {
         let collection = db.collection::<BlockCollection>();
         collection.create_indexes().await.unwrap();
 
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+
         // Note that we cannot build a block with a treasury transaction payload.
         let blocks = vec![
-            Block::rand_transaction(),
-            Block::rand_transaction(),
-            Block::rand_milestone(),
+            Block::rand_transaction(&protocol_params),
+            Block::rand_transaction(&protocol_params),
+            Block::rand_milestone(&protocol_params),
             Block::rand_tagged_data(),
             Block::rand_no_payload(),
         ]

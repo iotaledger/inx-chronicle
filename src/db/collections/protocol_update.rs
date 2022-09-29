@@ -57,6 +57,14 @@ impl ProtocolUpdateCollection {
         .await
     }
 
+    /// Gets the protocol parameters for a given protocol version.
+    pub async fn get_protocol_parameters_for_version(
+        &self,
+        version: u8,
+    ) -> Result<Option<ProtocolUpdateDocument>, Error> {
+        self.find_one(doc! { "parameters.version": version as i32 }, None).await
+    }
+
     /// Inserts a protocol parameters for a given milestone index.
     pub async fn insert_protocol_parameters(
         &self,

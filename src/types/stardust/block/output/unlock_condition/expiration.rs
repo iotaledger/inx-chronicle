@@ -31,6 +31,16 @@ impl TryFrom<ExpirationUnlockCondition> for bee::ExpirationUnlockCondition {
     }
 }
 
+impl From<ExpirationUnlockCondition> for bee::dto::ExpirationUnlockConditionDto {
+    fn from(value: ExpirationUnlockCondition) -> Self {
+        Self {
+            kind: bee::ExpirationUnlockCondition::KIND,
+            return_address: value.return_address.into(),
+            timestamp: value.timestamp.0,
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::number::rand_number;
