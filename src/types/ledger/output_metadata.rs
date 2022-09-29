@@ -43,6 +43,23 @@ pub struct LedgerOutput {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub output: Output,
+    pub output_bytes: u64,
+}
+
+impl LedgerOutput {
+    pub fn rent_structure(&self) -> RentStructureBytes {
+        match self.output {
+            Output::Basic(_) | Output::Alias(_) | Output::Foundry(_) | Output::Nft(_) => RentStructureBytes {
+                num_data_bytes: self.output_bytes,
+                num_key_bytes: 0,
+            },
+            // The treasury output does not have an associated byte cost.
+            Output::Treasury(_) => RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 0,
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -57,6 +74,7 @@ impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
         Ok(Self {
+            output_bytes: value.output.clone().data().len() as _,
             output: Into::into(&value.output.inner_unverified()?),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
@@ -77,6 +95,7 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for Ledger
         value: bee_inx::LedgerOutput,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
+            output_bytes: value.output.clone().data().len() as _,
             output: Into::into(&value.output.inner(ctx)?),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),

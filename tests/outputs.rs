@@ -29,6 +29,7 @@ mod test_rand {
             .take(100)
             .map(|output| LedgerOutput {
                 output_id: OutputId::rand(),
+                output_bytes: 100,
                 output,
                 block_id: BlockId::rand(),
                 booked: MilestoneIndexTimestamp {

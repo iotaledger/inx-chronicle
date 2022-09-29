@@ -74,6 +74,7 @@ mod test_rand {
                                 milestone_index: 0.into(),
                                 milestone_timestamp: 12345.into(),
                             },
+                            output_bytes: 100,
                             output,
                         }
                     }))

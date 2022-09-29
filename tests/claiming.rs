@@ -37,6 +37,7 @@ mod test_rand {
         let unspent_outputs = (1..=5)
             .map(|i| LedgerOutput {
                 output_id: OutputId::rand(),
+                output_bytes: 100,
                 output: rand_output_with_value(i.into()),
                 block_id: BlockId::rand(),
                 booked: MilestoneIndexTimestamp {
