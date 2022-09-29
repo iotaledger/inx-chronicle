@@ -35,6 +35,22 @@ impl TryFrom<Input> for bee::Input {
     }
 }
 
+impl From<Input> for bee::dto::InputDto {
+    fn from(value: Input) -> Self {
+        match value {
+            Input::Utxo(output_id) => Self::Utxo(bee::dto::UtxoInputDto {
+                kind: bee::UtxoInput::KIND,
+                transaction_id: output_id.transaction_id.to_hex(),
+                transaction_output_index: output_id.index,
+            }),
+            Input::Treasury { milestone_id } => Self::Treasury(bee::dto::TreasuryInputDto {
+                kind: bee::TreasuryInput::KIND,
+                milestone_id: milestone_id.to_hex(),
+            }),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
 

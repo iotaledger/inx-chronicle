@@ -73,19 +73,49 @@ impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
 
         Self::build_with_amount(value.amount.0)?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .finish(ctx.token_supply())
+    }
+}
+
+impl From<BasicOutput> for bee::dto::BasicOutputDto {
+    fn from(value: BasicOutput) -> Self {
+        let mut unlock_conditions = vec![bee::unlock_condition::dto::UnlockConditionDto::Address(
+            value.address_unlock_condition.into(),
+        )];
+        if let Some(uc) = value.storage_deposit_return_unlock_condition {
+            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::StorageDepositReturn(
+                uc.into(),
+            ));
+        }
+        if let Some(uc) = value.timelock_unlock_condition {
+            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::Timelock(uc.into()));
+        }
+        if let Some(uc) = value.expiration_unlock_condition {
+            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
+        }
+        Self {
+            kind: bee::BasicOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            unlock_conditions,
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+        }
     }
 }
 

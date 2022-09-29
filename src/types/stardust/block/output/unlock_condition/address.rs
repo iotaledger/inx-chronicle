@@ -27,6 +27,15 @@ impl From<AddressUnlockCondition> for bee::AddressUnlockCondition {
     }
 }
 
+impl From<AddressUnlockCondition> for bee::dto::AddressUnlockConditionDto {
+    fn from(value: AddressUnlockCondition) -> Self {
+        Self {
+            kind: bee::AddressUnlockCondition::KIND,
+            address: value.address.into(),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use super::*;

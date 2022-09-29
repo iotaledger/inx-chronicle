@@ -34,6 +34,15 @@ impl TryFrom<ImmutableAliasAddressUnlockCondition> for bee::ImmutableAliasAddres
     }
 }
 
+impl From<ImmutableAliasAddressUnlockCondition> for bee::dto::ImmutableAliasAddressUnlockConditionDto {
+    fn from(value: ImmutableAliasAddressUnlockCondition) -> Self {
+        Self {
+            kind: bee::ImmutableAliasAddressUnlockCondition::KIND,
+            address: value.address.into(),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use super::*;

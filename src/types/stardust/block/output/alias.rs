@@ -39,6 +39,12 @@ impl From<AliasId> for bee::AliasId {
     }
 }
 
+impl From<AliasId> for bee::dto::AliasIdDto {
+    fn from(value: AliasId) -> Self {
+        Into::into(&bee::AliasId::from(value))
+    }
+}
+
 impl FromStr for AliasId {
     type Err = bee_block_stardust::Error;
 
@@ -121,7 +127,9 @@ impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
 
         Self::build_with_amount(value.amount.0, value.alias_id.into())?
             .with_native_tokens(
-                Vec::from(value.native_tokens)
+                value
+                    .native_tokens
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
@@ -131,18 +139,52 @@ impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
             .with_foundry_counter(value.foundry_counter)
             .with_unlock_conditions(unlock_conditions.into_iter().flatten())
             .with_features(
-                Vec::from(value.features)
+                value
+                    .features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .with_immutable_features(
-                Vec::from(value.immutable_features)
+                value
+                    .immutable_features
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .finish(ctx.token_supply())
+    }
+}
+
+impl From<AliasOutput> for bee::dto::AliasOutputDto {
+    fn from(value: AliasOutput) -> Self {
+        let unlock_conditions = vec![
+            bee::unlock_condition::dto::UnlockConditionDto::StateControllerAddress(
+                value.state_controller_address_unlock_condition.into(),
+            ),
+            bee::unlock_condition::dto::UnlockConditionDto::GovernorAddress(
+                value.governor_address_unlock_condition.into(),
+            ),
+        ];
+        Self {
+            kind: bee::AliasOutput::KIND,
+            amount: value.amount.0.to_string(),
+            native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
+            alias_id: value.alias_id.into(),
+            state_index: value.state_index,
+            state_metadata: prefix_hex::encode(value.state_metadata),
+            foundry_counter: value.foundry_counter,
+            unlock_conditions,
+            features: value.features.into_vec().into_iter().map(Into::into).collect(),
+            immutable_features: value
+                .immutable_features
+                .into_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        }
     }
 }
 

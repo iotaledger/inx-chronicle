@@ -76,13 +76,13 @@ tonic = { version = "0.8", default-features = false, optional = true }
 metrics = { version = "0.20.0", default-features = false }
 metrics-exporter-prometheus = { version = "0.11.0", default-features = false, features = [ "http-listener", "tokio" ] }
 metrics-util = { version = "0.14.0", default-features = false }
-opentelemetry = { version = "0.18", default-features = false, features = ["trace", "rt-tokio"], optional = true }
-opentelemetry-jaeger = { version = "0.17", default-features = false, features = ["rt-tokio"], optional = true }
-tracing-opentelemetry = { version = "0.18", default-features = false, features = ["tracing-log"], optional = true }
+opentelemetry = { version = "0.18", default-features = false, features = [ "trace", "rt-tokio" ], optional = true }
+opentelemetry-jaeger = { version = "0.17", default-features = false, features = [ "rt-tokio" ], optional = true }
+tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
 
 # Stardust types
-bee-api-types-stardust = { package = "bee-api-types", version = "1.0.0", default-features = false, features = ["axum"], optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.0", default-features = false, features = [ "dto", "std", "rand", "serde"], optional = true }
+bee-api-types-stardust = { package = "bee-api-types", version = "1.0.1", default-features = false, features = [ "axum" ], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.1", default-features = false, features = [ "dto", "std", "rand"], optional = true }
 
 [dev-dependencies]
 rand = { version = "0.8", default-features = false, features = [ "std" ] }

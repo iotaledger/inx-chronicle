@@ -27,6 +27,12 @@ impl From<NativeTokenAmount> for U256 {
     }
 }
 
+impl From<NativeTokenAmount> for bee_block_stardust::dto::U256Dto {
+    fn from(value: NativeTokenAmount) -> Self {
+        Into::into(&U256::from(value))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NativeTokenId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -44,6 +50,12 @@ impl From<bee::TokenId> for NativeTokenId {
 impl From<NativeTokenId> for bee::TokenId {
     fn from(value: NativeTokenId) -> Self {
         bee::TokenId::new(value.0)
+    }
+}
+
+impl From<NativeTokenId> for bee::dto::TokenIdDto {
+    fn from(value: NativeTokenId) -> Self {
+        Into::into(&bee::TokenId::from(value))
     }
 }
 
@@ -95,6 +107,23 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
     }
 }
 
+impl From<TokenScheme> for bee::dto::TokenSchemeDto {
+    fn from(value: TokenScheme) -> Self {
+        match value {
+            TokenScheme::Simple {
+                minted_tokens,
+                melted_tokens,
+                maximum_supply,
+            } => Self::Simple(bee::dto::SimpleTokenSchemeDto {
+                kind: bee::SimpleTokenScheme::KIND,
+                minted_tokens: minted_tokens.into(),
+                melted_tokens: melted_tokens.into(),
+                maximum_supply: maximum_supply.into(),
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NativeToken {
     pub token_id: NativeTokenId,
@@ -115,6 +144,15 @@ impl TryFrom<NativeToken> for bee::NativeToken {
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
         Self::new(value.token_id.into(), value.amount.into())
+    }
+}
+
+impl From<NativeToken> for bee::dto::NativeTokenDto {
+    fn from(value: NativeToken) -> Self {
+        Self {
+            token_id: value.token_id.into(),
+            amount: value.amount.into(),
+        }
     }
 }
 
