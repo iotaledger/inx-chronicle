@@ -97,9 +97,11 @@ impl Actor for Launcher {
             for (collection, indexes) in end_indexes {
                 if let Some(old_indexes) = start_indexes.get(&collection) {
                     if indexes.difference(old_indexes).count() > 0 {
-                        info!("Created new indexes on {}:", collection);
-                        for index in indexes.difference(old_indexes) {
-                            info! {" - {}", index}
+                        info!("Created {} new indexes in {}", indexes.len(), collection);
+                        if tracing::enabled!(tracing::Level::DEBUG) {
+                            for index in indexes.difference(old_indexes) {
+                                debug!(" - {}", index);
+                            }
                         }
                     }
                 } else {
