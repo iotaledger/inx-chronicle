@@ -316,7 +316,7 @@ mod rand {
             Self {
                 index: rand_number::<u32>().into(),
                 timestamp: rand_number::<u32>(),
-                protocol_version: 0,
+                protocol_version: rand_number::<u8>(),
                 previous_milestone_id: MilestoneId::rand(),
                 parents: BlockId::rand_parents(),
                 inclusion_merkle_root: *rand_merkle_root(),
