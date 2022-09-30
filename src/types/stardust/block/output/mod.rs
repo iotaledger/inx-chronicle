@@ -16,6 +16,7 @@ use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
 use mongodb::bson::{doc, Bson};
+use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -151,6 +152,12 @@ impl Output {
             }
             Self::Foundry(_) => true,
         }
+    }
+
+    pub fn raw(self) -> Result<Vec<u8>, bee_block_stardust::Error> {
+        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let bee_output = bee_block_stardust::output::Output::try_from_with_context(&ctx, self)?;
+        Ok(bee_output.pack_to_vec())
     }
 }
 
