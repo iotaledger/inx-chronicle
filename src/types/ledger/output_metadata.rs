@@ -172,46 +172,27 @@ mod test {
     #[cfg(all(feature = "inx", feature = "rand"))]
     #[test]
     fn test_compute_rent_structure() {
-        use bee_block_stardust::output::Rent;
+        use bee_block_stardust::{output::Rent, rand::output};
 
         use super::compute_rent_structure;
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
-        let output = bee_block_stardust::rand::output::rand_basic_output(protocol_params.token_supply()).into();
-        let rent = compute_rent_structure(&output);
-        assert_eq!(
-            (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
-                + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
-                * protocol_params.rent_structure().v_byte_cost as u64,
-            output.rent_cost(protocol_params.rent_structure())
-        );
+        let outputs = [
+            output::rand_basic_output(protocol_params.token_supply()).into(),
+            output::rand_alias_output(protocol_params.token_supply()).into(),
+            output::rand_foundry_output(protocol_params.token_supply()).into(),
+            output::rand_nft_output(protocol_params.token_supply()).into(),
+        ];
 
-        let output = bee_block_stardust::rand::output::rand_alias_output(protocol_params.token_supply()).into();
-        let rent = compute_rent_structure(&output);
-        assert_eq!(
-            (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
-                + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
-                * protocol_params.rent_structure().v_byte_cost as u64,
-            output.rent_cost(protocol_params.rent_structure())
-        );
-
-        let output = bee_block_stardust::rand::output::rand_foundry_output(protocol_params.token_supply()).into();
-        let rent = compute_rent_structure(&output);
-        assert_eq!(
-            (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
-                + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
-                * protocol_params.rent_structure().v_byte_cost as u64,
-            output.rent_cost(protocol_params.rent_structure())
-        );
-
-        let output = bee_block_stardust::rand::output::rand_nft_output(protocol_params.token_supply()).into();
-        let rent = compute_rent_structure(&output);
-        assert_eq!(
-            (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
-                + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
-                * protocol_params.rent_structure().v_byte_cost as u64,
-            output.rent_cost(protocol_params.rent_structure())
-        );
+        for output in outputs {
+            let rent = compute_rent_structure(&output);
+            assert_eq!(
+                (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
+                    + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
+                    * protocol_params.rent_structure().v_byte_cost as u64,
+                output.rent_cost(protocol_params.rent_structure())
+            );
+        }
     }
 }
