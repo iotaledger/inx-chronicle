@@ -119,7 +119,7 @@ mod test_rand {
     async fn test_block_children() {
         let (db, collection) = setup("test-children").await;
 
-        let parents = std::iter::repeat_with( BlockId::rand)
+        let parents = std::iter::repeat_with(BlockId::rand)
             .take(2)
             .collect::<Vec<_>>()
             .into_boxed_slice();
