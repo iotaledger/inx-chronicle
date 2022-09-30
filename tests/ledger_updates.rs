@@ -35,18 +35,18 @@ mod test_rand {
 
         let mut outputs = HashSet::new();
         let address_unlock_condition = AddressUnlockCondition::rand();
-        let address = address_unlock_condition.clone().address;
+        let address = address_unlock_condition.address;
 
         let ledger_outputs = std::iter::repeat_with(|| (BlockId::rand(), rand_number_range(1..1000), OutputId::rand()))
             .take(50)
             .inspect(|(_, _, output_id)| {
-                outputs.insert(output_id.clone());
+                outputs.insert(*output_id);
             })
             .map(|(block_id, amount, output_id)| {
                 let output = BasicOutput {
                     amount: amount.into(),
                     native_tokens: Vec::new().into_boxed_slice(),
-                    address_unlock_condition: address_unlock_condition.clone(),
+                    address_unlock_condition,
                     storage_deposit_return_unlock_condition: None,
                     timelock_unlock_condition: None,
                     expiration_unlock_condition: None,
@@ -131,7 +131,7 @@ mod test_rand {
             .take(100)
             .enumerate()
             .inspect(|(i, (_, _, output_id))| {
-                assert!(outputs.insert(output_id.clone(), *i as u32 / 5).is_none());
+                assert!(outputs.insert(*output_id, *i as u32 / 5).is_none());
             })
             .map(|(i, (block_id, output, output_id))| LedgerOutput {
                 block_id,
