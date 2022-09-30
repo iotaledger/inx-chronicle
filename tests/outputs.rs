@@ -9,7 +9,7 @@ mod test_rand {
     use chronicle::{
         db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, SpentMetadata},
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{output::OutputId, payload::TransactionId, BlockId, Output},
         },
     };
@@ -29,6 +29,10 @@ mod test_rand {
             .take(100)
             .map(|output| LedgerOutput {
                 output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
                 output,
                 block_id: BlockId::rand(),
                 booked: MilestoneIndexTimestamp {
