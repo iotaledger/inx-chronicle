@@ -17,3 +17,13 @@ pub struct InfoResponse {
 }
 
 impl_success_response!(InfoResponse);
+
+/// Response of `GET /api/outputs/:outputId`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OutputResponse {
+    Json(Box<bee_api_types_stardust::responses::OutputResponse>),
+    Raw(Vec<u8>),
+}
+
+impl_success_response!(OutputResponse);
