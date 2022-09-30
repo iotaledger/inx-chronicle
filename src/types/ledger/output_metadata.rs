@@ -43,6 +43,7 @@ pub struct LedgerOutput {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub output: Output,
+    pub rent_structure: RentStructureBytes,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -52,12 +53,35 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
+fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
+    use bee_block_stardust::output::{Rent, RentStructureBuilder};
+
+    let rent_cost = |byte_cost, data_factor, key_factor| {
+        output.rent_cost(
+            &RentStructureBuilder::new()
+                .byte_cost(byte_cost)
+                .data_factor(data_factor)
+                .key_factor(key_factor)
+                .finish(),
+        )
+    };
+
+    RentStructureBytes {
+        num_data_bytes: rent_cost(1, 1, 0),
+        num_key_bytes: rent_cost(1, 0, 1),
+    }
+}
+
+#[cfg(feature = "inx")]
 impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
+        let bee_output = value.output.inner_unverified()?;
+
         Ok(Self {
-            output: Into::into(&value.output.inner_unverified()?),
+            rent_structure: compute_rent_structure(&bee_output),
+            output: Into::into(&bee_output),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
             booked: MilestoneIndexTimestamp {
@@ -76,8 +100,11 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for Ledger
         ctx: &bee_block_stardust::protocol::ProtocolParameters,
         value: bee_inx::LedgerOutput,
     ) -> Result<Self, Self::Error> {
+        let bee_output = value.output.inner(ctx)?;
+
         Ok(Self {
-            output: Into::into(&value.output.inner(ctx)?),
+            rent_structure: compute_rent_structure(&bee_output),
+            output: Into::into(&bee_output),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
             booked: MilestoneIndexTimestamp {
@@ -132,10 +159,40 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerSpent> for LedgerS
 }
 
 /// The different number of bytes that are used for computing the rent cost.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RentStructureBytes {
     /// The number of key bytes in an output.
     pub num_key_bytes: u64,
     /// The number of data bytes in an output.
     pub num_data_bytes: u64,
+}
+
+#[cfg(test)]
+mod test {
+    #[cfg(all(feature = "inx", feature = "rand"))]
+    #[test]
+    fn test_compute_rent_structure() {
+        use bee_block_stardust::{output::Rent, rand::output};
+
+        use super::compute_rent_structure;
+
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+
+        let outputs = [
+            output::rand_basic_output(protocol_params.token_supply()).into(),
+            output::rand_alias_output(protocol_params.token_supply()).into(),
+            output::rand_foundry_output(protocol_params.token_supply()).into(),
+            output::rand_nft_output(protocol_params.token_supply()).into(),
+        ];
+
+        for output in outputs {
+            let rent = compute_rent_structure(&output);
+            assert_eq!(
+                (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
+                    + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
+                    * protocol_params.rent_structure().v_byte_cost as u64,
+                output.rent_cost(protocol_params.rent_structure())
+            );
+        }
+    }
 }
