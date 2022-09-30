@@ -57,27 +57,19 @@ pub struct LedgerSpent {
 fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
     use bee_block_stardust::output::{Rent, RentStructureBuilder};
 
-    let num_data_bytes = {
-        let config = RentStructureBuilder::new()
-            .byte_cost(1)
-            .data_factor(1)
-            .key_factor(0)
-            .finish();
-        output.rent_cost(&config)
-    };
-
-    let num_key_bytes = {
-        let config = RentStructureBuilder::new()
-            .byte_cost(1)
-            .data_factor(0)
-            .key_factor(1)
-            .finish();
-        output.rent_cost(&config)
+    let rent_cost = |byte_cost, data_factor, key_factor| {
+        output.rent_cost(
+            &RentStructureBuilder::new()
+                .byte_cost(byte_cost)
+                .data_factor(data_factor)
+                .key_factor(key_factor)
+                .finish(),
+        )
     };
 
     RentStructureBytes {
-        num_data_bytes,
-        num_key_bytes,
+        num_data_bytes: rent_cost(1, 1, 0),
+        num_key_bytes: rent_cost(1, 0, 1),
     }
 }
 
