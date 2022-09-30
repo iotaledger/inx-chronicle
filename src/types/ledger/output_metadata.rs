@@ -53,35 +53,35 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
+// TODO: Write unit test cases for this function for each of the output types.
+fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
+    use bee_block_stardust::output::{Rent, RentStructureBuilder};
+
+    let rent_cost = |byte_cost, data_factor, key_factor| {
+        output.rent_cost(
+            &RentStructureBuilder::new()
+                .byte_cost(byte_cost)
+                .data_factor(data_factor)
+                .key_factor(key_factor)
+                .finish(),
+        )
+    };
+
+    RentStructureBytes {
+        num_data_bytes: rent_cost(1, 1, 0),
+        num_key_bytes: rent_cost(1, 0, 1),
+    }
+}
+
+#[cfg(feature = "inx")]
 impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
     type Error = bee_inx::Error;
 
     fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
-        use bee_block_stardust::output::{Rent, RentStructureBuilder};
         let bee_output = value.output.inner_unverified()?;
-        let num_data_bytes = {
-            let config = RentStructureBuilder::new()
-                .byte_cost(1)
-                .data_factor(1)
-                .key_factor(0)
-                .finish();
-            bee_output.rent_cost(&config)
-        };
-
-        let num_key_bytes = {
-            let config = RentStructureBuilder::new()
-                .byte_cost(1)
-                .data_factor(0)
-                .key_factor(1)
-                .finish();
-            bee_output.rent_cost(&config)
-        };
 
         Ok(Self {
-            rent_structure: RentStructureBytes {
-                num_data_bytes,
-                num_key_bytes,
-            },
+            rent_structure: compute_rent_structure(&bee_output),
             output: Into::into(&bee_output),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
@@ -101,30 +101,10 @@ impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for Ledger
         ctx: &bee_block_stardust::protocol::ProtocolParameters,
         value: bee_inx::LedgerOutput,
     ) -> Result<Self, Self::Error> {
-        use bee_block_stardust::output::{Rent, RentStructureBuilder};
         let bee_output = value.output.inner(ctx)?;
-        let num_data_bytes = {
-            let config = RentStructureBuilder::new()
-                .byte_cost(1)
-                .data_factor(1)
-                .key_factor(0)
-                .finish();
-            bee_output.rent_cost(&config)
-        };
 
-        let num_key_bytes = {
-            let config = RentStructureBuilder::new()
-                .byte_cost(1)
-                .data_factor(0)
-                .key_factor(1)
-                .finish();
-            bee_output.rent_cost(&config)
-        };
         Ok(Self {
-            rent_structure: RentStructureBytes {
-                num_data_bytes,
-                num_key_bytes,
-            },
+            rent_structure: compute_rent_structure(&bee_output),
             output: Into::into(&bee_output),
             output_id: value.output_id.into(),
             block_id: value.block_id.into(),
