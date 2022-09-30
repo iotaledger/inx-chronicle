@@ -13,7 +13,7 @@ mod test_rand {
             collections::{
                 LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, SortOrder,
             },
-            MongoDb, MongoDbCollection,
+            MongoDb, MongoDbCollectionExt,
         },
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
@@ -92,7 +92,7 @@ mod test_rand {
             .await
             .unwrap();
 
-        assert_eq!(collection.collection().count_documents(None, None).await.unwrap(), 100);
+        assert_eq!(collection.count().await.unwrap(), 100);
 
         let mut s = collection
             .get_ledger_updates_by_address(&address, 100, None, SortOrder::Newest)
@@ -155,7 +155,7 @@ mod test_rand {
             .await
             .unwrap();
 
-        assert_eq!(collection.collection().count_documents(None, None).await.unwrap(), 100);
+        assert_eq!(collection.count().await.unwrap(), 100);
 
         let mut s = collection
             .get_ledger_updates_by_milestone(0.into(), 100, None)
@@ -233,7 +233,7 @@ mod test_rand {
             .await
             .unwrap();
 
-        assert_eq!(collection.collection().count_documents(None, None).await.unwrap(), 150);
+        assert_eq!(collection.count().await.unwrap(), 150);
 
         teardown(db).await;
     }
