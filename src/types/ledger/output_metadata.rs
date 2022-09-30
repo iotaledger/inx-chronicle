@@ -53,7 +53,6 @@ pub struct LedgerSpent {
 }
 
 #[cfg(feature = "inx")]
-// TODO: Write unit test cases for this function for each of the output types.
 fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
     use bee_block_stardust::output::{Rent, RentStructureBuilder};
 
@@ -166,4 +165,25 @@ pub struct RentStructureBytes {
     pub num_key_bytes: u64,
     /// The number of data bytes in an output.
     pub num_data_bytes: u64,
+}
+
+#[cfg(test)]
+mod test {
+    #[cfg(feature = "inx")]
+    #[test]
+    fn test_compute_rent_structure() {
+        use bee_block_stardust::output::Rent;
+
+        use super::compute_rent_structure;
+
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let output = bee_block_stardust::rand::output::rand_output(protocol_params.token_supply()).into();
+        let rent = compute_rent_structure(&output);
+        assert_eq!(
+            (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
+                + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
+                * protocol_params.rent_structure().v_byte_cost as u64,
+            output.rent_cost(protocol_params.rent_structure())
+        );
+    }
 }
