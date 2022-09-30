@@ -657,9 +657,9 @@ impl OutputCollection {
                     },
                     doc! { "$project": {
                         "output_count": { "$first": "$all.output_count" },
-                        "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
+                        "storage_deposit_return_count": { "$ifNull": [ { "$first": "$storage_deposit.return_count" }, 0 ] },
                         "storage_deposit_return_total_value": { 
-                            "$toString": { "$first": "$storage_deposit.return_total_value" } 
+                            "$toString": { "$ifNull": [ { "$first": "$storage_deposit.return_total_value" }, 0 ] } 
                         },
                         "total_key_bytes": { 
                             "$toString": { "$first": "$all.total_key_bytes" } 
