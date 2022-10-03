@@ -11,8 +11,7 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
-            TreasuryCollection,
+            BlockCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -24,7 +23,6 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
-use tokio::try_join;
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
 use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
@@ -188,6 +186,8 @@ impl Actor for InxWorker {
                 task.await.unwrap()?;
             }
 
+            self.db.collection::<OutputCollection>().create_ledger_updates().await?;
+
             info!("Inserted {} unspent outputs.", count);
 
             info!(
@@ -273,6 +273,10 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
                 .collect::<Result<_, _>>()?,
         )
         .await?;
+        self.db
+            .collection::<OutputCollection>()
+            .merge_into_ledger_updates(ledger_update.milestone_index)
+            .await?;
 
         handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
         handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
@@ -291,43 +295,19 @@ impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
 async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
-    let ledger_collection = db.collection::<LedgerUpdateCollection>();
-    try_join! {
-        async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                output_collection.insert_unspent_outputs(batch).await?;
-            }
-            Result::<_, InxError>::Ok(())
-        },
-        async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                ledger_collection.insert_unspent_ledger_updates(batch).await?;
-            }
-            Ok(())
-        }
-    }?;
+    for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+        output_collection.insert_unspent_outputs(batch).await?;
+    }
     Ok(())
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
 async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
-    let ledger_collection = db.collection::<LedgerUpdateCollection>();
-    try_join! {
-        async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                output_collection.update_spent_outputs(batch).await?;
-            }
-            Ok(())
-        },
-        async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                ledger_collection.insert_spent_ledger_updates(batch).await?;
-            }
-            Ok(())
-        }
+    for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
+        output_collection.update_spent_outputs(batch).await?;
     }
-    .and(Ok(()))
+    Ok(())
 }
 
 #[instrument(skip_all, level = "trace")]
