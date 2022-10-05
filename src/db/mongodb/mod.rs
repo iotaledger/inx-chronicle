@@ -5,6 +5,8 @@
 
 mod collection;
 
+use std::collections::{HashMap, HashSet};
+
 use mongodb::{
     bson::{doc, Document},
     error::Error,
@@ -53,9 +55,26 @@ impl MongoDb {
         })
     }
 
+    /// Creates a collection if it does not exist.
+    pub async fn create_collection<T: MongoDbCollection>(&self) {
+        self.db.create_collection(T::NAME, None).await.ok();
+    }
+
     /// Gets a collection of the provided type.
     pub fn collection<T: MongoDbCollection>(&self) -> T {
         T::instantiate(self, self.db.collection(T::NAME))
+    }
+
+    /// Gets all index names by their collection.
+    pub async fn get_index_names(&self) -> Result<HashMap<String, HashSet<String>>, Error> {
+        let mut res = HashMap::new();
+        for collection in self.db.list_collection_names(None).await? {
+            let indexes = self.db.collection::<Document>(&collection).list_index_names().await?;
+            if !indexes.is_empty() {
+                res.insert(collection, indexes.into_iter().collect());
+            }
+        }
+        Ok(res)
     }
 
     /// Clears all the collections from the database.
