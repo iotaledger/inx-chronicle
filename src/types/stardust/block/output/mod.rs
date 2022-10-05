@@ -16,6 +16,7 @@ use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
 use mongodb::bson::{doc, Bson};
+use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -31,6 +32,7 @@ use super::Address;
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
     stardust::block::payload::transaction::TransactionId,
+    tangle::ProtocolParameters,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
@@ -151,6 +153,11 @@ impl Output {
             }
             Self::Foundry(_) => true,
         }
+    }
+
+    pub fn raw(self, ctx: ProtocolParameters) -> Result<Vec<u8>, bee_block_stardust::Error> {
+        let bee_output = bee_block_stardust::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
+        Ok(bee_output.pack_to_vec())
     }
 }
 

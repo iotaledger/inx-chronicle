@@ -17,3 +17,19 @@ pub struct InfoResponse {
 }
 
 impl_success_response!(InfoResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OutputResponse {
+    Json(Box<bee_api_types_stardust::responses::OutputResponse>),
+    Raw(Vec<u8>),
+}
+
+impl axum::response::IntoResponse for OutputResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            OutputResponse::Json(res) => axum::Json(res).into_response(),
+            OutputResponse::Raw(bytes) => bytes.into_response(),
+        }
+    }
+}

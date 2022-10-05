@@ -13,8 +13,8 @@ use bee_api_types_stardust::{
     dtos::ReceiptDto,
     responses::{
         BlockMetadataResponse, BlockResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse, MilestoneResponse,
-        OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse,
-        StatusResponse, TreasuryResponse, UtxoChangesResponse,
+        OutputMetadataResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse, StatusResponse,
+        TreasuryResponse, UtxoChangesResponse,
     },
 };
 use bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto;
@@ -40,7 +40,7 @@ use futures::TryStreamExt;
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::InfoResponse;
+use super::responses::{InfoResponse, OutputResponse};
 use crate::api::{
     error::{ApiError, InternalApiError},
     router::Router,
@@ -258,25 +258,45 @@ fn create_output_metadata_response(
     }
 }
 
-async fn output(database: Extension<MongoDb>, Path(output_id): Path<String>) -> ApiResult<OutputResponse> {
+async fn output(
+    database: Extension<MongoDb>,
+    Path(output_id): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<OutputResponse> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
         .await?
         .ok_or(ApiError::NoResults)?;
     let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_parse)?;
+
     let OutputWithMetadataResult { output, metadata } = database
         .collection::<OutputCollection>()
         .get_output_with_metadata(&output_id, ledger_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
+    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        if value.eq(&*BYTE_CONTENT_HEADER) {
+            let ctx = database
+                .collection::<ProtocolUpdateCollection>()
+                .get_protocol_parameters_for_ledger_index(metadata.booked.milestone_index)
+                .await?
+                .ok_or(ApiError::NoResults)?
+                .parameters;
+
+            return Ok(OutputResponse::Raw(output.raw(ctx)?));
+        }
+    }
+
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
-    Ok(OutputResponse {
-        metadata,
-        output: output.into(),
-    })
+    Ok(OutputResponse::Json(Box::new(
+        bee_api_types_stardust::responses::OutputResponse {
+            metadata,
+            output: output.into(),
+        },
+    )))
 }
 
 async fn output_metadata(
@@ -301,8 +321,22 @@ async fn output_metadata(
 async fn transaction_included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
+    headers: HeaderMap,
 ) -> ApiResult<BlockResponse> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
+
+    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+        if value.eq(&*BYTE_CONTENT_HEADER) {
+            return Ok(BlockResponse::Raw(
+                database
+                    .collection::<BlockCollection>()
+                    .get_block_raw_for_transaction(&transaction_id)
+                    .await?
+                    .ok_or(ApiError::NoResults)?,
+            ));
+        }
+    }
+
     let block = database
         .collection::<BlockCollection>()
         .get_block_for_transaction(&transaction_id)
