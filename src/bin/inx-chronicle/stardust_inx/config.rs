@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for an INX connection.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct InxConfig {
     pub enabled: bool,
     /// The bind address of node's INX interface.

@@ -38,7 +38,7 @@ services:
       - ../config.template.toml:/app/config.toml:ro
 
   hornet:
-    image: iotaledger/hornet:2.0-beta
+    image: iotaledger/hornet:2.0-rc
     container_name: hornet
     ulimits:
       nofile:
@@ -56,11 +56,16 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ./data/hornet:/app/testnet
-      - ./config.testnet.hornet.json:/app/config.json:ro
+      - ./data/hornet/alphanet/:/app/alphanet
+      - ./data/hornet/testnet/:/app/testnet
+      - ./data/hornet/shimmer/:/app/shimmer
+      - ./config.testnet.hornet.json:/app/config_testnet.json:ro
+      - ./config.alphanet.hornet.json:/app/config_alphanet.json:ro
     command:
-      - "-c"
-      - "config.json"
+      # We can connect to the non-default networks by choosing a different Hornet configuration file.
+      # - "-c"
+      # - "config_testnet.json"
+      # - "config_alphanet.json"
       - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"
       - "--prometheus.enabled=true"

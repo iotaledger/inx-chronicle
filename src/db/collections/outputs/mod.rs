@@ -81,7 +81,6 @@ impl From<&LedgerOutput> for OutputDocument {
     fn from(rec: &LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
-        let rent_structure = rec.output.rent_structure();
 
         Self {
             output_id: rec.output_id,
@@ -94,7 +93,7 @@ impl From<&LedgerOutput> for OutputDocument {
             details: OutputDetails {
                 address,
                 is_trivial_unlock,
-                rent_structure,
+                rent_structure: rec.rent_structure,
             },
         }
     }
@@ -658,9 +657,9 @@ impl OutputCollection {
                     },
                     doc! { "$project": {
                         "output_count": { "$first": "$all.output_count" },
-                        "storage_deposit_return_count": { "$first": "$storage_deposit.return_count" },
+                        "storage_deposit_return_count": { "$ifNull": [ { "$first": "$storage_deposit.return_count" }, 0 ] },
                         "storage_deposit_return_total_value": { 
-                            "$toString": { "$first": "$storage_deposit.return_total_value" } 
+                            "$toString": { "$ifNull": [ { "$first": "$storage_deposit.return_total_value" }, 0 ] } 
                         },
                         "total_key_bytes": { 
                             "$toString": { "$first": "$all.total_key_bytes" } 

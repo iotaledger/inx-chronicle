@@ -12,7 +12,7 @@ Chronicle offers several APIs that are documented [here](https://wiki.iota.org/i
 
 ## Documentation
 
-The documentation for Chronicle can be found in the IOTA wiki: https://wiki.iota.org/chronicle/welcome
+The documentation for Chronicle can be found in [our wiki](https://wiki.iota.org/shimmer/chronicle/welcome), the supported APIs are documented [here](https://wiki.iota.org/shimmer/chronicle/reference/api).
 
 ## Development
 
