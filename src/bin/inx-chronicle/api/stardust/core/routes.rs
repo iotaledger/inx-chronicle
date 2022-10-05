@@ -291,12 +291,12 @@ async fn output(
 
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
-    Ok(OutputResponse::Json(
+    Ok(OutputResponse::Json(Box::new(
         bee_api_types_stardust::responses::OutputResponse {
             metadata,
             output: output.into(),
         },
-    ))
+    )))
 }
 
 async fn output_metadata(
