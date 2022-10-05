@@ -1,3 +1,31 @@
+## [v1.0.0-beta.22](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.21...v1.0.0-beta.22) (2022-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **db:** direct dto conversion (#752)
+
+### Features
+
+* **api:** additional raw endpoints ([#757](https://github.com/iotaledger/inx-chronicle/issues/757)) ([e27e38f](https://github.com/iotaledger/inx-chronicle/commit/e27e38f5e6ba78d858f91882a5a016a39302b98b))
+* **db:** add created index statistics to log ([#760](https://github.com/iotaledger/inx-chronicle/issues/760)) ([ae2205d](https://github.com/iotaledger/inx-chronicle/commit/ae2205dbfb04ff2ff6afa26101cdad430ead5c92))
+* **db:** add document count to `MongoDbCollectionExt` trait ([#719](https://github.com/iotaledger/inx-chronicle/issues/719)) ([7d284fd](https://github.com/iotaledger/inx-chronicle/commit/7d284fd333ee8aa36a6de94d0f6d40417bde650d))
+* **docker:** bump Hornet to `v2.0-rc` ([#754](https://github.com/iotaledger/inx-chronicle/issues/754)) ([b7c9fd1](https://github.com/iotaledger/inx-chronicle/commit/b7c9fd1500968bd47fe071484ce1c7cc912c3d5c))
+* improve MongoDb connection string handling ([#769](https://github.com/iotaledger/inx-chronicle/issues/769)) ([c1c9eaf](https://github.com/iotaledger/inx-chronicle/commit/c1c9eaf3467cf11f0aff5443cf45c8d0b016eea2))
+
+
+### Bug Fixes
+
+* **api:** deserialization error in `api/analytics/v2/ledger/storage-deposit` ([#762](https://github.com/iotaledger/inx-chronicle/issues/762)) ([7be594e](https://github.com/iotaledger/inx-chronicle/commit/7be594e5e7e4ad6230341a4a0d9a105ea8ac2f1e))
+* **inx:** fix ledger output rent structure logic ([#759](https://github.com/iotaledger/inx-chronicle/issues/759)) ([9bafb00](https://github.com/iotaledger/inx-chronicle/commit/9bafb0091045b96e9be5584d3d8d2045a4f5be47)), closes [#761](https://github.com/iotaledger/inx-chronicle/issues/761) [#85](https://github.com/iotaledger/inx-chronicle/issues/85)
+* revert `deny_unknown_fields` for top-level of config ([#773](https://github.com/iotaledger/inx-chronicle/issues/773)) ([e62f837](https://github.com/iotaledger/inx-chronicle/commit/e62f8374f9f15129b6a5fcc6dd72f1b084f80891))
+* **types:** conditionally import `context` ([#774](https://github.com/iotaledger/inx-chronicle/issues/774)) ([5086c7b](https://github.com/iotaledger/inx-chronicle/commit/5086c7b0115150bff40afcd6b3673cebc565cee1))
+
+
+### Miscellaneous Chores
+
+* **db:** direct dto conversion ([#752](https://github.com/iotaledger/inx-chronicle/issues/752)) ([ce584ac](https://github.com/iotaledger/inx-chronicle/commit/ce584acf3954dd9ab05ab8a97385282089c85e9c))
+
 ## [v1.0.0-beta.21](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.20...v1.0.0-beta.21) (2022-09-27)
 
 
