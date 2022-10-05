@@ -278,7 +278,14 @@ async fn output(
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(OutputResponse::Raw(output.raw()?));
+            let ctx = database
+                .collection::<ProtocolUpdateCollection>()
+                .get_protocol_parameters_for_ledger_index(metadata.booked.milestone_index)
+                .await?
+                .ok_or(ApiError::NoResults)?
+                .parameters;
+
+            return Ok(OutputResponse::Raw(output.raw(ctx)?));
         }
     }
 

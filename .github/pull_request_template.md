@@ -15,6 +15,7 @@ As a reviewer, please pay particular attention to the following areas when revie
 
 #### Config Changes
 * [ ] Ensure proper order in which CLI and config arguments are applied.
+* [ ] Ensure that config changes work with individual build features.
 
 #### API Changes
 * [ ] Test the API endpoints which were added/changed.
