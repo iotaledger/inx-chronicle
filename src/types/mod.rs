@@ -3,6 +3,7 @@
 
 //! Module that contains the types.
 
+#[cfg(feature = "stardust")]
 pub mod context;
 #[cfg(feature = "stardust")]
 pub mod ledger;
