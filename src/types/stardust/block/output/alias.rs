@@ -81,7 +81,7 @@ pub struct AliasOutput {
     /// The metadata corresponding to the current state.
     #[serde(with = "serde_bytes")]
     pub state_metadata: Box<[u8]>,
-    /// The foundry counter.
+    /// A counter that denotes the number of foundries created by this alias account.
     pub foundry_counter: u32,
     // The governor address unlock condition and the state controller unlock conditions are mandatory for now, but this
     // could change in the protocol in the future for compression reasons.

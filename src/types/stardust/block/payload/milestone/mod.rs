@@ -271,7 +271,7 @@ impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
 /// Represents the migration of a given address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
-    /// The tail transaction hash of the bundle in which these funds were migrated. 
+    /// The tail transaction hash of the bundle in which these funds were migrated.
     #[serde(with = "bytify")]
     tail_transaction_hash: [u8; Self::TAIL_TRANSACTION_HASH_LENGTH],
     /// The target address.

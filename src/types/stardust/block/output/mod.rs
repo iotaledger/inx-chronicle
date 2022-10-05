@@ -96,7 +96,8 @@ impl From<OutputId> for Bson {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Output {
-    /// The [`TreasuryOutput`] variant. This is a leftover from the Chrysalis update and might be removed in the future.
+    /// The [`TreasuryOutput`] variant. This is a leftover from the Chrysalis update and might be removed in the
+    /// future.
     Treasury(TreasuryOutput),
     /// The [`BasicOutput`] variant.
     Basic(BasicOutput),
@@ -172,6 +173,7 @@ impl Output {
         }
     }
 
+    /// Converts the [`Output`] into its raw byte representation.
     pub fn raw(self, ctx: ProtocolParameters) -> Result<Vec<u8>, bee_block_stardust::Error> {
         let bee_output = bee_block_stardust::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
         Ok(bee_output.pack_to_vec())
