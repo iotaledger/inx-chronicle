@@ -74,9 +74,9 @@ impl FromStr for NativeTokenId {
 pub enum TokenScheme {
     /// The simple token scheme.
     Simple {
-        /// The amount of minted tokens.
+        /// The amount of minted (created) tokens.
         minted_tokens: NativeTokenAmount,
-        /// The amount of melted tokens.
+        /// The amount of melted (destroyed) tokens.
         melted_tokens: NativeTokenAmount,
         /// The amount of maximum supply of tokens.
         maximum_supply: NativeTokenAmount,

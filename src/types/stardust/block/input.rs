@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{output::OutputId, payload::milestone::MilestoneId};
 
-/// The type for [`Input`]s in the UTXO model.
+/// The type for [`Inputs`](Input) in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Input {

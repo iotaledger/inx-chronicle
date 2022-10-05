@@ -93,10 +93,10 @@ pub struct MilestoneEssence {
     /// The parents of the milestone.
     pub parents: Box<[BlockId]>,
     #[serde(with = "bytify")]
-    /// The inclusion Merkle root.
+    /// The Merkle root of all blocks included in this milestone.
     pub inclusion_merkle_root: [u8; Self::MERKLE_PROOF_LENGTH],
     #[serde(with = "bytify")]
-    /// The applied Merkle root.
+    /// The Merkle root of all blocks that contain state-mutating transactions.
     pub applied_merkle_root: [u8; Self::MERKLE_PROOF_LENGTH],
     /// The metadata of the milestone.
     #[serde(with = "serde_bytes")]

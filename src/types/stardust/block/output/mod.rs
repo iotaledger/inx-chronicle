@@ -94,7 +94,7 @@ impl From<OutputId> for Bson {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Output {
-    /// The [`TreasuryOutput`] variant.
+    /// The [`TreasuryOutput`] variant. This is a leftover from the Chrysalis update and might be removed in the future.
     Treasury(TreasuryOutput),
     /// The [`BasicOutput`] variant.
     Basic(BasicOutput),

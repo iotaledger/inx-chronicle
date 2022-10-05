@@ -25,7 +25,7 @@ pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl AliasId {
     const LENGTH: usize = bee::AliasId::LENGTH;
 
-    /// The [`AliasId`] is derived from the [`super::OutputId`] that created the alias.
+    /// The [`AliasId`] is derived from the [`OutputId`](super::OutputId) that created the alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
         Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
     }
@@ -72,7 +72,7 @@ impl From<AliasId> for Bson {
 pub struct AliasOutput {
     /// The output amount.
     pub amount: OutputAmount,
-    /// The list of [`NativeToken`]s.
+    /// The list of [`NativeTokens`](NativeToken).
     pub native_tokens: Box<[NativeToken]>,
     /// The associated id of the alias.
     pub alias_id: AliasId,
@@ -89,9 +89,9 @@ pub struct AliasOutput {
     pub state_controller_address_unlock_condition: StateControllerAddressUnlockCondition,
     /// The governer address unlock condition.
     pub governor_address_unlock_condition: GovernorAddressUnlockCondition,
-    /// The corresponding list of [`Feature`]s.
+    /// The corresponding list of [`Features`](Feature).
     pub features: Box<[Feature]>,
-    /// The corresponding list of immutable [`Feature`]s.
+    /// The corresponding list of immutable [`Features`](Feature).
     pub immutable_features: Box<[Feature]>,
 }
 
