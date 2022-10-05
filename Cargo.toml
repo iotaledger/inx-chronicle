@@ -114,6 +114,7 @@ api = [
 ]
 inx = [ 
     "dep:bee-inx",
+    "dep:packable",
     "dep:tonic",
 ]
 opentelemetry = [
