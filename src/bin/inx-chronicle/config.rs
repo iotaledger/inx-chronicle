@@ -20,7 +20,7 @@ pub enum ConfigError {
 
 /// Configuration of Chronicle.
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
     #[cfg(feature = "api")]
