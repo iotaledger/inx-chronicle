@@ -20,10 +20,17 @@ impl_success_response!(InfoResponse);
 
 /// Response of `GET /api/outputs/:outputId`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(untagged)]
 pub enum OutputResponse {
-    Json(Box<bee_api_types_stardust::responses::OutputResponse>),
+    Json(bee_api_types_stardust::responses::OutputResponse),
     Raw(Vec<u8>),
 }
 
-impl_success_response!(OutputResponse);
+impl axum::response::IntoResponse for OutputResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            OutputResponse::Json(res) => axum::Json(res).into_response(),
+            OutputResponse::Raw(bytes) => bytes.into_response(),
+        }
+    }
+}
