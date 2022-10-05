@@ -25,26 +25,14 @@ use crate::types::context::{TryFromWithContext, TryIntoWithContext};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Payload {
-    /// Signals a [`TransactionPayload`].
+    /// Signals a transaction of tokens.
     Transaction(Box<TransactionPayload>),
-    /// Signals a [`MilestonePayload`].
+    /// Signals a milestone that acts as a checkpoint on which all nodes agree.
     Milestone(Box<MilestonePayload>),
-    /// Signals a [`TreasuryTransactionPayload`].
+    /// Signals a transaction that modifies the treasury.
     TreasuryTransaction(Box<TreasuryTransactionPayload>),
-    /// Signals a [`TaggedDataPayload`].
+    /// Signals arbitrary data as a key-value pair.
     TaggedData(Box<TaggedDataPayload>),
-}
-
-impl Payload {
-    /// Returns the kind of a payload as a [`&str`](str).
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Payload::Transaction(_) => "transaction",
-            Payload::Milestone(_) => "milestone",
-            Payload::TreasuryTransaction(_) => "treasury_transaction",
-            Payload::TaggedData(_) => "tagged_data",
-        }
-    }
 }
 
 impl<T: Borrow<bee::Payload>> From<T> for Payload {

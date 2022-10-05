@@ -12,7 +12,7 @@ use crate::types::util::bytify;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Signature {
-    /// An Ed25519 signature.
+    /// An [`Ed25519`](https://en.wikipedia.org/wiki/EdDSA) signature.
     Ed25519 {
         /// The public key as bytes.
         #[serde(with = "bytify")]

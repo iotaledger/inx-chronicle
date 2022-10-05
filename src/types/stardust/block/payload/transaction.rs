@@ -118,18 +118,18 @@ impl From<TransactionPayload> for bee::dto::TransactionPayloadDto {
 pub enum TransactionEssence {
     /// The regular transaction essence.
     Regular {
-        /// The network id.
+        /// Including the network id in the transaction prevents replay attacks.
         #[serde(with = "crate::types::util::stringify")]
         network_id: u64,
-        /// The list of [`Input`]s.
+        /// The list of inputs that this transaction consumes.
         inputs: Box<[Input]>,
         #[serde(with = "bytify")]
         /// The input commitment.
         inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
-        /// The list of [`Output`]s.
+        /// The list of outputs that this transaction creates.
         #[serde(skip_serializing)]
         outputs: Box<[Output]>,
-        /// The [`Payload`].
+        /// The [`Payload`], which for now can only be of type [`TaggedDataPayload`](super::TaggedDataPayload).
         #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<Payload>,
     },

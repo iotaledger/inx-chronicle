@@ -162,9 +162,9 @@ impl TryFromWithContext<MilestoneEssence> for bee::MilestoneEssence {
 pub enum MilestoneOption {
     /// The receipt of a Chrysalis migration process.
     Receipt {
-        /// The milestone index of the migration.
+        /// The index of the legacy milestone in which the listed funds were migrated at.
         migrated_at: MilestoneIndex,
-        /// TODO
+        /// Indicates that this receipt is the last receipt for the given `migrated_at` index.
         last: bool,
         /// The funds that have been migrated.
         funds: Box<[MigratedFundsEntry]>,
@@ -271,7 +271,7 @@ impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
 /// Represents the migration of a given address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
-    /// The tail transaction hash.
+    /// The tail transaction hash of the bundle in which these funds were migrated. 
     #[serde(with = "bytify")]
     tail_transaction_hash: [u8; Self::TAIL_TRANSACTION_HASH_LENGTH],
     /// The target address.
