@@ -37,12 +37,14 @@ impl MongoDb {
         client_options.app_name = Some("Chronicle".to_string());
         client_options.min_pool_size = config.min_pool_size;
 
-        if let (Some(username), Some(password)) = (&config.username, &config.password) {
-            let credential = Credential::builder()
-                .username(username.clone())
-                .password(password.clone())
-                .build();
-            client_options.credential = Some(credential);
+        if client_options.credential.is_none() {
+            if let (Some(username), Some(password)) = (&config.username, &config.password) {
+                let credential = Credential::builder()
+                    .username(username.clone())
+                    .password(password.clone())
+                    .build();
+                client_options.credential = Some(credential);
+            }
         }
 
         let client = Client::with_options(client_options)?;
@@ -130,7 +132,7 @@ impl MongoDb {
 /// The [`MongoDb`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct MongoDbConfig {
     /// The bind address of the database.
     pub connect_url: String,

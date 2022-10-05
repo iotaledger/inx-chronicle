@@ -12,7 +12,7 @@ use super::{error::ConfigError, SecretKey};
 
 /// API configuration
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct ApiConfig {
     pub enabled: bool,
     pub port: u16,

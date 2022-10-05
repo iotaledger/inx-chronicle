@@ -9,7 +9,10 @@ mod test_rand {
     use chronicle::{
         db::collections::{BlockCollection, OutputCollection},
         types::{
-            ledger::{BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp},
+            ledger::{
+                BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp,
+                RentStructureBytes,
+            },
             stardust::block::{output::OutputId, payload::TransactionEssence, Block, BlockId, Payload},
         },
     };
@@ -72,6 +75,10 @@ mod test_rand {
                         booked: MilestoneIndexTimestamp {
                             milestone_index: 0.into(),
                             milestone_timestamp: 12345.into(),
+                        },
+                        rent_structure: RentStructureBytes {
+                            num_key_bytes: 0,
+                            num_data_bytes: 100,
                         },
                         output,
                     }))
