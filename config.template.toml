@@ -1,6 +1,6 @@
 [mongodb]
 ### Listening address of the MongoDB instance.
-connect_url = "mongodb://localhost:27017"
+conn_str = "mongodb://localhost:27017"
 
 ### MongoDB credentials. These fields are ignored if the connection string already contains credentials.
 username = "root"
