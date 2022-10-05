@@ -8,8 +8,6 @@ Chronicle is the permanode (sometimes also called indexer or scanner) for the IO
 It connects to a [Hornet](https://github.com/iotaledger/hornet) via the [IOTA Node Extension (INX)](https://github.com/iotaledger/inx) interface.
 Through the INX interface, Chronicle listens to all blocks in the Tangle that are referenced by a milestone and stores them in a [MongoDB](https://www.mongodb.com/) database.
 
-Chronicle offers several APIs that are documented [here](https://wiki.iota.org/inx-chronicle/reference/api.md).
-
 ## Documentation
 
 The documentation for Chronicle can be found in [our wiki](https://wiki.iota.org/shimmer/chronicle/welcome), the supported APIs are documented [here](https://wiki.iota.org/shimmer/chronicle/reference/api).
