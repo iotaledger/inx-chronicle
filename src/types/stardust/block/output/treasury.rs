@@ -37,6 +37,15 @@ impl TryFromWithContext<TreasuryOutput> for bee::TreasuryOutput {
     }
 }
 
+impl From<TreasuryOutput> for bee::dto::TreasuryOutputDto {
+    fn from(value: TreasuryOutput) -> Self {
+        Self {
+            kind: bee::TreasuryOutput::KIND,
+            amount: value.amount.0.to_string(),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::output::rand_treasury_output;

@@ -57,6 +57,16 @@ impl From<Address> for bee::Address {
     }
 }
 
+impl From<Address> for bee::dto::AddressDto {
+    fn from(value: Address) -> Self {
+        match value {
+            Address::Ed25519(a) => Self::Ed25519(a.into()),
+            Address::Alias(a) => Self::Alias(a.into()),
+            Address::Nft(a) => Self::Nft(a.into()),
+        }
+    }
+}
+
 impl FromStr for Address {
     type Err = bee_block_stardust::Error;
 

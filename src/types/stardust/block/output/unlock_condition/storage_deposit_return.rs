@@ -35,6 +35,16 @@ impl TryFromWithContext<StorageDepositReturnUnlockCondition> for bee::StorageDep
     }
 }
 
+impl From<StorageDepositReturnUnlockCondition> for bee::dto::StorageDepositReturnUnlockConditionDto {
+    fn from(value: StorageDepositReturnUnlockCondition) -> Self {
+        Self {
+            kind: bee::StorageDepositReturnUnlockCondition::KIND,
+            return_address: value.return_address.into(),
+            amount: value.amount.0.to_string(),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use super::*;

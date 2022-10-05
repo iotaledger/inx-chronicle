@@ -76,6 +76,17 @@ impl TryFromWithContext<Payload> for bee::Payload {
     }
 }
 
+impl From<Payload> for bee::dto::PayloadDto {
+    fn from(value: Payload) -> Self {
+        match value {
+            Payload::Transaction(p) => Self::Transaction(Box::new((*p).into())),
+            Payload::Milestone(p) => Self::Milestone(Box::new((*p).into())),
+            Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new((*p).into())),
+            Payload::TaggedData(p) => Self::TaggedData(Box::new((*p).into())),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::rand::number::rand_number_range;

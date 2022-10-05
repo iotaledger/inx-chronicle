@@ -15,7 +15,7 @@ pub mod treasury;
 
 use std::{borrow::Borrow, str::FromStr};
 
-use bee_block_stardust::output::{self as bee, Rent};
+use bee_block_stardust::output as bee;
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,6 @@ pub use self::{
 use super::Address;
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
-    ledger::RentStructureBytes,
     stardust::block::payload::transaction::TransactionId,
 };
 
@@ -170,49 +169,6 @@ impl Output {
             Self::Foundry(_) => true,
         }
     }
-
-    /// Returns the rent structure that can be use to compute the storage deposit for an output.
-    pub fn rent_structure(&self) -> RentStructureBytes {
-        // Computing the rent structure is independent of the protocol parameters, we just need this for conversion.
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
-        match self {
-            output @ (Self::Basic(_) | Self::Alias(_) | Self::Foundry(_) | Self::Nft(_)) => {
-                let bee_output = bee::Output::try_from_with_context(&ctx, output.clone())
-                    .expect("`Output` has to be convertible to `bee::Output`");
-
-                // The following computations of `data_bytes` and `key_bytes` makec use of the fact that the byte cost
-                // computation is a linear combination with respect to the type of the fields and their weight.
-
-                let num_data_bytes = {
-                    let config = bee::RentStructureBuilder::new()
-                        .byte_cost(1)
-                        .data_factor(1)
-                        .key_factor(0)
-                        .finish();
-                    bee_output.rent_cost(&config)
-                };
-
-                let num_key_bytes = {
-                    let config = bee::RentStructureBuilder::new()
-                        .byte_cost(1)
-                        .data_factor(0)
-                        .key_factor(1)
-                        .finish();
-                    bee_output.rent_cost(&config)
-                };
-
-                RentStructureBytes {
-                    num_data_bytes,
-                    num_key_bytes,
-                }
-            }
-            // The treasury output does not have an associated byte cost.
-            Self::Treasury(_) => RentStructureBytes {
-                num_key_bytes: 0,
-                num_data_bytes: 0,
-            },
-        }
-    }
 }
 
 impl<T: Borrow<bee::Output>> From<T> for Output {
@@ -244,15 +200,15 @@ impl TryFromWithContext<Output> for bee::Output {
     }
 }
 
-impl TryFromWithContext<Output> for bee::dto::OutputDto {
-    type Error = bee_block_stardust::Error;
-
-    fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        value: Output,
-    ) -> Result<Self, Self::Error> {
-        let stardust = bee::Output::try_from_with_context(ctx, value)?;
-        Ok(bee::dto::OutputDto::from(&stardust))
+impl From<Output> for bee::dto::OutputDto {
+    fn from(value: Output) -> Self {
+        match value {
+            Output::Treasury(o) => Self::Treasury(o.into()),
+            Output::Basic(o) => Self::Basic(o.into()),
+            Output::Alias(o) => Self::Alias(o.into()),
+            Output::Foundry(o) => Self::Foundry(o.into()),
+            Output::Nft(o) => Self::Nft(o.into()),
+        }
     }
 }
 

@@ -68,6 +68,29 @@ impl TryFrom<Feature> for bee::Feature {
     }
 }
 
+impl From<Feature> for bee::dto::FeatureDto {
+    fn from(value: Feature) -> Self {
+        match value {
+            Feature::Sender { address } => Self::Sender(bee::dto::SenderFeatureDto {
+                kind: bee::SenderFeature::KIND,
+                address: address.into(),
+            }),
+            Feature::Issuer { address } => Self::Issuer(bee::dto::IssuerFeatureDto {
+                kind: bee::IssuerFeature::KIND,
+                address: address.into(),
+            }),
+            Feature::Metadata { data } => Self::Metadata(bee::dto::MetadataFeatureDto {
+                kind: bee::MetadataFeature::KIND,
+                data: prefix_hex::encode(data),
+            }),
+            Feature::Tag { data } => Self::Tag(bee::dto::TagFeatureDto {
+                kind: bee::TagFeature::KIND,
+                tag: prefix_hex::encode(data),
+            }),
+        }
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use bee_block_stardust::{

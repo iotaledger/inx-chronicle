@@ -91,12 +91,24 @@ impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
         bee::TransactionPayload::new(
             value.essence.try_into_with_context(ctx)?,
             bee_block_stardust::unlock::Unlocks::new(
-                Vec::from(value.unlocks)
+                value
+                    .unlocks
+                    .into_vec()
                     .into_iter()
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?,
             )?,
         )
+    }
+}
+
+impl From<TransactionPayload> for bee::dto::TransactionPayloadDto {
+    fn from(value: TransactionPayload) -> Self {
+        Self {
+            kind: bee::TransactionPayload::KIND,
+            essence: value.essence.into(),
+            unlocks: value.unlocks.into_vec().into_iter().map(Into::into).collect(),
+        }
     }
 }
 
@@ -161,13 +173,15 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                     bee_block_stardust::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
-                    Vec::from(inputs)
+                    inputs
+                        .into_vec()
                         .into_iter()
                         .map(TryInto::try_into)
                         .collect::<Result<Vec<_>, _>>()?,
                 )
                 .with_outputs(
-                    Vec::from(outputs)
+                    outputs
+                        .into_vec()
                         .into_iter()
                         .map(|x| x.try_into_with_context(ctx))
                         .collect::<Result<Vec<_>, _>>()?,
@@ -178,6 +192,27 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                 bee::TransactionEssence::Regular(builder.finish(ctx)?)
             }
         })
+    }
+}
+
+impl From<TransactionEssence> for bee::dto::TransactionEssenceDto {
+    fn from(value: TransactionEssence) -> Self {
+        match value {
+            TransactionEssence::Regular {
+                network_id,
+                inputs,
+                inputs_commitment,
+                outputs,
+                payload,
+            } => Self::Regular(bee::dto::RegularTransactionEssenceDto {
+                kind: bee::RegularTransactionEssence::KIND,
+                network_id: network_id.to_string(),
+                inputs: inputs.into_vec().into_iter().map(Into::into).collect(),
+                inputs_commitment: prefix_hex::encode(inputs_commitment),
+                outputs: outputs.into_vec().into_iter().map(Into::into).collect(),
+                payload: payload.map(Into::into),
+            }),
+        }
     }
 }
 

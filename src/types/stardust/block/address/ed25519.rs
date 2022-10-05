@@ -30,6 +30,12 @@ impl From<Ed25519Address> for bee::Ed25519Address {
     }
 }
 
+impl From<Ed25519Address> for bee::dto::Ed25519AddressDto {
+    fn from(value: Ed25519Address) -> Self {
+        Into::into(&bee::Ed25519Address::from(value))
+    }
+}
+
 impl FromStr for Ed25519Address {
     type Err = bee_block_stardust::Error;
 
