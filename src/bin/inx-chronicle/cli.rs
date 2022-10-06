@@ -4,7 +4,6 @@
 use clap::{Parser, Subcommand};
 
 use crate::{
-    api::ApiError,
     config::{ChronicleConfig, ConfigError},
     error::Error,
 };
@@ -116,10 +115,10 @@ impl ClArgs {
                     )
                     .unwrap() // Panic: Cannot fail.
                     .expires_after_duration(api_data.jwt_expiration)
-                    .map_err(ApiError::InvalidJwt)?;
+                    .map_err(crate::api::ApiError::InvalidJwt)?;
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
-                        .map_err(ApiError::InvalidJwt)?;
+                        .map_err(crate::api::ApiError::InvalidJwt)?;
                     println!("Bearer {}", jwt);
                     println!("Expires: {}", exp_ts);
                     return Ok(true);
