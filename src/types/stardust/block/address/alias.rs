@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::output::AliasId;
 
+/// An address of an alias.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AliasAddress(pub AliasId);

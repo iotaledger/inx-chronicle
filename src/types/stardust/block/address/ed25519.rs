@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
+/// A regular Ed25519 address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Ed25519Address(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
