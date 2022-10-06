@@ -15,10 +15,10 @@ pub async fn interupt_or_terminate() -> mpsc::UnboundedReceiver<()> {
 
         tokio::select! {
             _ = sigterm.recv() => {
-                tracing::info!("recived `SIGTERM`, sending shutdown signal")
+                tracing::info!("received `SIGTERM`, sending shutdown signal")
             }
             _ = sigint.recv() => {
-                tracing::info!("recived `SIGTERM`, sending shutdown signal")
+                tracing::info!("received `SIGTERM`, sending shutdown signal")
             }
         }
 
