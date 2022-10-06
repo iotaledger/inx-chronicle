@@ -129,6 +129,19 @@ impl MongoDb {
     pub fn name(&self) -> &str {
         self.db.name()
     }
+
+    /// Logs slow queries with a certain sample rate and stores it in "system.profile".
+    pub async fn enable_query_profiler(&self) -> Result<(), Error> {
+        let command = doc! {
+            "profile": 1,
+            "slowOpThresholdMs": 100,
+            "sampleRate": 0.1,
+        };
+
+        let _ = self.db.run_command(command, None).await?;
+
+        Ok(())
+    }
 }
 
 /// The [`MongoDb`] config.
