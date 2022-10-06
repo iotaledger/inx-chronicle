@@ -19,7 +19,7 @@ pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Address {
-    /// An `Ed25519` address.
+    /// An Ed25519 address.
     Ed25519(Ed25519Address),
     /// An Alias address.
     Alias(AliasAddress),

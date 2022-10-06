@@ -78,7 +78,7 @@ pub enum TokenScheme {
         minted_tokens: NativeTokenAmount,
         /// The amount of melted (destroyed) tokens.
         melted_tokens: NativeTokenAmount,
-        /// The amount of maximum supply of tokens.
+        /// The maximum amount of tokens.
         maximum_supply: NativeTokenAmount,
     },
 }

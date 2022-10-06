@@ -29,7 +29,7 @@ pub struct Block {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// The payload of the block.
     pub payload: Option<Payload>,
-    /// The nonce used for proof-of-work.
+    /// The nonce determined by proof-of-work.
     #[serde(with = "crate::types::util::stringify")]
     pub nonce: u64,
 }
