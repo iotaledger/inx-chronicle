@@ -17,4 +17,6 @@ pub enum Error {
     #[cfg(feature = "inx")]
     #[error(transparent)]
     Inx(#[from] super::stardust_inx::InxError),
+    #[error(transparent)]
+    Shutdown(#[from] tokio::sync::broadcast::error::SendError<()>),
 }

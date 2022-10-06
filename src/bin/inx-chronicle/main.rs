@@ -72,20 +72,27 @@ async fn main() -> Result<(), Error> {
 
     let mut tasks: JoinSet<Result<(), Error>> = JoinSet::new();
 
+    let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
+
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
         let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
+        let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            worker.run().await?;
+            tokio::select! {
+                _ = worker.run() => {},
+                _ = handle.recv() => {},
+            }
             Ok(())
         });
     }
 
     #[cfg(feature = "api")]
     if config.api.enabled {
+        let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
-            worker.run().await?;
+            worker.run(handle.recv()).await?;
             Ok(())
         });
     }
@@ -113,9 +120,19 @@ async fn main() -> Result<(), Error> {
         },
     }
 
-    tasks.abort_all();
+    shutdown_signal.send(())?;
 
-    tracing::info!("Shutdown successful.");
+    // Allow the user to abort if the tasks aren't shutting down quickly.
+    tokio::select! {
+        _ = process::interupt_or_terminate() => {
+            tracing::info!("received second ctrl-c or terminate - aborting");
+            tasks.shutdown().await;
+            tracing::info!("Abort successful");
+        },
+        _ = async { while tasks.join_next().await.is_some() {} } => {
+            tracing::info!("Shutdown successful");
+        },
+    }
 
     Ok(())
 }

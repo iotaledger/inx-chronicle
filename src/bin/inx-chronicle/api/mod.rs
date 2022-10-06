@@ -20,6 +20,7 @@ mod routes;
 
 use axum::{Extension, Server};
 use chronicle::db::MongoDb;
+use futures::FutureExt;
 use hyper::Method;
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -57,7 +58,10 @@ impl ApiWorker {
     }
 
     // TODO: What happens when there is an error in an API request. This should not bring down all of Chronicle.
-    pub async fn run(&self) -> Result<(), ApiError> {
+    pub async fn run<Fut>(&self, shutdown_handle: Fut) -> Result<(), ApiError>
+    where
+        Fut: futures::Future,
+    {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;
@@ -76,7 +80,7 @@ impl ApiWorker {
 
         Server::bind(&([0, 0, 0, 0], port).into())
             .serve(routes.into_make_service())
-            //.with_graceful_shutdown(shutdown.listen())
+            .with_graceful_shutdown(shutdown_handle.then(|_| async {}))
             .await?;
 
         Ok(())
