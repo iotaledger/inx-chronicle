@@ -1,11 +1,12 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Output`] types.
+
 mod feature;
 mod native_token;
 mod unlock_condition;
 
-// The different output types
 pub mod alias;
 pub mod basic;
 pub mod foundry;
@@ -35,18 +36,25 @@ use crate::types::{
     tangle::ProtocolParameters,
 };
 
+/// The amount of tokens associated with an output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
 
+/// The index of an output within a transaction.
 pub type OutputIndex = u16;
 
+/// An id which uniquely identifies an output. It is computed from the corresponding [`TransactionId`], as well as the
+/// [`OutputIndex`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputId {
+    /// The transaction id part of the [`OutputId`].
     pub transaction_id: TransactionId,
+    /// The output index part of the [`OutputId`].
     pub index: OutputIndex,
 }
 
 impl OutputId {
+    /// Converts the [`OutputId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
         prefix_hex::encode([self.transaction_id.0.as_ref(), &self.index.to_le_bytes()].concat())
     }
@@ -84,17 +92,25 @@ impl From<OutputId> for Bson {
     }
 }
 
+/// Represents the different output types.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Output {
+    /// The [`TreasuryOutput`] variant. This is a leftover from the Chrysalis update and might be removed in the
+    /// future.
     Treasury(TreasuryOutput),
+    /// The [`BasicOutput`] variant.
     Basic(BasicOutput),
+    /// The [`AliasOutput`] variant.
     Alias(AliasOutput),
+    /// The [`FoundryOutput`] variant.
     Foundry(FoundryOutput),
+    /// The [`NftOutput`] variant.
     Nft(NftOutput),
 }
 
 impl Output {
+    /// Returns the [`Address`] that is in control of the output.
     pub fn owning_address(&self) -> Option<&Address> {
         Some(match self {
             Self::Treasury(_) => return None,
@@ -117,6 +133,7 @@ impl Output {
         })
     }
 
+    /// Returns the amount associated with an output.
     pub fn amount(&self) -> OutputAmount {
         match self {
             Self::Treasury(TreasuryOutput { amount, .. }) => *amount,
@@ -127,6 +144,7 @@ impl Output {
         }
     }
 
+    /// Checks if an output is trivially unlockable by only providing a signature.
     pub fn is_trivial_unlock(&self) -> bool {
         match self {
             Self::Treasury(_) => false,
@@ -155,6 +173,7 @@ impl Output {
         }
     }
 
+    /// Converts the [`Output`] into its raw byte representation.
     pub fn raw(self, ctx: ProtocolParameters) -> Result<Vec<u8>, bee_block_stardust::Error> {
         let bee_output = bee_block_stardust::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
         Ok(bee_output.pack_to_vec())

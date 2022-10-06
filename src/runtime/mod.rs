@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module that contains the actor runtime.
+
 /// Module containing the Actor trait and associated types.
 mod actor;
 /// Module containing runtime spawn configurations.
