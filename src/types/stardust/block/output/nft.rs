@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`NftOutput`].
+
 use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::output as bee;
@@ -15,6 +17,7 @@ use super::{
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 
+/// Uniquely identifies an NFT.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -22,6 +25,7 @@ pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl NftId {
     const LENGTH: usize = bee::NftId::LENGTH;
 
+    /// The [`NftId`] is derived from the [`super::OutputId`] that created the alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
         Ok(bee::NftId::from(bee::OutputId::from_str(s)?).into())
     }
@@ -63,19 +67,29 @@ impl From<NftId> for Bson {
     }
 }
 
+/// Represents an NFT in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NftOutput {
+    /// The output amount.
     pub amount: OutputAmount,
+    /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
+    /// The associated id of the NFT.
     pub nft_id: NftId,
+    /// The address unlock condition.
     pub address_unlock_condition: AddressUnlockCondition,
+    /// The storage deposit return unlock condition (SDRUC).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub storage_deposit_return_unlock_condition: Option<StorageDepositReturnUnlockCondition>,
+    /// The timelock unlock condition.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timelock_unlock_condition: Option<TimelockUnlockCondition>,
+    /// The expiration unlock condition.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration_unlock_condition: Option<ExpirationUnlockCondition>,
+    /// The corresponding list of [`Feature`]s.
     pub features: Box<[Feature]>,
+    /// The corresponding list of immutable [`Feature`]s.
     pub immutable_features: Box<[Feature]>,
 }
 

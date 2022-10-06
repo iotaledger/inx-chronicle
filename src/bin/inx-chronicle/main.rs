@@ -56,18 +56,38 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(feature = "stardust")]
     {
-        db.collection::<chronicle::db::collections::OutputCollection>()
+        use chronicle::db::collections;
+        let start_indexes = db.get_index_names().await?;
+        db.create_collection::<collections::OutputCollection>().await;
+        db.create_collection::<collections::BlockCollection>().await;
+        db.create_collection::<collections::LedgerUpdateCollection>().await;
+        db.create_collection::<collections::MilestoneCollection>().await;
+        db.collection::<collections::OutputCollection>()
             .create_indexes()
             .await?;
-        db.collection::<chronicle::db::collections::BlockCollection>()
+        db.collection::<collections::BlockCollection>().create_indexes().await?;
+        db.collection::<collections::LedgerUpdateCollection>()
             .create_indexes()
             .await?;
-        db.collection::<chronicle::db::collections::LedgerUpdateCollection>()
+        db.collection::<collections::MilestoneCollection>()
             .create_indexes()
             .await?;
-        db.collection::<chronicle::db::collections::MilestoneCollection>()
-            .create_indexes()
-            .await?;
+        let end_indexes = db.get_index_names().await?;
+        for (collection, indexes) in end_indexes {
+            if let Some(old_indexes) = start_indexes.get(&collection) {
+                let num_created = indexes.difference(old_indexes).count();
+                if num_created > 0 {
+                    info!("Created {} new indexes in {}", num_created, collection);
+                    if tracing::enabled!(tracing::Level::DEBUG) {
+                        for index in indexes.difference(old_indexes) {
+                            debug!(" - {}", index);
+                        }
+                    }
+                }
+            } else {
+                info!("Created {} new indexes in {}", indexes.len(), collection);
+            }
+        }
     }
 
     let mut tasks: JoinSet<Result<(), Error>> = JoinSet::new();

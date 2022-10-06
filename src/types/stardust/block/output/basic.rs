@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`BasicOutput`].
+
 use std::borrow::Borrow;
 
 use bee_block_stardust::output as bee;
@@ -14,17 +16,25 @@ use super::{
 };
 use crate::types::context::TryFromWithContext;
 
+/// Represents a basic output in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicOutput {
+    /// The output amount.
     pub amount: OutputAmount,
+    /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
+    /// The address unlock condition.
     pub address_unlock_condition: AddressUnlockCondition,
+    /// The storage deposit return unlock condition (SDRUC).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub storage_deposit_return_unlock_condition: Option<StorageDepositReturnUnlockCondition>,
+    /// The timelock unlock condition.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timelock_unlock_condition: Option<TimelockUnlockCondition>,
+    /// The expiration unlock condition.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiration_unlock_condition: Option<ExpirationUnlockCondition>,
+    /// The corresponding list of [`Feature`]s.
     pub features: Box<[Feature]>,
 }
 

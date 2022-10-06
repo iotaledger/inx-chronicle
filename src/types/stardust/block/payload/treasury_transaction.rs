@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Contains the [`TreasuryTransactionPayload`].
+
 use std::borrow::Borrow;
 
 use bee_block_stardust::payload as bee;
@@ -9,9 +11,12 @@ use serde::{Deserialize, Serialize};
 use super::milestone::MilestoneId;
 use crate::types::context::TryFromWithContext;
 
+/// Represents a treasury transaction payload.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryTransactionPayload {
+    /// The milestone id of the input.
     pub input_milestone_id: MilestoneId,
+    /// The amount of tokens in output.
     #[serde(with = "crate::types::util::stringify")]
     pub output_amount: u64,
 }
