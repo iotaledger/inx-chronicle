@@ -7,7 +7,7 @@ use axum::{
     extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
-use chronicle::{db::collections::ParseSortError, runtime::ErrorLevel};
+use chronicle::db::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
@@ -92,8 +92,6 @@ impl ApiError {
         ApiError::BadParse(err.into())
     }
 }
-
-impl ErrorLevel for ApiError {}
 
 impl<T: Into<InternalApiError>> From<T> for ApiError {
     fn from(err: T) -> Self {

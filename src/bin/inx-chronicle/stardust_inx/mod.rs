@@ -6,7 +6,6 @@ mod config;
 mod error;
 mod stream;
 
-use async_trait::async_trait;
 use bee_inx::client::Inx;
 use chronicle::{
     db::{
@@ -15,7 +14,6 @@ use chronicle::{
         },
         MongoDb,
     },
-    runtime::{Actor, ActorContext, HandleEvent},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -23,6 +21,7 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
+use tokio::task::JoinSet;
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
 use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
@@ -49,39 +48,49 @@ impl InxWorker {
         }
     }
 
-    pub async fn connect(inx_config: &InxConfig) -> Result<Inx, InxError> {
-        let url = url::Url::parse(&inx_config.connect_url)?;
+    async fn connect(&self) -> Result<Inx, InxError> {
+        let url = url::Url::parse(&self.config.connect_url)?;
 
         if url.scheme() != "http" {
-            return Err(InxError::InvalidAddress(inx_config.connect_url.clone()));
+            return Err(InxError::InvalidAddress(self.config.connect_url.clone()));
         }
 
-        for i in 0..inx_config.connection_retry_count {
-            match Inx::connect(inx_config.connect_url.clone()).await {
+        for i in 0..self.config.connection_retry_count {
+            match Inx::connect(self.config.connect_url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
                     warn!(
                         "INX connection failed. Retrying in {}s. {} retries remaining.",
-                        inx_config.connection_retry_interval.as_secs(),
-                        inx_config.connection_retry_count - i
+                        self.config.connection_retry_interval.as_secs(),
+                        self.config.connection_retry_count - i
                     );
-                    tokio::time::sleep(inx_config.connection_retry_interval).await;
+                    tokio::time::sleep(self.config.connection_retry_interval).await;
                 }
             }
         }
         Err(InxError::ConnectionError)
     }
-}
 
-#[async_trait]
-impl Actor for InxWorker {
-    type State = Inx;
-    type Error = InxError;
+    pub async fn run(&mut self) -> Result<(), InxError> {
+        let (start_index, mut inx) = self.init().await?;
+
+        let mut stream = LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?);
+
+        debug!("Started listening to ledger updates via INX.");
+
+        while let Some(ledger_update) = stream.try_next().await? {
+            handle_ledger_update(ledger_update, &mut inx, &self.db).await?;
+        }
+
+        tracing::debug!("INX stream closed unexpectedly.");
+
+        Ok(())
+    }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self, cx: &mut ActorContext<Self>) -> Result<Self::State, Self::Error> {
+    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxError> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
-        let mut inx = Self::connect(&self.config).await?;
+        let mut inx = self.connect().await?;
         info!("Connected to INX.");
 
         // Request the node status so we can get the pruning index and latest confirmed milestone
@@ -158,32 +167,23 @@ impl Actor for InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
-            let (tasks, count) = unspent_output_stream
-                // Convert to `LedgerOutput`
-                .map(|res| Ok(res?.output.try_into()?))
-                // Break into chunks
+            let mut tasks = unspent_output_stream
+                .map(|res| LedgerOutput::try_from(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
-                .map_err(|e| e.1)
+                .map_err(|e| InxError::BeeInx(e.1))
                 // Convert batches to tasks
-                .map_ok(|batch| {
+                .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
-                    (
-                        batch.len(),
-                        tokio::spawn(async move { insert_unspent_outputs(&db, batch).await }),
-                    )
+                    tasks.spawn(async move { insert_unspent_outputs(&db, batch).await });
+                    Ok(tasks)
                 })
-                // Fold everything into a total count and list of tasks
-                .try_fold((Vec::new(), 0), |(mut tasks, count), (batch_size, task)| async move {
-                    tasks.push(task);
-                    Result::<_, InxError>::Ok((tasks, count + batch_size))
-                })
-                .instrument(trace_span!("initial_insert_unspent_outputs"))
                 .await?;
 
-            for task in tasks {
+            let mut count = 0;
+            while let Some(res) = tasks.join_next().await {
                 // Panic: Acceptable risk
-                task.await.unwrap()?;
+                count += res.unwrap()?;
             }
 
             self.db.collection::<OutputCollection>().create_ledger_updates().await?;
@@ -202,12 +202,6 @@ impl Actor for InxWorker {
                 .await?;
         }
 
-        cx.add_stream(LedgerUpdateStream::new(
-            inx.listen_to_ledger_updates((start_index.0..).into()).await?,
-        ));
-
-        debug!("Started listening to ledger updates via INX.");
-
         metrics::describe_histogram!(
             METRIC_MILESTONE_SYNC_TIME,
             metrics::Unit::Seconds,
@@ -216,11 +210,7 @@ impl Actor for InxWorker {
         metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
         metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
 
-        Ok(inx)
-    }
-
-    fn name(&self) -> std::borrow::Cow<'static, str> {
-        "Inx Worker".into()
+        Ok((start_index, inx))
     }
 }
 
@@ -231,83 +221,63 @@ pub struct LedgerUpdateRecord {
     consumed: Vec<bee_inx::LedgerSpent>,
 }
 
-#[async_trait]
-impl HandleEvent<Result<LedgerUpdateRecord, InxError>> for InxWorker {
-    #[instrument(
-        skip_all,
-        fields(milestone_index, created, consumed),
-        err,
-        level = "debug",
-        name = "handle_ledger_update"
-    )]
-    async fn handle_event(
-        &mut self,
-        _cx: &mut ActorContext<Self>,
-        ledger_update_result: Result<LedgerUpdateRecord, InxError>,
-        inx: &mut Self::State,
-    ) -> Result<(), Self::Error> {
-        let start_time = std::time::Instant::now();
+#[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
+async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, db: &MongoDb) -> Result<(), InxError> {
+    let start_time = std::time::Instant::now();
 
-        let ledger_update = ledger_update_result?;
+    // Record the result as part of the current span.
+    tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
+    tracing::Span::current().record("created", ledger_update.created.len());
+    tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-        // Record the result as part of the current span.
-        tracing::Span::current().record("milestone_index", ledger_update.milestone_index.0);
-        tracing::Span::current().record("created", ledger_update.created.len());
-        tracing::Span::current().record("consumed", ledger_update.consumed.len());
+    insert_unspent_outputs(
+        db,
+        ledger_update
+            .created
+            .into_iter()
+            .map(|o| o.try_into())
+            .collect::<Result<_, _>>()?,
+    )
+    .await?;
+    update_spent_outputs(
+        db,
+        ledger_update
+            .consumed
+            .into_iter()
+            .map(|o| o.try_into())
+            .collect::<Result<_, _>>()?,
+    )
+    .await?;
 
-        insert_unspent_outputs(
-            &self.db,
-            ledger_update
-                .created
-                .into_iter()
-                .map(|o| o.try_into())
-                .collect::<Result<_, _>>()?,
-        )
-        .await?;
-        update_spent_outputs(
-            &self.db,
-            ledger_update
-                .consumed
-                .into_iter()
-                .map(|o| o.try_into())
-                .collect::<Result<_, _>>()?,
-        )
-        .await?;
-        self.db
-            .collection::<OutputCollection>()
-            .merge_into_ledger_updates(ledger_update.milestone_index)
-            .await?;
+    handle_cone_stream(db, inx, ledger_update.milestone_index).await?;
+    handle_protocol_params(db, inx, ledger_update.milestone_index).await?;
 
-        handle_cone_stream(&self.db, inx, ledger_update.milestone_index).await?;
-        handle_protocol_params(&self.db, inx, ledger_update.milestone_index).await?;
+    // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
+    handle_milestone(db, inx, ledger_update.milestone_index).await?;
 
-        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        handle_milestone(&self.db, inx, ledger_update.milestone_index).await?;
+    let elapsed = start_time.elapsed();
 
-        let elapsed = start_time.elapsed();
+    metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
 
-        metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
-
-        Ok(())
-    }
+    Ok(())
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<(), InxError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<usize, InxError> {
     let output_collection = db.collection::<OutputCollection>();
     for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
         output_collection.insert_unspent_outputs(batch).await?;
     }
-    Ok(())
+    Ok(outputs.len())
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<(), InxError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<usize, InxError> {
     let output_collection = db.collection::<OutputCollection>();
     for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
         output_collection.update_spent_outputs(batch).await?;
     }
-    Ok(())
+    Ok(outputs.len())
 }
 
 #[instrument(skip_all, level = "trace")]
