@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use chronicle::{
-    db::MongoDb,
+    db::{MongoDb, MongoDbCollection},
     runtime::{Actor, ActorContext, ErrorLevel, RuntimeError},
 };
 use clap::Parser;
