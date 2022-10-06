@@ -17,7 +17,6 @@ mod stardust_inx;
 use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
-use futures::FutureExt;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, log::warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
@@ -110,6 +109,7 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(feature = "api")]
     if config.api.enabled {
+        use futures::FutureExt;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
