@@ -33,4 +33,4 @@ As a reviewer, please pay particular attention to the following areas when revie
 #### Database Changes
 * [ ] Review database queries for correctness/conciseness.
 * [ ] Ensure queries are supported by indexes if needed.
-* [ ] Check for breaking changes in the data model and matching commit message.
+* [ ] Check for breaking changes in the data model and matching (conventional) commit message prefix.
