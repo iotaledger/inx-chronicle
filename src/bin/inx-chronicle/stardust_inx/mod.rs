@@ -286,8 +286,12 @@ async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, 
     tracing::Span::current().record("created", ledger_update.created.len());
     tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-    insert_unspent_outputs(db, &ledger_update.created).await?;
-    update_spent_outputs(db, &ledger_update.consumed).await?;
+    if !ledger_update.created.is_empty() {
+        insert_unspent_outputs(db, &ledger_update.created).await?;
+    }
+    if !ledger_update.consumed.is_empty() {
+        update_spent_outputs(db, &ledger_update.consumed).await?;
+    }
 
     handle_cone_stream(db, inx, ledger_update.milestone_index).await?;
     handle_protocol_params(db, inx, ledger_update.milestone_index).await?;
@@ -424,9 +428,11 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
                         None
                     })
                     .collect::<Vec<_>>();
-                db.collection::<TreasuryCollection>()
-                    .insert_treasury_payloads(payloads)
-                    .await?;
+                if !payloads.is_empty() {
+                    db.collection::<TreasuryCollection>()
+                        .insert_treasury_payloads(payloads)
+                        .await?;
+                }
                 db.collection::<BlockCollection>()
                     .insert_blocks_with_metadata(batch)
                     .await?;
