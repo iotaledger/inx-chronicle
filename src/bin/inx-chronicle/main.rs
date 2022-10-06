@@ -18,7 +18,7 @@ use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
 use tokio::task::JoinSet;
-use tracing::{debug, error, info, log::warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 use crate::{cli::ClArgs, config::ChronicleConfig, error::Error};
