@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod chunks;
 mod config;
 mod error;
 
@@ -24,7 +23,6 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
-use self::chunks::ChunksExt;
 pub use self::{config::InxConfig, error::InxError};
 
 /// Batch size for insert operations.
@@ -396,7 +394,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
 async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
-    let blocks_with_metadata = cone_stream
+    let mut tasks = cone_stream
         .map(|res| {
             let bee_inx::BlockWithMetadata { block, metadata } = res?;
             Result::<_, InxError>::Ok((
@@ -406,39 +404,41 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
                 BlockMetadata::from(metadata),
             ))
         })
-        .try_collect::<Vec<_>>()
+        .try_chunks(INSERT_BATCH_SIZE)
+        .map_err(|e| e.1)
+        .try_fold(JoinSet::new(), |mut tasks, batch| async {
+            let db = db.clone();
+            tasks.spawn(async move {
+                let payloads = batch
+                    .iter()
+                    .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
+                        if metadata.inclusion_state == LedgerInclusionState::Included {
+                            if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
+                                return Some((
+                                    metadata.referenced_by_milestone_index,
+                                    payload.input_milestone_id,
+                                    payload.output_amount,
+                                ));
+                            }
+                        }
+                        None
+                    })
+                    .collect::<Vec<_>>();
+                db.collection::<TreasuryCollection>()
+                    .insert_treasury_payloads(payloads)
+                    .await?;
+                db.collection::<BlockCollection>()
+                    .insert_blocks_with_metadata(batch)
+                    .await?;
+                Result::<_, InxError>::Ok(())
+            });
+            Ok(tasks)
+        })
         .await?;
 
-    // Unfortunately, clippy is wrong here. As much as I would love to use the iterator directly
-    // rather than collecting, rust is unable to resolve the bounds and cannot adequately express
-    // what is actually wrong.
-    #[allow(clippy::needless_collect)]
-    let payloads = blocks_with_metadata
-        .iter()
-        .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-            if metadata.inclusion_state == LedgerInclusionState::Included {
-                if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
-                    return Some((
-                        metadata.referenced_by_milestone_index,
-                        payload.input_milestone_id,
-                        payload.output_amount,
-                    ));
-                }
-            }
-            None
-        })
-        .collect::<Vec<_>>();
-
-    for batch in &payloads.into_iter().chunks(INSERT_BATCH_SIZE) {
-        db.collection::<TreasuryCollection>()
-            .insert_treasury_payloads(batch)
-            .await?;
-    }
-
-    for batch in &blocks_with_metadata.into_iter().chunks(INSERT_BATCH_SIZE) {
-        db.collection::<BlockCollection>()
-            .insert_blocks_with_metadata(batch)
-            .await?;
+    while let Some(res) = tasks.join_next().await {
+        // Panic: Acceptable risk
+        res.unwrap()?;
     }
 
     Ok(())
