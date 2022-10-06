@@ -4,9 +4,8 @@
 mod chunks;
 mod config;
 mod error;
-mod stream;
 
-use bee_inx::client::Inx;
+use bee_inx::{client::Inx, LedgerUpdate};
 use chronicle::{
     db::{
         collections::{
@@ -25,7 +24,7 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, warn, Instrument};
 
-use self::{chunks::ChunksExt, stream::LedgerUpdateStream};
+use self::chunks::ChunksExt;
 pub use self::{config::InxConfig, error::InxError};
 
 /// Batch size for insert operations.
@@ -75,12 +74,69 @@ impl InxWorker {
     pub async fn run(&mut self) -> Result<(), InxError> {
         let (start_index, mut inx) = self.init().await?;
 
-        let mut stream = LedgerUpdateStream::new(inx.listen_to_ledger_updates((start_index.0..).into()).await?);
+        let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
 
         debug!("Started listening to ledger updates via INX.");
 
+        let mut record: Option<LedgerUpdateRecord> = None;
+
         while let Some(ledger_update) = stream.try_next().await? {
-            handle_ledger_update(ledger_update, &mut inx, &self.db).await?;
+            match ledger_update {
+                LedgerUpdate::Begin(marker) => {
+                    // We shouldn't already have a record. If we do, that's bad.
+                    if let Some(record) = record.take() {
+                        return Err(InxError::InvalidLedgerUpdateCount {
+                            received: record.consumed_count + record.created_count,
+                            expected: marker.consumed_count + marker.created_count,
+                        });
+                    } else {
+                        record.replace(LedgerUpdateRecord {
+                            milestone_index: marker.milestone_index.into(),
+                            created: Vec::with_capacity(INSERT_BATCH_SIZE),
+                            created_count: 0,
+                            consumed: Vec::with_capacity(INSERT_BATCH_SIZE),
+                            consumed_count: 0,
+                        });
+                    }
+                }
+                LedgerUpdate::Consumed(consumed) => {
+                    if let Some(record) = record.as_mut() {
+                        record.consumed.push(consumed.try_into()?);
+                        record.consumed_count += 1;
+                        if record.consumed.len() >= INSERT_BATCH_SIZE {
+                            update_spent_outputs(&self.db, &std::mem::take(&mut record.consumed)).await?;
+                        }
+                    } else {
+                        return Err(InxError::InvalidMilestoneState);
+                    }
+                }
+                LedgerUpdate::Created(created) => {
+                    if let Some(record) = record.as_mut() {
+                        record.created.push(created.try_into()?);
+                        record.created_count += 1;
+                        if record.created.len() >= INSERT_BATCH_SIZE {
+                            insert_unspent_outputs(&self.db, &std::mem::take(&mut record.created)).await?;
+                        }
+                    } else {
+                        return Err(InxError::InvalidMilestoneState);
+                    }
+                }
+                LedgerUpdate::End(marker) => {
+                    if let Some(record) = record.take() {
+                        if record.created_count != marker.created_count
+                            || record.consumed_count != marker.consumed_count
+                        {
+                            return Err(InxError::InvalidLedgerUpdateCount {
+                                received: record.consumed_count + record.created_count,
+                                expected: marker.consumed_count + marker.created_count,
+                            });
+                        }
+                        handle_ledger_update(record, &mut inx, &self.db).await?;
+                    } else {
+                        return Err(InxError::InvalidMilestoneState);
+                    }
+                }
+            }
         }
 
         tracing::debug!("INX stream closed unexpectedly.");
@@ -168,7 +224,9 @@ impl InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
+            let mut count = 0;
             let mut tasks = unspent_output_stream
+                .inspect(|_| count += 1)
                 .map(|res| LedgerOutput::try_from(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
@@ -176,15 +234,14 @@ impl InxWorker {
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
-                    tasks.spawn(async move { insert_unspent_outputs(&db, batch).await });
+                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
                     Ok(tasks)
                 })
                 .await?;
 
-            let mut count = 0;
             while let Some(res) = tasks.join_next().await {
                 // Panic: Acceptable risk
-                count += res.unwrap()?;
+                res.unwrap()?;
             }
 
             info!("Inserted {} unspent outputs.", count);
@@ -216,8 +273,10 @@ impl InxWorker {
 #[derive(Debug)]
 pub struct LedgerUpdateRecord {
     milestone_index: MilestoneIndex,
-    created: Vec<bee_inx::LedgerOutput>,
-    consumed: Vec<bee_inx::LedgerSpent>,
+    created: Vec<LedgerOutput>,
+    created_count: usize,
+    consumed: Vec<LedgerSpent>,
+    consumed_count: usize,
 }
 
 #[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
@@ -229,24 +288,8 @@ async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, 
     tracing::Span::current().record("created", ledger_update.created.len());
     tracing::Span::current().record("consumed", ledger_update.consumed.len());
 
-    insert_unspent_outputs(
-        db,
-        ledger_update
-            .created
-            .into_iter()
-            .map(|o| o.try_into())
-            .collect::<Result<_, _>>()?,
-    )
-    .await?;
-    update_spent_outputs(
-        db,
-        ledger_update
-            .consumed
-            .into_iter()
-            .map(|o| o.try_into())
-            .collect::<Result<_, _>>()?,
-    )
-    .await?;
+    insert_unspent_outputs(db, &ledger_update.created).await?;
+    update_spent_outputs(db, &ledger_update.consumed).await?;
 
     handle_cone_stream(db, inx, ledger_update.milestone_index).await?;
     handle_protocol_params(db, inx, ledger_update.milestone_index).await?;
@@ -261,46 +304,46 @@ async fn handle_ledger_update(ledger_update: LedgerUpdateRecord, inx: &mut Inx, 
     Ok(())
 }
 
-#[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: Vec<LedgerOutput>) -> Result<usize, InxError> {
+#[instrument(skip_all, err, level = "trace")]
+async fn insert_unspent_outputs<'a, I>(db: &MongoDb, outputs: I) -> Result<(), InxError>
+where
+    I: IntoIterator<Item = &'a LedgerOutput> + Copy,
+    I::IntoIter: Send + Sync,
+{
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                output_collection.insert_unspent_outputs(batch).await?;
-            }
+            output_collection.insert_unspent_outputs(outputs).await?;
             Result::<_, InxError>::Ok(())
         },
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                ledger_collection.insert_unspent_ledger_updates(batch).await?;
-            }
+            ledger_collection.insert_unspent_ledger_updates(outputs).await?;
             Ok(())
         }
     }?;
-    Ok(outputs.len())
+    Ok(())
 }
 
-#[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: Vec<LedgerSpent>) -> Result<usize, InxError> {
+#[instrument(skip_all, err, level = "trace")]
+async fn update_spent_outputs<'a, I>(db: &MongoDb, outputs: I) -> Result<(), InxError>
+where
+    I: IntoIterator<Item = &'a LedgerSpent> + Copy,
+    I::IntoIter: Send + Sync,
+{
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                output_collection.update_spent_outputs(batch).await?;
-            }
+            output_collection.update_spent_outputs(outputs).await?;
             Ok(())
         },
         async {
-            for batch in &outputs.iter().chunks(INSERT_BATCH_SIZE) {
-                ledger_collection.insert_spent_ledger_updates(batch).await?;
-            }
+            ledger_collection.insert_spent_ledger_updates(outputs).await?;
             Ok(())
         }
     }
-    .and(Ok(outputs.len()))
+    .and(Ok(()))
 }
 
 #[instrument(skip_all, level = "trace")]
