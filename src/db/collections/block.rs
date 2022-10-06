@@ -94,16 +94,6 @@ impl BlockCollection {
         Ok(())
     }
 
-    // /// Gets the length of the collection.
-    // pub async fn len(&self) -> Result<usize, Error> {
-    //     Ok(self
-    //         .find(doc! {}, None)
-    //         .await?
-    //         .try_collect::<Vec<BlockDocument>>()
-    //         .await?
-    //         .len())
-    // }
-
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         self.aggregate(
