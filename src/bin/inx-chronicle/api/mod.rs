@@ -58,10 +58,7 @@ impl ApiWorker {
     }
 
     // TODO: What happens when there is an error in an API request. This should not bring down all of Chronicle.
-    pub async fn run<Fut>(&self, shutdown_handle: Fut) -> Result<(), ApiError>
-    where
-        Fut: futures::Future,
-    {
+    pub async fn run(&self, shutdown_handle: impl futures::Future) -> Result<(), ApiError> {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;
