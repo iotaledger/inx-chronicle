@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`BlockId`] type.
+
 use std::str::FromStr;
 
 use bee_block_stardust as bee;
@@ -9,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
 
+/// Uniquely identifies a block.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
 #[serde(transparent)]
 pub struct BlockId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -16,6 +19,7 @@ pub struct BlockId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl BlockId {
     const LENGTH: usize = bee::BlockId::LENGTH;
 
+    /// The `0x`-prefixed hex representation of a [`BlockId`].
     pub fn to_hex(&self) -> String {
         prefix_hex::encode(self.0.as_ref())
     }
@@ -68,6 +72,7 @@ mod rand {
             rand_block_ids(len).into_iter().map(Into::into)
         }
 
+        /// Generates a random amount of parents.
         pub fn rand_parents() -> Box<[Self]> {
             Self::rand_many(*bee::parent::Parents::COUNT_RANGE.end() as _).collect()
         }

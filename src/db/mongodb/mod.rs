@@ -5,6 +5,8 @@
 
 mod collection;
 
+use std::collections::{HashMap, HashSet};
+
 use mongodb::{
     bson::{doc, Document},
     error::Error,
@@ -35,12 +37,14 @@ impl MongoDb {
         client_options.app_name = Some("Chronicle".to_string());
         client_options.min_pool_size = config.min_pool_size;
 
-        if let (Some(username), Some(password)) = (&config.username, &config.password) {
-            let credential = Credential::builder()
-                .username(username.clone())
-                .password(password.clone())
-                .build();
-            client_options.credential = Some(credential);
+        if client_options.credential.is_none() {
+            if let (Some(username), Some(password)) = (&config.username, &config.password) {
+                let credential = Credential::builder()
+                    .username(username.clone())
+                    .password(password.clone())
+                    .build();
+                client_options.credential = Some(credential);
+            }
         }
 
         let client = Client::with_options(client_options)?;
@@ -51,9 +55,26 @@ impl MongoDb {
         })
     }
 
+    /// Creates a collection if it does not exist.
+    pub async fn create_collection<T: MongoDbCollection>(&self) {
+        self.db.create_collection(T::NAME, None).await.ok();
+    }
+
     /// Gets a collection of the provided type.
     pub fn collection<T: MongoDbCollection>(&self) -> T {
         T::instantiate(self, self.db.collection(T::NAME))
+    }
+
+    /// Gets all index names by their collection.
+    pub async fn get_index_names(&self) -> Result<HashMap<String, HashSet<String>>, Error> {
+        let mut res = HashMap::new();
+        for collection in self.db.list_collection_names(None).await? {
+            let indexes = self.db.collection::<Document>(&collection).list_index_names().await?;
+            if !indexes.is_empty() {
+                res.insert(collection, indexes.into_iter().collect());
+            }
+        }
+        Ok(res)
     }
 
     /// Clears all the collections from the database.
@@ -111,7 +132,7 @@ impl MongoDb {
 /// The [`MongoDb`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct MongoDbConfig {
     /// The bind address of the database.
     pub connect_url: String,

@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.21"
+version = "1.0.0-beta.22"
 authors = [ "IOTA Stiftung" ]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -25,7 +25,7 @@ path = "src/bin/inx-chronicle/main.rs"
 async-recursion = { version = "1.0", default-features = false }
 async-trait = { version = "0.1", default-features = false }
 bytesize = { version = "1.1", default-features = false }
-clap = { version = "3.2", default-features = false, features = [ "env", "derive", "std" ] }
+clap = { version = "4.0", default-features = false, features = [ "env", "derive", "std" ] }
 derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut" ] }
 dotenvy = { version = "0.15", default-features = false }
 dyn-clone = { version = "1.0", default-features = false }
@@ -114,6 +114,7 @@ api = [
 ]
 inx = [ 
     "dep:bee-inx",
+    "dep:packable",
     "dep:tonic",
 ]
 opentelemetry = [

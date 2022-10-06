@@ -12,7 +12,7 @@ use super::{error::ConfigError, SecretKey};
 
 /// API configuration
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct ApiConfig {
     pub enabled: bool,
     pub port: u16,
@@ -133,16 +133,12 @@ impl TryFrom<SingleOrMultiple<String>> for AllowOrigin {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ArgonConfig {
-    /// The associated data.
-    associated_data: Vec<u8>,
     /// The length of the resulting hash.
     hash_length: u32,
     /// The number of lanes in parallel.
     parallelism: u32,
     /// The amount of memory requested (KB).
     mem_cost: u32,
-    /// The secret key.
-    secret: Vec<u8>,
     /// The number of passes.
     iterations: u32,
     /// The variant.
@@ -156,11 +152,9 @@ pub struct ArgonConfig {
 impl Default for ArgonConfig {
     fn default() -> Self {
         Self {
-            associated_data: Default::default(),
             hash_length: 32,
             parallelism: 1,
             mem_cost: 4096,
-            secret: Default::default(),
             iterations: 3,
             variant: Default::default(),
             version: Default::default(),
@@ -171,11 +165,11 @@ impl Default for ArgonConfig {
 impl<'a> From<&'a ArgonConfig> for argon2::Config<'a> {
     fn from(val: &'a ArgonConfig) -> Self {
         Self {
-            ad: &val.associated_data,
+            ad: &[],
             hash_length: val.hash_length,
             lanes: val.parallelism,
             mem_cost: val.mem_cost,
-            secret: &val.secret,
+            secret: &[],
             thread_mode: Default::default(),
             time_cost: val.iterations,
             variant: val.variant,

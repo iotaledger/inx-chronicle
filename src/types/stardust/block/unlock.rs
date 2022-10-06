@@ -1,18 +1,37 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Unlock`] types.
+
 use bee_block_stardust::unlock as bee;
 use serde::{Deserialize, Serialize};
 
 use super::Signature;
 
+/// The different types of [`Unlock`]s.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Unlock {
-    Signature { signature: Signature },
-    Reference { index: u16 },
-    Alias { index: u16 },
-    Nft { index: u16 },
+    /// A signature unlock.
+    Signature {
+        /// The [`Signature`] of the unlock.
+        signature: Signature,
+    },
+    /// A reference unlock.
+    Reference {
+        /// The index of the unlock.
+        index: u16,
+    },
+    /// An alias unlock.
+    Alias {
+        /// The index of the unlock.
+        index: u16,
+    },
+    /// An NFT unlock.
+    Nft {
+        /// The index of the unlock.
+        index: u16,
+    },
 }
 
 impl From<&bee::Unlock> for Unlock {

@@ -11,7 +11,7 @@ use metrics_util::MetricKindMask;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct MetricsConfig {
     pub enabled: bool,
     pub address: IpAddr,
