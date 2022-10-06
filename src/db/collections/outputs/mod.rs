@@ -255,60 +255,32 @@ impl OutputCollection {
     /// Merges the outputs table into the ledger updates materialized view.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn merge_into_ledger_updates(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
-        self.merge_booked_outputs(milestone_index).await?;
-        self.merge_spent_outputs(milestone_index).await?;
-        Ok(())
-    }
-
-    async fn merge_booked_outputs(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
-        self.aggregate::<OutputDocument>(
-            vec![
-                doc! { "$match": {
-                    "details.address": { "$ne": null },
-                    "metadata.booked.milestone_index": milestone_index,
-                } },
-                doc! { "$project": {
-                    "_id": {
-                        "milestone_index": "$metadata.booked.milestone_index",
-                        "output_id": "$_id",
-                        "is_spent": { "$literal": false },
-                    },
-                    "address": "$details.address",
-                    "milestone_timestamp": "$metadata.booked.milestone_timestamp",
-                } },
-                doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await?;
-        Ok(())
-    }
-
-    async fn merge_spent_outputs(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
-        self.aggregate::<OutputDocument>(
-            vec![
-                doc! { "$match": {
-                    "details.address": { "$ne": null },
-                    "metadata.spent_metadata.spent.milestone_index": milestone_index,
-                } },
-                doc! { "$project": {
-                    "_id": {
-                        "milestone_index": "$metadata.spent_metadata.spent.milestone_index",
-                        "output_id": "$_id",
-                        "is_spent": { "$literal": true },
-                    },
-                    "address": "$details.address",
-                    "milestone_timestamp": "$metadata.spent_metadata.spent.milestone_timestamp",
-                } },
-                doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await?;
+        let merge = |spent| async move {
+            let ms_ts = if spent { "spent_metadata.spent" } else { "booked" };
+            self.aggregate::<OutputDocument>(
+                vec![
+                    doc! { "$match": {
+                        "details.address": { "$ne": null },
+                        format!("metadata.{ms_ts}.milestone_index"): milestone_index,
+                    } },
+                    doc! { "$project": {
+                        "_id": {
+                            "milestone_index": format!("$metadata.{ms_ts}.milestone_index"),
+                            "output_id": "$_id",
+                            "is_spent": { "$literal": spent },
+                        },
+                        "address": "$details.address",
+                        "milestone_timestamp": format!("$metadata.{ms_ts}.milestone_timestamp"),
+                    } },
+                    doc! { "$merge": { "into": LedgerUpdateCollection::NAME, "whenMatched": "keepExisting" } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await
+        };
+        tokio::try_join!(merge(false), merge(true))?;
         Ok(())
     }
 
