@@ -20,7 +20,7 @@ mod routes;
 
 use axum::{Extension, Server};
 use chronicle::db::MongoDb;
-use futures::{Future};
+use futures::Future;
 use hyper::Method;
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -57,7 +57,7 @@ impl ApiWorker {
         })
     }
 
-    pub async fn run(&self, shutdown_handle: impl Future<Output=()>) -> Result<(), ApiError> {
+    pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> Result<(), ApiError> {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;
