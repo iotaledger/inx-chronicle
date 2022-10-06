@@ -1,11 +1,12 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Payload`] types.
+
 use std::borrow::Borrow;
 
 use bee_block_stardust::payload as bee;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 pub mod milestone;
 pub mod tagged_data;
@@ -20,24 +21,18 @@ pub use self::{
 };
 use crate::types::context::{TryFromWithContext, TryIntoWithContext};
 
+/// The different payloads of a [`Block`](crate::types::stardust::block::Block).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum Payload {
+    /// Signals a transaction of tokens.
     Transaction(Box<TransactionPayload>),
+    /// Signals a milestone that acts as a checkpoint on which all nodes agree.
     Milestone(Box<MilestonePayload>),
+    /// Signals a transaction that modifies the treasury.
     TreasuryTransaction(Box<TreasuryTransactionPayload>),
+    /// Signals arbitrary data as a key-value pair.
     TaggedData(Box<TaggedDataPayload>),
-}
-
-impl Payload {
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Payload::Transaction(_) => "transaction",
-            Payload::Milestone(_) => "milestone",
-            Payload::TreasuryTransaction(_) => "treasury_transaction",
-            Payload::TaggedData(_) => "tagged_data",
-        }
-    }
 }
 
 impl<T: Borrow<bee::Payload>> From<T> for Payload {
@@ -79,36 +74,6 @@ impl From<Payload> for bee::dto::PayloadDto {
         }
     }
 }
-
-#[derive(Debug, Error)]
-#[error("wrong payload requested. expected {expected}, found: {found}")]
-pub struct WrongPayloadError {
-    expected: &'static str,
-    found: &'static str,
-}
-
-macro_rules! impl_coerce_payload {
-    ($kind:literal, $t:ty, $var:ident) => {
-        impl TryFrom<Payload> for $t {
-            type Error = WrongPayloadError;
-
-            fn try_from(value: Payload) -> Result<Self, Self::Error> {
-                if let Payload::$var(payload) = value {
-                    Ok(*payload)
-                } else {
-                    Err(WrongPayloadError {
-                        expected: $kind,
-                        found: value.kind(),
-                    })
-                }
-            }
-        }
-    };
-}
-impl_coerce_payload!("transaction", TransactionPayload, Transaction);
-impl_coerce_payload!("milestone", MilestonePayload, Milestone);
-impl_coerce_payload!("treasury_transaction", TreasuryTransactionPayload, TreasuryTransaction);
-impl_coerce_payload!("tagged_data", TaggedDataPayload, TaggedData);
 
 #[cfg(feature = "rand")]
 mod rand {

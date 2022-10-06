@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing types related to transactions.
+
 use std::{borrow::Borrow, str::FromStr};
 
 use bee_block_stardust::{output::InputsCommitment, payload::transaction as bee};
@@ -13,6 +15,7 @@ use crate::types::{
     util::bytify,
 };
 
+/// Uniquely identifies a transaction.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
@@ -20,6 +23,7 @@ pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 impl TransactionId {
     const LENGTH: usize = bee::TransactionId::LENGTH;
 
+    /// Converts the [`TransactionId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
         prefix_hex::encode(self.0.as_ref())
     }
@@ -55,10 +59,14 @@ impl From<TransactionId> for Bson {
     }
 }
 
+/// Represents the transaction payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionPayload {
+    /// The id of the transaction.
     pub transaction_id: TransactionId,
+    /// The transaction essence.
     pub essence: TransactionEssence,
+    /// The list of unlocks.
     pub unlocks: Box<[Unlock]>,
 }
 
@@ -104,17 +112,25 @@ impl From<TransactionPayload> for bee::dto::TransactionPayloadDto {
     }
 }
 
+/// Represents the essence of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TransactionEssence {
+    /// The regular transaction essence.
     Regular {
+        /// The network id for which this transaction was issued.
+        /// Note: Including the network id in the transaction prevents replay attacks.
         #[serde(with = "crate::types::util::stringify")]
         network_id: u64,
+        /// The list of inputs that this transaction consumes.
         inputs: Box<[Input]>,
         #[serde(with = "bytify")]
+        /// The input commitment hash as bytes.
         inputs_commitment: [u8; Self::INPUTS_COMMITMENT_LENGTH],
+        /// The list of outputs that this transaction creates.
         #[serde(skip_serializing)]
         outputs: Box<[Output]>,
+        /// The [`Payload`], which for now can only be of type [`TaggedDataPayload`](super::TaggedDataPayload).
         #[serde(skip_serializing_if = "Option::is_none")]
         payload: Option<Payload>,
     },

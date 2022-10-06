@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`Address`] types.
+
 use std::str::FromStr;
 
 use bee_block_stardust::address as bee;
@@ -13,11 +15,15 @@ mod nft;
 
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
+/// The different [`Address`] types supported by the network.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Address {
+    /// An Ed25519 address.
     Ed25519(Ed25519Address),
+    /// An Alias address.
     Alias(AliasAddress),
+    /// An Nft address.
     Nft(NftAddress),
 }
 

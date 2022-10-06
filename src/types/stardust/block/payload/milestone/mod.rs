@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing milestone-related types.
+
 mod milestone_id;
 
 use std::borrow::Borrow;
@@ -16,9 +18,12 @@ use crate::types::{
     util::bytify,
 };
 
+/// Represents a milestone payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestonePayload {
+    /// The essence of the milestone.
     pub essence: MilestoneEssence,
+    /// A list of [`Signature`]s.
     pub signatures: Box<[Signature]>,
 }
 
@@ -74,19 +79,29 @@ impl From<MilestonePayload> for bee::dto::MilestonePayloadDto {
     }
 }
 
+/// The milestone essence.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestoneEssence {
+    /// The index of the milestone.
     pub index: MilestoneIndex,
+    /// The UNIX timestamp of the issued milestone.
     pub timestamp: u32,
+    /// The protocol version of the issued milestone.
     pub protocol_version: u8,
+    /// The id of the previous milestone, as they form a chain.
     pub previous_milestone_id: MilestoneId,
+    /// The parents of the milestone.
     pub parents: Box<[BlockId]>,
     #[serde(with = "bytify")]
+    /// The Merkle root of all blocks included in this milestone.
     pub inclusion_merkle_root: [u8; Self::MERKLE_PROOF_LENGTH],
     #[serde(with = "bytify")]
+    /// The Merkle root of all blocks that contain state-mutating transactions.
     pub applied_merkle_root: [u8; Self::MERKLE_PROOF_LENGTH],
+    /// The metadata of the milestone.
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
+    /// Additional information that can get transmitted with an milestone.
     pub options: Box<[MilestoneOption]>,
 }
 
@@ -141,18 +156,28 @@ impl TryFromWithContext<MilestoneEssence> for bee::MilestoneEssence {
     }
 }
 
+/// Additional information that belongs to a milestone.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum MilestoneOption {
+    /// The receipt of a Chrysalis migration process.
     Receipt {
+        /// The index of the legacy milestone in which the listed funds were migrated at.
         migrated_at: MilestoneIndex,
+        /// Indicates that this receipt is the last receipt for the given `migrated_at` index.
         last: bool,
+        /// The funds that have been migrated.
         funds: Box<[MigratedFundsEntry]>,
+        /// The payload that updates the treasury accordingly.
         transaction: TreasuryTransactionPayload,
     },
+    /// An update of the [`ProtocolParameters`](crate::types::tangle::ProtocolParameters).
     Parameters {
+        /// The target milestone for when the update will become active.
         target_milestone_index: MilestoneIndex,
+        /// The new protocol version.
         protocol_version: u8,
+        /// The [`ProtocolParameters`](crate::types::tangle::ProtocolParameters) in binary representation.
         binary_parameters: Box<[u8]>,
     },
 }
@@ -243,11 +268,15 @@ impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
     }
 }
 
+/// Represents the migration of a given address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigratedFundsEntry {
+    /// The tail transaction hash of the bundle in which these funds were migrated.
     #[serde(with = "bytify")]
     tail_transaction_hash: [u8; Self::TAIL_TRANSACTION_HASH_LENGTH],
+    /// The target address.
     address: Address,
+    /// The amount of tokens that have been migrated.
     #[serde(with = "crate::types::util::stringify")]
     amount: u64,
 }
