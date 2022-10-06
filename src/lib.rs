@@ -7,7 +7,5 @@
 
 /// Module that contains the database and associated models.
 pub mod db;
-/// Module that contains the actor runtime.
-pub mod runtime;
 /// Module that contains the types.
 pub mod types;

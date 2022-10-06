@@ -8,20 +8,23 @@
 mod api;
 mod cli;
 mod config;
-mod launcher;
+mod error;
 mod metrics;
+mod process;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
 
-use std::error::Error;
-
-use chronicle::runtime::{Runtime, RuntimeScope};
-use launcher::Launcher;
-use tracing::error;
+use bytesize::ByteSize;
+use chronicle::db::MongoDb;
+use clap::Parser;
+use tokio::task::JoinSet;
+use tracing::{debug, error, info, log::warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
+use crate::{cli::ClArgs, config::ChronicleConfig, error::Error};
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
     dotenvy::dotenv().ok();
     set_up_logging();
 
@@ -29,9 +32,92 @@ async fn main() {
         error!("{}", p);
     }));
 
-    if let Err(e) = Runtime::launch(startup).await {
-        error!("{}", e);
+    let cl_args = ClArgs::parse();
+
+    let mut config = cl_args
+        .config
+        .as_ref()
+        .map(ChronicleConfig::from_file)
+        .transpose()?
+        .unwrap_or_default();
+    config.apply_cl_args(&cl_args);
+
+    info!(
+        "Connecting to database at bind address `{}`.",
+        config.mongodb.connect_url
+    );
+    let db = MongoDb::connect(&config.mongodb).await?;
+    debug!("Available databases: `{:?}`", db.get_databases().await?);
+    info!(
+        "Connected to database `{}` ({})",
+        db.name(),
+        ByteSize::b(db.size().await?)
+    );
+
+    #[cfg(feature = "stardust")]
+    {
+        db.collection::<chronicle::db::collections::OutputCollection>()
+            .create_indexes()
+            .await?;
+        db.collection::<chronicle::db::collections::BlockCollection>()
+            .create_indexes()
+            .await?;
+        db.collection::<chronicle::db::collections::LedgerUpdateCollection>()
+            .create_indexes()
+            .await?;
+        db.collection::<chronicle::db::collections::MilestoneCollection>()
+            .create_indexes()
+            .await?;
     }
+
+    let mut tasks: JoinSet<Result<(), Error>> = JoinSet::new();
+
+    #[cfg(all(feature = "inx", feature = "stardust"))]
+    if config.inx.enabled {
+        let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
+        tasks.spawn(async move {
+            worker.run().await?;
+            Ok(())
+        });
+    }
+
+    #[cfg(feature = "api")]
+    if config.api.enabled {
+        tasks.spawn(async move {
+            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
+            worker.run().await?;
+            Ok(())
+        });
+    }
+
+    if config.metrics.enabled {
+        if let Err(err) = crate::metrics::setup(&config.metrics) {
+            warn!("Failed to build Prometheus exporter: {err}");
+        } else {
+            info!(
+                "Exporting to Prometheus at bind address: {}:{}",
+                config.metrics.address, config.metrics.port
+            );
+        };
+    }
+
+    // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
+    tokio::select! {
+        _ = process::interupt_or_terminate() => {
+            tracing::info!("received ctrl-c or terminate");
+        },
+        res = tasks.join_next() => {
+            if let Some(Ok(Err(err))) = res {
+                tracing::error!("A worker failed with error: {err}");
+            }
+        },
+    }
+
+    tasks.abort_all();
+
+    tracing::info!("Shutdown successful.");
+
+    Ok(())
 }
 
 fn set_up_logging() {
@@ -64,41 +150,4 @@ fn set_up_logging() {
         .with_span_events(FmtSpan::CLOSE)
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-}
-
-async fn startup(scope: &mut RuntimeScope) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let launcher_addr = scope.spawn_actor_unsupervised(Launcher).await;
-
-    tokio::spawn(async move {
-        shutdown_signal_listener().await;
-        launcher_addr.abort().await;
-    });
-
-    Ok(())
-}
-
-async fn shutdown_signal_listener() {
-    #[cfg(unix)]
-    {
-        use futures::future;
-        use tokio::signal::unix::{signal, Signal, SignalKind};
-
-        // Panic: none of the possible error conditions should happen.
-        let mut signals = vec![SignalKind::interrupt(), SignalKind::terminate()]
-            .iter()
-            .map(|kind| signal(*kind).unwrap())
-            .collect::<Vec<Signal>>();
-        let signal_futs = signals.iter_mut().map(|signal| Box::pin(signal.recv()));
-        let (signal_event, _, _) = future::select_all(signal_futs).await;
-
-        if signal_event.is_none() {
-            panic!("Shutdown signal stream failed, channel may have closed.");
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        if let Err(e) = tokio::signal::ctrl_c().await {
-            panic!("Failed to intercept CTRL-C: {:?}.", e);
-        }
-    }
 }
