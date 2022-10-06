@@ -3,7 +3,11 @@
 
 use clap::{Parser, Subcommand};
 
-use crate::config::{ChronicleConfig, ConfigError};
+use crate::{
+    api::ApiError,
+    config::{ChronicleConfig, ConfigError},
+    error::Error,
+};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -76,6 +80,7 @@ impl ClArgs {
                         config.api.password_salt.as_bytes(),
                         &Into::into(&config.api.argon_config),
                     )
+                    // TODO: Replace this once we switch to a better error lib
                     .expect("invalid JWT config"),
                 );
             }
@@ -97,7 +102,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub fn process_subcommands(&self, config: &ChronicleConfig) -> bool {
+    pub fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -111,18 +116,18 @@ impl ClArgs {
                     )
                     .unwrap() // Panic: Cannot fail.
                     .expires_after_duration(api_data.jwt_expiration)
-                    .expect("invalid JWT config");
+                    .map_err(ApiError::InvalidJwt)?;
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
-                        .expect("invalid JWT config");
+                        .map_err(ApiError::InvalidJwt)?;
                     println!("Bearer {}", jwt);
                     println!("Expires: {}", exp_ts);
-                    return true;
+                    return Ok(true);
                 }
                 _ => (),
             }
         }
-        false
+        Ok(false)
     }
 }
 
