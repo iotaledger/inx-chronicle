@@ -7,5 +7,5 @@
 //! The basic types and MongoDb queries for Chronicle.
 
 pub mod db;
-pub mod runtime;
+/// Module that contains the types.
 pub mod types;
