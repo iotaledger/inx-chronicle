@@ -15,7 +15,7 @@ mod process;
 mod stardust_inx;
 
 use bytesize::ByteSize;
-use chronicle::db::MongoDb;
+use chronicle::db::{MongoDb, MongoDbCollection};
 use clap::Parser;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
