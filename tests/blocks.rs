@@ -10,7 +10,7 @@ mod test_rand {
     use chronicle::{
         db::{
             collections::{BlockCollection, OutputCollection},
-            MongoDb, MongoDbCollectionExt,
+            MongoDb, MongoDbCollection, MongoDbCollectionExt,
         },
         types::{
             ledger::{

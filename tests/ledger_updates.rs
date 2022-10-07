@@ -13,7 +13,7 @@ mod test_rand {
             collections::{
                 LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, SortOrder,
             },
-            MongoDb, MongoDbCollectionExt,
+            MongoDb, MongoDbCollection, MongoDbCollectionExt,
         },
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},

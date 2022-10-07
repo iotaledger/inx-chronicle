@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::OutputAmount;
 use crate::types::{context::TryFromWithContext, stardust::block::Address};
 
+/// TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageDepositReturnUnlockCondition {
     return_address: Address,

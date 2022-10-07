@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
 
+/// TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExpirationUnlockCondition {
     return_address: Address,

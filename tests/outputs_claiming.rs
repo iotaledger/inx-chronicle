@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
 
     use chronicle::{
-        db::collections::OutputCollection,
+        db::{collections::OutputCollection, MongoDbCollection},
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{

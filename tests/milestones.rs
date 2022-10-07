@@ -6,7 +6,7 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::{collections::MilestoneCollection, MongoDb},
+        db::{collections::MilestoneCollection, MongoDb, MongoDbCollection},
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
     };
 

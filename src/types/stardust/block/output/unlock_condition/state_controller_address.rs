@@ -8,8 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
+/// TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateControllerAddressUnlockCondition {
+    /// TODO
     pub address: Address,
 }
 

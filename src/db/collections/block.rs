@@ -43,6 +43,7 @@ pub struct BlockCollection {
     collection: mongodb::Collection<BlockDocument>,
 }
 
+#[async_trait::async_trait]
 impl MongoDbCollection for BlockCollection {
     const NAME: &'static str = "stardust_blocks";
     type Document = BlockDocument;
@@ -54,12 +55,8 @@ impl MongoDbCollection for BlockCollection {
     fn collection(&self) -> &mongodb::Collection<Self::Document> {
         &self.collection
     }
-}
 
-/// Implements the queries for the core API.
-impl BlockCollection {
-    /// Creates block indexes.
-    pub async fn create_indexes(&self) -> Result<(), Error> {
+    async fn create_indexes(&self) -> Result<(), Error> {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "block.payload.transaction_id": 1 })
@@ -93,7 +90,10 @@ impl BlockCollection {
 
         Ok(())
     }
+}
 
+/// Implements the queries for the core API.
+impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         self.aggregate(

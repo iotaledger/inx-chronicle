@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::milestone::MilestoneTimestamp;
 
+/// TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimelockUnlockCondition {
     timestamp: MilestoneTimestamp,
