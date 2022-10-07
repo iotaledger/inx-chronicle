@@ -21,7 +21,7 @@ As a reviewer, please pay particular attention to the following areas when revie
 * [ ] Test the API endpoints which were added/changed.
 * [ ] Ensure that the API response times scale with database size appropriately.
 * [ ] Review the API documentation changes and confirm that it matches the actual functionality.
-* [ ] Check for breaking changes in the API and matching commit message.
+* [ ] Check for breaking changes in the API and matching (conventional) commit message prefix.
 
 #### Test cases
 * [ ] Review and run tests that were added/changed.
