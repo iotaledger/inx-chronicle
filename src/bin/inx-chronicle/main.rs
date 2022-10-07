@@ -58,11 +58,10 @@ async fn main() -> Result<(), Error> {
     {
         use chronicle::db::collections;
         let start_indexes = db.get_index_names().await?;
-        db.create_collection::<collections::OutputCollection>(true).await?;
-        db.create_collection::<collections::BlockCollection>(true).await?;
-        db.create_collection::<collections::LedgerUpdateCollection>(true)
-            .await?;
-        db.create_collection::<collections::MilestoneCollection>(true).await?;
+        db.create_indexes::<collections::OutputCollection>().await?;
+        db.create_indexes::<collections::BlockCollection>().await?;
+        db.create_indexes::<collections::LedgerUpdateCollection>().await?;
+        db.create_indexes::<collections::MilestoneCollection>().await?;
         let end_indexes = db.get_index_names().await?;
         for (collection, indexes) in end_indexes {
             if let Some(old_indexes) = start_indexes.get(&collection) {
