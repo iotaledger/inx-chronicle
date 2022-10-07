@@ -387,6 +387,7 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "hyper",
+ "iota-types",
  "lazy_static",
  "metrics",
  "metrics-exporter-prometheus",
@@ -1309,6 +1310,31 @@ dependencies = [
  "blake2",
  "digest 0.10.5",
  "ed25519-zebra",
+]
+
+[[package]]
+name = "iota-types"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/iotaledger/iota.rs#42574b51a672f536c21d1423bcf9bf41eec9b58d"
+dependencies = [
+ "bech32",
+ "bee-pow",
+ "bee-ternary",
+ "bitflags",
+ "bytemuck",
+ "derive_more",
+ "hashbrown",
+ "hex",
+ "iota-crypto",
+ "iterator-sorted",
+ "packable",
+ "prefix-hex",
+ "primitive-types",
+ "rand",
+ "serde",
+ "serde-big-array",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
