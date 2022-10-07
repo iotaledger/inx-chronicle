@@ -6,15 +6,15 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::{collections::MilestoneCollection, MongoDb, MongoDbCollection},
+        db::collections::MilestoneCollection,
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
     };
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup, teardown};
 
     #[tokio::test]
     async fn test_milestones() {
-        let (db, collection) = setup("test-milestones").await;
+        let (db, collection) = setup::<MilestoneCollection>("test-milestones").await;
 
         let milestone = MilestonePayload::rand(&bee_block_stardust::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();
@@ -53,17 +53,5 @@ mod test_rand {
         );
 
         teardown(db).await;
-    }
-
-    async fn setup(database_name: impl ToString) -> (MongoDb, MilestoneCollection) {
-        let db = connect_to_test_db(database_name).await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<MilestoneCollection>();
-        collection.create_indexes().await.unwrap();
-        (db, collection)
-    }
-
-    async fn teardown(db: MongoDb) {
-        db.drop().await.unwrap();
     }
 }

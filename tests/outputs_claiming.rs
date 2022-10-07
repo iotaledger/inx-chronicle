@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
 
     use chronicle::{
-        db::{collections::OutputCollection, MongoDbCollection},
+        db::collections::OutputCollection,
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
@@ -18,7 +18,7 @@ mod test_rand {
         },
     };
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup, teardown};
 
     fn rand_output_with_value(amount: OutputAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
@@ -29,10 +29,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_claiming() {
-        let db = connect_to_test_db("test-claiming").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<OutputCollection>();
-        collection.create_indexes().await.unwrap();
+        let (db, collection) = setup::<OutputCollection>("test-claiming").await;
 
         let unspent_outputs = (1..=5)
             .map(|i| LedgerOutput {
@@ -88,6 +85,6 @@ mod test_rand {
             .count;
         assert_eq!(third, "3");
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 }

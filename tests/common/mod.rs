@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use chronicle::db::{MongoDb, MongoDbConfig};
+use chronicle::db::{MongoDb, MongoDbCollection, MongoDbConfig};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -33,4 +33,18 @@ pub async fn connect_to_test_db(database_name: impl ToString) -> Result<MongoDb,
     config.database_name = database_name.to_string();
 
     Ok(MongoDb::connect(&config).await?)
+}
+
+#[allow(unused)]
+pub async fn setup<T: MongoDbCollection + Send + Sync>(database_name: impl ToString) -> (MongoDb, T) {
+    let db = connect_to_test_db(database_name).await.unwrap();
+    db.clear().await.unwrap();
+    db.create_indexes::<T>().await.unwrap();
+    let collection = db.collection::<T>();
+    (db, collection)
+}
+
+#[allow(unused)]
+pub async fn teardown(db: MongoDb) {
+    db.drop().await.unwrap();
 }

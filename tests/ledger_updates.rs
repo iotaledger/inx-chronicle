@@ -13,7 +13,7 @@ mod test_rand {
             collections::{
                 LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, SortOrder,
             },
-            MongoDb, MongoDbCollection, MongoDbCollectionExt,
+            MongoDbCollectionExt,
         },
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
@@ -25,11 +25,11 @@ mod test_rand {
     };
     use futures::TryStreamExt;
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup, teardown};
 
     #[tokio::test]
     async fn test_ledger_updates_by_address() {
-        let (db, collection) = setup("test-ledger-updates-by-address").await;
+        let (db, collection) = setup::<LedgerUpdateCollection>("test-ledger-updates-by-address").await;
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -122,7 +122,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_ledger_updates_by_milestone() {
-        let (db, collection) = setup("test-ledger-updates-by-milestone").await;
+        let (db, collection) = setup::<LedgerUpdateCollection>("test-ledger-updates-by-milestone").await;
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -176,7 +176,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_spent_unspent_ledger_updates() {
-        let (db, collection) = setup("test-spent-unspent-ledger-updates").await;
+        let (db, collection) = setup::<LedgerUpdateCollection>("test-spent-unspent-ledger-updates").await;
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -236,17 +236,5 @@ mod test_rand {
         assert_eq!(collection.count().await.unwrap(), 150);
 
         teardown(db).await;
-    }
-
-    async fn setup(database_name: impl ToString) -> (MongoDb, LedgerUpdateCollection) {
-        let db = connect_to_test_db(database_name).await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<LedgerUpdateCollection>();
-        collection.create_indexes().await.unwrap();
-        (db, collection)
-    }
-
-    async fn teardown(db: MongoDb) {
-        db.drop().await.unwrap();
     }
 }

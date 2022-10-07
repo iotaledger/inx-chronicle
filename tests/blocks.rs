@@ -10,7 +10,7 @@ mod test_rand {
     use chronicle::{
         db::{
             collections::{BlockCollection, OutputCollection},
-            MongoDb, MongoDbCollection, MongoDbCollectionExt,
+            MongoDbCollectionExt,
         },
         types::{
             ledger::{
@@ -22,11 +22,11 @@ mod test_rand {
     };
     use futures::TryStreamExt;
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup, teardown};
 
     #[tokio::test]
     async fn test_blocks() {
-        let (db, collection) = setup("test-blocks").await;
+        let (db, collection) = setup::<BlockCollection>("test-blocks").await;
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -117,7 +117,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_block_children() {
-        let (db, collection) = setup("test-children").await;
+        let (db, collection) = setup::<BlockCollection>("test-children").await;
 
         let parents = std::iter::repeat_with(BlockId::rand)
             .take(2)
@@ -175,7 +175,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_spending_transaction() {
-        let (db, collection) = setup("test-spending-transaction").await;
+        let (db, collection) = setup::<BlockCollection>("test-spending-transaction").await;
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -235,7 +235,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_milestone_activity() {
-        let (db, collection) = setup("test-milestone-activity").await;
+        let (db, collection) = setup::<BlockCollection>("test-milestone-activity").await;
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -292,17 +292,5 @@ mod test_rand {
         assert_eq!(activity.num_no_tx, 3);
 
         teardown(db).await;
-    }
-
-    async fn setup(database_name: impl ToString) -> (MongoDb, BlockCollection) {
-        let db = connect_to_test_db(database_name).await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<BlockCollection>();
-        collection.create_indexes().await.unwrap();
-        (db, collection)
-    }
-
-    async fn teardown(db: MongoDb) {
-        db.drop().await.unwrap();
     }
 }

@@ -7,24 +7,18 @@ mod common;
 mod test_rand {
 
     use chronicle::{
-        db::{
-            collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
-            MongoDbCollection,
-        },
+        db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{output::OutputId, payload::TransactionId, BlockId, Output},
         },
     };
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup, teardown};
 
     #[tokio::test]
     async fn test_outputs() {
-        let db = connect_to_test_db("test-outputs").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<OutputCollection>();
-        collection.create_indexes().await.unwrap();
+        let (db, collection) = setup::<OutputCollection>("test-outputs").await;
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -165,6 +159,6 @@ mod test_rand {
             );
         }
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 }
