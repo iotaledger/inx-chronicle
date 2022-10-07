@@ -100,7 +100,9 @@ async fn main() -> Result<(), Error> {
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {
-                _ = worker.run() => {},
+                res = worker.run() => {
+                    res?;
+                },
                 _ = handle.recv() => {},
             }
             Ok(())
