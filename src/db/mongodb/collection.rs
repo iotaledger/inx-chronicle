@@ -20,6 +20,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use super::{MongoDb, DUPLICATE_KEY_CODE};
 
 /// A MongoDB collection.
+#[async_trait]
 pub trait MongoDbCollection {
     /// The collection name.
     const NAME: &'static str;
@@ -36,6 +37,11 @@ pub trait MongoDbCollection {
     /// Coerce the underlying collection to the needed type.
     fn with_type<T>(&self) -> mongodb::Collection<T> {
         self.collection().clone_with_type()
+    }
+
+    /// Creates the collection indexes.
+    async fn create_indexes(&self) -> Result<(), Error> {
+        Ok(())
     }
 }
 

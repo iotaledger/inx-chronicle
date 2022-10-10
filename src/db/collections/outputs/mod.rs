@@ -52,6 +52,7 @@ pub struct OutputCollection {
     collection: mongodb::Collection<OutputDocument>,
 }
 
+#[async_trait::async_trait]
 impl MongoDbCollection for OutputCollection {
     const NAME: &'static str = "stardust_outputs";
     type Document = OutputDocument;
@@ -65,6 +66,43 @@ impl MongoDbCollection for OutputCollection {
 
     fn collection(&self) -> &mongodb::Collection<Self::Document> {
         &self.collection
+    }
+
+    async fn create_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "details.address": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .unique(false)
+                        .name("address_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "details.address": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.block_id": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .unique(false)
+                        .name("metadata_block_id".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_indexer_indexes().await?;
+
+        Ok(())
     }
 }
 
@@ -139,44 +177,6 @@ pub struct UtxoChangesResult {
 
 /// Implements the queries for the core API.
 impl OutputCollection {
-    /// Creates output indexes.
-    pub async fn create_indexes(&self) -> Result<(), Error> {
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "details.address": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .unique(false)
-                        .name("address_index".to_string())
-                        .partial_filter_expression(doc! {
-                            "details.address": { "$exists": true },
-                        })
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "metadata.block_id": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .unique(false)
-                        .name("metadata_block_id".to_string())
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_indexer_indexes().await?;
-
-        Ok(())
-    }
-
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
