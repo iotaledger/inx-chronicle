@@ -7,7 +7,10 @@ mod common;
 mod test_rand {
 
     use chronicle::{
-        db::collections::{BlockCollection, OutputCollection},
+        db::{
+            collections::{BlockCollection, OutputCollection},
+            MongoDbCollection,
+        },
         types::{
             ledger::{
                 BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp,

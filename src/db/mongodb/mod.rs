@@ -56,8 +56,10 @@ impl MongoDb {
     }
 
     /// Creates a collection if it does not exist.
-    pub async fn create_collection<T: MongoDbCollection>(&self) {
+    pub async fn create_indexes<T: MongoDbCollection + Send + Sync>(&self) -> Result<(), Error> {
         self.db.create_collection(T::NAME, None).await.ok();
+        self.collection::<T>().create_indexes().await?;
+        Ok(())
     }
 
     /// Gets a collection of the provided type.
