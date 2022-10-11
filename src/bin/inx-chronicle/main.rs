@@ -83,7 +83,9 @@ async fn main() -> Result<(), Error> {
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {
-                _ = worker.run() => {},
+                res = worker.run() => {
+                    res?;
+                },
                 _ = handle.recv() => {},
             }
             Ok(())
@@ -114,7 +116,7 @@ async fn main() -> Result<(), Error> {
 
     // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
     tokio::select! {
-        _ = process::interupt_or_terminate() => {
+        _ = process::interrupt_or_terminate() => {
             tracing::info!("received ctrl-c or terminate");
         },
         res = tasks.join_next() => {
@@ -128,7 +130,7 @@ async fn main() -> Result<(), Error> {
 
     // Allow the user to abort if the tasks aren't shutting down quickly.
     tokio::select! {
-        _ = process::interupt_or_terminate() => {
+        _ = process::interrupt_or_terminate() => {
             tracing::info!("received second ctrl-c or terminate - aborting");
             tasks.shutdown().await;
             tracing::info!("Abort successful");
