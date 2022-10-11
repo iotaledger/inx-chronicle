@@ -49,6 +49,7 @@ pub struct MilestoneCollection {
     collection: mongodb::Collection<MilestoneDocument>,
 }
 
+#[async_trait::async_trait]
 impl MongoDbCollection for MilestoneCollection {
     const NAME: &'static str = "stardust_milestones";
     type Document = MilestoneDocument;
@@ -60,20 +61,8 @@ impl MongoDbCollection for MilestoneCollection {
     fn collection(&self) -> &mongodb::Collection<Self::Document> {
         &self.collection
     }
-}
 
-/// An aggregation type that represents the ranges of completed milestones and gaps.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SyncData {
-    /// The completed(synced and logged) milestones data
-    pub completed: Vec<RangeInclusive<MilestoneIndex>>,
-    /// Gaps/missings milestones data
-    pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
-}
-
-impl MilestoneCollection {
-    /// Creates ledger update indexes.
-    pub async fn create_indexes(&self) -> Result<(), Error> {
+    async fn create_indexes(&self) -> Result<(), Error> {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "at.milestone_index": BY_OLDEST })
@@ -104,7 +93,18 @@ impl MilestoneCollection {
 
         Ok(())
     }
+}
 
+/// An aggregation type that represents the ranges of completed milestones and gaps.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SyncData {
+    /// The completed(synced and logged) milestones data
+    pub completed: Vec<RangeInclusive<MilestoneIndex>>,
+    /// Gaps/missings milestones data
+    pub gaps: Vec<RangeInclusive<MilestoneIndex>>,
+}
+
+impl MilestoneCollection {
     /// Gets the [`MilestonePayload`] of a milestone.
     pub async fn get_milestone_payload_by_id(
         &self,
@@ -272,7 +272,7 @@ impl MilestoneCollection {
         Ok(self
             .aggregate::<ReceiptAtIndex>(
                 vec![
-                    doc! { "$unwind": "payload.essence.options"},
+                    doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$exists": true },
                     } },
@@ -303,7 +303,7 @@ impl MilestoneCollection {
         Ok(self
             .aggregate(
                 vec![
-                    doc! { "$unwind": "payload.essence.options"},
+                    doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$and": [ { "$exists": true }, { "$eq": migrated_at } ] },
                     } },
