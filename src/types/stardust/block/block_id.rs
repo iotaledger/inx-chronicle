@@ -9,7 +9,7 @@ use bee_block_stardust as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{inx::InxError, util::bytify};
+use crate::types::{util::bytify};
 
 /// Uniquely identifies a block.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
@@ -57,10 +57,10 @@ impl From<BlockId> for Bson {
 
 #[cfg(feature = "inx")]
 impl TryFrom<inx::proto::BlockId> for BlockId {
-    type Error = InxError;
+    type Error = crate::types::inx::InxError;
 
     fn try_from(value: inx::proto::BlockId) -> Result<Self, Self::Error> {
-        let data = <[u8; BlockId::LENGTH]>::try_from(value.id).map_err(|_| InxError::InvalidByteLength {
+        let data = <[u8; BlockId::LENGTH]>::try_from(value.id).map_err(|_| crate::types::inx::InxError::InvalidByteLength {
             actual: value.id.len(),
             expected: BlockId::LENGTH,
         })?;

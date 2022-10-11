@@ -21,7 +21,7 @@ use crate::types::{
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl TransactionId {
-    const LENGTH: usize = bee::TransactionId::LENGTH;
+    pub const LENGTH: usize = bee::TransactionId::LENGTH;
 
     /// Converts the [`TransactionId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
