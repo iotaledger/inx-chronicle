@@ -30,18 +30,25 @@ pub struct BlockMetadata {
 }
 
 #[cfg(feature = "inx")]
-impl From<bee_inx::BlockMetadata> for BlockMetadata {
-    fn from(metadata: bee_inx::BlockMetadata) -> Self {
-        Self {
-            parents: metadata.parents.iter().map(|&id| id.into()).collect(),
-            is_solid: metadata.is_solid,
-            should_promote: metadata.should_promote,
-            should_reattach: metadata.should_reattach,
-            referenced_by_milestone_index: metadata.referenced_by_milestone_index.into(),
-            milestone_index: metadata.milestone_index.into(),
-            inclusion_state: metadata.ledger_inclusion_state.into(),
-            conflict_reason: metadata.conflict_reason.into(),
-            white_flag_index: metadata.white_flag_index,
-        }
+impl TryFrom<inx::proto::BlockMetadata> for BlockMetadata {
+    type Error = crate::types::inx::InxError;
+
+    fn try_from(value: inx::proto::BlockMetadata) -> Result<Self, Self::Error> {
+        let inclusion_state = value.ledger_inclusion_state().into();
+        let conflict_reason = value.conflict_reason().into();
+
+        let parents = value.parents.into_iter().map(TryInto::try_into).collect::<Result<Vec<_>, _>>()?;
+
+        Ok(BlockMetadata {
+            parents: parents.into_boxed_slice(),
+            is_solid: value.solid,
+            should_promote: value.should_promote,
+            should_reattach: value.should_reattach,
+            referenced_by_milestone_index: value.referenced_by_milestone_index.into(),
+            milestone_index: value.milestone_index.into(),
+            inclusion_state,
+            conflict_reason,
+            white_flag_index: value.white_flag_index,
+        })
     }
 }

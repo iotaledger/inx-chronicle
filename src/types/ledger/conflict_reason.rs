@@ -49,22 +49,43 @@ impl From<bee::ConflictReason> for ConflictReason {
 impl From<ConflictReason> for bee::ConflictReason {
     fn from(value: ConflictReason) -> Self {
         match value {
-            ConflictReason::None => bee::ConflictReason::None,
-            ConflictReason::InputUtxoAlreadySpent => bee::ConflictReason::InputUtxoAlreadySpent,
-            ConflictReason::InputUtxoAlreadySpentInThisMilestone => {
-                bee::ConflictReason::InputUtxoAlreadySpentInThisMilestone
-            }
-            ConflictReason::InputUtxoNotFound => bee::ConflictReason::InputUtxoNotFound,
-            ConflictReason::CreatedConsumedAmountMismatch => bee::ConflictReason::CreatedConsumedAmountMismatch,
-            ConflictReason::InvalidSignature => bee::ConflictReason::InvalidSignature,
-            ConflictReason::TimelockNotExpired => bee::ConflictReason::TimelockNotExpired,
-            ConflictReason::InvalidNativeTokens => bee::ConflictReason::InvalidNativeTokens,
-            ConflictReason::StorageDepositReturnUnfulfilled => bee::ConflictReason::StorageDepositReturnUnfulfilled,
-            ConflictReason::InvalidUnlock => bee::ConflictReason::InvalidUnlock,
-            ConflictReason::InputsCommitmentsMismatch => bee::ConflictReason::InputsCommitmentsMismatch,
-            ConflictReason::UnverifiedSender => bee::ConflictReason::UnverifiedSender,
-            ConflictReason::InvalidChainStateTransition => bee::ConflictReason::InvalidChainStateTransition,
-            ConflictReason::SemanticValidationFailed => bee::ConflictReason::SemanticValidationFailed,
+            ConflictReason::None => Self::None,
+            ConflictReason::InputUtxoAlreadySpent => Self::InputUtxoAlreadySpent,
+            ConflictReason::InputUtxoAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
+            ConflictReason::InputUtxoNotFound => Self::InputUtxoNotFound,
+            ConflictReason::CreatedConsumedAmountMismatch => Self::CreatedConsumedAmountMismatch,
+            ConflictReason::InvalidSignature => Self::InvalidSignature,
+            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
+            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
+            ConflictReason::StorageDepositReturnUnfulfilled => Self::StorageDepositReturnUnfulfilled,
+            ConflictReason::InvalidUnlock => Self::InvalidUnlock,
+            ConflictReason::InputsCommitmentsMismatch => Self::InputsCommitmentsMismatch,
+            ConflictReason::UnverifiedSender => Self::UnverifiedSender,
+            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
+            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
+        }
+    }
+}
+
+#[cfg(feature = "inx")]
+impl From<inx::proto::block_metadata::ConflictReason> for ConflictReason {
+    fn from(value: inx::proto::block_metadata::ConflictReason) -> Self {
+        use ::inx::proto::block_metadata::ConflictReason;
+        match value {
+            ConflictReason::None => Self::None,
+            ConflictReason::InputAlreadySpent => Self::InputUtxoAlreadySpent,
+            ConflictReason::InputAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
+            ConflictReason::InputNotFound => Self::InputUtxoNotFound,
+            ConflictReason::InputOutputSumMismatch => Self::CreatedConsumedAmountMismatch,
+            ConflictReason::InvalidSignature => Self::InvalidSignature,
+            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
+            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
+            ConflictReason::ReturnAmountNotFulfilled => Self::StorageDepositReturnUnfulfilled,
+            ConflictReason::InvalidInputUnlock => Self::InvalidUnlock,
+            ConflictReason::InvalidInputsCommitment => Self::InputsCommitmentsMismatch,
+            ConflictReason::InvalidSender => Self::UnverifiedSender,
+            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
+            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
         }
     }
 }

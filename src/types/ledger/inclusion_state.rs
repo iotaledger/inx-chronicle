@@ -47,12 +47,13 @@ impl From<LedgerInclusionState> for bee::LedgerInclusionStateDto {
 }
 
 #[cfg(feature = "inx")]
-impl From<bee_inx::LedgerInclusionState> for LedgerInclusionState {
-    fn from(value: bee_inx::LedgerInclusionState) -> Self {
+impl From<inx::proto::block_metadata::LedgerInclusionState> for LedgerInclusionState {
+    fn from(value: inx::proto::block_metadata::LedgerInclusionState) -> Self {
+        use inx::proto::block_metadata::LedgerInclusionState;
         match value {
-            bee_inx::LedgerInclusionState::Included => Self::Included,
-            bee_inx::LedgerInclusionState::NoTransaction => Self::NoTransaction,
-            bee_inx::LedgerInclusionState::Conflicting => Self::Conflicting,
+            LedgerInclusionState::Included => Self::Included,
+            LedgerInclusionState::NoTransaction => Self::NoTransaction,
+            LedgerInclusionState::Conflicting => Self::Conflicting,
         }
     }
 }

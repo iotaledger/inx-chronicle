@@ -5,6 +5,8 @@
 
 #[cfg(feature = "stardust")]
 pub mod context;
+#[cfg(feature = "inx")]
+pub mod inx;
 #[cfg(feature = "stardust")]
 pub mod ledger;
 #[cfg(feature = "stardust")]

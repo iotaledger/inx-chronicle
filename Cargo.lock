@@ -198,19 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bee-inx"
-version = "1.0.0-beta.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "966482b32a4549cda89ee7b455e0470bca1e58b7f4d698bbed6d434ac57cd512"
-dependencies = [
- "bee-block",
- "futures",
- "inx",
- "packable",
- "thiserror",
-]
-
-[[package]]
 name = "bee-ledger-types"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,7 +362,6 @@ dependencies = [
  "axum",
  "bee-api-types",
  "bee-block",
- "bee-inx",
  "bytesize",
  "clap",
  "derive_more",
@@ -387,6 +373,7 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "hyper",
+ "inx",
  "iota-types",
  "lazy_static",
  "metrics",
