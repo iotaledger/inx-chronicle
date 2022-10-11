@@ -6,10 +6,10 @@ use tokio::{
     sync::mpsc,
 };
 
-pub async fn interupt_or_terminate() -> mpsc::UnboundedReceiver<()> {
+pub fn interrupt_or_terminate() -> mpsc::UnboundedReceiver<()> {
     let (shutdown_send, shutdown_recv) = mpsc::unbounded_channel();
 
-    let _ = tokio::spawn(async move {
+    tokio::spawn(async move {
         let mut sigterm = signal(SignalKind::terminate()).expect("cannot listen to `SIGTERM`");
         let mut sigint = signal(SignalKind::interrupt()).expect("cannot listen to `SIGINT`");
 
@@ -23,8 +23,7 @@ pub async fn interupt_or_terminate() -> mpsc::UnboundedReceiver<()> {
         }
 
         shutdown_send.send(()).expect("Could not send shutdown signal");
-    })
-    .await;
+    });
 
     shutdown_recv
 }

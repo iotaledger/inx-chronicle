@@ -120,8 +120,9 @@ async fn main() -> Result<(), Error> {
     }
 
     // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
+    let mut interrupt_or_terminate = process::interrupt_or_terminate();
     tokio::select! {
-        _ = process::interupt_or_terminate() => {
+        _ = interrupt_or_terminate.recv() => {
             tracing::info!("received ctrl-c or terminate");
         },
         res = tasks.join_next() => {
@@ -134,8 +135,9 @@ async fn main() -> Result<(), Error> {
     shutdown_signal.send(())?;
 
     // Allow the user to abort if the tasks aren't shutting down quickly.
+    let mut interrupt_or_terminate = process::interrupt_or_terminate();
     tokio::select! {
-        _ = process::interupt_or_terminate() => {
+        _ = interrupt_or_terminate.recv() => {
             tracing::info!("received second ctrl-c or terminate - aborting");
             tasks.shutdown().await;
             tracing::info!("Abort successful");
