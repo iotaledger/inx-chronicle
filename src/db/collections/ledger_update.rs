@@ -48,6 +48,7 @@ pub struct LedgerUpdateCollection {
     collection: mongodb::Collection<LedgerUpdateDocument>,
 }
 
+#[async_trait::async_trait]
 impl MongoDbCollection for LedgerUpdateCollection {
     const NAME: &'static str = "stardust_ledger_updates";
     type Document = LedgerUpdateDocument;
@@ -58,6 +59,24 @@ impl MongoDbCollection for LedgerUpdateCollection {
 
     fn collection(&self) -> &mongodb::Collection<Self::Document> {
         &self.collection
+    }
+
+    async fn create_indexes(&self) -> Result<(), Error> {
+        self.create_index(
+            IndexModel::builder()
+                .keys(newest())
+                .options(
+                    IndexOptions::builder()
+                        .unique(true)
+                        .name("ledger_update_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -87,25 +106,6 @@ fn oldest() -> Document {
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
 impl LedgerUpdateCollection {
-    /// Creates ledger update indexes.
-    pub async fn create_indexes(&self) -> Result<(), Error> {
-        self.create_index(
-            IndexModel::builder()
-                .keys(newest())
-                .options(
-                    IndexOptions::builder()
-                        .unique(true)
-                        .name("ledger_update_index".to_string())
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        Ok(())
-    }
-
     /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
