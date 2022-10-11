@@ -272,7 +272,7 @@ impl MilestoneCollection {
         Ok(self
             .aggregate::<ReceiptAtIndex>(
                 vec![
-                    doc! { "$unwind": "payload.essence.options"},
+                    doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$exists": true },
                     } },
@@ -303,7 +303,7 @@ impl MilestoneCollection {
         Ok(self
             .aggregate(
                 vec![
-                    doc! { "$unwind": "payload.essence.options"},
+                    doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$and": [ { "$exists": true }, { "$eq": migrated_at } ] },
                     } },
