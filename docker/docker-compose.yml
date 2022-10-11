@@ -32,7 +32,7 @@ services:
       - "config.toml"
       - "--inx-addr"
       - "http://hornet:9029"
-      - "--mongodb-conn-url"
+      - "--mongodb-conn-str"
       - "mongodb://mongo:27017"
     volumes:
       - ../config.template.toml:/app/config.toml:ro
