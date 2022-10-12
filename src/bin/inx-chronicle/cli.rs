@@ -10,39 +10,39 @@ use crate::{
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
-#[clap(author, version, about)]
+#[command(author, version, about)]
 pub struct ClArgs {
     /// The location of the configuration file.
-    #[clap(short, long, env = "CONFIG_PATH")]
+    #[arg(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
     /// The MongoDB connection string.
-    #[clap(long, env = "MONGODB_CONN_STR")]
+    #[arg(long, env = "MONGODB_CONN_STR")]
     pub mongodb_conn_str: Option<String>,
     /// The address of the INX interface provided by the node.
-    #[clap(long, env = "INX_ADDR")]
+    #[arg(long, env = "INX_ADDR")]
     #[cfg(feature = "inx")]
     pub inx_addr: Option<String>,
     /// Toggle INX write workflow.
-    #[clap(long, value_parser, env = "INX")]
+    #[arg(long, env = "INX")]
     #[cfg(feature = "inx")]
     pub enable_inx: Option<bool>,
     /// The location of the identity file for JWT auth.
-    #[clap(long, env = "JWT_IDENTITY_PATH")]
+    #[arg(long, env = "JWT_IDENTITY_PATH")]
     #[cfg(feature = "api")]
     pub identity_path: Option<String>,
     /// The password used for JWT authentication.
-    #[clap(long)]
+    #[arg(long)]
     #[cfg(feature = "api")]
     pub password: Option<String>,
     /// Toggle REST API.
-    #[clap(long, value_parser, env = "API")]
+    #[arg(long, env = "API")]
     #[cfg(feature = "api")]
     pub enable_api: Option<bool>,
     /// Toggle the metrics server.
-    #[clap(long, value_parser, env = "METRICS")]
+    #[arg(long, env = "METRICS")]
     pub enable_metrics: Option<bool>,
     /// Subcommands.
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
 }
 
