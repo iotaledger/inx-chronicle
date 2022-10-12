@@ -97,22 +97,6 @@ impl From<OutputId> for Bson {
     }
 }
 
-#[cfg(feature = "inx")]
-impl TryFrom<inx::proto::OutputId> for OutputId {
-    type Error = crate::types::inx::InxError;
-
-    fn try_from(value: inx::proto::OutputId) -> Result<Self, Self::Error> {
-        let (transaction_id, index) = value.id.split_at(TransactionId::LENGTH);
-
-        Ok(Self {
-            // Unwrap is fine because size is already known and valid.
-            transaction_id: From::<[u8; TransactionId::LENGTH]>::from(transaction_id.try_into().unwrap()),
-            // Unwrap is fine because size is already known and valid.
-            index: u16::from_le_bytes(index.try_into().unwrap()),
-        })
-    }
-}
-
 /// Represents the different output types.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]

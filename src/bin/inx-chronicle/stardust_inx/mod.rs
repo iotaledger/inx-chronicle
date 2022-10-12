@@ -4,7 +4,6 @@
 mod config;
 mod error;
 
-use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
@@ -16,7 +15,7 @@ use chronicle::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
-        tangle::MilestoneIndex,
+        tangle::MilestoneIndex, inx::Inx,
     },
 };
 use futures::{StreamExt, TryStreamExt};

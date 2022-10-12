@@ -15,7 +15,8 @@ use crate::types::util::bytify;
 pub struct MilestoneId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl MilestoneId {
-    const LENGTH: usize = bee::MilestoneId::LENGTH;
+    /// The number of bytes for the id.
+    pub const LENGTH: usize = bee::MilestoneId::LENGTH;
 
     /// Converts the [`MilestoneId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {

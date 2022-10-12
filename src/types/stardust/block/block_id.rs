@@ -9,7 +9,7 @@ use bee_block_stardust as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{util::bytify};
+use crate::types::util::bytify;
 
 /// Uniquely identifies a block.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]
@@ -17,7 +17,8 @@ use crate::types::{util::bytify};
 pub struct BlockId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl BlockId {
-    const LENGTH: usize = bee::BlockId::LENGTH;
+    /// The number of bytes for the id.
+    pub const LENGTH: usize = bee::BlockId::LENGTH;
 
     /// The `0x`-prefixed hex representation of a [`BlockId`].
     pub fn to_hex(&self) -> String {
@@ -52,19 +53,6 @@ impl From<BlockId> for Bson {
             bytes: val.0.to_vec(),
         }
         .into()
-    }
-}
-
-#[cfg(feature = "inx")]
-impl TryFrom<inx::proto::BlockId> for BlockId {
-    type Error = crate::types::inx::InxError;
-
-    fn try_from(value: inx::proto::BlockId) -> Result<Self, Self::Error> {
-        let data = <[u8; BlockId::LENGTH]>::try_from(value.id).map_err(|_| crate::types::inx::InxError::InvalidByteLength {
-            actual: value.id.len(),
-            expected: BlockId::LENGTH,
-        })?;
-        Ok(Self(data))
     }
 }
 

@@ -31,13 +31,17 @@ pub struct BlockMetadata {
 
 #[cfg(feature = "inx")]
 impl TryFrom<inx::proto::BlockMetadata> for BlockMetadata {
-    type Error = crate::types::inx::InxError;
+    type Error = crate::inx::InxError;
 
     fn try_from(value: inx::proto::BlockMetadata) -> Result<Self, Self::Error> {
         let inclusion_state = value.ledger_inclusion_state().into();
         let conflict_reason = value.conflict_reason().into();
 
-        let parents = value.parents.into_iter().map(TryInto::try_into).collect::<Result<Vec<_>, _>>()?;
+        let parents = value
+            .parents
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(BlockMetadata {
             parents: parents.into_boxed_slice(),
