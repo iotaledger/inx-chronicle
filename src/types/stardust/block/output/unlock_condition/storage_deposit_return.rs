@@ -11,8 +11,8 @@ use crate::types::{context::TryFromWithContext, stardust::block::Address};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageDepositReturnUnlockCondition {
-    return_address: Address,
-    amount: OutputAmount,
+    pub return_address: Address,
+    pub amount: OutputAmount,
 }
 
 impl<T: Borrow<bee::StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockCondition {

@@ -7,7 +7,10 @@ use axum::{extract::Path, routing::get, Extension};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
+        collections::{
+            AnalyticsCollection, BlockCollection, MilestoneCollection, OutputCollection, OutputKind,
+            ProtocolUpdateCollection,
+        },
         MongoDb,
     },
     types::{
@@ -70,10 +73,19 @@ async fn address_activity_analytics(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let res = database
-        .collection::<OutputCollection>()
+    let res = match database
+        .collection::<AnalyticsCollection>()
         .get_address_analytics(start_index, end_index)
-        .await?;
+        .await?
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<OutputCollection>()
+                .get_address_analytics(start_index, end_index)
+                .await?
+        }
+    };
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
@@ -88,10 +100,19 @@ async fn milestone_activity_analytics(
 ) -> ApiResult<MilestoneAnalyticsResponse> {
     let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
 
-    let activity = database
-        .collection::<BlockCollection>()
+    let activity = match database
+        .collection::<AnalyticsCollection>()
         .get_milestone_activity(index)
-        .await?;
+        .await?
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<BlockCollection>()
+                .get_milestone_activity(index)
+                .await?
+        }
+    };
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.num_blocks,
@@ -124,10 +145,19 @@ async fn milestone_activity_analytics_by_id(
         .essence
         .index;
 
-    let activity = database
-        .collection::<BlockCollection>()
+    let activity = match database
+        .collection::<AnalyticsCollection>()
         .get_milestone_activity(index)
-        .await?;
+        .await?
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<BlockCollection>()
+                .get_milestone_activity(index)
+                .await?
+        }
+    };
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.num_blocks,
@@ -150,14 +180,23 @@ async fn output_activity_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database
-        .collection::<OutputCollection>()
+    let res = match database
+        .collection::<AnalyticsCollection>()
         .get_output_analytics::<O>(start_index, end_index)
-        .await?;
+        .await?
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<OutputCollection>()
+                .get_output_analytics::<O>(start_index, end_index)
+                .await?
+        }
+    };
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
-        total_value: res.total_value,
+        total_value: res.total_value.to_string(),
     })
 }
 
@@ -165,15 +204,24 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
-    let res = database
-        .collection::<OutputCollection>()
-        .get_unspent_output_analytics::<O>(resolve_ledger_index(&database, ledger_index).await?)
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let res = match database
+        .collection::<AnalyticsCollection>()
+        .get_unspent_output_analytics::<O>(ledger_index)
         .await?
-        .ok_or(ApiError::NoResults)?;
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<OutputCollection>()
+                .get_unspent_output_analytics::<O>(ledger_index)
+                .await?
+        }
+    };
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
-        total_value: res.total_value,
+        total_value: res.total_value.to_string(),
     })
 }
 
@@ -182,29 +230,39 @@ async fn storage_deposit_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+
     let protocol_params = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
         .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
         .parameters;
-    let res = database
-        .collection::<OutputCollection>()
-        .get_storage_deposit_analytics(ledger_index, protocol_params)
-        .await?;
+    let res = match database
+        .collection::<AnalyticsCollection>()
+        .get_storage_deposit_analytics(ledger_index)
+        .await?
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<OutputCollection>()
+                .get_storage_deposit_analytics(ledger_index)
+                .await?
+        }
+    };
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),
         storage_deposit_return_count: res.storage_deposit_return_count.to_string(),
-        storage_deposit_return_total_value: res.storage_deposit_return_total_value,
-        total_key_bytes: res.total_key_bytes,
-        total_data_bytes: res.total_data_bytes,
-        total_byte_cost: res.total_byte_cost,
+        storage_deposit_return_total_value: res.storage_deposit_return_total_value.to_string(),
+        total_key_bytes: res.total_key_bytes.to_string(),
+        total_data_bytes: res.total_data_bytes.to_string(),
+        total_byte_cost: res.total_byte_cost(&protocol_params).to_string(),
         ledger_index,
         rent_structure: RentStructureResponse {
-            v_byte_cost: res.rent_structure.v_byte_cost,
-            v_byte_factor_key: res.rent_structure.v_byte_factor_key,
-            v_byte_factor_data: res.rent_structure.v_byte_factor_data,
+            v_byte_cost: protocol_params.rent_structure.v_byte_cost,
+            v_byte_factor_key: protocol_params.rent_structure.v_byte_factor_key,
+            v_byte_factor_data: protocol_params.rent_structure.v_byte_factor_data,
         },
     })
 }
@@ -306,11 +364,22 @@ async fn claimed_tokens_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<ClaimedTokensAnalyticsResponse> {
-    let res = database
-        .collection::<OutputCollection>()
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let res = match database
+        .collection::<AnalyticsCollection>()
         .get_claimed_token_analytics(ledger_index)
         .await?
-        .ok_or(ApiError::NoResults)?;
+    {
+        Some(res) => res,
+        None => {
+            database
+                .collection::<OutputCollection>()
+                .get_claimed_token_analytics(ledger_index)
+                .await?
+        }
+    };
 
-    Ok(ClaimedTokensAnalyticsResponse { count: res.count })
+    Ok(ClaimedTokensAnalyticsResponse {
+        count: res.count.to_string(),
+    })
 }

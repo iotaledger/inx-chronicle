@@ -178,6 +178,17 @@ impl Output {
         let bee_output = bee_block_stardust::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
         Ok(bee_output.pack_to_vec())
     }
+
+    /// Get the output kind as a string.
+    pub fn kind(&self) -> &str {
+        match self {
+            Output::Treasury(_) => "treasury",
+            Output::Basic(_) => "basic",
+            Output::Alias(_) => "alias",
+            Output::Foundry(_) => "foundry",
+            Output::Nft(_) => "nft",
+        }
+    }
 }
 
 impl<T: Borrow<bee::Output>> From<T> for Output {

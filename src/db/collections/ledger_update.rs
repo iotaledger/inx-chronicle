@@ -11,14 +11,14 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::SortOrder;
+use super::{OutputDocument, SortOrder};
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
     types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        ledger::MilestoneIndexTimestamp,
         stardust::{
             block::{output::OutputId, Address},
             milestone::MilestoneTimestamp,
@@ -110,23 +110,25 @@ impl LedgerUpdateCollection {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = &'a LedgerSpent>,
+        I: IntoIterator<Item = &'a OutputDocument>,
         I::IntoIter: Send + Sync,
     {
         let ledger_updates = outputs.into_iter().filter_map(
-            |LedgerSpent {
-                 output: LedgerOutput { output_id, output, .. },
-                 spent_metadata,
+            |OutputDocument {
+                 output_id,
+                 output,
+                 metadata,
+                 ..
              }| {
                 // Ledger updates
                 output.owning_address().map(|&address| LedgerUpdateDocument {
                     _id: Id {
-                        milestone_index: spent_metadata.spent.milestone_index,
+                        milestone_index: metadata.spent_metadata.unwrap().spent.milestone_index,
                         output_id: *output_id,
                         is_spent: true,
                     },
                     address,
-                    milestone_timestamp: spent_metadata.spent.milestone_timestamp,
+                    milestone_timestamp: metadata.spent_metadata.unwrap().spent.milestone_timestamp,
                 })
             },
         );
@@ -140,25 +142,25 @@ impl LedgerUpdateCollection {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = &'a LedgerOutput>,
+        I: IntoIterator<Item = &'a OutputDocument>,
         I::IntoIter: Send + Sync,
     {
         let ledger_updates = outputs.into_iter().filter_map(
-            |LedgerOutput {
+            |OutputDocument {
                  output_id,
-                 booked,
+                 metadata,
                  output,
                  ..
              }| {
                 // Ledger updates
                 output.owning_address().map(|&address| LedgerUpdateDocument {
                     _id: Id {
-                        milestone_index: booked.milestone_index,
+                        milestone_index: metadata.booked.milestone_index,
                         output_id: *output_id,
                         is_spent: false,
                     },
                     address,
-                    milestone_timestamp: booked.milestone_timestamp,
+                    milestone_timestamp: metadata.booked.milestone_timestamp,
                 })
             },
         );

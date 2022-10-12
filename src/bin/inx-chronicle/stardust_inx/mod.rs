@@ -4,12 +4,14 @@
 mod config;
 mod error;
 
+use std::sync::Arc;
+
 use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
-            TreasuryCollection,
+            Analytics, AnalyticsCollection, BlockCollection, LedgerUpdateCollection, MilestoneCollection,
+            OutputCollection, OutputDocument, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -20,7 +22,7 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
-use tokio::{task::JoinSet, try_join};
+use tokio::{sync::Mutex, task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 
 pub use self::{config::InxConfig, error::InxError};
@@ -168,7 +170,7 @@ impl InxWorker {
             let mut count = 0;
             let mut tasks = unspent_output_stream
                 .inspect(|_| count += 1)
-                .map(|res| LedgerOutput::try_from(res?.output))
+                .map(|res| Ok(OutputDocument::from(LedgerOutput::try_from(res?.output)?)))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| InxError::BeeInx(e.1))
@@ -230,6 +232,12 @@ async fn handle_ledger_update(
         "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
     );
 
+    let analytics = Arc::new(Mutex::new(
+        db.collection::<AnalyticsCollection>()
+            .get_all_analytics((milestone_index - 1).into())
+            .await?,
+    ));
+
     let mut tasks = JoinSet::new();
     let mut actual_created_count = 0;
     let mut actual_consumed_count = 0;
@@ -238,9 +246,9 @@ async fn handle_ledger_update(
         .by_ref()
         .take(consumed_count)
         .map(|res| {
-            Ok(LedgerSpent::try_from(
+            Ok(OutputDocument::from(LedgerSpent::try_from(
                 res?.consumed().ok_or(InxError::InvalidMilestoneState)?,
-            )?)
+            )?))
         })
         .inspect_ok(|_| {
             actual_consumed_count += 1;
@@ -251,7 +259,11 @@ async fn handle_ledger_update(
         // Convert batches to tasks
         .try_fold(&mut tasks, |tasks, batch| async {
             let db = db.clone();
-            tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
+            let analytics = analytics.clone();
+            tasks.spawn(async move {
+                analytics.lock().await.analyze_batch(&batch);
+                update_spent_outputs(&db, &batch).await
+            });
             Result::<_, InxError>::Ok(tasks)
         })
         .await?;
@@ -260,9 +272,9 @@ async fn handle_ledger_update(
         .by_ref()
         .take(created_count)
         .map(|res| {
-            Ok(LedgerOutput::try_from(
+            Ok(OutputDocument::from(LedgerOutput::try_from(
                 res?.created().ok_or(InxError::InvalidMilestoneState)?,
-            )?)
+            )?))
         })
         .inspect_ok(|_| {
             actual_created_count += 1;
@@ -273,7 +285,11 @@ async fn handle_ledger_update(
         // Convert batches to tasks
         .try_fold(&mut tasks, |tasks, batch| async {
             let db = db.clone();
-            tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
+            let analytics = analytics.clone();
+            tasks.spawn(async move {
+                analytics.lock().await.analyze_batch(&batch);
+                insert_unspent_outputs(&db, &batch).await
+            });
             Result::<_, InxError>::Ok(tasks)
         })
         .await?;
@@ -313,7 +329,14 @@ async fn handle_ledger_update(
     handle_protocol_params(db, inx, milestone_index).await?;
 
     // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-    handle_milestone(db, inx, milestone_index).await?;
+    handle_milestone(
+        db,
+        inx,
+        milestone_index,
+        // Panic: Cannot fail as all other references are held by the tasks and we await them above.
+        Arc::try_unwrap(analytics).unwrap().into_inner(),
+    )
+    .await?;
 
     let elapsed = start_time.elapsed();
 
@@ -323,7 +346,7 @@ async fn handle_ledger_update(
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<(), InxError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -340,7 +363,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -372,12 +395,22 @@ async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: Mi
 }
 
 #[instrument(skip_all, err, level = "trace")]
-async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_milestone(
+    db: &MongoDb,
+    inx: &mut Inx,
+    milestone_index: MilestoneIndex,
+    analytics: Analytics,
+) -> Result<(), InxError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
     let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
 
     let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
+
+    db.collection::<AnalyticsCollection>()
+        .upsert_analytics(milestone_index, milestone_timestamp, analytics)
+        .await?;
+
     let milestone_id = milestone
         .milestone_info
         .milestone_id

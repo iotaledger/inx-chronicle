@@ -18,7 +18,10 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::OutputKind;
+use super::{
+    analytics::{AddressAnalytics, ClaimedTokensAnalytics, OutputAnalytics, StorageDepositAnalytics},
+    OutputKind,
+};
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
@@ -32,18 +35,19 @@ use crate::{
             output::{Output, OutputId},
             Address, BlockId,
         },
-        tangle::{MilestoneIndex, ProtocolParameters, RentStructure},
+        tangle::MilestoneIndex,
     },
 };
 
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct OutputDocument {
     #[serde(rename = "_id")]
-    output_id: OutputId,
-    output: Output,
-    metadata: OutputMetadata,
-    details: OutputDetails,
+    pub output_id: OutputId,
+    pub output: Output,
+    pub metadata: OutputMetadata,
+    pub details: OutputDetails,
 }
 
 /// The stardust outputs collection.
@@ -108,15 +112,15 @@ impl MongoDbCollection for OutputCollection {
 
 /// Precalculated info and other output details.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct OutputDetails {
+pub struct OutputDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
-    address: Option<Address>,
-    is_trivial_unlock: bool,
-    rent_structure: RentStructureBytes,
+    pub address: Option<Address>,
+    pub is_trivial_unlock: bool,
+    pub rent_structure: RentStructureBytes,
 }
 
-impl From<&LedgerOutput> for OutputDocument {
-    fn from(rec: &LedgerOutput) -> Self {
+impl From<LedgerOutput> for OutputDocument {
+    fn from(rec: LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
 
@@ -137,9 +141,9 @@ impl From<&LedgerOutput> for OutputDocument {
     }
 }
 
-impl From<&LedgerSpent> for OutputDocument {
-    fn from(rec: &LedgerSpent) -> Self {
-        let mut res = Self::from(&rec.output);
+impl From<LedgerSpent> for OutputDocument {
+    fn from(rec: LedgerSpent) -> Self {
+        let mut res = Self::from(rec.output);
         res.metadata.spent_metadata.replace(rec.spent_metadata);
         res
     }
@@ -180,14 +184,17 @@ impl OutputCollection {
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
+    pub async fn update_spent_outputs(
+        &self,
+        outputs: impl IntoIterator<Item = impl Borrow<OutputDocument>>,
+    ) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
             .into_iter()
             .map(|output| {
                 Ok(doc! {
-                    "q": { "_id": output.output.output_id },
-                    "u": to_document(&OutputDocument::from(output))?,
+                    "q": { "_id": output.borrow().output_id },
+                    "u": to_document(output.borrow())?,
                     "upsert": true,
                 })
             })
@@ -211,14 +218,15 @@ impl OutputCollection {
     /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
+    pub async fn insert_unspent_outputs<'a, I, B>(&self, outputs: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = B>,
+        I: IntoIterator<Item = B> + Send + Sync,
         I::IntoIter: Send + Sync,
-        B: Borrow<LedgerOutput>,
+        B: Borrow<OutputDocument> + Send + Sync,
     {
-        self.insert_many_ignore_duplicates(
-            outputs.into_iter().map(|d| OutputDocument::from(d.borrow())),
+        InsertIgnoreDuplicatesExt::<OutputDocument>::insert_many_ignore_duplicates(
+            self,
+            outputs,
             InsertManyOptions::builder().ordered(false).build(),
         )
         .await?;
@@ -396,13 +404,13 @@ impl OutputCollection {
     /// Gathers output analytics.
     pub async fn get_output_analytics<O: OutputKind>(
         &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<OutputAnalyticsResult, Error> {
+        start_index: impl Into<Option<MilestoneIndex>>,
+        end_index: impl Into<Option<MilestoneIndex>>,
+    ) -> Result<OutputAnalytics, Error> {
         let mut queries = vec![doc! {
             "$nor": [
-                { "metadata.booked.milestone_index": { "$lt": start_index } },
-                { "metadata.booked.milestone_index": { "$gte": end_index } },
+                { "metadata.booked.milestone_index": { "$lt": start_index.into() } },
+                { "metadata.booked.milestone_index": { "$gte": end_index.into() } },
             ]
         }];
         if let Some(kind) = O::kind() {
@@ -434,7 +442,7 @@ impl OutputCollection {
     pub async fn get_unspent_output_analytics<O: OutputKind>(
         &self,
         ledger_index: MilestoneIndex,
-    ) -> Result<Option<OutputAnalyticsResult>, Error> {
+    ) -> Result<OutputAnalytics, Error> {
         let mut queries = vec![doc! {
             "metadata.booked.milestone_index": { "$lte": ledger_index },
             "$or": [
@@ -445,8 +453,8 @@ impl OutputCollection {
         if let Some(kind) = O::kind() {
             queries.push(doc! { "output.kind": kind });
         }
-        Ok(Some(
-            self.aggregate(
+        Ok(self
+            .aggregate(
                 vec![
                     doc! { "$match": { "$and": queries } },
                     doc! { "$group" : {
@@ -464,8 +472,7 @@ impl OutputCollection {
             .await?
             .try_next()
             .await?
-            .unwrap_or_default(),
-        ))
+            .unwrap_or_default())
     }
 }
 
@@ -582,38 +589,14 @@ impl OutputCollection {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StorageDepositAnalyticsResult {
-    pub output_count: u64,
-    pub storage_deposit_return_count: u64,
-    pub storage_deposit_return_total_value: String,
-    pub total_key_bytes: String,
-    pub total_data_bytes: String,
-    pub total_byte_cost: String,
-    pub rent_structure: RentStructure,
-}
-
 impl OutputCollection {
     /// Gathers byte cost and storage deposit analytics.
     pub async fn get_storage_deposit_analytics(
         &self,
         ledger_index: MilestoneIndex,
-        protocol_params: ProtocolParameters,
-    ) -> Result<StorageDepositAnalyticsResult, Error> {
-        #[derive(Default, Deserialize)]
-        struct StorageDepositAnalytics {
-            output_count: u64,
-            storage_deposit_return_count: u64,
-            storage_deposit_return_total_value: String,
-            total_key_bytes: String,
-            total_data_bytes: String,
-            total_byte_cost: String,
-        }
-
-        let rent_structure = protocol_params.rent_structure;
-
-        let res = self
-            .aggregate::<StorageDepositAnalytics>(
+    ) -> Result<StorageDepositAnalytics, Error> {
+        Ok(self
+            .aggregate(
                 vec![
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
@@ -642,19 +625,6 @@ impl OutputCollection {
                             ],
                         }
                     },
-                    doc! {
-                        "$set": {
-                            "total_byte_cost": { "$toString":
-                                { "$multiply": [
-                                    rent_structure.v_byte_cost,
-                                    { "$add": [
-                                        { "$multiply": [ { "$first": "$all.total_key_bytes" }, rent_structure.v_byte_factor_key as i32 ] },
-                                        { "$multiply": [ { "$first": "$all.total_data_bytes" }, rent_structure.v_byte_factor_data as i32 ] },
-                                    ] },
-                                ] }
-                            }
-                        }
-                    },
                     doc! { "$project": {
                         "output_count": { "$first": "$all.output_count" },
                         "storage_deposit_return_count": { "$ifNull": [ { "$first": "$storage_deposit.return_count" }, 0 ] },
@@ -667,7 +637,6 @@ impl OutputCollection {
                         "total_data_bytes": { 
                             "$toString": { "$first": "$all.total_data_bytes" } 
                         },
-                        "total_byte_cost": 1,
                     } },
                 ],
                 None,
@@ -675,39 +644,18 @@ impl OutputCollection {
             .await?
             .try_next()
             .await?
-            .unwrap_or_default();
-
-        Ok(StorageDepositAnalyticsResult {
-            output_count: res.output_count,
-            storage_deposit_return_count: res.storage_deposit_return_count,
-            storage_deposit_return_total_value: res.storage_deposit_return_total_value,
-            total_key_bytes: res.total_key_bytes,
-            total_data_bytes: res.total_data_bytes,
-            total_byte_cost: res.total_byte_cost,
-            rent_structure,
-        })
+            .unwrap_or_default())
     }
-}
-
-/// Address analytics result.
-
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct AddressAnalyticsResult {
-    /// The number of addresses used in the time period.
-    pub total_active_addresses: u64,
-    /// The number of addresses that received tokens in the time period.
-    pub receiving_addresses: u64,
-    /// The number of addresses that sent tokens in the time period.
-    pub sending_addresses: u64,
 }
 
 impl OutputCollection {
     /// Create aggregate statistics of all addresses.
     pub async fn get_address_analytics(
         &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<AddressAnalyticsResult, Error> {
+        start_index: impl Into<Option<MilestoneIndex>>,
+        end_index: impl Into<Option<MilestoneIndex>>,
+    ) -> Result<AddressAnalytics, Error> {
+        let (start_index, end_index) = (start_index.into(), end_index.into());
         Ok(self
             .aggregate(
                 vec![
@@ -877,7 +825,7 @@ impl OutputCollection {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ClaimedTokensResult {
     pub count: String,
@@ -885,33 +833,27 @@ pub struct ClaimedTokensResult {
 
 impl OutputCollection {
     /// Gets the number of claimed tokens.
-    pub async fn get_claimed_token_analytics(
-        &self,
-        index: Option<MilestoneIndex>,
-    ) -> Result<Option<ClaimedTokensResult>, Error> {
-        let spent_query = match index {
-            Some(index) => doc! { "$eq": index },
-            None => doc! { "$exists": true },
-        };
-
-        self.aggregate(
-            vec![
-                doc! { "$match": {
-                    "metadata.booked.milestone_index": { "$eq": 0 },
-                    "metadata.spent_metadata.spent.milestone_index": spent_query,
-                } },
-                doc! { "$group": {
-                    "_id": null,
-                    "count": { "$sum": { "$toDecimal": "$output.amount" } },
-                } },
-                doc! { "$project": {
-                    "count": { "$toString": "$count" },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+    pub async fn get_claimed_token_analytics(&self, index: MilestoneIndex) -> Result<ClaimedTokensAnalytics, Error> {
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_index": { "$eq": 0 },
+                        "metadata.spent_metadata.spent.milestone_index": index,
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "count": { "$sum": { "$toDecimal": "$output.amount" } },
+                    } },
+                    doc! { "$project": {
+                        "count": { "$toString": "$count" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
     }
 }

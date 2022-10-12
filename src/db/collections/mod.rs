@@ -13,19 +13,22 @@ mod outputs;
 mod protocol_update;
 /// Module containing the treasury model.
 mod treasury;
+// Module containing the time-series analytics model.
+mod analytics;
 
 use std::str::FromStr;
 
 use thiserror::Error;
 
 pub use self::{
+    analytics::{Analytics, AnalyticsCollection},
     block::BlockCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
     milestone::{MilestoneCollection, MilestoneResult, SyncData},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
-        UtxoChangesResult,
+        NftOutputsQuery, OutputCollection, OutputDocument, OutputMetadataResult, OutputWithMetadataResult,
+        OutputsResult, UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},

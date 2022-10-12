@@ -7,9 +7,12 @@ mod common;
 mod test_rand {
 
     use chronicle::{
-        db::{collections::OutputCollection, MongoDbCollection},
+        db::{
+            collections::{OutputCollection, OutputDocument},
+            MongoDbCollection,
+        },
         types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
+            ledger::{LedgerOutput, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
                 output::{BasicOutput, OutputAmount, OutputId},
                 payload::TransactionId,
@@ -35,18 +38,20 @@ mod test_rand {
         collection.create_indexes().await.unwrap();
 
         let unspent_outputs = (1..=5)
-            .map(|i| LedgerOutput {
-                output_id: OutputId::rand(),
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
-                },
-                output: rand_output_with_value(i.into()),
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 0.into(),
-                    milestone_timestamp: 0.into(),
-                },
+            .map(|i| {
+                OutputDocument::from(LedgerOutput {
+                    output_id: OutputId::rand(),
+                    rent_structure: RentStructureBytes {
+                        num_key_bytes: 0,
+                        num_data_bytes: 100,
+                    },
+                    output: rand_output_with_value(i.into()),
+                    block_id: BlockId::rand(),
+                    booked: MilestoneIndexTimestamp {
+                        milestone_index: 0.into(),
+                        milestone_timestamp: 0.into(),
+                    },
+                })
             })
             .collect::<Vec<_>>();
 
@@ -55,38 +60,22 @@ mod test_rand {
         let spent_outputs = unspent_outputs
             .into_iter()
             .take(4) // we spent only the first 4 outputs
-            .map(|output| {
+            .map(|mut output| {
                 let i = output.output.amount().0;
-                LedgerSpent {
-                    output,
-                    spent_metadata: SpentMetadata {
-                        transaction_id: TransactionId::rand(),
-                        spent: MilestoneIndexTimestamp {
-                            milestone_index: (i as u32).into(),
-                            milestone_timestamp: (i as u32 + 10000).into(),
-                        },
+                output.metadata.spent_metadata.replace(SpentMetadata {
+                    transaction_id: TransactionId::rand(),
+                    spent: MilestoneIndexTimestamp {
+                        milestone_index: (i as u32).into(),
+                        milestone_timestamp: (i as u32 + 10000).into(),
                     },
-                }
+                });
+                output
             })
             .collect::<Vec<_>>();
 
         collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        let total = collection
-            .get_claimed_token_analytics(None)
-            .await
-            .unwrap()
-            .unwrap()
-            .count;
-        assert_eq!(total, (1 + 2 + 3 + 4).to_string());
-
-        let third = collection
-            .get_claimed_token_analytics(Some(3.into()))
-            .await
-            .unwrap()
-            .unwrap()
-            .count;
-        assert_eq!(third, "3");
+        assert_eq!(collection.get_claimed_token_analytics(3.into()).await.unwrap().count, 3);
 
         db.drop().await.unwrap();
     }
