@@ -188,8 +188,8 @@ dependencies = [
  "iota-crypto",
  "iterator-sorted",
  "packable",
- "prefix-hex",
- "primitive-types",
+ "prefix-hex 0.4.0",
+ "primitive-types 0.11.1",
  "rand",
  "serde",
  "serde-big-array",
@@ -396,8 +396,8 @@ dependencies = [
  "opentelemetry-jaeger",
  "packable",
  "pin-project",
- "prefix-hex",
- "primitive-types",
+ "prefix-hex 0.5.0",
+ "primitive-types 0.11.1",
  "rand",
  "regex",
  "rust-argon2",
@@ -831,6 +831,15 @@ dependencies = [
  "byteorder",
  "rand",
  "rustc-hex",
+ "static_assertions",
+]
+
+[[package]]
+name = "fixed-hash"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
+dependencies = [
  "static_assertions",
 ]
 
@@ -1780,7 +1789,7 @@ checksum = "a7e6da5d02b6ba18afdb21b1813fa25b97ad997201aed5883a9ef9141024cfbf"
 dependencies = [
  "autocfg",
  "packable-derive",
- "primitive-types",
+ "primitive-types 0.11.1",
  "serde",
 ]
 
@@ -1941,7 +1950,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a85165b6848fe5328066d5cb934dd5c88ff09674db6fcd018df68d9a542b2317"
 dependencies = [
  "hex",
- "primitive-types",
+ "primitive-types 0.11.1",
+ "uint",
+]
+
+[[package]]
+name = "prefix-hex"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75e3396888185b76a6e4c8fc883b3f039e56d3c0bca279744d2df70b3662e784"
+dependencies = [
+ "hex",
+ "primitive-types 0.12.0",
  "uint",
 ]
 
@@ -1961,9 +1981,19 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e28720988bff275df1f51b171e1b2a18c30d194c4d2b61defdacecd625a5d94a"
 dependencies = [
- "fixed-hash",
+ "fixed-hash 0.7.0",
  "impl-codec",
  "impl-serde",
+ "uint",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cfd65aea0c5fa0bfcc7c9e7ca828c921ef778f43d325325ec84bda371bfa75a"
+dependencies = [
+ "fixed-hash 0.8.0",
  "uint",
 ]
 
