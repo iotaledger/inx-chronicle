@@ -324,29 +324,29 @@ impl BlockCollection {
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$group": {
                         "_id": null,
-                        "num_blocks": { "$count": {} },
-                        "num_tx_payload": { "$sum": {
+                        "count": { "$sum": 1 },
+                        "transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
                         } },
-                        "num_treasury_tx_payload": { "$sum": {
+                        "treasury_transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
                         } },
-                        "num_milestone_payload": { "$sum": {
+                        "milestone_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
                         } },
-                        "num_tagged_data_payload": { "$sum": {
+                        "tagged_data_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
                         } },
-                        "num_no_payload": { "$sum": {
+                        "no_payload_count": { "$sum": {
                             "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
                         } },
-                        "num_confirmed_tx": { "$sum": {
+                        "confirmed_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
                         } },
-                        "num_conflicting_tx": { "$sum": {
+                        "conflicting_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
                         } },
-                        "num_no_tx": { "$sum": {
+                        "no_transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
                         } },
                     } },

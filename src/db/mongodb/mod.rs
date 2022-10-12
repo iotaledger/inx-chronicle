@@ -58,7 +58,7 @@ impl MongoDb {
     /// Creates a collection if it does not exist.
     pub async fn create_indexes<T: MongoDbCollection + Send + Sync>(&self) -> Result<(), Error> {
         let collection = self.collection::<T>();
-        collection.create_collection(&self).await?;
+        collection.create_collection(self).await?;
         collection.create_indexes().await?;
         Ok(())
     }

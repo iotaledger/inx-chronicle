@@ -231,12 +231,6 @@ async fn storage_deposit_ledger_analytics(
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
 
-    let protocol_params = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(ledger_index)
-        .await?
-        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
-        .parameters;
     let res = match database
         .collection::<AnalyticsCollection>()
         .get_storage_deposit_analytics(ledger_index)
@@ -250,6 +244,13 @@ async fn storage_deposit_ledger_analytics(
                 .await?
         }
     };
+
+    let protocol_params = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(ledger_index)
+        .await?
+        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .parameters;
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),

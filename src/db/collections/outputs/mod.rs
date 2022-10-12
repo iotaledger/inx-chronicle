@@ -825,12 +825,6 @@ impl OutputCollection {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct ClaimedTokensResult {
-    pub count: String,
-}
-
 impl OutputCollection {
     /// Gets the number of claimed tokens.
     pub async fn get_claimed_token_analytics(&self, index: MilestoneIndex) -> Result<ClaimedTokensAnalytics, Error> {

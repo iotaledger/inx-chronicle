@@ -18,7 +18,7 @@ use super::{
 use crate::types::{context::TryFromWithContext, util::bytify};
 
 /// Uniquely identifies an Alias.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 

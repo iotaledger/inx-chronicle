@@ -10,8 +10,8 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            Analytics, AnalyticsCollection, BlockCollection, LedgerUpdateCollection, MilestoneCollection,
-            OutputCollection, OutputDocument, ProtocolUpdateCollection, TreasuryCollection,
+            Analytics, AnalyticsCollection, AnalyticsProcessor, BlockCollection, LedgerUpdateCollection,
+            MilestoneCollection, OutputCollection, OutputDocument, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -232,11 +232,15 @@ async fn handle_ledger_update(
         "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
     );
 
-    let analytics = Arc::new(Mutex::new(
-        db.collection::<AnalyticsCollection>()
-            .get_all_analytics((milestone_index - 1).into())
-            .await?,
-    ));
+    let mut analytics = Analytics::default();
+    let prev_analytics = db
+        .collection::<AnalyticsCollection>()
+        .get_all_analytics((milestone_index - 1).into())
+        .await?;
+    // Only want to accumulate some of the analytics.
+    analytics.storage_deposits = prev_analytics.storage_deposits;
+    analytics.unspent_outputs = prev_analytics.unspent_outputs;
+    let analytics = Arc::new(Mutex::new(analytics.processor()));
 
     let mut tasks = JoinSet::new();
     let mut actual_created_count = 0;
@@ -334,7 +338,7 @@ async fn handle_ledger_update(
         inx,
         milestone_index,
         // Panic: Cannot fail as all other references are held by the tasks and we await them above.
-        Arc::try_unwrap(analytics).unwrap().into_inner(),
+        Arc::try_unwrap(analytics).unwrap().into_inner().finish(),
     )
     .await?;
 
@@ -439,7 +443,7 @@ async fn handle_milestone(
 async fn handle_cone_stream(
     db: &MongoDb,
     inx: &mut Inx,
-    analytics: &Arc<Mutex<Analytics>>,
+    analytics: &Arc<Mutex<AnalyticsProcessor>>,
     milestone_index: MilestoneIndex,
 ) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;

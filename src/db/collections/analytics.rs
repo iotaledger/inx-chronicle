@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use decimal::d128;
 use futures::TryStreamExt;
@@ -20,7 +20,7 @@ use crate::{
         stardust::{
             block::{
                 output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-                Block, Output, Payload,
+                Address, Block, Output, Payload,
             },
             milestone::MilestoneTimestamp,
         },
@@ -38,46 +38,112 @@ pub struct AnalyticsDocument {
 
 /// Holds analytics about stardust data.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct Analytics {
-    addresses: AddressAnalytics,
-    outputs: HashMap<String, OutputAnalytics>,
-    unspent_outputs: HashMap<String, OutputAnalytics>,
-    storage_deposits: StorageDepositAnalytics,
-    claimed_tokens: ClaimedTokensAnalytics,
-    milestone_activity: MilestoneActivityAnalytics,
+    pub addresses: AddressAnalytics,
+    pub outputs: HashMap<String, OutputAnalytics>,
+    pub unspent_outputs: HashMap<String, OutputAnalytics>,
+    pub storage_deposits: StorageDepositAnalytics,
+    pub claimed_tokens: ClaimedTokensAnalytics,
+    pub milestone_activity: MilestoneActivityAnalytics,
+}
+
+impl Default for Analytics {
+    fn default() -> Self {
+        Self {
+            addresses: Default::default(),
+            outputs: [
+                (BasicOutput::kind().unwrap().to_string(), Default::default()),
+                (AliasOutput::kind().unwrap().to_string(), Default::default()),
+                (NftOutput::kind().unwrap().to_string(), Default::default()),
+                (FoundryOutput::kind().unwrap().to_string(), Default::default()),
+            ]
+            .into(),
+            unspent_outputs: [
+                (BasicOutput::kind().unwrap().to_string(), Default::default()),
+                (AliasOutput::kind().unwrap().to_string(), Default::default()),
+                (NftOutput::kind().unwrap().to_string(), Default::default()),
+                (FoundryOutput::kind().unwrap().to_string(), Default::default()),
+            ]
+            .into(),
+            storage_deposits: Default::default(),
+            claimed_tokens: Default::default(),
+            milestone_activity: Default::default(),
+        }
+    }
 }
 
 impl Analytics {
+    /// Get a processor to update the analytics with new data.
+    pub fn processor(self) -> AnalyticsProcessor {
+        AnalyticsProcessor {
+            analytics: self,
+            addresses: Default::default(),
+            sending_addresses: Default::default(),
+            receiving_addresses: Default::default(),
+            removed_outputs: Default::default(),
+            removed_storage_deposits: Default::default(),
+        }
+    }
+}
+
+/// A processor for analytics which holds some state.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct AnalyticsProcessor {
+    analytics: Analytics,
+    addresses: HashSet<Address>,
+    sending_addresses: HashSet<Address>,
+    receiving_addresses: HashSet<Address>,
+    removed_outputs: HashMap<String, OutputAnalytics>,
+    removed_storage_deposits: StorageDepositAnalytics,
+}
+
+impl AnalyticsProcessor {
     /// Process a batch of outputs.
     pub fn process_outputs<'a, I>(&mut self, outputs: I)
     where
         I: IntoIterator<Item = &'a OutputDocument>,
     {
         for output in outputs {
-            if output.details.address.is_some() {
-                self.addresses.total_active_addresses += 1;
+            if let Some(address) = output.details.address {
+                self.addresses.insert(address);
                 if output.metadata.spent_metadata.is_some() {
-                    self.addresses.sending_addresses += 1;
+                    self.sending_addresses.insert(address);
                 } else {
-                    self.addresses.receiving_addresses += 1;
+                    self.receiving_addresses.insert(address);
                 }
             }
-            let output_analytics = self.outputs.entry(output.output.kind().to_string()).or_default();
+            let output_analytics = self
+                .analytics
+                .outputs
+                .entry(output.output.kind().to_string())
+                .or_default();
             output_analytics.count += 1;
             output_analytics.total_value += output.output.amount().0.into();
 
-            let unspent_output_analytics = self.outputs.entry(output.output.kind().to_string()).or_default();
-            if output.metadata.spent_metadata.is_some() {
-                unspent_output_analytics.count -= 1;
-                unspent_output_analytics.total_value -= output.output.amount().0.into();
+            let (unspent_output_analytics, storage_deposits) = if output.metadata.spent_metadata.is_some() {
+                // To workaround spent outputs being processed first, we keep track of a separate set
+                // of values which will be subtracted at the end.
+                (
+                    self.removed_outputs
+                        .entry(output.output.kind().to_string())
+                        .or_default(),
+                    &mut self.removed_storage_deposits,
+                )
             } else {
-                unspent_output_analytics.count += 1;
-                unspent_output_analytics.total_value += output.output.amount().0.into();
-            }
-
-            self.storage_deposits.output_count += 1;
-            self.storage_deposits.total_data_bytes += output.details.rent_structure.num_data_bytes.into();
-            self.storage_deposits.total_key_bytes += output.details.rent_structure.num_key_bytes.into();
+                (
+                    self.analytics
+                        .unspent_outputs
+                        .entry(output.output.kind().to_string())
+                        .or_default(),
+                    &mut self.analytics.storage_deposits,
+                )
+            };
+            unspent_output_analytics.count += 1;
+            unspent_output_analytics.total_value += output.output.amount().0.into();
+            storage_deposits.output_count += 1;
+            storage_deposits.total_data_bytes += output.details.rent_structure.num_data_bytes.into();
+            storage_deposits.total_key_bytes += output.details.rent_structure.num_key_bytes.into();
             match output.output {
                 Output::Basic(BasicOutput {
                     storage_deposit_return_unlock_condition: Some(uc),
@@ -87,8 +153,8 @@ impl Analytics {
                     storage_deposit_return_unlock_condition: Some(uc),
                     ..
                 }) => {
-                    self.storage_deposits.storage_deposit_return_count += 1;
-                    self.storage_deposits.storage_deposit_return_total_value += uc.amount.0.into();
+                    storage_deposits.storage_deposit_return_count += 1;
+                    storage_deposits.storage_deposit_return_total_value += uc.amount.0.into();
                 }
                 _ => (),
             }
@@ -102,22 +168,43 @@ impl Analytics {
         I: IntoIterator<Item = (&'a Block, &'a BlockMetadata)>,
     {
         for (block, metadata) in blocks {
-            self.milestone_activity.count += 1;
+            self.analytics.milestone_activity.count += 1;
             match &block.payload {
                 Some(payload) => match payload {
-                    Payload::Transaction(_) => self.milestone_activity.transaction_count += 1,
-                    Payload::Milestone(_) => self.milestone_activity.milestone_count += 1,
-                    Payload::TreasuryTransaction(_) => self.milestone_activity.treasury_transaction_count += 1,
-                    Payload::TaggedData(_) => self.milestone_activity.tagged_data_count += 1,
+                    Payload::Transaction(_) => self.analytics.milestone_activity.transaction_count += 1,
+                    Payload::Milestone(_) => self.analytics.milestone_activity.milestone_count += 1,
+                    Payload::TreasuryTransaction(_) => {
+                        self.analytics.milestone_activity.treasury_transaction_count += 1
+                    }
+                    Payload::TaggedData(_) => self.analytics.milestone_activity.tagged_data_count += 1,
                 },
-                None => self.milestone_activity.no_payload_count += 1,
+                None => self.analytics.milestone_activity.no_payload_count += 1,
             }
             match &metadata.inclusion_state {
-                LedgerInclusionState::Conflicting => self.milestone_activity.conflicting_count += 1,
-                LedgerInclusionState::Included => self.milestone_activity.confirmed_count += 1,
-                LedgerInclusionState::NoTransaction => self.milestone_activity.no_transaction_count += 1,
+                LedgerInclusionState::Conflicting => self.analytics.milestone_activity.conflicting_count += 1,
+                LedgerInclusionState::Included => self.analytics.milestone_activity.confirmed_count += 1,
+                LedgerInclusionState::NoTransaction => self.analytics.milestone_activity.no_transaction_count += 1,
             }
         }
+    }
+
+    /// Complete processing and return the analytics.
+    pub fn finish(mut self) -> Analytics {
+        self.analytics.addresses.total_active_addresses = self.addresses.len() as _;
+        self.analytics.addresses.receiving_addresses = self.receiving_addresses.len() as _;
+        self.analytics.addresses.sending_addresses = self.sending_addresses.len() as _;
+        for (key, val) in self.removed_outputs {
+            self.analytics.unspent_outputs.get_mut(&key).unwrap().count -= val.count;
+            self.analytics.unspent_outputs.get_mut(&key).unwrap().total_value -= val.total_value;
+        }
+        self.analytics.storage_deposits.output_count -= self.removed_storage_deposits.output_count;
+        self.analytics.storage_deposits.storage_deposit_return_count -=
+            self.removed_storage_deposits.storage_deposit_return_count;
+        self.analytics.storage_deposits.storage_deposit_return_total_value -=
+            self.removed_storage_deposits.storage_deposit_return_total_value;
+        self.analytics.storage_deposits.total_data_bytes -= self.removed_storage_deposits.total_data_bytes;
+        self.analytics.storage_deposits.total_key_bytes -= self.removed_storage_deposits.total_key_bytes;
+        self.analytics
     }
 }
 
@@ -158,7 +245,7 @@ impl StorageDepositAnalytics {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ClaimedTokensAnalytics {
-    pub count: u64,
+    pub count: d128,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -377,9 +464,9 @@ impl AnalyticsCollection {
                 doc! { "$replaceWith": "$analytics.addresses" },
                 doc! { "$group": {
                     "_id": null,
-                    "total_active_addresses": { "$sum": "total_active_addresses" },
-                    "receiving_addresses": { "$sum": "receiving_addresses" },
-                    "sending_addresses": { "$sum": "sending_addresses" },
+                    "total_active_addresses": { "$sum": "$total_active_addresses" },
+                    "receiving_addresses": { "$sum": "$receiving_addresses" },
+                    "sending_addresses": { "$sum": "$sending_addresses" },
                 }},
             ],
             None,
@@ -464,41 +551,33 @@ impl AnalyticsCollection {
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<Option<StorageDepositAnalytics>, Error> {
-        self
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "_id": ledger_index,
-                    } },
-                    doc! { "$replaceWith": "$analytics.storage_deposits" },
-                    doc! { "$group" : {
-                        "_id": null,
-                        "storage_deposit_return_count": { "$sum": "$storage_deposit_return_count" },
-                        "storage_deposit_return_total_value": { "$sum": { "$toDecimal": "$storage_deposit_return_total_value" } },
-                        "total_key_bytes": { "$sum": { "$toDecimal": "$total_key_bytes" } },
-                        "total_data_bytes": { "$sum": { "$toDecimal": "$total_data_bytes" } },
-                        "total_byte_cost": { "$sum": { "$toDecimal": "$total_byte_cost" } },
-                    } },
-                    doc! { "$project": {
-                        "output_count": { "$first": "$all.output_count" },
-                        "storage_deposit_return_count": { "$ifNull": [ { "$first": "$storage_deposit.return_count" }, 0 ] },
-                        "storage_deposit_return_total_value": { 
-                            "$toString": { "$ifNull": [ { "$first": "$storage_deposit.return_total_value" }, 0 ] } 
-                        },
-                        "total_key_bytes": { 
-                            "$toString": { "$first": "$all.total_key_bytes" } 
-                        },
-                        "total_data_bytes": { 
-                            "$toString": { "$first": "$all.total_data_bytes" } 
-                        },
-                        "total_byte_cost": 1,
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "_id": ledger_index,
+                } },
+                doc! { "$replaceWith": "$analytics.storage_deposits" },
+                doc! { "$group" : {
+                    "_id": null,
+                    "output_count": { "$sum": "$output_count" },
+                    "storage_deposit_return_count": { "$sum": "$storage_deposit_return_count" },
+                    "storage_deposit_return_total_value": { "$sum": { "$toDecimal": "$storage_deposit_return_total_value"} },
+                    "total_key_bytes": { "$sum": { "$toDecimal": "$total_key_bytes" } },
+                    "total_data_bytes": { "$sum": { "$toDecimal": "$total_data_bytes" } },
+                } },
+                doc! { "$project": {
+                    "output_count": 1,
+                    "storage_deposit_return_count": 1,
+                    "storage_deposit_return_total_value": { "$toString": "$storage_deposit_return_total_value" },
+                    "total_key_bytes": { "$toString": "$total_key_bytes" },
+                    "total_data_bytes": { "$toString": "$total_data_bytes" },
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Gathers past-cone activity statistics for a given
@@ -512,15 +591,15 @@ impl AnalyticsCollection {
                 doc! { "$replaceWith": "$analytics.milestone_activity" },
                 doc! { "$group": {
                     "_id": null,
-                    "num_blocks": { "$sum": "$num_blocks" },
-                    "num_tx_payload": { "$sum": "$num_tx_payload" },
-                    "num_treasury_tx_payload": { "$sum": "$num_treasury_tx_payload" },
-                    "num_milestone_payload": { "$sum": "$num_milestone_payload" },
-                    "num_tagged_data_payload": { "$sum": "$num_tagged_data_payload" },
-                    "num_no_payload": { "$sum": "$num_no_payload" },
-                    "num_confirmed_tx": { "$sum": "$num_confirmed_tx" },
-                    "num_conflicting_tx": { "$sum": "$num_conflicting_tx" },
-                    "num_no_tx": { "$sum": "$num_no_tx" },
+                    "count": { "$sum": "$count" },
+                    "transaction_count": { "$sum": "$transaction_count" },
+                    "treasury_transaction_count": { "$sum": "$treasury_transaction_count" },
+                    "milestone_count": { "$sum": "$milestone_count" },
+                    "tagged_data_count": { "$sum": "$tagged_data_count" },
+                    "no_payload_count": { "$sum": "$num_nono_payload_count_payload" },
+                    "confirmed_count": { "$sum": "$confirmed_count" },
+                    "conflicting_count": { "$sum": "$conflicting_count" },
+                    "no_transaction_count": { "$sum": "$no_transaction_count" },
                 } },
             ],
             None,

@@ -20,6 +20,7 @@ mod test_rand {
             },
         },
     };
+    use decimal::d128;
 
     use super::common::connect_to_test_db;
 
@@ -75,7 +76,10 @@ mod test_rand {
 
         collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        assert_eq!(collection.get_claimed_token_analytics(3.into()).await.unwrap().count, 3);
+        assert_eq!(
+            collection.get_claimed_token_analytics(3.into()).await.unwrap().count,
+            d128::from(3)
+        );
 
         db.drop().await.unwrap();
     }
