@@ -21,7 +21,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
-use crate::{cli::ClArgs, config::ChronicleConfig, error::Error};
+use crate::{cli::ClArgs, error::Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -33,19 +33,12 @@ async fn main() -> Result<(), Error> {
     }));
 
     let cl_args = ClArgs::parse();
+    let config = cl_args.get_config()?;
+    if cl_args.process_subcommands(&config)? {
+        return Ok(());
+    }
 
-    let mut config = cl_args
-        .config
-        .as_ref()
-        .map(ChronicleConfig::from_file)
-        .transpose()?
-        .unwrap_or_default();
-    config.apply_cl_args(&cl_args);
-
-    info!(
-        "Connecting to database at bind address `{}`.",
-        config.mongodb.connect_url
-    );
+    info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
     let db = MongoDb::connect(&config.mongodb).await?;
     debug!("Available databases: `{:?}`", db.get_databases().await?);
     info!(
