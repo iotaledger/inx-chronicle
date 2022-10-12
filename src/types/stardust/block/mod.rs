@@ -108,7 +108,9 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a spending [`TransactionPayload`](payload::TransactionPayload).
-        pub fn rand_spending_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> (Self, Vec<Input>, Vec<Output>) {
+        pub fn rand_spending_transaction(
+            ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ) -> (Self, Vec<Input>, Vec<Output>) {
             let (payload, inputs, outputs) = Payload::rand_spending_transaction(ctx);
             (
                 Self {

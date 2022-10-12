@@ -22,7 +22,7 @@ mod test_rand {
     };
     use futures::TryStreamExt;
 
-    use super::common::{setup_db, setup_coll, teardown};
+    use super::common::{setup_coll, setup_db, teardown};
 
     #[tokio::test]
     async fn test_blocks() {
@@ -202,7 +202,8 @@ mod test_rand {
         let blocks = vec![(block_id, block.clone(), raw, metadata)];
         block_coll.insert_blocks_with_metadata(blocks).await.unwrap();
 
-        let outputs = unspent_outputs.into_iter()
+        let outputs = unspent_outputs
+            .into_iter()
             .map(|output| LedgerOutput {
                 output_id: OutputId::rand(),
                 rent_structure: RentStructureBytes {
@@ -225,7 +226,11 @@ mod test_rand {
             } else {
                 unreachable!();
             };
-            let spending_block = block_coll.get_spending_transaction(&spent_output_id).await.unwrap().unwrap();
+            let spending_block = block_coll
+                .get_spending_transaction(&spent_output_id)
+                .await
+                .unwrap()
+                .unwrap();
 
             assert_eq!(spending_block.protocol_version, block.protocol_version);
             assert_eq!(spending_block.parents, block.parents);

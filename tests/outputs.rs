@@ -14,7 +14,7 @@ mod test_rand {
         },
     };
 
-    use super::common::{setup_db, setup_coll, teardown};
+    use super::common::{setup_coll, setup_db, teardown};
 
     #[tokio::test]
     async fn test_outputs() {

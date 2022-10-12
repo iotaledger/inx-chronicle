@@ -10,7 +10,7 @@ mod test_rand {
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
     };
 
-    use super::common::{setup_db, setup_coll, teardown};
+    use super::common::{setup_coll, setup_db, teardown};
 
     #[tokio::test]
     async fn test_milestones() {
