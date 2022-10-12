@@ -21,16 +21,16 @@ impl<T: Packable> RawMessage<T> {
         self.data
     }
 
-    /// Uses an [`UnpackVisitor`](packable::Visitor), i.e. the [`ProtocolParameters`](bee_block_stardust::protocol::ProtocolParameters) to verify the bytes.
+    /// Uses an [`UnpackVisitor`](packable::Visitor), i.e. the
+    /// [`ProtocolParameters`](bee_block_stardust::protocol::ProtocolParameters) to verify the bytes.
     pub fn inner(self, visitor: &T::UnpackVisitor) -> Result<T, InxError> {
-        let unpacked = T::unpack_verified(self.data, visitor)
-            .map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
+        let unpacked =
+            T::unpack_verified(self.data, visitor).map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
         Ok(unpacked)
     }
 
     pub fn inner_unverified(self) -> Result<T, InxError> {
-        let unpacked =
-            T::unpack_unverified(self.data).map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
+        let unpacked = T::unpack_unverified(self.data).map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
         Ok(unpacked)
     }
 }
@@ -84,9 +84,8 @@ impl From<RawMessage<bee_block_stardust::payload::Payload>> for proto::RawMilest
 mod test {
     use bee_block_stardust::{payload::Payload, rand::output::rand_output};
 
-    use crate::types::tangle::ProtocolParameters;
-
     use super::*;
+    use crate::types::tangle::ProtocolParameters;
 
     #[test]
     fn raw_output() {

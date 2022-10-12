@@ -86,7 +86,7 @@ mod inx {
     use packable::PackableExt;
 
     use super::*;
-    use crate::{maybe_missing, inx::InxError};
+    use crate::{inx::InxError, maybe_missing};
 
     #[cfg(feature = "inx")]
     impl TryFrom<::inx::proto::LedgerOutput> for LedgerOutput {
@@ -178,31 +178,31 @@ mod inx {
 }
 
 #[cfg(test)]
-    mod test {
-        #[cfg(feature = "rand")]
-        #[test]
-        fn test_compute_rent_structure() {
-            use bee_block_stardust::{output::Rent, rand::output};
+mod test {
+    #[cfg(feature = "rand")]
+    #[test]
+    fn test_compute_rent_structure() {
+        use bee_block_stardust::{output::Rent, rand::output};
 
-            use super::compute_rent_structure;
+        use super::compute_rent_structure;
 
-            let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
-            let outputs = [
-                output::rand_basic_output(protocol_params.token_supply()).into(),
-                output::rand_alias_output(protocol_params.token_supply()).into(),
-                output::rand_foundry_output(protocol_params.token_supply()).into(),
-                output::rand_nft_output(protocol_params.token_supply()).into(),
-            ];
+        let outputs = [
+            output::rand_basic_output(protocol_params.token_supply()).into(),
+            output::rand_alias_output(protocol_params.token_supply()).into(),
+            output::rand_foundry_output(protocol_params.token_supply()).into(),
+            output::rand_nft_output(protocol_params.token_supply()).into(),
+        ];
 
-            for output in outputs {
-                let rent = compute_rent_structure(&output);
-                assert_eq!(
-                    (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
-                        + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
-                        * protocol_params.rent_structure().v_byte_cost as u64,
-                    output.rent_cost(protocol_params.rent_structure())
-                );
-            }
+        for output in outputs {
+            let rent = compute_rent_structure(&output);
+            assert_eq!(
+                (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
+                    + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
+                    * protocol_params.rent_structure().v_byte_cost as u64,
+                output.rent_cost(protocol_params.rent_structure())
+            );
         }
     }
+}

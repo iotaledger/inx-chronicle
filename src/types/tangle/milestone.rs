@@ -93,8 +93,6 @@ impl FromStr for MilestoneIndex {
     }
 }
 
-
-
 #[cfg(test)]
 mod test {
     use super::*;

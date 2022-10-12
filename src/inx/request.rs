@@ -5,8 +5,9 @@
 
 use std::ops::{Bound, RangeBounds};
 
-use crate::types::{tangle::MilestoneIndex, stardust::block::payload::MilestoneId};
 use inx::proto;
+
+use crate::types::{stardust::block::payload::MilestoneId, tangle::MilestoneIndex};
 
 /// A request for a milestone that can either be a [`MilestoneIndex`] or a [`MilestoneId`].
 pub enum MilestoneRequest {
@@ -25,7 +26,9 @@ impl From<MilestoneRequest> for proto::MilestoneRequest {
             },
             MilestoneRequest::MilestoneId(milestone_id) => Self {
                 milestone_index: 0,
-                milestone_id: Some(inx::proto::MilestoneId{id: milestone_id.0.to_vec()}),
+                milestone_id: Some(inx::proto::MilestoneId {
+                    id: milestone_id.0.to_vec(),
+                }),
             },
         }
     }

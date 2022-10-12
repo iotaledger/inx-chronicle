@@ -2,34 +2,37 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod client;
-mod request;
-mod ledger;
 mod error;
-mod node;
+mod ledger;
 mod milestone;
-mod raw;
+mod node;
 mod protocol;
+mod raw;
+mod request;
 
-use crate::types::stardust::block::output::OutputId;
-
-pub use self::{request::MilestoneRangeRequest, ledger::LedgerUpdateMessage, error::InxError, client::Inx, protocol::RawProtocolParametersMessage, node::NodeStatusMessage};
-
+pub use self::{
+    client::Inx, error::InxError, ledger::LedgerUpdateMessage, node::NodeStatusMessage,
+    protocol::RawProtocolParametersMessage, request::MilestoneRangeRequest,
+};
 use super::types::stardust::block::{
     payload::{MilestoneId, TransactionId},
     BlockId,
 };
+use crate::types::stardust::block::output::OutputId;
 
 /// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.
 #[macro_export]
 macro_rules! maybe_missing {
     ($object:ident.$field:ident) => {
-        $object.$field.ok_or(crate::inx::InxError::MissingField(stringify!($field)))?
+        $object
+            .$field
+            .ok_or(crate::inx::InxError::MissingField(stringify!($field)))?
     };
 }
 
 /// Implements `TryFrom` for the different ids that are sent via INX.
 #[macro_export]
-macro_rules! impl_try_from_id {
+macro_rules! impl_try_from_proto_id {
     ($inx_id:ty, $own_id:ty) => {
         impl TryFrom<$inx_id> for $own_id {
             type Error = InxError;
@@ -42,12 +45,20 @@ macro_rules! impl_try_from_id {
                 Ok(Self(data))
             }
         }
+
+        impl From<$own_id> for $inx_id {
+            fn from(value: $own_id) -> Self {
+                Self {
+                    id: value.0.into(),
+                }
+            }
+        }
     };
 }
 
-impl_try_from_id!(inx::proto::BlockId, BlockId);
-impl_try_from_id!(inx::proto::TransactionId, TransactionId);
-impl_try_from_id!(inx::proto::MilestoneId, MilestoneId);
+impl_try_from_proto_id!(inx::proto::BlockId, BlockId);
+impl_try_from_proto_id!(inx::proto::TransactionId, TransactionId);
+impl_try_from_proto_id!(inx::proto::MilestoneId, MilestoneId);
 
 impl TryFrom<inx::proto::OutputId> for OutputId {
     type Error = crate::inx::InxError;

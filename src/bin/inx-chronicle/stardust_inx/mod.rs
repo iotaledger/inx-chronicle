@@ -12,12 +12,12 @@ use chronicle::{
         },
         MongoDb,
     },
+    inx::Inx,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
         tangle::MilestoneIndex,
     },
-    inx::Inx,
 };
 use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};

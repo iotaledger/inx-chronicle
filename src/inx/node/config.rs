@@ -1,14 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use inx::proto;
 use bee_block_stardust as bee;
+use inx::proto;
 
-use crate::maybe_missing;
+use crate::{inx::InxError, maybe_missing};
 
 /// The [`BaseToken`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BaseToken {
+pub struct BaseTokenMessage {
     pub name: String,
     pub ticker_symbol: String,
     pub unit: String,
@@ -17,7 +17,7 @@ pub struct BaseToken {
     pub use_metric_prefix: bool,
 }
 
-impl From<proto::BaseToken> for BaseToken {
+impl From<proto::BaseToken> for BaseTokenMessage {
     fn from(value: proto::BaseToken) -> Self {
         Self {
             name: value.name,
@@ -30,8 +30,8 @@ impl From<proto::BaseToken> for BaseToken {
     }
 }
 
-impl From<BaseToken> for proto::BaseToken {
-    fn from(value: BaseToken) -> Self {
+impl From<BaseTokenMessage> for proto::BaseToken {
+    fn from(value: BaseTokenMessage) -> Self {
         Self {
             name: value.name,
             ticker_symbol: value.ticker_symbol,
@@ -44,13 +44,13 @@ impl From<BaseToken> for proto::BaseToken {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MilestoneKeyRange {
+pub struct MilestoneKeyRangeMessage {
     pub public_key: Box<[u8]>,
     pub start_index: bee::payload::milestone::MilestoneIndex,
     pub end_index: bee::payload::milestone::MilestoneIndex,
 }
 
-impl From<proto::MilestoneKeyRange> for MilestoneKeyRange {
+impl From<proto::MilestoneKeyRange> for MilestoneKeyRangeMessage {
     fn from(value: proto::MilestoneKeyRange) -> Self {
         Self {
             public_key: value.public_key.into_boxed_slice(),
@@ -60,8 +60,8 @@ impl From<proto::MilestoneKeyRange> for MilestoneKeyRange {
     }
 }
 
-impl From<MilestoneKeyRange> for proto::MilestoneKeyRange {
-    fn from(value: MilestoneKeyRange) -> Self {
+impl From<MilestoneKeyRangeMessage> for proto::MilestoneKeyRange {
+    fn from(value: MilestoneKeyRangeMessage) -> Self {
         Self {
             public_key: value.public_key.into_vec(),
             start_index: value.start_index.0,
@@ -72,18 +72,18 @@ impl From<MilestoneKeyRange> for proto::MilestoneKeyRange {
 
 /// The [`NodeConfiguration`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NodeConfiguration {
+pub struct NodeConfigurationMessage {
     pub milestone_public_key_count: u32,
-    pub milestone_key_ranges: Box<[MilestoneKeyRange]>,
-    pub base_token: BaseToken,
+    pub milestone_key_ranges: Box<[MilestoneKeyRangeMessage]>,
+    pub base_token: BaseTokenMessage,
     pub supported_protocol_versions: Box<[u8]>,
 }
 
-impl TryFrom<proto::NodeConfiguration> for NodeConfiguration {
-    type Error = bee::InxError;
+impl TryFrom<proto::NodeConfiguration> for NodeConfigurationMessage {
+    type Error = InxError;
 
     fn try_from(value: proto::NodeConfiguration) -> Result<Self, Self::Error> {
-        Ok(NodeConfiguration {
+        Ok(NodeConfigurationMessage {
             milestone_public_key_count: value.milestone_public_key_count,
             milestone_key_ranges: value.milestone_key_ranges.into_iter().map(Into::into).collect(),
             base_token: maybe_missing!(value.base_token).into(),
@@ -92,8 +92,8 @@ impl TryFrom<proto::NodeConfiguration> for NodeConfiguration {
     }
 }
 
-impl From<NodeConfiguration> for proto::NodeConfiguration {
-    fn from(value: NodeConfiguration) -> Self {
+impl From<NodeConfigurationMessage> for proto::NodeConfiguration {
+    fn from(value: NodeConfigurationMessage) -> Self {
         Self {
             milestone_public_key_count: value.milestone_public_key_count,
             milestone_key_ranges: value

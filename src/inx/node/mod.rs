@@ -6,4 +6,4 @@
 mod config;
 mod status;
 
-pub use self::{config::NodeConfiguration, status::NodeStatusMessage};
+pub use self::{config::NodeConfigurationMessage, status::NodeStatusMessage};

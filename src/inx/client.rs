@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::stream::{Stream, StreamExt};
-use inx::{proto, client::InxClient};
+use inx::{client::InxClient, proto};
 
-use super::{InxError, MilestoneRangeRequest, LedgerUpdateMessage, NodeStatusMessage};
+use super::{node::NodeConfigurationMessage, InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage, ledger::UnspentOutputMessage};
 
 /// An INX client connection.
 #[derive(Clone, Debug)]
@@ -41,37 +41,39 @@ impl Inx {
     //         .map(unpack_proto_msg))
     // }
 
+    /// Convenience wrapper that listen to ledger updates as a stream of [`NodeStatusMessages`](NodeStatusMessage).
     pub async fn listen_to_ledger_updates(
         &mut self,
         request: MilestoneRangeRequest,
     ) -> Result<impl Stream<Item = Result<LedgerUpdateMessage, InxError>>, InxError> {
-
         Ok(self
             .inx
             .listen_to_ledger_updates(inx::proto::MilestoneRangeRequest::from(request))
             .await?
-            .into_inner().map(unpack_proto_msg))
+            .into_inner()
+            .map(unpack_proto_msg))
     }
 
+    /// Convenience wrapper that reads the status of the node into a [`NodeStatusMessage`].
     pub async fn read_node_status(&mut self) -> Result<NodeStatusMessage, InxError> {
         NodeStatusMessage::try_from(self.inx.read_node_status(proto::NoParams {}).await?.into_inner())
     }
 
-    // pub async fn read_node_configuration(&mut self) -> Result<NodeConfiguration, Error> {
-    //     NodeConfiguration::try_from(self.inx.read_node_configuration(proto::NoParams {}).await?.into_inner())
-    //         .map_err(Error::InxError)
-    // }
+    /// Convenience wrapper that reads the configuration of the node into a [`NodeConfigurationMessage`].
+    pub async fn read_node_configuration(&mut self) -> Result<NodeConfigurationMessage, InxError> {
+        NodeConfigurationMessage::try_from(self.inx.read_node_configuration(proto::NoParams {}).await?.into_inner())
+    }
 
-    // pub async fn read_unspent_outputs(
-    //     &mut self,
-    // ) -> Result<impl Stream<Item = Result<crate::UnspentOutput, Error>>, Error> {
-    //     Ok(self
-    //         .inx
-    //         .read_unspent_outputs(proto::NoParams {})
-    //         .await?
-    //         .into_inner()
-    //         .map(unpack_proto_msg))
-    // }
+    pub async fn read_unspent_outputs(
+        &mut self,
+    ) -> Result<impl Stream<Item = Result<UnspentOutputMessage, InxError>>, InxError> {
+        Ok(self
+            .inx
+            .read_unspent_outputs(proto::NoParams {})
+            .await?
+            .into_inner()
+            .map(unpack_proto_msg))
+    }
 
     // pub async fn read_protocol_parameters(
     //     &mut self,

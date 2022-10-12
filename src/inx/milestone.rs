@@ -4,9 +4,11 @@
 use bee_block_stardust as bee;
 use inx::proto;
 
-use crate::{maybe_missing, types::{stardust::block::payload::MilestoneId, tangle::MilestoneIndex}};
-
-use super::{InxError, raw::RawMessage, RawProtocolParametersMessage};
+use super::{raw::RawMessage, InxError, RawProtocolParametersMessage};
+use crate::{
+    maybe_missing,
+    types::{stardust::block::payload::MilestoneId, tangle::MilestoneIndex},
+};
 
 /// The [`Milestone`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -29,12 +31,14 @@ impl TryFrom<proto::Milestone> for MilestoneMessage {
     }
 }
 
-impl From<MilestoneMessage> for proto::Milestone {
-    fn from(value: MilestoneMessage) -> Self {
-        Self {
-            milestone_info: Some(value.milestone_info.into()),
+impl TryFrom<MilestoneMessage> for proto::Milestone {
+    type Error = InxError;
+
+    fn try_from(value: MilestoneMessage) -> Result<Self, Self::Error> {
+        Ok(Self {
+            milestone_info: Some(value.milestone_info.try_into()?),
             milestone: Some(value.milestone.into()),
-        }
+        })
     }
 }
 
@@ -56,12 +60,14 @@ impl TryFrom<proto::MilestoneAndProtocolParameters> for MilestoneAndProtocolPara
     }
 }
 
-impl From<MilestoneAndProtocolParametersMessage> for proto::MilestoneAndProtocolParameters {
-    fn from(value: MilestoneAndProtocolParametersMessage) -> Self {
-        Self {
-            milestone: Some(value.milestone.into()),
+impl TryFrom<MilestoneAndProtocolParametersMessage> for proto::MilestoneAndProtocolParameters {
+    type Error = InxError;
+
+    fn try_from(value: MilestoneAndProtocolParametersMessage) -> Result<Self, Self::Error> {
+        Ok(Self {
+            milestone: Some(value.milestone.try_into()?),
             current_protocol_parameters: Some(value.current_protocol_parameters.into()),
-        }
+        })
     }
 }
 
@@ -89,11 +95,11 @@ impl TryFrom<proto::MilestoneInfo> for MilestoneInfoMessage {
 }
 
 impl TryFrom<MilestoneInfoMessage> for proto::MilestoneInfo {
-type Error = InxError;
-    
+    type Error = InxError;
+
     fn try_from(value: MilestoneInfoMessage) -> Result<Self, Self::Error> {
         Ok(Self {
-            milestone_id: value.milestone_id.map(TryInto::try_into).transpose()?,
+            milestone_id: value.milestone_id.map(Into::into),
             milestone_index: value.milestone_index.0,
             milestone_timestamp: value.milestone_timestamp,
         })

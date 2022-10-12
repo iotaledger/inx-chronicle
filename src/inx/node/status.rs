@@ -3,7 +3,11 @@
 
 use inx::proto;
 
-use crate::{inx::{milestone::MilestoneMessage, InxError, RawProtocolParametersMessage}, types::tangle::{MilestoneIndex}, maybe_missing};
+use crate::{
+    inx::{milestone::MilestoneMessage, InxError, RawProtocolParametersMessage},
+    maybe_missing,
+    types::tangle::MilestoneIndex,
+};
 
 /// The [`NodeStatus`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,19 +53,21 @@ impl TryFrom<proto::NodeStatus> for NodeStatusMessage {
     }
 }
 
-impl From<NodeStatusMessage> for proto::NodeStatus {
-    fn from(value: NodeStatusMessage) -> Self {
-        Self {
+impl TryFrom<NodeStatusMessage> for proto::NodeStatus {
+    type Error = InxError;
+
+    fn try_from(value: NodeStatusMessage) -> Result<Self, Self::Error> {
+        Ok(Self {
             is_healthy: value.is_healthy,
             is_synced: value.is_synced,
             is_almost_synced: value.is_almost_synced,
-            latest_milestone: Some(value.latest_milestone.into()),
-            confirmed_milestone: Some(value.confirmed_milestone.into()),
+            latest_milestone: Some(value.latest_milestone.try_into()?),
+            confirmed_milestone: Some(value.confirmed_milestone.try_into()?),
             current_protocol_parameters: Some(value.current_protocol_parameters.into()),
             tangle_pruning_index: value.tangle_pruning_index.0,
             milestones_pruning_index: value.milestones_pruning_index.0,
             ledger_pruning_index: value.ledger_pruning_index.0,
             ledger_index: value.ledger_index.0,
-        }
+        })
     }
 }
