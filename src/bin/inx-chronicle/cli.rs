@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use clap::{Parser, Subcommand};
-use humantime::format_duration;
 
 use crate::{
     config::{ChronicleConfig, ConfigError},
@@ -121,7 +120,11 @@ impl ClArgs {
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
                         .map_err(crate::api::ApiError::InvalidJwt)?;
                     println!("Bearer {}", jwt);
-                    println!("Expires: {} ({})", exp_ts, format_duration(api_data.jwt_expiration));
+                    println!(
+                        "Expires: {} ({})",
+                        exp_ts,
+                        humantime::format_duration(api_data.jwt_expiration)
+                    );
                     return Ok(true);
                 }
                 _ => (),
