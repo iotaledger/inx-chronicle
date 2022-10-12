@@ -28,12 +28,12 @@ services:
       - RUST_LOG=warn,inx_chronicle=debug
     tty: true
     command:
-      - "--inx"
-      - "http://hornet:9029"
-      - "--db"
-      - "mongodb://mongo:27017"
-      - "--config"
+      - "-c"
       - "config.toml"
+      - "--inx-addr"
+      - "http://hornet:9029"
+      - "--mongodb-conn-str"
+      - "mongodb://mongo:27017"
     volumes:
       - ../config.template.toml:/app/config.toml:ro
 

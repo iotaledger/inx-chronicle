@@ -1,6 +1,6 @@
 [mongodb]
 ### Listening address of the MongoDB instance.
-connect_url = "mongodb://localhost:27017"
+conn_str = "mongodb://localhost:27017"
 
 ### MongoDB credentials. These fields are ignored if the connection string already contains credentials.
 username = "root"
@@ -53,7 +53,7 @@ variant = "argon2i"
 version = "0x13"
 
 [inx]
-### Whether INX is used (online mode).
+### Whether INX is used for writing data.
 enabled = true
 
 ### Listening address of the node's INX interface.
