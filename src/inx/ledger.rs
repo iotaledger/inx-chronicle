@@ -15,14 +15,14 @@ pub struct Marker {
 
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LedgerUpdate {
+pub enum LedgerUpdateMessage {
     Consumed(LedgerSpent),
     Created(LedgerOutput),
     Begin(Marker),
     End(Marker),
 }
 
-impl LedgerUpdate {
+impl LedgerUpdateMessage {
     /// If present, returns the contained `LedgerSpent` while consuming `self`.
     pub fn consumed(self) -> Option<LedgerSpent> {
         match self {
@@ -66,7 +66,7 @@ impl From<inx::proto::ledger_update::Marker> for Marker {
     }
 }
 
-impl From<inx::proto::ledger_update::Marker> for LedgerUpdate {
+impl From<inx::proto::ledger_update::Marker> for LedgerUpdateMessage {
     fn from(value: inx::proto::ledger_update::Marker) -> Self {
         use inx::proto::ledger_update::marker::MarkerType as proto;
         match value.marker_type() {
@@ -76,15 +76,15 @@ impl From<inx::proto::ledger_update::Marker> for LedgerUpdate {
     }
 }
 
-impl TryFrom<inx::proto::LedgerUpdate> for LedgerUpdate {
+impl TryFrom<inx::proto::LedgerUpdate> for LedgerUpdateMessage {
     type Error = InxError;
 
     fn try_from(value: inx::proto::LedgerUpdate) -> Result<Self, Self::Error> {
         use inx::proto::ledger_update::Op as proto;
         Ok(match maybe_missing!(value.op) {
             proto::BatchMarker(marker) => marker.into(),
-            proto::Consumed(consumed) => LedgerUpdate::Consumed(consumed.try_into()?),
-            proto::Created(created) => LedgerUpdate::Created(created.try_into()?),
+            proto::Consumed(consumed) => LedgerUpdateMessage::Consumed(consumed.try_into()?),
+            proto::Created(created) => LedgerUpdateMessage::Created(created.try_into()?),
         })
     }
 }

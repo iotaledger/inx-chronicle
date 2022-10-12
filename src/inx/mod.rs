@@ -3,12 +3,16 @@
 
 mod client;
 mod request;
-mod ledger_update;
+mod ledger;
 mod error;
+mod node;
+mod milestone;
+mod raw;
+mod protocol;
 
 use crate::types::stardust::block::output::OutputId;
 
-pub use self::{request::MilestoneRangeRequest, ledger_update::LedgerUpdate, error::InxError};
+pub use self::{request::MilestoneRangeRequest, ledger::LedgerUpdateMessage, error::InxError, client::Inx, protocol::RawProtocolParametersMessage, node::NodeStatusMessage};
 
 use super::types::stardust::block::{
     payload::{MilestoneId, TransactionId},
@@ -19,7 +23,7 @@ use super::types::stardust::block::{
 #[macro_export]
 macro_rules! maybe_missing {
     ($object:ident.$field:ident) => {
-        $object.$field.ok_or(InxError::MissingField(stringify!($field)))?
+        $object.$field.ok_or(crate::inx::InxError::MissingField(stringify!($field)))?
     };
 }
 

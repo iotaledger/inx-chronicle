@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::stream::{Stream, StreamExt};
-use inx::client::InxClient;
+use inx::{proto, client::InxClient};
 
-use super::{InxError, MilestoneRangeRequest, LedgerUpdate};
+use super::{InxError, MilestoneRangeRequest, LedgerUpdateMessage, NodeStatusMessage};
 
 /// An INX client connection.
 #[derive(Clone, Debug)]
@@ -44,7 +44,7 @@ impl Inx {
     pub async fn listen_to_ledger_updates(
         &mut self,
         request: MilestoneRangeRequest,
-    ) -> Result<impl Stream<Item = Result<LedgerUpdate, InxError>>, InxError> {
+    ) -> Result<impl Stream<Item = Result<LedgerUpdateMessage, InxError>>, InxError> {
 
         Ok(self
             .inx
@@ -53,9 +53,9 @@ impl Inx {
             .into_inner().map(unpack_proto_msg))
     }
 
-    // pub async fn read_node_status(&mut self) -> Result<NodeStatus, Error> {
-    //     NodeStatus::try_from(self.inx.read_node_status(proto::NoParams {}).await?.into_inner()).map_err(Error::InxError)
-    // }
+    pub async fn read_node_status(&mut self) -> Result<NodeStatusMessage, InxError> {
+        NodeStatusMessage::try_from(self.inx.read_node_status(proto::NoParams {}).await?.into_inner())
+    }
 
     // pub async fn read_node_configuration(&mut self) -> Result<NodeConfiguration, Error> {
     //     NodeConfiguration::try_from(self.inx.read_node_configuration(proto::NoParams {}).await?.into_inner())

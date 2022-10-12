@@ -27,5 +27,5 @@ pub enum InxError {
     #[error("node confirmed milestone index `{node}` is less than index in database `{db}`")]
     SyncMilestoneIndexMismatch { node: MilestoneIndex, db: MilestoneIndex },
     #[error("INX error: {0}")]
-    BeeInx(#[from] chronicle::types::inx::InxError),
+    BeeInx(#[from] chronicle::inx::InxError),
 }
