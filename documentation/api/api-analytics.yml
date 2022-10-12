@@ -198,7 +198,7 @@ paths:
         "404":
           $ref: "#/components/responses/NoResults"
         "500":
-          $ref: "#/components/responses/InternalError" 
+          $ref: "#/components/responses/InternalError"
   /api/analytics/v2/activity/outputs:
     get:
       tags:
@@ -311,43 +311,43 @@ components:
         perPayloadType:
           description: The various per payload type counts.
           properties:
-            txPayloadCount:
+            transactionCount:
               type: integer
               description: The number of transaction payloads referenced by the requested milestone.
-            txTreasuryPayloadCount:
+            treasuryTransactionCount:
               type: integer
               description: The number of treasury transaction payloads referenced by the requested milestone.
-            milestonePayloadCount:
+            milestoneCount:
               type: integer
               description: The number of milestone payloads referenced by the requested milestone.
-            taggedDataPayloadCount:
+            taggedDataCount:
               type: integer
               description: The number of tagged data payloads referenced by the requested milestone.
             noPayloadCount:
               type: integer
               description: The number of blocks without payload referenced by the requested milestone.
           required:
-            - txPayloadCount
-            - txTreasuryPayloadCount
-            - milestonePayloadCount
-            - taggedDataPayloadCount
+            - transactionCount
+            - treasuryTransactionCount
+            - milestoneCount
+            - taggedDataCount
             - noPayloadCount
         perInclusionState:
           description: The various per inclusion state counts.
           properties:
-            confirmedTxCount:
+            confirmedCount:
               type: integer
               description: The number of confirmed transactions referenced by the requested milestone.
-            conflictingTxCount:
+            conflictingCount:
               type: integer
               description: The number of conflicting transactions referenced by the requested milestone.
-            noTxCount:
+            noTransactionCount:
               type: integer
               description: The number of non-transaction blocks referenced by the requested milestone.
           required:
-            - confirmedTxCount
-            - conflictingTxCount
-            - noTxCount
+            - confirmedCount
+            - conflictingCount
+            - noTransactionCount
       required:
         - blocksCount
         - perPayloadType
@@ -621,15 +621,15 @@ components:
       value:
         blocksCount: 100
         perPayloadType:
-            - txPayloadCount: 20
-              txTreasuryPayloadCount: 2
-              milestonePayloadCount: 1
-              taggedDataPayloadCount: 27
-              noPayloadCount: 50
+          - txPayloadCount: 20
+            txTreasuryPayloadCount: 2
+            milestonePayloadCount: 1
+            taggedDataPayloadCount: 27
+            noPayloadCount: 50
         perInclusionState:
-            - confirmedTxCount: 20
-              conflictingTxCount: 2
-              noTxCount: 78
+          - confirmedTxCount: 20
+            conflictingTxCount: 2
+            noTxCount: 78
     richest-addresses-example:
       value:
         top:
