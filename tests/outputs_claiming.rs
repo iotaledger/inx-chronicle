@@ -18,7 +18,7 @@ mod test_rand {
         },
     };
 
-    use super::common::{setup, teardown};
+    use super::common::{setup_db, setup_coll, teardown};
 
     fn rand_output_with_value(amount: OutputAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
@@ -29,7 +29,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_claiming() {
-        let (db, collection) = setup::<OutputCollection>("test-claiming").await;
+        let db = setup_db("test-claiming").await.unwrap();
+        let collection = setup_coll::<OutputCollection>(&db).await.unwrap();
 
         let unspent_outputs = (1..=5)
             .map(|i| LedgerOutput {

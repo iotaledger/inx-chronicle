@@ -255,27 +255,30 @@ mod rand {
         }
 
         /// Generates a random [`TransactionEssence`].
-        pub fn rand_spending(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> (Self, Input) {
+        pub fn rand_spending(
+            ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ) -> (Self, Vec<Input>, Vec<Output>) {
             let inputs = std::iter::repeat_with(Input::rand_utxo)
                 .take(rand_number_range(1..10))
                 .collect::<Vec<Input>>();
-            let input = inputs[0];
+            let outputs = std::iter::repeat_with(|| Output::rand_basic(ctx))
+                .take(rand_number_range(0..10))
+                .collect::<Vec<Output>>();
 
             (
                 Self::Regular {
                     network_id: rand_number(),
-                    inputs: inputs.into_boxed_slice(),
+                    inputs: inputs.clone().into_boxed_slice(),
                     inputs_commitment: *rand_inputs_commitment(),
-                    outputs: std::iter::repeat_with(|| Output::rand(ctx))
-                        .take(rand_number_range(0..10))
-                        .collect(),
+                    outputs: outputs.clone().into_boxed_slice(),
                     payload: if rand_number_range(0..=1) == 1 {
                         Some(Payload::rand_tagged_data())
                     } else {
                         None
                     },
                 },
-                input,
+                inputs,
+                outputs,
             )
         }
     }
@@ -293,8 +296,10 @@ mod rand {
         }
 
         /// Generates a random spending [`TransactionPayload`].
-        pub fn rand_spending(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> (Self, Input) {
-            let (essence, input) = TransactionEssence::rand_spending(ctx);
+        pub fn rand_spending(
+            ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ) -> (Self, Vec<Input>, Vec<Output>) {
+            let (essence, inputs, outputs) = TransactionEssence::rand_spending(ctx);
             (
                 Self {
                     transaction_id: TransactionId::rand(),
@@ -303,7 +308,8 @@ mod rand {
                         .take(rand_number_range(1..10))
                         .collect(),
                 },
-                input,
+                inputs,
+                outputs,
             )
         }
     }

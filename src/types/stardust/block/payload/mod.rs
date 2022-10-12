@@ -80,7 +80,7 @@ mod rand {
     use bee_block_stardust::rand::number::rand_number_range;
 
     use super::*;
-    use crate::types::stardust::block::Input;
+    use crate::types::stardust::block::{Input, Output};
 
     impl Payload {
         /// Generates a random [`Payload`].
@@ -112,9 +112,11 @@ mod rand {
         }
 
         /// Generates a random spending transaction [`Payload`].
-        pub fn rand_spending_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> (Self, Input) {
-            let (payload, input) = TransactionPayload::rand_spending(ctx);
-            (Self::Transaction(Box::new(payload)), input)
+        pub fn rand_spending_transaction(
+            ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ) -> (Self, Vec<Input>, Vec<Output>) {
+            let (payload, inputs, outputs) = TransactionPayload::rand_spending(ctx);
+            (Self::Transaction(Box::new(payload)), inputs, outputs)
         }
 
         /// Generates a random milestone [`Payload`].

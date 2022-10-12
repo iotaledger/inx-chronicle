@@ -22,11 +22,12 @@ mod test_rand {
     };
     use futures::TryStreamExt;
 
-    use super::common::{setup, teardown};
+    use super::common::{setup_db, setup_coll, teardown};
 
     #[tokio::test]
     async fn test_blocks() {
-        let (db, collection) = setup::<BlockCollection>("test-blocks").await;
+        let db = setup_db("test-blocks").await.unwrap();
+        let block_coll = setup_coll::<BlockCollection>(&db).await.unwrap();
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -54,7 +55,7 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
+        block_coll.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
 
         for (block_id, transaction_id, block, outputs) in blocks.iter().filter_map(|(block_id, block, _, _)| {
             block.payload.as_ref().and_then(|p| {
@@ -89,7 +90,7 @@ mod test_rand {
             }
 
             assert_eq!(
-                collection
+                block_coll
                     .get_block_for_transaction(&transaction_id)
                     .await
                     .unwrap()
@@ -99,16 +100,16 @@ mod test_rand {
         }
 
         for (block_id, block, _, _) in &blocks {
-            assert_eq!(collection.get_block(block_id).await.unwrap().as_ref(), Some(block));
+            assert_eq!(block_coll.get_block(block_id).await.unwrap().as_ref(), Some(block));
         }
 
         for (block_id, _, raw, _) in &blocks {
-            assert_eq!(collection.get_block_raw(block_id).await.unwrap().as_ref(), Some(raw));
+            assert_eq!(block_coll.get_block_raw(block_id).await.unwrap().as_ref(), Some(raw));
         }
 
         for (block_id, _, _, metadata) in &blocks {
             assert_eq!(
-                collection.get_block_metadata(block_id).await.unwrap().as_ref(),
+                block_coll.get_block_metadata(block_id).await.unwrap().as_ref(),
                 Some(metadata),
             );
         }
@@ -117,7 +118,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_block_children() {
-        let (db, collection) = setup::<BlockCollection>("test-children").await;
+        let db = setup_db("test-children").await.unwrap();
+        let block_coll = setup_coll::<BlockCollection>(&db).await.unwrap();
 
         let parents = std::iter::repeat_with(BlockId::rand)
             .take(2)
@@ -160,10 +162,10 @@ mod test_rand {
             )
             .collect::<Vec<_>>();
 
-        collection.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
-        assert_eq!(collection.count().await.unwrap(), 10);
+        block_coll.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
+        assert_eq!(block_coll.count().await.unwrap(), 10);
 
-        let mut s = collection.get_block_children(&parents[0], 100, 0).await.unwrap();
+        let mut s = block_coll.get_block_children(&parents[0], 100, 0).await.unwrap();
 
         while let Some(child_id) = s.try_next().await.unwrap() {
             assert!(children.remove(&child_id))
@@ -175,13 +177,15 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_spending_transaction() {
-        let (db, collection) = setup::<BlockCollection>("test-spending-transaction").await;
+        let db = setup_db("test-spending-transaction").await.unwrap();
+        let block_coll = setup_coll::<BlockCollection>(&db).await.unwrap();
+        let output_coll = setup_coll::<OutputCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
         let block_id = BlockId::rand();
-        let (block, input) = Block::rand_spending_transaction(&ctx);
-        let output_id = if let Input::Utxo(output_id) = input {
+        let (block, spent_outputs, unspent_outputs) = Block::rand_spending_transaction(&ctx);
+        let spent_output_id = if let Input::Utxo(output_id) = spent_outputs[0] {
             output_id
         } else {
             unreachable!();
@@ -193,49 +197,47 @@ mod test_rand {
             is_solid: true,
             should_promote: false,
             should_reattach: false,
-            referenced_by_milestone_index: 1.into(),
-            milestone_index: 0.into(),
+            referenced_by_milestone_index: 2.into(),
+            milestone_index: 1.into(),
             inclusion_state: LedgerInclusionState::Included,
             conflict_reason: ConflictReason::None,
             white_flag_index: 0u32,
         };
 
         let blocks = vec![(block_id, block.clone(), raw, metadata)];
-        collection.insert_blocks_with_metadata(blocks).await.unwrap();
+        block_coll.insert_blocks_with_metadata(blocks).await.unwrap();
 
-        assert_eq!(
-            collection
-                .get_spending_transaction(&output_id)
-                .await
-                .unwrap()
-                .map(|b| b.protocol_version),
-            Some(block.protocol_version)
-        );
-        assert_eq!(
-            collection
-                .get_spending_transaction(&output_id)
-                .await
-                .unwrap()
-                .map(|b| b.parents),
-            Some(block.parents)
-        );
-        // assert_eq!(collection.get_spending_transaction(&output_id).await.unwrap().map(|b| b.payload),
-        // Some(block.payload));
-        assert_eq!(
-            collection
-                .get_spending_transaction(&output_id)
-                .await
-                .unwrap()
-                .map(|b| b.nonce),
-            Some(block.nonce)
-        );
+        let outputs = unspent_outputs.into_iter()
+            .map(|output| LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output,
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            })
+            .collect::<Vec<_>>();
+        output_coll.insert_unspent_outputs(outputs).await.unwrap();
+
+        let spending_block = block_coll.get_spending_transaction(&spent_output_id).await.unwrap().unwrap();
+
+        assert_eq!(spending_block.protocol_version, block.protocol_version);
+        assert_eq!(spending_block.parents, block.parents);
+        assert_eq!(spending_block.payload, block.payload);
+        assert_eq!(spending_block.nonce, block.nonce);
 
         teardown(db).await;
     }
 
     #[tokio::test]
     async fn test_milestone_activity() {
-        let (db, collection) = setup::<BlockCollection>("test-milestone-activity").await;
+        let db = setup_db("test-milestone-activity").await.unwrap();
+        let collection = setup_coll::<BlockCollection>(&db).await.unwrap();
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
