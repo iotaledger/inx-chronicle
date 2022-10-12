@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
-/// TODO
+/// Defines the permanent alias address that owns this output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImmutableAliasAddressUnlockCondition {
-    /// TODO
+    /// The associated address of this [`ImmutableAliasAddressUnlockCondition`].
     pub address: Address,
 }
 

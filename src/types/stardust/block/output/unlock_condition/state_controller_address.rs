@@ -8,10 +8,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
-/// TODO
+/// Defines the State Controller Address that owns this output, that is, it can unlock it with the proper Unlock in a
+/// transaction that state transitions the alias output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateControllerAddressUnlockCondition {
-    /// TODO
+    /// The associated address of this [`StateControllerAddressUnlockCondition`].
     pub address: Address,
 }
 

@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
-/// TODO
+/// Defines the Address that owns an output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AddressUnlockCondition {
-    /// TODO
+    /// The associated address of this [`AddressUnlockCondition`].
     pub address: Address,
 }
 

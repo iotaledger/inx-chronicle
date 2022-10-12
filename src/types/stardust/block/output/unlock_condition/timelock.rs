@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::milestone::MilestoneTimestamp;
 
-/// TODO
+/// Defines a unix timestamp until which the output can not be unlocked.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimelockUnlockCondition {
     timestamp: MilestoneTimestamp,
