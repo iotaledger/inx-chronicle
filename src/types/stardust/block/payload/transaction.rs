@@ -262,7 +262,7 @@ mod rand {
                 .take(rand_number_range(1..10))
                 .collect::<Vec<Input>>();
             let outputs = std::iter::repeat_with(|| Output::rand_basic(ctx))
-                .take(rand_number_range(0..10))
+                .take(rand_number_range(1..2))
                 .collect::<Vec<Output>>();
 
             (
