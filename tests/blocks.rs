@@ -185,11 +185,6 @@ mod test_rand {
 
         let block_id = BlockId::rand();
         let (block, spent_outputs, unspent_outputs) = Block::rand_spending_transaction(&ctx);
-        let spent_output_id = if let Input::Utxo(output_id) = spent_outputs[0] {
-            output_id
-        } else {
-            unreachable!();
-        };
         let parents = block.parents.clone();
         let raw = bee_block_stardust::rand::bytes::rand_bytes(100);
         let metadata = BlockMetadata {
@@ -224,12 +219,19 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_coll.insert_unspent_outputs(outputs).await.unwrap();
 
-        let spending_block = block_coll.get_spending_transaction(&spent_output_id).await.unwrap().unwrap();
+        for spent_output in spent_outputs.into_iter() {
+            let spent_output_id = if let Input::Utxo(output_id) = spent_output {
+                output_id
+            } else {
+                unreachable!();
+            };
+            let spending_block = block_coll.get_spending_transaction(&spent_output_id).await.unwrap().unwrap();
 
-        assert_eq!(spending_block.protocol_version, block.protocol_version);
-        assert_eq!(spending_block.parents, block.parents);
-        assert_eq!(spending_block.payload, block.payload);
-        assert_eq!(spending_block.nonce, block.nonce);
+            assert_eq!(spending_block.protocol_version, block.protocol_version);
+            assert_eq!(spending_block.parents, block.parents);
+            assert_eq!(spending_block.payload, block.payload);
+            assert_eq!(spending_block.nonce, block.nonce);
+        }
 
         teardown(db).await;
     }
