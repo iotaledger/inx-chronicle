@@ -171,15 +171,15 @@ mod test_rand {
 
         let activity = collection.get_milestone_activity(1.into()).await.unwrap();
 
-        assert_eq!(activity.num_blocks, 5);
-        assert_eq!(activity.num_tx_payload, 2);
-        assert_eq!(activity.num_treasury_tx_payload, 0);
-        assert_eq!(activity.num_milestone_payload, 1);
-        assert_eq!(activity.num_tagged_data_payload, 1);
-        assert_eq!(activity.num_no_payload, 1);
-        assert_eq!(activity.num_confirmed_tx, 1);
-        assert_eq!(activity.num_conflicting_tx, 1);
-        assert_eq!(activity.num_no_tx, 3);
+        assert_eq!(activity.count, 5);
+        assert_eq!(activity.transaction_count, 2);
+        assert_eq!(activity.treasury_transaction_count, 0);
+        assert_eq!(activity.milestone_count, 1);
+        assert_eq!(activity.tagged_data_count, 1);
+        assert_eq!(activity.no_payload_count, 1);
+        assert_eq!(activity.confirmed_count, 1);
+        assert_eq!(activity.conflicting_count, 1);
+        assert_eq!(activity.no_transaction_count, 3);
 
         db.drop().await.unwrap();
     }

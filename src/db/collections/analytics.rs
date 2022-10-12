@@ -16,10 +16,11 @@ use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKi
 use crate::{
     db::{MongoDb, MongoDbCollection, MongoDbCollectionExt},
     types::{
+        ledger::{BlockMetadata, LedgerInclusionState},
         stardust::{
             block::{
                 output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-                Output,
+                Block, Output, Payload,
             },
             milestone::MilestoneTimestamp,
         },
@@ -48,7 +49,7 @@ pub struct Analytics {
 
 impl Analytics {
     /// Process a batch of outputs.
-    pub fn analyze_batch<'a, I>(&mut self, outputs: I)
+    pub fn process_outputs<'a, I>(&mut self, outputs: I)
     where
         I: IntoIterator<Item = &'a OutputDocument>,
     {
@@ -92,6 +93,30 @@ impl Analytics {
                 _ => (),
             }
             // TODO: Claimed tokens
+        }
+    }
+
+    /// Process a batch of outputs.
+    pub fn process_blocks<'a, I>(&mut self, blocks: I)
+    where
+        I: IntoIterator<Item = (&'a Block, &'a BlockMetadata)>,
+    {
+        for (block, metadata) in blocks {
+            self.milestone_activity.count += 1;
+            match &block.payload {
+                Some(payload) => match payload {
+                    Payload::Transaction(_) => self.milestone_activity.transaction_count += 1,
+                    Payload::Milestone(_) => self.milestone_activity.milestone_count += 1,
+                    Payload::TreasuryTransaction(_) => self.milestone_activity.treasury_transaction_count += 1,
+                    Payload::TaggedData(_) => self.milestone_activity.tagged_data_count += 1,
+                },
+                None => self.milestone_activity.no_payload_count += 1,
+            }
+            match &metadata.inclusion_state {
+                LedgerInclusionState::Conflicting => self.milestone_activity.conflicting_count += 1,
+                LedgerInclusionState::Included => self.milestone_activity.confirmed_count += 1,
+                LedgerInclusionState::NoTransaction => self.milestone_activity.no_transaction_count += 1,
+            }
         }
     }
 }
@@ -139,23 +164,23 @@ pub struct ClaimedTokensAnalytics {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MilestoneActivityAnalytics {
     /// The number of blocks referenced by a milestone.
-    pub num_blocks: u32,
+    pub count: u32,
     /// The number of blocks referenced by a milestone that contain a payload.
-    pub num_tx_payload: u32,
+    pub transaction_count: u32,
     /// The number of blocks containing a treasury transaction payload.
-    pub num_treasury_tx_payload: u32,
+    pub treasury_transaction_count: u32,
     /// The number of blocks containing a milestone payload.
-    pub num_milestone_payload: u32,
+    pub milestone_count: u32,
     /// The number of blocks containing a tagged data payload.
-    pub num_tagged_data_payload: u32,
+    pub tagged_data_count: u32,
     /// The number of blocks referenced by a milestone that contain no payload.
-    pub num_no_payload: u32,
+    pub no_payload_count: u32,
     /// The number of blocks containing a confirmed transaction.
-    pub num_confirmed_tx: u32,
+    pub confirmed_count: u32,
     /// The number of blocks containing a conflicting transaction.
-    pub num_conflicting_tx: u32,
+    pub conflicting_count: u32,
     /// The number of blocks containing no transaction.
-    pub num_no_tx: u32,
+    pub no_transaction_count: u32,
 }
 
 /// The time-series analytics collection.
@@ -191,7 +216,7 @@ impl MongoDbCollection for AnalyticsCollection {
                     .timeseries(
                         TimeseriesOptions::builder()
                             .time_field("milestone_timestamp".to_string())
-                            .meta_field(None)
+                            .meta_field(Some("analytics".to_string()))
                             .granularity(None)
                             .build(),
                     )
@@ -244,82 +269,95 @@ impl AnalyticsCollection {
 
     /// Gets all analytics for a milestone index, fetching the data if it is not available in the analytics collection.
     pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
-        Ok(match self.find_one(doc! { "_id": milestone_index }, None).await? {
-            Some(res) => res,
-            None => {
-                let addresses = self
-                    .output_collection
-                    .get_address_analytics(milestone_index, milestone_index + 1)
-                    .await?;
-                let mut outputs = HashMap::new();
-                outputs.insert(
-                    BasicOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
-                        .await?,
-                );
-                outputs.insert(
-                    AliasOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
-                        .await?,
-                );
-                outputs.insert(
-                    NftOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
-                        .await?,
-                );
-                outputs.insert(
-                    FoundryOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
-                        .await?,
-                );
-                let mut unspent_outputs = HashMap::new();
-                unspent_outputs.insert(
-                    BasicOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_unspent_output_analytics::<BasicOutput>(milestone_index)
-                        .await?,
-                );
-                unspent_outputs.insert(
-                    AliasOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_unspent_output_analytics::<AliasOutput>(milestone_index)
-                        .await?,
-                );
-                unspent_outputs.insert(
-                    NftOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_unspent_output_analytics::<NftOutput>(milestone_index)
-                        .await?,
-                );
-                unspent_outputs.insert(
-                    FoundryOutput::kind().unwrap().to_string(),
-                    self.output_collection
-                        .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
-                        .await?,
-                );
-                let storage_deposits = self
-                    .output_collection
-                    .get_storage_deposit_analytics(milestone_index)
-                    .await?;
-                let claimed_tokens = self
-                    .output_collection
-                    .get_claimed_token_analytics(milestone_index)
-                    .await?;
-                let milestone_activity = self.block_collection.get_milestone_activity(milestone_index).await?;
-                Analytics {
-                    addresses,
-                    outputs,
-                    unspent_outputs,
-                    storage_deposits,
-                    claimed_tokens,
-                    milestone_activity,
+        Ok(
+            match self
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "_id": milestone_index } },
+                        doc! { "$replaceWith": "$analytics" },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+            {
+                Some(res) => res,
+                None => {
+                    let addresses = self
+                        .output_collection
+                        .get_address_analytics(milestone_index, milestone_index + 1)
+                        .await?;
+                    let mut outputs = HashMap::new();
+                    outputs.insert(
+                        BasicOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
+                            .await?,
+                    );
+                    outputs.insert(
+                        AliasOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
+                            .await?,
+                    );
+                    outputs.insert(
+                        NftOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
+                            .await?,
+                    );
+                    outputs.insert(
+                        FoundryOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
+                            .await?,
+                    );
+                    let mut unspent_outputs = HashMap::new();
+                    unspent_outputs.insert(
+                        BasicOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_unspent_output_analytics::<BasicOutput>(milestone_index)
+                            .await?,
+                    );
+                    unspent_outputs.insert(
+                        AliasOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_unspent_output_analytics::<AliasOutput>(milestone_index)
+                            .await?,
+                    );
+                    unspent_outputs.insert(
+                        NftOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_unspent_output_analytics::<NftOutput>(milestone_index)
+                            .await?,
+                    );
+                    unspent_outputs.insert(
+                        FoundryOutput::kind().unwrap().to_string(),
+                        self.output_collection
+                            .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
+                            .await?,
+                    );
+                    let storage_deposits = self
+                        .output_collection
+                        .get_storage_deposit_analytics(milestone_index)
+                        .await?;
+                    let claimed_tokens = self
+                        .output_collection
+                        .get_claimed_token_analytics(milestone_index)
+                        .await?;
+                    let milestone_activity = self.block_collection.get_milestone_activity(milestone_index).await?;
+                    Analytics {
+                        addresses,
+                        outputs,
+                        unspent_outputs,
+                        storage_deposits,
+                        claimed_tokens,
+                        milestone_activity,
+                    }
                 }
-            }
-        })
+            },
+        )
     }
 
     /// Create aggregate statistics of all addresses.
@@ -336,13 +374,13 @@ impl AnalyticsCollection {
                         { "_id": { "$gte": end_index } },
                     ],
                 } },
+                doc! { "$replaceWith": "$analytics.addresses" },
                 doc! { "$group": {
-                    "_id": "$details.address",
+                    "_id": null,
                     "total_active_addresses": { "$sum": "total_active_addresses" },
                     "receiving_addresses": { "$sum": "receiving_addresses" },
                     "sending_addresses": { "$sum": "sending_addresses" },
                 }},
-                doc! { "$replaceWith": "$addresses" },
             ],
             None,
         )
@@ -366,7 +404,7 @@ impl AnalyticsCollection {
                             { "_id": { "$gte": end_index } },
                         ]
                     } },
-                    doc! { "$replaceWith": format!("$outputs.{}", kind) },
+                    doc! { "$replaceWith": format!("$analytics.outputs.{}", kind) },
                     doc! { "$group" : {
                         "_id": null,
                         "count": { "$sum": "$count" },
@@ -399,7 +437,7 @@ impl AnalyticsCollection {
                         doc! { "$match": {
                             "_id": ledger_index,
                         } },
-                        doc! { "$replaceWith": format!("$unspent_outputs.{}", kind) },
+                        doc! { "$replaceWith": format!("$analytics.unspent_outputs.{}", kind) },
                         doc! { "$group" : {
                             "_id": null,
                             "count": { "$sum": "$count" },
@@ -432,7 +470,7 @@ impl AnalyticsCollection {
                     doc! { "$match": {
                         "_id": ledger_index,
                     } },
-                    doc! { "$replaceWith": "$storage_deposits" },
+                    doc! { "$replaceWith": "$analytics.storage_deposits" },
                     doc! { "$group" : {
                         "_id": null,
                         "storage_deposit_return_count": { "$sum": "$storage_deposit_return_count" },
@@ -471,6 +509,7 @@ impl AnalyticsCollection {
         self.aggregate(
             vec![
                 doc! { "$match": { "_id": index } },
+                doc! { "$replaceWith": "$analytics.milestone_activity" },
                 doc! { "$group": {
                     "_id": null,
                     "num_blocks": { "$sum": "$num_blocks" },
@@ -501,6 +540,7 @@ impl AnalyticsCollection {
                 doc! { "$match": {
                     "_id": index,
                 } },
+                doc! { "$replaceWith": "$analytics.claimed_tokens" },
                 doc! { "$group": {
                     "_id": null,
                     "count": { "$sum": { "$toDecimal": "$count" } },

@@ -126,7 +126,7 @@ impl From<LedgerOutput> for OutputDocument {
 
         Self {
             output_id: rec.output_id,
-            output: rec.output.clone(),
+            output: rec.output,
             metadata: OutputMetadata {
                 block_id: rec.block_id,
                 booked: rec.booked,

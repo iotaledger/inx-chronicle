@@ -261,7 +261,7 @@ async fn handle_ledger_update(
             let db = db.clone();
             let analytics = analytics.clone();
             tasks.spawn(async move {
-                analytics.lock().await.analyze_batch(&batch);
+                analytics.lock().await.process_outputs(&batch);
                 update_spent_outputs(&db, &batch).await
             });
             Result::<_, InxError>::Ok(tasks)
@@ -287,7 +287,7 @@ async fn handle_ledger_update(
             let db = db.clone();
             let analytics = analytics.clone();
             tasks.spawn(async move {
-                analytics.lock().await.analyze_batch(&batch);
+                analytics.lock().await.process_outputs(&batch);
                 insert_unspent_outputs(&db, &batch).await
             });
             Result::<_, InxError>::Ok(tasks)
@@ -325,7 +325,7 @@ async fn handle_ledger_update(
     tracing::Span::current().record("created", created_count);
     tracing::Span::current().record("consumed", consumed_count);
 
-    handle_cone_stream(db, inx, milestone_index).await?;
+    handle_cone_stream(db, inx, &analytics, milestone_index).await?;
     handle_protocol_params(db, inx, milestone_index).await?;
 
     // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
@@ -436,7 +436,12 @@ async fn handle_milestone(
 }
 
 #[instrument(skip(db, inx), err, level = "trace")]
-async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_cone_stream(
+    db: &MongoDb,
+    inx: &mut Inx,
+    analytics: &Arc<Mutex<Analytics>>,
+    milestone_index: MilestoneIndex,
+) -> Result<(), InxError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let mut tasks = cone_stream
@@ -453,6 +458,7 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
         .map_err(|e| e.1)
         .try_fold(JoinSet::new(), |mut tasks, batch| async {
             let db = db.clone();
+            let analytics = analytics.clone();
             tasks.spawn(async move {
                 let payloads = batch
                     .iter()
@@ -474,6 +480,10 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
                         .insert_treasury_payloads(payloads)
                         .await?;
                 }
+                analytics
+                    .lock()
+                    .await
+                    .process_blocks(batch.iter().map(|(_, block, _, metadata)| (block, metadata)));
                 db.collection::<BlockCollection>()
                     .insert_blocks_with_metadata(batch)
                     .await?;

@@ -122,7 +122,7 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
         update: impl Into<UpdateModifications> + Send + Sync,
         options: impl Into<Option<UpdateOptions>> + Send + Sync,
     ) -> Result<UpdateResult, Error> {
-        self.update_one(doc, update, options).await
+        self.collection().update_one(doc, update, options).await
     }
 
     /// Calls [`mongodb::Collection::replace_one()`] and coerces the document type.

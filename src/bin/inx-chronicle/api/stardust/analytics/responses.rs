@@ -106,19 +106,19 @@ pub struct MilestoneAnalyticsResponse {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityPerPayloadTypeDto {
-    pub tx_payload_count: u32,
-    pub treasury_tx_payload_count: u32,
-    pub milestone_payload_count: u32,
-    pub tagged_data_payload_count: u32,
+    pub transaction_count: u32,
+    pub treasury_transaction_count: u32,
+    pub milestone_count: u32,
+    pub tagged_data_count: u32,
     pub no_payload_count: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityPerInclusionStateDto {
-    pub confirmed_tx_count: u32,
-    pub conflicting_tx_count: u32,
-    pub no_tx_count: u32,
+    pub confirmed_count: u32,
+    pub conflicting_count: u32,
+    pub no_transaction_count: u32,
 }
 
 impl_success_response!(MilestoneAnalyticsResponse);

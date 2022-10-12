@@ -115,18 +115,18 @@ async fn milestone_activity_analytics(
     };
 
     Ok(MilestoneAnalyticsResponse {
-        blocks_count: activity.num_blocks,
+        blocks_count: activity.count,
         per_payload_type: ActivityPerPayloadTypeDto {
-            tx_payload_count: activity.num_tx_payload,
-            treasury_tx_payload_count: activity.num_treasury_tx_payload,
-            tagged_data_payload_count: activity.num_tagged_data_payload,
-            milestone_payload_count: activity.num_milestone_payload,
-            no_payload_count: activity.num_no_payload,
+            transaction_count: activity.transaction_count,
+            treasury_transaction_count: activity.treasury_transaction_count,
+            tagged_data_count: activity.tagged_data_count,
+            milestone_count: activity.milestone_count,
+            no_payload_count: activity.no_payload_count,
         },
         per_inclusion_state: ActivityPerInclusionStateDto {
-            confirmed_tx_count: activity.num_confirmed_tx,
-            conflicting_tx_count: activity.num_conflicting_tx,
-            no_tx_count: activity.num_no_tx,
+            confirmed_count: activity.confirmed_count,
+            conflicting_count: activity.conflicting_count,
+            no_transaction_count: activity.no_transaction_count,
         },
     })
 }
@@ -160,18 +160,18 @@ async fn milestone_activity_analytics_by_id(
     };
 
     Ok(MilestoneAnalyticsResponse {
-        blocks_count: activity.num_blocks,
+        blocks_count: activity.count,
         per_payload_type: ActivityPerPayloadTypeDto {
-            tx_payload_count: activity.num_tx_payload,
-            treasury_tx_payload_count: activity.num_treasury_tx_payload,
-            tagged_data_payload_count: activity.num_tagged_data_payload,
-            milestone_payload_count: activity.num_milestone_payload,
-            no_payload_count: activity.num_no_payload,
+            transaction_count: activity.transaction_count,
+            treasury_transaction_count: activity.treasury_transaction_count,
+            tagged_data_count: activity.tagged_data_count,
+            milestone_count: activity.milestone_count,
+            no_payload_count: activity.no_payload_count,
         },
         per_inclusion_state: ActivityPerInclusionStateDto {
-            confirmed_tx_count: activity.num_confirmed_tx,
-            conflicting_tx_count: activity.num_conflicting_tx,
-            no_tx_count: activity.num_no_tx,
+            confirmed_count: activity.confirmed_count,
+            conflicting_count: activity.conflicting_count,
+            no_transaction_count: activity.no_transaction_count,
         },
     })
 }
