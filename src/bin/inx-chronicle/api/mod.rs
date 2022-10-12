@@ -29,12 +29,12 @@ use tower_http::{
 };
 use tracing::info;
 
+use self::routes::routes;
 pub use self::{
-    config::ApiConfig,
+    config::{ApiConfig, ApiData},
     error::{ApiError, ConfigError},
     secret_key::SecretKey,
 };
-use self::{config::ApiData, routes::routes};
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
