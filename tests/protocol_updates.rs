@@ -25,8 +25,8 @@ mod test_rand {
             .enumerate()
             .step_by(rand_number_range(10..100usize))
             .take(10)
-            .enumerate()
             .inspect(|(i, _)| update_indexes.push(MilestoneIndex(*i as u32)))
+            .enumerate()
             .map(|(i, (ledger_index, _))| {
                 let mut parameters = ProtocolParameters::from(bee_block_stardust::protocol::protocol_parameters());
                 parameters.version = i as u8;
@@ -44,13 +44,16 @@ mod test_rand {
             update_collection.get_latest_protocol_parameters().await.unwrap(),
             update_collection.get_protocol_parameters_for_version(9).await.unwrap()
         );
-        for index in update_indexes.into_iter() {
-            assert!(
+        for (version, index) in update_indexes.into_iter().enumerate() {
+            assert_eq!(
                 update_collection
                     .get_protocol_parameters_for_ledger_index(index)
                     .await
                     .unwrap()
-                    .is_some()
+                    .unwrap()
+                    .parameters
+                    .version,
+                version as u8
             );
         }
 
@@ -62,6 +65,7 @@ mod test_rand {
             .update_latest_protocol_parameters(1500.into(), parameters)
             .await
             .unwrap();
+
         assert_eq!(
             update_collection.get_latest_protocol_parameters().await.unwrap(),
             update_collection.get_protocol_parameters_for_version(10).await.unwrap()
