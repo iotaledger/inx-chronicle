@@ -48,7 +48,10 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        output_collection.insert_unspent_outputs(&unspent_outputs).await.unwrap();
+        output_collection
+            .insert_unspent_outputs(&unspent_outputs)
+            .await
+            .unwrap();
 
         let spent_outputs = unspent_outputs
             .into_iter()

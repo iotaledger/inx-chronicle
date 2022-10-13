@@ -31,7 +31,10 @@ mod test_rand {
             .unwrap();
 
         assert_eq!(
-            milestone_collection.get_milestone_id(milestone.essence.index).await.unwrap(),
+            milestone_collection
+                .get_milestone_id(milestone.essence.index)
+                .await
+                .unwrap(),
             Some(milestone_id),
         );
 

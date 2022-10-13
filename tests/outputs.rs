@@ -111,7 +111,11 @@ mod test_rand {
 
         for output in &outputs {
             assert_eq!(
-                output_collection.get_output(&output.output.output_id).await.unwrap().as_ref(),
+                output_collection
+                    .get_output(&output.output.output_id)
+                    .await
+                    .unwrap()
+                    .as_ref(),
                 Some(&output.output.output),
             );
         }

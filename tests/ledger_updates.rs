@@ -195,7 +195,8 @@ mod test_rand {
                     num_key_bytes: 0,
                     num_data_bytes: 100,
                 },
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         update_collection
             .insert_unspent_ledger_updates(unspent_outputs.iter())
@@ -204,22 +205,26 @@ mod test_rand {
 
         assert_eq!(update_collection.count().await.unwrap(), 100);
 
-        let spent_outputs = unspent_outputs.into_iter().enumerate().filter_map(|(i, unspent_output)| {
-            if i % 2 == 0 {
-                Some(LedgerSpent {
-                    output: unspent_output,
-                    spent_metadata: SpentMetadata {
-                        transaction_id: OutputId::rand().transaction_id,
-                        spent: MilestoneIndexTimestamp {
-                            milestone_index: 1.into(),
-                            milestone_timestamp: 20000.into(),
+        let spent_outputs = unspent_outputs
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, unspent_output)| {
+                if i % 2 == 0 {
+                    Some(LedgerSpent {
+                        output: unspent_output,
+                        spent_metadata: SpentMetadata {
+                            transaction_id: OutputId::rand().transaction_id,
+                            spent: MilestoneIndexTimestamp {
+                                milestone_index: 1.into(),
+                                milestone_timestamp: 20000.into(),
+                            },
                         },
-                    },
-                })
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>();
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         update_collection
             .insert_spent_ledger_updates(spent_outputs.iter())
@@ -230,5 +235,4 @@ mod test_rand {
 
         teardown(db).await;
     }
-
 }
