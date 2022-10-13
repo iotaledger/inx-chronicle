@@ -169,7 +169,7 @@ mod test_rand {
 
         collection.insert_blocks_with_metadata(blocks.clone()).await.unwrap();
 
-        let activity = collection.get_milestone_activity(1.into()).await.unwrap();
+        let activity = collection.get_milestone_activity_analytics(1.into()).await.unwrap();
 
         assert_eq!(activity.count, 5);
         assert_eq!(activity.transaction_count, 2);

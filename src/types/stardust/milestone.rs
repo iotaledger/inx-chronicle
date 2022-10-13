@@ -23,3 +23,9 @@ impl From<MilestoneTimestamp> for Bson {
         Bson::from(value.0)
     }
 }
+
+impl From<MilestoneTimestamp> for influxdb::Timestamp {
+    fn from(value: MilestoneTimestamp) -> Self {
+        Self::Seconds(value.0 as _)
+    }
+}

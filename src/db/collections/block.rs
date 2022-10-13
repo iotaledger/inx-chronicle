@@ -317,7 +317,10 @@ impl BlockCollection {
 
 impl BlockCollection {
     /// Gathers past-cone activity statistics for a given milestone.
-    pub async fn get_milestone_activity(&self, index: MilestoneIndex) -> Result<MilestoneActivityAnalytics, Error> {
+    pub async fn get_milestone_activity_analytics(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<MilestoneActivityAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![

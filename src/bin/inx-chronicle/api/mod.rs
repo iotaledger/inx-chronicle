@@ -19,7 +19,7 @@ mod router;
 mod routes;
 
 use axum::{Extension, Server};
-use chronicle::db::MongoDb;
+use chronicle::db::{InfluxDb, MongoDb};
 use futures::Future;
 use hyper::Method;
 use tower_http::{
@@ -45,14 +45,16 @@ pub type ApiResult<T> = Result<T, ApiError>;
 #[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
+    influx_db: InfluxDb,
     api_data: ApiData,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
-    pub fn new(db: &MongoDb, config: &ApiConfig) -> Result<Self, ConfigError> {
+    pub fn new(db: &MongoDb, influx_db: &InfluxDb, config: &ApiConfig) -> Result<Self, ConfigError> {
         Ok(Self {
             db: db.clone(),
+            influx_db: influx_db.clone(),
             api_data: config.clone().try_into()?,
         })
     }
@@ -63,6 +65,7 @@ impl ApiWorker {
         let port = self.api_data.port;
         let routes = routes()
             .layer(Extension(self.db.clone()))
+            .layer(Extension(self.influx_db.clone()))
             .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())

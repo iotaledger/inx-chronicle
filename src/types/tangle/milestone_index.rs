@@ -85,6 +85,12 @@ impl From<MilestoneIndex> for Bson {
     }
 }
 
+impl From<MilestoneIndex> for influxdb::Type {
+    fn from(value: MilestoneIndex) -> Self {
+        Self::UnsignedInteger(value.0 as _)
+    }
+}
+
 impl FromStr for MilestoneIndex {
     type Err = ParseIntError;
 

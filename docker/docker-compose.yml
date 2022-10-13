@@ -14,6 +14,17 @@ services:
     ports:
       - 27017:27017
 
+  influx:
+    image: influxdb:latest
+    container_name: influx
+    volumes:
+      - ./data/chronicle/influxdb:/var/lib/influxdb
+    environment:
+      - DOCKER_INFLUXDB_INIT_USERNAME=root
+      - DOCKER_INFLUXDB_INIT_PASSWORD=root
+    ports:
+      - 8086:8086
+      
   inx-chronicle:
     container_name: inx-chronicle
     depends_on: [mongo, hornet]

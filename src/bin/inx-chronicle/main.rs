@@ -15,7 +15,7 @@ mod process;
 mod stardust_inx;
 
 use bytesize::ByteSize;
-use chronicle::db::MongoDb;
+use chronicle::db::{InfluxDb, MongoDb};
 use clap::Parser;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
@@ -47,6 +47,10 @@ async fn main() -> Result<(), Error> {
         ByteSize::b(db.size().await?)
     );
 
+    info!("Connecting to influx database at address `{}`", config.influxdb.url);
+    let influx_db = InfluxDb::connect(&config.influxdb).await?;
+    info!("Connected to influx database `{}`", influx_db.database_name());
+
     #[cfg(feature = "stardust")]
     {
         use chronicle::db::collections;
@@ -55,7 +59,6 @@ async fn main() -> Result<(), Error> {
         db.create_indexes::<collections::BlockCollection>().await?;
         db.create_indexes::<collections::LedgerUpdateCollection>().await?;
         db.create_indexes::<collections::MilestoneCollection>().await?;
-        db.create_indexes::<collections::AnalyticsCollection>().await?;
         let end_indexes = db.get_index_names().await?;
         for (collection, indexes) in end_indexes {
             if let Some(old_indexes) = start_indexes.get(&collection) {
@@ -80,7 +83,7 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
-        let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
+        let mut worker = stardust_inx::InxWorker::new(&db, &influx_db, &config.inx);
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {
@@ -98,7 +101,7 @@ async fn main() -> Result<(), Error> {
         use futures::FutureExt;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
+            let worker = api::ApiWorker::new(&db, &influx_db, &config.api).map_err(config::ConfigError::Api)?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });

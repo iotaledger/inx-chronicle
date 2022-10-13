@@ -10,10 +10,10 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            Analytics, AnalyticsCollection, AnalyticsProcessor, BlockCollection, LedgerUpdateCollection,
-            MilestoneCollection, OutputCollection, OutputDocument, ProtocolUpdateCollection, TreasuryCollection,
+            Analytics, AnalyticsProcessor, BlockCollection, LedgerUpdateCollection, MilestoneCollection,
+            OutputCollection, OutputDocument, ProtocolUpdateCollection, TreasuryCollection,
         },
-        MongoDb,
+        InfluxDb, MongoDb,
     },
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
@@ -32,6 +32,7 @@ pub const INSERT_BATCH_SIZE: usize = 10000;
 
 pub struct InxWorker {
     db: MongoDb,
+    influx_db: InfluxDb,
     config: InxConfig,
 }
 
@@ -41,9 +42,10 @@ const METRIC_MILESTONE_SYNC_TIME: &str = "milestone_sync_time";
 
 impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
-    pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
+    pub fn new(db: &MongoDb, influx_db: &InfluxDb, inx_config: &InxConfig) -> Self {
         Self {
             db: db.clone(),
+            influx_db: influx_db.clone(),
             config: inx_config.clone(),
         }
     }
@@ -79,7 +81,7 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         while let Some(ledger_update) = stream.try_next().await? {
-            handle_ledger_update(&mut inx, &self.db, ledger_update, &mut stream).await?;
+            handle_ledger_update(&mut inx, &self.db, &self.influx_db, ledger_update, &mut stream).await?;
         }
 
         tracing::debug!("INX stream closed unexpectedly.");
@@ -217,6 +219,7 @@ impl InxWorker {
 async fn handle_ledger_update(
     inx: &mut Inx,
     db: &MongoDb,
+    influx_db: &InfluxDb,
     start_marker: bee_inx::LedgerUpdate,
     stream: &mut (impl futures::Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>> + Unpin),
 ) -> Result<(), InxError> {
@@ -233,10 +236,11 @@ async fn handle_ledger_update(
     );
 
     let mut analytics = Analytics::default();
-    let prev_analytics = db
-        .collection::<AnalyticsCollection>()
-        .get_all_analytics((milestone_index - 1).into())
-        .await?;
+    let prev_analytics = match influx_db.get_all_analytics((milestone_index - 1).into()).await? {
+        Some(res) => res,
+        None => db.get_all_analytics((milestone_index - 1).into()).await?,
+    };
+
     // Only want to accumulate some of the analytics.
     analytics.storage_deposits = prev_analytics.storage_deposits;
     analytics.unspent_outputs = prev_analytics.unspent_outputs;
@@ -335,6 +339,7 @@ async fn handle_ledger_update(
     // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
     handle_milestone(
         db,
+        influx_db,
         inx,
         milestone_index,
         // Panic: Cannot fail as all other references are held by the tasks and we await them above.
@@ -401,6 +406,7 @@ async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: Mi
 #[instrument(skip_all, err, level = "trace")]
 async fn handle_milestone(
     db: &MongoDb,
+    influx_db: &InfluxDb,
     inx: &mut Inx,
     milestone_index: MilestoneIndex,
     analytics: Analytics,
@@ -411,8 +417,8 @@ async fn handle_milestone(
 
     let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
 
-    db.collection::<AnalyticsCollection>()
-        .upsert_analytics(milestone_index, milestone_timestamp, analytics)
+    influx_db
+        .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
         .await?;
 
     let milestone_id = milestone

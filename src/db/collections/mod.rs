@@ -21,7 +21,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub use self::{
-    analytics::{Analytics, AnalyticsCollection, AnalyticsProcessor},
+    analytics::{Analytics, AnalyticsProcessor},
     block::BlockCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
     milestone::{MilestoneCollection, MilestoneResult, SyncData},

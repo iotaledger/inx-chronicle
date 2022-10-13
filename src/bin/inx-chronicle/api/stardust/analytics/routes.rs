@@ -7,11 +7,8 @@ use axum::{extract::Path, routing::get, Extension};
 use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{
-            AnalyticsCollection, BlockCollection, MilestoneCollection, OutputCollection, OutputKind,
-            ProtocolUpdateCollection,
-        },
-        MongoDb,
+        collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
+        InfluxDb, MongoDb,
     },
     types::{
         stardust::block::{
@@ -71,13 +68,10 @@ pub fn routes() -> Router {
 
 async fn address_activity_analytics(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let res = match database
-        .collection::<AnalyticsCollection>()
-        .get_address_analytics(start_index, end_index)
-        .await?
-    {
+    let res = match influx_db.get_address_analytics(start_index, end_index).await? {
         Some(res) => res,
         None => {
             database
@@ -96,20 +90,17 @@ async fn address_activity_analytics(
 
 async fn milestone_activity_analytics(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     Path(milestone_index): Path<String>,
 ) -> ApiResult<MilestoneAnalyticsResponse> {
     let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
 
-    let activity = match database
-        .collection::<AnalyticsCollection>()
-        .get_milestone_activity(index)
-        .await?
-    {
+    let activity = match influx_db.get_milestone_activity_analytics(index).await? {
         Some(res) => res,
         None => {
             database
                 .collection::<BlockCollection>()
-                .get_milestone_activity(index)
+                .get_milestone_activity_analytics(index)
                 .await?
         }
     };
@@ -133,6 +124,7 @@ async fn milestone_activity_analytics(
 
 async fn milestone_activity_analytics_by_id(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     Path(milestone_id): Path<String>,
 ) -> ApiResult<MilestoneAnalyticsResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
@@ -145,16 +137,12 @@ async fn milestone_activity_analytics_by_id(
         .essence
         .index;
 
-    let activity = match database
-        .collection::<AnalyticsCollection>()
-        .get_milestone_activity(index)
-        .await?
-    {
+    let activity = match influx_db.get_milestone_activity_analytics(index).await? {
         Some(res) => res,
         None => {
             database
                 .collection::<BlockCollection>()
-                .get_milestone_activity(index)
+                .get_milestone_activity_analytics(index)
                 .await?
         }
     };
@@ -178,13 +166,10 @@ async fn milestone_activity_analytics_by_id(
 
 async fn output_activity_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
-    let res = match database
-        .collection::<AnalyticsCollection>()
-        .get_output_analytics::<O>(start_index, end_index)
-        .await?
-    {
+    let res = match influx_db.get_output_analytics::<O>(start_index, end_index).await? {
         Some(res) => res,
         None => {
             database
@@ -202,14 +187,11 @@ async fn output_activity_analytics<O: OutputKind>(
 
 async fn unspent_output_ledger_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let res = match database
-        .collection::<AnalyticsCollection>()
-        .get_unspent_output_analytics::<O>(ledger_index)
-        .await?
-    {
+    let res = match influx_db.get_unspent_output_analytics::<O>(ledger_index).await? {
         Some(res) => res,
         None => {
             database
@@ -227,15 +209,12 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
 
 async fn storage_deposit_ledger_analytics(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
 
-    let res = match database
-        .collection::<AnalyticsCollection>()
-        .get_storage_deposit_analytics(ledger_index)
-        .await?
-    {
+    let res = match influx_db.get_storage_deposit_analytics(ledger_index).await? {
         Some(res) => res,
         None => {
             database
@@ -363,14 +342,11 @@ async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<Milestone
 
 async fn claimed_tokens_analytics(
     database: Extension<MongoDb>,
+    influx_db: Extension<InfluxDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<ClaimedTokensAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let res = match database
-        .collection::<AnalyticsCollection>()
-        .get_claimed_token_analytics(ledger_index)
-        .await?
-    {
+    let res = match influx_db.get_claimed_token_analytics(ledger_index).await? {
         Some(res) => res,
         None => {
             database

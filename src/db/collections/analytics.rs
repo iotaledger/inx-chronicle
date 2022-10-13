@@ -4,17 +4,16 @@
 use std::collections::{HashMap, HashSet};
 
 use decimal::d128;
-use futures::TryStreamExt;
-use mongodb::{
-    bson::doc,
-    error::{Error, ErrorKind},
-    options::{CreateCollectionOptions, TimeseriesOptions, UpdateOptions},
-};
+use influxdb::{InfluxDbWriteable, ReadQuery, Timestamp};
+use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
 use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKind};
 use crate::{
-    db::{MongoDb, MongoDbCollection, MongoDbCollectionExt},
+    db::{
+        influxdb::{Decimal128, InfluxDbMeasurement},
+        InfluxDb, MongoDb,
+    },
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::{
@@ -27,14 +26,6 @@ use crate::{
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AnalyticsDocument {
-    #[serde(rename = "_id")]
-    milestone_index: MilestoneIndex,
-    milestone_timestamp: MilestoneTimestamp,
-    analytics: Analytics,
-}
 
 /// Holds analytics about stardust data.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -84,6 +75,224 @@ impl Analytics {
             removed_outputs: Default::default(),
             removed_storage_deposits: Default::default(),
         }
+    }
+}
+
+impl InfluxDb {
+    ///  Gets all analytics for a milestone index.
+    pub async fn get_all_analytics(
+        &self,
+        milestone_index: MilestoneIndex,
+    ) -> Result<Option<Analytics>, influxdb::Error> {
+        let Some(addresses) = self.get_address_analytics(milestone_index, milestone_index + 1).await? else {
+            return Ok(None);
+        };
+        let mut outputs = HashMap::new();
+        if let Some(res) = self
+            .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
+            .await?
+        {
+            outputs.insert(BasicOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        if let Some(res) = self
+            .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
+            .await?
+        {
+            outputs.insert(AliasOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        if let Some(res) = self
+            .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
+            .await?
+        {
+            outputs.insert(FoundryOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        if let Some(res) = self
+            .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
+            .await?
+        {
+            outputs.insert(NftOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        let mut unspent_outputs = HashMap::new();
+        if let Some(res) = self
+            .get_unspent_output_analytics::<BasicOutput>(milestone_index)
+            .await?
+        {
+            unspent_outputs.insert(BasicOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        if let Some(res) = self
+            .get_unspent_output_analytics::<AliasOutput>(milestone_index)
+            .await?
+        {
+            unspent_outputs.insert(AliasOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        if let Some(res) = self
+            .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
+            .await?
+        {
+            unspent_outputs.insert(FoundryOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        if let Some(res) = self.get_unspent_output_analytics::<NftOutput>(milestone_index).await? {
+            unspent_outputs.insert(NftOutput::kind().unwrap().to_string(), res);
+        } else {
+            return Ok(None);
+        };
+        let Some(storage_deposits) = self.get_storage_deposit_analytics(milestone_index).await? else {
+            return Ok(None);
+        };
+        let Some(claimed_tokens) = self.get_claimed_token_analytics(milestone_index).await? else {
+            return Ok(None);
+        };
+        let Some(milestone_activity) = self.get_milestone_activity_analytics(milestone_index).await? else {
+            return Ok(None);
+        };
+        Ok(Some(Analytics {
+            addresses,
+            outputs,
+            unspent_outputs,
+            storage_deposits,
+            claimed_tokens,
+            milestone_activity,
+        }))
+    }
+
+    /// Insert all gathered analytics.
+    pub async fn insert_all_analytics(
+        &self,
+        milestone_timestamp: MilestoneTimestamp,
+        milestone_index: MilestoneIndex,
+        mut analytics: Analytics,
+    ) -> Result<(), influxdb::Error> {
+        self.insert(AddressAnalyticsSchema {
+            milestone_timestamp,
+            milestone_index,
+            analytics: analytics.addresses,
+        })
+        .await?;
+        for (kind, outputs) in analytics.outputs.drain() {
+            self.insert(OutputAnalyticsSchema {
+                milestone_timestamp,
+                milestone_index,
+                kind,
+                analytics: outputs,
+            })
+            .await?;
+        }
+        for (kind, outputs) in analytics.unspent_outputs.drain() {
+            self.insert(OutputAnalyticsSchema {
+                milestone_timestamp,
+                milestone_index,
+                kind,
+                analytics: outputs,
+            })
+            .await?;
+        }
+        self.insert(StorageDepositAnalyticsSchema {
+            milestone_timestamp,
+            milestone_index,
+            analytics: analytics.storage_deposits,
+        })
+        .await?;
+        self.insert(ClaimedTokensAnalyticsSchema {
+            milestone_timestamp,
+            milestone_index,
+            analytics: analytics.claimed_tokens,
+        })
+        .await?;
+        self.insert(MilestoneActivityAnalyticsSchema {
+            milestone_timestamp,
+            milestone_index,
+            analytics: analytics.milestone_activity,
+        })
+        .await?;
+        Ok(())
+    }
+}
+
+impl MongoDb {
+    /// Gets all analytics for a milestone index, fetching the data from the provided mongo database.
+    pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
+        let output_collection = self.collection::<OutputCollection>();
+        let block_collection = self.collection::<BlockCollection>();
+        let addresses = output_collection
+            .get_address_analytics(milestone_index, milestone_index + 1)
+            .await?;
+        let mut outputs = HashMap::new();
+        outputs.insert(
+            BasicOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
+                .await?,
+        );
+        outputs.insert(
+            AliasOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
+                .await?,
+        );
+        outputs.insert(
+            NftOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
+                .await?,
+        );
+        outputs.insert(
+            FoundryOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
+                .await?,
+        );
+        let mut unspent_outputs = HashMap::new();
+        unspent_outputs.insert(
+            BasicOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_unspent_output_analytics::<BasicOutput>(milestone_index)
+                .await?,
+        );
+        unspent_outputs.insert(
+            AliasOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_unspent_output_analytics::<AliasOutput>(milestone_index)
+                .await?,
+        );
+        unspent_outputs.insert(
+            NftOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_unspent_output_analytics::<NftOutput>(milestone_index)
+                .await?,
+        );
+        unspent_outputs.insert(
+            FoundryOutput::kind().unwrap().to_string(),
+            output_collection
+                .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
+                .await?,
+        );
+        let storage_deposits = output_collection.get_storage_deposit_analytics(milestone_index).await?;
+        let claimed_tokens = output_collection.get_claimed_token_analytics(milestone_index).await?;
+        let milestone_activity = block_collection
+            .get_milestone_activity_analytics(milestone_index)
+            .await?;
+        Ok(Analytics {
+            addresses,
+            outputs,
+            unspent_outputs,
+            storage_deposits,
+            claimed_tokens,
+            milestone_activity,
+        })
     }
 }
 
@@ -218,10 +427,129 @@ pub struct AddressAnalytics {
     pub sending_addresses: u64,
 }
 
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub struct AddressAnalyticsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub analytics: AddressAnalytics,
+}
+
+impl InfluxDbWriteable for AddressAnalyticsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_field("total_active_addresses", self.analytics.total_active_addresses)
+            .add_field("receiving_addresses", self.analytics.receiving_addresses)
+            .add_field("sending_addresses", self.analytics.sending_addresses)
+    }
+}
+
+impl InfluxDbMeasurement for AddressAnalyticsSchema {
+    const NAME: &'static str = "stardust_addresses";
+}
+
+impl InfluxDb {
+    /// Get aggregate statistics of all addresses.
+    pub async fn get_address_analytics(
+        &self,
+        start_index: impl Into<Option<MilestoneIndex>>,
+        end_index: impl Into<Option<MilestoneIndex>>,
+    ) -> Result<Option<AddressAnalytics>, influxdb::Error> {
+        Ok(self
+            .select::<AddressAnalytics>(ReadQuery::new(format!(
+                "SELECT * FROM {} WHERE milestone_index >= {} AND milestone_index < {}",
+                AddressAnalyticsSchema::NAME,
+                start_index
+                    .into()
+                    .as_deref()
+                    .map(ToString::to_string)
+                    .unwrap_or("null".to_string()),
+                end_index
+                    .into()
+                    .as_deref()
+                    .map(ToString::to_string)
+                    .unwrap_or("null".to_string()),
+            )))
+            .await?
+            .next())
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OutputAnalytics {
     pub count: u64,
     pub total_value: d128,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OutputAnalyticsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub kind: String,
+    pub analytics: OutputAnalytics,
+}
+
+impl InfluxDbWriteable for OutputAnalyticsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_tag("kind", self.kind)
+            .add_field("count", self.analytics.count)
+            .add_field("total_value", Decimal128(self.analytics.total_value))
+    }
+}
+
+impl InfluxDbMeasurement for OutputAnalyticsSchema {
+    const NAME: &'static str = "stardust_outputs";
+}
+
+impl InfluxDb {
+    /// Gathers output analytics.
+    pub async fn get_output_analytics<O: OutputKind>(
+        &self,
+        start_index: impl Into<Option<MilestoneIndex>>,
+        end_index: impl Into<Option<MilestoneIndex>>,
+    ) -> Result<Option<OutputAnalytics>, influxdb::Error> {
+        Ok(if let Some(kind) = O::kind() {
+            self.select::<OutputAnalytics>(ReadQuery::new(format!(
+                "SELECT * FROM {} WHERE kind = {kind} AND milestone_index >= {} AND milestone_index < {}",
+                OutputAnalyticsSchema::NAME,
+                start_index
+                    .into()
+                    .as_deref()
+                    .map(ToString::to_string)
+                    .unwrap_or("null".to_string()),
+                end_index
+                    .into()
+                    .as_deref()
+                    .map(ToString::to_string)
+                    .unwrap_or("null".to_string()),
+            )))
+            .await?
+            .next()
+        } else {
+            None
+        })
+    }
+
+    /// Gathers unspent output analytics.
+    pub async fn get_unspent_output_analytics<O: OutputKind>(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<Option<OutputAnalytics>, influxdb::Error> {
+        Ok(if let Some(kind) = O::kind() {
+            self.select::<OutputAnalytics>(ReadQuery::new(format!(
+                "SELECT * FROM {} WHERE kind = {kind} AND milestone_index = {ledger_index}",
+                OutputAnalyticsSchema::NAME,
+            )))
+            .await?
+            .next()
+        } else {
+            None
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -233,6 +561,36 @@ pub struct StorageDepositAnalytics {
     pub total_data_bytes: d128,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct StorageDepositAnalyticsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub analytics: StorageDepositAnalytics,
+}
+
+impl InfluxDbWriteable for StorageDepositAnalyticsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_field("output_count", self.analytics.output_count)
+            .add_field(
+                "storage_deposit_return_count",
+                self.analytics.storage_deposit_return_count,
+            )
+            .add_field(
+                "storage_deposit_return_total_value",
+                Decimal128(self.analytics.storage_deposit_return_total_value),
+            )
+            .add_field("total_key_bytes", Decimal128(self.analytics.total_key_bytes))
+            .add_field("total_data_bytes", Decimal128(self.analytics.total_data_bytes))
+    }
+}
+
+impl InfluxDbMeasurement for StorageDepositAnalyticsSchema {
+    const NAME: &'static str = "stardust_storage_deposits";
+}
+
 impl StorageDepositAnalytics {
     pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
         let rent_structure = protocol_params.rent_structure;
@@ -242,10 +600,62 @@ impl StorageDepositAnalytics {
     }
 }
 
+impl InfluxDb {
+    /// Get aggregate statistics of all addresses.
+    pub async fn get_storage_deposit_analytics(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<Option<StorageDepositAnalytics>, influxdb::Error> {
+        Ok(self
+            .select::<StorageDepositAnalytics>(ReadQuery::new(format!(
+                "SELECT * FROM {} WHERE milestone_index = {ledger_index}",
+                StorageDepositAnalyticsSchema::NAME,
+            )))
+            .await?
+            .next())
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ClaimedTokensAnalytics {
     pub count: d128,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ClaimedTokensAnalyticsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub analytics: ClaimedTokensAnalytics,
+}
+
+impl InfluxDbWriteable for ClaimedTokensAnalyticsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_field("count", Decimal128(self.analytics.count))
+    }
+}
+
+impl InfluxDbMeasurement for ClaimedTokensAnalyticsSchema {
+    const NAME: &'static str = "stardust_claimed_tokens";
+}
+
+impl InfluxDb {
+    /// Get aggregate statistics of all addresses.
+    pub async fn get_claimed_token_analytics(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<Option<ClaimedTokensAnalytics>, influxdb::Error> {
+        Ok(self
+            .select::<ClaimedTokensAnalytics>(ReadQuery::new(format!(
+                "SELECT * FROM {} WHERE milestone_index = {index}",
+                ClaimedTokensAnalyticsSchema::NAME,
+            )))
+            .await?
+            .next())
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -270,368 +680,46 @@ pub struct MilestoneActivityAnalytics {
     pub no_transaction_count: u32,
 }
 
-/// The time-series analytics collection.
-pub struct AnalyticsCollection {
-    collection: mongodb::Collection<AnalyticsDocument>,
-    output_collection: OutputCollection,
-    block_collection: BlockCollection,
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct MilestoneActivityAnalyticsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub analytics: MilestoneActivityAnalytics,
 }
 
-#[async_trait::async_trait]
-impl MongoDbCollection for AnalyticsCollection {
-    const NAME: &'static str = "stardust_analytics";
-    type Document = AnalyticsDocument;
-
-    fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
-        Self {
-            collection,
-            output_collection: db.collection(),
-            block_collection: db.collection(),
-        }
-    }
-
-    fn collection(&self) -> &mongodb::Collection<Self::Document> {
-        &self.collection
-    }
-
-    async fn create_collection(&self, db: &MongoDb) -> Result<(), Error> {
-        if let Err(e) = db
-            .db
-            .create_collection(
-                Self::NAME,
-                CreateCollectionOptions::builder()
-                    .timeseries(
-                        TimeseriesOptions::builder()
-                            .time_field("milestone_timestamp".to_string())
-                            .meta_field(Some("analytics".to_string()))
-                            .granularity(None)
-                            .build(),
-                    )
-                    .build(),
-            )
-            .await
-        {
-            match &*e.kind {
-                ErrorKind::Command(ce) => {
-                    if ce.code_name == "NamespaceExists" {
-                        return Ok(());
-                    } else {
-                        return Err(e);
-                    }
-                }
-                _ => return Err(e),
-            }
-        }
-        Ok(())
-    }
-
-    async fn create_indexes(&self) -> Result<(), Error> {
-        Ok(())
+impl InfluxDbWriteable for MilestoneActivityAnalyticsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_field("count", self.analytics.count)
+            .add_field("transaction_count", self.analytics.transaction_count)
+            .add_field("treasury_transaction_count", self.analytics.treasury_transaction_count)
+            .add_field("milestone_count", self.analytics.milestone_count)
+            .add_field("tagged_data_count", self.analytics.tagged_data_count)
+            .add_field("no_payload_count", self.analytics.no_payload_count)
+            .add_field("confirmed_count", self.analytics.confirmed_count)
+            .add_field("conflicting_count", self.analytics.conflicting_count)
+            .add_field("no_transaction_count", self.analytics.no_transaction_count)
     }
 }
 
-impl AnalyticsCollection {
-    /// Upserts an analytics record.
-    pub async fn upsert_analytics(
-        &self,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-        analytics: Analytics,
-    ) -> Result<(), Error> {
-        self.update_one(
-            doc! { "_id": milestone_index },
-            doc! {
-                "$set": {
-                    "analytics": mongodb::bson::to_document(&analytics)?
-                },
-                "$setOnInsert": {
-                    "milestone_timestamp": milestone_timestamp,
-                }
-            },
-            UpdateOptions::builder().upsert(true).build(),
-        )
-        .await?;
-        Ok(())
-    }
+impl InfluxDbMeasurement for MilestoneActivityAnalyticsSchema {
+    const NAME: &'static str = "stardust_milestone_activity";
+}
 
-    /// Gets all analytics for a milestone index, fetching the data if it is not available in the analytics collection.
-    pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
-        Ok(
-            match self
-                .aggregate(
-                    vec![
-                        doc! { "$match": { "_id": milestone_index } },
-                        doc! { "$replaceWith": "$analytics" },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-            {
-                Some(res) => res,
-                None => {
-                    let addresses = self
-                        .output_collection
-                        .get_address_analytics(milestone_index, milestone_index + 1)
-                        .await?;
-                    let mut outputs = HashMap::new();
-                    outputs.insert(
-                        BasicOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
-                            .await?,
-                    );
-                    outputs.insert(
-                        AliasOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
-                            .await?,
-                    );
-                    outputs.insert(
-                        NftOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
-                            .await?,
-                    );
-                    outputs.insert(
-                        FoundryOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
-                            .await?,
-                    );
-                    let mut unspent_outputs = HashMap::new();
-                    unspent_outputs.insert(
-                        BasicOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_unspent_output_analytics::<BasicOutput>(milestone_index)
-                            .await?,
-                    );
-                    unspent_outputs.insert(
-                        AliasOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_unspent_output_analytics::<AliasOutput>(milestone_index)
-                            .await?,
-                    );
-                    unspent_outputs.insert(
-                        NftOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_unspent_output_analytics::<NftOutput>(milestone_index)
-                            .await?,
-                    );
-                    unspent_outputs.insert(
-                        FoundryOutput::kind().unwrap().to_string(),
-                        self.output_collection
-                            .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
-                            .await?,
-                    );
-                    let storage_deposits = self
-                        .output_collection
-                        .get_storage_deposit_analytics(milestone_index)
-                        .await?;
-                    let claimed_tokens = self
-                        .output_collection
-                        .get_claimed_token_analytics(milestone_index)
-                        .await?;
-                    let milestone_activity = self.block_collection.get_milestone_activity(milestone_index).await?;
-                    Analytics {
-                        addresses,
-                        outputs,
-                        unspent_outputs,
-                        storage_deposits,
-                        claimed_tokens,
-                        milestone_activity,
-                    }
-                }
-            },
-        )
-    }
-
-    /// Create aggregate statistics of all addresses.
-    pub async fn get_address_analytics(
+impl InfluxDb {
+    /// Get aggregate statistics of all addresses.
+    pub async fn get_milestone_activity_analytics(
         &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<Option<AddressAnalytics>, Error> {
-        self.aggregate(
-            vec![
-                doc! { "$match": {
-                    "$nor": [
-                        { "_id": { "$lt": start_index } },
-                        { "_id": { "$gte": end_index } },
-                    ],
-                } },
-                doc! { "$replaceWith": "$analytics.addresses" },
-                doc! { "$group": {
-                    "_id": null,
-                    "total_active_addresses": { "$sum": "$total_active_addresses" },
-                    "receiving_addresses": { "$sum": "$receiving_addresses" },
-                    "sending_addresses": { "$sum": "$sending_addresses" },
-                }},
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
-    }
-
-    /// Gathers output analytics.
-    pub async fn get_output_analytics<O: OutputKind>(
-        &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<Option<OutputAnalytics>, Error> {
-        if let Some(kind) = O::kind() {
-            self.aggregate(
-                vec![
-                    doc! { "$match": {
-                        "$nor": [
-                            { "_id": { "$lt": start_index } },
-                            { "_id": { "$gte": end_index } },
-                        ]
-                    } },
-                    doc! { "$replaceWith": format!("$analytics.outputs.{}", kind) },
-                    doc! { "$group" : {
-                        "_id": null,
-                        "count": { "$sum": "$count" },
-                        "total_value": { "$sum": { "$toDecimal": "$total_value" } },
-                    } },
-                    doc! { "$project": {
-                        "count": 1,
-                        "total_value": { "$toString": "$total_value" },
-                    } },
-                ],
-                None,
-            )
+        index: MilestoneIndex,
+    ) -> Result<Option<MilestoneActivityAnalytics>, influxdb::Error> {
+        Ok(self
+            .select::<MilestoneActivityAnalytics>(ReadQuery::new(format!(
+                "SELECT * FROM {} WHERE milestone_index = {index}",
+                MilestoneActivityAnalyticsSchema::NAME,
+            )))
             .await?
-            .try_next()
-            .await
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Gathers unspent output analytics.
-    pub async fn get_unspent_output_analytics<O: OutputKind>(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<OutputAnalytics>, Error> {
-        {
-            if let Some(kind) = O::kind() {
-                self.aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "_id": ledger_index,
-                        } },
-                        doc! { "$replaceWith": format!("$analytics.unspent_outputs.{}", kind) },
-                        doc! { "$group" : {
-                            "_id": null,
-                            "count": { "$sum": "$count" },
-                            "total_value": { "$sum": { "$toDecimal": "$total_value" } },
-                        } },
-                        doc! { "$project": {
-                            "count": 1,
-                            "total_value": { "$toString": "$total_value" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await
-            } else {
-                Ok(None)
-            }
-        }
-    }
-
-    /// Gathers byte cost and storage deposit analytics.
-    pub async fn get_storage_deposit_analytics(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<StorageDepositAnalytics>, Error> {
-        self.aggregate(
-            vec![
-                doc! { "$match": {
-                    "_id": ledger_index,
-                } },
-                doc! { "$replaceWith": "$analytics.storage_deposits" },
-                doc! { "$group" : {
-                    "_id": null,
-                    "output_count": { "$sum": "$output_count" },
-                    "storage_deposit_return_count": { "$sum": "$storage_deposit_return_count" },
-                    "storage_deposit_return_total_value": { "$sum": { "$toDecimal": "$storage_deposit_return_total_value"} },
-                    "total_key_bytes": { "$sum": { "$toDecimal": "$total_key_bytes" } },
-                    "total_data_bytes": { "$sum": { "$toDecimal": "$total_data_bytes" } },
-                } },
-                doc! { "$project": {
-                    "output_count": 1,
-                    "storage_deposit_return_count": 1,
-                    "storage_deposit_return_total_value": { "$toString": "$storage_deposit_return_total_value" },
-                    "total_key_bytes": { "$toString": "$total_key_bytes" },
-                    "total_data_bytes": { "$toString": "$total_data_bytes" },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
-    }
-
-    /// Gathers past-cone activity statistics for a given
-    pub async fn get_milestone_activity(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Option<MilestoneActivityAnalytics>, Error> {
-        self.aggregate(
-            vec![
-                doc! { "$match": { "_id": index } },
-                doc! { "$replaceWith": "$analytics.milestone_activity" },
-                doc! { "$group": {
-                    "_id": null,
-                    "count": { "$sum": "$count" },
-                    "transaction_count": { "$sum": "$transaction_count" },
-                    "treasury_transaction_count": { "$sum": "$treasury_transaction_count" },
-                    "milestone_count": { "$sum": "$milestone_count" },
-                    "tagged_data_count": { "$sum": "$tagged_data_count" },
-                    "no_payload_count": { "$sum": "$num_nono_payload_count_payload" },
-                    "confirmed_count": { "$sum": "$confirmed_count" },
-                    "conflicting_count": { "$sum": "$conflicting_count" },
-                    "no_transaction_count": { "$sum": "$no_transaction_count" },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
-    }
-
-    /// Gets the number of claimed tokens.
-    pub async fn get_claimed_token_analytics(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Option<ClaimedTokensAnalytics>, Error> {
-        self.aggregate(
-            vec![
-                doc! { "$match": {
-                    "_id": index,
-                } },
-                doc! { "$replaceWith": "$analytics.claimed_tokens" },
-                doc! { "$group": {
-                    "_id": null,
-                    "count": { "$sum": { "$toDecimal": "$count" } },
-                } },
-                doc! { "$project": {
-                    "count": { "$toString": "$count" },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+            .next())
     }
 }
