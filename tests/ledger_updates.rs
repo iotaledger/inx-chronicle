@@ -25,12 +25,12 @@ mod test_rand {
     };
     use futures::TryStreamExt;
 
-    use super::common::{setup_coll, setup_db, teardown};
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_ledger_updates_by_address() {
-        let db = setup_db("test-ledger-updates-by-address").await.unwrap();
-        let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
+        let db = setup_database("test-ledger-updates-by-address").await.unwrap();
+        let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -121,8 +121,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_ledger_updates_by_milestone() {
-        let db = setup_db("test-ledger-updates-by-milestone").await.unwrap();
-        let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
+        let db = setup_database("test-ledger-updates-by-milestone").await.unwrap();
+        let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -176,8 +176,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_insert_spent_ledger_updates() {
-        let db = setup_db("test-insert-spent-ledger-updates").await.unwrap();
-        let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
+        let db = setup_database("test-insert-spent-ledger-updates").await.unwrap();
+        let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 

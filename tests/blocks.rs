@@ -22,12 +22,12 @@ mod test_rand {
     };
     use futures::TryStreamExt;
 
-    use super::common::{setup_coll, setup_db, teardown};
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_blocks() {
-        let db = setup_db("test-blocks").await.unwrap();
-        let block_collection = setup_coll::<BlockCollection>(&db).await.unwrap();
+        let db = setup_database("test-blocks").await.unwrap();
+        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -127,8 +127,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_block_children() {
-        let db = setup_db("test-children").await.unwrap();
-        let block_collection = setup_coll::<BlockCollection>(&db).await.unwrap();
+        let db = setup_database("test-children").await.unwrap();
+        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
         let parents = std::iter::repeat_with(BlockId::rand)
             .take(2)
@@ -189,9 +189,9 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_spending_transaction() {
-        let db = setup_db("test-spending-transaction").await.unwrap();
-        let block_collection = setup_coll::<BlockCollection>(&db).await.unwrap();
-        let output_collection = setup_coll::<OutputCollection>(&db).await.unwrap();
+        let db = setup_database("test-spending-transaction").await.unwrap();
+        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
+        let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -276,8 +276,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_milestone_activity() {
-        let db = setup_db("test-milestone-activity").await.unwrap();
-        let block_collection = setup_coll::<BlockCollection>(&db).await.unwrap();
+        let db = setup_database("test-milestone-activity").await.unwrap();
+        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 

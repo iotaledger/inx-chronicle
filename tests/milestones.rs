@@ -10,12 +10,12 @@ mod test_rand {
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
     };
 
-    use super::common::{setup_coll, setup_db, teardown};
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_milestones() {
-        let db = setup_db("test-milestones").await.unwrap();
-        let milestone_collection = setup_coll::<MilestoneCollection>(&db).await.unwrap();
+        let db = setup_database("test-milestones").await.unwrap();
+        let milestone_collection = setup_collection::<MilestoneCollection>(&db).await.unwrap();
 
         let milestone = MilestonePayload::rand(&bee_block_stardust::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();

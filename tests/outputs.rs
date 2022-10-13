@@ -14,12 +14,12 @@ mod test_rand {
         },
     };
 
-    use super::common::{setup_coll, setup_db, teardown};
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_outputs() {
-        let db = setup_db("test-outputs").await.unwrap();
-        let output_collection = setup_coll::<OutputCollection>(&db).await.unwrap();
+        let db = setup_database("test-outputs").await.unwrap();
+        let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 

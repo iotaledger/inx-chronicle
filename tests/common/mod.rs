@@ -17,7 +17,7 @@ pub enum TestDbError {
 }
 
 #[allow(unused)]
-pub async fn setup_db(database_name: impl ToString) -> Result<MongoDb, TestDbError> {
+pub async fn setup_database(database_name: impl ToString) -> Result<MongoDb, TestDbError> {
     let mut config = if let Ok(path) = std::env::var("CONFIG_PATH") {
         let val = std::fs::read_to_string(&path)
             .map_err(|e| TestDbError::FileRead(AsRef::<Path>::as_ref(&path).display().to_string(), e))
@@ -38,7 +38,7 @@ pub async fn setup_db(database_name: impl ToString) -> Result<MongoDb, TestDbErr
 }
 
 #[allow(unused)]
-pub async fn setup_coll<T: MongoDbCollection + Send + Sync>(db: &MongoDb) -> Result<T, TestDbError> {
+pub async fn setup_collection<T: MongoDbCollection + Send + Sync>(db: &MongoDb) -> Result<T, TestDbError> {
     db.create_indexes::<T>().await?;
     Ok(db.collection::<T>())
 }

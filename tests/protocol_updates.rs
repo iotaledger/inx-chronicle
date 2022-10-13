@@ -12,12 +12,12 @@ mod test_rand {
         types::tangle::{MilestoneIndex, ProtocolParameters},
     };
 
-    use super::common::{setup_coll, setup_db, teardown};
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_protocol_updates() {
-        let db = setup_db("test-protocol-updates").await.unwrap();
-        let update_collection = setup_coll::<ProtocolUpdateCollection>(&db).await.unwrap();
+        let db = setup_database("test-protocol-updates").await.unwrap();
+        let update_collection = setup_collection::<ProtocolUpdateCollection>(&db).await.unwrap();
 
         let mut update_indexes = vec![];
 
