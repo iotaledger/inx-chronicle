@@ -227,9 +227,7 @@ mod test_rand {
             white_flag_index: 0u32,
         };
 
-        let blocks = vec![(block_id, block.clone(), raw, metadata)];
-        block_coll.insert_blocks_with_metadata(blocks).await.unwrap();
-
+        block_coll.insert_blocks_with_metadata(vec![(block_id, block.clone(), raw, metadata)]).await.unwrap();
         output_coll
             .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| LedgerOutput {
                 output_id: OutputId {
@@ -252,10 +250,7 @@ mod test_rand {
 
         let spending_block = block_coll.get_spending_transaction(&input_id).await.unwrap().unwrap();
 
-        assert_eq!(spending_block.protocol_version, block.protocol_version);
-        assert_eq!(spending_block.parents, block.parents);
-        assert_eq!(spending_block.payload, block.payload);
-        assert_eq!(spending_block.nonce, block.nonce);
+        assert_eq!(spending_block, block);
 
         teardown(db).await;
     }
