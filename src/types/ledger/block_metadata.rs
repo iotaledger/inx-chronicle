@@ -9,6 +9,9 @@ use crate::types::{stardust::block::BlockId, tangle::MilestoneIndex};
 /// Block metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockMetadata {
+    /// The id of the associated block.
+    #[serde(skip_serializing)]
+    pub block_id: BlockId,
     /// The parents of the corresponding block.
     pub parents: Box<[BlockId]>,
     /// Status of the solidification process.
@@ -27,32 +30,4 @@ pub struct BlockMetadata {
     pub conflict_reason: ConflictReason,
     /// The index of this block in white flag order.
     pub white_flag_index: u32,
-}
-
-#[cfg(feature = "inx")]
-impl TryFrom<inx::proto::BlockMetadata> for BlockMetadata {
-    type Error = crate::inx::InxError;
-
-    fn try_from(value: inx::proto::BlockMetadata) -> Result<Self, Self::Error> {
-        let inclusion_state = value.ledger_inclusion_state().into();
-        let conflict_reason = value.conflict_reason().into();
-
-        let parents = value
-            .parents
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(BlockMetadata {
-            parents: parents.into_boxed_slice(),
-            is_solid: value.solid,
-            should_promote: value.should_promote,
-            should_reattach: value.should_reattach,
-            referenced_by_milestone_index: value.referenced_by_milestone_index.into(),
-            milestone_index: value.milestone_index.into(),
-            inclusion_state,
-            conflict_reason,
-            white_flag_index: value.white_flag_index,
-        })
-    }
 }

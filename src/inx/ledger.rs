@@ -8,8 +8,9 @@ use super::InxError;
 use crate::{
     maybe_missing,
     types::{
-        ledger::{LedgerOutput, LedgerSpent},
-        tangle::MilestoneIndex, context::{TryFromWithContext, TryIntoWithContext},
+        context::{TryFromWithContext, TryIntoWithContext},
+        ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
+        tangle::MilestoneIndex,
     },
 };
 
@@ -118,7 +119,10 @@ impl TryFrom<inx::proto::UnspentOutput> for UnspentOutputMessage {
 impl TryFromWithContext<UnspentOutputMessage> for inx::proto::UnspentOutput {
     type Error = bee::Error;
 
-    fn try_from_with_context(ctx: &bee::protocol::ProtocolParameters, value: UnspentOutputMessage) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee::protocol::ProtocolParameters,
+        value: UnspentOutputMessage,
+    ) -> Result<Self, Self::Error> {
         Ok(Self {
             ledger_index: value.ledger_index.0,
             output: Some(value.output.try_into_with_context(ctx)?),
@@ -129,15 +133,84 @@ impl TryFromWithContext<UnspentOutputMessage> for inx::proto::UnspentOutput {
 impl TryFromWithContext<LedgerOutput> for inx::proto::LedgerOutput {
     type Error = bee::Error;
 
-    fn try_from_with_context(ctx: &bee::protocol::ProtocolParameters, value: LedgerOutput) -> Result<Self, Self::Error> {
+    fn try_from_with_context(
+        ctx: &bee::protocol::ProtocolParameters,
+        value: LedgerOutput,
+    ) -> Result<Self, Self::Error> {
         let bee_output = bee::output::Output::try_from_with_context(ctx, value.output)?;
-        
+
         Ok(Self {
             block_id: Some(value.block_id.into()),
             milestone_index_booked: value.booked.milestone_index.0,
             milestone_timestamp_booked: value.booked.milestone_timestamp.0,
-            output: Some(inx::proto::RawOutput{ data: bee_output.pack_to_vec()}),
+            output: Some(inx::proto::RawOutput {
+                data: bee_output.pack_to_vec(),
+            }),
             output_id: Some(value.output_id.into()),
         })
+    }
+}
+
+impl From<inx::proto::block_metadata::LedgerInclusionState> for LedgerInclusionState {
+    fn from(value: inx::proto::block_metadata::LedgerInclusionState) -> Self {
+        use inx::proto::block_metadata::LedgerInclusionState;
+        match value {
+            LedgerInclusionState::Included => Self::Included,
+            LedgerInclusionState::NoTransaction => Self::NoTransaction,
+            LedgerInclusionState::Conflicting => Self::Conflicting,
+        }
+    }
+}
+
+impl From<LedgerInclusionState> for inx::proto::block_metadata::LedgerInclusionState {
+    fn from(value: LedgerInclusionState) -> Self {
+        match value {
+            LedgerInclusionState::Included => Self::Included,
+            LedgerInclusionState::NoTransaction => Self::NoTransaction,
+            LedgerInclusionState::Conflicting => Self::Conflicting,
+        }
+    }
+}
+
+impl From<inx::proto::block_metadata::ConflictReason> for ConflictReason {
+    fn from(value: inx::proto::block_metadata::ConflictReason) -> Self {
+        use ::inx::proto::block_metadata::ConflictReason;
+        match value {
+            ConflictReason::None => Self::None,
+            ConflictReason::InputAlreadySpent => Self::InputUtxoAlreadySpent,
+            ConflictReason::InputAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
+            ConflictReason::InputNotFound => Self::InputUtxoNotFound,
+            ConflictReason::InputOutputSumMismatch => Self::CreatedConsumedAmountMismatch,
+            ConflictReason::InvalidSignature => Self::InvalidSignature,
+            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
+            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
+            ConflictReason::ReturnAmountNotFulfilled => Self::StorageDepositReturnUnfulfilled,
+            ConflictReason::InvalidInputUnlock => Self::InvalidUnlock,
+            ConflictReason::InvalidInputsCommitment => Self::InputsCommitmentsMismatch,
+            ConflictReason::InvalidSender => Self::UnverifiedSender,
+            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
+            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
+        }
+    }
+}
+
+impl From<ConflictReason> for inx::proto::block_metadata::ConflictReason {
+    fn from(value: ConflictReason) -> Self {
+        match value {
+            ConflictReason::None => Self::None,
+            ConflictReason::InputUtxoAlreadySpent => Self::InputAlreadySpent,
+            ConflictReason::InputUtxoAlreadySpentInThisMilestone => Self::InputAlreadySpentInThisMilestone,
+            ConflictReason::InputUtxoNotFound => Self::InputNotFound,
+            ConflictReason::CreatedConsumedAmountMismatch => Self::InputOutputSumMismatch,
+            ConflictReason::InvalidSignature => Self::InvalidSignature,
+            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
+            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
+            ConflictReason::StorageDepositReturnUnfulfilled => Self::ReturnAmountNotFulfilled,
+            ConflictReason::InvalidUnlock => Self::InvalidInputUnlock,
+            ConflictReason::InputsCommitmentsMismatch => Self::InvalidInputsCommitment,
+            ConflictReason::UnverifiedSender => Self::InvalidSender,
+            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
+            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
+        }
     }
 }

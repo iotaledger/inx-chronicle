@@ -4,7 +4,11 @@
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
 
-use super::{node::NodeConfigurationMessage, InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage, ledger::UnspentOutputMessage};
+use super::{
+    ledger::UnspentOutputMessage, milestone::MilestoneAndProtocolParametersMessage, node::NodeConfigurationMessage,
+    request::MilestoneRequest, InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage,
+    RawProtocolParametersMessage,
+};
 
 /// An INX client connection.
 #[derive(Clone, Debug)]
@@ -28,18 +32,19 @@ impl Inx {
         })
     }
 
-    // /// Listens to confirmed milestones in the range of
-    // pub async fn listen_to_confirmed_milestones(
-    //     &mut self,
-    //     request: MilestoneRangeRequest,
-    // ) -> Result<impl Stream<Item = Result<crate::MilestoneAndProtocolParameters, Error>>, Error> {
-    //     Ok(self
-    //         .inx
-    //         .listen_to_confirmed_milestones(proto::MilestoneRangeRequest::from(request))
-    //         .await?
-    //         .into_inner()
-    //         .map(unpack_proto_msg))
-    // }
+    /// Convenience wrapper that listen to ledger updates as a stream of
+    /// [`MilestoneAndProtocolParametersMessages`](MilestoneAndProtocolParametersMessage).
+    pub async fn listen_to_confirmed_milestones(
+        &mut self,
+        request: MilestoneRangeRequest,
+    ) -> Result<impl Stream<Item = Result<MilestoneAndProtocolParametersMessage, InxError>>, InxError> {
+        Ok(self
+            .inx
+            .listen_to_confirmed_milestones(proto::MilestoneRangeRequest::from(request))
+            .await?
+            .into_inner()
+            .map(unpack_proto_msg))
+    }
 
     /// Convenience wrapper that listen to ledger updates as a stream of [`NodeStatusMessages`](NodeStatusMessage).
     pub async fn listen_to_ledger_updates(
@@ -64,6 +69,7 @@ impl Inx {
         NodeConfigurationMessage::try_from(self.inx.read_node_configuration(proto::NoParams {}).await?.into_inner())
     }
 
+    /// Convenience wrapper that reads the current unspent outputs into an [`UnspentOutputMessage`].
     pub async fn read_unspent_outputs(
         &mut self,
     ) -> Result<impl Stream<Item = Result<UnspentOutputMessage, InxError>>, InxError> {
@@ -75,38 +81,41 @@ impl Inx {
             .map(unpack_proto_msg))
     }
 
-    // pub async fn read_protocol_parameters(
-    //     &mut self,
-    //     request: MilestoneRequest,
-    // ) -> Result<crate::ProtocolParameters, Error> {
-    //     Ok(self
-    //         .inx
-    //         .read_protocol_parameters(proto::MilestoneRequest::from(request))
-    //         .await?
-    //         .into_inner()
-    //         .into())
-    // }
+    /// Convenience wrapper that reads the protocol parameters for a given milestone into a
+    /// [`RawProtocolParametersMessage`].
+    pub async fn read_protocol_parameters(
+        &mut self,
+        request: MilestoneRequest,
+    ) -> Result<RawProtocolParametersMessage, InxError> {
+        Ok(self
+            .inx
+            .read_protocol_parameters(proto::MilestoneRequest::from(request))
+            .await?
+            .into_inner()
+            .into())
+    }
 
-    // /// Reads the past cone of a milestone specified by a [`MilestoneRequest`].
-    // pub async fn read_milestone_cone(
-    //     &mut self,
-    //     request: MilestoneRequest,
-    // ) -> Result<impl Stream<Item = Result<crate::BlockWithMetadata, Error>>, Error> {
-    //     Ok(self
-    //         .inx
-    //         .read_milestone_cone(proto::MilestoneRequest::from(request))
-    //         .await?
-    //         .into_inner()
-    //         .map(unpack_proto_msg))
-    // }
+    /// Convenience wrapper that reads the milestone cone for a given milestone into
+    /// [`BlockWithMetadataMessages`](BlockWithMetadataMessage).
+    pub async fn read_milestone_cone(
+        &mut self,
+        request: MilestoneRequest,
+    ) -> Result<impl Stream<Item = Result<BlockWithMetadataMessage, InxError>>, InxError> {
+        Ok(self
+            .inx
+            .read_milestone_cone(proto::MilestoneRequest::from(request))
+            .await?
+            .into_inner()
+            .map(unpack_proto_msg))
+    }
 
-    // pub async fn read_milestone(&mut self, request: MilestoneRequest) -> Result<Milestone, Error> {
-    //     Milestone::try_from(
-    //         self.inx
-    //             .read_milestone(proto::MilestoneRequest::from(request))
-    //             .await?
-    //             .into_inner(),
-    //     )
-    //     .map_err(Error::InxError)
-    // }
+    pub async fn read_milestone(&mut self, request: MilestoneRequest) -> Result<Milestone, Error> {
+        Milestone::try_from(
+            self.inx
+                .read_milestone(proto::MilestoneRequest::from(request))
+                .await?
+                .into_inner(),
+        )
+        .map_err(Error::InxError)
+    }
 }

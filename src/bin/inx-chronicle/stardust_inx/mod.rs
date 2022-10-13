@@ -12,7 +12,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::Inx,
+    inx::{Inx, LedgerUpdateMessage, Marker},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -168,7 +168,7 @@ impl InxWorker {
             let mut count = 0;
             let mut tasks = unspent_output_stream
                 .inspect(|_| count += 1)
-                .map(|res| LedgerOutput::try_from(res?.output))
+                .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| InxError::BeeInx(e.1))
@@ -215,12 +215,12 @@ impl InxWorker {
 async fn handle_ledger_update(
     inx: &mut Inx,
     db: &MongoDb,
-    start_marker: bee_inx::LedgerUpdate,
-    stream: &mut (impl futures::Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>> + Unpin),
+    start_marker: LedgerUpdateMessage,
+    stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
 ) -> Result<(), InxError> {
     let start_time = std::time::Instant::now();
 
-    let bee_inx::Marker {
+    let Marker {
         milestone_index,
         consumed_count,
         created_count,
@@ -237,11 +237,7 @@ async fn handle_ledger_update(
     stream
         .by_ref()
         .take(consumed_count)
-        .map(|res| {
-            Ok(LedgerSpent::try_from(
-                res?.consumed().ok_or(InxError::InvalidMilestoneState)?,
-            )?)
-        })
+        .map(|res| Ok(res?.consumed().ok_or(InxError::InvalidMilestoneState)?))
         .inspect_ok(|_| {
             actual_consumed_count += 1;
         })
@@ -259,11 +255,7 @@ async fn handle_ledger_update(
     stream
         .by_ref()
         .take(created_count)
-        .map(|res| {
-            Ok(LedgerOutput::try_from(
-                res?.created().ok_or(InxError::InvalidMilestoneState)?,
-            )?)
-        })
+        .map(|res| Ok(res?.created().ok_or(InxError::InvalidMilestoneState)?))
         .inspect_ok(|_| {
             actual_created_count += 1;
         })
@@ -283,14 +275,14 @@ async fn handle_ledger_update(
         res.unwrap()?;
     }
 
-    let bee_inx::Marker {
+    let Marker {
         milestone_index,
         consumed_count,
         created_count,
     } = stream
         .try_next()
         .await?
-        .and_then(bee_inx::LedgerUpdate::end)
+        .and_then(LedgerUpdateMessage::end)
         .ok_or(InxError::InvalidMilestoneState)?;
     trace!(
         "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
@@ -408,7 +400,7 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
 
     let mut tasks = cone_stream
         .map(|res| {
-            let bee_inx::BlockWithMetadata { block, metadata } = res?;
+            let BlockWithMetadata { block, metadata } = res?;
             Result::<_, InxError>::Ok((
                 metadata.block_id.into(),
                 block.clone().inner_unverified()?.into(),

@@ -66,26 +66,3 @@ impl From<ConflictReason> for bee::ConflictReason {
         }
     }
 }
-
-#[cfg(feature = "inx")]
-impl From<inx::proto::block_metadata::ConflictReason> for ConflictReason {
-    fn from(value: inx::proto::block_metadata::ConflictReason) -> Self {
-        use ::inx::proto::block_metadata::ConflictReason;
-        match value {
-            ConflictReason::None => Self::None,
-            ConflictReason::InputAlreadySpent => Self::InputUtxoAlreadySpent,
-            ConflictReason::InputAlreadySpentInThisMilestone => Self::InputUtxoAlreadySpentInThisMilestone,
-            ConflictReason::InputNotFound => Self::InputUtxoNotFound,
-            ConflictReason::InputOutputSumMismatch => Self::CreatedConsumedAmountMismatch,
-            ConflictReason::InvalidSignature => Self::InvalidSignature,
-            ConflictReason::TimelockNotExpired => Self::TimelockNotExpired,
-            ConflictReason::InvalidNativeTokens => Self::InvalidNativeTokens,
-            ConflictReason::ReturnAmountNotFulfilled => Self::StorageDepositReturnUnfulfilled,
-            ConflictReason::InvalidInputUnlock => Self::InvalidUnlock,
-            ConflictReason::InvalidInputsCommitment => Self::InputsCommitmentsMismatch,
-            ConflictReason::InvalidSender => Self::UnverifiedSender,
-            ConflictReason::InvalidChainStateTransition => Self::InvalidChainStateTransition,
-            ConflictReason::SemanticValidationFailed => Self::SemanticValidationFailed,
-        }
-    }
-}
