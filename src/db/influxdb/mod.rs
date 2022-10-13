@@ -3,10 +3,9 @@
 
 mod measurement;
 
-use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, Sub, SubAssign};
+use std::ops::Deref;
 
-use decimal::d128;
-use influxdb::{Client, ReadQuery, Type};
+use influxdb::{Client, ReadQuery};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 pub use self::measurement::InfluxDbMeasurement;
@@ -18,10 +17,7 @@ pub struct InfluxDb(Client);
 impl InfluxDb {
     /// Create a new influx connection from config.
     pub async fn connect(config: &InfluxDbConfig) -> Result<Self, influxdb::Error> {
-        let client = Client::new(&config.url, &config.database_name).with_auth(
-            config.username.as_deref().unwrap_or_default(),
-            config.password.as_deref().unwrap_or_default(),
-        );
+        let client = Client::new(&config.url, &config.database_name).with_auth(&config.username, &config.password);
         client.ping().await?;
         // client
         //     .query(ReadQuery::new(format!("CREATE DATABASE IF NOT EXISTS {}", config.database_name)))
@@ -67,9 +63,9 @@ pub struct InfluxDbConfig {
     /// The bind address of the database.
     pub url: String,
     /// The InfluxDb username.
-    pub username: Option<String>,
+    pub username: String,
     /// The InfluxDb password.
-    pub password: Option<String>,
+    pub password: String,
     /// The name of the database to connect to.
     pub database_name: String,
 }
@@ -77,75 +73,10 @@ pub struct InfluxDbConfig {
 impl Default for InfluxDbConfig {
     fn default() -> Self {
         Self {
-            url: "localhost:8086".to_string(),
+            url: "http://localhost:8086".to_string(),
             database_name: "chronicle_analytics".to_string(),
-            username: None,
-            password: None,
+            username: "root".to_string(),
+            password: "password".to_string(),
         }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct Decimal128(pub d128);
-
-impl AsRef<d128> for Decimal128 {
-    fn as_ref(&self) -> &d128 {
-        &self.0
-    }
-}
-
-impl Deref for Decimal128 {
-    type Target = d128;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Decimal128 {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<Decimal128> for Type {
-    fn from(value: Decimal128) -> Self {
-        Type::Text(value.0.to_string())
-    }
-}
-
-impl<T: AsRef<d128>> Add<T> for Decimal128 {
-    type Output = Self;
-
-    fn add(self, rhs: T) -> Self::Output {
-        Self(self.0 + rhs.as_ref())
-    }
-}
-
-impl<T: AsRef<d128>> AddAssign<T> for Decimal128 {
-    fn add_assign(&mut self, rhs: T) {
-        *self = *self + rhs
-    }
-}
-
-impl<T: AsRef<d128>> Sub<T> for Decimal128 {
-    type Output = Self;
-
-    fn sub(self, rhs: T) -> Self::Output {
-        Self(self.0 - rhs.as_ref())
-    }
-}
-
-impl<T: AsRef<d128>> SubAssign<T> for Decimal128 {
-    fn sub_assign(&mut self, rhs: T) {
-        *self = *self - rhs
-    }
-}
-
-impl<T: AsRef<d128>> Mul<T> for Decimal128 {
-    type Output = Self;
-
-    fn mul(self, rhs: T) -> Self::Output {
-        Self(self.0 * rhs.as_ref())
     }
 }

@@ -10,10 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKind};
 use crate::{
-    db::{
-        influxdb::{Decimal128, InfluxDbMeasurement},
-        InfluxDb, MongoDb,
-    },
+    db::{influxdb::InfluxDbMeasurement, InfluxDb, MongoDb},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::{
@@ -497,7 +494,7 @@ impl InfluxDbWriteable for OutputAnalyticsSchema {
             .add_tag("milestone_index", self.milestone_index)
             .add_tag("kind", self.kind)
             .add_field("count", self.analytics.count)
-            .add_field("total_value", Decimal128(self.analytics.total_value))
+            .add_field("total_value", self.analytics.total_value.to_string())
     }
 }
 
@@ -580,10 +577,10 @@ impl InfluxDbWriteable for StorageDepositAnalyticsSchema {
             )
             .add_field(
                 "storage_deposit_return_total_value",
-                Decimal128(self.analytics.storage_deposit_return_total_value),
+                self.analytics.storage_deposit_return_total_value.to_string(),
             )
-            .add_field("total_key_bytes", Decimal128(self.analytics.total_key_bytes))
-            .add_field("total_data_bytes", Decimal128(self.analytics.total_data_bytes))
+            .add_field("total_key_bytes", self.analytics.total_key_bytes.to_string())
+            .add_field("total_data_bytes", self.analytics.total_data_bytes.to_string())
     }
 }
 
@@ -634,7 +631,7 @@ impl InfluxDbWriteable for ClaimedTokensAnalyticsSchema {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
             .add_tag("milestone_index", self.milestone_index)
-            .add_field("count", Decimal128(self.analytics.count))
+            .add_field("count", self.analytics.count.to_string())
     }
 }
 

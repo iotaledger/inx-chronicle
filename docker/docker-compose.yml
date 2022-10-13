@@ -15,13 +15,15 @@ services:
       - 27017:27017
 
   influx:
-    image: influxdb:latest
+    image: influxdb:1.8
     container_name: influx
     volumes:
       - ./data/chronicle/influxdb:/var/lib/influxdb
     environment:
-      - DOCKER_INFLUXDB_INIT_USERNAME=root
-      - DOCKER_INFLUXDB_INIT_PASSWORD=root
+      - INFLUXDB_DB=chronicle_analytics
+      - INFLUXDB_ADMIN_USER=root
+      - INFLUXDB_ADMIN_PASSWORD=password
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
     ports:
       - 8086:8086
       
