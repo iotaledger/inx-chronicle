@@ -30,7 +30,7 @@ mod test_rand {
     #[tokio::test]
     async fn test_claiming() {
         let db = setup_db("test-claiming").await.unwrap();
-        let collection = setup_coll::<OutputCollection>(&db).await.unwrap();
+        let output_collection = setup_coll::<OutputCollection>(&db).await.unwrap();
 
         let unspent_outputs = (1..=5)
             .map(|i| LedgerOutput {
@@ -48,7 +48,7 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.insert_unspent_outputs(&unspent_outputs).await.unwrap();
+        output_collection.insert_unspent_outputs(&unspent_outputs).await.unwrap();
 
         let spent_outputs = unspent_outputs
             .into_iter()
@@ -68,9 +68,9 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.update_spent_outputs(&spent_outputs).await.unwrap();
+        output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        let total = collection
+        let total = output_collection
             .get_claimed_token_analytics(None)
             .await
             .unwrap()
@@ -78,7 +78,7 @@ mod test_rand {
             .count;
         assert_eq!(total, (1 + 2 + 3 + 4).to_string());
 
-        let third = collection
+        let third = output_collection
             .get_claimed_token_analytics(Some(3.into()))
             .await
             .unwrap()

@@ -15,12 +15,12 @@ mod test_rand {
     #[tokio::test]
     async fn test_milestones() {
         let db = setup_db("test-milestones").await.unwrap();
-        let collection = setup_coll::<MilestoneCollection>(&db).await.unwrap();
+        let milestone_collection = setup_coll::<MilestoneCollection>(&db).await.unwrap();
 
         let milestone = MilestonePayload::rand(&bee_block_stardust::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();
 
-        collection
+        milestone_collection
             .insert_milestone(
                 milestone_id,
                 milestone.essence.index,
@@ -31,12 +31,12 @@ mod test_rand {
             .unwrap();
 
         assert_eq!(
-            collection.get_milestone_id(milestone.essence.index).await.unwrap(),
+            milestone_collection.get_milestone_id(milestone.essence.index).await.unwrap(),
             Some(milestone_id),
         );
 
         assert_eq!(
-            collection
+            milestone_collection
                 .get_milestone_payload_by_id(&milestone_id)
                 .await
                 .unwrap()
@@ -45,7 +45,7 @@ mod test_rand {
         );
 
         assert_eq!(
-            collection
+            milestone_collection
                 .get_milestone_payload(milestone.essence.index)
                 .await
                 .unwrap()

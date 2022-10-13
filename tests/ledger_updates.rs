@@ -30,7 +30,7 @@ mod test_rand {
     #[tokio::test]
     async fn test_ledger_updates_by_address() {
         let db = setup_db("test-ledger-updates-by-address").await.unwrap();
-        let collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
+        let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -43,8 +43,13 @@ mod test_rand {
             .inspect(|(_, _, output_id)| {
                 outputs.insert(*output_id);
             })
-            .map(|(block_id, amount, output_id)| {
-                let output = BasicOutput {
+            .map(|(block_id, amount, output_id)| LedgerOutput {
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 0.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+                output: Output::Basic(BasicOutput {
                     amount: amount.into(),
                     native_tokens: Vec::new().into_boxed_slice(),
                     address_unlock_condition,
@@ -52,20 +57,12 @@ mod test_rand {
                     timelock_unlock_condition: None,
                     expiration_unlock_condition: None,
                     features: Vec::new().into_boxed_slice(),
-                };
-                LedgerOutput {
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 0.into(),
-                        milestone_timestamp: 12345.into(),
-                    },
-                    output: Output::Basic(output),
-                    output_id,
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                }
+                }),
+                output_id,
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
             })
             .chain(
                 std::iter::repeat_with(|| (BlockId::rand(), Output::rand(&ctx), OutputId::rand()))
@@ -86,16 +83,17 @@ mod test_rand {
             )
             .collect::<Vec<_>>();
 
+        assert_eq!(outputs.len(), 50);
         assert_eq!(ledger_outputs.len(), 100);
 
-        collection
+        update_collection
             .insert_unspent_ledger_updates(ledger_outputs.iter())
             .await
             .unwrap();
 
-        assert_eq!(collection.count().await.unwrap(), 100);
+        assert_eq!(update_collection.count().await.unwrap(), 100);
 
-        let mut s = collection
+        let mut s = update_collection
             .get_ledger_updates_by_address(&address, 100, None, SortOrder::Newest)
             .await
             .unwrap();
@@ -124,7 +122,7 @@ mod test_rand {
     #[tokio::test]
     async fn test_ledger_updates_by_milestone() {
         let db = setup_db("test-ledger-updates-by-milestone").await.unwrap();
-        let collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
+        let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
@@ -152,14 +150,14 @@ mod test_rand {
 
         assert_eq!(ledger_outputs.len(), 100);
 
-        collection
+        update_collection
             .insert_unspent_ledger_updates(ledger_outputs.iter())
             .await
             .unwrap();
 
-        assert_eq!(collection.count().await.unwrap(), 100);
+        assert_eq!(update_collection.count().await.unwrap(), 100);
 
-        let mut s = collection
+        let mut s = update_collection
             .get_ledger_updates_by_milestone(0.into(), 100, None)
             .await
             .unwrap();
@@ -179,11 +177,11 @@ mod test_rand {
     #[tokio::test]
     async fn test_spent_unspent_ledger_updates() {
         let db = setup_db("test-spent-unspent-ledger-updates").await.unwrap();
-        let collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
+        let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
-        let mut booked_outputs = Vec::new();
+        let mut unspent_outputs = Vec::new();
 
         let spent_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
             .take(100)
@@ -200,9 +198,8 @@ mod test_rand {
                     num_data_bytes: 100,
                 },
             })
-            .inspect(|booked_output| {
-                assert!(!booked_outputs.contains(booked_output));
-                booked_outputs.push(booked_output.clone());
+            .inspect(|unspent_output| {
+                unspent_outputs.push(unspent_output.clone());
             })
             .enumerate()
             .filter_map(|(i, booked_output)| {
@@ -223,20 +220,20 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(booked_outputs.len(), 100);
+        assert_eq!(unspent_outputs.len(), 100);
         assert_eq!(spent_outputs.len(), 50);
 
-        collection
-            .insert_unspent_ledger_updates(booked_outputs.iter())
+        update_collection
+            .insert_unspent_ledger_updates(unspent_outputs.iter())
             .await
             .unwrap();
 
-        collection
+        update_collection
             .insert_spent_ledger_updates(spent_outputs.iter())
             .await
             .unwrap();
 
-        assert_eq!(collection.count().await.unwrap(), 150);
+        assert_eq!(update_collection.count().await.unwrap(), 150);
 
         teardown(db).await;
     }
