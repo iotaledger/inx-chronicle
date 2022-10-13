@@ -107,23 +107,6 @@ mod rand {
             }
         }
 
-        /// Generates a random [`Block`] with a spending [`TransactionPayload`](payload::TransactionPayload).
-        pub fn rand_spending_transaction(
-            ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        ) -> (Self, Vec<Input>, Vec<Output>) {
-            let (payload, inputs, outputs) = Payload::rand_spending_transaction(ctx);
-            (
-                Self {
-                    protocol_version: rand_number(),
-                    parents: BlockId::rand_parents(),
-                    payload: Some(payload),
-                    nonce: rand_number(),
-                },
-                inputs,
-                outputs,
-            )
-        }
-
         /// Generates a random [`Block`] with a [`MilestonePayload`](payload::MilestonePayload).
         pub fn rand_milestone(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
             Self {

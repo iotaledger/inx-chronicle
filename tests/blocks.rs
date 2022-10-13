@@ -183,8 +183,36 @@ mod test_rand {
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
-        let block_id = BlockId::rand();
-        let (block, spent_outputs, unspent_outputs) = Block::rand_spending_transaction(&ctx);
+        let (block_id, block, transaction_id, input_id, outputs) =
+            std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&ctx)))
+                .filter_map(|(block_id, block)| {
+                    block.payload.as_ref().and_then(|p| {
+                        if let Payload::Transaction(payload) = p {
+                            let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
+                            for input in inputs.iter() {
+                                if let Input::Utxo(input_id) = input {
+                                    let input_id = *input_id;
+                                    let outputs = outputs.to_vec();
+                                    if !outputs.is_empty() {
+                                        return Some((
+                                            block_id,
+                                            block.clone(),
+                                            payload.transaction_id,
+                                            input_id,
+                                            outputs,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    })
+                })
+                .take(1)
+                .collect::<Vec<_>>()
+                .pop()
+                .unwrap();
+
         let parents = block.parents.clone();
         let raw = bee_block_stardust::rand::bytes::rand_bytes(100);
         let metadata = BlockMetadata {
@@ -202,41 +230,32 @@ mod test_rand {
         let blocks = vec![(block_id, block.clone(), raw, metadata)];
         block_coll.insert_blocks_with_metadata(blocks).await.unwrap();
 
-        let outputs = unspent_outputs
-            .into_iter()
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
+        output_coll
+            .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| LedgerOutput {
+                output_id: OutputId {
+                    transaction_id,
+                    index: i as u16,
                 },
-                output,
                 block_id,
                 booked: MilestoneIndexTimestamp {
                     milestone_index: 1.into(),
                     milestone_timestamp: 12345.into(),
                 },
-            })
-            .collect::<Vec<_>>();
-        output_coll.insert_unspent_outputs(outputs).await.unwrap();
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output,
+            }))
+            .await
+            .unwrap();
 
-        for spent_output in spent_outputs.into_iter() {
-            let spent_output_id = if let Input::Utxo(output_id) = spent_output {
-                output_id
-            } else {
-                unreachable!();
-            };
-            let spending_block = block_coll
-                .get_spending_transaction(&spent_output_id)
-                .await
-                .unwrap()
-                .unwrap();
+        let spending_block = block_coll.get_spending_transaction(&input_id).await.unwrap().unwrap();
 
-            assert_eq!(spending_block.protocol_version, block.protocol_version);
-            assert_eq!(spending_block.parents, block.parents);
-            assert_eq!(spending_block.payload, block.payload);
-            assert_eq!(spending_block.nonce, block.nonce);
-        }
+        assert_eq!(spending_block.protocol_version, block.protocol_version);
+        assert_eq!(spending_block.parents, block.parents);
+        assert_eq!(spending_block.payload, block.payload);
+        assert_eq!(spending_block.nonce, block.nonce);
 
         teardown(db).await;
     }

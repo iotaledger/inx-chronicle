@@ -253,34 +253,6 @@ mod rand {
                 },
             }
         }
-
-        /// Generates a random [`TransactionEssence`].
-        pub fn rand_spending(
-            ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        ) -> (Self, Vec<Input>, Vec<Output>) {
-            let inputs = std::iter::repeat_with(Input::rand_utxo)
-                .take(rand_number_range(1..10))
-                .collect::<Vec<Input>>();
-            let outputs = std::iter::repeat_with(|| Output::rand_basic(ctx))
-                .take(rand_number_range(1..2))
-                .collect::<Vec<Output>>();
-
-            (
-                Self::Regular {
-                    network_id: rand_number(),
-                    inputs: inputs.clone().into_boxed_slice(),
-                    inputs_commitment: *rand_inputs_commitment(),
-                    outputs: outputs.clone().into_boxed_slice(),
-                    payload: if rand_number_range(0..=1) == 1 {
-                        Some(Payload::rand_tagged_data())
-                    } else {
-                        None
-                    },
-                },
-                inputs,
-                outputs,
-            )
-        }
     }
 
     impl TransactionPayload {
@@ -293,24 +265,6 @@ mod rand {
                     .take(rand_number_range(1..10))
                     .collect(),
             }
-        }
-
-        /// Generates a random spending [`TransactionPayload`].
-        pub fn rand_spending(
-            ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        ) -> (Self, Vec<Input>, Vec<Output>) {
-            let (essence, inputs, outputs) = TransactionEssence::rand_spending(ctx);
-            (
-                Self {
-                    transaction_id: TransactionId::rand(),
-                    essence,
-                    unlocks: std::iter::repeat_with(Unlock::rand)
-                        .take(rand_number_range(1..10))
-                        .collect(),
-                },
-                inputs,
-                outputs,
-            )
         }
     }
 }
