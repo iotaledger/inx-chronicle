@@ -176,7 +176,7 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_insert_spent_ledger_updates() {
-        let db = setup_db("test-spent-unspent-ledger-updates").await.unwrap();
+        let db = setup_db("test-insert-spent-ledger-updates").await.unwrap();
         let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
