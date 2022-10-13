@@ -1,0 +1,63 @@
+// Copyright 2022 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+mod common;
+
+#[cfg(feature = "rand")]
+mod test_rand {
+
+    use bee_block_stardust::rand::number::rand_number_range;
+    use chronicle::{
+        db::{collections::ProtocolUpdateCollection, MongoDbCollectionExt},
+        types::tangle::{MilestoneIndex, ProtocolParameters},
+    };
+
+    use super::common::{setup_coll, setup_db, teardown};
+
+    #[tokio::test]
+    async fn test_insert_protocol_parameters() {
+        let db = setup_db("test-protocol-updates").await.unwrap();
+        let update_collection = setup_coll::<ProtocolUpdateCollection>(&db).await.unwrap();
+
+        let mut update_indexes = vec![];
+
+        for (ledger_index, parameters) in std::iter::repeat(())
+            .enumerate()
+            .step_by(rand_number_range(10..100usize))
+            .take(10)
+            .enumerate()
+            .inspect(|(i, _)| { update_indexes.push(MilestoneIndex(*i as u32)) })
+            .map(|(i, (ledger_index, _))| {
+                let mut parameters = ProtocolParameters::from(bee_block_stardust::protocol::protocol_parameters());
+                parameters.version = i as u8;
+                (ledger_index as u32, parameters)
+            })
+        {
+            update_collection
+                .insert_protocol_parameters(ledger_index.into(), parameters)
+                .await
+                .unwrap();
+        }
+
+        assert_eq!(update_collection.count().await.unwrap(), 10);
+        assert_eq!(
+            update_collection.get_latest_protocol_parameters().await.unwrap(),
+            update_collection.get_protocol_parameters_for_version(9).await.unwrap()
+        );
+        for index in update_indexes.into_iter() {
+            assert!(update_collection.get_protocol_parameters_for_ledger_index(index).await.unwrap().is_some());
+        }
+
+        let mut parameters = ProtocolParameters::from(bee_block_stardust::protocol::protocol_parameters());
+        parameters.version = 10;
+        parameters.token_supply = u64::MAX;
+
+        update_collection.update_latest_protocol_parameters(1500.into(), parameters).await.unwrap();
+        assert_eq!(
+            update_collection.get_latest_protocol_parameters().await.unwrap(),
+            update_collection.get_protocol_parameters_for_version(10).await.unwrap()
+        );
+
+        teardown(db).await;
+    }
+}

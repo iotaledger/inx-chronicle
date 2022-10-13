@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// A milestone's metadata.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolUpdateDocument {
     #[serde(rename = "_id")]
     pub tangle_index: MilestoneIndex,
