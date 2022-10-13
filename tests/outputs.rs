@@ -5,7 +5,6 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-
     use chronicle::{
         db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         types::{
