@@ -28,6 +28,11 @@ pub use self::{
     native_token::{NativeToken, NativeTokenAmount, TokenScheme},
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
+    unlock_condition::{
+        AddressUnlockCondition, ExpirationUnlockCondition, GovernorAddressUnlockCondition,
+        ImmutableAliasAddressUnlockCondition, StateControllerAddressUnlockCondition,
+        StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
+    },
 };
 use super::Address;
 use crate::types::{
@@ -45,7 +50,7 @@ pub type OutputIndex = u16;
 
 /// An id which uniquely identifies an output. It is computed from the corresponding [`TransactionId`], as well as the
 /// [`OutputIndex`].
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct OutputId {
     /// The transaction id part of the [`OutputId`].
     pub transaction_id: TransactionId,
@@ -244,7 +249,7 @@ mod rand {
     impl Output {
         /// Generates a random [`Output`].
         pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
-            match rand_number_range(0..5) {
+            match rand_number_range(0..4) {
                 0 => Self::rand_basic(ctx),
                 1 => Self::rand_alias(ctx),
                 2 => Self::rand_foundry(ctx),

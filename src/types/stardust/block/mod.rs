@@ -146,6 +146,16 @@ mod rand {
                 nonce: rand_number(),
             }
         }
+
+        /// Generates a random [`Block`] with given parents.
+        pub fn rand_no_payload_with_parents(parents: Box<[BlockId]>) -> Self {
+            Self {
+                protocol_version: rand_number(),
+                parents,
+                payload: None,
+                nonce: rand_number(),
+            }
+        }
     }
 }
 
