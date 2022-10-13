@@ -5,9 +5,9 @@ use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
 
 use super::{
-    ledger::UnspentOutputMessage, milestone::MilestoneAndProtocolParametersMessage, node::NodeConfigurationMessage,
+    ledger::UnspentOutputMessage, milestone::{MilestoneAndProtocolParametersMessage, MilestoneMessage}, node::NodeConfigurationMessage,
     request::MilestoneRequest, InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage,
-    RawProtocolParametersMessage,
+    RawProtocolParametersMessage, block::BlockWithMetadataMessage,
 };
 
 /// An INX client connection.
@@ -109,13 +109,13 @@ impl Inx {
             .map(unpack_proto_msg))
     }
 
-    pub async fn read_milestone(&mut self, request: MilestoneRequest) -> Result<Milestone, Error> {
-        Milestone::try_from(
+    /// Convenience wrapper that reads the information for a given milestone.
+    pub async fn read_milestone(&mut self, request: MilestoneRequest) -> Result<MilestoneMessage, InxError> {
+        MilestoneMessage::try_from(
             self.inx
                 .read_milestone(proto::MilestoneRequest::from(request))
                 .await?
                 .into_inner(),
         )
-        .map_err(Error::InxError)
     }
 }

@@ -20,6 +20,7 @@ pub use self::{
     protocol::RawProtocolParametersMessage,
     raw::RawMessage,
     request::MilestoneRangeRequest,
+    block::{BlockWithMetadataMessage, BlockMetadataMessage, BlockMessage},
 };
 
 /// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.

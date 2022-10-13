@@ -12,7 +12,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::{Inx, LedgerUpdateMessage, Marker},
+    inx::{Inx, LedgerUpdateMessage, Marker, BlockWithMetadataMessage, InxError},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -23,7 +23,7 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 
-pub use self::{config::InxConfig, error::InxError};
+pub use self::{config::InxConfig, error::InxWriterError};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 10000;
@@ -46,11 +46,11 @@ impl InxWorker {
         }
     }
 
-    async fn connect(&self) -> Result<Inx, InxError> {
+    async fn connect(&self) -> Result<Inx, InxWriterError> {
         let url = url::Url::parse(&self.config.connect_url)?;
 
         if url.scheme() != "http" {
-            return Err(InxError::InvalidAddress(self.config.connect_url.clone()));
+            return Err(InxWriterError::InvalidAddress(self.config.connect_url.clone()));
         }
 
         for i in 0..self.config.connection_retry_count {
@@ -66,10 +66,10 @@ impl InxWorker {
                 }
             }
         }
-        Err(InxError::ConnectionError)
+        Err(InxWriterError::ConnectionError)
     }
 
-    pub async fn run(&mut self) -> Result<(), InxError> {
+    pub async fn run(&mut self) -> Result<(), InxWriterError> {
         let (start_index, mut inx) = self.init().await?;
 
         let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
@@ -86,7 +86,7 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxError> {
+    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxWriterError> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
@@ -110,12 +110,12 @@ impl InxWorker {
             .await?
         {
             if node_status.tangle_pruning_index.0 > latest_milestone.0 {
-                return Err(InxError::SyncMilestoneGap {
+                return Err(InxWriterError::SyncMilestoneGap {
                     start: latest_milestone + 1,
                     end: node_status.tangle_pruning_index.into(),
                 });
             } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
-                return Err(InxError::SyncMilestoneIndexMismatch {
+                return Err(InxWriterError::SyncMilestoneIndexMismatch {
                     node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
                     db: latest_milestone,
                 });
@@ -144,7 +144,7 @@ impl InxWorker {
         {
             let protocol_parameters = chronicle::types::tangle::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
-                return Err(InxError::NetworkChanged(
+                return Err(InxWriterError::NetworkChanged(
                     latest.parameters.network_name,
                     protocol_parameters.network_name,
                 ));
@@ -171,7 +171,7 @@ impl InxWorker {
                 .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
-                .map_err(|e| InxError::BeeInx(e.1))
+                .map_err(|e| InxWriterError::Inx(e.1))
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
@@ -217,14 +217,14 @@ async fn handle_ledger_update(
     db: &MongoDb,
     start_marker: LedgerUpdateMessage,
     stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
-) -> Result<(), InxError> {
+) -> Result<(), InxWriterError> {
     let start_time = std::time::Instant::now();
 
     let Marker {
         milestone_index,
         consumed_count,
         created_count,
-    } = start_marker.begin().ok_or(InxError::InvalidMilestoneState)?;
+    } = start_marker.begin().ok_or(InxWriterError::InvalidMilestoneState)?;
 
     trace!(
         "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
@@ -237,7 +237,7 @@ async fn handle_ledger_update(
     stream
         .by_ref()
         .take(consumed_count)
-        .map(|res| Ok(res?.consumed().ok_or(InxError::InvalidMilestoneState)?))
+        .map(|res| Ok(res?.consumed().ok_or(InxWriterError::InvalidMilestoneState)?))
         .inspect_ok(|_| {
             actual_consumed_count += 1;
         })
@@ -248,14 +248,14 @@ async fn handle_ledger_update(
         .try_fold(&mut tasks, |tasks, batch| async {
             let db = db.clone();
             tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
-            Result::<_, InxError>::Ok(tasks)
+            Result::<_, InxWriterError>::Ok(tasks)
         })
         .await?;
 
     stream
         .by_ref()
         .take(created_count)
-        .map(|res| Ok(res?.created().ok_or(InxError::InvalidMilestoneState)?))
+        .map(|res| Ok(res?.created().ok_or(InxWriterError::InvalidMilestoneState)?))
         .inspect_ok(|_| {
             actual_created_count += 1;
         })
@@ -266,7 +266,7 @@ async fn handle_ledger_update(
         .try_fold(&mut tasks, |tasks, batch| async {
             let db = db.clone();
             tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-            Result::<_, InxError>::Ok(tasks)
+            Result::<_, InxWriterError>::Ok(tasks)
         })
         .await?;
 
@@ -283,12 +283,12 @@ async fn handle_ledger_update(
         .try_next()
         .await?
         .and_then(LedgerUpdateMessage::end)
-        .ok_or(InxError::InvalidMilestoneState)?;
+        .ok_or(InxWriterError::InvalidMilestoneState)?;
     trace!(
         "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
     );
     if actual_created_count != created_count || actual_consumed_count != consumed_count {
-        return Err(InxError::InvalidLedgerUpdateCount {
+        return Err(InxWriterError::InvalidLedgerUpdateCount {
             received: actual_consumed_count + actual_created_count,
             expected: consumed_count + created_count,
         });
@@ -315,13 +315,13 @@ async fn handle_ledger_update(
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<(), InxError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<(), InxWriterError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
             output_collection.insert_unspent_outputs(outputs).await?;
-            Result::<_, InxError>::Ok(())
+            Result::<_, InxWriterError>::Ok(())
         },
         async {
             ledger_collection.insert_unspent_ledger_updates(outputs).await?;
@@ -332,7 +332,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxWriterError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -349,7 +349,7 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
 }
 
 #[instrument(skip_all, level = "trace")]
-async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWriterError> {
     let parameters = inx
         .read_protocol_parameters(milestone_index.0.into())
         .await?
@@ -364,7 +364,7 @@ async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: Mi
 }
 
 #[instrument(skip_all, err, level = "trace")]
-async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWriterError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
     let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
@@ -373,7 +373,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
     let milestone_id = milestone
         .milestone_info
         .milestone_id
-        .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
+        .ok_or(InxWriterError::MissingMilestoneInfo(milestone_index))?
         .into();
 
     let payload =
@@ -395,13 +395,13 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
 }
 
 #[instrument(skip(db, inx), err, level = "trace")]
-async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWriterError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let mut tasks = cone_stream
         .map(|res| {
-            let BlockWithMetadata { block, metadata } = res?;
-            Result::<_, InxError>::Ok((
+            let BlockWithMetadataMessage { block, metadata } = res?;
+            Result::<_, InxWriterError>::Ok((
                 metadata.block_id.into(),
                 block.clone().inner_unverified()?.into(),
                 block.data(),
@@ -436,7 +436,7 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
                 db.collection::<BlockCollection>()
                     .insert_blocks_with_metadata(batch)
                     .await?;
-                Result::<_, InxError>::Ok(())
+                Result::<_, InxWriterError>::Ok(())
             });
             Ok(tasks)
         })

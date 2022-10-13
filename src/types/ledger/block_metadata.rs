@@ -9,9 +9,6 @@ use crate::types::{stardust::block::BlockId, tangle::MilestoneIndex};
 /// Block metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockMetadata {
-    /// The id of the associated block.
-    #[serde(skip_serializing)]
-    pub block_id: BlockId,
     /// The parents of the corresponding block.
     pub parents: Box<[BlockId]>,
     /// Status of the solidification process.

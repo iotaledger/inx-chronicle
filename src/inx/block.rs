@@ -7,7 +7,7 @@ use inx::proto;
 use super::{InxError, RawMessage};
 use crate::{
     maybe_missing,
-    types::{ledger::BlockMetadata, stardust::block::BlockId},
+    types::{ledger::{LedgerInclusionState, ConflictReason, BlockMetadata}, stardust::block::BlockId, tangle::MilestoneIndex},
 };
 
 /// The [`Block`] type.
@@ -19,16 +19,42 @@ pub struct BlockMessage {
     pub block: RawMessage<bee::Block>,
 }
 
+// Unfortunately, we can't reuse the `BlockMetadata` because we also require the `block_id`.
+/// Block metadata.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockMetadataMessage {
+    /// The id of the associated block.
+    pub block_id: BlockId,
+    /// The parents of the corresponding block.
+    pub parents: Box<[BlockId]>,
+    /// Status of the solidification process.
+    pub is_solid: bool,
+    /// Indicates that the block should be promoted.
+    pub should_promote: bool,
+    /// Indicates that the block should be reattached.
+    pub should_reattach: bool,
+    /// The milestone index referencing the block.
+    pub referenced_by_milestone_index: MilestoneIndex,
+    /// The corresponding milestone index.
+    pub milestone_index: MilestoneIndex,
+    /// The inclusion state of the block.
+    pub inclusion_state: LedgerInclusionState,
+    /// If the ledger inclusion state is conflicting, the reason for the conflict.
+    pub conflict_reason: ConflictReason,
+    /// The index of this block in white flag order.
+    pub white_flag_index: u32,
+}
+
 /// The [`BlockWithMetadata`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockWithMetadataMessage {
-    /// The [`BlockMetadata`](BlockMetadata) of the block.
-    pub metadata: BlockMetadata,
+    /// The [`BlockMetadataMessage`](BlockMetadataMessage) of the block.
+    pub metadata: BlockMetadataMessage,
     /// The complete [`Block`](bee::Block) as raw bytes.
     pub block: RawMessage<bee::Block>,
 }
 
-impl TryFrom<inx::proto::BlockMetadata> for BlockMetadata {
+impl TryFrom<inx::proto::BlockMetadata> for BlockMetadataMessage {
     type Error = crate::inx::InxError;
 
     fn try_from(value: inx::proto::BlockMetadata) -> Result<Self, Self::Error> {
@@ -41,8 +67,8 @@ impl TryFrom<inx::proto::BlockMetadata> for BlockMetadata {
             .map(TryInto::try_into)
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(BlockMetadata {
-            block_id: maybe_missing!(value.block_id),
+        Ok(Self {
+            block_id: maybe_missing!(value.block_id).try_into()?,
             parents: parents.into_boxed_slice(),
             is_solid: value.solid,
             should_promote: value.should_promote,
@@ -67,8 +93,8 @@ impl TryFrom<proto::BlockWithMetadata> for BlockWithMetadataMessage {
     }
 }
 
-impl From<BlockMetadata> for proto::BlockMetadata {
-    fn from(value: BlockMetadata) -> Self {
+impl From<BlockMetadataMessage> for proto::BlockMetadata {
+    fn from(value: BlockMetadataMessage) -> Self {
         Self {
             block_id: Some(value.block_id.into()),
             parents: value.parents.into_vec().into_iter().map(Into::into).collect(),
@@ -109,6 +135,22 @@ impl From<BlockMessage> for proto::Block {
         Self {
             block_id: Some(value.block_id.into()),
             block: Some(value.block.into()),
+        }
+    }
+}
+
+impl From<BlockMetadataMessage> for BlockMetadata {
+    fn from(value: BlockMetadataMessage) -> Self {
+        Self {
+            parents: value.parents,
+            is_solid: value.is_solid,
+            should_reattach: value.should_reattach,
+            should_promote: value.should_promote,
+            milestone_index: value.milestone_index,
+            referenced_by_milestone_index: value.referenced_by_milestone_index,
+            inclusion_state: value.inclusion_state,
+            conflict_reason: value.conflict_reason,
+            white_flag_index: value.white_flag_index,
         }
     }
 }
