@@ -175,15 +175,13 @@ mod test_rand {
     }
 
     #[tokio::test]
-    async fn test_spent_unspent_ledger_updates() {
+    async fn test_insert_spent_ledger_updates() {
         let db = setup_db("test-spent-unspent-ledger-updates").await.unwrap();
         let update_collection = setup_coll::<LedgerUpdateCollection>(&db).await.unwrap();
 
         let ctx = bee_block_stardust::protocol::protocol_parameters();
 
-        let mut unspent_outputs = Vec::new();
-
-        let spent_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
+        let unspent_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
             .take(100)
             .map(|(block_id, output, output_id)| LedgerOutput {
                 block_id,
@@ -197,36 +195,31 @@ mod test_rand {
                     num_key_bytes: 0,
                     num_data_bytes: 100,
                 },
-            })
-            .inspect(|unspent_output| {
-                unspent_outputs.push(unspent_output.clone());
-            })
-            .enumerate()
-            .filter_map(|(i, booked_output)| {
-                if i % 2 == 0 {
-                    Some(LedgerSpent {
-                        output: booked_output,
-                        spent_metadata: SpentMetadata {
-                            transaction_id: OutputId::rand().transaction_id,
-                            spent: MilestoneIndexTimestamp {
-                                milestone_index: 1.into(),
-                                milestone_timestamp: 20000.into(),
-                            },
-                        },
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        assert_eq!(unspent_outputs.len(), 100);
-        assert_eq!(spent_outputs.len(), 50);
+            }).collect::<Vec<_>>();
 
         update_collection
             .insert_unspent_ledger_updates(unspent_outputs.iter())
             .await
             .unwrap();
+
+        assert_eq!(update_collection.count().await.unwrap(), 100);
+
+        let spent_outputs = unspent_outputs.into_iter().enumerate().filter_map(|(i, unspent_output)| {
+            if i % 2 == 0 {
+                Some(LedgerSpent {
+                    output: unspent_output,
+                    spent_metadata: SpentMetadata {
+                        transaction_id: OutputId::rand().transaction_id,
+                        spent: MilestoneIndexTimestamp {
+                            milestone_index: 1.into(),
+                            milestone_timestamp: 20000.into(),
+                        },
+                    },
+                })
+            } else {
+                None
+            }
+        }).collect::<Vec<_>>();
 
         update_collection
             .insert_spent_ledger_updates(spent_outputs.iter())
@@ -237,4 +230,5 @@ mod test_rand {
 
         teardown(db).await;
     }
+
 }
