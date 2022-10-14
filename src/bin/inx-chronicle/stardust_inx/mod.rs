@@ -8,8 +8,8 @@ use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
-            TreasuryCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, NodeConfigurationCollection,
+            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -135,14 +135,15 @@ impl InxWorker {
             .inner_unverified()?;
 
         let node_configuration = inx.read_node_configuration().await?;
-        let base_token = node_configuration.base_token;
 
         debug!(
             "Connected to network `{}` with base token `{}[{}]`.",
             protocol_parameters.network_name(),
-            base_token.name,
-            base_token.ticker_symbol
+            node_configuration.base_token.name,
+            node_configuration.base_token.ticker_symbol
         );
+
+        self.db.collection::<NodeConfigurationCollection>().update_node_configuration(node_configuration.into()).await?;
 
         if let Some(latest) = self
             .db

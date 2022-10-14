@@ -7,6 +7,8 @@
 pub mod context;
 #[cfg(feature = "stardust")]
 pub mod ledger;
+#[cfg(feature = "inx")]
+pub mod node;
 #[cfg(feature = "stardust")]
 pub mod stardust;
 #[cfg(feature = "stardust")]

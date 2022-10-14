@@ -3,6 +3,8 @@
 
 /// Module containing the Block document model.
 mod block;
+/// TODO
+mod node_configuration;
 /// Module containing the LedgerUpdate model.
 mod ledger_update;
 /// Module containing the Milestone document model.
@@ -20,6 +22,7 @@ use thiserror::Error;
 
 pub use self::{
     block::BlockCollection,
+    node_configuration::NodeConfigurationCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
     milestone::{MilestoneCollection, MilestoneResult, SyncData},
     outputs::{

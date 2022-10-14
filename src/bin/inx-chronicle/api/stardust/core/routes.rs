@@ -21,8 +21,8 @@ use bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult,
-            ProtocolUpdateCollection, TreasuryCollection, UtxoChangesResult,
+            BlockCollection, MilestoneCollection, NodeConfigurationCollection, OutputCollection, OutputMetadataResult,
+            OutputWithMetadataResult, ProtocolUpdateCollection, TreasuryCollection, UtxoChangesResult,
         },
         MongoDb,
     },
@@ -153,6 +153,15 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         milestone_id: latest_milestone.milestone_id.clone(),
     };
 
+    let base_token = database
+        .collection::<NodeConfigurationCollection>()
+        .get_latest_node_configuration()
+        .await?
+        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+            "no settings for the database",
+        )))?
+        .config.base_token;
+
     Ok(InfoResponse {
         name: "Chronicle".into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
@@ -177,12 +186,12 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         },
         // FIXME/TODO
         base_token: BaseTokenResponse {
-            name: "todo".to_string(),
-            ticker_symbol: "td".to_string(),
-            decimals: 6,
-            unit: "td".to_string(),
-            subunit: None,
-            use_metric_prefix: true,
+            name: base_token.name,
+            ticker_symbol: base_token.ticker_symbol,
+            decimals: base_token.decimals as u8,
+            unit: base_token.unit,
+            subunit: Some(base_token.subunit),
+            use_metric_prefix: base_token.use_metric_prefix,
         },
     })
 }
