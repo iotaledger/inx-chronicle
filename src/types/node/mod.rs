@@ -26,6 +26,7 @@ pub struct NodeConfiguration {
     pub supported_protocol_versions: Box<[u8]>,
 }
 
+#[cfg(feature = "inx")]
 impl From<bee_inx::NodeConfiguration> for NodeConfiguration {
     fn from(value: bee_inx::NodeConfiguration) -> Self {
         Self {

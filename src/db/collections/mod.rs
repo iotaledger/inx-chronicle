@@ -7,7 +7,7 @@ mod block;
 mod ledger_update;
 /// Module containing the Milestone document model.
 mod milestone;
-/// TODO
+/// Module containing the NodeConfiguration document model.
 mod node_configuration;
 /// Module containing Block outputs.
 mod outputs;
