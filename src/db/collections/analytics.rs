@@ -76,96 +76,6 @@ impl Analytics {
 }
 
 impl InfluxDb {
-    ///  Gets all analytics for a milestone index.
-    pub async fn get_all_analytics(
-        &self,
-        milestone_index: MilestoneIndex,
-    ) -> Result<Option<Analytics>, influxdb::Error> {
-        let Some(addresses) = self.get_address_analytics(milestone_index, milestone_index + 1).await? else {
-            return Ok(None);
-        };
-        let mut outputs = HashMap::new();
-        if let Some(res) = self
-            .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
-            .await?
-        {
-            outputs.insert(BasicOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        if let Some(res) = self
-            .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
-            .await?
-        {
-            outputs.insert(AliasOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        if let Some(res) = self
-            .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
-            .await?
-        {
-            outputs.insert(FoundryOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        if let Some(res) = self
-            .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
-            .await?
-        {
-            outputs.insert(NftOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        let mut unspent_outputs = HashMap::new();
-        if let Some(res) = self
-            .get_unspent_output_analytics::<BasicOutput>(milestone_index)
-            .await?
-        {
-            unspent_outputs.insert(BasicOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        if let Some(res) = self
-            .get_unspent_output_analytics::<AliasOutput>(milestone_index)
-            .await?
-        {
-            unspent_outputs.insert(AliasOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        if let Some(res) = self
-            .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
-            .await?
-        {
-            unspent_outputs.insert(FoundryOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        if let Some(res) = self.get_unspent_output_analytics::<NftOutput>(milestone_index).await? {
-            unspent_outputs.insert(NftOutput::kind().unwrap().to_string(), res);
-        } else {
-            return Ok(None);
-        };
-        let Some(storage_deposits) = self.get_storage_deposit_analytics(milestone_index).await? else {
-            return Ok(None);
-        };
-        let Some(claimed_tokens) = self.get_claimed_token_analytics(milestone_index).await? else {
-            return Ok(None);
-        };
-        let Some(milestone_activity) = self.get_milestone_activity_analytics(milestone_index).await? else {
-            return Ok(None);
-        };
-        Ok(Some(Analytics {
-            addresses,
-            outputs,
-            unspent_outputs,
-            storage_deposits,
-            claimed_tokens,
-            milestone_activity,
-        }))
-    }
-
     /// Insert all gathered analytics.
     pub async fn insert_all_analytics(
         &self,
@@ -220,7 +130,7 @@ impl InfluxDb {
 }
 
 impl MongoDb {
-    /// Gets all analytics for a milestone index, fetching the data from the provided mongo database.
+    /// Gets all analytics for a milestone index, fetching the data from the collections.
     pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
         let output_collection = self.collection::<OutputCollection>();
         let block_collection = self.collection::<BlockCollection>();
@@ -494,7 +404,10 @@ impl InfluxDbWriteable for OutputAnalyticsSchema {
             .add_tag("milestone_index", self.milestone_index)
             .add_tag("kind", self.kind)
             .add_field("count", self.analytics.count)
-            .add_field("total_value", self.analytics.total_value.to_string())
+            .add_field(
+                "total_value",
+                self.analytics.total_value.to_string().parse::<u64>().unwrap(),
+            )
     }
 }
 
@@ -577,10 +490,20 @@ impl InfluxDbWriteable for StorageDepositAnalyticsSchema {
             )
             .add_field(
                 "storage_deposit_return_total_value",
-                self.analytics.storage_deposit_return_total_value.to_string(),
+                self.analytics
+                    .storage_deposit_return_total_value
+                    .to_string()
+                    .parse::<u64>()
+                    .unwrap(),
             )
-            .add_field("total_key_bytes", self.analytics.total_key_bytes.to_string())
-            .add_field("total_data_bytes", self.analytics.total_data_bytes.to_string())
+            .add_field(
+                "total_key_bytes",
+                self.analytics.total_key_bytes.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field(
+                "total_data_bytes",
+                self.analytics.total_data_bytes.to_string().parse::<u64>().unwrap(),
+            )
     }
 }
 
@@ -631,7 +554,7 @@ impl InfluxDbWriteable for ClaimedTokensAnalyticsSchema {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
             .add_tag("milestone_index", self.milestone_index)
-            .add_field("count", self.analytics.count.to_string())
+            .add_field("count", self.analytics.count.to_string().parse::<u64>().unwrap())
     }
 }
 

@@ -33,6 +33,7 @@ pub const INSERT_BATCH_SIZE: usize = 10000;
 pub struct InxWorker {
     db: MongoDb,
     influx_db: InfluxDb,
+    analytics: Option<Analytics>,
     config: InxConfig,
 }
 
@@ -46,6 +47,7 @@ impl InxWorker {
         Self {
             db: db.clone(),
             influx_db: influx_db.clone(),
+            analytics: None,
             config: inx_config.clone(),
         }
     }
@@ -81,7 +83,7 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         while let Some(ledger_update) = stream.try_next().await? {
-            handle_ledger_update(&mut inx, &self.db, &self.influx_db, ledger_update, &mut stream).await?;
+            self.handle_ledger_update(&mut inx, ledger_update, &mut stream).await?;
         }
 
         tracing::debug!("INX stream closed unexpectedly.");
@@ -213,145 +215,268 @@ impl InxWorker {
 
         Ok((start_index, inx))
     }
-}
 
-#[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
-async fn handle_ledger_update(
-    inx: &mut Inx,
-    db: &MongoDb,
-    influx_db: &InfluxDb,
-    start_marker: bee_inx::LedgerUpdate,
-    stream: &mut (impl futures::Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>> + Unpin),
-) -> Result<(), InxError> {
-    let start_time = std::time::Instant::now();
+    #[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
+    async fn handle_ledger_update(
+        &mut self,
+        inx: &mut Inx,
+        start_marker: bee_inx::LedgerUpdate,
+        stream: &mut (impl futures::Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>> + Unpin),
+    ) -> Result<(), InxError> {
+        let start_time = std::time::Instant::now();
 
-    let bee_inx::Marker {
-        milestone_index,
-        consumed_count,
-        created_count,
-    } = start_marker.begin().ok_or(InxError::InvalidMilestoneState)?;
+        let bee_inx::Marker {
+            milestone_index,
+            consumed_count,
+            created_count,
+        } = start_marker.begin().ok_or(InxError::InvalidMilestoneState)?;
 
-    trace!(
-        "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
-    );
+        trace!(
+            "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
+        );
 
-    let mut analytics = Analytics::default();
-    let prev_analytics = match influx_db.get_all_analytics((milestone_index - 1).into()).await? {
-        Some(res) => res,
-        None => db.get_all_analytics((milestone_index - 1).into()).await?,
-    };
+        let mut analytics = Analytics::default();
+        let prev_analytics = match self.analytics.take() {
+            Some(res) => res,
+            None => self.db.get_all_analytics((milestone_index - 1).into()).await?,
+        };
 
-    // Only want to accumulate some of the analytics.
-    analytics.storage_deposits = prev_analytics.storage_deposits;
-    analytics.unspent_outputs = prev_analytics.unspent_outputs;
-    let analytics = Arc::new(Mutex::new(analytics.processor()));
+        // Only want to accumulate some of the analytics.
+        analytics.storage_deposits = prev_analytics.storage_deposits;
+        analytics.unspent_outputs = prev_analytics.unspent_outputs;
+        let analytics = Arc::new(Mutex::new(analytics.processor()));
 
-    let mut tasks = JoinSet::new();
-    let mut actual_created_count = 0;
-    let mut actual_consumed_count = 0;
+        let mut tasks = JoinSet::new();
+        let mut actual_created_count = 0;
+        let mut actual_consumed_count = 0;
 
-    stream
-        .by_ref()
-        .take(consumed_count)
-        .map(|res| {
-            Ok(OutputDocument::from(LedgerSpent::try_from(
-                res?.consumed().ok_or(InxError::InvalidMilestoneState)?,
-            )?))
-        })
-        .inspect_ok(|_| {
-            actual_consumed_count += 1;
-        })
-        .try_chunks(INSERT_BATCH_SIZE)
-        // We only care if we had an error, so discard the other data
-        .map_err(|e| e.1)
-        // Convert batches to tasks
-        .try_fold(&mut tasks, |tasks, batch| async {
-            let db = db.clone();
-            let analytics = analytics.clone();
-            tasks.spawn(async move {
-                analytics.lock().await.process_outputs(&batch);
-                update_spent_outputs(&db, &batch).await
+        stream
+            .by_ref()
+            .take(consumed_count)
+            .map(|res| {
+                Ok(OutputDocument::from(LedgerSpent::try_from(
+                    res?.consumed().ok_or(InxError::InvalidMilestoneState)?,
+                )?))
+            })
+            .inspect_ok(|_| {
+                actual_consumed_count += 1;
+            })
+            .try_chunks(INSERT_BATCH_SIZE)
+            // We only care if we had an error, so discard the other data
+            .map_err(|e| e.1)
+            // Convert batches to tasks
+            .try_fold(&mut tasks, |tasks, batch| async {
+                let db = self.db.clone();
+                let analytics = analytics.clone();
+                tasks.spawn(async move {
+                    analytics.lock().await.process_outputs(&batch);
+                    update_spent_outputs(&db, &batch).await
+                });
+                Result::<_, InxError>::Ok(tasks)
+            })
+            .await?;
+
+        stream
+            .by_ref()
+            .take(created_count)
+            .map(|res| {
+                Ok(OutputDocument::from(LedgerOutput::try_from(
+                    res?.created().ok_or(InxError::InvalidMilestoneState)?,
+                )?))
+            })
+            .inspect_ok(|_| {
+                actual_created_count += 1;
+            })
+            .try_chunks(INSERT_BATCH_SIZE)
+            // We only care if we had an error, so discard the other data
+            .map_err(|e| e.1)
+            // Convert batches to tasks
+            .try_fold(&mut tasks, |tasks, batch| async {
+                let db = self.db.clone();
+                let analytics = analytics.clone();
+                tasks.spawn(async move {
+                    analytics.lock().await.process_outputs(&batch);
+                    insert_unspent_outputs(&db, &batch).await
+                });
+                Result::<_, InxError>::Ok(tasks)
+            })
+            .await?;
+
+        while let Some(res) = tasks.join_next().await {
+            // Panic: Acceptable risk
+            res.unwrap()?;
+        }
+
+        let bee_inx::Marker {
+            milestone_index,
+            consumed_count,
+            created_count,
+        } = stream
+            .try_next()
+            .await?
+            .and_then(bee_inx::LedgerUpdate::end)
+            .ok_or(InxError::InvalidMilestoneState)?;
+        trace!(
+            "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
+        );
+        if actual_created_count != created_count || actual_consumed_count != consumed_count {
+            return Err(InxError::InvalidLedgerUpdateCount {
+                received: actual_consumed_count + actual_created_count,
+                expected: consumed_count + created_count,
             });
-            Result::<_, InxError>::Ok(tasks)
-        })
+        }
+
+        let milestone_index = MilestoneIndex::from(milestone_index);
+
+        // Record the result as part of the current span.
+        tracing::Span::current().record("milestone_index", milestone_index.0);
+        tracing::Span::current().record("created", created_count);
+        tracing::Span::current().record("consumed", consumed_count);
+
+        self.handle_cone_stream(inx, &analytics, milestone_index).await?;
+        self.handle_protocol_params(inx, milestone_index).await?;
+
+        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
+        self.handle_milestone(
+            inx,
+            milestone_index,
+            // Panic: Cannot fail as all other references are held by the tasks and we await them above.
+            Arc::try_unwrap(analytics).unwrap().into_inner().finish(),
+        )
         .await?;
 
-    stream
-        .by_ref()
-        .take(created_count)
-        .map(|res| {
-            Ok(OutputDocument::from(LedgerOutput::try_from(
-                res?.created().ok_or(InxError::InvalidMilestoneState)?,
-            )?))
-        })
-        .inspect_ok(|_| {
-            actual_created_count += 1;
-        })
-        .try_chunks(INSERT_BATCH_SIZE)
-        // We only care if we had an error, so discard the other data
-        .map_err(|e| e.1)
-        // Convert batches to tasks
-        .try_fold(&mut tasks, |tasks, batch| async {
-            let db = db.clone();
-            let analytics = analytics.clone();
-            tasks.spawn(async move {
-                analytics.lock().await.process_outputs(&batch);
-                insert_unspent_outputs(&db, &batch).await
-            });
-            Result::<_, InxError>::Ok(tasks)
-        })
-        .await?;
+        let elapsed = start_time.elapsed();
 
-    while let Some(res) = tasks.join_next().await {
-        // Panic: Acceptable risk
-        res.unwrap()?;
+        metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
+
+        Ok(())
     }
 
-    let bee_inx::Marker {
-        milestone_index,
-        consumed_count,
-        created_count,
-    } = stream
-        .try_next()
-        .await?
-        .and_then(bee_inx::LedgerUpdate::end)
-        .ok_or(InxError::InvalidMilestoneState)?;
-    trace!(
-        "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
-    );
-    if actual_created_count != created_count || actual_consumed_count != consumed_count {
-        return Err(InxError::InvalidLedgerUpdateCount {
-            received: actual_consumed_count + actual_created_count,
-            expected: consumed_count + created_count,
-        });
+    #[instrument(skip_all, level = "trace")]
+    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+        let parameters = inx
+            .read_protocol_parameters(milestone_index.0.into())
+            .await?
+            .params
+            .inner(&())?;
+
+        self.db
+            .collection::<ProtocolUpdateCollection>()
+            .update_latest_protocol_parameters(milestone_index, parameters.into())
+            .await?;
+
+        Ok(())
     }
 
-    let milestone_index = MilestoneIndex::from(milestone_index);
+    #[instrument(skip_all, err, level = "trace")]
+    async fn handle_milestone(
+        &mut self,
+        inx: &mut Inx,
+        milestone_index: MilestoneIndex,
+        analytics: Analytics,
+    ) -> Result<(), InxError> {
+        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
-    // Record the result as part of the current span.
-    tracing::Span::current().record("milestone_index", milestone_index.0);
-    tracing::Span::current().record("created", created_count);
-    tracing::Span::current().record("consumed", consumed_count);
+        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
 
-    handle_cone_stream(db, inx, &analytics, milestone_index).await?;
-    handle_protocol_params(db, inx, milestone_index).await?;
+        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
 
-    // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-    handle_milestone(
-        db,
-        influx_db,
-        inx,
-        milestone_index,
-        // Panic: Cannot fail as all other references are held by the tasks and we await them above.
-        Arc::try_unwrap(analytics).unwrap().into_inner().finish(),
-    )
-    .await?;
+        self.influx_db
+            .insert_all_analytics(milestone_timestamp, milestone_index, analytics.clone())
+            .await?;
 
-    let elapsed = start_time.elapsed();
+        self.analytics.replace(analytics);
 
-    metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
+        let milestone_id = milestone
+            .milestone_info
+            .milestone_id
+            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
+            .into();
 
-    Ok(())
+        let payload =
+            if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
+                chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
+            } else {
+                // The raw data is guaranteed to contain a milestone payload.
+                unreachable!();
+            };
+
+        self.db
+            .collection::<MilestoneCollection>()
+            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+            .await?;
+
+        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
+        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
+
+        Ok(())
+    }
+
+    #[instrument(skip(self), err, level = "trace")]
+    async fn handle_cone_stream(
+        &mut self,
+        inx: &mut Inx,
+        analytics: &Arc<Mutex<AnalyticsProcessor>>,
+        milestone_index: MilestoneIndex,
+    ) -> Result<(), InxError> {
+        let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+
+        let mut tasks = cone_stream
+            .map(|res| {
+                let bee_inx::BlockWithMetadata { block, metadata } = res?;
+                Result::<_, InxError>::Ok((
+                    metadata.block_id.into(),
+                    block.clone().inner_unverified()?.into(),
+                    block.data(),
+                    BlockMetadata::from(metadata),
+                ))
+            })
+            .try_chunks(INSERT_BATCH_SIZE)
+            .map_err(|e| e.1)
+            .try_fold(JoinSet::new(), |mut tasks, batch| async {
+                let db = self.db.clone();
+                let analytics = analytics.clone();
+                tasks.spawn(async move {
+                    let payloads = batch
+                        .iter()
+                        .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
+                            if metadata.inclusion_state == LedgerInclusionState::Included {
+                                if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
+                                    return Some((
+                                        metadata.referenced_by_milestone_index,
+                                        payload.input_milestone_id,
+                                        payload.output_amount,
+                                    ));
+                                }
+                            }
+                            None
+                        })
+                        .collect::<Vec<_>>();
+                    if !payloads.is_empty() {
+                        db.collection::<TreasuryCollection>()
+                            .insert_treasury_payloads(payloads)
+                            .await?;
+                    }
+                    analytics
+                        .lock()
+                        .await
+                        .process_blocks(batch.iter().map(|(_, block, _, metadata)| (block, metadata)));
+                    db.collection::<BlockCollection>()
+                        .insert_blocks_with_metadata(batch)
+                        .await?;
+                    Result::<_, InxError>::Ok(())
+                });
+                Ok(tasks)
+            })
+            .await?;
+
+        while let Some(res) = tasks.join_next().await {
+            // Panic: Acceptable risk
+            res.unwrap()?;
+        }
+
+        Ok(())
+    }
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
@@ -386,127 +511,4 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Resul
         }
     }
     .and(Ok(()))
-}
-
-#[instrument(skip_all, level = "trace")]
-async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
-    let parameters = inx
-        .read_protocol_parameters(milestone_index.0.into())
-        .await?
-        .params
-        .inner(&())?;
-
-    db.collection::<ProtocolUpdateCollection>()
-        .update_latest_protocol_parameters(milestone_index, parameters.into())
-        .await?;
-
-    Ok(())
-}
-
-#[instrument(skip_all, err, level = "trace")]
-async fn handle_milestone(
-    db: &MongoDb,
-    influx_db: &InfluxDb,
-    inx: &mut Inx,
-    milestone_index: MilestoneIndex,
-    analytics: Analytics,
-) -> Result<(), InxError> {
-    let milestone = inx.read_milestone(milestone_index.0.into()).await?;
-
-    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
-
-    let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-
-    influx_db
-        .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-        .await?;
-
-    let milestone_id = milestone
-        .milestone_info
-        .milestone_id
-        .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
-        .into();
-
-    let payload =
-        if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
-            chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
-        } else {
-            // The raw data is guaranteed to contain a milestone payload.
-            unreachable!();
-        };
-
-    db.collection::<MilestoneCollection>()
-        .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
-        .await?;
-
-    metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
-    metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
-
-    Ok(())
-}
-
-#[instrument(skip(db, inx), err, level = "trace")]
-async fn handle_cone_stream(
-    db: &MongoDb,
-    inx: &mut Inx,
-    analytics: &Arc<Mutex<AnalyticsProcessor>>,
-    milestone_index: MilestoneIndex,
-) -> Result<(), InxError> {
-    let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
-
-    let mut tasks = cone_stream
-        .map(|res| {
-            let bee_inx::BlockWithMetadata { block, metadata } = res?;
-            Result::<_, InxError>::Ok((
-                metadata.block_id.into(),
-                block.clone().inner_unverified()?.into(),
-                block.data(),
-                BlockMetadata::from(metadata),
-            ))
-        })
-        .try_chunks(INSERT_BATCH_SIZE)
-        .map_err(|e| e.1)
-        .try_fold(JoinSet::new(), |mut tasks, batch| async {
-            let db = db.clone();
-            let analytics = analytics.clone();
-            tasks.spawn(async move {
-                let payloads = batch
-                    .iter()
-                    .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-                        if metadata.inclusion_state == LedgerInclusionState::Included {
-                            if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
-                                return Some((
-                                    metadata.referenced_by_milestone_index,
-                                    payload.input_milestone_id,
-                                    payload.output_amount,
-                                ));
-                            }
-                        }
-                        None
-                    })
-                    .collect::<Vec<_>>();
-                if !payloads.is_empty() {
-                    db.collection::<TreasuryCollection>()
-                        .insert_treasury_payloads(payloads)
-                        .await?;
-                }
-                analytics
-                    .lock()
-                    .await
-                    .process_blocks(batch.iter().map(|(_, block, _, metadata)| (block, metadata)));
-                db.collection::<BlockCollection>()
-                    .insert_blocks_with_metadata(batch)
-                    .await?;
-                Result::<_, InxError>::Ok(())
-            });
-            Ok(tasks)
-        })
-        .await?;
-
-    while let Some(res) = tasks.join_next().await {
-        // Panic: Acceptable risk
-        res.unwrap()?;
-    }
-
-    Ok(())
 }
