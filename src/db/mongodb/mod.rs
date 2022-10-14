@@ -32,7 +32,7 @@ impl MongoDb {
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
-        let mut client_options = ClientOptions::parse(&config.connect_url).await?;
+        let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
         client_options.min_pool_size = config.min_pool_size;
@@ -150,7 +150,7 @@ impl MongoDb {
 #[serde(default, deny_unknown_fields)]
 pub struct MongoDbConfig {
     /// The bind address of the database.
-    pub connect_url: String,
+    pub conn_str: String,
     /// The MongoDB username.
     pub username: Option<String>,
     /// The MongoDB password.
@@ -164,7 +164,7 @@ pub struct MongoDbConfig {
 impl Default for MongoDbConfig {
     fn default() -> Self {
         Self {
-            connect_url: MongoDb::DEFAULT_CONNECT_URL.to_string(),
+            conn_str: MongoDb::DEFAULT_CONNECT_URL.to_string(),
             username: None,
             password: None,
             database_name: MongoDb::DEFAULT_NAME.to_string(),

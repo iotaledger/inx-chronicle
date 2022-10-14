@@ -181,7 +181,7 @@ impl BlockCollection {
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
                     doc! { "$limit": page_size as i64 },
-                    doc! { "$replaceWith": { "block_id": "$metadata.block_id" } },
+                    doc! { "$replaceWith": { "block_id": "$_id" } },
                 ],
                 None,
             )

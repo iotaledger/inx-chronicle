@@ -5,26 +5,20 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-
     use chronicle::{
-        db::{
-            collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
-            MongoDbCollection,
-        },
+        db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{output::OutputId, payload::TransactionId, BlockId, Output},
         },
     };
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_outputs() {
-        let db = connect_to_test_db("test-outputs").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<OutputCollection>();
-        collection.create_indexes().await.unwrap();
+        let db = setup_database("test-outputs").await.unwrap();
+        let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let protocol_params = bee_block_stardust::protocol::protocol_parameters();
 
@@ -45,11 +39,11 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.insert_unspent_outputs(&outputs).await.unwrap();
+        output_collection.insert_unspent_outputs(&outputs).await.unwrap();
 
         for output in &outputs {
             assert_eq!(
-                collection
+                output_collection
                     .get_spending_transaction_metadata(&output.output_id)
                     .await
                     .unwrap()
@@ -60,14 +54,14 @@ mod test_rand {
 
         for output in &outputs {
             assert_eq!(
-                collection.get_output(&output.output_id).await.unwrap().as_ref(),
+                output_collection.get_output(&output.output_id).await.unwrap().as_ref(),
                 Some(&output.output),
             );
         }
 
         for output in &outputs {
             assert_eq!(
-                collection
+                output_collection
                     .get_output_metadata(&output.output_id, 1.into())
                     .await
                     .unwrap(),
@@ -82,7 +76,7 @@ mod test_rand {
 
         for output in &outputs {
             assert_eq!(
-                collection
+                output_collection
                     .get_output_with_metadata(&output.output_id, 1.into())
                     .await
                     .unwrap(),
@@ -112,18 +106,22 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.update_spent_outputs(&outputs).await.unwrap();
+        output_collection.update_spent_outputs(&outputs).await.unwrap();
 
         for output in &outputs {
             assert_eq!(
-                collection.get_output(&output.output.output_id).await.unwrap().as_ref(),
+                output_collection
+                    .get_output(&output.output.output_id)
+                    .await
+                    .unwrap()
+                    .as_ref(),
                 Some(&output.output.output),
             );
         }
 
         for output in &outputs {
             assert_eq!(
-                collection
+                output_collection
                     .get_output_metadata(&output.output.output_id, 1.into())
                     .await
                     .unwrap(),
@@ -138,7 +136,7 @@ mod test_rand {
 
         for output in &outputs {
             assert_eq!(
-                collection
+                output_collection
                     .get_output_with_metadata(&output.output.output_id, 1.into())
                     .await
                     .unwrap(),
@@ -156,7 +154,7 @@ mod test_rand {
 
         for output in &outputs {
             assert_eq!(
-                collection
+                output_collection
                     .get_spending_transaction_metadata(&output.output.output_id)
                     .await
                     .unwrap()
@@ -165,6 +163,6 @@ mod test_rand {
             );
         }
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 }

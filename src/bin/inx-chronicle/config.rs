@@ -37,41 +37,6 @@ impl ChronicleConfig {
             .map_err(|e| ConfigError::FileRead(path.as_ref().display().to_string(), e))
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))
     }
-
-    /// Applies command line arguments to the config.
-    pub fn apply_cl_args(&mut self, args: &super::cli::ClArgs) {
-        if let Some(connect_url) = &args.db_addr {
-            self.mongodb.connect_url = connect_url.clone();
-        }
-        #[cfg(all(feature = "stardust", feature = "inx"))]
-        {
-            if let Some(inx) = &args.inx_addr {
-                self.inx.connect_url = inx.clone();
-            }
-            if let Some(enabled) = args.enable_inx {
-                self.inx.enabled = enabled;
-            }
-        }
-        #[cfg(feature = "api")]
-        {
-            if let Some(password) = &args.password {
-                self.api.password_hash = hex::encode(
-                    auth_helper::password::password_hash(password.as_bytes(), self.api.password_salt.as_bytes())
-                        .expect("invalid JWT config"),
-                );
-            }
-            if let Some(path) = &args.identity {
-                self.api.identity_path.replace(path.clone());
-            }
-            if let Some(enabled) = args.enable_api {
-                self.api.enabled = enabled;
-            }
-        }
-
-        if let Some(enabled) = args.enable_metrics {
-            self.metrics.enabled = enabled;
-        }
-    }
 }
 
 #[cfg(test)]

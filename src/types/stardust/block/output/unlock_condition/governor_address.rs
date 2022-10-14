@@ -8,8 +8,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
 
+/// Defines the Governor Address that owns this output, that is, it can unlock it with the proper Unlock in a
+/// transaction that governance transitions the alias output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GovernorAddressUnlockCondition {
+    /// The associated address of this [`GovernorAddressUnlockCondition`].
     pub address: Address,
 }
 

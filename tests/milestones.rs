@@ -6,23 +6,21 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::{collections::MilestoneCollection, MongoDbCollection},
+        db::collections::MilestoneCollection,
         types::stardust::block::payload::{MilestoneId, MilestonePayload},
     };
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup_collection, setup_database, teardown};
 
     #[tokio::test]
     async fn test_milestones() {
-        let db = connect_to_test_db("test-milestones").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<MilestoneCollection>();
-        collection.create_indexes().await.unwrap();
+        let db = setup_database("test-milestones").await.unwrap();
+        let milestone_collection = setup_collection::<MilestoneCollection>(&db).await.unwrap();
 
         let milestone = MilestonePayload::rand(&bee_block_stardust::protocol::protocol_parameters());
         let milestone_id = MilestoneId::rand();
 
-        collection
+        milestone_collection
             .insert_milestone(
                 milestone_id,
                 milestone.essence.index,
@@ -33,12 +31,15 @@ mod test_rand {
             .unwrap();
 
         assert_eq!(
-            collection.get_milestone_id(milestone.essence.index).await.unwrap(),
+            milestone_collection
+                .get_milestone_id(milestone.essence.index)
+                .await
+                .unwrap(),
             Some(milestone_id),
         );
 
         assert_eq!(
-            collection
+            milestone_collection
                 .get_milestone_payload_by_id(&milestone_id)
                 .await
                 .unwrap()
@@ -47,7 +48,7 @@ mod test_rand {
         );
 
         assert_eq!(
-            collection
+            milestone_collection
                 .get_milestone_payload(milestone.essence.index)
                 .await
                 .unwrap()
@@ -55,6 +56,6 @@ mod test_rand {
             Some(&milestone)
         );
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 }
