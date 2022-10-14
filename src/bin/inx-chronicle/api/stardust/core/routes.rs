@@ -158,7 +158,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .get_latest_node_configuration()
         .await?
         .ok_or(ApiError::Internal(InternalApiError::CorruptState(
-            "no settings for the database",
+            "no node configuration in the database",
         )))?
         .config.base_token;
 
