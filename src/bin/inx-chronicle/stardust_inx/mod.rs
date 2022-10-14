@@ -143,7 +143,10 @@ impl InxWorker {
             node_configuration.base_token.ticker_symbol
         );
 
-        self.db.collection::<NodeConfigurationCollection>().update_node_configuration(node_configuration.into()).await?;
+        self.db
+            .collection::<NodeConfigurationCollection>()
+            .update_node_configuration(node_configuration.into())
+            .await?;
 
         if let Some(latest) = self
             .db

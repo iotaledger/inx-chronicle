@@ -160,7 +160,8 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .ok_or(ApiError::Internal(InternalApiError::CorruptState(
             "no node configuration in the database",
         )))?
-        .config.base_token;
+        .config
+        .base_token;
 
     Ok(InfoResponse {
         name: "Chronicle".into(),

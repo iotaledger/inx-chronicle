@@ -3,12 +3,12 @@
 
 /// Module containing the Block document model.
 mod block;
-/// TODO
-mod node_configuration;
 /// Module containing the LedgerUpdate model.
 mod ledger_update;
 /// Module containing the Milestone document model.
 mod milestone;
+/// TODO
+mod node_configuration;
 /// Module containing Block outputs.
 mod outputs;
 /// Module containing the protocol parameters collection.
@@ -22,9 +22,9 @@ use thiserror::Error;
 
 pub use self::{
     block::BlockCollection,
-    node_configuration::NodeConfigurationCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
     milestone::{MilestoneCollection, MilestoneResult, SyncData},
+    node_configuration::NodeConfigurationCollection,
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
