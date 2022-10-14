@@ -5,7 +5,6 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-
     use bee_block_stardust::rand::number::rand_number_range;
     use chronicle::{
         db::{collections::ProtocolUpdateCollection, MongoDbCollectionExt},

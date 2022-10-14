@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::util::bytify;
 
 /// Uniquely identifies a milestone.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct MilestoneId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// The index of a given milestone.
 #[derive(
-    Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut,
+    Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut, Hash,
 )]
 #[serde(transparent)]
 pub struct MilestoneIndex(pub u32);
