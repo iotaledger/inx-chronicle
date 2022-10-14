@@ -134,7 +134,15 @@ impl InxWorker {
             .params
             .inner_unverified()?;
 
-        debug!("Connected to network `{}`.", protocol_parameters.network_name());
+        let node_configuration = inx.read_node_configuration().await?;
+        let base_token = node_configuration.base_token;
+
+        debug!(
+            "Connected to network `{}` with base token `{}[{}]`.",
+            protocol_parameters.network_name(),
+            base_token.name,
+            base_token.ticker_symbol
+        );
 
         if let Some(latest) = self
             .db

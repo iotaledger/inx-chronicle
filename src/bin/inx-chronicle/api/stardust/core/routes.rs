@@ -12,9 +12,9 @@ use axum::{
 use bee_api_types_stardust::{
     dtos::ReceiptDto,
     responses::{
-        BlockMetadataResponse, BlockResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse, MilestoneResponse,
-        OutputMetadataResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse, StatusResponse,
-        TreasuryResponse, UtxoChangesResponse,
+        BaseTokenResponse, BlockMetadataResponse, BlockResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse,
+        MilestoneResponse, OutputMetadataResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse,
+        StatusResponse, TreasuryResponse, UtxoChangesResponse,
     },
 };
 use bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto;
@@ -156,6 +156,12 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
     Ok(InfoResponse {
         name: "Chronicle".into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
+        status: StatusResponse {
+            is_healthy,
+            latest_milestone,
+            confirmed_milestone,
+            pruning_index: oldest_milestone.milestone_index.0 - 1,
+        },
         protocol: ProtocolResponse {
             version: protocol.version,
             network_name: protocol.network_name,
@@ -169,11 +175,14 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             },
             token_supply: protocol.token_supply.to_string(),
         },
-        status: StatusResponse {
-            is_healthy,
-            latest_milestone,
-            confirmed_milestone,
-            pruning_index: oldest_milestone.milestone_index.0 - 1,
+        // FIXME/TODO
+        base_token: BaseTokenResponse {
+            name: "todo".to_string(),
+            ticker_symbol: "td".to_string(),
+            decimals: 6,
+            unit: "td".to_string(),
+            subunit: None,
+            use_metric_prefix: true,
         },
     })
 }

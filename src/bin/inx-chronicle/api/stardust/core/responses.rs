@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_api_types_stardust::responses::{ProtocolResponse, StatusResponse};
+use bee_api_types_stardust::responses::{BaseTokenResponse, ProtocolResponse, StatusResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -14,6 +14,7 @@ pub struct InfoResponse {
     pub version: String,
     pub status: StatusResponse,
     pub protocol: ProtocolResponse,
+    pub base_token: BaseTokenResponse,
 }
 
 impl_success_response!(InfoResponse);
