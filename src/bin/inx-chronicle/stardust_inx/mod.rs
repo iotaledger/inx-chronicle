@@ -116,7 +116,7 @@ impl InxWorker {
                 });
             } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
                 return Err(InxWriterError::SyncMilestoneIndexMismatch {
-                    node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
+                    node: node_status.confirmed_milestone.milestone_info.milestone_index,
                     db: latest_milestone,
                 });
             } else {
@@ -294,7 +294,7 @@ async fn handle_ledger_update(
         });
     }
 
-    let milestone_index = MilestoneIndex::from(milestone_index);
+    let milestone_index = milestone_index;
 
     // Record the result as part of the current span.
     tracing::Span::current().record("milestone_index", milestone_index.0);
@@ -371,7 +371,7 @@ async fn handle_protocol_params(
 async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWriterError> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
-    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
     let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
     let milestone_id = milestone
