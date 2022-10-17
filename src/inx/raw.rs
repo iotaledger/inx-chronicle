@@ -22,7 +22,7 @@ impl<T: Packable> RawMessage<T> {
         self.data
     }
 
-    /// Unpack the raw data into a type `T` using 
+    /// Unpack the raw data into a type `T` using
     /// [`ProtocolParameters`](bee_block_stardust::protocol::ProtocolParameters) to verify the bytes.
     pub fn inner(self, visitor: &T::UnpackVisitor) -> Result<T, InxError> {
         let unpacked =
