@@ -61,6 +61,7 @@ pub struct RentStructureBytes {
     pub num_data_bytes: u64,
 }
 
+#[cfg(feature = "inx")]
 fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
     use bee_block_stardust::output::{Rent, RentStructureBuilder};
 
