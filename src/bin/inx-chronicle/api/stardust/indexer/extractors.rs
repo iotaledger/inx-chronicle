@@ -102,7 +102,9 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
         let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -195,7 +197,9 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
         let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -277,7 +281,9 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
         let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -356,7 +362,9 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
         let Query(query) = Query::<NftOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;

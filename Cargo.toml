@@ -27,6 +27,7 @@ bytesize = { version = "1.1", default-features = false }
 clap = { version = "4.0", default-features = false, features = ["env", "derive", "std", "help", "usage", "error-context", "wrap_help"] }
 derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut" ] }
 dotenvy = { version = "0.15", default-features = false }
+eyre = { version = "0.6", default-features = false, features = [ "track-caller" ] }
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }

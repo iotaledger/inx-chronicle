@@ -58,7 +58,8 @@ async fn ledger_updates_by_address(
             cursor,
             sort,
         )
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     // Take all of the requested records first
     let items = record_stream
@@ -66,10 +67,11 @@ async fn ledger_updates_by_address(
         .take(page_size)
         .map_ok(Into::into)
         .try_collect()
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     // If any record is left, use it to make the cursor
-    let cursor = record_stream.try_next().await?.map(|rec| {
+    let cursor = record_stream.try_next().await.map_err(ApiError::internal)?.map(|rec| {
         LedgerUpdatesByAddressCursor {
             milestone_index: rec.at.milestone_index,
             output_id: rec.output_id,
@@ -92,7 +94,8 @@ async fn ledger_updates_by_milestone(
     let milestone_index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NotFound)?
         .essence
         .index;
@@ -100,7 +103,8 @@ async fn ledger_updates_by_milestone(
     let mut record_stream = database
         .collection::<LedgerUpdateCollection>()
         .get_ledger_updates_by_milestone(milestone_index, page_size + 1, cursor)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     // Take all of the requested records first
     let items = record_stream
@@ -108,10 +112,11 @@ async fn ledger_updates_by_milestone(
         .take(page_size)
         .map_ok(Into::into)
         .try_collect()
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     // If any record is left, use it to make the paging state
-    let cursor = record_stream.try_next().await?.map(|rec| {
+    let cursor = record_stream.try_next().await.map_err(ApiError::internal)?.map(|rec| {
         LedgerUpdatesByMilestoneCursor {
             output_id: rec.output_id,
             page_size,
@@ -131,13 +136,15 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> A
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
     let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
     let res = database
         .collection::<OutputCollection>()
         .get_address_balance(address, ledger_index)
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
 
     Ok(BalanceResponse {
@@ -160,7 +167,7 @@ async fn block_children(
         .map_err(|_| ApiError::NoResults)?;
 
     let mut children = Vec::new();
-    while let Some(block_id) = block_children.try_next().await? {
+    while let Some(block_id) = block_children.try_next().await.map_err(ApiError::internal)? {
         children.push(block_id.to_hex());
     }
 
@@ -185,7 +192,8 @@ async fn milestones(
     let mut record_stream = database
         .collection::<MilestoneCollection>()
         .get_milestones(start_timestamp, end_timestamp, sort, page_size + 1, cursor)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     // Take all of the requested records first
     let items = record_stream
@@ -193,10 +201,11 @@ async fn milestones(
         .take(page_size)
         .map_ok(Into::into)
         .try_collect()
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     // If any record is left, use it to make the paging state
-    let cursor = record_stream.try_next().await?.map(|rec| {
+    let cursor = record_stream.try_next().await.map_err(ApiError::internal)?.map(|rec| {
         MilestonesCursor {
             milestone_index: rec.index,
             page_size,

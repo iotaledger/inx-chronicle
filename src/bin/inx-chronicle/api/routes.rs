@@ -65,12 +65,17 @@ async fn login(
         config.password_salt.as_bytes(),
         &config.password_hash,
         Into::into(&config.argon_config),
-    )? {
+    )
+    .map_err(ApiError::internal)?
+    {
         let jwt = JsonWebToken::new(
-            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)?
-                .expires_after_duration(config.jwt_expiration)?,
+            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)
+                .map_err(ApiError::internal)?
+                .expires_after_duration(config.jwt_expiration)
+                .map_err(ApiError::internal)?,
             config.secret_key.as_ref(),
-        )?;
+        )
+        .map_err(ApiError::internal)?;
 
         Ok(format!("Bearer {}", jwt))
     } else {
@@ -133,7 +138,8 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
         let newest = match database
             .collection::<MilestoneCollection>()
             .get_newest_milestone()
-            .await?
+            .await
+            .map_err(ApiError::internal)?
         {
             Some(last) => last,
             None => return Ok(false),

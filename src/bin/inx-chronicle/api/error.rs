@@ -4,12 +4,11 @@
 use std::{num::ParseIntError, str::ParseBoolError};
 
 use axum::{
-    extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
+    extract::rejection::{QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
 use chronicle::db::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
-use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
 use thiserror::Error;
 use tracing::error;
@@ -17,29 +16,8 @@ use tracing::error;
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
 pub enum InternalApiError {
-    #[cfg(feature = "stardust")]
-    #[error(transparent)]
-    BeeStardust(#[from] bee_block_stardust::Error),
-    #[error(transparent)]
-    BsonDeserialize(#[from] mongodb::bson::de::Error),
     #[error("corrupt state: {0}")]
     CorruptState(&'static str),
-    #[error(transparent)]
-    Config(#[from] ConfigError),
-    #[error(transparent)]
-    ExtensionRejection(#[from] ExtensionRejection),
-    #[error(transparent)]
-    Hyper(#[from] hyper::Error),
-    #[error(transparent)]
-    Jwt(#[from] auth_helper::jwt::Error),
-    #[error(transparent)]
-    MongoDb(#[from] mongodb::error::Error),
-    #[error(transparent)]
-    PasswordHash(#[from] auth_helper::password::Error),
-    #[error(transparent)]
-    UrlEncoding(#[from] serde_urlencoded::de::Error),
-    #[error(transparent)]
-    ValueAccess(#[from] ValueAccessError),
 }
 
 #[derive(Error, Debug)]
@@ -47,21 +25,21 @@ pub enum InternalApiError {
 pub enum ApiError {
     #[error(transparent)]
     BadParse(#[from] ParseError),
-    #[error("Invalid time range")]
+    #[error("invalid time range")]
     BadTimeRange,
-    #[error("Invalid password provided")]
+    #[error("invalid password provided")]
     IncorrectPassword,
-    #[error("Internal server error")]
-    Internal(InternalApiError),
-    #[error(transparent)]
+    #[error("internal server error")]
+    Internal(#[from] Box<dyn std::error::Error + Send + Sync>),
+    #[error("invalid JWT provided: {0}")]
     InvalidJwt(auth_helper::jwt::Error),
-    #[error(transparent)]
+    #[error("invalid authorization header provided: {0}")]
     InvalidAuthHeader(#[from] TypedHeaderRejection),
-    #[error("No results returned")]
+    #[error("no results returned")]
     NoResults,
-    #[error("No endpoint found")]
+    #[error("no endpoint found")]
     NotFound,
-    #[error("Endpoint not implemented")]
+    #[error("endpoint not implemented")]
     NotImplemented,
     #[error(transparent)]
     QueryError(#[from] QueryRejection),
@@ -89,13 +67,11 @@ impl ApiError {
 
     /// Creates a new ApiError from a bad parse.
     pub fn bad_parse(err: impl Into<ParseError>) -> Self {
-        ApiError::BadParse(err.into())
+        Self::BadParse(err.into())
     }
-}
 
-impl<T: Into<InternalApiError>> From<T> for ApiError {
-    fn from(err: T) -> Self {
-        ApiError::Internal(err.into())
+    pub fn internal(err: impl 'static + std::error::Error + Send + Sync) -> Self {
+        Self::Internal(Box::new(err) as _)
     }
 }
 
@@ -107,37 +83,33 @@ impl IntoResponse for ApiError {
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[allow(dead_code)]
-    #[error("Invalid cursor")]
+    #[error("invalid cursor")]
     BadPagingState,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
     BeeBlockStardust(#[from] bee_block_stardust::Error),
-    #[error(transparent)]
+    #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
-    #[error(transparent)]
+    #[error("invalid U256 value provided: {0}")]
     DecimalU256(#[from] uint::FromDecStrErr),
-    #[error(transparent)]
+    #[error("invalid integer value provided: {0}")]
     Int(#[from] ParseIntError),
-    #[error(transparent)]
+    #[error("invalid sort order provided: {0}")]
     SortOrder(#[from] ParseSortError),
-    #[error(transparent)]
-    TimeRange(#[from] time::error::ComponentRange),
 }
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error(transparent)]
+    #[error("invalid allow-origin header in config: {0}")]
     InvalidHeader(#[from] InvalidHeaderValue),
-    #[error(transparent)]
+    #[error("invalid hex value in config: {0}")]
     InvalidHex(#[from] hex::FromHexError),
-    #[error("Invalid regex in config: {0}")]
+    #[error("invalid regex in config: {0}")]
     InvalidRegex(#[from] regex::Error),
-    #[error(transparent)]
+    #[error("invalid secret key: {0}")]
     SecretKey(#[from] super::secret_key::SecretKeyError),
-    #[error(transparent)]
-    TimeConversion(#[from] time::error::ConversionRange),
 }
+
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
     #[serde(skip_serializing)]

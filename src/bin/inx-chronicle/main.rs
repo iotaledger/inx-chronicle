@@ -8,7 +8,6 @@
 mod api;
 mod cli;
 mod config;
-mod error;
 mod metrics;
 mod process;
 #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -21,10 +20,10 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
-use crate::{cli::ClArgs, error::Error};
+use crate::cli::ClArgs;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> eyre::Result<()> {
     dotenvy::dotenv().ok();
     set_up_logging();
 
@@ -73,7 +72,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    let mut tasks: JoinSet<Result<(), Error>> = JoinSet::new();
+    let mut tasks: JoinSet<eyre::Result<()>> = JoinSet::new();
 
     let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
 
@@ -97,7 +96,7 @@ async fn main() -> Result<(), Error> {
         use futures::FutureExt;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
+            let worker = api::ApiWorker::new(&db, &config.api)?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });

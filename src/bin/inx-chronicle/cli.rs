@@ -3,10 +3,7 @@
 
 use clap::{Parser, Subcommand};
 
-use crate::{
-    config::{ChronicleConfig, ConfigError},
-    error::Error,
-};
+use crate::config::{ChronicleConfig, ConfigError};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -101,7 +98,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
+    pub fn process_subcommands(&self, config: &ChronicleConfig) -> eyre::Result<bool> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]

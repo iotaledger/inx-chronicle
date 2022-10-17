@@ -81,7 +81,9 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
         let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         let sort = query
             .sort
@@ -160,7 +162,9 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
         let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
@@ -229,7 +233,9 @@ impl<B: Send> FromRequest<B> for MilestonesPagination {
         let Query(query) = Query::<MilestonesPaginationQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         if matches!((query.start_timestamp, query.end_timestamp), (Some(start), Some(end)) if end < start) {
             return Err(ApiError::BadTimeRange);

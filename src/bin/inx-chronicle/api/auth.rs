@@ -21,7 +21,9 @@ impl<B: Send> FromRequest<B> for Auth {
         // Unwrap: <OriginalUri as FromRequest>::Rejection = Infallable
         let OriginalUri(uri) = OriginalUri::from_request(req).await.unwrap();
 
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
 
         if config.public_routes.is_match(&uri.to_string()) {
             return Ok(Auth);

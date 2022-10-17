@@ -57,7 +57,7 @@ impl ApiWorker {
         })
     }
 
-    pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> Result<(), ApiError> {
+    pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> eyre::Result<()> {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;

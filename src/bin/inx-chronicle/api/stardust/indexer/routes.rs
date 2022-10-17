@@ -58,13 +58,15 @@ where
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
     let id = ID::from_str(&id).map_err(ApiError::bad_parse)?;
     let res = database
         .collection::<OutputCollection>()
         .get_indexed_output_by_id(id, ledger_index)
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
     Ok(IndexerOutputsResponse {
         ledger_index,
@@ -89,7 +91,8 @@ where
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
     let res = database
         .collection::<OutputCollection>()
@@ -102,7 +105,8 @@ where
             include_spent,
             ledger_index,
         )
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     let mut iter = res.outputs.iter();
 

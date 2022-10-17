@@ -73,7 +73,8 @@ async fn address_activity_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_address_analytics(start_index, end_index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
@@ -91,7 +92,8 @@ async fn milestone_activity_analytics(
     let activity = database
         .collection::<BlockCollection>()
         .get_milestone_activity(index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.num_blocks,
@@ -119,7 +121,8 @@ async fn milestone_activity_analytics_by_id(
     let index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NotFound)?
         .essence
         .index;
@@ -127,7 +130,8 @@ async fn milestone_activity_analytics_by_id(
     let activity = database
         .collection::<BlockCollection>()
         .get_milestone_activity(index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.num_blocks,
@@ -153,7 +157,8 @@ async fn output_activity_analytics<O: OutputKind>(
     let res = database
         .collection::<OutputCollection>()
         .get_output_analytics::<O>(start_index, end_index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -168,7 +173,8 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
     let res = database
         .collection::<OutputCollection>()
         .get_unspent_output_analytics::<O>(resolve_ledger_index(&database, ledger_index).await?)
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
 
     Ok(OutputAnalyticsResponse {
@@ -185,13 +191,17 @@ async fn storage_deposit_ledger_analytics(
     let protocol_params = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
-        .await?
-        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::internal(InternalApiError::CorruptState(
+            "no protocol parameters",
+        )))?
         .parameters;
     let res = database
         .collection::<OutputCollection>()
         .get_storage_deposit_analytics(ledger_index, protocol_params)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),
@@ -216,7 +226,8 @@ async fn nft_activity_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_nft_output_analytics(start_index, end_index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),
@@ -232,7 +243,8 @@ async fn native_token_activity_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_foundry_output_analytics(start_index, end_index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),
@@ -249,13 +261,17 @@ async fn richest_addresses_ledger_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     let hrp = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
-        .await?
-        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::internal(InternalApiError::CorruptState(
+            "no protocol parameters",
+        )))?
         .parameters
         .bech32_hrp;
 
@@ -280,7 +296,8 @@ async fn token_distribution_ledger_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
-        .await?;
+        .await
+        .map_err(ApiError::internal)?;
 
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
@@ -297,7 +314,8 @@ async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<Milestone
         database
             .collection::<MilestoneCollection>()
             .get_ledger_index()
-            .await?
+            .await
+            .map_err(ApiError::internal)?
             .ok_or(ApiError::NoResults)?
     })
 }
@@ -309,7 +327,8 @@ async fn claimed_tokens_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_claimed_token_analytics(ledger_index)
-        .await?
+        .await
+        .map_err(ApiError::internal)?
         .ok_or(ApiError::NoResults)?;
 
     Ok(ClaimedTokensAnalyticsResponse { count: res.count })

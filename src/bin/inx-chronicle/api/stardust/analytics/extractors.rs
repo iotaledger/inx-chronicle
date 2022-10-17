@@ -37,7 +37,9 @@ impl<B: Send> FromRequest<B> for RichestAddressesQuery {
         let Query(mut query) = Query::<RichestAddressesQuery>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
         query.top = query.top.min(config.max_page_size);
         Ok(query)
     }

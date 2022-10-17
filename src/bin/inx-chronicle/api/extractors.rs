@@ -34,7 +34,9 @@ impl<B: Send> FromRequest<B> for Pagination {
         let Query(mut pagination) = Query::<Pagination>::from_request(req)
             .await
             .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+        let Extension(config) = Extension::<ApiData>::from_request(req)
+            .await
+            .map_err(ApiError::internal)?;
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
