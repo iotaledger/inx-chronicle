@@ -60,7 +60,7 @@ impl Deref for InfluxDb {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InfluxDbConfig {
-    /// The bind address of the database.
+    /// The address of the InfluxDb instance.
     pub url: String,
     /// The InfluxDb username.
     pub username: String,
