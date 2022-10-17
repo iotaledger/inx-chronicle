@@ -16,6 +16,7 @@ pub struct RawMessage<T: Packable> {
 }
 
 impl<T: Packable> RawMessage<T> {
+    /// Retrieves the underlying raw data.
     #[must_use]
     pub fn data(self) -> Vec<u8> {
         self.data
@@ -29,6 +30,8 @@ impl<T: Packable> RawMessage<T> {
         Ok(unpacked)
     }
 
+    /// Unpack the raw data into a type `T` without performing syntactic or semantic validation. This is useful if the
+    /// type is guaranteed to be well-formed, for example when it was transmitted via the INX interface.
     pub fn inner_unverified(self) -> Result<T, InxError> {
         let unpacked = T::unpack_unverified(self.data).map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
         Ok(unpacked)
@@ -85,7 +88,6 @@ mod test {
     use bee_block_stardust::{payload::Payload, rand::output::rand_output};
 
     use super::*;
-    use crate::types::tangle::ProtocolParameters;
 
     #[test]
     fn raw_output() {
@@ -99,15 +101,6 @@ mod test {
         let raw: RawMessage<bee_block_stardust::output::Output> = proto.into();
         assert_eq!(output, raw.clone().inner_unverified().unwrap());
         assert_eq!(output, raw.inner(&protocol_parameters).unwrap());
-    }
-
-    #[test]
-    fn raw_protocol_parameters() {
-        let protocol_parameters = bee_block_stardust::protocol::protocol_parameters();
-        let proto = proto::RawProtocolParameters::from(protocol_parameters.clone());
-
-        let pp: ProtocolParameters = proto.into();
-        assert_eq!(protocol_parameters, pp.params.inner(&()).unwrap());
     }
 
     #[test]

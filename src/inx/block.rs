@@ -7,7 +7,11 @@ use inx::proto;
 use super::{InxError, RawMessage};
 use crate::{
     maybe_missing,
-    types::{ledger::{LedgerInclusionState, ConflictReason, BlockMetadata}, stardust::block::BlockId, tangle::MilestoneIndex},
+    types::{
+        ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
+        stardust::block::BlockId,
+        tangle::MilestoneIndex,
+    },
 };
 
 /// The [`BlockMessage`] type.

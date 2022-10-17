@@ -5,9 +5,12 @@ use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
 
 use super::{
-    ledger::UnspentOutputMessage, milestone::{MilestoneAndProtocolParametersMessage, MilestoneMessage}, node::NodeConfigurationMessage,
-    request::MilestoneRequest, InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage,
-    RawProtocolParametersMessage, block::BlockWithMetadataMessage,
+    block::BlockWithMetadataMessage,
+    ledger::UnspentOutputMessage,
+    milestone::{MilestoneAndProtocolParametersMessage, MilestoneMessage},
+    node::NodeConfigurationMessage,
+    request::MilestoneRequest,
+    InxError, LedgerUpdateMessage, MilestoneRangeRequest, NodeStatusMessage, RawProtocolParametersMessage,
 };
 
 /// An INX client connection.

@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing convenience wrappers around the low-level [`INX`](inx) bindings.
+
 mod block;
 mod client;
 mod error;
@@ -13,6 +15,7 @@ mod raw;
 mod request;
 
 pub use self::{
+    block::{BlockMessage, BlockMetadataMessage, BlockWithMetadataMessage},
     client::Inx,
     error::InxError,
     ledger::{LedgerUpdateMessage, Marker},
@@ -20,7 +23,6 @@ pub use self::{
     protocol::RawProtocolParametersMessage,
     raw::RawMessage,
     request::MilestoneRangeRequest,
-    block::{BlockWithMetadataMessage, BlockMetadataMessage, BlockMessage},
 };
 
 /// Tries to access the field of a protobug messages and returns an appropriate error if the field is not present.

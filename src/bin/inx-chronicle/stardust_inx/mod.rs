@@ -12,7 +12,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::{Inx, LedgerUpdateMessage, Marker, BlockWithMetadataMessage, InxError},
+    inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, Marker},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -349,7 +349,11 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
 }
 
 #[instrument(skip_all, level = "trace")]
-async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWriterError> {
+async fn handle_protocol_params(
+    db: &MongoDb,
+    inx: &mut Inx,
+    milestone_index: MilestoneIndex,
+) -> Result<(), InxWriterError> {
     let parameters = inx
         .read_protocol_parameters(milestone_index.0.into())
         .await?
@@ -395,7 +399,11 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
 }
 
 #[instrument(skip(db, inx), err, level = "trace")]
-async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWriterError> {
+async fn handle_cone_stream(
+    db: &MongoDb,
+    inx: &mut Inx,
+    milestone_index: MilestoneIndex,
+) -> Result<(), InxWriterError> {
     let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
     let mut tasks = cone_stream
