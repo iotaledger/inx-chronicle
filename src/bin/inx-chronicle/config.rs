@@ -3,7 +3,7 @@
 
 use std::{fs, path::Path};
 
-use chronicle::db::{InfluxDbConfig, MongoDbConfig};
+use chronicle::db::MongoDbConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -23,7 +23,8 @@ pub enum ConfigError {
 #[serde(default)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
-    pub influxdb: InfluxDbConfig,
+    #[cfg(all(feature = "stardust", feature = "inx"))]
+    pub influxdb: chronicle::db::InfluxDbConfig,
     #[cfg(feature = "api")]
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]

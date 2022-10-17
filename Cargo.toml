@@ -31,7 +31,6 @@ dotenvy = { version = "0.15", default-features = false }
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
-influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ] }
 mongodb = { version = "2.2", default-features = false, features = [ "tokio-runtime" ] }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.4.0", default-features = false, features = [ "primitive-types" ] }
@@ -70,6 +69,7 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 
 # INX
 bee-inx = { version = "1.0.0-beta.6", default-features = false, optional = true }
+influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
@@ -114,6 +114,7 @@ api = [
 ]
 inx = [ 
     "dep:bee-inx",
+    "dep:influxdb",
     "dep:packable",
     "dep:tonic",
 ]

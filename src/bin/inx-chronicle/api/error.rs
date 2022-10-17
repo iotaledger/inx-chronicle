@@ -31,8 +31,6 @@ pub enum InternalApiError {
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
-    InfluxDb(#[from] influxdb::Error),
-    #[error(transparent)]
     Jwt(#[from] auth_helper::jwt::Error),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
