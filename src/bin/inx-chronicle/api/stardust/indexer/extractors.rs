@@ -11,7 +11,7 @@ use axum::{
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
     types::{
-        stardust::block::{output::OutputId, Address},
+        stardust::block::{output::OutputId, Address, BlockId},
         tangle::MilestoneIndex,
     },
 };
@@ -424,6 +424,90 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
             cursor,
             sort,
             include_spent: query.include_spent.unwrap_or_default(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Default, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct BlocksPaginationQuery {
+    pub tag: String,
+    pub page_size: Option<usize>,
+    pub cursor: Option<String>,
+    pub sort: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IndexedBlocksPagination {
+    pub tag: String,
+    pub page_size: usize,
+    pub cursor: Option<(MilestoneIndex, BlockId)>,
+    pub sort: SortOrder,
+}
+
+#[derive(Clone)]
+pub struct IndexedBlocksCursor {
+    pub milestone_index: MilestoneIndex,
+    pub block_id: BlockId,
+    pub page_size: usize,
+}
+
+impl FromStr for IndexedBlocksCursor {
+    type Err = ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.split('.').collect();
+        Ok(match parts[..] {
+            [ms, o, ps] => IndexedBlocksCursor {
+                milestone_index: ms.parse().map_err(ApiError::bad_parse)?,
+                block_id: o.parse().map_err(ApiError::bad_parse)?,
+                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+            },
+            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+        })
+    }
+}
+
+impl Display for IndexedBlocksCursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}.{}.{}",
+            self.milestone_index,
+            self.block_id.to_hex(),
+            self.page_size
+        )
+    }
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for IndexedBlocksPagination {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksPaginationQuery>::from_request(req)
+            .await
+            .map_err(ApiError::QueryError)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+
+        let (cursor, page_size) = if let Some(cursor) = query.cursor {
+            let cursor: IndexedBlocksCursor = cursor.parse()?;
+            (Some((cursor.milestone_index, cursor.block_id)), cursor.page_size)
+        } else {
+            (None, query.page_size.unwrap_or(DEFAULT_PAGE_SIZE))
+        };
+
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(ParseError::SortOrder)?;
+
+        Ok(IndexedBlocksPagination {
+            tag: query.tag,
+            page_size: page_size.min(config.max_page_size),
+            cursor,
+            sort,
         })
     }
 }

@@ -16,3 +16,13 @@ pub struct IndexerOutputsResponse {
 }
 
 impl_success_response!(IndexerOutputsResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexerBlocksResponse {
+    pub items: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl_success_response!(IndexerBlocksResponse);

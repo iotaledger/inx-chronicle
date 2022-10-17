@@ -3,7 +3,7 @@
 
 use futures::{Stream, TryStreamExt};
 use mongodb::{
-    bson::doc,
+    bson::{self, doc},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -11,6 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::SortOrder;
 use crate::{
     db::{
         collections::OutputCollection,
@@ -88,8 +89,31 @@ impl MongoDbCollection for BlockCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "block.payload.tag": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("block_tag_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "block.payload.tag": { "$exists": true },
+                            "metadata.inclusion_state": { "$eq": LedgerInclusionState::Included },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         Ok(())
     }
+}
+
+#[derive(Deserialize)]
+pub struct IndexedBlockResult {
+    pub block_id: BlockId,
+    pub milestone_index: MilestoneIndex,
 }
 
 /// Implements the queries for the core API.
@@ -179,14 +203,61 @@ impl BlockCollection {
                 vec![
                     doc! { "$match": { "block.parents": block_id } },
                     doc! { "$skip": (page_size * page) as i64 },
-                    doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
+                    doc! { "$sort": { "metadata.referenced_by_milestone_index": -1 } },
                     doc! { "$limit": page_size as i64 },
-                    doc! { "$replaceWith": { "block_id": "$metadata.block_id" } },
+                    doc! { "$replaceWith": { "block_id": "$_id" } },
                 ],
                 None,
             )
             .await?
             .map_ok(|BlockIdResult { block_id }| block_id))
+    }
+
+    /// Get tagged data [`Block`]s by tag as a stream of [`BlockId`]s.
+    pub async fn get_indexed_block(
+        &self,
+        tag: &str,
+        page_size: usize,
+        cursor: Option<(MilestoneIndex, BlockId)>,
+        order: SortOrder,
+    ) -> Result<impl Stream<Item = Result<IndexedBlockResult, Error>>, Error> {
+        let (sort, cmp1, cmp2) = match order {
+            SortOrder::Newest => (
+                doc! { "metadata.referenced_by_milestone_index": -1, "_id": -1 },
+                "$lt",
+                "$lte",
+            ),
+            SortOrder::Oldest => (
+                doc! { "metadata.referenced_by_milestone_index": 1, "_id": 1 },
+                "$gt",
+                "$gte",
+            ),
+        };
+
+        let mut queries = vec![doc! { "block.payload.tag": bson::to_bson(serde_bytes::Bytes::new(tag.as_bytes()))? }];
+        if let Some((start_ms, start_block_id)) = cursor {
+            queries.push(doc! { "$or": [
+                doc! { "metadata.referenced_by_milestone_index": { cmp1: start_ms } },
+                doc! {
+                    "metadata.referenced_by_milestone_index": start_ms,
+                    "_id": { cmp2: start_block_id }
+                },
+            ] });
+        }
+
+        self.aggregate(
+            vec![
+                doc! { "$match": { "$and": queries } },
+                doc! { "$sort": sort },
+                doc! { "$limit": page_size as i64 },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "milestone_index": "$metadata.referenced_by_milestone_index"
+                } },
+            ],
+            None,
+        )
+        .await
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
