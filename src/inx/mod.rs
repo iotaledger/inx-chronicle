@@ -31,6 +31,6 @@ macro_rules! maybe_missing {
     ($object:ident.$field:ident) => {
         $object
             .$field
-            .ok_or(crate::inx::InxError::MissingField(stringify!($field)))?
+            .ok_or($crate::inx::InxError::MissingField(stringify!($field)))?
     };
 }

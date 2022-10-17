@@ -112,7 +112,7 @@ impl InxWorker {
             if node_status.tangle_pruning_index.0 > latest_milestone.0 {
                 return Err(InxWriterError::SyncMilestoneGap {
                     start: latest_milestone + 1,
-                    end: node_status.tangle_pruning_index.into(),
+                    end: node_status.tangle_pruning_index,
                 });
             } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
                 return Err(InxWriterError::SyncMilestoneIndexMismatch {
@@ -125,7 +125,7 @@ impl InxWorker {
         } else {
             self.config
                 .sync_start_milestone
-                .max((node_status.tangle_pruning_index + 1).into())
+                .max(node_status.tangle_pruning_index + 1)
         };
 
         let protocol_parameters = inx
@@ -237,7 +237,7 @@ async fn handle_ledger_update(
     stream
         .by_ref()
         .take(consumed_count)
-        .map(|res| Ok(res?.consumed().ok_or(InxWriterError::InvalidMilestoneState)?))
+        .map(|res| res?.consumed().ok_or(InxWriterError::InvalidMilestoneState))
         .inspect_ok(|_| {
             actual_consumed_count += 1;
         })
@@ -255,7 +255,7 @@ async fn handle_ledger_update(
     stream
         .by_ref()
         .take(created_count)
-        .map(|res| Ok(res?.created().ok_or(InxWriterError::InvalidMilestoneState)?))
+        .map(|res| res?.created().ok_or(InxWriterError::InvalidMilestoneState))
         .inspect_ok(|_| {
             actual_created_count += 1;
         })
@@ -377,8 +377,7 @@ async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: Mileston
     let milestone_id = milestone
         .milestone_info
         .milestone_id
-        .ok_or(InxWriterError::MissingMilestoneInfo(milestone_index))?
-        .into();
+        .ok_or(InxWriterError::MissingMilestoneInfo(milestone_index))?;
 
     let payload =
         if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
@@ -410,7 +409,7 @@ async fn handle_cone_stream(
         .map(|res| {
             let BlockWithMetadataMessage { block, metadata } = res?;
             Result::<_, InxWriterError>::Ok((
-                metadata.block_id.into(),
+                metadata.block_id,
                 block.clone().inner_unverified()?.into(),
                 block.data(),
                 BlockMetadata::from(metadata),
