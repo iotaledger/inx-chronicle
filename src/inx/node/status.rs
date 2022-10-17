@@ -9,7 +9,7 @@ use crate::{
     types::tangle::MilestoneIndex,
 };
 
-/// The [`NodeStatus`] type.
+/// The [`NodeStatusMessage`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeStatusMessage {
     /// Signals if the node is healthy.

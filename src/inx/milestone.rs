@@ -10,7 +10,7 @@ use crate::{
     types::{stardust::block::payload::MilestoneId, tangle::MilestoneIndex},
 };
 
-/// The [`Milestone`] type.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MilestoneMessage {
     /// Information about the milestone.
@@ -42,7 +42,7 @@ impl TryFrom<MilestoneMessage> for proto::Milestone {
     }
 }
 
-/// The [`Milestone`] type.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MilestoneAndProtocolParametersMessage {
     pub milestone: MilestoneMessage,
@@ -71,7 +71,7 @@ impl TryFrom<MilestoneAndProtocolParametersMessage> for proto::MilestoneAndProto
     }
 }
 
-/// The [`MilestoneInfo`] type.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MilestoneInfoMessage {
     /// The [`MilestoneId`] of the milestone.

@@ -6,7 +6,7 @@ use inx::proto;
 
 use crate::{inx::InxError, maybe_missing};
 
-/// The [`BaseToken`] type.
+/// The [`BaseTokenMessage`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BaseTokenMessage {
     pub name: String,
@@ -70,7 +70,8 @@ impl From<MilestoneKeyRangeMessage> for proto::MilestoneKeyRange {
     }
 }
 
-/// The [`NodeConfiguration`] type.
+/// The [`NodeConfigurationMessage`] type.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeConfigurationMessage {
     pub milestone_public_key_count: u32,
