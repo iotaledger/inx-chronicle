@@ -10,7 +10,7 @@ use crate::{
     types::{ledger::{LedgerInclusionState, ConflictReason, BlockMetadata}, stardust::block::BlockId, tangle::MilestoneIndex},
 };
 
-/// The [`Block`] type.
+/// The [`BlockMessage`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockMessage {
     /// The [`BlockId`] of the block.
@@ -45,7 +45,7 @@ pub struct BlockMetadataMessage {
     pub white_flag_index: u32,
 }
 
-/// The [`BlockWithMetadata`] type.
+/// The [`BlockWithMetadataMessage`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockWithMetadataMessage {
     /// The [`BlockMetadataMessage`](BlockMetadataMessage) of the block.
