@@ -111,29 +111,6 @@ mod inx {
         }
     }
 
-    // #[cfg(feature = "inx")]
-    // impl crate::types::context::TryFromWithContext<::inx::proto::LedgerOutput> for LedgerOutput {
-    //     type Error = InxError;
-
-    //     fn try_from_with_context(
-    //         ctx: &bee_block_stardust::protocol::ProtocolParameters,
-    //         value: ::inx::proto::LedgerOutput,
-    //     ) -> Result<Self, Self::Error> {
-    //         let bee_output = value.output.inner(ctx)?;
-
-    //         Ok(Self {
-    //             rent_structure: compute_rent_structure(&bee_output),
-    //             output: Into::into(&bee_output),
-    //             output_id: value.output_id.into(),
-    //             block_id: value.block_id.into(),
-    //             booked: MilestoneIndexTimestamp {
-    //                 milestone_index: value.milestone_index_booked.into(),
-    //                 milestone_timestamp: value.milestone_timestamp_booked.into(),
-    //             },
-    //         })
-    //     }
-    // }
-
     #[cfg(feature = "inx")]
     impl TryFrom<::inx::proto::LedgerSpent> for LedgerSpent {
         type Error = InxError;
@@ -153,29 +130,6 @@ mod inx {
             })
         }
     }
-
-    // #[cfg(feature = "inx")]
-    // impl crate::types::context::TryFromWithContext<bee_inx::LedgerSpent> for LedgerSpent {
-    //     type Error = bee_inx::Error;
-
-    //     fn try_from_with_context(
-    //         ctx: &bee_block_stardust::protocol::ProtocolParameters,
-    //         value: bee_inx::LedgerSpent,
-    //     ) -> Result<Self, Self::Error> {
-    //         let output = LedgerOutput::try_from_with_context(ctx, value.output)?;
-
-    //         Ok(Self {
-    //             output,
-    //             spent_metadata: SpentMetadata {
-    //                 transaction_id: value.transaction_id_spent.into(),
-    //                 spent: MilestoneIndexTimestamp {
-    //                     milestone_index: value.milestone_index_spent.into(),
-    //                     milestone_timestamp: value.milestone_timestamp_spent.into(),
-    //                 },
-    //             },
-    //         })
-    //     }
-    // }
 }
 
 #[cfg(test)]

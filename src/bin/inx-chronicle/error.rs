@@ -16,7 +16,7 @@ pub enum Error {
     Api(#[from] super::api::ApiError),
     #[cfg(feature = "inx")]
     #[error(transparent)]
-    Inx(#[from] super::stardust_inx::InxWriterError),
+    Inx(#[from] super::stardust_inx::InxWorkerError),
     #[error(transparent)]
     Shutdown(#[from] tokio::sync::broadcast::error::SendError<()>),
 }

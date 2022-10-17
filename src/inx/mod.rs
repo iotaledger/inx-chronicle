@@ -18,7 +18,7 @@ pub use self::{
     block::{BlockMessage, BlockMetadataMessage, BlockWithMetadataMessage},
     client::Inx,
     error::InxError,
-    ledger::{LedgerUpdateMessage, Marker, UnspentOutputMessage},
+    ledger::{LedgerUpdateMessage, MarkerMessage, UnspentOutputMessage},
     milestone::MilestoneAndProtocolParametersMessage,
     node::{NodeConfigurationMessage, NodeStatusMessage},
     protocol::RawProtocolParametersMessage,

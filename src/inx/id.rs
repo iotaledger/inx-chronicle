@@ -63,5 +63,3 @@ impl From<OutputId> for inx::proto::OutputId {
         }
     }
 }
-
-// TODO: Should we write test cases for all the id types here?

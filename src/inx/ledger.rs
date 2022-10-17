@@ -23,7 +23,7 @@ pub struct UnspentOutputMessage {
 
 #[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Marker {
+pub struct MarkerMessage {
     pub milestone_index: MilestoneIndex,
     pub consumed_count: usize,
     pub created_count: usize,
@@ -34,8 +34,8 @@ pub struct Marker {
 pub enum LedgerUpdateMessage {
     Consumed(LedgerSpent),
     Created(LedgerOutput),
-    Begin(Marker),
-    End(Marker),
+    Begin(MarkerMessage),
+    End(MarkerMessage),
 }
 
 impl LedgerUpdateMessage {
@@ -56,7 +56,7 @@ impl LedgerUpdateMessage {
     }
 
     /// If present, returns the `Marker` that denotes the beginning of a milestone while consuming `self`.
-    pub fn begin(self) -> Option<Marker> {
+    pub fn begin(self) -> Option<MarkerMessage> {
         match self {
             Self::Begin(marker) => Some(marker),
             _ => None,
@@ -64,7 +64,7 @@ impl LedgerUpdateMessage {
     }
 
     /// If present, returns the `Marker` that denotes the end if present while consuming `self`.
-    pub fn end(self) -> Option<Marker> {
+    pub fn end(self) -> Option<MarkerMessage> {
         match self {
             Self::End(marker) => Some(marker),
             _ => None,
@@ -72,7 +72,7 @@ impl LedgerUpdateMessage {
     }
 }
 
-impl From<inx::proto::ledger_update::Marker> for Marker {
+impl From<inx::proto::ledger_update::Marker> for MarkerMessage {
     fn from(value: inx::proto::ledger_update::Marker) -> Self {
         Self {
             milestone_index: value.milestone_index.into(),
