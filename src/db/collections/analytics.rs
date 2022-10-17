@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use decimal::d128;
-use influxdb::{InfluxDbWriteable, ReadQuery, Timestamp};
+use influxdb::{InfluxDbWriteable, Timestamp};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -356,33 +356,6 @@ impl InfluxDbMeasurement for AddressAnalyticsSchema {
     const NAME: &'static str = "stardust_addresses";
 }
 
-impl InfluxDb {
-    /// Get aggregate statistics of all addresses.
-    pub async fn get_address_analytics(
-        &self,
-        start_index: impl Into<Option<MilestoneIndex>>,
-        end_index: impl Into<Option<MilestoneIndex>>,
-    ) -> Result<Option<AddressAnalytics>, influxdb::Error> {
-        Ok(self
-            .select::<AddressAnalytics>(ReadQuery::new(format!(
-                "SELECT * FROM {} WHERE milestone_index >= {} AND milestone_index < {}",
-                AddressAnalyticsSchema::NAME,
-                start_index
-                    .into()
-                    .as_deref()
-                    .map(ToString::to_string)
-                    .unwrap_or("null".to_string()),
-                end_index
-                    .into()
-                    .as_deref()
-                    .map(ToString::to_string)
-                    .unwrap_or("null".to_string()),
-            )))
-            .await?
-            .next())
-    }
-}
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OutputAnalytics {
     pub count: u64,
@@ -413,53 +386,6 @@ impl InfluxDbWriteable for OutputAnalyticsSchema {
 
 impl InfluxDbMeasurement for OutputAnalyticsSchema {
     const NAME: &'static str = "stardust_outputs";
-}
-
-impl InfluxDb {
-    /// Gathers output analytics.
-    pub async fn get_output_analytics<O: OutputKind>(
-        &self,
-        start_index: impl Into<Option<MilestoneIndex>>,
-        end_index: impl Into<Option<MilestoneIndex>>,
-    ) -> Result<Option<OutputAnalytics>, influxdb::Error> {
-        Ok(if let Some(kind) = O::kind() {
-            self.select::<OutputAnalytics>(ReadQuery::new(format!(
-                "SELECT * FROM {} WHERE kind = {kind} AND milestone_index >= {} AND milestone_index < {}",
-                OutputAnalyticsSchema::NAME,
-                start_index
-                    .into()
-                    .as_deref()
-                    .map(ToString::to_string)
-                    .unwrap_or("null".to_string()),
-                end_index
-                    .into()
-                    .as_deref()
-                    .map(ToString::to_string)
-                    .unwrap_or("null".to_string()),
-            )))
-            .await?
-            .next()
-        } else {
-            None
-        })
-    }
-
-    /// Gathers unspent output analytics.
-    pub async fn get_unspent_output_analytics<O: OutputKind>(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<OutputAnalytics>, influxdb::Error> {
-        Ok(if let Some(kind) = O::kind() {
-            self.select::<OutputAnalytics>(ReadQuery::new(format!(
-                "SELECT * FROM {} WHERE kind = {kind} AND milestone_index = {ledger_index}",
-                OutputAnalyticsSchema::NAME,
-            )))
-            .await?
-            .next()
-        } else {
-            None
-        })
-    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -520,22 +446,6 @@ impl StorageDepositAnalytics {
     }
 }
 
-impl InfluxDb {
-    /// Get aggregate statistics of all addresses.
-    pub async fn get_storage_deposit_analytics(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Option<StorageDepositAnalytics>, influxdb::Error> {
-        Ok(self
-            .select::<StorageDepositAnalytics>(ReadQuery::new(format!(
-                "SELECT * FROM {} WHERE milestone_index = {ledger_index}",
-                StorageDepositAnalyticsSchema::NAME,
-            )))
-            .await?
-            .next())
-    }
-}
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ClaimedTokensAnalytics {
@@ -560,22 +470,6 @@ impl InfluxDbWriteable for ClaimedTokensAnalyticsSchema {
 
 impl InfluxDbMeasurement for ClaimedTokensAnalyticsSchema {
     const NAME: &'static str = "stardust_claimed_tokens";
-}
-
-impl InfluxDb {
-    /// Get aggregate statistics of all addresses.
-    pub async fn get_claimed_token_analytics(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Option<ClaimedTokensAnalytics>, influxdb::Error> {
-        Ok(self
-            .select::<ClaimedTokensAnalytics>(ReadQuery::new(format!(
-                "SELECT * FROM {} WHERE milestone_index = {index}",
-                ClaimedTokensAnalyticsSchema::NAME,
-            )))
-            .await?
-            .next())
-    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -626,20 +520,4 @@ impl InfluxDbWriteable for MilestoneActivityAnalyticsSchema {
 
 impl InfluxDbMeasurement for MilestoneActivityAnalyticsSchema {
     const NAME: &'static str = "stardust_milestone_activity";
-}
-
-impl InfluxDb {
-    /// Get aggregate statistics of all addresses.
-    pub async fn get_milestone_activity_analytics(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<Option<MilestoneActivityAnalytics>, influxdb::Error> {
-        Ok(self
-            .select::<MilestoneActivityAnalytics>(ReadQuery::new(format!(
-                "SELECT * FROM {} WHERE milestone_index = {index}",
-                MilestoneActivityAnalyticsSchema::NAME,
-            )))
-            .await?
-            .next())
-    }
 }

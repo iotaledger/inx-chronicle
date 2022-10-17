@@ -101,7 +101,7 @@ async fn main() -> Result<(), Error> {
         use futures::FutureExt;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &influx_db, &config.api).map_err(config::ConfigError::Api)?;
+            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });

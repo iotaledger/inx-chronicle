@@ -8,7 +8,7 @@ use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
         collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
-        InfluxDb, MongoDb,
+        MongoDb,
     },
     types::{
         stardust::block::{
@@ -68,18 +68,12 @@ pub fn routes() -> Router {
 
 async fn address_activity_analytics(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<AddressAnalyticsResponse> {
-    let res = match influx_db.get_address_analytics(start_index, end_index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<OutputCollection>()
-                .get_address_analytics(start_index, end_index)
-                .await?
-        }
-    };
+    let res = database
+        .collection::<OutputCollection>()
+        .get_address_analytics(start_index, end_index)
+        .await?;
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
@@ -90,20 +84,14 @@ async fn address_activity_analytics(
 
 async fn milestone_activity_analytics(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     Path(milestone_index): Path<String>,
 ) -> ApiResult<MilestoneAnalyticsResponse> {
     let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
 
-    let activity = match influx_db.get_milestone_activity_analytics(index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<BlockCollection>()
-                .get_milestone_activity_analytics(index)
-                .await?
-        }
-    };
+    let activity = database
+        .collection::<BlockCollection>()
+        .get_milestone_activity_analytics(index)
+        .await?;
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.count,
@@ -124,7 +112,6 @@ async fn milestone_activity_analytics(
 
 async fn milestone_activity_analytics_by_id(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     Path(milestone_id): Path<String>,
 ) -> ApiResult<MilestoneAnalyticsResponse> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
@@ -137,15 +124,10 @@ async fn milestone_activity_analytics_by_id(
         .essence
         .index;
 
-    let activity = match influx_db.get_milestone_activity_analytics(index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<BlockCollection>()
-                .get_milestone_activity_analytics(index)
-                .await?
-        }
-    };
+    let activity = database
+        .collection::<BlockCollection>()
+        .get_milestone_activity_analytics(index)
+        .await?;
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.count,
@@ -166,18 +148,12 @@ async fn milestone_activity_analytics_by_id(
 
 async fn output_activity_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
-    let res = match influx_db.get_output_analytics::<O>(start_index, end_index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<OutputCollection>()
-                .get_output_analytics::<O>(start_index, end_index)
-                .await?
-        }
-    };
+    let res = database
+        .collection::<OutputCollection>()
+        .get_output_analytics::<O>(start_index, end_index)
+        .await?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -187,19 +163,13 @@ async fn output_activity_analytics<O: OutputKind>(
 
 async fn unspent_output_ledger_analytics<O: OutputKind>(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let res = match influx_db.get_unspent_output_analytics::<O>(ledger_index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<OutputCollection>()
-                .get_unspent_output_analytics::<O>(ledger_index)
-                .await?
-        }
-    };
+    let res = database
+        .collection::<OutputCollection>()
+        .get_unspent_output_analytics::<O>(ledger_index)
+        .await?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -209,20 +179,14 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
 
 async fn storage_deposit_ledger_analytics(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
 
-    let res = match influx_db.get_storage_deposit_analytics(ledger_index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<OutputCollection>()
-                .get_storage_deposit_analytics(ledger_index)
-                .await?
-        }
-    };
+    let res = database
+        .collection::<OutputCollection>()
+        .get_storage_deposit_analytics(ledger_index)
+        .await?;
 
     let protocol_params = database
         .collection::<ProtocolUpdateCollection>()
@@ -342,19 +306,13 @@ async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<Milestone
 
 async fn claimed_tokens_analytics(
     database: Extension<MongoDb>,
-    influx_db: Extension<InfluxDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<ClaimedTokensAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
-    let res = match influx_db.get_claimed_token_analytics(ledger_index).await? {
-        Some(res) => res,
-        None => {
-            database
-                .collection::<OutputCollection>()
-                .get_claimed_token_analytics(ledger_index)
-                .await?
-        }
-    };
+    let res = database
+        .collection::<OutputCollection>()
+        .get_claimed_token_analytics(ledger_index)
+        .await?;
 
     Ok(ClaimedTokensAnalyticsResponse {
         count: res.count.to_string(),
