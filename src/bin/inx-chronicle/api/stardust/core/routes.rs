@@ -185,7 +185,6 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             },
             token_supply: protocol.token_supply.to_string(),
         },
-        // FIXME/TODO
         base_token: BaseTokenResponse {
             name: base_token.name,
             ticker_symbol: base_token.ticker_symbol,
