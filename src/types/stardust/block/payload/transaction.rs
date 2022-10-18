@@ -172,6 +172,7 @@ impl TryFromWithContext<TransactionEssence> for iota::TransactionEssence {
                 payload,
             } => {
                 let mut builder = iota::RegularTransactionEssence::builder(
+                    ctx.network_id(),
                     iota_types::block::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
