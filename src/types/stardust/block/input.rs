@@ -3,7 +3,7 @@
 
 //! Module containing the [`Input`] type.
 
-use bee_block_stardust::input as bee;
+use iota_types::block::input as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{output::OutputId, payload::milestone::MilestoneId};
@@ -33,7 +33,7 @@ impl From<&bee::Input> for Input {
 }
 
 impl TryFrom<Input> for bee::Input {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -62,7 +62,7 @@ impl From<Input> for bee::dto::InputDto {
 #[cfg(feature = "rand")]
 mod rand {
 
-    use bee_block_stardust::rand::{
+    use iota_types::block::rand::{
         input::{rand_treasury_input, rand_utxo_input},
         number::rand_number_range,
     };

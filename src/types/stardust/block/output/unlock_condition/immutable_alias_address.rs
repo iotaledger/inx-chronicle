@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
@@ -24,14 +24,15 @@ impl<T: Borrow<bee::ImmutableAliasAddressUnlockCondition>> From<T> for Immutable
 }
 
 impl TryFrom<ImmutableAliasAddressUnlockCondition> for bee::ImmutableAliasAddressUnlockCondition {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: ImmutableAliasAddressUnlockCondition) -> Result<Self, Self::Error> {
-        let address = bee_block_stardust::address::Address::from(value.address);
+        let address = iota_types::block::address::Address::from(value.address);
         match address {
-            bee_block_stardust::address::Address::Alias(alias) => Ok(Self::new(alias)),
-            other @ (bee_block_stardust::address::Address::Ed25519(_)
-            | bee_block_stardust::address::Address::Nft(_)) => Err(Self::Error::InvalidAddressKind(other.kind())),
+            iota_types::block::address::Address::Alias(alias) => Ok(Self::new(alias)),
+            other @ (iota_types::block::address::Address::Ed25519(_) | iota_types::block::address::Address::Nft(_)) => {
+                Err(Self::Error::InvalidAddressKind(other.kind()))
+            }
         }
     }
 }

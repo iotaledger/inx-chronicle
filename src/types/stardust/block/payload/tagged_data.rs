@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::payload::tagged_data as bee;
+use iota_types::block::payload::tagged_data as bee;
 use serde::{Deserialize, Serialize};
 
 /// Represents the tagged data payload for data blocks.
@@ -27,7 +27,7 @@ impl<T: Borrow<bee::TaggedDataPayload>> From<T> for TaggedDataPayload {
 }
 
 impl TryFrom<TaggedDataPayload> for bee::TaggedDataPayload {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: TaggedDataPayload) -> Result<Self, Self::Error> {
         bee::TaggedDataPayload::new(value.tag.into(), value.data.into())
@@ -46,7 +46,7 @@ impl From<TaggedDataPayload> for bee::dto::TaggedDataPayloadDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::payload::rand_tagged_data_payload;
+    use iota_types::block::rand::payload::rand_tagged_data_payload;
 
     use super::*;
 

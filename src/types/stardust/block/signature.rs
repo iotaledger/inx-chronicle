@@ -3,7 +3,7 @@
 
 //! Module containing the [`Signature`] type.
 
-use bee_block_stardust::signature as bee;
+use iota_types::block::signature as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
@@ -63,7 +63,7 @@ impl From<Signature> for bee::dto::SignatureDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::bytes::rand_bytes_array;
+    use iota_types::block::rand::bytes::rand_bytes_array;
 
     use super::*;
 

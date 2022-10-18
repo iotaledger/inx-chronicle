@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use super::OutputAmount;
@@ -26,10 +26,10 @@ impl<T: Borrow<bee::StorageDepositReturnUnlockCondition>> From<T> for StorageDep
 }
 
 impl TryFromWithContext<StorageDepositReturnUnlockCondition> for bee::StorageDepositReturnUnlockCondition {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: StorageDepositReturnUnlockCondition,
     ) -> Result<Self, Self::Error> {
         bee::StorageDepositReturnUnlockCondition::new(value.return_address.into(), value.amount.0, ctx.token_supply())
@@ -52,7 +52,7 @@ mod rand {
 
     impl StorageDepositReturnUnlockCondition {
         /// Generates a random [`StorageDepositReturnUnlockCondition`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 return_address: Address::rand_ed25519(),
                 amount: OutputAmount::rand(ctx),

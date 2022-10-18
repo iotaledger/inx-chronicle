@@ -3,8 +3,8 @@
 
 use std::{fmt, num::ParseIntError, ops, str::FromStr};
 
-use bee_block_stardust::payload::milestone as bee;
 use derive_more::{Add, Deref, DerefMut, Sub};
+use iota_types::block::payload::milestone as bee;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 

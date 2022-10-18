@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ impl NftId {
     const LENGTH: usize = bee::NftId::LENGTH;
 
     /// The [`NftId`] is derived from the [`super::OutputId`] that created the alias.
-    pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
+    pub fn from_output_id_str(s: &str) -> Result<Self, iota_types::block::Error> {
         Ok(bee::NftId::from(bee::OutputId::from_str(s)?).into())
     }
 }
@@ -50,7 +50,7 @@ impl From<NftId> for bee::dto::NftIdDto {
 }
 
 impl FromStr for NftId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftId::from_str(s)?.into())
@@ -112,10 +112,10 @@ impl<T: Borrow<bee::NftOutput>> From<T> for NftOutput {
 }
 
 impl TryFromWithContext<NftOutput> for bee::NftOutput {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: NftOutput,
     ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
@@ -203,7 +203,7 @@ impl From<NftOutput> for bee::dto::NftOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::{bytes::rand_bytes_array, output::rand_nft_output};
+    use iota_types::block::rand::{bytes::rand_bytes_array, output::rand_nft_output};
 
     use super::*;
 
@@ -216,7 +216,7 @@ mod rand {
 
     impl NftOutput {
         /// Generates a random [`NftOutput`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_nft_output(ctx.token_supply()).into()
         }
     }
@@ -238,7 +238,7 @@ mod test {
 
     #[test]
     fn test_nft_output_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let output = NftOutput::rand(&ctx);
         bee::NftOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

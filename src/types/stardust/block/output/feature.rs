@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::feature as bee;
+use iota_types::block::output::feature as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
@@ -56,7 +56,7 @@ impl<T: Borrow<bee::Feature>> From<T> for Feature {
 }
 
 impl TryFrom<Feature> for bee::Feature {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: Feature) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -93,7 +93,7 @@ impl From<Feature> for bee::dto::FeatureDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::{
+    use iota_types::block::{
         output::feature::FeatureFlags,
         rand::output::feature::{
             rand_allowed_features, rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,

@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::payload as bee;
+use iota_types::block::payload as bee;
 use serde::{Deserialize, Serialize};
 
 pub mod milestone;
@@ -47,10 +47,10 @@ impl<T: Borrow<bee::Payload>> From<T> for Payload {
 }
 
 impl TryFromWithContext<Payload> for bee::Payload {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: Payload,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -77,13 +77,13 @@ impl From<Payload> for bee::dto::PayloadDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::number::rand_number_range;
+    use iota_types::block::rand::number::rand_number_range;
 
     use super::*;
 
     impl Payload {
         /// Generates a random [`Payload`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..4) {
                 0 => Self::rand_transaction(ctx),
                 1 => Self::rand_milestone(ctx),
@@ -94,7 +94,7 @@ mod rand {
         }
 
         /// Generates a random, optional [`Payload`].
-        pub fn rand_opt(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Option<Self> {
+        pub fn rand_opt(ctx: &iota_types::block::protocol::ProtocolParameters) -> Option<Self> {
             match rand_number_range(0..5) {
                 0 => Self::rand_transaction(ctx).into(),
                 1 => Self::rand_milestone(ctx).into(),
@@ -106,12 +106,12 @@ mod rand {
         }
 
         /// Generates a random transaction [`Payload`].
-        pub fn rand_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::Transaction(Box::new(TransactionPayload::rand(ctx)))
         }
 
         /// Generates a random milestone [`Payload`].
-        pub fn rand_milestone(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_milestone(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::Milestone(Box::new(MilestonePayload::rand(ctx)))
         }
 
@@ -121,7 +121,7 @@ mod rand {
         }
 
         /// Generates a random treasury transaction [`Payload`].
-        pub fn rand_treasury_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_treasury_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand(ctx)))
         }
     }
@@ -135,7 +135,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_transaction(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -152,7 +152,7 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_milestone(&ctx);
         bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
@@ -161,7 +161,7 @@ mod test {
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_treasury_transaction(&ctx);
         bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
@@ -170,7 +170,7 @@ mod test {
 
     #[test]
     fn test_tagged_data_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_tagged_data();
         bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();

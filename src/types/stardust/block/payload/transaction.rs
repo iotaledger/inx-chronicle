@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use bee_block_stardust::{output::InputsCommitment, payload::transaction as bee};
+use iota_types::block::{output::InputsCommitment, payload::transaction as bee};
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,7 @@ impl From<TransactionId> for bee::TransactionId {
 }
 
 impl FromStr for TransactionId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TransactionId::from_str(s)?.into())
@@ -83,15 +83,15 @@ impl<T: Borrow<bee::TransactionPayload>> From<T> for TransactionPayload {
 }
 
 impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: TransactionPayload,
     ) -> Result<Self, Self::Error> {
         bee::TransactionPayload::new(
             value.essence.try_into_with_context(ctx)?,
-            bee_block_stardust::unlock::Unlocks::new(
+            iota_types::block::unlock::Unlocks::new(
                 value
                     .unlocks
                     .into_vec()
@@ -157,10 +157,10 @@ impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
 }
 
 impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: TransactionEssence,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -172,7 +172,7 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                 payload,
             } => {
                 let mut builder = bee::RegularTransactionEssence::builder(
-                    bee_block_stardust::output::InputsCommitment::from(inputs_commitment),
+                    iota_types::block::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
                     inputs
@@ -220,7 +220,7 @@ impl From<TransactionEssence> for bee::dto::TransactionEssenceDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::{
+    use iota_types::block::rand::{
         bytes::rand_bytes_array,
         number::{rand_number, rand_number_range},
         output::rand_inputs_commitment,
@@ -237,7 +237,7 @@ mod rand {
 
     impl TransactionEssence {
         /// Generates a random [`TransactionEssence`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::Regular {
                 network_id: rand_number(),
                 inputs: std::iter::repeat_with(Input::rand)
@@ -258,7 +258,7 @@ mod rand {
 
     impl TransactionPayload {
         /// Generates a random [`TransactionPayload`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 transaction_id: TransactionId::rand(),
                 essence: TransactionEssence::rand(ctx),
@@ -286,7 +286,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = TransactionPayload::rand(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized

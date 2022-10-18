@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::payload as bee;
+use iota_types::block::payload as bee;
 use serde::{Deserialize, Serialize};
 
 use super::milestone::MilestoneId;
@@ -31,15 +31,15 @@ impl<T: Borrow<bee::TreasuryTransactionPayload>> From<T> for TreasuryTransaction
 }
 
 impl TryFromWithContext<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: TreasuryTransactionPayload,
     ) -> Result<Self, Self::Error> {
         Self::new(
-            bee_block_stardust::input::TreasuryInput::new(value.input_milestone_id.into()),
-            bee_block_stardust::output::TreasuryOutput::new(value.output_amount, ctx.token_supply())?,
+            iota_types::block::input::TreasuryInput::new(value.input_milestone_id.into()),
+            iota_types::block::output::TreasuryOutput::new(value.output_amount, ctx.token_supply())?,
         )
     }
 }
@@ -48,15 +48,13 @@ impl From<TreasuryTransactionPayload> for bee::dto::TreasuryTransactionPayloadDt
     fn from(value: TreasuryTransactionPayload) -> Self {
         Self {
             kind: bee::TreasuryTransactionPayload::KIND,
-            input: bee_block_stardust::input::dto::InputDto::Treasury(
-                bee_block_stardust::input::dto::TreasuryInputDto {
-                    kind: bee_block_stardust::input::TreasuryInput::KIND,
-                    milestone_id: value.input_milestone_id.to_hex(),
-                },
-            ),
-            output: bee_block_stardust::output::dto::OutputDto::Treasury(
-                bee_block_stardust::output::dto::TreasuryOutputDto {
-                    kind: bee_block_stardust::output::TreasuryOutput::KIND,
+            input: iota_types::block::input::dto::InputDto::Treasury(iota_types::block::input::dto::TreasuryInputDto {
+                kind: iota_types::block::input::TreasuryInput::KIND,
+                milestone_id: value.input_milestone_id.to_hex(),
+            }),
+            output: iota_types::block::output::dto::OutputDto::Treasury(
+                iota_types::block::output::dto::TreasuryOutputDto {
+                    kind: iota_types::block::output::TreasuryOutput::KIND,
                     amount: value.output_amount.to_string(),
                 },
             ),
@@ -66,13 +64,13 @@ impl From<TreasuryTransactionPayload> for bee::dto::TreasuryTransactionPayloadDt
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::payload::rand_treasury_transaction_payload;
+    use iota_types::block::rand::payload::rand_treasury_transaction_payload;
 
     use super::*;
 
     impl TreasuryTransactionPayload {
         /// Generates a random [`TreasuryTransactionPayload`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_treasury_transaction_payload(ctx.token_supply()).into()
         }
     }
@@ -86,7 +84,7 @@ mod test {
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = TreasuryTransactionPayload::rand(&ctx);
         bee::TreasuryTransactionPayload::try_from_with_context(&ctx, payload).unwrap();
         let bson = to_bson(&payload).unwrap();

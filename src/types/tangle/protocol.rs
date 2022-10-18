@@ -3,7 +3,7 @@
 
 #![allow(missing_docs)]
 
-use bee_block_stardust as bee;
+use iota_types::block as bee;
 use serde::{Deserialize, Serialize};
 
 /// Parameters relevant to byte cost calculations.
@@ -62,7 +62,7 @@ impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
 }
 
 impl TryFrom<ProtocolParameters> for bee::protocol::ProtocolParameters {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: ProtocolParameters) -> Result<Self, Self::Error> {
         Self::new(

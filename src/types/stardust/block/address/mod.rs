@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::address as bee;
+use iota_types::block::address as bee;
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +68,7 @@ impl From<Address> for bee::dto::AddressDto {
 }
 
 impl FromStr for Address {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::Address::try_from_bech32(s)?.1.into())

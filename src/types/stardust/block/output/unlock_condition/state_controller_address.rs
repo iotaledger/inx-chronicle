@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;

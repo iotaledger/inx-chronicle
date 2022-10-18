@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
@@ -26,7 +26,7 @@ impl<T: Borrow<bee::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCond
 }
 
 impl TryFrom<ExpirationUnlockCondition> for bee::ExpirationUnlockCondition {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: ExpirationUnlockCondition) -> Result<Self, Self::Error> {
         bee::ExpirationUnlockCondition::new(value.return_address.into(), value.timestamp.0)
@@ -45,7 +45,7 @@ impl From<ExpirationUnlockCondition> for bee::dto::ExpirationUnlockConditionDto 
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::number::rand_number;
+    use iota_types::block::rand::number::rand_number;
 
     use super::*;
 

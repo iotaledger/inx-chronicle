@@ -3,7 +3,7 @@
 
 //! Module containing the [`Unlock`] types.
 
-use bee_block_stardust::unlock as bee;
+use iota_types::block::unlock as bee;
 use serde::{Deserialize, Serialize};
 
 use super::Signature;
@@ -48,7 +48,7 @@ impl From<&bee::Unlock> for Unlock {
 }
 
 impl TryFrom<Unlock> for bee::Unlock {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -85,7 +85,7 @@ impl From<Unlock> for bee::dto::UnlockDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
+    use iota_types::block::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
 
     use super::*;
 

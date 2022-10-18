@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,7 @@ impl From<FoundryId> for bee::FoundryId {
 }
 
 impl FromStr for FoundryId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::FoundryId::from_str(s)?.into())
@@ -95,10 +95,10 @@ impl<T: Borrow<bee::FoundryOutput>> From<T> for FoundryOutput {
 }
 
 impl TryFromWithContext<FoundryOutput> for bee::FoundryOutput {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: FoundryOutput,
     ) -> Result<Self, Self::Error> {
         let u: bee::UnlockCondition = bee::unlock_condition::ImmutableAliasAddressUnlockCondition::try_from(
@@ -161,7 +161,7 @@ impl From<FoundryOutput> for bee::dto::FoundryOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::{bytes::rand_bytes_array, output::rand_foundry_output};
+    use iota_types::block::rand::{bytes::rand_bytes_array, output::rand_foundry_output};
 
     use super::*;
 
@@ -174,7 +174,7 @@ mod rand {
 
     impl FoundryOutput {
         /// Generates a random [`FoundryOutput`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_foundry_output(ctx.token_supply()).into()
         }
     }
@@ -188,7 +188,7 @@ mod test {
 
     #[test]
     fn test_foundry_output_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let output = FoundryOutput::rand(&ctx);
         bee::FoundryOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

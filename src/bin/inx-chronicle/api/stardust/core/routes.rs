@@ -9,15 +9,6 @@ use axum::{
     http::header::{HeaderMap, HeaderValue},
     routing::get,
 };
-use bee_api_types_stardust::{
-    dtos::ReceiptDto,
-    responses::{
-        BlockMetadataResponse, BlockResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse, MilestoneResponse,
-        OutputMetadataResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse, StatusResponse,
-        TreasuryResponse, UtxoChangesResponse,
-    },
-};
-use bee_block_stardust::payload::milestone::option::dto::MilestoneOptionDto;
 use chronicle::{
     db::{
         collections::{
@@ -37,10 +28,21 @@ use chronicle::{
     },
 };
 use futures::TryStreamExt;
+use iota_types::{
+    api::{
+        dto::ReceiptDto,
+        response as iota,
+        response::{
+            ConfirmedMilestoneResponse, LatestMilestoneResponse,
+            ProtocolResponse, RentStructureResponse, StatusResponse,
+        },
+    },
+    block::payload::milestone::option::dto::MilestoneOptionDto,
+};
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::{InfoResponse, OutputResponse};
+use super::responses::{BlockMetadataResponse, BlockResponse, InfoResponse, OutputResponse, OutputMetadataResponse, ReceiptsResponse, TreasuryResponse, MilestoneResponse, UtxoChangesResponse};
 use crate::api::{
     error::{ApiError, InternalApiError},
     router::Router,
@@ -133,7 +135,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         index: newest_milestone.milestone_index.0,
         timestamp: Some(newest_milestone.milestone_timestamp.0),
         milestone_id: Some(
-            bee_block_stardust::payload::milestone::MilestoneId::from(
+            iota_types::block::payload::milestone::MilestoneId::from(
                 database
                     .collection::<MilestoneCollection>()
                     .get_milestone_id(newest_milestone.milestone_index)
@@ -187,13 +189,14 @@ async fn block(
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(BlockResponse::Raw(
+            return Ok(iota::BlockResponse::Raw(
                 database
                     .collection::<BlockCollection>()
                     .get_block_raw(&block_id)
                     .await?
                     .ok_or(ApiError::NoResults)?,
-            ));
+            )
+            .into());
         }
     }
 
@@ -203,7 +206,7 @@ async fn block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(block.into()))
+    Ok(iota::BlockResponse::Json(block.into()).into())
 }
 
 async fn block_metadata(
@@ -217,7 +220,7 @@ async fn block_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockMetadataResponse {
+    Ok(iota::BlockMetadataResponse {
         block_id: block_id_str,
         parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
         is_solid: metadata.is_solid,
@@ -228,14 +231,15 @@ async fn block_metadata(
         should_promote: Some(metadata.should_promote),
         should_reattach: Some(metadata.should_reattach),
         white_flag_index: Some(metadata.white_flag_index),
-    })
+    }
+    .into())
 }
 
 fn create_output_metadata_response(
     metadata: OutputMetadataResult,
     ledger_index: MilestoneIndex,
-) -> OutputMetadataResponse {
-    OutputMetadataResponse {
+) -> iota::OutputMetadataResponse {
+    iota::OutputMetadataResponse {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.output_id.transaction_id.to_hex(),
         output_index: metadata.output_id.index,
@@ -292,7 +296,7 @@ async fn output(
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
     Ok(OutputResponse::Json(Box::new(
-        bee_api_types_stardust::responses::OutputResponse {
+        iota_types::api::response::OutputResponse {
             metadata,
             output: output.into(),
         },
@@ -315,7 +319,7 @@ async fn output_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(create_output_metadata_response(metadata, ledger_index))
+    Ok(create_output_metadata_response(metadata, ledger_index).into())
 }
 
 async fn transaction_included_block(
@@ -327,13 +331,13 @@ async fn transaction_included_block(
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(BlockResponse::Raw(
+            return Ok(iota::BlockResponse::Raw(
                 database
                     .collection::<BlockCollection>()
                     .get_block_raw_for_transaction(&transaction_id)
                     .await?
                     .ok_or(ApiError::NoResults)?,
-            ));
+            ).into());
         }
     }
 
@@ -343,7 +347,7 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(block.into()))
+    Ok(iota::BlockResponse::Json(block.into()).into())
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
@@ -359,7 +363,7 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
             unreachable!("the query only returns receipt milestone options");
         }
     }
-    Ok(ReceiptsResponse { receipts })
+    Ok(iota::ReceiptsResponse { receipts }.into())
 }
 
 async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
@@ -378,7 +382,7 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
             unreachable!("the query only returns receipt milestone options");
         }
     }
-    Ok(ReceiptsResponse { receipts })
+    Ok(iota::ReceiptsResponse { receipts }.into())
 }
 
 async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
@@ -387,10 +391,10 @@ async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
         .get_latest_treasury()
         .await?
         .ok_or(ApiError::NoResults)
-        .map(|treasury| TreasuryResponse {
+        .map(|treasury| iota::TreasuryResponse {
             milestone_id: treasury.milestone_id.to_hex(),
             amount: treasury.amount.to_string(),
-        })
+        }.into())
 }
 
 async fn milestone(
@@ -415,15 +419,15 @@ async fn milestone(
             .try_into()?;
 
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
+            let milestone_payload = iota_types::block::payload::MilestonePayload::try_from_with_context(
                 &protocol_params,
                 milestone_payload,
             )?;
-            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
+            return Ok(iota::MilestoneResponse::Raw(milestone_payload.pack_to_vec()).into());
         }
     }
 
-    Ok(MilestoneResponse::Json(milestone_payload.into()))
+    Ok(iota::MilestoneResponse::Json(milestone_payload.into()).into())
 }
 
 async fn milestone_by_index(
@@ -447,15 +451,15 @@ async fn milestone_by_index(
                 .parameters
                 .try_into()?;
 
-            let milestone_payload = bee_block_stardust::payload::MilestonePayload::try_from_with_context(
+            let milestone_payload = iota_types::block::payload::MilestonePayload::try_from_with_context(
                 &protocol_params,
                 milestone_payload,
             )?;
-            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
+            return Ok(iota::MilestoneResponse::Raw(milestone_payload.pack_to_vec()).into());
         }
     }
 
-    Ok(MilestoneResponse::Json(milestone_payload.into()))
+    Ok(iota::MilestoneResponse::Json(milestone_payload.into()).into())
 }
 
 async fn utxo_changes(
@@ -498,9 +502,9 @@ async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneInde
     let created_outputs = created_outputs.iter().map(|output_id| output_id.to_hex()).collect();
     let consumed_outputs = consumed_outputs.iter().map(|output_id| output_id.to_hex()).collect();
 
-    Ok(UtxoChangesResponse {
+    Ok(iota::UtxoChangesResponse {
         index: *milestone_index,
         created_outputs,
         consumed_outputs,
-    })
+    }.into())
 }

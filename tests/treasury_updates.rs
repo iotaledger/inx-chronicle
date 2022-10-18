@@ -7,7 +7,6 @@ mod common;
 mod test_rand {
     use std::collections::HashMap;
 
-    use bee_block_stardust::rand::number::rand_number_range;
     use chronicle::{
         db::{collections::TreasuryCollection, MongoDbCollectionExt},
         types::{
@@ -15,6 +14,7 @@ mod test_rand {
             tangle::MilestoneIndex,
         },
     };
+    use iota_types::block::rand::number::rand_number_range;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -23,7 +23,7 @@ mod test_rand {
         let db = setup_database("test-insert-treasury-updates").await.unwrap();
         let update_collection = setup_collection::<TreasuryCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let mut milestones = HashMap::new();
 
         for (milestone_index, payload) in

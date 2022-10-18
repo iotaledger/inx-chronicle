@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::address as bee;
+use iota_types::block::address as bee;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ impl From<NftAddress> for bee::dto::NftAddressDto {
 }
 
 impl FromStr for NftAddress {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::NftAddress::from_str(s)?.into())
@@ -49,7 +49,7 @@ impl From<NftAddress> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::address::rand_nft_address;
+    use iota_types::block::rand::address::rand_nft_address;
 
     use super::*;
 

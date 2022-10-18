@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust as bee;
+use iota_types::block as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,7 @@ impl From<BlockId> for bee::BlockId {
 }
 
 impl FromStr for BlockId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::BlockId::from_str(s)?.into())

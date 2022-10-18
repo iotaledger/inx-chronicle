@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as bee;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -55,10 +55,10 @@ impl<T: Borrow<bee::BasicOutput>> From<T> for BasicOutput {
 }
 
 impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: BasicOutput,
     ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
@@ -131,13 +131,13 @@ impl From<BasicOutput> for bee::dto::BasicOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::output::rand_basic_output;
+    use iota_types::block::rand::output::rand_basic_output;
 
     use super::*;
 
     impl BasicOutput {
         /// Generates a random [`BasicOutput`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_basic_output(ctx.token_supply()).into()
         }
     }
@@ -151,7 +151,7 @@ mod test {
 
     #[test]
     fn test_basic_output_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let output = BasicOutput::rand(&ctx);
         bee::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();

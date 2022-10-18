@@ -3,7 +3,7 @@
 
 use std::{borrow::Borrow, mem::size_of, str::FromStr};
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as bee;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ impl From<NativeTokenAmount> for U256 {
     }
 }
 
-impl From<NativeTokenAmount> for bee_block_stardust::dto::U256Dto {
+impl From<NativeTokenAmount> for iota_types::block::dto::U256Dto {
     fn from(value: NativeTokenAmount) -> Self {
         Into::into(&U256::from(value))
     }
@@ -61,7 +61,7 @@ impl From<NativeTokenId> for bee::dto::TokenIdDto {
 }
 
 impl FromStr for NativeTokenId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::TokenId::from_str(s)?.into())
@@ -96,7 +96,7 @@ impl<T: Borrow<bee::TokenScheme>> From<T> for TokenScheme {
 }
 
 impl TryFrom<TokenScheme> for bee::TokenScheme {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: TokenScheme) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -149,7 +149,7 @@ impl<T: Borrow<bee::NativeToken>> From<T> for NativeToken {
 }
 
 impl TryFrom<NativeToken> for bee::NativeToken {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
         Self::new(value.token_id.into(), value.amount.into())
@@ -167,7 +167,7 @@ impl From<NativeToken> for bee::dto::NativeTokenDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::{
+    use iota_types::block::rand::{
         bytes::{rand_bytes, rand_bytes_array},
         output::rand_token_scheme,
     };

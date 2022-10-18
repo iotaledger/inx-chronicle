@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::address as bee;
+use iota_types::block::address as bee;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ impl From<Ed25519Address> for bee::dto::Ed25519AddressDto {
 }
 
 impl FromStr for Ed25519Address {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(bee::Ed25519Address::from_str(s)?.into())
@@ -56,7 +56,7 @@ impl From<Ed25519Address> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::address::rand_ed25519_address;
+    use iota_types::block::rand::address::rand_ed25519_address;
 
     use super::*;
 

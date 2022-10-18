@@ -3,8 +3,8 @@
 
 use std::ops::Range;
 
-use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{db::collections::DistributionStat, types::tangle::MilestoneIndex};
+use iota_types::api::response::RentStructureResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;

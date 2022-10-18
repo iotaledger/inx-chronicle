@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as bee;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::milestone::MilestoneTimestamp;
@@ -23,7 +23,7 @@ impl<T: Borrow<bee::TimelockUnlockCondition>> From<T> for TimelockUnlockConditio
 }
 
 impl TryFrom<TimelockUnlockCondition> for bee::TimelockUnlockCondition {
-    type Error = bee_block_stardust::Error;
+    type Error = iota_types::block::Error;
 
     fn try_from(value: TimelockUnlockCondition) -> Result<Self, Self::Error> {
         Self::new(value.timestamp.0)
@@ -41,7 +41,7 @@ impl From<TimelockUnlockCondition> for bee::dto::TimelockUnlockConditionDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::number::rand_number;
+    use iota_types::block::rand::number::rand_number;
 
     use super::*;
 
