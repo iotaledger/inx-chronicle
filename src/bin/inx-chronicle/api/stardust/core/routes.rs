@@ -33,16 +33,19 @@ use iota_types::{
         dto::ReceiptDto,
         response::{
             self as iota, BlockMetadataResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse,
-            OutputMetadataResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse, StatusResponse,
-            TreasuryResponse, UtxoChangesResponse,
+            OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse,
+            RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse,
         },
     },
-    block::payload::milestone::option::dto::MilestoneOptionDto,
+    block::{
+        payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
+        BlockDto,
+    },
 };
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::{BlockResponse, InfoResponse, IntoResponseWrapper, MilestoneResponse, OutputResponse};
+use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
     error::{ApiError, InternalApiError},
     router::Router,
@@ -184,12 +187,12 @@ async fn block(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
     headers: HeaderMap,
-) -> ApiResult<BlockResponse> {
+) -> ApiResult<IotaRawResponse<BlockDto>> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(BlockResponse::Raw(
+            return Ok(IotaRawResponse::Raw(
                 database
                     .collection::<BlockCollection>()
                     .get_block_raw(&block_id)
@@ -205,13 +208,13 @@ async fn block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(Box::new(block.into())))
+    Ok(IotaRawResponse::Json(block.into()))
 }
 
 async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id_str): Path<String>,
-) -> ApiResult<IntoResponseWrapper<BlockMetadataResponse>> {
+) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
     let block_id = BlockId::from_str(&block_id_str).map_err(ApiError::bad_parse)?;
     let metadata = database
         .collection::<BlockCollection>()
@@ -265,7 +268,7 @@ async fn output(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
     headers: HeaderMap,
-) -> ApiResult<OutputResponse> {
+) -> ApiResult<IotaRawResponse<OutputResponse>> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
@@ -288,24 +291,22 @@ async fn output(
                 .ok_or(ApiError::NoResults)?
                 .parameters;
 
-            return Ok(OutputResponse::Raw(output.raw(ctx)?));
+            return Ok(IotaRawResponse::Raw(output.raw(ctx)?));
         }
     }
 
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
-    Ok(OutputResponse::Json(Box::new(
-        iota_types::api::response::OutputResponse {
-            metadata,
-            output: output.into(),
-        },
-    )))
+    Ok(IotaRawResponse::Json(OutputResponse {
+        metadata,
+        output: output.into(),
+    }))
 }
 
 async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
-) -> ApiResult<IntoResponseWrapper<OutputMetadataResponse>> {
+) -> ApiResult<IotaResponse<OutputMetadataResponse>> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
@@ -325,12 +326,12 @@ async fn transaction_included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
     headers: HeaderMap,
-) -> ApiResult<BlockResponse> {
+) -> ApiResult<IotaRawResponse<BlockDto>> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_parse)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(BlockResponse::Raw(
+            return Ok(IotaRawResponse::Raw(
                 database
                     .collection::<BlockCollection>()
                     .get_block_raw_for_transaction(&transaction_id)
@@ -346,10 +347,10 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(BlockResponse::Json(Box::new(block.into())))
+    Ok(IotaRawResponse::Json(block.into()))
 }
 
-async fn receipts(database: Extension<MongoDb>) -> ApiResult<IntoResponseWrapper<ReceiptsResponse>> {
+async fn receipts(database: Extension<MongoDb>) -> ApiResult<IotaResponse<ReceiptsResponse>> {
     let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
@@ -368,7 +369,7 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<IntoResponseWrapper
 async fn receipts_migrated_at(
     database: Extension<MongoDb>,
     Path(index): Path<u32>,
-) -> ApiResult<IntoResponseWrapper<ReceiptsResponse>> {
+) -> ApiResult<IotaResponse<ReceiptsResponse>> {
     let mut receipts_at = database
         .collection::<MilestoneCollection>()
         .get_receipts_migrated_at(index.into())
@@ -387,7 +388,7 @@ async fn receipts_migrated_at(
     Ok(iota::ReceiptsResponse { receipts }.into())
 }
 
-async fn treasury(database: Extension<MongoDb>) -> ApiResult<IntoResponseWrapper<TreasuryResponse>> {
+async fn treasury(database: Extension<MongoDb>) -> ApiResult<IotaResponse<TreasuryResponse>> {
     database
         .collection::<TreasuryCollection>()
         .get_latest_treasury()
@@ -406,7 +407,7 @@ async fn milestone(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
     headers: HeaderMap,
-) -> ApiResult<MilestoneResponse> {
+) -> ApiResult<IotaRawResponse<MilestonePayloadDto>> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let milestone_payload = database
         .collection::<MilestoneCollection>()
@@ -428,18 +429,18 @@ async fn milestone(
                 &protocol_params,
                 milestone_payload,
             )?;
-            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
+            return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(MilestoneResponse::Json(milestone_payload.into()))
+    Ok(IotaRawResponse::Json(milestone_payload.into()))
 }
 
 async fn milestone_by_index(
     database: Extension<MongoDb>,
     Path(index): Path<MilestoneIndex>,
     headers: HeaderMap,
-) -> ApiResult<MilestoneResponse> {
+) -> ApiResult<IotaRawResponse<MilestonePayloadDto>> {
     let milestone_payload = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload(index)
@@ -460,17 +461,17 @@ async fn milestone_by_index(
                 &protocol_params,
                 milestone_payload,
             )?;
-            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
+            return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(MilestoneResponse::Json(milestone_payload.into()))
+    Ok(IotaRawResponse::Json(milestone_payload.into()))
 }
 
 async fn utxo_changes(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
-) -> ApiResult<IntoResponseWrapper<UtxoChangesResponse>> {
+) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let milestone_index = database
         .collection::<MilestoneCollection>()
@@ -485,7 +486,7 @@ async fn utxo_changes(
 async fn utxo_changes_by_index(
     database: Extension<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
-) -> ApiResult<IntoResponseWrapper<UtxoChangesResponse>> {
+) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
     collect_utxo_changes(&database, milestone_index).await.map(Into::into)
 }
 
