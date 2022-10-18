@@ -82,6 +82,7 @@ tracing-opentelemetry = { version = "0.18", default-features = false, features =
 iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
 
 [dev-dependencies]
+iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
