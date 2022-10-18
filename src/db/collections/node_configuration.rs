@@ -12,7 +12,7 @@ use crate::{
     types::node::NodeConfiguration,
 };
 
-/// TODO
+/// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NodeConfigurationDocument {
     #[serde(rename = "_id")]
@@ -20,7 +20,7 @@ pub struct NodeConfigurationDocument {
     pub config: NodeConfiguration,
 }
 
-/// TODO
+/// A single-document collection to store the latest [`NodeConfiguration`].
 pub struct NodeConfigurationCollection {
     collection: mongodb::Collection<NodeConfigurationDocument>,
 }
@@ -39,7 +39,7 @@ impl MongoDbCollection for NodeConfigurationCollection {
 }
 
 impl NodeConfigurationCollection {
-    /// TODO
+    /// Updates the stored node configuration - if necessary.
     pub async fn update_node_configuration(&self, config: NodeConfiguration) -> Result<(), Error> {
         if !matches!(self.get_latest_node_configuration().await?, Some(latest_config) if latest_config.config == config)
         {
@@ -49,7 +49,7 @@ impl NodeConfigurationCollection {
         Ok(())
     }
 
-    /// TODO
+    /// Returns the latest node configuration known to Chronicle.
     pub async fn get_latest_node_configuration(&self) -> Result<Option<NodeConfigurationDocument>, Error> {
         self.find_one(doc! {}, None).await
     }
