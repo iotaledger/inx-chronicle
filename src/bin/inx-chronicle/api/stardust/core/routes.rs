@@ -189,14 +189,13 @@ async fn block(
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(iota::BlockResponse::Raw(
+            return Ok(BlockResponse::Raw(
                 database
                     .collection::<BlockCollection>()
                     .get_block_raw(&block_id)
                     .await?
                     .ok_or(ApiError::NoResults)?,
-            )
-            .into());
+            ));
         }
     }
 
@@ -206,7 +205,7 @@ async fn block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(iota::BlockResponse::Json(block.into()).into())
+    Ok(BlockResponse::Json(Box::new(block.into())))
 }
 
 async fn block_metadata(
@@ -331,14 +330,13 @@ async fn transaction_included_block(
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(iota::BlockResponse::Raw(
+            return Ok(BlockResponse::Raw(
                 database
                     .collection::<BlockCollection>()
                     .get_block_raw_for_transaction(&transaction_id)
                     .await?
                     .ok_or(ApiError::NoResults)?,
-            )
-            .into());
+            ));
         }
     }
 
@@ -348,7 +346,7 @@ async fn transaction_included_block(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(iota::BlockResponse::Json(block.into()).into())
+    Ok(BlockResponse::Json(Box::new(block.into())))
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<IntoResponseWrapper<ReceiptsResponse>> {
@@ -430,11 +428,11 @@ async fn milestone(
                 &protocol_params,
                 milestone_payload,
             )?;
-            return Ok(iota::MilestoneResponse::Raw(milestone_payload.pack_to_vec()).into());
+            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(iota::MilestoneResponse::Json(milestone_payload.into()).into())
+    Ok(MilestoneResponse::Json(milestone_payload.into()))
 }
 
 async fn milestone_by_index(
@@ -462,11 +460,11 @@ async fn milestone_by_index(
                 &protocol_params,
                 milestone_payload,
             )?;
-            return Ok(iota::MilestoneResponse::Raw(milestone_payload.pack_to_vec()).into());
+            return Ok(MilestoneResponse::Raw(milestone_payload.pack_to_vec()));
         }
     }
 
-    Ok(iota::MilestoneResponse::Json(milestone_payload.into()).into())
+    Ok(MilestoneResponse::Json(milestone_payload.into()))
 }
 
 async fn utxo_changes(

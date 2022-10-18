@@ -1,8 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::api::response::{
-    self as iota, BlockResponse as IotaBlockResponse, MilestoneResponse as IotaMilestoneResponse,
+use iota_types::{
+    api::response::{self as iota},
+    block::{payload::dto::MilestonePayloadDto, BlockDto},
 };
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +37,38 @@ impl axum::response::IntoResponse for OutputResponse {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BlockResponse {
+    Json(Box<BlockDto>),
+    Raw(Vec<u8>),
+}
+
+impl axum::response::IntoResponse for BlockResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            BlockResponse::Json(res) => axum::Json(res).into_response(),
+            BlockResponse::Raw(bytes) => bytes.into_response(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MilestoneResponse {
+    Json(MilestonePayloadDto),
+    Raw(Vec<u8>),
+}
+
+impl axum::response::IntoResponse for MilestoneResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            MilestoneResponse::Json(res) => axum::Json(res).into_response(),
+            MilestoneResponse::Raw(bytes) => bytes.into_response(),
+        }
+    }
+}
+
 /// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
 /// responses from [`iota_types`](iota_types::api::response).
 #[derive(Clone, Debug, Serialize, derive_more::From)]
@@ -46,26 +79,3 @@ impl<T: Serialize> axum::response::IntoResponse for IntoResponseWrapper<T> {
         axum::Json(self.0).into_response()
     }
 }
-
-/// Wraps responses from [`iota_types`](iota_types::api::response) that also return raw bytes, so that we can implement
-/// the foreign trait [`IntoResponse`](axum::response::IntoResponse).
-#[macro_export]
-macro_rules! impl_into_response_foreign_with_raw {
-    ($iota_response:ident, $own_response:ident) => {
-        /// Wrapper struct around [`$iota_response`] used to implement [`IntoResponse`](axum::response::IntoResponse)
-        #[derive(Clone, Debug, Serialize, Deserialize, derive_more::From)]
-        pub struct $own_response($iota_response);
-
-        impl axum::response::IntoResponse for $own_response {
-            fn into_response(self) -> axum::response::Response {
-                match self.0 {
-                    $iota_response::Json(res) => axum::Json(res).into_response(),
-                    $iota_response::Raw(bytes) => bytes.into_response(),
-                }
-            }
-        }
-    };
-}
-
-impl_into_response_foreign_with_raw!(IotaBlockResponse, BlockResponse);
-impl_into_response_foreign_with_raw!(IotaMilestoneResponse, MilestoneResponse);
