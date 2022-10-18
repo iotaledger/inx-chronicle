@@ -19,12 +19,6 @@ impl InfluxDb {
     pub async fn connect(config: &InfluxDbConfig) -> Result<Self, influxdb::Error> {
         let client = Client::new(&config.url, &config.database_name).with_auth(&config.username, &config.password);
         client.ping().await?;
-        client
-            .query(ReadQuery::new(format!(
-                "CREATE DATABASE IF NOT EXISTS {}",
-                config.database_name
-            )))
-            .await?;
         Ok(Self(client))
     }
 
