@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block::payload::milestone as bee;
+use iota_types::block::payload::milestone as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ pub struct MilestoneId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl MilestoneId {
     /// The number of bytes for the id.
-    pub const LENGTH: usize = bee::MilestoneId::LENGTH;
+    pub const LENGTH: usize = iota::MilestoneId::LENGTH;
 
     /// Converts the [`MilestoneId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
@@ -24,15 +24,15 @@ impl MilestoneId {
     }
 }
 
-impl From<bee::MilestoneId> for MilestoneId {
-    fn from(value: bee::MilestoneId) -> Self {
+impl From<iota::MilestoneId> for MilestoneId {
+    fn from(value: iota::MilestoneId) -> Self {
         Self(*value)
     }
 }
 
-impl From<MilestoneId> for bee::MilestoneId {
+impl From<MilestoneId> for iota::MilestoneId {
     fn from(value: MilestoneId) -> Self {
-        bee::MilestoneId::new(value.0)
+        iota::MilestoneId::new(value.0)
     }
 }
 
@@ -40,7 +40,7 @@ impl FromStr for MilestoneId {
     type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::MilestoneId::from_str(s)?.into())
+        Ok(iota::MilestoneId::from_str(s)?.into())
     }
 }
 

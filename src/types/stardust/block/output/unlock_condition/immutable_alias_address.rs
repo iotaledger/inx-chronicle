@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
@@ -15,7 +15,7 @@ pub struct ImmutableAliasAddressUnlockCondition {
     pub address: Address,
 }
 
-impl<T: Borrow<bee::ImmutableAliasAddressUnlockCondition>> From<T> for ImmutableAliasAddressUnlockCondition {
+impl<T: Borrow<iota::ImmutableAliasAddressUnlockCondition>> From<T> for ImmutableAliasAddressUnlockCondition {
     fn from(value: T) -> Self {
         Self {
             address: value.borrow().address().into(),
@@ -23,7 +23,7 @@ impl<T: Borrow<bee::ImmutableAliasAddressUnlockCondition>> From<T> for Immutable
     }
 }
 
-impl TryFrom<ImmutableAliasAddressUnlockCondition> for bee::ImmutableAliasAddressUnlockCondition {
+impl TryFrom<ImmutableAliasAddressUnlockCondition> for iota::ImmutableAliasAddressUnlockCondition {
     type Error = iota_types::block::Error;
 
     fn try_from(value: ImmutableAliasAddressUnlockCondition) -> Result<Self, Self::Error> {
@@ -37,10 +37,10 @@ impl TryFrom<ImmutableAliasAddressUnlockCondition> for bee::ImmutableAliasAddres
     }
 }
 
-impl From<ImmutableAliasAddressUnlockCondition> for bee::dto::ImmutableAliasAddressUnlockConditionDto {
+impl From<ImmutableAliasAddressUnlockCondition> for iota::dto::ImmutableAliasAddressUnlockConditionDto {
     fn from(value: ImmutableAliasAddressUnlockCondition) -> Self {
         Self {
-            kind: bee::ImmutableAliasAddressUnlockCondition::KIND,
+            kind: iota::ImmutableAliasAddressUnlockCondition::KIND,
             address: value.address.into(),
         }
     }

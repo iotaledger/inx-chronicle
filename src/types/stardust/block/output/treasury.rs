@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output as bee;
+use iota_types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
 use super::OutputAmount;
@@ -18,7 +18,7 @@ pub struct TreasuryOutput {
     pub amount: OutputAmount,
 }
 
-impl<T: Borrow<bee::TreasuryOutput>> From<T> for TreasuryOutput {
+impl<T: Borrow<iota::TreasuryOutput>> From<T> for TreasuryOutput {
     fn from(value: T) -> Self {
         Self {
             amount: value.borrow().amount().into(),
@@ -26,7 +26,7 @@ impl<T: Borrow<bee::TreasuryOutput>> From<T> for TreasuryOutput {
     }
 }
 
-impl TryFromWithContext<TreasuryOutput> for bee::TreasuryOutput {
+impl TryFromWithContext<TreasuryOutput> for iota::TreasuryOutput {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
@@ -37,10 +37,10 @@ impl TryFromWithContext<TreasuryOutput> for bee::TreasuryOutput {
     }
 }
 
-impl From<TreasuryOutput> for bee::dto::TreasuryOutputDto {
+impl From<TreasuryOutput> for iota::dto::TreasuryOutputDto {
     fn from(value: TreasuryOutput) -> Self {
         Self {
-            kind: bee::TreasuryOutput::KIND,
+            kind: iota::TreasuryOutput::KIND,
             amount: value.amount.0.to_string(),
         }
     }
@@ -70,7 +70,7 @@ mod test {
     fn test_treasury_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = TreasuryOutput::rand(&ctx);
-        bee::TreasuryOutput::try_from_with_context(&ctx, output).unwrap();
+        iota::TreasuryOutput::try_from_with_context(&ctx, output).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<TreasuryOutput>(bson).unwrap());
     }

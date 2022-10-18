@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::milestone::MilestoneTimestamp;
@@ -14,7 +14,7 @@ pub struct TimelockUnlockCondition {
     timestamp: MilestoneTimestamp,
 }
 
-impl<T: Borrow<bee::TimelockUnlockCondition>> From<T> for TimelockUnlockCondition {
+impl<T: Borrow<iota::TimelockUnlockCondition>> From<T> for TimelockUnlockCondition {
     fn from(value: T) -> Self {
         Self {
             timestamp: value.borrow().timestamp().into(),
@@ -22,7 +22,7 @@ impl<T: Borrow<bee::TimelockUnlockCondition>> From<T> for TimelockUnlockConditio
     }
 }
 
-impl TryFrom<TimelockUnlockCondition> for bee::TimelockUnlockCondition {
+impl TryFrom<TimelockUnlockCondition> for iota::TimelockUnlockCondition {
     type Error = iota_types::block::Error;
 
     fn try_from(value: TimelockUnlockCondition) -> Result<Self, Self::Error> {
@@ -30,10 +30,10 @@ impl TryFrom<TimelockUnlockCondition> for bee::TimelockUnlockCondition {
     }
 }
 
-impl From<TimelockUnlockCondition> for bee::dto::TimelockUnlockConditionDto {
+impl From<TimelockUnlockCondition> for iota::dto::TimelockUnlockConditionDto {
     fn from(value: TimelockUnlockCondition) -> Self {
         Self {
-            kind: bee::TimelockUnlockCondition::KIND,
+            kind: iota::TimelockUnlockCondition::KIND,
             timestamp: value.timestamp.0,
         }
     }

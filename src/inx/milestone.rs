@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use inx::proto;
-use iota_types::block as bee;
+use iota_types::block as iota;
 
 use super::{raw::RawMessage, InxError, RawProtocolParametersMessage};
 use crate::{
@@ -15,9 +15,9 @@ use crate::{
 pub struct MilestoneMessage {
     /// Information about the milestone.
     pub milestone_info: MilestoneInfoMessage,
-    /// The raw bytes of the milestone. Note that this is not a [`bee::payload::milestone::MilestonePayload`], but
-    /// rather a [`bee::payload::Payload`] and still needs to be unpacked.
-    pub milestone: RawMessage<bee::payload::Payload>,
+    /// The raw bytes of the milestone. Note that this is not a [`iota::payload::milestone::MilestonePayload`], but
+    /// rather a [`iota::payload::Payload`] and still needs to be unpacked.
+    pub milestone: RawMessage<iota::payload::Payload>,
 }
 
 impl TryFrom<proto::Milestone> for MilestoneMessage {

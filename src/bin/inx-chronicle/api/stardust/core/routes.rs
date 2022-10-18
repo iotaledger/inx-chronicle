@@ -33,8 +33,8 @@ use iota_types::{
         dto::ReceiptDto,
         response as iota,
         response::{
-            ConfirmedMilestoneResponse, LatestMilestoneResponse,
-            ProtocolResponse, RentStructureResponse, StatusResponse,
+            ConfirmedMilestoneResponse, LatestMilestoneResponse, ProtocolResponse, RentStructureResponse,
+            StatusResponse,
         },
     },
     block::payload::milestone::option::dto::MilestoneOptionDto,
@@ -42,7 +42,10 @@ use iota_types::{
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::{BlockMetadataResponse, BlockResponse, InfoResponse, OutputResponse, OutputMetadataResponse, ReceiptsResponse, TreasuryResponse, MilestoneResponse, UtxoChangesResponse};
+use super::responses::{
+    BlockMetadataResponse, BlockResponse, InfoResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
+    ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
+};
 use crate::api::{
     error::{ApiError, InternalApiError},
     router::Router,
@@ -337,7 +340,8 @@ async fn transaction_included_block(
                     .get_block_raw_for_transaction(&transaction_id)
                     .await?
                     .ok_or(ApiError::NoResults)?,
-            ).into());
+            )
+            .into());
         }
     }
 
@@ -391,10 +395,13 @@ async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
         .get_latest_treasury()
         .await?
         .ok_or(ApiError::NoResults)
-        .map(|treasury| iota::TreasuryResponse {
-            milestone_id: treasury.milestone_id.to_hex(),
-            amount: treasury.amount.to_string(),
-        }.into())
+        .map(|treasury| {
+            iota::TreasuryResponse {
+                milestone_id: treasury.milestone_id.to_hex(),
+                amount: treasury.amount.to_string(),
+            }
+            .into()
+        })
 }
 
 async fn milestone(
@@ -506,5 +513,6 @@ async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneInde
         index: *milestone_index,
         created_outputs,
         consumed_outputs,
-    }.into())
+    }
+    .into())
 }

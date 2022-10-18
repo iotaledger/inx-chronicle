@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
@@ -16,7 +16,7 @@ pub struct ExpirationUnlockCondition {
     timestamp: MilestoneTimestamp,
 }
 
-impl<T: Borrow<bee::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCondition {
+impl<T: Borrow<iota::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCondition {
     fn from(value: T) -> Self {
         Self {
             return_address: value.borrow().return_address().into(),
@@ -25,18 +25,18 @@ impl<T: Borrow<bee::ExpirationUnlockCondition>> From<T> for ExpirationUnlockCond
     }
 }
 
-impl TryFrom<ExpirationUnlockCondition> for bee::ExpirationUnlockCondition {
+impl TryFrom<ExpirationUnlockCondition> for iota::ExpirationUnlockCondition {
     type Error = iota_types::block::Error;
 
     fn try_from(value: ExpirationUnlockCondition) -> Result<Self, Self::Error> {
-        bee::ExpirationUnlockCondition::new(value.return_address.into(), value.timestamp.0)
+        iota::ExpirationUnlockCondition::new(value.return_address.into(), value.timestamp.0)
     }
 }
 
-impl From<ExpirationUnlockCondition> for bee::dto::ExpirationUnlockConditionDto {
+impl From<ExpirationUnlockCondition> for iota::dto::ExpirationUnlockConditionDto {
     fn from(value: ExpirationUnlockCondition) -> Self {
         Self {
-            kind: bee::ExpirationUnlockCondition::KIND,
+            kind: iota::ExpirationUnlockCondition::KIND,
             return_address: value.return_address.into(),
             timestamp: value.timestamp.0,
         }

@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use super::OutputAmount;
@@ -16,7 +16,7 @@ pub struct StorageDepositReturnUnlockCondition {
     amount: OutputAmount,
 }
 
-impl<T: Borrow<bee::StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockCondition {
+impl<T: Borrow<iota::StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockCondition {
     fn from(value: T) -> Self {
         Self {
             return_address: value.borrow().return_address().into(),
@@ -25,21 +25,21 @@ impl<T: Borrow<bee::StorageDepositReturnUnlockCondition>> From<T> for StorageDep
     }
 }
 
-impl TryFromWithContext<StorageDepositReturnUnlockCondition> for bee::StorageDepositReturnUnlockCondition {
+impl TryFromWithContext<StorageDepositReturnUnlockCondition> for iota::StorageDepositReturnUnlockCondition {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
         ctx: &iota_types::block::protocol::ProtocolParameters,
         value: StorageDepositReturnUnlockCondition,
     ) -> Result<Self, Self::Error> {
-        bee::StorageDepositReturnUnlockCondition::new(value.return_address.into(), value.amount.0, ctx.token_supply())
+        iota::StorageDepositReturnUnlockCondition::new(value.return_address.into(), value.amount.0, ctx.token_supply())
     }
 }
 
-impl From<StorageDepositReturnUnlockCondition> for bee::dto::StorageDepositReturnUnlockConditionDto {
+impl From<StorageDepositReturnUnlockCondition> for iota::dto::StorageDepositReturnUnlockConditionDto {
     fn from(value: StorageDepositReturnUnlockCondition) -> Self {
         Self {
-            kind: bee::StorageDepositReturnUnlockCondition::KIND,
+            kind: iota::StorageDepositReturnUnlockCondition::KIND,
             return_address: value.return_address.into(),
             amount: value.amount.0.to_string(),
         }

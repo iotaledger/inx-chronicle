@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::payload as bee;
+use iota_types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
 use super::milestone::MilestoneId;
@@ -21,7 +21,7 @@ pub struct TreasuryTransactionPayload {
     pub output_amount: u64,
 }
 
-impl<T: Borrow<bee::TreasuryTransactionPayload>> From<T> for TreasuryTransactionPayload {
+impl<T: Borrow<iota::TreasuryTransactionPayload>> From<T> for TreasuryTransactionPayload {
     fn from(value: T) -> Self {
         Self {
             input_milestone_id: (*value.borrow().input().milestone_id()).into(),
@@ -30,7 +30,7 @@ impl<T: Borrow<bee::TreasuryTransactionPayload>> From<T> for TreasuryTransaction
     }
 }
 
-impl TryFromWithContext<TreasuryTransactionPayload> for bee::TreasuryTransactionPayload {
+impl TryFromWithContext<TreasuryTransactionPayload> for iota::TreasuryTransactionPayload {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
@@ -44,10 +44,10 @@ impl TryFromWithContext<TreasuryTransactionPayload> for bee::TreasuryTransaction
     }
 }
 
-impl From<TreasuryTransactionPayload> for bee::dto::TreasuryTransactionPayloadDto {
+impl From<TreasuryTransactionPayload> for iota::dto::TreasuryTransactionPayloadDto {
     fn from(value: TreasuryTransactionPayload) -> Self {
         Self {
-            kind: bee::TreasuryTransactionPayload::KIND,
+            kind: iota::TreasuryTransactionPayload::KIND,
             input: iota_types::block::input::dto::InputDto::Treasury(iota_types::block::input::dto::TreasuryInputDto {
                 kind: iota_types::block::input::TreasuryInput::KIND,
                 milestone_id: value.input_milestone_id.to_hex(),
@@ -86,7 +86,7 @@ mod test {
     fn test_treasury_transaction_payload_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = TreasuryTransactionPayload::rand(&ctx);
-        bee::TreasuryTransactionPayload::try_from_with_context(&ctx, payload).unwrap();
+        iota::TreasuryTransactionPayload::try_from_with_context(&ctx, payload).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<TreasuryTransactionPayload>(bson).unwrap());
     }

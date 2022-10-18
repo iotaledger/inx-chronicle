@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::{output::InputsCommitment, payload::transaction as bee};
+use iota_types::block::{output::InputsCommitment, payload::transaction as iota};
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,7 @@ pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl TransactionId {
     /// The number of bytes for the id.
-    pub const LENGTH: usize = bee::TransactionId::LENGTH;
+    pub const LENGTH: usize = iota::TransactionId::LENGTH;
 
     /// Converts the [`TransactionId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
@@ -30,15 +30,15 @@ impl TransactionId {
     }
 }
 
-impl From<bee::TransactionId> for TransactionId {
-    fn from(value: bee::TransactionId) -> Self {
+impl From<iota::TransactionId> for TransactionId {
+    fn from(value: iota::TransactionId) -> Self {
         Self(*value)
     }
 }
 
-impl From<TransactionId> for bee::TransactionId {
+impl From<TransactionId> for iota::TransactionId {
     fn from(value: TransactionId) -> Self {
-        bee::TransactionId::new(value.0)
+        iota::TransactionId::new(value.0)
     }
 }
 
@@ -46,7 +46,7 @@ impl FromStr for TransactionId {
     type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::TransactionId::from_str(s)?.into())
+        Ok(iota::TransactionId::from_str(s)?.into())
     }
 }
 
@@ -71,7 +71,7 @@ pub struct TransactionPayload {
     pub unlocks: Box<[Unlock]>,
 }
 
-impl<T: Borrow<bee::TransactionPayload>> From<T> for TransactionPayload {
+impl<T: Borrow<iota::TransactionPayload>> From<T> for TransactionPayload {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
@@ -82,14 +82,14 @@ impl<T: Borrow<bee::TransactionPayload>> From<T> for TransactionPayload {
     }
 }
 
-impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
+impl TryFromWithContext<TransactionPayload> for iota::TransactionPayload {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
         ctx: &iota_types::block::protocol::ProtocolParameters,
         value: TransactionPayload,
     ) -> Result<Self, Self::Error> {
-        bee::TransactionPayload::new(
+        iota::TransactionPayload::new(
             value.essence.try_into_with_context(ctx)?,
             iota_types::block::unlock::Unlocks::new(
                 value
@@ -103,10 +103,10 @@ impl TryFromWithContext<TransactionPayload> for bee::TransactionPayload {
     }
 }
 
-impl From<TransactionPayload> for bee::dto::TransactionPayloadDto {
+impl From<TransactionPayload> for iota::dto::TransactionPayloadDto {
     fn from(value: TransactionPayload) -> Self {
         Self {
-            kind: bee::TransactionPayload::KIND,
+            kind: iota::TransactionPayload::KIND,
             essence: value.essence.into(),
             unlocks: value.unlocks.into_vec().into_iter().map(Into::into).collect(),
         }
@@ -141,11 +141,11 @@ impl TransactionEssence {
     const INPUTS_COMMITMENT_LENGTH: usize = InputsCommitment::LENGTH;
 }
 
-impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
+impl<T: Borrow<iota::TransactionEssence>> From<T> for TransactionEssence {
     fn from(value: T) -> Self {
         let value = value.borrow();
         match value {
-            bee::TransactionEssence::Regular(essence) => Self::Regular {
+            iota::TransactionEssence::Regular(essence) => Self::Regular {
                 network_id: essence.network_id(),
                 inputs: essence.inputs().iter().map(Into::into).collect(),
                 inputs_commitment: **essence.inputs_commitment(),
@@ -156,7 +156,7 @@ impl<T: Borrow<bee::TransactionEssence>> From<T> for TransactionEssence {
     }
 }
 
-impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
+impl TryFromWithContext<TransactionEssence> for iota::TransactionEssence {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
@@ -171,7 +171,7 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                 outputs,
                 payload,
             } => {
-                let mut builder = bee::RegularTransactionEssence::builder(
+                let mut builder = iota::RegularTransactionEssence::builder(
                     iota_types::block::output::InputsCommitment::from(inputs_commitment),
                 )
                 .with_inputs(
@@ -191,13 +191,13 @@ impl TryFromWithContext<TransactionEssence> for bee::TransactionEssence {
                 if let Some(payload) = payload {
                     builder = builder.with_payload(payload.try_into_with_context(ctx)?);
                 }
-                bee::TransactionEssence::Regular(builder.finish(ctx)?)
+                iota::TransactionEssence::Regular(builder.finish(ctx)?)
             }
         })
     }
 }
 
-impl From<TransactionEssence> for bee::dto::TransactionEssenceDto {
+impl From<TransactionEssence> for iota::dto::TransactionEssenceDto {
     fn from(value: TransactionEssence) -> Self {
         match value {
             TransactionEssence::Regular {
@@ -206,8 +206,8 @@ impl From<TransactionEssence> for bee::dto::TransactionEssenceDto {
                 inputs_commitment,
                 outputs,
                 payload,
-            } => Self::Regular(bee::dto::RegularTransactionEssenceDto {
-                kind: bee::RegularTransactionEssence::KIND,
+            } => Self::Regular(iota::dto::RegularTransactionEssenceDto {
+                kind: iota::RegularTransactionEssence::KIND,
                 network_id: network_id.to_string(),
                 inputs: inputs.into_vec().into_iter().map(Into::into).collect(),
                 inputs_commitment: prefix_hex::encode(inputs_commitment),

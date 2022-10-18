@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::block as bee;
+use iota_types::block as iota;
 use packable::PackableExt;
 
 use super::InxError;
@@ -117,10 +117,10 @@ impl TryFrom<inx::proto::UnspentOutput> for UnspentOutputMessage {
 }
 
 impl TryFromWithContext<UnspentOutputMessage> for inx::proto::UnspentOutput {
-    type Error = bee::Error;
+    type Error = iota::Error;
 
     fn try_from_with_context(
-        ctx: &bee::protocol::ProtocolParameters,
+        ctx: &iota::protocol::ProtocolParameters,
         value: UnspentOutputMessage,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -131,13 +131,13 @@ impl TryFromWithContext<UnspentOutputMessage> for inx::proto::UnspentOutput {
 }
 
 impl TryFromWithContext<LedgerOutput> for inx::proto::LedgerOutput {
-    type Error = bee::Error;
+    type Error = iota::Error;
 
     fn try_from_with_context(
-        ctx: &bee::protocol::ProtocolParameters,
+        ctx: &iota::protocol::ProtocolParameters,
         value: LedgerOutput,
     ) -> Result<Self, Self::Error> {
-        let bee_output = bee::output::Output::try_from_with_context(ctx, value.output)?;
+        let bee_output = iota::output::Output::try_from_with_context(ctx, value.output)?;
 
         Ok(Self {
             block_id: Some(value.block_id.into()),

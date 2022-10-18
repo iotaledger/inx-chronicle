@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block as bee;
+use iota_types::block as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,7 @@ pub struct BlockId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl BlockId {
     /// The number of bytes for the id.
-    pub const LENGTH: usize = bee::BlockId::LENGTH;
+    pub const LENGTH: usize = iota::BlockId::LENGTH;
 
     /// The `0x`-prefixed hex representation of a [`BlockId`].
     pub fn to_hex(&self) -> String {
@@ -26,15 +26,15 @@ impl BlockId {
     }
 }
 
-impl From<bee::BlockId> for BlockId {
-    fn from(value: bee::BlockId) -> Self {
+impl From<iota::BlockId> for BlockId {
+    fn from(value: iota::BlockId) -> Self {
         Self(*value)
     }
 }
 
-impl From<BlockId> for bee::BlockId {
+impl From<BlockId> for iota::BlockId {
     fn from(value: BlockId) -> Self {
-        bee::BlockId::new(value.0)
+        iota::BlockId::new(value.0)
     }
 }
 
@@ -42,7 +42,7 @@ impl FromStr for BlockId {
     type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::BlockId::from_str(s)?.into())
+        Ok(iota::BlockId::from_str(s)?.into())
     }
 }
 
@@ -58,7 +58,7 @@ impl From<BlockId> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee::rand::block::{rand_block_id, rand_block_ids};
+    use iota::rand::block::{rand_block_id, rand_block_ids};
 
     use super::*;
 
@@ -75,7 +75,7 @@ mod rand {
 
         /// Generates a random amount of parents.
         pub fn rand_parents() -> Box<[Self]> {
-            Self::rand_many(*bee::parent::Parents::COUNT_RANGE.end() as _).collect()
+            Self::rand_many(*iota::parent::Parents::COUNT_RANGE.end() as _).collect()
         }
     }
 }

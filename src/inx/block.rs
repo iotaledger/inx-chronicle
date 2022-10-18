@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use inx::proto;
-use iota_types::block as bee;
+use iota_types::block as iota;
 
 use super::{InxError, RawMessage};
 use crate::{
@@ -19,8 +19,8 @@ use crate::{
 pub struct BlockMessage {
     /// The [`BlockId`] of the block.
     pub block_id: BlockId,
-    /// The complete [`Block`](bee::Block) as raw bytes.
-    pub block: RawMessage<bee::Block>,
+    /// The complete [`Block`](iota::Block) as raw bytes.
+    pub block: RawMessage<iota::Block>,
 }
 
 // Unfortunately, we can't reuse the `BlockMetadata` because we also require the `block_id`.
@@ -54,8 +54,8 @@ pub struct BlockMetadataMessage {
 pub struct BlockWithMetadataMessage {
     /// The [`BlockMetadataMessage`](BlockMetadataMessage) of the block.
     pub metadata: BlockMetadataMessage,
-    /// The complete [`Block`](bee::Block) as raw bytes.
-    pub block: RawMessage<bee::Block>,
+    /// The complete [`Block`](iota::Block) as raw bytes.
+    pub block: RawMessage<iota::Block>,
 }
 
 impl TryFrom<inx::proto::BlockMetadata> for BlockMetadataMessage {

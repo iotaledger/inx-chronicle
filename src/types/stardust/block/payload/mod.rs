@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use iota_types::block::payload as bee;
+use iota_types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
 pub mod milestone;
@@ -35,18 +35,18 @@ pub enum Payload {
     TaggedData(Box<TaggedDataPayload>),
 }
 
-impl<T: Borrow<bee::Payload>> From<T> for Payload {
+impl<T: Borrow<iota::Payload>> From<T> for Payload {
     fn from(value: T) -> Self {
         match value.borrow() {
-            bee::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
-            bee::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
-            bee::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
-            bee::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
+            iota::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
+            iota::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
+            iota::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
+            iota::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
         }
     }
 }
 
-impl TryFromWithContext<Payload> for bee::Payload {
+impl TryFromWithContext<Payload> for iota::Payload {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
@@ -54,17 +54,17 @@ impl TryFromWithContext<Payload> for bee::Payload {
         value: Payload,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
-            Payload::Transaction(p) => bee::Payload::Transaction(Box::new((*p).try_into_with_context(ctx)?)),
-            Payload::Milestone(p) => bee::Payload::Milestone(Box::new((*p).try_into_with_context(ctx)?)),
+            Payload::Transaction(p) => iota::Payload::Transaction(Box::new((*p).try_into_with_context(ctx)?)),
+            Payload::Milestone(p) => iota::Payload::Milestone(Box::new((*p).try_into_with_context(ctx)?)),
             Payload::TreasuryTransaction(p) => {
-                bee::Payload::TreasuryTransaction(Box::new((*p).try_into_with_context(ctx)?))
+                iota::Payload::TreasuryTransaction(Box::new((*p).try_into_with_context(ctx)?))
             }
-            Payload::TaggedData(p) => bee::Payload::TaggedData(Box::new((*p).try_into()?)),
+            Payload::TaggedData(p) => iota::Payload::TaggedData(Box::new((*p).try_into()?)),
         })
     }
 }
 
-impl From<Payload> for bee::dto::PayloadDto {
+impl From<Payload> for iota::dto::PayloadDto {
     fn from(value: Payload) -> Self {
         match value {
             Payload::Transaction(p) => Self::Transaction(Box::new((*p).into())),
@@ -154,7 +154,7 @@ mod test {
     fn test_milestone_payload_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_milestone(&ctx);
-        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
@@ -163,7 +163,7 @@ mod test {
     fn test_treasury_transaction_payload_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_treasury_transaction(&ctx);
-        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
@@ -172,7 +172,7 @@ mod test {
     fn test_tagged_data_payload_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_tagged_data();
-        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }

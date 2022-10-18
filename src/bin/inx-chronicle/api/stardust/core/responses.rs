@@ -1,7 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::api::response::{self as iota, BlockResponse as IotaBlockResponse, MilestoneResponse as IotaMilestoneResponse};
+use iota_types::api::response::{
+    self as iota, BlockResponse as IotaBlockResponse, MilestoneResponse as IotaMilestoneResponse,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -39,7 +41,7 @@ impl axum::response::IntoResponse for OutputResponse {
 #[macro_export]
 macro_rules! impl_into_response_foreign {
     ($iota_response:ty, $own_response:ident) => {
-        #[doc="Wrapper struct around [`$iota_response`] used to implement [`IntoResponse`](axum::response::IntoResponse)"]
+        /// Wrapper struct around [`$iota_response`] used to implement [`IntoResponse`](axum::response::IntoResponse)
         #[derive(Clone, Debug, Serialize, Deserialize, derive_more::From)]
         pub struct $own_response($iota_response);
 
@@ -51,12 +53,12 @@ macro_rules! impl_into_response_foreign {
     };
 }
 
-/// Wraps responses from [`iota_types`](iota_types::api::response) that also return raw bytes, so that we can implement the foreign trait
-/// [`IntoResponse`](axum::response::IntoResponse).
+/// Wraps responses from [`iota_types`](iota_types::api::response) that also return raw bytes, so that we can implement
+/// the foreign trait [`IntoResponse`](axum::response::IntoResponse).
 #[macro_export]
 macro_rules! impl_into_response_foreign_with_raw {
     ($iota_response:ident, $own_response:ident) => {
-        #[doc="Wrapper struct around [`$iota_response`] used to implement [`IntoResponse`](axum::response::IntoResponse)"]
+        /// Wrapper struct around [`$iota_response`] used to implement [`IntoResponse`](axum::response::IntoResponse)
         #[derive(Clone, Debug, Serialize, Deserialize, derive_more::From)]
         pub struct $own_response($iota_response);
 

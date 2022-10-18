@@ -15,7 +15,7 @@ pub mod treasury;
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::output as bee;
+use iota_types::block::output as iota;
 use mongodb::bson::{doc, Bson};
 use packable::PackableExt;
 use serde::{Deserialize, Serialize};
@@ -65,8 +65,8 @@ impl OutputId {
     }
 }
 
-impl From<bee::OutputId> for OutputId {
-    fn from(value: bee::OutputId) -> Self {
+impl From<iota::OutputId> for OutputId {
+    fn from(value: iota::OutputId) -> Self {
         Self {
             transaction_id: (*value.transaction_id()).into(),
             index: value.index(),
@@ -74,11 +74,11 @@ impl From<bee::OutputId> for OutputId {
     }
 }
 
-impl TryFrom<OutputId> for bee::OutputId {
+impl TryFrom<OutputId> for iota::OutputId {
     type Error = iota_types::block::Error;
 
     fn try_from(value: OutputId) -> Result<Self, Self::Error> {
-        bee::OutputId::new(value.transaction_id.into(), value.index)
+        iota::OutputId::new(value.transaction_id.into(), value.index)
     }
 }
 
@@ -86,7 +86,7 @@ impl FromStr for OutputId {
     type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::OutputId::from_str(s)?.into())
+        Ok(iota::OutputId::from_str(s)?.into())
     }
 }
 
@@ -185,19 +185,19 @@ impl Output {
     }
 }
 
-impl<T: Borrow<bee::Output>> From<T> for Output {
+impl<T: Borrow<iota::Output>> From<T> for Output {
     fn from(value: T) -> Self {
         match value.borrow() {
-            bee::Output::Treasury(o) => Self::Treasury(o.into()),
-            bee::Output::Basic(o) => Self::Basic(o.into()),
-            bee::Output::Alias(o) => Self::Alias(o.into()),
-            bee::Output::Foundry(o) => Self::Foundry(o.into()),
-            bee::Output::Nft(o) => Self::Nft(o.into()),
+            iota::Output::Treasury(o) => Self::Treasury(o.into()),
+            iota::Output::Basic(o) => Self::Basic(o.into()),
+            iota::Output::Alias(o) => Self::Alias(o.into()),
+            iota::Output::Foundry(o) => Self::Foundry(o.into()),
+            iota::Output::Nft(o) => Self::Nft(o.into()),
         }
     }
 }
 
-impl TryFromWithContext<Output> for bee::Output {
+impl TryFromWithContext<Output> for iota::Output {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
@@ -205,16 +205,16 @@ impl TryFromWithContext<Output> for bee::Output {
         value: Output,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
-            Output::Treasury(o) => bee::Output::Treasury(o.try_into_with_context(ctx)?),
-            Output::Basic(o) => bee::Output::Basic(o.try_into_with_context(ctx)?),
-            Output::Alias(o) => bee::Output::Alias(o.try_into_with_context(ctx)?),
-            Output::Foundry(o) => bee::Output::Foundry(o.try_into_with_context(ctx)?),
-            Output::Nft(o) => bee::Output::Nft(o.try_into_with_context(ctx)?),
+            Output::Treasury(o) => iota::Output::Treasury(o.try_into_with_context(ctx)?),
+            Output::Basic(o) => iota::Output::Basic(o.try_into_with_context(ctx)?),
+            Output::Alias(o) => iota::Output::Alias(o.try_into_with_context(ctx)?),
+            Output::Foundry(o) => iota::Output::Foundry(o.try_into_with_context(ctx)?),
+            Output::Nft(o) => iota::Output::Nft(o.try_into_with_context(ctx)?),
         })
     }
 }
 
-impl From<Output> for bee::dto::OutputDto {
+impl From<Output> for iota::dto::OutputDto {
     fn from(value: Output) -> Self {
         match value {
             Output::Treasury(o) => Self::Treasury(o.into()),
@@ -235,7 +235,7 @@ mod rand {
     impl OutputAmount {
         /// Generates a random [`OutputAmount`].
         pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
-            rand_number_range(bee::Output::AMOUNT_MIN..ctx.token_supply()).into()
+            rand_number_range(iota::Output::AMOUNT_MIN..ctx.token_supply()).into()
         }
     }
 
@@ -303,7 +303,7 @@ mod test {
     fn test_basic_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = Output::rand_basic(&ctx);
-        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
@@ -312,7 +312,7 @@ mod test {
     fn test_alias_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = Output::rand_alias(&ctx);
-        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
@@ -321,7 +321,7 @@ mod test {
     fn test_nft_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = Output::rand_nft(&ctx);
-        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
@@ -330,7 +330,7 @@ mod test {
     fn test_foundry_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = Output::rand_foundry(&ctx);
-        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
@@ -339,7 +339,7 @@ mod test {
     fn test_treasury_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = Output::rand_treasury(&ctx);
-        bee::Output::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }

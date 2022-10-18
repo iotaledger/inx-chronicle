@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use iota_types::block::address as bee;
+use iota_types::block::address as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -15,24 +15,24 @@ use crate::types::util::bytify;
 pub struct Ed25519Address(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl Ed25519Address {
-    const LENGTH: usize = bee::Ed25519Address::LENGTH;
+    const LENGTH: usize = iota::Ed25519Address::LENGTH;
 }
 
-impl From<bee::Ed25519Address> for Ed25519Address {
-    fn from(value: bee::Ed25519Address) -> Self {
+impl From<iota::Ed25519Address> for Ed25519Address {
+    fn from(value: iota::Ed25519Address) -> Self {
         Self(*value)
     }
 }
 
-impl From<Ed25519Address> for bee::Ed25519Address {
+impl From<Ed25519Address> for iota::Ed25519Address {
     fn from(value: Ed25519Address) -> Self {
-        bee::Ed25519Address::new(value.0)
+        iota::Ed25519Address::new(value.0)
     }
 }
 
-impl From<Ed25519Address> for bee::dto::Ed25519AddressDto {
+impl From<Ed25519Address> for iota::dto::Ed25519AddressDto {
     fn from(value: Ed25519Address) -> Self {
-        Into::into(&bee::Ed25519Address::from(value))
+        Into::into(&iota::Ed25519Address::from(value))
     }
 }
 
@@ -40,7 +40,7 @@ impl FromStr for Ed25519Address {
     type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::Ed25519Address::from_str(s)?.into())
+        Ok(iota::Ed25519Address::from_str(s)?.into())
     }
 }
 

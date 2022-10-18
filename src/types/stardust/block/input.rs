@@ -3,7 +3,7 @@
 
 //! Module containing the [`Input`] type.
 
-use iota_types::block::input as bee;
+use iota_types::block::input as iota;
 use serde::{Deserialize, Serialize};
 
 use super::{output::OutputId, payload::milestone::MilestoneId};
@@ -21,38 +21,38 @@ pub enum Input {
     },
 }
 
-impl From<&bee::Input> for Input {
-    fn from(value: &bee::Input) -> Self {
+impl From<&iota::Input> for Input {
+    fn from(value: &iota::Input) -> Self {
         match value {
-            bee::Input::Utxo(i) => Self::Utxo((*i.output_id()).into()),
-            bee::Input::Treasury(i) => Self::Treasury {
+            iota::Input::Utxo(i) => Self::Utxo((*i.output_id()).into()),
+            iota::Input::Treasury(i) => Self::Treasury {
                 milestone_id: (*i.milestone_id()).into(),
             },
         }
     }
 }
 
-impl TryFrom<Input> for bee::Input {
+impl TryFrom<Input> for iota::Input {
     type Error = iota_types::block::Error;
 
     fn try_from(value: Input) -> Result<Self, Self::Error> {
         Ok(match value {
-            Input::Utxo(i) => bee::Input::Utxo(bee::UtxoInput::new(i.transaction_id.into(), i.index)?),
-            Input::Treasury { milestone_id } => bee::Input::Treasury(bee::TreasuryInput::new(milestone_id.into())),
+            Input::Utxo(i) => iota::Input::Utxo(iota::UtxoInput::new(i.transaction_id.into(), i.index)?),
+            Input::Treasury { milestone_id } => iota::Input::Treasury(iota::TreasuryInput::new(milestone_id.into())),
         })
     }
 }
 
-impl From<Input> for bee::dto::InputDto {
+impl From<Input> for iota::dto::InputDto {
     fn from(value: Input) -> Self {
         match value {
-            Input::Utxo(output_id) => Self::Utxo(bee::dto::UtxoInputDto {
-                kind: bee::UtxoInput::KIND,
+            Input::Utxo(output_id) => Self::Utxo(iota::dto::UtxoInputDto {
+                kind: iota::UtxoInput::KIND,
                 transaction_id: output_id.transaction_id.to_hex(),
                 transaction_output_index: output_id.index,
             }),
-            Input::Treasury { milestone_id } => Self::Treasury(bee::dto::TreasuryInputDto {
-                kind: bee::TreasuryInput::KIND,
+            Input::Treasury { milestone_id } => Self::Treasury(iota::dto::TreasuryInputDto {
+                kind: iota::TreasuryInput::KIND,
                 milestone_id: milestone_id.to_hex(),
             }),
         }
@@ -81,12 +81,12 @@ mod rand {
 
         /// Generates a random utxo [`Input`].
         pub fn rand_utxo() -> Self {
-            Self::from(&bee::Input::from(rand_utxo_input()))
+            Self::from(&iota::Input::from(rand_utxo_input()))
         }
 
         /// Generates a random treasury [`Input`].
         pub fn rand_treasury() -> Self {
-            Self::from(&bee::Input::from(rand_treasury_input()))
+            Self::from(&iota::Input::from(rand_treasury_input()))
         }
     }
 }

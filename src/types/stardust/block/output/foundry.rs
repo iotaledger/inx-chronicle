@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use iota_types::block::output as bee;
+use iota_types::block::output as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -18,18 +18,18 @@ use crate::types::{context::TryFromWithContext, util::bytify};
 pub struct FoundryId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl FoundryId {
-    const LENGTH: usize = bee::FoundryId::LENGTH;
+    const LENGTH: usize = iota::FoundryId::LENGTH;
 }
 
-impl From<bee::FoundryId> for FoundryId {
-    fn from(value: bee::FoundryId) -> Self {
+impl From<iota::FoundryId> for FoundryId {
+    fn from(value: iota::FoundryId) -> Self {
         Self(*value)
     }
 }
 
-impl From<FoundryId> for bee::FoundryId {
+impl From<FoundryId> for iota::FoundryId {
     fn from(value: FoundryId) -> Self {
-        bee::FoundryId::new(value.0)
+        iota::FoundryId::new(value.0)
     }
 }
 
@@ -37,7 +37,7 @@ impl FromStr for FoundryId {
     type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::FoundryId::from_str(s)?.into())
+        Ok(iota::FoundryId::from_str(s)?.into())
     }
 }
 
@@ -73,7 +73,7 @@ pub struct FoundryOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
-impl<T: Borrow<bee::FoundryOutput>> From<T> for FoundryOutput {
+impl<T: Borrow<iota::FoundryOutput>> From<T> for FoundryOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
@@ -94,14 +94,14 @@ impl<T: Borrow<bee::FoundryOutput>> From<T> for FoundryOutput {
     }
 }
 
-impl TryFromWithContext<FoundryOutput> for bee::FoundryOutput {
+impl TryFromWithContext<FoundryOutput> for iota::FoundryOutput {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(
         ctx: &iota_types::block::protocol::ProtocolParameters,
         value: FoundryOutput,
     ) -> Result<Self, Self::Error> {
-        let u: bee::UnlockCondition = bee::unlock_condition::ImmutableAliasAddressUnlockCondition::try_from(
+        let u: iota::UnlockCondition = iota::unlock_condition::ImmutableAliasAddressUnlockCondition::try_from(
             value.immutable_alias_address_unlock_condition,
         )?
         .into();
@@ -136,13 +136,13 @@ impl TryFromWithContext<FoundryOutput> for bee::FoundryOutput {
     }
 }
 
-impl From<FoundryOutput> for bee::dto::FoundryOutputDto {
+impl From<FoundryOutput> for iota::dto::FoundryOutputDto {
     fn from(value: FoundryOutput) -> Self {
-        let unlock_conditions = vec![bee::unlock_condition::dto::UnlockConditionDto::ImmutableAliasAddress(
+        let unlock_conditions = vec![iota::unlock_condition::dto::UnlockConditionDto::ImmutableAliasAddress(
             value.immutable_alias_address_unlock_condition.into(),
         )];
         Self {
-            kind: bee::FoundryOutput::KIND,
+            kind: iota::FoundryOutput::KIND,
             amount: value.amount.0.to_string(),
             native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
             serial_number: value.serial_number,
@@ -190,7 +190,7 @@ mod test {
     fn test_foundry_output_bson() {
         let ctx = iota_types::block::protocol::protocol_parameters();
         let output = FoundryOutput::rand(&ctx);
-        bee::FoundryOutput::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::FoundryOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<FoundryOutput>(bson).unwrap());
     }
