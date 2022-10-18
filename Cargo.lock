@@ -385,7 +385,7 @@ dependencies = [
  "packable",
  "pin-project",
  "prefix-hex 0.5.0",
- "primitive-types 0.11.1",
+ "primitive-types 0.12.0",
  "rand",
  "regex",
  "rust-argon2",
