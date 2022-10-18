@@ -1,0 +1,32 @@
+// Copyright 2022 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+use bee_block_stardust as bee;
+use inx::proto;
+
+use super::raw::RawMessage;
+
+#[allow(missing_docs)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RawProtocolParametersMessage {
+    pub protocol_version: u8,
+    pub params: RawMessage<bee::protocol::ProtocolParameters>,
+}
+
+impl From<proto::RawProtocolParameters> for RawProtocolParametersMessage {
+    fn from(value: proto::RawProtocolParameters) -> Self {
+        Self {
+            protocol_version: value.protocol_version as u8,
+            params: value.params.into(),
+        }
+    }
+}
+
+impl From<RawProtocolParametersMessage> for proto::RawProtocolParameters {
+    fn from(value: RawProtocolParametersMessage) -> Self {
+        Self {
+            protocol_version: value.protocol_version as u32,
+            params: value.params.data(),
+        }
+    }
+}

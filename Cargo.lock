@@ -198,19 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bee-inx"
-version = "1.0.0-beta.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "966482b32a4549cda89ee7b455e0470bca1e58b7f4d698bbed6d434ac57cd512"
-dependencies = [
- "bee-block",
- "futures",
- "inx",
- "packable",
- "thiserror",
-]
-
-[[package]]
 name = "bee-ledger-types"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,7 +362,6 @@ dependencies = [
  "axum",
  "bee-api-types",
  "bee-block",
- "bee-inx",
  "bytesize",
  "clap",
  "derive_more",
@@ -387,6 +373,8 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "hyper",
+ "inx",
+ "iota-types",
  "lazy_static",
  "metrics",
  "metrics-exporter-prometheus",
@@ -1309,6 +1297,31 @@ dependencies = [
  "blake2",
  "digest 0.10.5",
  "ed25519-zebra",
+]
+
+[[package]]
+name = "iota-types"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/iotaledger/iota.rs#42574b51a672f536c21d1423bcf9bf41eec9b58d"
+dependencies = [
+ "bech32",
+ "bee-pow",
+ "bee-ternary",
+ "bitflags",
+ "bytemuck",
+ "derive_more",
+ "hashbrown",
+ "hex",
+ "iota-crypto",
+ "iterator-sorted",
+ "packable",
+ "prefix-hex 0.4.0",
+ "primitive-types 0.11.1",
+ "rand",
+ "serde",
+ "serde-big-array",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

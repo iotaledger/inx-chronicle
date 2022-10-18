@@ -52,6 +52,15 @@ pub struct LedgerSpent {
     pub spent_metadata: SpentMetadata,
 }
 
+/// The different number of bytes that are used for computing the rent cost.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RentStructureBytes {
+    /// The number of key bytes in an output.
+    pub num_key_bytes: u64,
+    /// The number of data bytes in an output.
+    pub num_data_bytes: u64,
+}
+
 #[cfg(feature = "inx")]
 fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
     use bee_block_stardust::output::{Rent, RentStructureBuilder};
@@ -73,103 +82,59 @@ fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentSt
 }
 
 #[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerOutput> for LedgerOutput {
-    type Error = bee_inx::Error;
+mod inx {
 
-    fn try_from(value: bee_inx::LedgerOutput) -> Result<Self, Self::Error> {
-        let bee_output = value.output.inner_unverified()?;
+    use packable::PackableExt;
 
-        Ok(Self {
-            rent_structure: compute_rent_structure(&bee_output),
-            output: Into::into(&bee_output),
-            output_id: value.output_id.into(),
-            block_id: value.block_id.into(),
-            booked: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_booked.into(),
-                milestone_timestamp: value.milestone_timestamp_booked.into(),
-            },
-        })
-    }
-}
+    use super::*;
+    use crate::{inx::InxError, maybe_missing};
 
-#[cfg(feature = "inx")]
-impl crate::types::context::TryFromWithContext<bee_inx::LedgerOutput> for LedgerOutput {
-    type Error = bee_inx::Error;
+    #[cfg(feature = "inx")]
+    impl TryFrom<::inx::proto::LedgerOutput> for LedgerOutput {
+        type Error = InxError;
 
-    fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        value: bee_inx::LedgerOutput,
-    ) -> Result<Self, Self::Error> {
-        let bee_output = value.output.inner(ctx)?;
+        fn try_from(value: ::inx::proto::LedgerOutput) -> Result<Self, Self::Error> {
+            let data = maybe_missing!(value.output).data;
+            let bee_output = bee_block_stardust::output::Output::unpack_unverified(data)
+                .map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
 
-        Ok(Self {
-            rent_structure: compute_rent_structure(&bee_output),
-            output: Into::into(&bee_output),
-            output_id: value.output_id.into(),
-            block_id: value.block_id.into(),
-            booked: MilestoneIndexTimestamp {
-                milestone_index: value.milestone_index_booked.into(),
-                milestone_timestamp: value.milestone_timestamp_booked.into(),
-            },
-        })
-    }
-}
-
-#[cfg(feature = "inx")]
-impl TryFrom<bee_inx::LedgerSpent> for LedgerSpent {
-    type Error = bee_inx::Error;
-
-    fn try_from(value: bee_inx::LedgerSpent) -> Result<Self, Self::Error> {
-        let output = LedgerOutput::try_from(value.output)?;
-
-        Ok(Self {
-            output,
-            spent_metadata: SpentMetadata {
-                transaction_id: value.transaction_id_spent.into(),
-                spent: MilestoneIndexTimestamp {
-                    milestone_index: value.milestone_index_spent.into(),
-                    milestone_timestamp: value.milestone_timestamp_spent.into(),
+            Ok(Self {
+                rent_structure: compute_rent_structure(&bee_output),
+                output: Into::into(&bee_output),
+                output_id: maybe_missing!(value.output_id).try_into()?,
+                block_id: maybe_missing!(value.block_id).try_into()?,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: value.milestone_index_booked.into(),
+                    milestone_timestamp: value.milestone_timestamp_booked.into(),
                 },
-            },
-        })
+            })
+        }
     }
-}
 
-#[cfg(feature = "inx")]
-impl crate::types::context::TryFromWithContext<bee_inx::LedgerSpent> for LedgerSpent {
-    type Error = bee_inx::Error;
+    #[cfg(feature = "inx")]
+    impl TryFrom<::inx::proto::LedgerSpent> for LedgerSpent {
+        type Error = InxError;
 
-    fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
-        value: bee_inx::LedgerSpent,
-    ) -> Result<Self, Self::Error> {
-        let output = LedgerOutput::try_from_with_context(ctx, value.output)?;
+        fn try_from(value: ::inx::proto::LedgerSpent) -> Result<Self, Self::Error> {
+            let output = LedgerOutput::try_from(maybe_missing!(value.output))?;
 
-        Ok(Self {
-            output,
-            spent_metadata: SpentMetadata {
-                transaction_id: value.transaction_id_spent.into(),
-                spent: MilestoneIndexTimestamp {
-                    milestone_index: value.milestone_index_spent.into(),
-                    milestone_timestamp: value.milestone_timestamp_spent.into(),
+            Ok(Self {
+                output,
+                spent_metadata: SpentMetadata {
+                    transaction_id: maybe_missing!(value.transaction_id_spent).try_into()?,
+                    spent: MilestoneIndexTimestamp {
+                        milestone_index: value.milestone_index_spent.into(),
+                        milestone_timestamp: value.milestone_timestamp_spent.into(),
+                    },
                 },
-            },
-        })
+            })
+        }
     }
-}
-
-/// The different number of bytes that are used for computing the rent cost.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RentStructureBytes {
-    /// The number of key bytes in an output.
-    pub num_key_bytes: u64,
-    /// The number of data bytes in an output.
-    pub num_data_bytes: u64,
 }
 
 #[cfg(test)]
 mod test {
-    #[cfg(all(feature = "inx", feature = "rand"))]
+    #[cfg(feature = "rand")]
     #[test]
     fn test_compute_rent_structure() {
         use bee_block_stardust::{output::Rent, rand::output};
