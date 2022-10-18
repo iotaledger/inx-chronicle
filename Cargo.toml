@@ -124,7 +124,7 @@ rand = [
     "iota-types?/rand",
 ]
 stardust = [
-    "dep:iota-types"
+    "dep:iota-types",
 ]
 
 [profile.production]
