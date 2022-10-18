@@ -33,7 +33,7 @@ humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = [ "tokio-runtime" ] }
 pin-project = { version = "1.0", default-features = false }
-prefix-hex = { version = "0.4.0", default-features = false, features = [ "primitive-types" ] }
+prefix-hex = { version = "0.5.0", default-features = false, features = [ "primitive-types" ] }
 primitive-types = { version = "0.11", default-features = false }
 serde = { version = "1.0", features = [ "derive" ], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
@@ -68,8 +68,8 @@ tower-http = { version = "0.3", default-features = false, features = [ "cors", "
 zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 
 # INX
-bee-inx = { version = "1.0.0-beta.6", default-features = false, optional = true }
 influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
+inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
@@ -82,7 +82,8 @@ tracing-opentelemetry = { version = "0.18", default-features = false, features =
 
 # Stardust types
 bee-api-types-stardust = { package = "bee-api-types", version = "1.0.1", default-features = false, features = [ "axum" ], optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.1", default-features = false, features = [ "dto", "std", "rand"], optional = true }
+bee-block-stardust = { package = "bee-block", version = "1.0.1", default-features = false, features = [ "dto", "inx", "rand", "std" ], optional = true }
+iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "dto", "std", "rand" ], optional = true }
 
 [dev-dependencies]
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
@@ -113,8 +114,8 @@ api = [
     "stardust",
 ]
 inx = [ 
-    "dep:bee-inx",
     "dep:influxdb",
+    "dep:inx",
     "dep:packable",
     "dep:tonic",
 ]

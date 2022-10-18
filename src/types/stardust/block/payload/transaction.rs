@@ -16,12 +16,13 @@ use crate::types::{
 };
 
 /// Uniquely identifies a transaction.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct TransactionId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl TransactionId {
-    const LENGTH: usize = bee::TransactionId::LENGTH;
+    /// The number of bytes for the id.
+    pub const LENGTH: usize = bee::TransactionId::LENGTH;
 
     /// Converts the [`TransactionId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {

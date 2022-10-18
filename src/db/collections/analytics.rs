@@ -4,13 +4,16 @@
 use std::collections::{HashMap, HashSet};
 
 use decimal::d128;
+#[cfg(feature = "inx")]
 use influxdb::{InfluxDbWriteable, Timestamp};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
 use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKind};
+#[cfg(feature = "inx")]
+use crate::db::influxdb::{InfluxDb, InfluxDbMeasurement};
 use crate::{
-    db::{influxdb::InfluxDbMeasurement, InfluxDb, MongoDb},
+    db::MongoDb,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::{
@@ -75,6 +78,7 @@ impl Analytics {
     }
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDb {
     /// Insert all gathered analytics.
     pub async fn insert_all_analytics(
@@ -341,6 +345,7 @@ pub struct AddressAnalyticsSchema {
     pub analytics: AddressAnalytics,
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbWriteable for AddressAnalyticsSchema {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
@@ -352,6 +357,7 @@ impl InfluxDbWriteable for AddressAnalyticsSchema {
     }
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbMeasurement for AddressAnalyticsSchema {
     const NAME: &'static str = "stardust_addresses";
 }
@@ -370,6 +376,7 @@ pub struct OutputAnalyticsSchema {
     pub analytics: OutputAnalytics,
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbWriteable for OutputAnalyticsSchema {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
@@ -384,6 +391,7 @@ impl InfluxDbWriteable for OutputAnalyticsSchema {
     }
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbMeasurement for OutputAnalyticsSchema {
     const NAME: &'static str = "stardust_outputs";
 }
@@ -404,6 +412,7 @@ pub struct StorageDepositAnalyticsSchema {
     pub analytics: StorageDepositAnalytics,
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbWriteable for StorageDepositAnalyticsSchema {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
@@ -433,6 +442,7 @@ impl InfluxDbWriteable for StorageDepositAnalyticsSchema {
     }
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbMeasurement for StorageDepositAnalyticsSchema {
     const NAME: &'static str = "stardust_storage_deposits";
 }
@@ -459,6 +469,7 @@ pub struct ClaimedTokensAnalyticsSchema {
     pub analytics: ClaimedTokensAnalytics,
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbWriteable for ClaimedTokensAnalyticsSchema {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
@@ -468,6 +479,7 @@ impl InfluxDbWriteable for ClaimedTokensAnalyticsSchema {
     }
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbMeasurement for ClaimedTokensAnalyticsSchema {
     const NAME: &'static str = "stardust_claimed_tokens";
 }
@@ -501,6 +513,7 @@ pub struct MilestoneActivityAnalyticsSchema {
     pub analytics: MilestoneActivityAnalytics,
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbWriteable for MilestoneActivityAnalyticsSchema {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
@@ -518,6 +531,7 @@ impl InfluxDbWriteable for MilestoneActivityAnalyticsSchema {
     }
 }
 
+#[cfg(feature = "inx")]
 impl InfluxDbMeasurement for MilestoneActivityAnalyticsSchema {
     const NAME: &'static str = "stardust_milestone_activity";
 }

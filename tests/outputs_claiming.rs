@@ -5,12 +5,8 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-
     use chronicle::{
-        db::{
-            collections::{OutputCollection, OutputDocument},
-            MongoDbCollection,
-        },
+        db::collections::{OutputCollection, OutputDocument},
         types::{
             ledger::{LedgerOutput, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
@@ -22,7 +18,7 @@ mod test_rand {
     };
     use decimal::d128;
 
-    use super::common::connect_to_test_db;
+    use super::common::{setup_collection, setup_database, teardown};
 
     fn rand_output_with_value(amount: OutputAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
@@ -33,10 +29,8 @@ mod test_rand {
 
     #[tokio::test]
     async fn test_claiming() {
-        let db = connect_to_test_db("test-claiming").await.unwrap();
-        db.clear().await.unwrap();
-        let collection = db.collection::<OutputCollection>();
-        collection.create_indexes().await.unwrap();
+        let db = setup_database("test-claiming").await.unwrap();
+        let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let unspent_outputs = (1..=5)
             .map(|i| {
@@ -56,7 +50,10 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.insert_unspent_outputs(&unspent_outputs).await.unwrap();
+        output_collection
+            .insert_unspent_outputs(&unspent_outputs)
+            .await
+            .unwrap();
 
         let spent_outputs = unspent_outputs
             .into_iter()
@@ -74,13 +71,15 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        collection.update_spent_outputs(&spent_outputs).await.unwrap();
+        output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        assert_eq!(
-            collection.get_claimed_token_analytics(3.into()).await.unwrap().count,
-            d128::from(3)
-        );
+        let third = output_collection
+            .get_claimed_token_analytics(3.into())
+            .await
+            .unwrap()
+            .count;
+        assert_eq!(third, d128::from(3));
 
-        db.drop().await.unwrap();
+        teardown(db).await;
     }
 }

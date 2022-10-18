@@ -6,7 +6,6 @@ mod error;
 
 use std::sync::Arc;
 
-use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
@@ -15,8 +14,9 @@ use chronicle::{
         },
         InfluxDb, MongoDb,
     },
+    inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        ledger::{BlockMetadata, LedgerInclusionState, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
         tangle::MilestoneIndex,
     },
@@ -25,7 +25,7 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::{sync::Mutex, task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 
-pub use self::{config::InxConfig, error::InxError};
+pub use self::{config::InxConfig, error::InxWorkerError};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 10000;
@@ -52,11 +52,11 @@ impl InxWorker {
         }
     }
 
-    async fn connect(&self) -> Result<Inx, InxError> {
+    async fn connect(&self) -> Result<Inx, InxWorkerError> {
         let url = url::Url::parse(&self.config.connect_url)?;
 
         if url.scheme() != "http" {
-            return Err(InxError::InvalidAddress(self.config.connect_url.clone()));
+            return Err(InxWorkerError::InvalidAddress(self.config.connect_url.clone()));
         }
 
         for i in 0..self.config.connection_retry_count {
@@ -72,10 +72,10 @@ impl InxWorker {
                 }
             }
         }
-        Err(InxError::ConnectionError)
+        Err(InxWorkerError::ConnectionError)
     }
 
-    pub async fn run(&mut self) -> Result<(), InxError> {
+    pub async fn run(&mut self) -> Result<(), InxWorkerError> {
         let (start_index, mut inx) = self.init().await?;
 
         let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
@@ -92,7 +92,7 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxError> {
+    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxWorkerError> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
@@ -116,13 +116,13 @@ impl InxWorker {
             .await?
         {
             if node_status.tangle_pruning_index.0 > latest_milestone.0 {
-                return Err(InxError::SyncMilestoneGap {
+                return Err(InxWorkerError::SyncMilestoneGap {
                     start: latest_milestone + 1,
-                    end: node_status.tangle_pruning_index.into(),
+                    end: node_status.tangle_pruning_index,
                 });
             } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
-                return Err(InxError::SyncMilestoneIndexMismatch {
-                    node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
+                return Err(InxWorkerError::SyncMilestoneIndexMismatch {
+                    node: node_status.confirmed_milestone.milestone_info.milestone_index,
                     db: latest_milestone,
                 });
             } else {
@@ -131,7 +131,7 @@ impl InxWorker {
         } else {
             self.config
                 .sync_start_milestone
-                .max((node_status.tangle_pruning_index + 1).into())
+                .max(node_status.tangle_pruning_index + 1)
         };
 
         let protocol_parameters = inx
@@ -150,7 +150,7 @@ impl InxWorker {
         {
             let protocol_parameters = chronicle::types::tangle::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
-                return Err(InxError::NetworkChanged(
+                return Err(InxWorkerError::NetworkChanged(
                     latest.parameters.network_name,
                     protocol_parameters.network_name,
                 ));
@@ -174,10 +174,10 @@ impl InxWorker {
             let mut count = 0;
             let mut tasks = unspent_output_stream
                 .inspect(|_| count += 1)
-                .map(|res| Ok(OutputDocument::from(LedgerOutput::try_from(res?.output)?)))
+                .map(|res| Ok(OutputDocument::from(res?.output)))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
-                .map_err(|e| InxError::BeeInx(e.1))
+                .map_err(|e| InxWorkerError::Inx(e.1))
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
@@ -220,16 +220,16 @@ impl InxWorker {
     async fn handle_ledger_update(
         &mut self,
         inx: &mut Inx,
-        start_marker: bee_inx::LedgerUpdate,
-        stream: &mut (impl futures::Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>> + Unpin),
-    ) -> Result<(), InxError> {
+        start_marker: LedgerUpdateMessage,
+        stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
+    ) -> Result<(), InxWorkerError> {
         let start_time = std::time::Instant::now();
 
-        let bee_inx::Marker {
+        let MarkerMessage {
             milestone_index,
             consumed_count,
             created_count,
-        } = start_marker.begin().ok_or(InxError::InvalidMilestoneState)?;
+        } = start_marker.begin().ok_or(InxWorkerError::InvalidMilestoneState)?;
 
         trace!(
             "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
@@ -238,7 +238,7 @@ impl InxWorker {
         let mut analytics = Analytics::default();
         let prev_analytics = match self.analytics.take() {
             Some(res) => res,
-            None => self.db.get_all_analytics((milestone_index - 1).into()).await?,
+            None => self.db.get_all_analytics(milestone_index - 1).await?,
         };
 
         // Only want to accumulate some of the analytics.
@@ -254,9 +254,9 @@ impl InxWorker {
             .by_ref()
             .take(consumed_count)
             .map(|res| {
-                Ok(OutputDocument::from(LedgerSpent::try_from(
-                    res?.consumed().ok_or(InxError::InvalidMilestoneState)?,
-                )?))
+                Ok(OutputDocument::from(
+                    res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState)?,
+                ))
             })
             .inspect_ok(|_| {
                 actual_consumed_count += 1;
@@ -272,7 +272,7 @@ impl InxWorker {
                     analytics.lock().await.process_outputs(&batch);
                     update_spent_outputs(&db, &batch).await
                 });
-                Result::<_, InxError>::Ok(tasks)
+                Result::<_, InxWorkerError>::Ok(tasks)
             })
             .await?;
 
@@ -280,9 +280,9 @@ impl InxWorker {
             .by_ref()
             .take(created_count)
             .map(|res| {
-                Ok(OutputDocument::from(LedgerOutput::try_from(
-                    res?.created().ok_or(InxError::InvalidMilestoneState)?,
-                )?))
+                Ok(OutputDocument::from(
+                    res?.created().ok_or(InxWorkerError::InvalidMilestoneState)?,
+                ))
             })
             .inspect_ok(|_| {
                 actual_created_count += 1;
@@ -298,7 +298,7 @@ impl InxWorker {
                     analytics.lock().await.process_outputs(&batch);
                     insert_unspent_outputs(&db, &batch).await
                 });
-                Result::<_, InxError>::Ok(tasks)
+                Result::<_, InxWorkerError>::Ok(tasks)
             })
             .await?;
 
@@ -307,26 +307,24 @@ impl InxWorker {
             res.unwrap()?;
         }
 
-        let bee_inx::Marker {
+        let MarkerMessage {
             milestone_index,
             consumed_count,
             created_count,
         } = stream
             .try_next()
             .await?
-            .and_then(bee_inx::LedgerUpdate::end)
-            .ok_or(InxError::InvalidMilestoneState)?;
+            .and_then(LedgerUpdateMessage::end)
+            .ok_or(InxWorkerError::InvalidMilestoneState)?;
         trace!(
             "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
         );
         if actual_created_count != created_count || actual_consumed_count != consumed_count {
-            return Err(InxError::InvalidLedgerUpdateCount {
+            return Err(InxWorkerError::InvalidLedgerUpdateCount {
                 received: actual_consumed_count + actual_created_count,
                 expected: consumed_count + created_count,
             });
         }
-
-        let milestone_index = MilestoneIndex::from(milestone_index);
 
         // Record the result as part of the current span.
         tracing::Span::current().record("milestone_index", milestone_index.0);
@@ -353,7 +351,11 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, level = "trace")]
-    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxError> {
+    async fn handle_protocol_params(
+        &self,
+        inx: &mut Inx,
+        milestone_index: MilestoneIndex,
+    ) -> Result<(), InxWorkerError> {
         let parameters = inx
             .read_protocol_parameters(milestone_index.0.into())
             .await?
@@ -374,10 +376,10 @@ impl InxWorker {
         inx: &mut Inx,
         milestone_index: MilestoneIndex,
         analytics: Analytics,
-    ) -> Result<(), InxError> {
+    ) -> Result<(), InxWorkerError> {
         let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
-        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
 
@@ -390,8 +392,7 @@ impl InxWorker {
         let milestone_id = milestone
             .milestone_info
             .milestone_id
-            .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
-            .into();
+            .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
 
         let payload =
             if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
@@ -418,14 +419,14 @@ impl InxWorker {
         inx: &mut Inx,
         analytics: &Arc<Mutex<AnalyticsProcessor>>,
         milestone_index: MilestoneIndex,
-    ) -> Result<(), InxError> {
+    ) -> Result<(), InxWorkerError> {
         let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
         let mut tasks = cone_stream
             .map(|res| {
-                let bee_inx::BlockWithMetadata { block, metadata } = res?;
-                Result::<_, InxError>::Ok((
-                    metadata.block_id.into(),
+                let BlockWithMetadataMessage { block, metadata } = res?;
+                Result::<_, InxWorkerError>::Ok((
+                    metadata.block_id,
                     block.clone().inner_unverified()?.into(),
                     block.data(),
                     BlockMetadata::from(metadata),
@@ -464,7 +465,7 @@ impl InxWorker {
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;
-                    Result::<_, InxError>::Ok(())
+                    Result::<_, InxWorkerError>::Ok(())
                 });
                 Ok(tasks)
             })
@@ -480,13 +481,13 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxWorkerError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
             output_collection.insert_unspent_outputs(outputs).await?;
-            Result::<_, InxError>::Ok(())
+            Result::<_, InxWorkerError>::Ok(())
         },
         async {
             ledger_collection.insert_unspent_ledger_updates(outputs).await?;
@@ -497,7 +498,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Res
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxWorkerError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {

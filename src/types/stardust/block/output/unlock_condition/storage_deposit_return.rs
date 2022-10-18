@@ -9,9 +9,12 @@ use serde::{Deserialize, Serialize};
 use super::OutputAmount;
 use crate::types::{context::TryFromWithContext, stardust::block::Address};
 
+/// Defines the amount of tokens used as storage deposit that have to be returned to the return address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageDepositReturnUnlockCondition {
+    /// The address to which funds will be returned once the storage deposit is unlocked.
     pub return_address: Address,
+    /// The amount held in storage.
     pub amount: OutputAmount,
 }
 

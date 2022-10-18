@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use chronicle::db::{MongoDb, MongoDbConfig};
+use chronicle::db::{MongoDb, MongoDbCollection, MongoDbConfig};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -17,7 +17,7 @@ pub enum TestDbError {
 }
 
 #[allow(unused)]
-pub async fn connect_to_test_db(database_name: impl ToString) -> Result<MongoDb, TestDbError> {
+pub async fn setup_database(database_name: impl ToString) -> Result<MongoDb, TestDbError> {
     let mut config = if let Ok(path) = std::env::var("CONFIG_PATH") {
         let val = std::fs::read_to_string(&path)
             .map_err(|e| TestDbError::FileRead(AsRef::<Path>::as_ref(&path).display().to_string(), e))
@@ -32,5 +32,18 @@ pub async fn connect_to_test_db(database_name: impl ToString) -> Result<MongoDb,
     };
     config.database_name = database_name.to_string();
 
-    Ok(MongoDb::connect(&config).await?)
+    let db = MongoDb::connect(&config).await?;
+    db.clear().await?;
+    Ok(db)
+}
+
+#[allow(unused)]
+pub async fn setup_collection<T: MongoDbCollection + Send + Sync>(db: &MongoDb) -> Result<T, TestDbError> {
+    db.create_indexes::<T>().await?;
+    Ok(db.collection::<T>())
+}
+
+#[allow(unused)]
+pub async fn teardown(db: MongoDb) {
+    db.drop().await.unwrap();
 }

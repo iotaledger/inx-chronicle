@@ -17,7 +17,8 @@ use crate::types::util::bytify;
 pub struct BlockId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl BlockId {
-    const LENGTH: usize = bee::BlockId::LENGTH;
+    /// The number of bytes for the id.
+    pub const LENGTH: usize = bee::BlockId::LENGTH;
 
     /// The `0x`-prefixed hex representation of a [`BlockId`].
     pub fn to_hex(&self) -> String {
