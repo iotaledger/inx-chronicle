@@ -31,10 +31,10 @@ use futures::TryStreamExt;
 use iota_types::{
     api::{
         dto::ReceiptDto,
-        response as iota,
         response::{
-            ConfirmedMilestoneResponse, LatestMilestoneResponse, ProtocolResponse, RentStructureResponse,
-            StatusResponse,
+            self as iota, BlockMetadataResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse,
+            OutputMetadataResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse, StatusResponse,
+            TreasuryResponse, UtxoChangesResponse,
         },
     },
     block::payload::milestone::option::dto::MilestoneOptionDto,
@@ -42,10 +42,7 @@ use iota_types::{
 use lazy_static::lazy_static;
 use packable::PackableExt;
 
-use super::responses::{
-    BlockMetadataResponse, BlockResponse, InfoResponse, MilestoneResponse, OutputMetadataResponse, OutputResponse,
-    ReceiptsResponse, TreasuryResponse, UtxoChangesResponse,
-};
+use super::responses::{BlockResponse, InfoResponse, IntoResponseWrapper, MilestoneResponse, OutputResponse};
 use crate::api::{
     error::{ApiError, InternalApiError},
     router::Router,
@@ -215,7 +212,7 @@ async fn block(
 async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id_str): Path<String>,
-) -> ApiResult<BlockMetadataResponse> {
+) -> ApiResult<IntoResponseWrapper<BlockMetadataResponse>> {
     let block_id = BlockId::from_str(&block_id_str).map_err(ApiError::bad_parse)?;
     let metadata = database
         .collection::<BlockCollection>()
@@ -223,7 +220,7 @@ async fn block_metadata(
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    Ok(iota::BlockMetadataResponse {
+    Ok(BlockMetadataResponse {
         block_id: block_id_str,
         parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
         is_solid: metadata.is_solid,
@@ -309,7 +306,7 @@ async fn output(
 async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
-) -> ApiResult<OutputMetadataResponse> {
+) -> ApiResult<IntoResponseWrapper<OutputMetadataResponse>> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
@@ -354,7 +351,7 @@ async fn transaction_included_block(
     Ok(iota::BlockResponse::Json(block.into()).into())
 }
 
-async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
+async fn receipts(database: Extension<MongoDb>) -> ApiResult<IntoResponseWrapper<ReceiptsResponse>> {
     let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
@@ -370,7 +367,10 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<ReceiptsResponse> {
     Ok(iota::ReceiptsResponse { receipts }.into())
 }
 
-async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u32>) -> ApiResult<ReceiptsResponse> {
+async fn receipts_migrated_at(
+    database: Extension<MongoDb>,
+    Path(index): Path<u32>,
+) -> ApiResult<IntoResponseWrapper<ReceiptsResponse>> {
     let mut receipts_at = database
         .collection::<MilestoneCollection>()
         .get_receipts_migrated_at(index.into())
@@ -389,7 +389,7 @@ async fn receipts_migrated_at(database: Extension<MongoDb>, Path(index): Path<u3
     Ok(iota::ReceiptsResponse { receipts }.into())
 }
 
-async fn treasury(database: Extension<MongoDb>) -> ApiResult<TreasuryResponse> {
+async fn treasury(database: Extension<MongoDb>) -> ApiResult<IntoResponseWrapper<TreasuryResponse>> {
     database
         .collection::<TreasuryCollection>()
         .get_latest_treasury()
@@ -472,7 +472,7 @@ async fn milestone_by_index(
 async fn utxo_changes(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
-) -> ApiResult<UtxoChangesResponse> {
+) -> ApiResult<IntoResponseWrapper<UtxoChangesResponse>> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
     let milestone_index = database
         .collection::<MilestoneCollection>()
@@ -481,14 +481,14 @@ async fn utxo_changes(
         .ok_or(ApiError::NoResults)?
         .essence
         .index;
-    collect_utxo_changes(&database, milestone_index).await
+    collect_utxo_changes(&database, milestone_index).await.map(Into::into)
 }
 
 async fn utxo_changes_by_index(
     database: Extension<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
-) -> ApiResult<UtxoChangesResponse> {
-    collect_utxo_changes(&database, milestone_index).await
+) -> ApiResult<IntoResponseWrapper<UtxoChangesResponse>> {
+    collect_utxo_changes(&database, milestone_index).await.map(Into::into)
 }
 
 async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneIndex) -> ApiResult<UtxoChangesResponse> {
@@ -513,6 +513,5 @@ async fn collect_utxo_changes(database: &MongoDb, milestone_index: MilestoneInde
         index: *milestone_index,
         created_outputs,
         consumed_outputs,
-    }
-    .into())
+    })
 }

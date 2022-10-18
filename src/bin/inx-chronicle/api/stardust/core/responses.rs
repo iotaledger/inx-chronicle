@@ -36,21 +36,15 @@ impl axum::response::IntoResponse for OutputResponse {
     }
 }
 
-/// Wraps responses from [`iota_types`](iota_types::api::response) so that we can implement the foreign trait
-/// [`IntoResponse`](axum::response::IntoResponse).
-#[macro_export]
-macro_rules! impl_into_response_foreign {
-    ($iota_response:ty, $own_response:ident) => {
-        /// Wrapper struct around [`$iota_response`] used to implement [`IntoResponse`](axum::response::IntoResponse)
-        #[derive(Clone, Debug, Serialize, Deserialize, derive_more::From)]
-        pub struct $own_response($iota_response);
+/// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
+/// responses from [`iota_types`](iota_types::api::response).
+#[derive(Clone, Debug, Serialize, derive_more::From)]
+pub struct IntoResponseWrapper<T: Serialize>(T);
 
-        impl axum::response::IntoResponse for $own_response {
-            fn into_response(self) -> axum::response::Response {
-                axum::Json(self.0).into_response()
-            }
-        }
-    };
+impl<T: Serialize> axum::response::IntoResponse for IntoResponseWrapper<T> {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(self.0).into_response()
+    }
 }
 
 /// Wraps responses from [`iota_types`](iota_types::api::response) that also return raw bytes, so that we can implement
@@ -72,12 +66,6 @@ macro_rules! impl_into_response_foreign_with_raw {
         }
     };
 }
-
-impl_into_response_foreign!(iota::BlockMetadataResponse, BlockMetadataResponse);
-impl_into_response_foreign!(iota::OutputMetadataResponse, OutputMetadataResponse);
-impl_into_response_foreign!(iota::ReceiptsResponse, ReceiptsResponse);
-impl_into_response_foreign!(iota::TreasuryResponse, TreasuryResponse);
-impl_into_response_foreign!(iota::UtxoChangesResponse, UtxoChangesResponse);
 
 impl_into_response_foreign_with_raw!(IotaBlockResponse, BlockResponse);
 impl_into_response_foreign_with_raw!(IotaMilestoneResponse, MilestoneResponse);
