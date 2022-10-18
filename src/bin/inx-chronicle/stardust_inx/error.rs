@@ -5,7 +5,7 @@ use chronicle::types::tangle::MilestoneIndex;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum InxError {
+pub enum InxWorkerError {
     #[error("failed to establish connection")]
     ConnectionError,
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]

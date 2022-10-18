@@ -193,9 +193,7 @@ async fn storage_deposit_ledger_analytics(
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await
         .map_err(ApiError::internal)?
-        .ok_or(ApiError::internal(InternalApiError::CorruptState(
-            "no protocol parameters",
-        )))?
+        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no protocol parameters")))?
         .parameters;
     let res = database
         .collection::<OutputCollection>()
@@ -269,9 +267,7 @@ async fn richest_addresses_ledger_analytics(
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await
         .map_err(ApiError::internal)?
-        .ok_or(ApiError::internal(InternalApiError::CorruptState(
-            "no protocol parameters",
-        )))?
+        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no protocol parameters")))?
         .parameters
         .bech32_hrp;
 

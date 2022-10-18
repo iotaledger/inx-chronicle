@@ -4,7 +4,6 @@
 mod config;
 mod error;
 
-use bee_inx::client::Inx;
 use chronicle::{
     db::{
         collections::{
@@ -13,6 +12,7 @@ use chronicle::{
         },
         MongoDb,
     },
+    inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -24,7 +24,7 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 
-pub use self::{config::InxConfig, error::InxError};
+pub use self::{config::InxConfig, error::InxWorkerError};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 10000;
@@ -51,7 +51,7 @@ impl InxWorker {
         let url = url::Url::parse(&self.config.connect_url)?;
 
         if url.scheme() != "http" {
-            bail!(InxError::InvalidAddress(self.config.connect_url.clone()));
+            bail!(InxWorkerError::InvalidAddress(self.config.connect_url.clone()));
         }
 
         for i in 0..self.config.connection_retry_count {
@@ -67,7 +67,7 @@ impl InxWorker {
                 }
             }
         }
-        Err(eyre!(InxError::ConnectionError))
+        Err(eyre!(InxWorkerError::ConnectionError))
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -111,13 +111,13 @@ impl InxWorker {
             .await?
         {
             if node_status.tangle_pruning_index.0 > latest_milestone.0 {
-                bail!(InxError::SyncMilestoneGap {
+                bail!(InxWorkerError::SyncMilestoneGap {
                     start: latest_milestone + 1,
-                    end: node_status.tangle_pruning_index.into(),
+                    end: node_status.tangle_pruning_index,
                 });
             } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
-                bail!(InxError::SyncMilestoneIndexMismatch {
-                    node: node_status.confirmed_milestone.milestone_info.milestone_index.into(),
+                bail!(InxWorkerError::SyncMilestoneIndexMismatch {
+                    node: node_status.confirmed_milestone.milestone_info.milestone_index,
                     db: latest_milestone,
                 });
             } else {
@@ -126,7 +126,7 @@ impl InxWorker {
         } else {
             self.config
                 .sync_start_milestone
-                .max((node_status.tangle_pruning_index + 1).into())
+                .max(node_status.tangle_pruning_index + 1)
         };
 
         let protocol_parameters = inx
@@ -145,7 +145,7 @@ impl InxWorker {
         {
             let protocol_parameters = chronicle::types::tangle::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
-                bail!(InxError::NetworkChanged(
+                bail!(InxWorkerError::NetworkChanged(
                     latest.parameters.network_name,
                     protocol_parameters.network_name,
                 ));
@@ -169,7 +169,7 @@ impl InxWorker {
             let mut count = 0;
             let mut tasks = unspent_output_stream
                 .inspect(|_| count += 1)
-                .map(|res| LedgerOutput::try_from(res?.output))
+                .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| e.1)
@@ -177,7 +177,7 @@ impl InxWorker {
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
                     tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-                    Ok(tasks)
+                    Result::<_>::Ok(tasks)
                 })
                 .await?;
 
@@ -216,16 +216,16 @@ impl InxWorker {
 async fn handle_ledger_update(
     inx: &mut Inx,
     db: &MongoDb,
-    start_marker: bee_inx::LedgerUpdate,
-    stream: &mut (impl futures::Stream<Item = Result<bee_inx::LedgerUpdate, bee_inx::Error>> + Unpin),
+    start_marker: LedgerUpdateMessage,
+    stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
 ) -> Result<()> {
     let start_time = std::time::Instant::now();
 
-    let bee_inx::Marker {
+    let MarkerMessage {
         milestone_index,
         consumed_count,
         created_count,
-    } = start_marker.begin().ok_or(InxError::InvalidMilestoneState)?;
+    } = start_marker.begin().ok_or(InxWorkerError::InvalidMilestoneState)?;
 
     trace!(
         "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
@@ -238,11 +238,7 @@ async fn handle_ledger_update(
     stream
         .by_ref()
         .take(consumed_count)
-        .map(|res| {
-            Ok(LedgerSpent::try_from(
-                res?.consumed().ok_or(InxError::InvalidMilestoneState)?,
-            )?)
-        })
+        .map(|res| Result::<_>::Ok(res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState)?))
         .inspect_ok(|_| {
             actual_consumed_count += 1;
         })
@@ -253,18 +249,14 @@ async fn handle_ledger_update(
         .try_fold(&mut tasks, |tasks, batch| async {
             let db = db.clone();
             tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
-            Result::<_>::Ok(tasks)
+            Ok(tasks)
         })
         .await?;
 
     stream
         .by_ref()
         .take(created_count)
-        .map(|res| {
-            Ok(LedgerOutput::try_from(
-                res?.created().ok_or(InxError::InvalidMilestoneState)?,
-            )?)
-        })
+        .map(|res| Result::<_>::Ok(res?.created().ok_or(InxWorkerError::InvalidMilestoneState)?))
         .inspect_ok(|_| {
             actual_created_count += 1;
         })
@@ -275,7 +267,7 @@ async fn handle_ledger_update(
         .try_fold(&mut tasks, |tasks, batch| async {
             let db = db.clone();
             tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-            Result::<_>::Ok(tasks)
+            Ok(tasks)
         })
         .await?;
 
@@ -284,26 +276,26 @@ async fn handle_ledger_update(
         res.unwrap()?;
     }
 
-    let bee_inx::Marker {
+    let MarkerMessage {
         milestone_index,
         consumed_count,
         created_count,
     } = stream
         .try_next()
         .await?
-        .and_then(bee_inx::LedgerUpdate::end)
-        .ok_or(InxError::InvalidMilestoneState)?;
+        .and_then(LedgerUpdateMessage::end)
+        .ok_or(InxWorkerError::InvalidMilestoneState)?;
     trace!(
         "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
     );
     if actual_created_count != created_count || actual_consumed_count != consumed_count {
-        bail!(InxError::InvalidLedgerUpdateCount {
+        bail!(InxWorkerError::InvalidLedgerUpdateCount {
             received: actual_consumed_count + actual_created_count,
             expected: consumed_count + created_count,
         });
     }
 
-    let milestone_index = MilestoneIndex::from(milestone_index);
+    let milestone_index = milestone_index;
 
     // Record the result as part of the current span.
     tracing::Span::current().record("milestone_index", milestone_index.0);
@@ -376,14 +368,13 @@ async fn handle_protocol_params(db: &MongoDb, inx: &mut Inx, milestone_index: Mi
 async fn handle_milestone(db: &MongoDb, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
     let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
-    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index.into();
+    let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
     let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
     let milestone_id = milestone
         .milestone_info
         .milestone_id
-        .ok_or(InxError::MissingMilestoneInfo(milestone_index))?
-        .into();
+        .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
 
     let payload =
         if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
@@ -409,9 +400,9 @@ async fn handle_cone_stream(db: &MongoDb, inx: &mut Inx, milestone_index: Milest
 
     let mut tasks = cone_stream
         .map(|res| {
-            let bee_inx::BlockWithMetadata { block, metadata } = res?;
+            let BlockWithMetadataMessage { block, metadata } = res?;
             Result::<_>::Ok((
-                metadata.block_id.into(),
+                metadata.block_id,
                 block.clone().inner_unverified()?.into(),
                 block.data(),
                 BlockMetadata::from(metadata),

@@ -105,9 +105,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .get_latest_protocol_parameters()
         .await
         .map_err(ApiError::internal)?
-        .ok_or(ApiError::internal(InternalApiError::CorruptState(
-            "no protocol parameters in the database",
-        )))?
+        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no protocol parameters in the database")))?
         .parameters;
 
     let is_healthy = is_healthy(&database).await.unwrap_or_else(|e| {
@@ -120,17 +118,13 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .get_newest_milestone()
         .await
         .map_err(ApiError::internal)?
-        .ok_or(ApiError::internal(InternalApiError::CorruptState(
-            "no milestone in the database",
-        )))?;
+        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no milestone in the database")))?;
     let oldest_milestone = database
         .collection::<MilestoneCollection>()
         .get_oldest_milestone()
         .await
         .map_err(ApiError::internal)?
-        .ok_or(ApiError::internal(InternalApiError::CorruptState(
-            "no milestone in the database",
-        )))?;
+        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no milestone in the database")))?;
 
     let latest_milestone = LatestMilestoneResponse {
         index: newest_milestone.milestone_index.0,
@@ -142,9 +136,9 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
                     .get_milestone_id(newest_milestone.milestone_index)
                     .await
                     .map_err(ApiError::internal)?
-                    .ok_or(ApiError::internal(InternalApiError::CorruptState(
-                        "no milestone in the database",
-                    )))?,
+                    .ok_or_else(|| {
+                        ApiError::internal(InternalApiError::CorruptState("no milestone in the database"))
+                    })?,
             )
             .to_string(),
         ),
