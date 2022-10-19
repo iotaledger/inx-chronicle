@@ -934,32 +934,7 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "stardust_addresses.mean"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 9,
@@ -982,6 +957,7 @@
       },
       "targets": [
         {
+          "alias": "Sending addresses",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -1015,13 +991,14 @@
               },
               {
                 "params": [],
-                "type": "mean"
+                "type": "sum"
               }
             ]
           ],
           "tags": []
         },
         {
+          "alias": "Receiving addresses",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -1056,7 +1033,7 @@
               },
               {
                 "params": [],
-                "type": "mean"
+                "type": "sum"
               }
             ]
           ],
