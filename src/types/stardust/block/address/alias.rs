@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::address as bee;
+use iota_types::block::address as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -14,29 +14,29 @@ use crate::types::stardust::block::output::AliasId;
 #[serde(transparent)]
 pub struct AliasAddress(pub AliasId);
 
-impl From<bee::AliasAddress> for AliasAddress {
-    fn from(value: bee::AliasAddress) -> Self {
+impl From<iota::AliasAddress> for AliasAddress {
+    fn from(value: iota::AliasAddress) -> Self {
         Self((*value).into())
     }
 }
 
-impl From<AliasAddress> for bee::AliasAddress {
+impl From<AliasAddress> for iota::AliasAddress {
     fn from(value: AliasAddress) -> Self {
-        bee::AliasAddress::new(value.0.into())
+        iota::AliasAddress::new(value.0.into())
     }
 }
 
-impl From<AliasAddress> for bee::dto::AliasAddressDto {
+impl From<AliasAddress> for iota::dto::AliasAddressDto {
     fn from(value: AliasAddress) -> Self {
-        Into::into(&bee::AliasAddress::from(value))
+        Into::into(&iota::AliasAddress::from(value))
     }
 }
 
 impl FromStr for AliasAddress {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::AliasAddress::from_str(s)?.into())
+        Ok(iota::AliasAddress::from_str(s)?.into())
     }
 }
 
@@ -49,7 +49,7 @@ impl From<AliasAddress> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::address::rand_alias_address;
+    use iota_types::block::rand::address::rand_alias_address;
 
     use super::*;
 

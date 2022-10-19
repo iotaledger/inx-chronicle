@@ -3,7 +3,7 @@
 
 #![allow(missing_docs)]
 
-use bee_block_stardust as bee;
+use iota_types::block as iota;
 use serde::{Deserialize, Serialize};
 
 /// Parameters relevant to byte cost calculations.
@@ -14,8 +14,8 @@ pub struct RentStructure {
     pub v_byte_factor_key: u8,
 }
 
-impl From<&bee::output::RentStructure> for RentStructure {
-    fn from(value: &bee::output::RentStructure) -> Self {
+impl From<&iota::output::RentStructure> for RentStructure {
+    fn from(value: &iota::output::RentStructure) -> Self {
         Self {
             v_byte_cost: value.v_byte_cost,
             v_byte_factor_data: value.v_byte_factor_data,
@@ -24,7 +24,7 @@ impl From<&bee::output::RentStructure> for RentStructure {
     }
 }
 
-impl From<RentStructure> for bee::output::RentStructure {
+impl From<RentStructure> for iota::output::RentStructure {
     fn from(value: RentStructure) -> Self {
         Self::build()
             .byte_cost(value.v_byte_cost)
@@ -47,8 +47,8 @@ pub struct ProtocolParameters {
     pub token_supply: u64,
 }
 
-impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
-    fn from(value: bee::protocol::ProtocolParameters) -> Self {
+impl From<iota::protocol::ProtocolParameters> for ProtocolParameters {
+    fn from(value: iota::protocol::ProtocolParameters) -> Self {
         Self {
             version: value.protocol_version(),
             network_name: value.network_name().into(),
@@ -61,8 +61,8 @@ impl From<bee::protocol::ProtocolParameters> for ProtocolParameters {
     }
 }
 
-impl TryFrom<ProtocolParameters> for bee::protocol::ProtocolParameters {
-    type Error = bee_block_stardust::Error;
+impl TryFrom<ProtocolParameters> for iota::protocol::ProtocolParameters {
+    type Error = iota_types::block::Error;
 
     fn try_from(value: ProtocolParameters) -> Result<Self, Self::Error> {
         Self::new(

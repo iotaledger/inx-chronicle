@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! This module provides conversion methods between types while respecting the context that is the current
-//! [`ProtocolParameters`](bee_block_stardust::protocol::ProtocolParameters).
+//! [`ProtocolParameters`](iota_types::block::protocol::ProtocolParameters).
 
 /// The equivalent to [`TryFrom`] but with an additional context.
 pub trait TryFromWithContext<T>: Sized {
@@ -11,7 +11,7 @@ pub trait TryFromWithContext<T>: Sized {
 
     /// Performs the conversion.
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: T,
     ) -> Result<Self, Self::Error>;
 }
@@ -22,7 +22,7 @@ pub trait TryIntoWithContext<T>: Sized {
     type Error;
 
     /// Performs the conversion.
-    fn try_into_with_context(self, ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Result<T, Self::Error>;
+    fn try_into_with_context(self, ctx: &iota_types::block::protocol::ProtocolParameters) -> Result<T, Self::Error>;
 }
 
 // TryFromWithContext implies TryIntoWithContext
@@ -32,7 +32,7 @@ where
 {
     type Error = U::Error;
 
-    fn try_into_with_context(self, ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Result<U, U::Error> {
+    fn try_into_with_context(self, ctx: &iota_types::block::protocol::ProtocolParameters) -> Result<U, U::Error> {
         U::try_from_with_context(ctx, self)
     }
 }

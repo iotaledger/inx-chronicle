@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::feature as bee;
+use iota_types::block::output::feature as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
@@ -36,55 +36,55 @@ pub enum Feature {
     },
 }
 
-impl<T: Borrow<bee::Feature>> From<T> for Feature {
+impl<T: Borrow<iota::Feature>> From<T> for Feature {
     fn from(value: T) -> Self {
         match value.borrow() {
-            bee::Feature::Sender(a) => Self::Sender {
+            iota::Feature::Sender(a) => Self::Sender {
                 address: (*a.address()).into(),
             },
-            bee::Feature::Issuer(a) => Self::Issuer {
+            iota::Feature::Issuer(a) => Self::Issuer {
                 address: (*a.address()).into(),
             },
-            bee::Feature::Metadata(b) => Self::Metadata {
+            iota::Feature::Metadata(b) => Self::Metadata {
                 data: b.data().to_vec().into_boxed_slice(),
             },
-            bee::Feature::Tag(b) => Self::Tag {
+            iota::Feature::Tag(b) => Self::Tag {
                 data: b.tag().to_vec().into_boxed_slice(),
             },
         }
     }
 }
 
-impl TryFrom<Feature> for bee::Feature {
-    type Error = bee_block_stardust::Error;
+impl TryFrom<Feature> for iota::Feature {
+    type Error = iota_types::block::Error;
 
     fn try_from(value: Feature) -> Result<Self, Self::Error> {
         Ok(match value {
-            Feature::Sender { address } => bee::Feature::Sender(bee::SenderFeature::new(address.into())),
-            Feature::Issuer { address } => bee::Feature::Issuer(bee::IssuerFeature::new(address.into())),
-            Feature::Metadata { data } => bee::Feature::Metadata(bee::MetadataFeature::new(data.into())?),
-            Feature::Tag { data } => bee::Feature::Tag(bee::TagFeature::new(data.into())?),
+            Feature::Sender { address } => iota::Feature::Sender(iota::SenderFeature::new(address.into())),
+            Feature::Issuer { address } => iota::Feature::Issuer(iota::IssuerFeature::new(address.into())),
+            Feature::Metadata { data } => iota::Feature::Metadata(iota::MetadataFeature::new(data.into())?),
+            Feature::Tag { data } => iota::Feature::Tag(iota::TagFeature::new(data.into())?),
         })
     }
 }
 
-impl From<Feature> for bee::dto::FeatureDto {
+impl From<Feature> for iota::dto::FeatureDto {
     fn from(value: Feature) -> Self {
         match value {
-            Feature::Sender { address } => Self::Sender(bee::dto::SenderFeatureDto {
-                kind: bee::SenderFeature::KIND,
+            Feature::Sender { address } => Self::Sender(iota::dto::SenderFeatureDto {
+                kind: iota::SenderFeature::KIND,
                 address: address.into(),
             }),
-            Feature::Issuer { address } => Self::Issuer(bee::dto::IssuerFeatureDto {
-                kind: bee::IssuerFeature::KIND,
+            Feature::Issuer { address } => Self::Issuer(iota::dto::IssuerFeatureDto {
+                kind: iota::IssuerFeature::KIND,
                 address: address.into(),
             }),
-            Feature::Metadata { data } => Self::Metadata(bee::dto::MetadataFeatureDto {
-                kind: bee::MetadataFeature::KIND,
+            Feature::Metadata { data } => Self::Metadata(iota::dto::MetadataFeatureDto {
+                kind: iota::MetadataFeature::KIND,
                 data: prefix_hex::encode(data),
             }),
-            Feature::Tag { data } => Self::Tag(bee::dto::TagFeatureDto {
-                kind: bee::TagFeature::KIND,
+            Feature::Tag { data } => Self::Tag(iota::dto::TagFeatureDto {
+                kind: iota::TagFeature::KIND,
                 tag: prefix_hex::encode(data),
             }),
         }
@@ -93,7 +93,7 @@ impl From<Feature> for bee::dto::FeatureDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::{
+    use iota_types::block::{
         output::feature::FeatureFlags,
         rand::output::feature::{
             rand_allowed_features, rand_issuer_feature, rand_metadata_feature, rand_sender_feature, rand_tag_feature,
@@ -113,22 +113,22 @@ mod rand {
 
         /// Generates a random sender [`Feature`].
         pub fn rand_sender() -> Self {
-            bee::Feature::from(rand_sender_feature()).into()
+            iota::Feature::from(rand_sender_feature()).into()
         }
 
         /// Generates a random issuer [`Feature`].
         pub fn rand_issuer() -> Self {
-            bee::Feature::from(rand_issuer_feature()).into()
+            iota::Feature::from(rand_issuer_feature()).into()
         }
 
         /// Generates a random metadata [`Feature`].
         pub fn rand_metadata() -> Self {
-            bee::Feature::from(rand_metadata_feature()).into()
+            iota::Feature::from(rand_metadata_feature()).into()
         }
 
         /// Generates a random tag [`Feature`].
         pub fn rand_tag() -> Self {
-            bee::Feature::from(rand_tag_feature()).into()
+            iota::Feature::from(rand_tag_feature()).into()
         }
     }
 }
@@ -142,22 +142,22 @@ mod test {
     #[test]
     fn test_feature_bson() {
         let block = Feature::rand_sender();
-        bee::Feature::try_from(block.clone()).unwrap();
+        iota::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
         let block = Feature::rand_issuer();
-        bee::Feature::try_from(block.clone()).unwrap();
+        iota::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
         let block = Feature::rand_metadata();
-        bee::Feature::try_from(block.clone()).unwrap();
+        iota::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
 
         let block = Feature::rand_tag();
-        bee::Feature::try_from(block.clone()).unwrap();
+        iota::Feature::try_from(block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Feature>(bson).unwrap());
     }
