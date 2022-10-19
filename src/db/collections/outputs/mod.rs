@@ -41,13 +41,12 @@ use crate::{
 
 /// Chronicle Output record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[allow(missing_docs)]
 pub struct OutputDocument {
     #[serde(rename = "_id")]
-    pub output_id: OutputId,
-    pub output: Output,
-    pub metadata: OutputMetadata,
-    pub details: OutputDetails,
+    output_id: OutputId,
+    output: Output,
+    metadata: OutputMetadata,
+    details: OutputDetails,
 }
 
 /// The stardust outputs collection.
@@ -119,14 +118,14 @@ pub struct OutputDetails {
     pub rent_structure: RentStructureBytes,
 }
 
-impl From<LedgerOutput> for OutputDocument {
-    fn from(rec: LedgerOutput) -> Self {
+impl From<&LedgerOutput> for OutputDocument {
+    fn from(rec: &LedgerOutput) -> Self {
         let address = rec.output.owning_address().copied();
         let is_trivial_unlock = rec.output.is_trivial_unlock();
 
         Self {
             output_id: rec.output_id,
-            output: rec.output,
+            output: rec.output.clone(),
             metadata: OutputMetadata {
                 block_id: rec.block_id,
                 booked: rec.booked,
@@ -141,9 +140,9 @@ impl From<LedgerOutput> for OutputDocument {
     }
 }
 
-impl From<LedgerSpent> for OutputDocument {
-    fn from(rec: LedgerSpent) -> Self {
-        let mut res = Self::from(rec.output);
+impl From<&LedgerSpent> for OutputDocument {
+    fn from(rec: &LedgerSpent) -> Self {
+        let mut res = Self::from(&rec.output);
         res.metadata.spent_metadata.replace(rec.spent_metadata);
         res
     }
@@ -184,17 +183,14 @@ impl OutputCollection {
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn update_spent_outputs(
-        &self,
-        outputs: impl IntoIterator<Item = impl Borrow<OutputDocument>>,
-    ) -> Result<(), Error> {
+    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
             .into_iter()
             .map(|output| {
                 Ok(doc! {
-                    "q": { "_id": output.borrow().output_id },
-                    "u": to_document(output.borrow())?,
+                    "q": { "_id": output.output.output_id },
+                    "u": to_document(&OutputDocument::from(output))?,
                     "upsert": true,
                 })
             })
@@ -218,15 +214,14 @@ impl OutputCollection {
     /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_unspent_outputs<'a, I, B>(&self, outputs: I) -> Result<(), Error>
+    pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = B> + Send + Sync,
+        I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
-        B: Borrow<OutputDocument> + Send + Sync,
+        B: Borrow<LedgerOutput>,
     {
-        InsertIgnoreDuplicatesExt::<OutputDocument>::insert_many_ignore_duplicates(
-            self,
-            outputs,
+        self.insert_many_ignore_duplicates(
+            outputs.into_iter().map(|d| OutputDocument::from(d.borrow())),
             InsertManyOptions::builder().ordered(false).build(),
         )
         .await?;
@@ -827,20 +822,25 @@ impl OutputCollection {
 
 impl OutputCollection {
     /// Gets the number of claimed tokens.
-    pub async fn get_claimed_token_analytics(&self, index: MilestoneIndex) -> Result<ClaimedTokensAnalytics, Error> {
+    pub async fn get_claimed_token_analytics(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<ClaimedTokensAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$eq": 0 },
-                        "metadata.spent_metadata.spent.milestone_index": index,
+                        "metadata.spent_metadata.spent.milestone_index": { "$lte": ledger_index },
                     } },
                     doc! { "$group": {
                         "_id": null,
-                        "count": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "count": { "$sum": 1 },
+                        "total_amount": { "$sum": { "$toDecimal": "$output.amount" } },
                     } },
                     doc! { "$project": {
-                        "count": { "$toString": "$count" },
+                        "count": 1,
+                        "total_amount": { "$toString": "$total_amount" },
                     } },
                 ],
                 None,

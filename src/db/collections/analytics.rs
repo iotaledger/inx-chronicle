@@ -9,13 +9,13 @@ use influxdb::{InfluxDbWriteable, Timestamp};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
-use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKind};
+use super::{BlockCollection, OutputCollection, OutputKind};
 #[cfg(feature = "inx")]
 use crate::db::influxdb::{InfluxDb, InfluxDbMeasurement};
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState},
+        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent},
         stardust::{
             block::{
                 output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
@@ -219,70 +219,88 @@ pub struct AnalyticsProcessor {
 }
 
 impl AnalyticsProcessor {
-    /// Process a batch of outputs.
-    pub fn process_outputs<'a, I>(&mut self, outputs: I)
+    /// Process a batch of created outputs.
+    pub fn process_created_outputs<'a, I>(&mut self, outputs: I)
     where
-        I: IntoIterator<Item = &'a OutputDocument>,
+        I: IntoIterator<Item = &'a LedgerOutput>,
     {
         for output in outputs {
-            if let Some(address) = output.details.address {
-                self.addresses.insert(address);
-                if output.metadata.spent_metadata.is_some() {
-                    self.sending_addresses.insert(address);
-                } else {
-                    self.receiving_addresses.insert(address);
-                }
-            }
-            let output_analytics = self
-                .analytics
-                .outputs
-                .entry(output.output.kind().to_string())
-                .or_default();
-            output_analytics.count += 1;
-            output_analytics.total_value += output.output.amount().0.into();
-
-            let (unspent_output_analytics, storage_deposits) = if output.metadata.spent_metadata.is_some() {
-                // To workaround spent outputs being processed first, we keep track of a separate set
-                // of values which will be subtracted at the end.
-                (
-                    self.removed_outputs
-                        .entry(output.output.kind().to_string())
-                        .or_default(),
-                    &mut self.removed_storage_deposits,
-                )
-            } else {
-                (
-                    self.analytics
-                        .unspent_outputs
-                        .entry(output.output.kind().to_string())
-                        .or_default(),
-                    &mut self.analytics.storage_deposits,
-                )
-            };
-            unspent_output_analytics.count += 1;
-            unspent_output_analytics.total_value += output.output.amount().0.into();
-            storage_deposits.output_count += 1;
-            storage_deposits.total_data_bytes += output.details.rent_structure.num_data_bytes.into();
-            storage_deposits.total_key_bytes += output.details.rent_structure.num_key_bytes.into();
-            match output.output {
-                Output::Basic(BasicOutput {
-                    storage_deposit_return_unlock_condition: Some(uc),
-                    ..
-                })
-                | Output::Nft(NftOutput {
-                    storage_deposit_return_unlock_condition: Some(uc),
-                    ..
-                }) => {
-                    storage_deposits.storage_deposit_return_count += 1;
-                    storage_deposits.storage_deposit_return_total_value += uc.amount.0.into();
-                }
-                _ => (),
-            }
-            // TODO: Claimed tokens
+            self.process_output(output, false);
         }
     }
 
-    /// Process a batch of outputs.
+    /// Process a batch of consumed outputs.
+    pub fn process_consumed_outputs<'a, I>(&mut self, outputs: I)
+    where
+        I: IntoIterator<Item = &'a LedgerSpent>,
+    {
+        for output in outputs {
+            self.process_output(&output.output, true);
+        }
+    }
+
+    fn process_output(&mut self, output: &LedgerOutput, is_spent: bool) {
+        if let Some(&address) = output.output.owning_address() {
+            self.addresses.insert(address);
+            if is_spent {
+                self.sending_addresses.insert(address);
+            } else {
+                self.receiving_addresses.insert(address);
+            }
+        }
+        let output_analytics = self
+            .analytics
+            .outputs
+            .entry(output.output.kind().to_string())
+            .or_default();
+        output_analytics.count += 1;
+        output_analytics.total_value += output.output.amount().0.into();
+
+        let (unspent_output_analytics, storage_deposits) = if is_spent {
+            // Spent outputs that were created by the genesis are claimed.
+            if output.booked.milestone_index == 0 {
+                self.analytics.claimed_tokens.count += 1;
+                self.analytics.claimed_tokens.total_amount += output.output.amount().0.into();
+            }
+            // To workaround spent outputs being processed first, we keep track of a separate set
+            // of values which will be subtracted at the end.
+            (
+                self.removed_outputs
+                    .entry(output.output.kind().to_string())
+                    .or_default(),
+                &mut self.removed_storage_deposits,
+            )
+        } else {
+            (
+                self.analytics
+                    .unspent_outputs
+                    .entry(output.output.kind().to_string())
+                    .or_default(),
+                &mut self.analytics.storage_deposits,
+            )
+        };
+        unspent_output_analytics.count += 1;
+        unspent_output_analytics.total_value += output.output.amount().0.into();
+        storage_deposits.output_count += 1;
+        storage_deposits.total_data_bytes += output.rent_structure.num_data_bytes.into();
+        storage_deposits.total_key_bytes += output.rent_structure.num_key_bytes.into();
+        match output.output {
+            Output::Basic(BasicOutput {
+                storage_deposit_return_unlock_condition: Some(uc),
+                ..
+            })
+            | Output::Nft(NftOutput {
+                storage_deposit_return_unlock_condition: Some(uc),
+                ..
+            }) => {
+                storage_deposits.storage_deposit_return_count += 1;
+                storage_deposits.storage_deposit_return_total_value += uc.amount.0.into();
+            }
+            _ => (),
+        }
+    }
+
+    /// Process a batch of blocks.
     pub fn process_blocks<'a, I>(&mut self, blocks: I)
     where
         I: IntoIterator<Item = (&'a Block, &'a BlockMetadata)>,
@@ -459,7 +477,8 @@ impl StorageDepositAnalytics {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ClaimedTokensAnalytics {
-    pub count: d128,
+    pub count: u64,
+    pub total_amount: d128,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

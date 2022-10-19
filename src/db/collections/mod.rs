@@ -27,8 +27,8 @@ pub use self::{
     milestone::{MilestoneCollection, MilestoneResult, SyncData},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputCollection, OutputDocument, OutputMetadataResult, OutputWithMetadataResult,
-        OutputsResult, UtxoChangesResult,
+        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
+        UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},

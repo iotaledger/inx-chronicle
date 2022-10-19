@@ -9,7 +9,7 @@ mod test_rand {
 
     use chronicle::{
         db::{
-            collections::{BlockCollection, OutputCollection, OutputDocument},
+            collections::{BlockCollection, OutputCollection},
             MongoDbCollectionExt,
         },
         types::{
@@ -72,23 +72,21 @@ mod test_rand {
         }) {
             if !outputs.is_empty() {
                 db.collection::<OutputCollection>()
-                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| {
-                        OutputDocument::from(LedgerOutput {
-                            output_id: OutputId {
-                                transaction_id,
-                                index: i as u16,
-                            },
-                            block_id: *block_id,
-                            booked: MilestoneIndexTimestamp {
-                                milestone_index: 0.into(),
-                                milestone_timestamp: 12345.into(),
-                            },
-                            rent_structure: RentStructureBytes {
-                                num_key_bytes: 0,
-                                num_data_bytes: 100,
-                            },
-                            output,
-                        })
+                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| LedgerOutput {
+                        output_id: OutputId {
+                            transaction_id,
+                            index: i as u16,
+                        },
+                        block_id: *block_id,
+                        booked: MilestoneIndexTimestamp {
+                            milestone_index: 0.into(),
+                            milestone_timestamp: 12345.into(),
+                        },
+                        rent_structure: RentStructureBytes {
+                            num_key_bytes: 0,
+                            num_data_bytes: 100,
+                        },
+                        output,
                     }))
                     .await
                     .unwrap();
@@ -246,23 +244,21 @@ mod test_rand {
             .await
             .unwrap();
         output_collection
-            .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| {
-                OutputDocument::from(LedgerOutput {
-                    output_id: OutputId {
-                        transaction_id,
-                        index: i as u16,
-                    },
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 1.into(),
-                        milestone_timestamp: 12345.into(),
-                    },
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                    output,
-                })
+            .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| LedgerOutput {
+                output_id: OutputId {
+                    transaction_id,
+                    index: i as u16,
+                },
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output,
             }))
             .await
             .unwrap();
