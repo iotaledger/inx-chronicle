@@ -9,7 +9,7 @@ use influxdb::{InfluxDbWriteable, Timestamp};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
-use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKind};
+use super::{outputs::OutputDocument, BlockCollection, OutputCollection, OutputKind, ProtocolUpdateCollection};
 #[cfg(feature = "inx")]
 use crate::db::influxdb::{InfluxDb, InfluxDbMeasurement};
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::{
             block::{
-                output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
+                output::{AliasOutput, BasicOutput, FoundryId, FoundryOutput, NftId, NftOutput},
                 Address, Block, Output, Payload,
             },
             milestone::MilestoneTimestamp,
@@ -34,9 +34,12 @@ pub struct Analytics {
     pub addresses: AddressAnalytics,
     pub outputs: HashMap<String, OutputAnalytics>,
     pub unspent_outputs: HashMap<String, OutputAnalytics>,
+    pub native_tokens: OutputDiffTracker<FoundryId>,
+    pub nfts: OutputDiffTracker<NftId>,
     pub storage_deposits: StorageDepositAnalytics,
     pub claimed_tokens: ClaimedTokensAnalytics,
     pub milestone_activity: MilestoneActivityAnalytics,
+    pub protocol_params: ProtocolParameters,
 }
 
 impl Default for Analytics {
@@ -57,9 +60,12 @@ impl Default for Analytics {
                 (FoundryOutput::kind().unwrap().to_string(), Default::default()),
             ]
             .into(),
+            native_tokens: Default::default(),
+            nfts: Default::default(),
             storage_deposits: Default::default(),
             claimed_tokens: Default::default(),
             milestone_activity: Default::default(),
+            protocol_params: bee_block_stardust::protocol::protocol_parameters().into(),
         }
     }
 }
@@ -111,6 +117,28 @@ impl InfluxDb {
             })
             .await?;
         }
+        self.insert(OutputDiffAnalyticsSchema {
+            milestone_timestamp,
+            milestone_index,
+            kind: "native_tokens".to_string(),
+            analytics: OutputDiffAnalytics {
+                created_count: analytics.native_tokens.created.len() as _,
+                transferred_count: analytics.native_tokens.transferred.len() as _,
+                burned_count: analytics.native_tokens.burned.len() as _,
+            },
+        })
+        .await?;
+        self.insert(OutputDiffAnalyticsSchema {
+            milestone_timestamp,
+            milestone_index,
+            kind: "nfts".to_string(),
+            analytics: OutputDiffAnalytics {
+                created_count: analytics.nfts.created.len() as _,
+                transferred_count: analytics.nfts.transferred.len() as _,
+                burned_count: analytics.nfts.burned.len() as _,
+            },
+        })
+        .await?;
         self.insert(StorageDepositAnalyticsSchema {
             milestone_timestamp,
             milestone_index,
@@ -129,6 +157,12 @@ impl InfluxDb {
             analytics: analytics.milestone_activity,
         })
         .await?;
+        self.insert(ProtocolParamsSchema {
+            milestone_timestamp,
+            milestone_index,
+            analytics: analytics.protocol_params,
+        })
+        .await?;
         Ok(())
     }
 }
@@ -138,6 +172,7 @@ impl MongoDb {
     pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
         let output_collection = self.collection::<OutputCollection>();
         let block_collection = self.collection::<BlockCollection>();
+        let protocol_param_collection = self.collection::<ProtocolUpdateCollection>();
         let addresses = output_collection
             .get_address_analytics(milestone_index, milestone_index + 1)
             .await?;
@@ -191,19 +226,46 @@ impl MongoDb {
                 .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
                 .await?,
         );
+        let native_tokens = output_collection.get_foundry_output_tracker(milestone_index).await?;
+        let nfts = output_collection.get_nft_output_tracker(milestone_index).await?;
         let storage_deposits = output_collection.get_storage_deposit_analytics(milestone_index).await?;
         let claimed_tokens = output_collection.get_claimed_token_analytics(milestone_index).await?;
         let milestone_activity = block_collection
             .get_milestone_activity_analytics(milestone_index)
             .await?;
+        let protocol_params = protocol_param_collection
+            .get_protocol_parameters_for_ledger_index(milestone_index)
+            .await?
+            .map(|p| p.parameters)
+            .unwrap_or_else(|| bee_block_stardust::protocol::protocol_parameters().into());
         Ok(Analytics {
             addresses,
             outputs,
             unspent_outputs,
+            native_tokens,
+            nfts,
             storage_deposits,
             claimed_tokens,
             milestone_activity,
+            protocol_params,
         })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OutputDiffTracker<T: std::hash::Hash + Eq> {
+    created: HashSet<T>,
+    transferred: HashSet<T>,
+    burned: HashSet<T>,
+}
+
+impl<T: std::hash::Hash + Eq> Default for OutputDiffTracker<T> {
+    fn default() -> Self {
+        Self {
+            created: Default::default(),
+            transferred: Default::default(),
+            burned: Default::default(),
+        }
     }
 }
 
@@ -219,6 +281,11 @@ pub struct AnalyticsProcessor {
 }
 
 impl AnalyticsProcessor {
+    /// Process a protocol parameter update.
+    pub fn process_protocol_params(&mut self, params: ProtocolParameters) {
+        self.analytics.protocol_params = params;
+    }
+
     /// Process a batch of outputs.
     pub fn process_outputs<'a, I>(&mut self, outputs: I)
     where
@@ -242,6 +309,19 @@ impl AnalyticsProcessor {
             output_analytics.total_value += output.output.amount().0.into();
 
             let (unspent_output_analytics, storage_deposits) = if output.metadata.spent_metadata.is_some() {
+                match &output.output {
+                    Output::Foundry(foundry) => {
+                        self.analytics.native_tokens.created.remove(&foundry.foundry_id);
+                        self.analytics.native_tokens.transferred.remove(&foundry.foundry_id);
+                        self.analytics.native_tokens.burned.insert(foundry.foundry_id);
+                    }
+                    Output::Nft(nft) => {
+                        self.analytics.nfts.created.remove(&nft.nft_id);
+                        self.analytics.nfts.transferred.remove(&nft.nft_id);
+                        self.analytics.nfts.burned.insert(nft.nft_id);
+                    }
+                    _ => (),
+                }
                 // To workaround spent outputs being processed first, we keep track of a separate set
                 // of values which will be subtracted at the end.
                 (
@@ -251,6 +331,29 @@ impl AnalyticsProcessor {
                     &mut self.removed_storage_deposits,
                 )
             } else {
+                match &output.output {
+                    Output::Foundry(foundry) => {
+                        if self.analytics.native_tokens.created.remove(&foundry.foundry_id)
+                            || self.analytics.native_tokens.transferred.remove(&foundry.foundry_id)
+                            || self.analytics.native_tokens.burned.remove(&foundry.foundry_id)
+                        {
+                            self.analytics.native_tokens.transferred.insert(foundry.foundry_id);
+                        } else {
+                            self.analytics.native_tokens.created.insert(foundry.foundry_id);
+                        }
+                    }
+                    Output::Nft(nft) => {
+                        if self.analytics.nfts.created.remove(&nft.nft_id)
+                            || self.analytics.nfts.transferred.remove(&nft.nft_id)
+                            || self.analytics.nfts.burned.remove(&nft.nft_id)
+                        {
+                            self.analytics.nfts.transferred.insert(nft.nft_id);
+                        } else {
+                            self.analytics.nfts.created.insert(nft.nft_id);
+                        }
+                    }
+                    _ => (),
+                }
                 (
                     self.analytics
                         .unspent_outputs
@@ -534,4 +637,64 @@ impl InfluxDbWriteable for MilestoneActivityAnalyticsSchema {
 #[cfg(feature = "inx")]
 impl InfluxDbMeasurement for MilestoneActivityAnalyticsSchema {
     const NAME: &'static str = "stardust_milestone_activity";
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProtocolParamsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub analytics: ProtocolParameters,
+}
+
+#[cfg(feature = "inx")]
+impl InfluxDbWriteable for ProtocolParamsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_field("token_supply", self.analytics.token_supply)
+            .add_field("min_pow_score", self.analytics.min_pow_score)
+            .add_field("below_max_depth", self.analytics.below_max_depth)
+            .add_field("v_byte_cost", self.analytics.rent_structure.v_byte_cost)
+            .add_field("v_factor_key", self.analytics.rent_structure.v_byte_factor_key)
+            .add_field("v_factor_data", self.analytics.rent_structure.v_byte_factor_data)
+    }
+}
+
+#[cfg(feature = "inx")]
+impl InfluxDbMeasurement for ProtocolParamsSchema {
+    const NAME: &'static str = "stardust_protocol_params";
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OutputDiffAnalytics {
+    pub created_count: u64,
+    pub transferred_count: u64,
+    pub burned_count: u64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OutputDiffAnalyticsSchema {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub kind: String,
+    pub analytics: OutputDiffAnalytics,
+}
+
+#[cfg(feature = "inx")]
+impl InfluxDbWriteable for OutputDiffAnalyticsSchema {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_tag("kind", self.kind)
+            .add_field("created_count", self.analytics.created_count)
+            .add_field("transferred_count", self.analytics.transferred_count)
+            .add_field("burned_count", self.analytics.burned_count)
+    }
+}
+
+#[cfg(feature = "inx")]
+impl InfluxDbMeasurement for OutputDiffAnalyticsSchema {
+    const NAME: &'static str = "stardust_output_diff";
 }

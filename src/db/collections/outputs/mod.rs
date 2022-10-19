@@ -19,7 +19,10 @@ pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
 use super::{
-    analytics::{AddressAnalytics, ClaimedTokensAnalytics, OutputAnalytics, StorageDepositAnalytics},
+    analytics::{
+        AddressAnalytics, ClaimedTokensAnalytics, OutputAnalytics, OutputDiffAnalytics, OutputDiffTracker,
+        StorageDepositAnalytics,
+    },
     OutputKind,
 };
 use crate::{
@@ -32,7 +35,7 @@ use crate::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
         },
         stardust::block::{
-            output::{Output, OutputId},
+            output::{FoundryId, NftId, Output, OutputId},
             Address, BlockId,
         },
         tangle::MilestoneIndex,
@@ -476,20 +479,14 @@ impl OutputCollection {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct OutputDiffAnalyticsResult {
-    pub created_count: u64,
-    pub transferred_count: u64,
-    pub burned_count: u64,
-}
-
 impl OutputCollection {
     /// Gathers nft output analytics.
     pub async fn get_nft_output_analytics(
         &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        start_index: impl Into<Option<MilestoneIndex>>,
+        end_index: impl Into<Option<MilestoneIndex>>,
+    ) -> Result<OutputDiffAnalytics, Error> {
+        let (start_index, end_index) = (start_index.into(), end_index.into());
         Ok(self
             .aggregate(
                 vec![
@@ -536,12 +533,67 @@ impl OutputCollection {
             .unwrap_or_default())
     }
 
+    /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
+    pub(crate) async fn get_nft_output_tracker(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<OutputDiffTracker<NftId>, Error> {
+        if index == 0 {
+            return Ok(Default::default());
+        }
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "nft",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index - 1 } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "nft_id": "$output.nft_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "nft_id": "$output.nft_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created": { "$setDifference": [ "$end_state", "$start_state" ] },
+                        "transferred": { "$setIntersection": [ "$start_state", "$end_state" ] },
+                        "burned": { "$setDifference": [ "$start_state", "$end_state" ] },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
+    }
+
     /// Gathers foundry output analytics.
     pub async fn get_foundry_output_analytics(
         &self,
-        start_index: Option<MilestoneIndex>,
-        end_index: Option<MilestoneIndex>,
-    ) -> Result<OutputDiffAnalyticsResult, Error> {
+        start_index: impl Into<Option<MilestoneIndex>>,
+        end_index: impl Into<Option<MilestoneIndex>>,
+    ) -> Result<OutputDiffAnalytics, Error> {
+        let (start_index, end_index) = (start_index.into(), end_index.into());
         Ok(self
             .aggregate(
                 vec![
@@ -578,6 +630,60 @@ impl OutputCollection {
                         "created_count": { "$size": { "$setDifference": [ "$end_state", "$start_state" ] } },
                         "transferred_count": { "$size": { "$setIntersection": [ "$start_state", "$end_state" ] } },
                         "burned_count": { "$size": { "$setDifference": [ "$start_state", "$end_state" ] } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
+    }
+
+    /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
+    pub(crate) async fn get_foundry_output_tracker(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<OutputDiffTracker<FoundryId>, Error> {
+        if index == 0 {
+            return Ok(Default::default());
+        }
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "foundry",
+                        "metadata.booked.milestone_index": { "$not": { "$gt": index } },
+                    } },
+                    doc! { "$facet": {
+                        "start_state": [
+                            { "$match": {
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index - 1 } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.foundry_id"
+                            } },
+                        ],
+                        "end_state": [
+                            { "$match": {
+                                "metadata.booked.milestone_index": { "$not": { "$lte": index } },
+                                "$or": [
+                                    { "metadata.spent_metadata.spent": null },
+                                    { "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } } },
+                                ],
+                            } },
+                            { "$project": {
+                                "foundry_id": "$output.nftfoundry_id_id"
+                            } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "created": { "$setDifference": [ "$end_state", "$start_state" ] },
+                        "transferred": { "$setIntersection": [ "$start_state", "$end_state" ] },
+                        "burned": { "$setDifference": [ "$start_state", "$end_state" ] },
                     } },
                 ],
                 None,

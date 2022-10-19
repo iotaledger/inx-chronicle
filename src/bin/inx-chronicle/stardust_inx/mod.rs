@@ -18,7 +18,7 @@ use chronicle::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
-        tangle::MilestoneIndex,
+        tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 use futures::{StreamExt, TryStreamExt};
@@ -332,7 +332,7 @@ impl InxWorker {
         tracing::Span::current().record("consumed", consumed_count);
 
         self.handle_cone_stream(inx, &analytics, milestone_index).await?;
-        self.handle_protocol_params(inx, milestone_index).await?;
+        self.handle_protocol_params(inx, &analytics, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.handle_milestone(
@@ -354,6 +354,7 @@ impl InxWorker {
     async fn handle_protocol_params(
         &self,
         inx: &mut Inx,
+        analytics: &Arc<Mutex<AnalyticsProcessor>>,
         milestone_index: MilestoneIndex,
     ) -> Result<(), InxWorkerError> {
         let parameters = inx
@@ -362,10 +363,14 @@ impl InxWorker {
             .params
             .inner(&())?;
 
+        let params: ProtocolParameters = parameters.into();
+
         self.db
             .collection::<ProtocolUpdateCollection>()
-            .update_latest_protocol_parameters(milestone_index, parameters.into())
+            .update_latest_protocol_parameters(milestone_index, params.clone())
             .await?;
+
+        analytics.lock().await.process_protocol_params(params);
 
         Ok(())
     }
