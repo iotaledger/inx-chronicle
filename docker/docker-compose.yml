@@ -152,7 +152,7 @@ services:
       - ./data/grafana:/var/lib/grafana
       - ./assets/grafana/:/etc/grafana/provisioning/
     environment:
-      - GF_INSTALL_PLUGINS=simpod-json-datasource
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
 
   jaeger:
     image: jaegertracing/all-in-one:latest
