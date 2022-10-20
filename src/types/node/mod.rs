@@ -21,7 +21,5 @@ pub struct BaseToken {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct NodeConfiguration {
-    pub milestone_public_key_count: u32,
     pub base_token: BaseToken,
-    pub supported_protocol_versions: Box<[u8]>,
 }

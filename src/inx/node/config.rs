@@ -121,7 +121,6 @@ impl From<NodeConfigurationMessage> for proto::NodeConfiguration {
 impl From<NodeConfigurationMessage> for NodeConfiguration {
     fn from(value: NodeConfigurationMessage) -> Self {
         Self {
-            milestone_public_key_count: value.milestone_public_key_count,
             base_token: BaseToken {
                 name: value.base_token.name,
                 ticker_symbol: value.base_token.ticker_symbol,
@@ -130,7 +129,6 @@ impl From<NodeConfigurationMessage> for NodeConfiguration {
                 decimals: value.base_token.decimals,
                 use_metric_prefix: value.base_token.use_metric_prefix,
             },
-            supported_protocol_versions: value.supported_protocol_versions,
         }
     }
 }

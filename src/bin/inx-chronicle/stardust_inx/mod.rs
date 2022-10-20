@@ -315,6 +315,7 @@ async fn handle_ledger_update(
 
     handle_cone_stream(db, inx, milestone_index).await?;
     handle_protocol_params(db, inx, milestone_index).await?;
+    handle_node_configuration(db, inx).await?;
 
     // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
     handle_milestone(db, inx, milestone_index).await?;
@@ -374,6 +375,17 @@ async fn handle_protocol_params(
 
     db.collection::<ProtocolUpdateCollection>()
         .update_latest_protocol_parameters(milestone_index, parameters.into())
+        .await?;
+
+    Ok(())
+}
+
+#[instrument(skip_all, level = "trace")]
+async fn handle_node_configuration(db: &MongoDb, inx: &mut Inx) -> Result<(), InxWorkerError> {
+    let node_configuration = inx.read_node_configuration().await?;
+
+    db.collection::<NodeConfigurationCollection>()
+        .update_node_configuration(node_configuration.into())
         .await?;
 
     Ok(())

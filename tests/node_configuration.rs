@@ -26,8 +26,6 @@ mod test_rand {
                 decimals: 6,
                 use_metric_prefix: false,
             },
-            supported_protocol_versions: vec![2].into_boxed_slice(),
-            milestone_public_key_count: 7,
         };
         assert_eq!(node_configuration.count().await.unwrap(), 0);
 
@@ -42,7 +40,7 @@ mod test_rand {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
+        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
 
         node_configuration
             .update_node_configuration(config.clone())
@@ -50,7 +48,9 @@ mod test_rand {
             .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
 
-        config.base_token.name = "Scammer".to_string();
+        config.base_token.ticker_symbol = "SHI".to_string();
+        config.base_token.unit = "suSHI".to_string();
+        config.base_token.subunit = "rice".to_string();
 
         node_configuration.update_node_configuration(config).await.unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
@@ -60,7 +60,9 @@ mod test_rand {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.config.base_token.name, "Scammer");
+        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SHI");
+        assert_eq!(&latest_config.config.base_token.unit, "suSHI");
+        assert_eq!(&latest_config.config.base_token.subunit, "rice");
 
         teardown(db).await;
     }
