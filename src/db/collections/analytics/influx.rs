@@ -98,7 +98,6 @@ impl InfluxDbWriteable for StorageDepositAnalyticsSchema {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
             .add_tag("milestone_index", self.milestone_index)
-            .add_field("output_count", self.analytics.output_count)
             .add_field(
                 "storage_deposit_return_count",
                 self.analytics.storage_deposit_return_count,

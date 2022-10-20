@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// Holds analytics about stardust data.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct Analytics {
     pub addresses: AddressAnalytics,
@@ -192,13 +192,15 @@ impl AnalyticsProcessor {
                 self.receiving_addresses.insert(address);
             }
         }
-        let output_analytics = self
-            .analytics
-            .outputs
-            .entry(output.output.kind().to_string())
-            .or_default();
-        output_analytics.count += 1;
-        output_analytics.total_value += output.output.amount().0.into();
+        if !is_spent {
+            let output_analytics = self
+                .analytics
+                .outputs
+                .entry(output.output.kind().to_string())
+                .or_default();
+            output_analytics.count += 1;
+            output_analytics.total_value += output.output.amount().0.into();
+        }
 
         let (unspent_output_analytics, storage_deposits) = if is_spent {
             // Spent outputs that were created by the genesis are claimed.
@@ -225,7 +227,6 @@ impl AnalyticsProcessor {
         };
         unspent_output_analytics.count += 1;
         unspent_output_analytics.total_value += output.output.amount().0.into();
-        storage_deposits.output_count += 1;
         storage_deposits.total_data_bytes += output.rent_structure.num_data_bytes.into();
         storage_deposits.total_key_bytes += output.rent_structure.num_key_bytes.into();
         match output.output {
@@ -276,10 +277,8 @@ impl AnalyticsProcessor {
         self.analytics.addresses.receiving_addresses = self.receiving_addresses.len() as _;
         self.analytics.addresses.sending_addresses = self.sending_addresses.len() as _;
         for (key, val) in self.removed_outputs {
-            self.analytics.unspent_outputs.get_mut(&key).unwrap().count -= val.count;
-            self.analytics.unspent_outputs.get_mut(&key).unwrap().total_value -= val.total_value;
+            *self.analytics.unspent_outputs.get_mut(&key).unwrap() -= val;
         }
-        self.analytics.storage_deposits.output_count -= self.removed_storage_deposits.output_count;
         self.analytics.storage_deposits.storage_deposit_return_count -=
             self.removed_storage_deposits.storage_deposit_return_count;
         self.analytics.storage_deposits.storage_deposit_return_total_value -=
@@ -290,7 +289,7 @@ impl AnalyticsProcessor {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AddressAnalytics {
     /// The number of addresses used in the time period.
     pub total_active_addresses: u64,
@@ -307,10 +306,27 @@ pub struct AddressAnalyticsSchema {
     pub analytics: AddressAnalytics,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OutputAnalytics {
     pub count: u64,
     pub total_value: d128,
+}
+
+impl std::ops::Sub<OutputAnalytics> for OutputAnalytics {
+    type Output = OutputAnalytics;
+
+    fn sub(self, rhs: OutputAnalytics) -> Self::Output {
+        Self {
+            count: self.count - rhs.count,
+            total_value: self.total_value - rhs.total_value,
+        }
+    }
+}
+
+impl std::ops::SubAssign<OutputAnalytics> for OutputAnalytics {
+    fn sub_assign(&mut self, rhs: OutputAnalytics) {
+        *self = *self - rhs
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -321,9 +337,8 @@ pub struct OutputAnalyticsSchema {
     pub analytics: OutputAnalytics,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct StorageDepositAnalytics {
-    pub output_count: u64,
     pub storage_deposit_return_count: u64,
     pub storage_deposit_return_total_value: d128,
     pub total_key_bytes: d128,
@@ -346,7 +361,7 @@ impl StorageDepositAnalytics {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct ClaimedTokensAnalytics {
     pub count: u64,
@@ -360,7 +375,7 @@ pub struct ClaimedTokensAnalyticsSchema {
     pub analytics: ClaimedTokensAnalytics,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MilestoneActivityAnalytics {
     /// The number of blocks referenced by a milestone.
     pub count: u32,
@@ -387,4 +402,314 @@ pub struct MilestoneActivityAnalyticsSchema {
     pub milestone_timestamp: MilestoneTimestamp,
     pub milestone_index: MilestoneIndex,
     pub analytics: MilestoneActivityAnalytics,
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashSet;
+
+    use decimal::d128;
+    use rand::Rng;
+
+    use super::Analytics;
+    use crate::{
+        db::collections::analytics::{
+            AddressAnalytics, ClaimedTokensAnalytics, MilestoneActivityAnalytics, OutputAnalytics,
+            StorageDepositAnalytics,
+        },
+        types::{
+            ledger::{
+                BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent,
+                MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata,
+            },
+            stardust::block::{
+                output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput, OutputId},
+                payload::TransactionId,
+                Block, BlockId, Output, Payload,
+            },
+        },
+    };
+
+    #[test]
+    fn test_analytics_processor() {
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
+
+        let outputs = std::iter::repeat_with(|| LedgerOutput {
+            output_id: OutputId::rand(),
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::rand(&protocol_params),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: rand::thread_rng().gen_range(0..2).into(),
+                milestone_timestamp: 12345.into(),
+            },
+        })
+        .take(100)
+        .collect::<Vec<_>>();
+
+        let spent_outputs = outputs
+            .iter()
+            .filter_map(|output| {
+                if rand::random::<bool>() {
+                    Some(LedgerSpent {
+                        output: output.clone(),
+                        spent_metadata: SpentMetadata {
+                            transaction_id: TransactionId::rand(),
+                            spent: MilestoneIndexTimestamp {
+                                milestone_index: output.booked.milestone_index + rand::thread_rng().gen_range(0..2),
+                                milestone_timestamp: 23456.into(),
+                            },
+                        },
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let blocks = (0..100)
+            .map(|i| {
+                let block = Block::rand(&protocol_params);
+                let parents = block.parents.clone();
+                (
+                    block,
+                    BlockMetadata {
+                        parents,
+                        is_solid: true,
+                        should_promote: false,
+                        should_reattach: false,
+                        referenced_by_milestone_index: 1.into(),
+                        milestone_index: 0.into(),
+                        inclusion_state: LedgerInclusionState::Included,
+                        conflict_reason: ConflictReason::None,
+                        white_flag_index: i as u32,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let mut analytics = Analytics::default().processor();
+
+        analytics.process_consumed_outputs(&spent_outputs);
+        analytics.process_created_outputs(&outputs);
+        analytics.process_blocks(blocks.iter().map(|(block, metadata)| (block, metadata)));
+
+        let analytics = analytics.clone().finish();
+
+        assert_eq!(
+            analytics.addresses,
+            AddressAnalytics {
+                total_active_addresses: spent_outputs
+                    .iter()
+                    .map(|o| &o.output.output)
+                    .chain(outputs.iter().map(|o| &o.output))
+                    .filter_map(|o| o.owning_address().cloned())
+                    .collect::<HashSet<_>>()
+                    .len() as _,
+                receiving_addresses: outputs
+                    .iter()
+                    .filter_map(|o| o.output.owning_address().cloned())
+                    .collect::<HashSet<_>>()
+                    .len() as _,
+                sending_addresses: spent_outputs
+                    .iter()
+                    .filter_map(|o| o.output.output.owning_address().cloned())
+                    .collect::<HashSet<_>>()
+                    .len() as _,
+            }
+        );
+        assert_eq!(
+            analytics.outputs,
+            [
+                (
+                    BasicOutput::KIND.to_string(),
+                    output_analytics(BasicOutput::KIND, outputs.iter().map(|o| &o.output))
+                ),
+                (
+                    AliasOutput::KIND.to_string(),
+                    output_analytics(AliasOutput::KIND, outputs.iter().map(|o| &o.output))
+                ),
+                (
+                    NftOutput::KIND.to_string(),
+                    output_analytics(NftOutput::KIND, outputs.iter().map(|o| &o.output))
+                ),
+                (
+                    FoundryOutput::KIND.to_string(),
+                    output_analytics(FoundryOutput::KIND, outputs.iter().map(|o| &o.output))
+                ),
+            ]
+            .into()
+        );
+        assert_eq!(
+            analytics.unspent_outputs,
+            [
+                (
+                    BasicOutput::KIND.to_string(),
+                    output_analytics(BasicOutput::KIND, outputs.iter().map(|o| &o.output))
+                        - output_analytics(BasicOutput::KIND, spent_outputs.iter().map(|o| &o.output.output))
+                ),
+                (
+                    AliasOutput::KIND.to_string(),
+                    output_analytics(AliasOutput::KIND, outputs.iter().map(|o| &o.output))
+                        - output_analytics(AliasOutput::KIND, spent_outputs.iter().map(|o| &o.output.output))
+                ),
+                (
+                    NftOutput::KIND.to_string(),
+                    output_analytics(NftOutput::KIND, outputs.iter().map(|o| &o.output))
+                        - output_analytics(NftOutput::KIND, spent_outputs.iter().map(|o| &o.output.output))
+                ),
+                (
+                    FoundryOutput::KIND.to_string(),
+                    output_analytics(FoundryOutput::KIND, outputs.iter().map(|o| &o.output))
+                        - output_analytics(FoundryOutput::KIND, spent_outputs.iter().map(|o| &o.output.output))
+                ),
+            ]
+            .into()
+        );
+        assert_eq!(
+            analytics.storage_deposits,
+            StorageDepositAnalytics {
+                storage_deposit_return_count: outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            storage_deposit_return_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            storage_deposit_return_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .count() as u64
+                    - spent_outputs
+                        .iter()
+                        .filter(|o| matches!(
+                            o.output.output,
+                            Output::Basic(BasicOutput {
+                                storage_deposit_return_unlock_condition: Some(_),
+                                ..
+                            }) | Output::Nft(NftOutput {
+                                storage_deposit_return_unlock_condition: Some(_),
+                                ..
+                            })
+                        ))
+                        .count() as u64,
+                storage_deposit_return_total_value: outputs
+                    .iter()
+                    .filter_map(|o| match o.output {
+                        Output::Basic(BasicOutput {
+                            storage_deposit_return_unlock_condition: Some(uc),
+                            ..
+                        })
+                        | Output::Nft(NftOutput {
+                            storage_deposit_return_unlock_condition: Some(uc),
+                            ..
+                        }) => Some(d128::from(uc.amount.0)),
+                        _ => None,
+                    })
+                    .sum::<d128>()
+                    - spent_outputs
+                        .iter()
+                        .filter_map(|o| match o.output.output {
+                            Output::Basic(BasicOutput {
+                                storage_deposit_return_unlock_condition: Some(uc),
+                                ..
+                            })
+                            | Output::Nft(NftOutput {
+                                storage_deposit_return_unlock_condition: Some(uc),
+                                ..
+                            }) => Some(d128::from(uc.amount.0)),
+                            _ => None,
+                        })
+                        .sum::<d128>(),
+                total_key_bytes: outputs
+                    .iter()
+                    .map(|o| d128::from(o.rent_structure.num_key_bytes))
+                    .sum::<d128>()
+                    - spent_outputs
+                        .iter()
+                        .map(|o| d128::from(o.output.rent_structure.num_key_bytes))
+                        .sum::<d128>(),
+                total_data_bytes: outputs
+                    .iter()
+                    .map(|o| d128::from(o.rent_structure.num_data_bytes))
+                    .sum::<d128>()
+                    - spent_outputs
+                        .iter()
+                        .map(|o| d128::from(o.output.rent_structure.num_data_bytes))
+                        .sum::<d128>(),
+            }
+        );
+        assert_eq!(
+            analytics.claimed_tokens,
+            ClaimedTokensAnalytics {
+                count: spent_outputs
+                    .iter()
+                    .filter(|o| o.output.booked.milestone_index == 0)
+                    .count() as _,
+                total_amount: spent_outputs
+                    .iter()
+                    .filter_map(|o| if o.output.booked.milestone_index == 0 {
+                        Some(d128::from(o.output.output.amount().0))
+                    } else {
+                        None
+                    })
+                    .sum::<d128>()
+            }
+        );
+        assert_eq!(
+            analytics.milestone_activity,
+            MilestoneActivityAnalytics {
+                count: blocks.len() as _,
+                transaction_count: blocks
+                    .iter()
+                    .filter(|(block, _)| matches!(block.payload, Some(Payload::Transaction(_))))
+                    .count() as _,
+                treasury_transaction_count: blocks
+                    .iter()
+                    .filter(|(block, _)| matches!(block.payload, Some(Payload::TreasuryTransaction(_))))
+                    .count() as _,
+                milestone_count: blocks
+                    .iter()
+                    .filter(|(block, _)| matches!(block.payload, Some(Payload::Milestone(_))))
+                    .count() as _,
+                tagged_data_count: blocks
+                    .iter()
+                    .filter(|(block, _)| matches!(block.payload, Some(Payload::TaggedData(_))))
+                    .count() as _,
+                no_payload_count: blocks.iter().filter(|(block, _)| matches!(block.payload, None)).count() as _,
+                confirmed_count: blocks
+                    .iter()
+                    .filter(|(_, metadata)| matches!(metadata.inclusion_state, LedgerInclusionState::Included))
+                    .count() as _,
+                conflicting_count: blocks
+                    .iter()
+                    .filter(|(_, metadata)| matches!(metadata.inclusion_state, LedgerInclusionState::Conflicting))
+                    .count() as _,
+                no_transaction_count: blocks
+                    .iter()
+                    .filter(|(_, metadata)| matches!(metadata.inclusion_state, LedgerInclusionState::NoTransaction))
+                    .count() as _
+            }
+        )
+    }
+
+    fn output_analytics<'a, I: Iterator<Item = &'a Output> + Clone>(ty: &str, outputs: I) -> OutputAnalytics {
+        OutputAnalytics {
+            count: outputs.clone().filter(|o| o.kind() == ty).count() as u64,
+            total_value: outputs
+                .filter_map(|o| {
+                    if o.kind() == ty {
+                        Some(d128::from(o.amount().0))
+                    } else {
+                        None
+                    }
+                })
+                .sum::<d128>(),
+        }
+    }
 }

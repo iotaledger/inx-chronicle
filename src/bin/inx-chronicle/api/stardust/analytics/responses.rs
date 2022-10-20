@@ -31,7 +31,6 @@ impl_success_response!(OutputAnalyticsResponse);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageDepositAnalyticsResponse {
-    pub output_count: String,
     pub storage_deposit_return_count: String,
     pub storage_deposit_return_total_value: String,
     pub total_key_bytes: String,

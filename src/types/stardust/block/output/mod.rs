@@ -187,11 +187,11 @@ impl Output {
     /// Get the output kind as a string.
     pub fn kind(&self) -> &str {
         match self {
-            Output::Treasury(_) => "treasury",
-            Output::Basic(_) => "basic",
-            Output::Alias(_) => "alias",
-            Output::Foundry(_) => "foundry",
-            Output::Nft(_) => "nft",
+            Output::Treasury(_) => TreasuryOutput::KIND,
+            Output::Basic(_) => BasicOutput::KIND,
+            Output::Alias(_) => AliasOutput::KIND,
+            Output::Foundry(_) => FoundryOutput::KIND,
+            Output::Nft(_) => NftOutput::KIND,
         }
     }
 }

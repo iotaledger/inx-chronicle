@@ -199,7 +199,6 @@ async fn storage_deposit_ledger_analytics(
         .parameters;
 
     Ok(StorageDepositAnalyticsResponse {
-        output_count: res.output_count.to_string(),
         storage_deposit_return_count: res.storage_deposit_return_count.to_string(),
         storage_deposit_return_total_value: res.storage_deposit_return_total_value.to_string(),
         total_key_bytes: res.total_key_bytes.to_string(),
