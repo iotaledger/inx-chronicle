@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::stardust::block::output::NftId;
 
 /// An NFT address.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct NftAddress(pub NftId);
 
