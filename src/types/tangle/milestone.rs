@@ -3,8 +3,8 @@
 
 use std::{fmt, num::ParseIntError, ops, str::FromStr};
 
-use bee_block_stardust::payload::milestone as bee;
 use derive_more::{Add, Deref, DerefMut, Sub};
+use iota_types::block::payload::milestone as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -67,13 +67,13 @@ impl PartialEq<MilestoneIndex> for u32 {
     }
 }
 
-impl From<bee::MilestoneIndex> for MilestoneIndex {
-    fn from(value: bee::MilestoneIndex) -> Self {
+impl From<iota::MilestoneIndex> for MilestoneIndex {
+    fn from(value: iota::MilestoneIndex) -> Self {
         Self(value.0)
     }
 }
 
-impl From<MilestoneIndex> for bee::MilestoneIndex {
+impl From<MilestoneIndex> for iota::MilestoneIndex {
     fn from(value: MilestoneIndex) -> Self {
         Self(value.0)
     }

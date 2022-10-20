@@ -4,20 +4,23 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension};
-use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
-        collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
+        collections::{
+            BlockCollection, MilestoneCollection, OutputCollection, OutputKindQuery, ProtocolUpdateCollection,
+        },
         MongoDb,
     },
     types::{
         stardust::block::{
             output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
             payload::MilestoneId,
+            Output,
         },
         tangle::MilestoneIndex,
     },
 };
+use iota_types::api::response::RentStructureResponse;
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
@@ -57,7 +60,7 @@ pub fn routes() -> Router {
                 .nest(
                     "/outputs",
                     Router::new()
-                        .route("/", get(output_activity_analytics::<()>))
+                        .route("/", get(output_activity_analytics::<Output>))
                         .route("/basic", get(output_activity_analytics::<BasicOutput>))
                         .route("/alias", get(output_activity_analytics::<AliasOutput>))
                         .route("/nft", get(output_activity_analytics::<NftOutput>))
@@ -146,7 +149,7 @@ async fn milestone_activity_analytics_by_id(
     })
 }
 
-async fn output_activity_analytics<O: OutputKind>(
+async fn output_activity_analytics<O: OutputKindQuery>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
@@ -161,7 +164,7 @@ async fn output_activity_analytics<O: OutputKind>(
     })
 }
 
-async fn unspent_output_ledger_analytics<O: OutputKind>(
+async fn unspent_output_ledger_analytics<O: OutputKindQuery>(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
@@ -196,7 +199,6 @@ async fn storage_deposit_ledger_analytics(
         .parameters;
 
     Ok(StorageDepositAnalyticsResponse {
-        output_count: res.output_count.to_string(),
         storage_deposit_return_count: res.storage_deposit_return_count.to_string(),
         storage_deposit_return_total_value: res.storage_deposit_return_total_value.to_string(),
         total_key_bytes: res.total_key_bytes.to_string(),
@@ -266,7 +268,7 @@ async fn richest_addresses_ledger_analytics(
             .top
             .into_iter()
             .map(|stat| AddressStatDto {
-                address: bee_block_stardust::address::Address::from(stat.address).to_bech32(hrp.clone()),
+                address: iota_types::block::address::Address::from(stat.address).to_bech32(hrp.clone()),
                 balance: stat.balance,
             })
             .collect(),

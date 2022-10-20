@@ -7,17 +7,15 @@ mod common;
 mod test_rand {
     use std::collections::{HashMap, HashSet};
 
-    use bee_block_stardust::rand::number::rand_number_range;
     use chronicle::{
         db::{
             collections::{
-                LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, OutputDocument,
-                SortOrder,
+                LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, SortOrder,
             },
             MongoDbCollectionExt,
         },
         types::{
-            ledger::{LedgerOutput, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
                 output::{AddressUnlockCondition, BasicOutput, OutputId},
                 BlockId, Output,
@@ -25,6 +23,7 @@ mod test_rand {
         },
     };
     use futures::TryStreamExt;
+    use iota_types::block::rand::number::rand_number_range;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -33,7 +32,7 @@ mod test_rand {
         let db = setup_database("test-ledger-updates-by-address").await.unwrap();
         let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let mut outputs = HashSet::new();
         let address_unlock_condition = AddressUnlockCondition::rand();
@@ -44,46 +43,42 @@ mod test_rand {
             .inspect(|(_, _, output_id)| {
                 outputs.insert(*output_id);
             })
-            .map(|(block_id, amount, output_id)| {
-                OutputDocument::from(LedgerOutput {
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 0.into(),
-                        milestone_timestamp: 12345.into(),
-                    },
-                    output: Output::Basic(BasicOutput {
-                        amount: amount.into(),
-                        native_tokens: Vec::new().into_boxed_slice(),
-                        address_unlock_condition,
-                        storage_deposit_return_unlock_condition: None,
-                        timelock_unlock_condition: None,
-                        expiration_unlock_condition: None,
-                        features: Vec::new().into_boxed_slice(),
-                    }),
-                    output_id,
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                })
+            .map(|(block_id, amount, output_id)| LedgerOutput {
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 0.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+                output: Output::Basic(BasicOutput {
+                    amount: amount.into(),
+                    native_tokens: Vec::new().into_boxed_slice(),
+                    address_unlock_condition,
+                    storage_deposit_return_unlock_condition: None,
+                    timelock_unlock_condition: None,
+                    expiration_unlock_condition: None,
+                    features: Vec::new().into_boxed_slice(),
+                }),
+                output_id,
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
             })
             .chain(
                 std::iter::repeat_with(|| (BlockId::rand(), Output::rand(&ctx), OutputId::rand()))
                     .take(50)
-                    .map(|(block_id, output, output_id)| {
-                        OutputDocument::from(LedgerOutput {
-                            block_id,
-                            booked: MilestoneIndexTimestamp {
-                                milestone_index: 0.into(),
-                                milestone_timestamp: 12345.into(),
-                            },
-                            output,
-                            output_id,
-                            rent_structure: RentStructureBytes {
-                                num_key_bytes: 0,
-                                num_data_bytes: 100,
-                            },
-                        })
+                    .map(|(block_id, output, output_id)| LedgerOutput {
+                        block_id,
+                        booked: MilestoneIndexTimestamp {
+                            milestone_index: 0.into(),
+                            milestone_timestamp: 12345.into(),
+                        },
+                        output,
+                        output_id,
+                        rent_structure: RentStructureBytes {
+                            num_key_bytes: 0,
+                            num_data_bytes: 100,
+                        },
                     }),
             )
             .collect::<Vec<_>>();
@@ -129,7 +124,7 @@ mod test_rand {
         let db = setup_database("test-ledger-updates-by-milestone").await.unwrap();
         let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let mut outputs = HashMap::new();
         let ledger_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
@@ -138,20 +133,18 @@ mod test_rand {
             .inspect(|(i, (_, _, output_id))| {
                 assert!(outputs.insert(*output_id, *i as u32 / 5).is_none());
             })
-            .map(|(i, (block_id, output, output_id))| {
-                OutputDocument::from(LedgerOutput {
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: (i as u32 / 5).into(),
-                        milestone_timestamp: (12345 + (i as u32 / 5)).into(),
-                    },
-                    output,
-                    output_id,
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                })
+            .map(|(i, (block_id, output, output_id))| LedgerOutput {
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: (i as u32 / 5).into(),
+                    milestone_timestamp: (12345 + (i as u32 / 5)).into(),
+                },
+                output,
+                output_id,
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
             })
             .collect::<Vec<_>>();
 
@@ -186,24 +179,22 @@ mod test_rand {
         let db = setup_database("test-insert-spent-ledger-updates").await.unwrap();
         let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let unspent_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
             .take(100)
-            .map(|(block_id, output, output_id)| {
-                OutputDocument::from(LedgerOutput {
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 0.into(),
-                        milestone_timestamp: 10000.into(),
-                    },
-                    output,
-                    output_id,
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                })
+            .map(|(block_id, output, output_id)| LedgerOutput {
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 0.into(),
+                    milestone_timestamp: 10000.into(),
+                },
+                output,
+                output_id,
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
             })
             .collect::<Vec<_>>();
 
@@ -217,16 +208,18 @@ mod test_rand {
         let spent_outputs = unspent_outputs
             .into_iter()
             .enumerate()
-            .filter_map(|(i, mut unspent_output)| {
+            .filter_map(|(i, output)| {
                 if i % 2 == 0 {
-                    unspent_output.metadata.spent_metadata.replace(SpentMetadata {
-                        transaction_id: OutputId::rand().transaction_id,
-                        spent: MilestoneIndexTimestamp {
-                            milestone_index: 1.into(),
-                            milestone_timestamp: 20000.into(),
+                    Some(LedgerSpent {
+                        output,
+                        spent_metadata: SpentMetadata {
+                            transaction_id: OutputId::rand().transaction_id,
+                            spent: MilestoneIndexTimestamp {
+                                milestone_index: 1.into(),
+                                milestone_timestamp: 20000.into(),
+                            },
                         },
-                    });
-                    Some(unspent_output)
+                    })
                 } else {
                     None
                 }

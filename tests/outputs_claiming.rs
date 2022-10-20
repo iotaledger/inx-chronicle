@@ -6,9 +6,9 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::collections::{OutputCollection, OutputDocument},
+        db::collections::OutputCollection,
         types::{
-            ledger::{LedgerOutput, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
                 output::{BasicOutput, OutputAmount, OutputId},
                 payload::TransactionId,
@@ -22,7 +22,7 @@ mod test_rand {
 
     fn rand_output_with_value(amount: OutputAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
-        let mut output = BasicOutput::rand(&bee_block_stardust::protocol::protocol_parameters());
+        let mut output = BasicOutput::rand(&iota_types::block::protocol::protocol_parameters());
         output.amount = amount;
         Output::Basic(output)
     }
@@ -33,20 +33,18 @@ mod test_rand {
         let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let unspent_outputs = (1..=5)
-            .map(|i| {
-                OutputDocument::from(LedgerOutput {
-                    output_id: OutputId::rand(),
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                    output: rand_output_with_value(i.into()),
-                    block_id: BlockId::rand(),
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 0.into(),
-                        milestone_timestamp: 0.into(),
-                    },
-                })
+            .map(|i| LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: rand_output_with_value(i.into()),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 0.into(),
+                    milestone_timestamp: 0.into(),
+                },
             })
             .collect::<Vec<_>>();
 
@@ -58,27 +56,42 @@ mod test_rand {
         let spent_outputs = unspent_outputs
             .into_iter()
             .take(4) // we spent only the first 4 outputs
-            .map(|mut output| {
+            .map(|output| {
                 let i = output.output.amount().0;
-                output.metadata.spent_metadata.replace(SpentMetadata {
-                    transaction_id: TransactionId::rand(),
-                    spent: MilestoneIndexTimestamp {
-                        milestone_index: (i as u32).into(),
-                        milestone_timestamp: (i as u32 + 10000).into(),
+                LedgerSpent {
+                    output,
+                    spent_metadata: SpentMetadata {
+                        transaction_id: TransactionId::rand(),
+                        spent: MilestoneIndexTimestamp {
+                            milestone_index: (i as u32).into(),
+                            milestone_timestamp: (i as u32 + 10000).into(),
+                        },
                     },
-                });
-                output
+                }
             })
             .collect::<Vec<_>>();
 
         output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        let third = output_collection
-            .get_claimed_token_analytics(3.into())
-            .await
-            .unwrap()
-            .count;
-        assert_eq!(third, d128::from(3));
+        let claimed = output_collection.get_claimed_token_analytics(1.into()).await.unwrap();
+        assert_eq!(claimed.count, 1);
+        assert_eq!(claimed.total_amount, d128::from(1));
+
+        let claimed = output_collection.get_claimed_token_analytics(2.into()).await.unwrap();
+        assert_eq!(claimed.count, 2);
+        assert_eq!(claimed.total_amount, d128::from((1..=2).sum::<u32>()));
+
+        let claimed = output_collection.get_claimed_token_analytics(3.into()).await.unwrap();
+        assert_eq!(claimed.count, 3);
+        assert_eq!(claimed.total_amount, d128::from((1..=3).sum::<u32>()));
+
+        let claimed = output_collection.get_claimed_token_analytics(4.into()).await.unwrap();
+        assert_eq!(claimed.count, 4);
+        assert_eq!(claimed.total_amount, d128::from((1..=4).sum::<u32>()));
+
+        let claimed = output_collection.get_claimed_token_analytics(5.into()).await.unwrap();
+        assert_eq!(claimed.count, 4);
+        assert_eq!(claimed.total_amount, d128::from((1..=4).sum::<u32>()));
 
         teardown(db).await;
     }

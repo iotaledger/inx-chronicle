@@ -10,13 +10,13 @@ use chronicle::{
     db::{
         collections::{
             Analytics, AnalyticsProcessor, BlockCollection, LedgerUpdateCollection, MilestoneCollection,
-            OutputCollection, OutputDocument, ProtocolUpdateCollection, TreasuryCollection,
+            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         InfluxDb, MongoDb,
     },
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState, MilestoneIndexTimestamp},
+        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
@@ -174,7 +174,7 @@ impl InxWorker {
             let mut count = 0;
             let mut tasks = unspent_output_stream
                 .inspect(|_| count += 1)
-                .map(|res| Ok(OutputDocument::from(res?.output)))
+                .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| InxWorkerError::Inx(e.1))
@@ -253,11 +253,7 @@ impl InxWorker {
         stream
             .by_ref()
             .take(consumed_count)
-            .map(|res| {
-                Ok(OutputDocument::from(
-                    res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState)?,
-                ))
-            })
+            .map(|res| res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState))
             .inspect_ok(|_| {
                 actual_consumed_count += 1;
             })
@@ -269,7 +265,7 @@ impl InxWorker {
                 let db = self.db.clone();
                 let analytics = analytics.clone();
                 tasks.spawn(async move {
-                    analytics.lock().await.process_outputs(&batch);
+                    analytics.lock().await.process_consumed_outputs(&batch);
                     update_spent_outputs(&db, &batch).await
                 });
                 Result::<_, InxWorkerError>::Ok(tasks)
@@ -279,11 +275,7 @@ impl InxWorker {
         stream
             .by_ref()
             .take(created_count)
-            .map(|res| {
-                Ok(OutputDocument::from(
-                    res?.created().ok_or(InxWorkerError::InvalidMilestoneState)?,
-                ))
-            })
+            .map(|res| res?.created().ok_or(InxWorkerError::InvalidMilestoneState))
             .inspect_ok(|_| {
                 actual_created_count += 1;
             })
@@ -295,7 +287,7 @@ impl InxWorker {
                 let db = self.db.clone();
                 let analytics = analytics.clone();
                 tasks.spawn(async move {
-                    analytics.lock().await.process_outputs(&batch);
+                    analytics.lock().await.process_created_outputs(&batch);
                     insert_unspent_outputs(&db, &batch).await
                 });
                 Result::<_, InxWorkerError>::Ok(tasks)
@@ -400,7 +392,7 @@ impl InxWorker {
             .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
 
         let payload =
-            if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
+            if let iota_types::block::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
                 chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
             } else {
                 // The raw data is guaranteed to contain a milestone payload.
@@ -486,7 +478,7 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxWorkerError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<(), InxWorkerError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -503,7 +495,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Res
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[OutputDocument]) -> Result<(), InxWorkerError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxWorkerError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {

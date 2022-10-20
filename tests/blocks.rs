@@ -9,7 +9,7 @@ mod test_rand {
 
     use chronicle::{
         db::{
-            collections::{BlockCollection, OutputCollection, OutputDocument},
+            collections::{BlockCollection, OutputCollection},
             MongoDbCollectionExt,
         },
         types::{
@@ -29,7 +29,7 @@ mod test_rand {
         let db = setup_database("test-blocks").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
-        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
 
         let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&protocol_params)))
             .take(100)
@@ -39,7 +39,7 @@ mod test_rand {
                 (
                     block_id,
                     block,
-                    bee_block_stardust::rand::bytes::rand_bytes(100),
+                    iota_types::block::rand::bytes::rand_bytes(100),
                     BlockMetadata {
                         parents,
                         is_solid: true,
@@ -72,23 +72,21 @@ mod test_rand {
         }) {
             if !outputs.is_empty() {
                 db.collection::<OutputCollection>()
-                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| {
-                        OutputDocument::from(LedgerOutput {
-                            output_id: OutputId {
-                                transaction_id,
-                                index: i as u16,
-                            },
-                            block_id: *block_id,
-                            booked: MilestoneIndexTimestamp {
-                                milestone_index: 0.into(),
-                                milestone_timestamp: 12345.into(),
-                            },
-                            rent_structure: RentStructureBytes {
-                                num_key_bytes: 0,
-                                num_data_bytes: 100,
-                            },
-                            output,
-                        })
+                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| LedgerOutput {
+                        output_id: OutputId {
+                            transaction_id,
+                            index: i as u16,
+                        },
+                        block_id: *block_id,
+                        booked: MilestoneIndexTimestamp {
+                            milestone_index: 0.into(),
+                            milestone_timestamp: 12345.into(),
+                        },
+                        rent_structure: RentStructureBytes {
+                            num_key_bytes: 0,
+                            num_data_bytes: 100,
+                        },
+                        output,
                     }))
                     .await
                     .unwrap();
@@ -143,7 +141,7 @@ mod test_rand {
             (
                 block_id,
                 block,
-                bee_block_stardust::rand::bytes::rand_bytes(100),
+                iota_types::block::rand::bytes::rand_bytes(100),
                 BlockMetadata {
                     parents,
                     is_solid: true,
@@ -195,7 +193,7 @@ mod test_rand {
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
         let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let (block_id, block, transaction_id, input_id, outputs) =
             std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&ctx)))
@@ -228,7 +226,7 @@ mod test_rand {
                 .unwrap();
 
         let parents = block.parents.clone();
-        let raw = bee_block_stardust::rand::bytes::rand_bytes(100);
+        let raw = iota_types::block::rand::bytes::rand_bytes(100);
         let metadata = BlockMetadata {
             parents,
             is_solid: true,
@@ -246,23 +244,21 @@ mod test_rand {
             .await
             .unwrap();
         output_collection
-            .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| {
-                OutputDocument::from(LedgerOutput {
-                    output_id: OutputId {
-                        transaction_id,
-                        index: i as u16,
-                    },
-                    block_id,
-                    booked: MilestoneIndexTimestamp {
-                        milestone_index: 1.into(),
-                        milestone_timestamp: 12345.into(),
-                    },
-                    rent_structure: RentStructureBytes {
-                        num_key_bytes: 0,
-                        num_data_bytes: 100,
-                    },
-                    output,
-                })
+            .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| LedgerOutput {
+                output_id: OutputId {
+                    transaction_id,
+                    index: i as u16,
+                },
+                block_id,
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output,
             }))
             .await
             .unwrap();
@@ -283,7 +279,7 @@ mod test_rand {
         let db = setup_database("test-milestone-activity").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
-        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
 
         let blocks = vec![
             Block::rand_treasury_transaction(&protocol_params),
@@ -299,7 +295,7 @@ mod test_rand {
             (
                 BlockId::rand(),
                 block,
-                bee_block_stardust::rand::bytes::rand_bytes(100),
+                iota_types::block::rand::bytes::rand_bytes(100),
                 BlockMetadata {
                     parents,
                     is_solid: true,

@@ -62,8 +62,8 @@ pub struct RentStructureBytes {
 }
 
 #[cfg(feature = "inx")]
-fn compute_rent_structure(output: &bee_block_stardust::output::Output) -> RentStructureBytes {
-    use bee_block_stardust::output::{Rent, RentStructureBuilder};
+fn compute_rent_structure(output: &iota_types::block::output::Output) -> RentStructureBytes {
+    use iota_types::block::output::{Rent, RentStructureBuilder};
 
     let rent_cost = |byte_cost, data_factor, key_factor| {
         output.rent_cost(
@@ -95,7 +95,7 @@ mod inx {
 
         fn try_from(value: ::inx::proto::LedgerOutput) -> Result<Self, Self::Error> {
             let data = maybe_missing!(value.output).data;
-            let bee_output = bee_block_stardust::output::Output::unpack_unverified(data)
+            let bee_output = iota_types::block::output::Output::unpack_unverified(data)
                 .map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
 
             Ok(Self {
@@ -137,11 +137,11 @@ mod test {
     #[cfg(feature = "rand")]
     #[test]
     fn test_compute_rent_structure() {
-        use bee_block_stardust::{output::Rent, rand::output};
+        use iota_types::block::{output::Rent, rand::output};
 
         use super::compute_rent_structure;
 
-        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
 
         let outputs = [
             output::rand_basic_output(protocol_params.token_supply()).into(),

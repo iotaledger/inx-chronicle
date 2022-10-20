@@ -367,9 +367,6 @@ components:
     StorageDepositAnalyticsResponse:
       description: Compiled storage deposit and byte cost statistics.
       properties:
-        outputCount:
-          type: string
-          description: The total count of outputs.
         storageDepositReturnCount:
           type: string
           description: The total count of outputs with storage deposit return unlock conditions.
@@ -405,7 +402,6 @@ components:
             - vByteFactorData
             - vByteFactorKey
       required:
-        - outputCount
         - storageDepositReturnCount
         - storageDepositReturnTotalValue
         - totalKeyBytes
@@ -597,7 +593,6 @@ components:
   examples:
     storage-deposit-example:
       value:
-        outputCount: "714"
         storageDepositReturnCount: "43"
         storageDepositReturnTotalValue: "12114000"
         totalKeyBytes: "24276"

@@ -1,8 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_block_stardust as bee;
 use inx::proto;
+use iota_types::block as iota;
 
 use super::raw::RawMessage;
 
@@ -10,7 +10,7 @@ use super::raw::RawMessage;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RawProtocolParametersMessage {
     pub protocol_version: u8,
-    pub params: RawMessage<bee::protocol::ProtocolParameters>,
+    pub params: RawMessage<iota::protocol::ProtocolParameters>,
 }
 
 impl From<proto::RawProtocolParameters> for RawProtocolParametersMessage {

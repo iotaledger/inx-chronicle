@@ -7,7 +7,7 @@ mod milestone_id;
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::payload::milestone::{self as bee};
+use iota_types::block::payload::milestone::{self as iota};
 use serde::{Deserialize, Serialize};
 
 pub use self::milestone_id::MilestoneId;
@@ -27,7 +27,12 @@ pub struct MilestonePayload {
     pub signatures: Box<[Signature]>,
 }
 
-impl<T: Borrow<bee::MilestonePayload>> From<T> for MilestonePayload {
+impl MilestonePayload {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "milestone";
+}
+
+impl<T: Borrow<iota::MilestonePayload>> From<T> for MilestonePayload {
     fn from(value: T) -> Self {
         Self {
             essence: MilestoneEssence::from(value.borrow().essence()),
@@ -36,14 +41,14 @@ impl<T: Borrow<bee::MilestonePayload>> From<T> for MilestonePayload {
     }
 }
 
-impl TryFromWithContext<MilestonePayload> for bee::MilestonePayload {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<MilestonePayload> for iota::MilestonePayload {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: MilestonePayload,
     ) -> Result<Self, Self::Error> {
-        bee::MilestonePayload::new(
+        iota::MilestonePayload::new(
             value.essence.try_into_with_context(ctx)?,
             value
                 .signatures
@@ -55,10 +60,10 @@ impl TryFromWithContext<MilestonePayload> for bee::MilestonePayload {
     }
 }
 
-impl From<MilestonePayload> for bee::dto::MilestonePayloadDto {
+impl From<MilestonePayload> for iota::dto::MilestonePayloadDto {
     fn from(value: MilestonePayload) -> Self {
         Self {
-            kind: bee::MilestonePayload::KIND,
+            kind: iota::MilestonePayload::KIND,
             index: value.essence.index.0,
             timestamp: value.essence.timestamp,
             protocol_version: value.essence.protocol_version,
@@ -106,10 +111,10 @@ pub struct MilestoneEssence {
 }
 
 impl MilestoneEssence {
-    const MERKLE_PROOF_LENGTH: usize = bee::MerkleRoot::LENGTH;
+    const MERKLE_PROOF_LENGTH: usize = iota::MerkleRoot::LENGTH;
 }
 
-impl<T: Borrow<bee::MilestoneEssence>> From<T> for MilestoneEssence {
+impl<T: Borrow<iota::MilestoneEssence>> From<T> for MilestoneEssence {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
@@ -126,25 +131,25 @@ impl<T: Borrow<bee::MilestoneEssence>> From<T> for MilestoneEssence {
     }
 }
 
-impl TryFromWithContext<MilestoneEssence> for bee::MilestoneEssence {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<MilestoneEssence> for iota::MilestoneEssence {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: MilestoneEssence,
     ) -> Result<Self, Self::Error> {
-        bee::MilestoneEssence::new(
+        iota::MilestoneEssence::new(
             value.index.into(),
             value.timestamp,
             value.protocol_version,
             value.previous_milestone_id.into(),
-            bee_block_stardust::parent::Parents::new(
+            iota_types::block::parent::Parents::new(
                 value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
             )?,
-            bee_block_stardust::payload::milestone::MerkleRoot::from(value.inclusion_merkle_root),
-            bee_block_stardust::payload::milestone::MerkleRoot::from(value.applied_merkle_root),
+            iota_types::block::payload::milestone::MerkleRoot::from(value.inclusion_merkle_root),
+            iota_types::block::payload::milestone::MerkleRoot::from(value.applied_merkle_root),
             value.metadata,
-            bee_block_stardust::payload::MilestoneOptions::new(
+            iota_types::block::payload::MilestoneOptions::new(
                 value
                     .options
                     .into_vec()
@@ -182,16 +187,16 @@ pub enum MilestoneOption {
     },
 }
 
-impl<T: Borrow<bee::MilestoneOption>> From<T> for MilestoneOption {
+impl<T: Borrow<iota::MilestoneOption>> From<T> for MilestoneOption {
     fn from(value: T) -> Self {
         match value.borrow() {
-            bee::MilestoneOption::Receipt(r) => Self::Receipt {
+            iota::MilestoneOption::Receipt(r) => Self::Receipt {
                 migrated_at: r.migrated_at().into(),
                 last: r.last(),
                 funds: r.funds().iter().map(Into::into).collect(),
                 transaction: r.transaction().into(),
             },
-            bee::MilestoneOption::Parameters(p) => Self::Parameters {
+            iota::MilestoneOption::Parameters(p) => Self::Parameters {
                 target_milestone_index: p.target_milestone_index().into(),
                 protocol_version: p.protocol_version(),
                 binary_parameters: p.binary_parameters().to_owned().into_boxed_slice(),
@@ -200,11 +205,11 @@ impl<T: Borrow<bee::MilestoneOption>> From<T> for MilestoneOption {
     }
 }
 
-impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<MilestoneOption> for iota::MilestoneOption {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: MilestoneOption,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -213,7 +218,7 @@ impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
                 last,
                 funds,
                 transaction,
-            } => Self::Receipt(bee::ReceiptMilestoneOption::new(
+            } => Self::Receipt(iota::ReceiptMilestoneOption::new(
                 migrated_at.into(),
                 last,
                 funds
@@ -228,7 +233,7 @@ impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
                 target_milestone_index,
                 protocol_version,
                 binary_parameters,
-            } => Self::Parameters(bee::ParametersMilestoneOption::new(
+            } => Self::Parameters(iota::ParametersMilestoneOption::new(
                 target_milestone_index.into(),
                 protocol_version,
                 binary_parameters.into_vec(),
@@ -237,7 +242,7 @@ impl TryFromWithContext<MilestoneOption> for bee::MilestoneOption {
     }
 }
 
-impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
+impl From<MilestoneOption> for iota::option::dto::MilestoneOptionDto {
     fn from(value: MilestoneOption) -> Self {
         match value {
             MilestoneOption::Receipt {
@@ -245,11 +250,11 @@ impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
                 last,
                 funds,
                 transaction,
-            } => Self::Receipt(bee::option::dto::ReceiptMilestoneOptionDto {
-                kind: bee::option::ReceiptMilestoneOption::KIND,
+            } => Self::Receipt(iota::option::dto::ReceiptMilestoneOptionDto {
+                kind: iota::option::ReceiptMilestoneOption::KIND,
                 migrated_at: migrated_at.0,
                 funds: funds.into_vec().into_iter().map(Into::into).collect(),
-                transaction: bee_block_stardust::payload::dto::PayloadDto::TreasuryTransaction(Box::new(
+                transaction: iota_types::block::payload::dto::PayloadDto::TreasuryTransaction(Box::new(
                     transaction.into(),
                 )),
                 last,
@@ -258,8 +263,8 @@ impl From<MilestoneOption> for bee::option::dto::MilestoneOptionDto {
                 target_milestone_index,
                 protocol_version,
                 binary_parameters,
-            } => Self::Parameters(bee::option::dto::ParametersMilestoneOptionDto {
-                kind: bee::option::ParametersMilestoneOption::KIND,
+            } => Self::Parameters(iota::option::dto::ParametersMilestoneOptionDto {
+                kind: iota::option::ParametersMilestoneOption::KIND,
                 target_milestone_index: target_milestone_index.0,
                 protocol_version,
                 binary_parameters: prefix_hex::encode(binary_parameters),
@@ -282,10 +287,10 @@ pub struct MigratedFundsEntry {
 }
 
 impl MigratedFundsEntry {
-    const TAIL_TRANSACTION_HASH_LENGTH: usize = bee::option::TailTransactionHash::LENGTH;
+    const TAIL_TRANSACTION_HASH_LENGTH: usize = iota::option::TailTransactionHash::LENGTH;
 }
 
-impl<T: Borrow<bee::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry {
+impl<T: Borrow<iota::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
@@ -297,15 +302,15 @@ impl<T: Borrow<bee::option::MigratedFundsEntry>> From<T> for MigratedFundsEntry 
     }
 }
 
-impl TryFromWithContext<MigratedFundsEntry> for bee::option::MigratedFundsEntry {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<MigratedFundsEntry> for iota::option::MigratedFundsEntry {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: MigratedFundsEntry,
     ) -> Result<Self, Self::Error> {
         Self::new(
-            bee::option::TailTransactionHash::new(value.tail_transaction_hash)?,
+            iota::option::TailTransactionHash::new(value.tail_transaction_hash)?,
             value.address.into(),
             value.amount,
             ctx.token_supply(),
@@ -313,7 +318,7 @@ impl TryFromWithContext<MigratedFundsEntry> for bee::option::MigratedFundsEntry 
     }
 }
 
-impl From<MigratedFundsEntry> for bee::option::dto::MigratedFundsEntryDto {
+impl From<MigratedFundsEntry> for iota::option::dto::MigratedFundsEntryDto {
     fn from(value: MigratedFundsEntry) -> Self {
         Self {
             tail_transaction_hash: prefix_hex::encode(value.tail_transaction_hash),
@@ -325,7 +330,7 @@ impl From<MigratedFundsEntry> for bee::option::dto::MigratedFundsEntryDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::{
+    use iota_types::block::rand::{
         bytes::rand_bytes, milestone::rand_merkle_root, milestone_option::rand_receipt_milestone_option,
         number::rand_number, payload::rand_milestone_payload, receipt::rand_migrated_funds_entry,
     };
@@ -334,14 +339,14 @@ mod rand {
 
     impl MilestonePayload {
         /// Generates a random [`MilestonePayload`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_milestone_payload(ctx.protocol_version()).into()
         }
     }
 
     impl MilestoneEssence {
         /// Generates a random [`MilestoneEssence`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 index: rand_number::<u32>().into(),
                 timestamp: rand_number::<u32>(),
@@ -358,8 +363,8 @@ mod rand {
 
     impl MilestoneOption {
         /// Generates a random receipt [`MilestoneOption`].
-        pub fn rand_receipt(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
-            bee::MilestoneOption::from(rand_receipt_milestone_option(ctx.token_supply())).into()
+        pub fn rand_receipt(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
+            iota::MilestoneOption::from(rand_receipt_milestone_option(ctx.token_supply())).into()
         }
 
         /// Generates a random parameters [`MilestoneOption`].
@@ -374,7 +379,7 @@ mod rand {
 
     impl MigratedFundsEntry {
         /// Generates a random [`MigratedFundsEntry`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_migrated_funds_entry(ctx.token_supply()).into()
         }
     }
@@ -396,9 +401,9 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = MilestonePayload::rand(&ctx);
-        bee::MilestonePayload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::MilestonePayload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<MilestonePayload>(bson).unwrap());
     }

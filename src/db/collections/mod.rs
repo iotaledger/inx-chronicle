@@ -27,64 +27,42 @@ pub use self::{
     milestone::{MilestoneCollection, MilestoneResult, SyncData},
     outputs::{
         AddressStat, AliasOutputsQuery, BasicOutputsQuery, DistributionStat, FoundryOutputsQuery, IndexedId,
-        NftOutputsQuery, OutputCollection, OutputDocument, OutputMetadataResult, OutputWithMetadataResult,
-        OutputsResult, UtxoChangesResult,
+        NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
+        UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},
 };
 use crate::types::stardust::block::{
     output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-    payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
+    Output,
 };
 
 /// Helper to specify a kind for an output type.
-pub trait OutputKind {
+pub trait OutputKindQuery {
     /// Gets the output kind.
+    fn kind() -> Option<&'static str>;
+}
+
+impl OutputKindQuery for Output {
     fn kind() -> Option<&'static str> {
         None
     }
 }
 
-impl OutputKind for () {}
-
-macro_rules! impl_output_kind {
-    ($t:ty, $s:literal) => {
-        impl OutputKind for $t {
+macro_rules! impl_output_kind_query {
+    ($t:ty) => {
+        impl OutputKindQuery for $t {
             fn kind() -> Option<&'static str> {
-                Some($s)
+                Some(<$t>::KIND)
             }
         }
     };
 }
-impl_output_kind!(BasicOutput, "basic");
-impl_output_kind!(AliasOutput, "alias");
-impl_output_kind!(NftOutput, "nft");
-impl_output_kind!(FoundryOutput, "foundry");
-
-/// Helper to specify a kind for a block payload type.
-pub trait PayloadKind {
-    /// Gets the payload kind.
-    fn kind() -> Option<&'static str> {
-        None
-    }
-}
-
-impl PayloadKind for () {}
-
-macro_rules! impl_payload_kind {
-    ($t:ty, $s:literal) => {
-        impl PayloadKind for $t {
-            fn kind() -> Option<&'static str> {
-                Some($s)
-            }
-        }
-    };
-}
-impl_payload_kind!(TransactionPayload, "transaction");
-impl_payload_kind!(MilestonePayload, "milestone");
-impl_payload_kind!(TaggedDataPayload, "tagged_data");
-impl_payload_kind!(TreasuryTransactionPayload, "treasury_transaction");
+impl_output_kind_query!(BasicOutput);
+impl_output_kind_query!(AliasOutput);
+impl_output_kind_query!(NftOutput);
+impl_output_kind_query!(FoundryOutput);
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

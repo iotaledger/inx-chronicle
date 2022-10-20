@@ -3,8 +3,8 @@
 
 use std::ops::Range;
 
-use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{db::collections::DistributionStat, types::tangle::MilestoneIndex};
+use iota_types::api::response::RentStructureResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -31,7 +31,6 @@ impl_success_response!(OutputAnalyticsResponse);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageDepositAnalyticsResponse {
-    pub output_count: String,
     pub storage_deposit_return_count: String,
     pub storage_deposit_return_total_value: String,
     pub total_key_bytes: String,
