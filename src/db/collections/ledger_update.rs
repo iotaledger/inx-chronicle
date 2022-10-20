@@ -106,7 +106,7 @@ fn oldest() -> Document {
 
 /// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
 impl LedgerUpdateCollection {
-    /// Inserts [`OutputDocument`] updates.
+    /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_spent_ledger_updates<'a, I>(&self, outputs: I) -> Result<(), Error>
     where
