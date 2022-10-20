@@ -15,8 +15,6 @@ use crate::{
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NodeConfigurationDocument {
-    #[serde(rename = "_id")]
-    id: (),
     pub config: NodeConfiguration,
 }
 
@@ -41,10 +39,13 @@ impl MongoDbCollection for NodeConfigurationCollection {
 impl NodeConfigurationCollection {
     /// Updates the stored node configuration - if necessary.
     pub async fn update_node_configuration(&self, config: NodeConfiguration) -> Result<(), Error> {
-        if !matches!(self.get_latest_node_configuration().await?, Some(latest_config) if latest_config.config == config)
-        {
-            self.insert_one(NodeConfigurationDocument { id: (), config }, None)
-                .await?;
+        if let Some(latest_config) = self.get_latest_node_configuration().await? {
+            if latest_config.config != config {
+                self.replace_one(doc! {}, NodeConfigurationDocument { config }, None)
+                    .await?;
+            }
+        } else {
+            self.insert_one(NodeConfigurationDocument { config }, None).await?;
         }
         Ok(())
     }
