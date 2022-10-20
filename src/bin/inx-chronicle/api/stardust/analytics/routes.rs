@@ -6,7 +6,9 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
-        collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
+        collections::{
+            BlockCollection, MilestoneCollection, OutputCollection, OutputKindQuery, ProtocolUpdateCollection,
+        },
         MongoDb,
     },
     types::{
@@ -146,7 +148,7 @@ async fn milestone_activity_analytics_by_id(
     })
 }
 
-async fn output_activity_analytics<O: OutputKind>(
+async fn output_activity_analytics<O: OutputKindQuery>(
     database: Extension<MongoDb>,
     MilestoneRange { start_index, end_index }: MilestoneRange,
 ) -> ApiResult<OutputAnalyticsResponse> {
@@ -161,7 +163,7 @@ async fn output_activity_analytics<O: OutputKind>(
     })
 }
 
-async fn unspent_output_ledger_analytics<O: OutputKind>(
+async fn unspent_output_ledger_analytics<O: OutputKindQuery>(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {

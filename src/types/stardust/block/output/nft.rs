@@ -93,6 +93,11 @@ pub struct NftOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
+impl NftOutput {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "nft";
+}
+
 impl<T: Borrow<iota::NftOutput>> From<T> for NftOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();

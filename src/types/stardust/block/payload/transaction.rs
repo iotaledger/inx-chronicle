@@ -71,6 +71,11 @@ pub struct TransactionPayload {
     pub unlocks: Box<[Unlock]>,
 }
 
+impl TransactionPayload {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "transaction";
+}
+
 impl<T: Borrow<iota::TransactionPayload>> From<T> for TransactionPayload {
     fn from(value: T) -> Self {
         let value = value.borrow();

@@ -18,6 +18,11 @@ pub struct TreasuryOutput {
     pub amount: OutputAmount,
 }
 
+impl TreasuryOutput {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "treasury";
+}
+
 impl<T: Borrow<iota::TreasuryOutput>> From<T> for TreasuryOutput {
     fn from(value: T) -> Self {
         Self {

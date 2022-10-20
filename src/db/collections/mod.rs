@@ -36,52 +36,52 @@ use crate::types::stardust::block::{
 };
 
 /// Helper to specify a kind for an output type.
-pub trait OutputKind {
+pub trait OutputKindQuery {
     /// Gets the output kind.
     fn kind() -> Option<&'static str> {
         None
     }
 }
 
-impl OutputKind for () {}
+impl OutputKindQuery for () {}
 
 macro_rules! impl_output_kind {
-    ($t:ty, $s:literal) => {
-        impl OutputKind for $t {
+    ($t:ty) => {
+        impl OutputKindQuery for $t {
             fn kind() -> Option<&'static str> {
-                Some($s)
+                Some(<$t>::KIND)
             }
         }
     };
 }
-impl_output_kind!(BasicOutput, "basic");
-impl_output_kind!(AliasOutput, "alias");
-impl_output_kind!(NftOutput, "nft");
-impl_output_kind!(FoundryOutput, "foundry");
+impl_output_kind!(BasicOutput);
+impl_output_kind!(AliasOutput);
+impl_output_kind!(NftOutput);
+impl_output_kind!(FoundryOutput);
 
 /// Helper to specify a kind for a block payload type.
-pub trait PayloadKind {
+pub trait PayloadKindQuery {
     /// Gets the payload kind.
     fn kind() -> Option<&'static str> {
         None
     }
 }
 
-impl PayloadKind for () {}
+impl PayloadKindQuery for () {}
 
 macro_rules! impl_payload_kind {
-    ($t:ty, $s:literal) => {
-        impl PayloadKind for $t {
+    ($t:ty) => {
+        impl PayloadKindQuery for $t {
             fn kind() -> Option<&'static str> {
-                Some($s)
+                Some(<$t>::KIND)
             }
         }
     };
 }
-impl_payload_kind!(TransactionPayload, "transaction");
-impl_payload_kind!(MilestonePayload, "milestone");
-impl_payload_kind!(TaggedDataPayload, "tagged_data");
-impl_payload_kind!(TreasuryTransactionPayload, "treasury_transaction");
+impl_payload_kind!(TransactionPayload);
+impl_payload_kind!(MilestonePayload);
+impl_payload_kind!(TaggedDataPayload);
+impl_payload_kind!(TreasuryTransactionPayload);
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
