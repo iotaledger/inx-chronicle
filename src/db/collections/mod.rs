@@ -45,7 +45,7 @@ pub trait OutputKindQuery {
 
 impl OutputKindQuery for () {}
 
-macro_rules! impl_output_kind {
+macro_rules! impl_output_kind_query {
     ($t:ty) => {
         impl OutputKindQuery for $t {
             fn kind() -> Option<&'static str> {
@@ -54,10 +54,10 @@ macro_rules! impl_output_kind {
         }
     };
 }
-impl_output_kind!(BasicOutput);
-impl_output_kind!(AliasOutput);
-impl_output_kind!(NftOutput);
-impl_output_kind!(FoundryOutput);
+impl_output_kind_query!(BasicOutput);
+impl_output_kind_query!(AliasOutput);
+impl_output_kind_query!(NftOutput);
+impl_output_kind_query!(FoundryOutput);
 
 /// Helper to specify a kind for a block payload type.
 pub trait PayloadKindQuery {
@@ -69,7 +69,7 @@ pub trait PayloadKindQuery {
 
 impl PayloadKindQuery for () {}
 
-macro_rules! impl_payload_kind {
+macro_rules! impl_payload_kind_query {
     ($t:ty) => {
         impl PayloadKindQuery for $t {
             fn kind() -> Option<&'static str> {
@@ -78,10 +78,10 @@ macro_rules! impl_payload_kind {
         }
     };
 }
-impl_payload_kind!(TransactionPayload);
-impl_payload_kind!(MilestonePayload);
-impl_payload_kind!(TaggedDataPayload);
-impl_payload_kind!(TreasuryTransactionPayload);
+impl_payload_kind_query!(TransactionPayload);
+impl_payload_kind_query!(MilestonePayload);
+impl_payload_kind_query!(TaggedDataPayload);
+impl_payload_kind_query!(TreasuryTransactionPayload);
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
