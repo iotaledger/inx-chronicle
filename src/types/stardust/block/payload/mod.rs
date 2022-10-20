@@ -147,7 +147,10 @@ mod test {
         };
         let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
         doc.extend(outputs_doc);
-        assert_eq!(doc.get_str("kind").unwrap(), TransactionPayload::KIND);
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            TransactionPayload::KIND
+        );
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
