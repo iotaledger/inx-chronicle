@@ -242,6 +242,19 @@ impl AnalyticsProcessor {
         }
 
         let (unspent_output_analytics, storage_deposits) = if is_spent {
+            match &output.output {
+                Output::Foundry(foundry) => {
+                    self.analytics.native_tokens.created.remove(&foundry.foundry_id);
+                    self.analytics.native_tokens.transferred.remove(&foundry.foundry_id);
+                    self.analytics.native_tokens.burned.insert(foundry.foundry_id);
+                }
+                Output::Nft(nft) => {
+                    self.analytics.nfts.created.remove(&nft.nft_id);
+                    self.analytics.nfts.transferred.remove(&nft.nft_id);
+                    self.analytics.nfts.burned.insert(nft.nft_id);
+                }
+                _ => (),
+            }
             // Spent outputs that were created by the genesis are claimed.
             if output.booked.milestone_index == 0 {
                 self.analytics.claimed_tokens.count += 1;
@@ -256,6 +269,29 @@ impl AnalyticsProcessor {
                 &mut self.removed_storage_deposits,
             )
         } else {
+            match &output.output {
+                Output::Foundry(foundry) => {
+                    if self.analytics.native_tokens.created.remove(&foundry.foundry_id)
+                        || self.analytics.native_tokens.transferred.remove(&foundry.foundry_id)
+                        || self.analytics.native_tokens.burned.remove(&foundry.foundry_id)
+                    {
+                        self.analytics.native_tokens.transferred.insert(foundry.foundry_id);
+                    } else {
+                        self.analytics.native_tokens.created.insert(foundry.foundry_id);
+                    }
+                }
+                Output::Nft(nft) => {
+                    if self.analytics.nfts.created.remove(&nft.nft_id)
+                        || self.analytics.nfts.transferred.remove(&nft.nft_id)
+                        || self.analytics.nfts.burned.remove(&nft.nft_id)
+                    {
+                        self.analytics.nfts.transferred.insert(nft.nft_id);
+                    } else {
+                        self.analytics.nfts.created.insert(nft.nft_id);
+                    }
+                }
+                _ => (),
+            }
             (
                 self.analytics
                     .unspent_outputs
