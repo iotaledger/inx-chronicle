@@ -305,6 +305,7 @@ mod test {
         let output = Output::rand_basic(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
+        assert_eq!(bson.as_document().unwrap().get_str("kind").unwrap(), BasicOutput::KIND);
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
@@ -314,6 +315,7 @@ mod test {
         let output = Output::rand_alias(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
+        assert_eq!(bson.as_document().unwrap().get_str("kind").unwrap(), AliasOutput::KIND);
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
@@ -323,6 +325,7 @@ mod test {
         let output = Output::rand_nft(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
+        assert_eq!(bson.as_document().unwrap().get_str("kind").unwrap(), NftOutput::KIND);
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
@@ -332,6 +335,10 @@ mod test {
         let output = Output::rand_foundry(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            FoundryOutput::KIND
+        );
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 
@@ -341,6 +348,10 @@ mod test {
         let output = Output::rand_treasury(&ctx);
         iota::Output::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            TreasuryOutput::KIND
+        );
         assert_eq!(output, from_bson::<Output>(bson).unwrap());
     }
 }

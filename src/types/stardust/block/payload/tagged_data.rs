@@ -17,6 +17,11 @@ pub struct TaggedDataPayload {
     data: Box<[u8]>,
 }
 
+impl TaggedDataPayload {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "tagged_data";
+}
+
 impl<T: Borrow<iota::TaggedDataPayload>> From<T> for TaggedDataPayload {
     fn from(value: T) -> Self {
         Self {
