@@ -18,7 +18,7 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::OutputKind;
+use super::OutputKindQuery;
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
@@ -394,7 +394,7 @@ pub struct OutputAnalyticsResult {
 
 impl OutputCollection {
     /// Gathers output analytics.
-    pub async fn get_output_analytics<O: OutputKind>(
+    pub async fn get_output_analytics<O: OutputKindQuery>(
         &self,
         start_index: Option<MilestoneIndex>,
         end_index: Option<MilestoneIndex>,
@@ -431,7 +431,7 @@ impl OutputCollection {
     }
 
     /// Gathers unspent output analytics.
-    pub async fn get_unspent_output_analytics<O: OutputKind>(
+    pub async fn get_unspent_output_analytics<O: OutputKindQuery>(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputAnalyticsResult>, Error> {

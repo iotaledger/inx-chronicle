@@ -73,6 +73,11 @@ pub struct FoundryOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
+impl FoundryOutput {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "foundry";
+}
+
 impl<T: Borrow<iota::FoundryOutput>> From<T> for FoundryOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();

@@ -27,6 +27,11 @@ pub struct MilestonePayload {
     pub signatures: Box<[Signature]>,
 }
 
+impl MilestonePayload {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "milestone";
+}
+
 impl<T: Borrow<iota::MilestonePayload>> From<T> for MilestonePayload {
     fn from(value: T) -> Self {
         Self {

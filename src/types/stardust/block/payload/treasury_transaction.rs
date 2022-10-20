@@ -21,6 +21,11 @@ pub struct TreasuryTransactionPayload {
     pub output_amount: u64,
 }
 
+impl TreasuryTransactionPayload {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "treasury_transaction";
+}
+
 impl<T: Borrow<iota::TreasuryTransactionPayload>> From<T> for TreasuryTransactionPayload {
     fn from(value: T) -> Self {
         Self {

@@ -95,6 +95,11 @@ pub struct AliasOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
+impl AliasOutput {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "alias";
+}
+
 impl<T: Borrow<iota::AliasOutput>> From<T> for AliasOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();

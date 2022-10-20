@@ -147,6 +147,10 @@ mod test {
         };
         let doc = bson.as_document_mut().unwrap().get_document_mut("essence").unwrap();
         doc.extend(outputs_doc);
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            TransactionPayload::KIND
+        );
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
@@ -156,6 +160,10 @@ mod test {
         let payload = Payload::rand_milestone(&ctx);
         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            MilestonePayload::KIND
+        );
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
@@ -165,6 +173,10 @@ mod test {
         let payload = Payload::rand_treasury_transaction(&ctx);
         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            TreasuryTransactionPayload::KIND
+        );
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
@@ -174,6 +186,10 @@ mod test {
         let payload = Payload::rand_tagged_data();
         iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
+        assert_eq!(
+            bson.as_document().unwrap().get_str("kind").unwrap(),
+            TaggedDataPayload::KIND
+        );
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 }

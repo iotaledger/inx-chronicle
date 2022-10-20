@@ -38,6 +38,11 @@ pub struct BasicOutput {
     pub features: Box<[Feature]>,
 }
 
+impl BasicOutput {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "basic";
+}
+
 impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();
