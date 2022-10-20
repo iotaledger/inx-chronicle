@@ -387,7 +387,7 @@ impl InxWorker {
             .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
 
         let payload =
-            if let bee_block_stardust::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
+            if let iota_types::block::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
                 chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
             } else {
                 // The raw data is guaranteed to contain a milestone payload.

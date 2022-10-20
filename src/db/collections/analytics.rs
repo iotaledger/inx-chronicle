@@ -9,7 +9,7 @@ use influxdb::{InfluxDbWriteable, Timestamp};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
-use super::{BlockCollection, OutputCollection, OutputKind};
+use super::{BlockCollection, OutputCollection};
 #[cfg(feature = "inx")]
 use crate::db::influxdb::{InfluxDb, InfluxDbMeasurement};
 use crate::{
@@ -44,17 +44,17 @@ impl Default for Analytics {
         Self {
             addresses: Default::default(),
             outputs: [
-                (BasicOutput::kind().unwrap().to_string(), Default::default()),
-                (AliasOutput::kind().unwrap().to_string(), Default::default()),
-                (NftOutput::kind().unwrap().to_string(), Default::default()),
-                (FoundryOutput::kind().unwrap().to_string(), Default::default()),
+                (BasicOutput::KIND.to_string(), Default::default()),
+                (AliasOutput::KIND.to_string(), Default::default()),
+                (NftOutput::KIND.to_string(), Default::default()),
+                (FoundryOutput::KIND.to_string(), Default::default()),
             ]
             .into(),
             unspent_outputs: [
-                (BasicOutput::kind().unwrap().to_string(), Default::default()),
-                (AliasOutput::kind().unwrap().to_string(), Default::default()),
-                (NftOutput::kind().unwrap().to_string(), Default::default()),
-                (FoundryOutput::kind().unwrap().to_string(), Default::default()),
+                (BasicOutput::KIND.to_string(), Default::default()),
+                (AliasOutput::KIND.to_string(), Default::default()),
+                (NftOutput::KIND.to_string(), Default::default()),
+                (FoundryOutput::KIND.to_string(), Default::default()),
             ]
             .into(),
             storage_deposits: Default::default(),
@@ -143,50 +143,50 @@ impl MongoDb {
             .await?;
         let mut outputs = HashMap::new();
         outputs.insert(
-            BasicOutput::kind().unwrap().to_string(),
+            BasicOutput::KIND.to_string(),
             output_collection
                 .get_output_analytics::<BasicOutput>(milestone_index, milestone_index + 1)
                 .await?,
         );
         outputs.insert(
-            AliasOutput::kind().unwrap().to_string(),
+            AliasOutput::KIND.to_string(),
             output_collection
                 .get_output_analytics::<AliasOutput>(milestone_index, milestone_index + 1)
                 .await?,
         );
         outputs.insert(
-            NftOutput::kind().unwrap().to_string(),
+            NftOutput::KIND.to_string(),
             output_collection
                 .get_output_analytics::<NftOutput>(milestone_index, milestone_index + 1)
                 .await?,
         );
         outputs.insert(
-            FoundryOutput::kind().unwrap().to_string(),
+            FoundryOutput::KIND.to_string(),
             output_collection
                 .get_output_analytics::<FoundryOutput>(milestone_index, milestone_index + 1)
                 .await?,
         );
         let mut unspent_outputs = HashMap::new();
         unspent_outputs.insert(
-            BasicOutput::kind().unwrap().to_string(),
+            BasicOutput::KIND.to_string(),
             output_collection
                 .get_unspent_output_analytics::<BasicOutput>(milestone_index)
                 .await?,
         );
         unspent_outputs.insert(
-            AliasOutput::kind().unwrap().to_string(),
+            AliasOutput::KIND.to_string(),
             output_collection
                 .get_unspent_output_analytics::<AliasOutput>(milestone_index)
                 .await?,
         );
         unspent_outputs.insert(
-            NftOutput::kind().unwrap().to_string(),
+            NftOutput::KIND.to_string(),
             output_collection
                 .get_unspent_output_analytics::<NftOutput>(milestone_index)
                 .await?,
         );
         unspent_outputs.insert(
-            FoundryOutput::kind().unwrap().to_string(),
+            FoundryOutput::KIND.to_string(),
             output_collection
                 .get_unspent_output_analytics::<FoundryOutput>(milestone_index)
                 .await?,

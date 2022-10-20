@@ -3,7 +3,7 @@
 
 //! Module containing the [`Signature`] type.
 
-use bee_block_stardust::signature as bee;
+use iota_types::block::signature as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::types::util::bytify;
@@ -24,14 +24,14 @@ pub enum Signature {
 }
 
 impl Signature {
-    const PUBLIC_KEY_LENGTH: usize = bee::Ed25519Signature::PUBLIC_KEY_LENGTH;
-    const SIGNATURE_LENGTH: usize = bee::Ed25519Signature::SIGNATURE_LENGTH;
+    const PUBLIC_KEY_LENGTH: usize = iota::Ed25519Signature::PUBLIC_KEY_LENGTH;
+    const SIGNATURE_LENGTH: usize = iota::Ed25519Signature::SIGNATURE_LENGTH;
 }
 
-impl From<&bee::Signature> for Signature {
-    fn from(value: &bee::Signature) -> Self {
+impl From<&iota::Signature> for Signature {
+    fn from(value: &iota::Signature) -> Self {
         match value {
-            bee::Signature::Ed25519(signature) => Self::Ed25519 {
+            iota::Signature::Ed25519(signature) => Self::Ed25519 {
                 public_key: *signature.public_key(),
                 signature: *signature.signature(),
             },
@@ -39,21 +39,21 @@ impl From<&bee::Signature> for Signature {
     }
 }
 
-impl From<Signature> for bee::Signature {
+impl From<Signature> for iota::Signature {
     fn from(value: Signature) -> Self {
         match value {
             Signature::Ed25519 { public_key, signature } => {
-                bee::Signature::Ed25519(bee::Ed25519Signature::new(public_key, signature))
+                iota::Signature::Ed25519(iota::Ed25519Signature::new(public_key, signature))
             }
         }
     }
 }
 
-impl From<Signature> for bee::dto::SignatureDto {
+impl From<Signature> for iota::dto::SignatureDto {
     fn from(value: Signature) -> Self {
         match value {
-            Signature::Ed25519 { public_key, signature } => Self::Ed25519(bee::dto::Ed25519SignatureDto {
-                kind: bee::Ed25519Signature::KIND,
+            Signature::Ed25519 { public_key, signature } => Self::Ed25519(iota::dto::Ed25519SignatureDto {
+                kind: iota::Ed25519Signature::KIND,
                 public_key: prefix_hex::encode(public_key),
                 signature: prefix_hex::encode(signature),
             }),
@@ -63,14 +63,14 @@ impl From<Signature> for bee::dto::SignatureDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::bytes::rand_bytes_array;
+    use iota_types::block::rand::bytes::rand_bytes_array;
 
     use super::*;
 
     impl Signature {
-        /// Generates a random [`Signature`] with an [`bee::Ed25519Signature`].
+        /// Generates a random [`Signature`] with an [`iota::Ed25519Signature`].
         pub fn rand() -> Self {
-            Self::from(&bee::Signature::Ed25519(bee::Ed25519Signature::new(
+            Self::from(&iota::Signature::Ed25519(iota::Ed25519Signature::new(
                 rand_bytes_array(),
                 rand_bytes_array(),
             )))

@@ -20,7 +20,7 @@ pub use self::indexer::{
 };
 use super::{
     analytics::{AddressAnalytics, ClaimedTokensAnalytics, OutputAnalytics, StorageDepositAnalytics},
-    OutputKind,
+    OutputKindQuery,
 };
 use crate::{
     db::{
@@ -397,7 +397,7 @@ pub struct OutputAnalyticsResult {
 
 impl OutputCollection {
     /// Gathers output analytics.
-    pub async fn get_output_analytics<O: OutputKind>(
+    pub async fn get_output_analytics<O: OutputKindQuery>(
         &self,
         start_index: impl Into<Option<MilestoneIndex>>,
         end_index: impl Into<Option<MilestoneIndex>>,
@@ -434,7 +434,7 @@ impl OutputCollection {
     }
 
     /// Gathers unspent output analytics.
-    pub async fn get_unspent_output_analytics<O: OutputKind>(
+    pub async fn get_unspent_output_analytics<O: OutputKindQuery>(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<OutputAnalytics, Error> {

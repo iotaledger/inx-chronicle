@@ -1,8 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_block_stardust as bee;
 use inx::proto;
+use iota_types::block as iota;
 
 use crate::{inx::InxError, maybe_missing};
 
@@ -46,8 +46,8 @@ impl From<BaseTokenMessage> for proto::BaseToken {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MilestoneKeyRangeMessage {
     pub public_key: Box<[u8]>,
-    pub start_index: bee::payload::milestone::MilestoneIndex,
-    pub end_index: bee::payload::milestone::MilestoneIndex,
+    pub start_index: iota::payload::milestone::MilestoneIndex,
+    pub end_index: iota::payload::milestone::MilestoneIndex,
 }
 
 impl From<proto::MilestoneKeyRange> for MilestoneKeyRangeMessage {
