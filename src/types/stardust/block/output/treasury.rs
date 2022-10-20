@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
 use super::OutputAmount;
@@ -18,7 +18,7 @@ pub struct TreasuryOutput {
     pub amount: OutputAmount,
 }
 
-impl<T: Borrow<bee::TreasuryOutput>> From<T> for TreasuryOutput {
+impl<T: Borrow<iota::TreasuryOutput>> From<T> for TreasuryOutput {
     fn from(value: T) -> Self {
         Self {
             amount: value.borrow().amount().into(),
@@ -26,21 +26,21 @@ impl<T: Borrow<bee::TreasuryOutput>> From<T> for TreasuryOutput {
     }
 }
 
-impl TryFromWithContext<TreasuryOutput> for bee::TreasuryOutput {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<TreasuryOutput> for iota::TreasuryOutput {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: TreasuryOutput,
     ) -> Result<Self, Self::Error> {
         Self::new(value.amount.0, ctx.token_supply())
     }
 }
 
-impl From<TreasuryOutput> for bee::dto::TreasuryOutputDto {
+impl From<TreasuryOutput> for iota::dto::TreasuryOutputDto {
     fn from(value: TreasuryOutput) -> Self {
         Self {
-            kind: bee::TreasuryOutput::KIND,
+            kind: iota::TreasuryOutput::KIND,
             amount: value.amount.0.to_string(),
         }
     }
@@ -48,13 +48,13 @@ impl From<TreasuryOutput> for bee::dto::TreasuryOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::output::rand_treasury_output;
+    use iota_types::block::rand::output::rand_treasury_output;
 
     use super::*;
 
     impl TreasuryOutput {
         /// Generates a random [`TreasuryOutput`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_treasury_output(ctx.token_supply()).into()
         }
     }
@@ -68,9 +68,9 @@ mod test {
 
     #[test]
     fn test_treasury_output_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let output = TreasuryOutput::rand(&ctx);
-        bee::TreasuryOutput::try_from_with_context(&ctx, output).unwrap();
+        iota::TreasuryOutput::try_from_with_context(&ctx, output).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<TreasuryOutput>(bson).unwrap());
     }

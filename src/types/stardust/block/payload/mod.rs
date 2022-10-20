@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::payload as bee;
+use iota_types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
 pub mod milestone;
@@ -35,36 +35,36 @@ pub enum Payload {
     TaggedData(Box<TaggedDataPayload>),
 }
 
-impl<T: Borrow<bee::Payload>> From<T> for Payload {
+impl<T: Borrow<iota::Payload>> From<T> for Payload {
     fn from(value: T) -> Self {
         match value.borrow() {
-            bee::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
-            bee::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
-            bee::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
-            bee::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
+            iota::Payload::Transaction(p) => Self::Transaction(Box::new(p.as_ref().into())),
+            iota::Payload::Milestone(p) => Self::Milestone(Box::new(p.as_ref().into())),
+            iota::Payload::TreasuryTransaction(p) => Self::TreasuryTransaction(Box::new(p.as_ref().into())),
+            iota::Payload::TaggedData(p) => Self::TaggedData(Box::new(p.as_ref().into())),
         }
     }
 }
 
-impl TryFromWithContext<Payload> for bee::Payload {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<Payload> for iota::Payload {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: Payload,
     ) -> Result<Self, Self::Error> {
         Ok(match value {
-            Payload::Transaction(p) => bee::Payload::Transaction(Box::new((*p).try_into_with_context(ctx)?)),
-            Payload::Milestone(p) => bee::Payload::Milestone(Box::new((*p).try_into_with_context(ctx)?)),
+            Payload::Transaction(p) => iota::Payload::Transaction(Box::new((*p).try_into_with_context(ctx)?)),
+            Payload::Milestone(p) => iota::Payload::Milestone(Box::new((*p).try_into_with_context(ctx)?)),
             Payload::TreasuryTransaction(p) => {
-                bee::Payload::TreasuryTransaction(Box::new((*p).try_into_with_context(ctx)?))
+                iota::Payload::TreasuryTransaction(Box::new((*p).try_into_with_context(ctx)?))
             }
-            Payload::TaggedData(p) => bee::Payload::TaggedData(Box::new((*p).try_into()?)),
+            Payload::TaggedData(p) => iota::Payload::TaggedData(Box::new((*p).try_into()?)),
         })
     }
 }
 
-impl From<Payload> for bee::dto::PayloadDto {
+impl From<Payload> for iota::dto::PayloadDto {
     fn from(value: Payload) -> Self {
         match value {
             Payload::Transaction(p) => Self::Transaction(Box::new((*p).into())),
@@ -77,13 +77,13 @@ impl From<Payload> for bee::dto::PayloadDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::number::rand_number_range;
+    use iota_types::block::rand::number::rand_number_range;
 
     use super::*;
 
     impl Payload {
         /// Generates a random [`Payload`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             match rand_number_range(0..4) {
                 0 => Self::rand_transaction(ctx),
                 1 => Self::rand_milestone(ctx),
@@ -94,7 +94,7 @@ mod rand {
         }
 
         /// Generates a random, optional [`Payload`].
-        pub fn rand_opt(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Option<Self> {
+        pub fn rand_opt(ctx: &iota_types::block::protocol::ProtocolParameters) -> Option<Self> {
             match rand_number_range(0..5) {
                 0 => Self::rand_transaction(ctx).into(),
                 1 => Self::rand_milestone(ctx).into(),
@@ -106,12 +106,12 @@ mod rand {
         }
 
         /// Generates a random transaction [`Payload`].
-        pub fn rand_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::Transaction(Box::new(TransactionPayload::rand(ctx)))
         }
 
         /// Generates a random milestone [`Payload`].
-        pub fn rand_milestone(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_milestone(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::Milestone(Box::new(MilestonePayload::rand(ctx)))
         }
 
@@ -121,7 +121,7 @@ mod rand {
         }
 
         /// Generates a random treasury transaction [`Payload`].
-        pub fn rand_treasury_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_treasury_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self::TreasuryTransaction(Box::new(TreasuryTransactionPayload::rand(ctx)))
         }
     }
@@ -135,7 +135,7 @@ mod test {
 
     #[test]
     fn test_transaction_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_transaction(&ctx);
         let mut bson = to_bson(&payload).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -152,27 +152,27 @@ mod test {
 
     #[test]
     fn test_milestone_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_milestone(&ctx);
-        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
     #[test]
     fn test_treasury_transaction_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_treasury_transaction(&ctx);
-        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }
 
     #[test]
     fn test_tagged_data_payload_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let payload = Payload::rand_tagged_data();
-        bee::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
+        iota::Payload::try_from_with_context(&ctx, payload.clone()).unwrap();
         let bson = to_bson(&payload).unwrap();
         assert_eq!(payload, from_bson::<Payload>(bson).unwrap());
     }

@@ -5,7 +5,7 @@
 
 use std::{borrow::Borrow, str::FromStr};
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -23,37 +23,37 @@ use crate::types::{context::TryFromWithContext, util::bytify};
 pub struct AliasId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl AliasId {
-    const LENGTH: usize = bee::AliasId::LENGTH;
+    const LENGTH: usize = iota::AliasId::LENGTH;
 
     /// The [`AliasId`] is derived from the [`OutputId`](super::OutputId) that created the alias.
-    pub fn from_output_id_str(s: &str) -> Result<Self, bee_block_stardust::Error> {
-        Ok(bee::AliasId::from(bee::OutputId::from_str(s)?).into())
+    pub fn from_output_id_str(s: &str) -> Result<Self, iota_types::block::Error> {
+        Ok(iota::AliasId::from(iota::OutputId::from_str(s)?).into())
     }
 }
 
-impl From<bee::AliasId> for AliasId {
-    fn from(value: bee::AliasId) -> Self {
+impl From<iota::AliasId> for AliasId {
+    fn from(value: iota::AliasId) -> Self {
         Self(*value)
     }
 }
 
-impl From<AliasId> for bee::AliasId {
+impl From<AliasId> for iota::AliasId {
     fn from(value: AliasId) -> Self {
-        bee::AliasId::new(value.0)
+        iota::AliasId::new(value.0)
     }
 }
 
-impl From<AliasId> for bee::dto::AliasIdDto {
+impl From<AliasId> for iota::dto::AliasIdDto {
     fn from(value: AliasId) -> Self {
-        Into::into(&bee::AliasId::from(value))
+        Into::into(&iota::AliasId::from(value))
     }
 }
 
 impl FromStr for AliasId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::AliasId::from_str(s)?.into())
+        Ok(iota::AliasId::from_str(s)?.into())
     }
 }
 
@@ -95,7 +95,7 @@ pub struct AliasOutput {
     pub immutable_features: Box<[Feature]>,
 }
 
-impl<T: Borrow<bee::AliasOutput>> From<T> for AliasOutput {
+impl<T: Borrow<iota::AliasOutput>> From<T> for AliasOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
@@ -119,23 +119,23 @@ impl<T: Borrow<bee::AliasOutput>> From<T> for AliasOutput {
     }
 }
 
-impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<AliasOutput> for iota::AliasOutput {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: AliasOutput,
     ) -> Result<Self, Self::Error> {
         // The order of the conditions is important here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
             Some(
-                bee::unlock_condition::StateControllerAddressUnlockCondition::from(
+                iota::unlock_condition::StateControllerAddressUnlockCondition::from(
                     value.state_controller_address_unlock_condition,
                 )
                 .into(),
             ),
             Some(
-                bee::unlock_condition::GovernorAddressUnlockCondition::from(value.governor_address_unlock_condition)
+                iota::unlock_condition::GovernorAddressUnlockCondition::from(value.governor_address_unlock_condition)
                     .into(),
             ),
         ];
@@ -173,18 +173,18 @@ impl TryFromWithContext<AliasOutput> for bee::AliasOutput {
     }
 }
 
-impl From<AliasOutput> for bee::dto::AliasOutputDto {
+impl From<AliasOutput> for iota::dto::AliasOutputDto {
     fn from(value: AliasOutput) -> Self {
         let unlock_conditions = vec![
-            bee::unlock_condition::dto::UnlockConditionDto::StateControllerAddress(
+            iota::unlock_condition::dto::UnlockConditionDto::StateControllerAddress(
                 value.state_controller_address_unlock_condition.into(),
             ),
-            bee::unlock_condition::dto::UnlockConditionDto::GovernorAddress(
+            iota::unlock_condition::dto::UnlockConditionDto::GovernorAddress(
                 value.governor_address_unlock_condition.into(),
             ),
         ];
         Self {
-            kind: bee::AliasOutput::KIND,
+            kind: iota::AliasOutput::KIND,
             amount: value.amount.0.to_string(),
             native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
             alias_id: value.alias_id.into(),
@@ -205,7 +205,7 @@ impl From<AliasOutput> for bee::dto::AliasOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::output::{rand_alias_id, rand_alias_output};
+    use iota_types::block::rand::output::{rand_alias_id, rand_alias_output};
 
     use super::*;
 
@@ -218,7 +218,7 @@ mod rand {
 
     impl AliasOutput {
         /// Generates a random [`AliasOutput`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_alias_output(ctx.token_supply()).into()
         }
     }
@@ -240,9 +240,9 @@ mod test {
 
     #[test]
     fn test_alias_output_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let output = AliasOutput::rand(&ctx);
-        bee::AliasOutput::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::AliasOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<AliasOutput>(bson).unwrap());
     }

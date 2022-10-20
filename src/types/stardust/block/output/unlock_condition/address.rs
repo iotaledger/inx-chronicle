@@ -3,7 +3,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output::unlock_condition as bee;
+use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::Address;
@@ -15,7 +15,7 @@ pub struct AddressUnlockCondition {
     pub address: Address,
 }
 
-impl<T: Borrow<bee::AddressUnlockCondition>> From<T> for AddressUnlockCondition {
+impl<T: Borrow<iota::AddressUnlockCondition>> From<T> for AddressUnlockCondition {
     fn from(value: T) -> Self {
         Self {
             address: value.borrow().address().into(),
@@ -23,16 +23,16 @@ impl<T: Borrow<bee::AddressUnlockCondition>> From<T> for AddressUnlockCondition 
     }
 }
 
-impl From<AddressUnlockCondition> for bee::AddressUnlockCondition {
+impl From<AddressUnlockCondition> for iota::AddressUnlockCondition {
     fn from(value: AddressUnlockCondition) -> Self {
         Self::new(value.address.into())
     }
 }
 
-impl From<AddressUnlockCondition> for bee::dto::AddressUnlockConditionDto {
+impl From<AddressUnlockCondition> for iota::dto::AddressUnlockConditionDto {
     fn from(value: AddressUnlockCondition) -> Self {
         Self {
-            kind: bee::AddressUnlockCondition::KIND,
+            kind: iota::AddressUnlockCondition::KIND,
             address: value.address.into(),
         }
     }

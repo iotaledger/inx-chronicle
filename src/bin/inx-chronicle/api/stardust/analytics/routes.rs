@@ -4,7 +4,6 @@
 use std::str::FromStr;
 
 use axum::{extract::Path, routing::get, Extension};
-use bee_api_types_stardust::responses::RentStructureResponse;
 use chronicle::{
     db::{
         collections::{BlockCollection, MilestoneCollection, OutputCollection, OutputKind, ProtocolUpdateCollection},
@@ -18,6 +17,7 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
+use iota_types::api::response::RentStructureResponse;
 
 use super::{
     extractors::{LedgerIndex, MilestoneRange, RichestAddressesQuery},
@@ -264,7 +264,7 @@ async fn richest_addresses_ledger_analytics(
             .top
             .into_iter()
             .map(|stat| AddressStatDto {
-                address: bee_block_stardust::address::Address::from(stat.address).to_bech32(hrp.clone()),
+                address: iota_types::block::address::Address::from(stat.address).to_bech32(hrp.clone()),
                 balance: stat.balance,
             })
             .collect(),

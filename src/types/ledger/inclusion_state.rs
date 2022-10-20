@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_api_types_stardust::dtos as bee;
+use iota_types::api::dto as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
@@ -25,18 +25,18 @@ impl From<LedgerInclusionState> for Bson {
 }
 
 #[cfg(feature = "stardust")]
-impl From<bee::LedgerInclusionStateDto> for LedgerInclusionState {
-    fn from(value: bee::LedgerInclusionStateDto) -> Self {
+impl From<iota::LedgerInclusionStateDto> for LedgerInclusionState {
+    fn from(value: iota::LedgerInclusionStateDto) -> Self {
         match value {
-            bee::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
-            bee::LedgerInclusionStateDto::Included => Self::Included,
-            bee::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
+            iota::LedgerInclusionStateDto::Conflicting => Self::Conflicting,
+            iota::LedgerInclusionStateDto::Included => Self::Included,
+            iota::LedgerInclusionStateDto::NoTransaction => Self::NoTransaction,
         }
     }
 }
 
 #[cfg(feature = "stardust")]
-impl From<LedgerInclusionState> for bee::LedgerInclusionStateDto {
+impl From<LedgerInclusionState> for iota::LedgerInclusionStateDto {
     fn from(value: LedgerInclusionState) -> Self {
         match value {
             LedgerInclusionState::Conflicting => Self::Conflicting,

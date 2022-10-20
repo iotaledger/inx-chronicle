@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use bee_api_types_stardust::responses::{BaseTokenResponse, ProtocolResponse, StatusResponse};
+use iota_types::api::response as iota;
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -12,25 +12,38 @@ use crate::api::responses::impl_success_response;
 pub struct InfoResponse {
     pub name: String,
     pub version: String,
-    pub status: StatusResponse,
-    pub protocol: ProtocolResponse,
-    pub base_token: BaseTokenResponse,
+    pub status: iota::StatusResponse,
+    pub protocol: iota::ProtocolResponse,
+    pub base_token: iota::BaseTokenResponse,
 }
 
 impl_success_response!(InfoResponse);
 
+/// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
+/// responses from [`iota_types`](iota_types::api::response).
+#[derive(Clone, Debug, Serialize, derive_more::From)]
+pub struct IotaResponse<T: Serialize>(T);
+
+impl<T: Serialize> axum::response::IntoResponse for IotaResponse<T> {
+    fn into_response(self) -> axum::response::Response {
+        axum::Json(self.0).into_response()
+    }
+}
+
+/// A wrapper struct that allows us to implement [`IntoResponse`](axum::response::IntoResponse) for the foreign
+/// raw responses from [`iota_types`](iota_types::api::response).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OutputResponse {
-    Json(Box<bee_api_types_stardust::responses::OutputResponse>),
+pub enum IotaRawResponse<T: Serialize> {
+    Json(T),
     Raw(Vec<u8>),
 }
 
-impl axum::response::IntoResponse for OutputResponse {
+impl<T: Serialize> axum::response::IntoResponse for IotaRawResponse<T> {
     fn into_response(self) -> axum::response::Response {
         match self {
-            OutputResponse::Json(res) => axum::Json(res).into_response(),
-            OutputResponse::Raw(bytes) => bytes.into_response(),
+            Self::Json(res) => axum::Json(res).into_response(),
+            Self::Raw(bytes) => bytes.into_response(),
         }
     }
 }
