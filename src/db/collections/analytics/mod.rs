@@ -170,9 +170,9 @@ impl MongoDb {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OutputDiffTracker<T: std::hash::Hash + Eq> {
-    created: HashSet<T>,
-    transferred: HashSet<T>,
-    burned: HashSet<T>,
+    pub created: HashSet<T>,
+    pub transferred: HashSet<T>,
+    pub burned: HashSet<T>,
 }
 
 impl<T: std::hash::Hash + Eq> Default for OutputDiffTracker<T> {
