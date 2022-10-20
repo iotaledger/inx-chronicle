@@ -32,18 +32,20 @@ pub use self::{
 };
 use crate::types::stardust::block::{
     output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-    payload::{MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
+    Output,
 };
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKindQuery {
     /// Gets the output kind.
+    fn kind() -> Option<&'static str>;
+}
+
+impl OutputKindQuery for Output {
     fn kind() -> Option<&'static str> {
         None
     }
 }
-
-impl OutputKindQuery for () {}
 
 macro_rules! impl_output_kind_query {
     ($t:ty) => {
@@ -58,30 +60,6 @@ impl_output_kind_query!(BasicOutput);
 impl_output_kind_query!(AliasOutput);
 impl_output_kind_query!(NftOutput);
 impl_output_kind_query!(FoundryOutput);
-
-/// Helper to specify a kind for a block payload type.
-pub trait PayloadKindQuery {
-    /// Gets the payload kind.
-    fn kind() -> Option<&'static str> {
-        None
-    }
-}
-
-impl PayloadKindQuery for () {}
-
-macro_rules! impl_payload_kind_query {
-    ($t:ty) => {
-        impl PayloadKindQuery for $t {
-            fn kind() -> Option<&'static str> {
-                Some(<$t>::KIND)
-            }
-        }
-    };
-}
-impl_payload_kind_query!(TransactionPayload);
-impl_payload_kind_query!(MilestonePayload);
-impl_payload_kind_query!(TaggedDataPayload);
-impl_payload_kind_query!(TreasuryTransactionPayload);
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

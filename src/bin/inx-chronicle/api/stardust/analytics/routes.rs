@@ -15,6 +15,7 @@ use chronicle::{
         stardust::block::{
             output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
             payload::MilestoneId,
+            Output,
         },
         tangle::MilestoneIndex,
     },
@@ -59,7 +60,7 @@ pub fn routes() -> Router {
                 .nest(
                     "/outputs",
                     Router::new()
-                        .route("/", get(output_activity_analytics::<()>))
+                        .route("/", get(output_activity_analytics::<Output>))
                         .route("/basic", get(output_activity_analytics::<BasicOutput>))
                         .route("/alias", get(output_activity_analytics::<AliasOutput>))
                         .route("/nft", get(output_activity_analytics::<NftOutput>))
