@@ -404,7 +404,7 @@ pub struct MilestoneActivityAnalyticsSchema {
     pub analytics: MilestoneActivityAnalytics,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "rand"))]
 mod test {
     use std::collections::HashSet;
 
