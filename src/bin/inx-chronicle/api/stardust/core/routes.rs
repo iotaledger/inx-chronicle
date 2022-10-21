@@ -12,8 +12,9 @@ use axum::{
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, MilestoneCollection, OutputCollection, OutputMetadataResult, OutputWithMetadataResult,
-            ProtocolUpdateCollection, TreasuryCollection, UtxoChangesResult,
+            BlockCollection, ConfigurationUpdateCollection, MilestoneCollection, OutputCollection,
+            OutputMetadataResult, OutputWithMetadataResult, ProtocolUpdateCollection, TreasuryCollection,
+            UtxoChangesResult,
         },
         MongoDb,
     },
@@ -32,9 +33,9 @@ use iota_types::{
     api::{
         dto::ReceiptDto,
         response::{
-            self as iota, BlockMetadataResponse, ConfirmedMilestoneResponse, LatestMilestoneResponse,
-            OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse, RentStructureResponse,
-            StatusResponse, TreasuryResponse, UtxoChangesResponse,
+            self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
+            LatestMilestoneResponse, OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse,
+            RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse,
         },
     },
     block::{
@@ -158,9 +159,25 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         milestone_id: latest_milestone.milestone_id.clone(),
     };
 
+    let base_token = database
+        .collection::<ConfigurationUpdateCollection>()
+        .get_latest_node_configuration()
+        .await?
+        .ok_or(ApiError::Internal(InternalApiError::CorruptState(
+            "no node configuration in the database",
+        )))?
+        .config
+        .base_token;
+
     Ok(InfoResponse {
         name: "Chronicle".into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
+        status: StatusResponse {
+            is_healthy,
+            latest_milestone,
+            confirmed_milestone,
+            pruning_index: oldest_milestone.milestone_index.0 - 1,
+        },
         protocol: ProtocolResponse {
             version: protocol.version,
             network_name: protocol.network_name,
@@ -174,11 +191,13 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             },
             token_supply: protocol.token_supply.to_string(),
         },
-        status: StatusResponse {
-            is_healthy,
-            latest_milestone,
-            confirmed_milestone,
-            pruning_index: oldest_milestone.milestone_index.0 - 1,
+        base_token: BaseTokenResponse {
+            name: base_token.name,
+            ticker_symbol: base_token.ticker_symbol,
+            decimals: base_token.decimals as u8,
+            unit: base_token.unit,
+            subunit: Some(base_token.subunit),
+            use_metric_prefix: base_token.use_metric_prefix,
         },
     })
 }

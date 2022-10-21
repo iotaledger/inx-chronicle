@@ -9,8 +9,8 @@ use std::{sync::Arc, time::Duration};
 use chronicle::{
     db::{
         collections::{
-            Analytics, AnalyticsProcessor, BlockCollection, LedgerUpdateCollection, MilestoneCollection,
-            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            Analytics, AnalyticsProcessor, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
+            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         InfluxDb, MongoDb,
     },
@@ -148,7 +148,19 @@ impl InxWorker {
             .params
             .inner_unverified()?;
 
-        debug!("Connected to network `{}`.", protocol_parameters.network_name());
+        let node_configuration = inx.read_node_configuration().await?;
+
+        debug!(
+            "Connected to network `{}` with base token `{}[{}]`.",
+            protocol_parameters.network_name(),
+            node_configuration.base_token.name,
+            node_configuration.base_token.ticker_symbol
+        );
+
+        self.db
+            .collection::<ConfigurationUpdateCollection>()
+            .update_latest_node_configuration(node_status.ledger_index, node_configuration.into())
+            .await?;
 
         if let Some(latest) = self
             .db
@@ -333,6 +345,7 @@ impl InxWorker {
 
         self.handle_cone_stream(inx, &analytics, milestone_index).await?;
         self.handle_protocol_params(inx, milestone_index).await?;
+        self.handle_node_configuration(inx, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.handle_milestone(
@@ -365,6 +378,22 @@ impl InxWorker {
         self.db
             .collection::<ProtocolUpdateCollection>()
             .update_latest_protocol_parameters(milestone_index, parameters.into())
+            .await?;
+
+        Ok(())
+    }
+
+    #[instrument(skip_all, level = "trace")]
+    async fn handle_node_configuration(
+        &self,
+        inx: &mut Inx,
+        milestone_index: MilestoneIndex,
+    ) -> Result<(), InxWorkerError> {
+        let node_configuration = inx.read_node_configuration().await?;
+
+        self.db
+            .collection::<ConfigurationUpdateCollection>()
+            .update_latest_node_configuration(milestone_index, node_configuration.into())
             .await?;
 
         Ok(())
