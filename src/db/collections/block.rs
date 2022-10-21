@@ -11,7 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::analytics::MilestoneActivityAnalytics;
+use super::analytics::{PayloadActivityAnalytics, TransactionActivityAnalytics};
 use crate::{
     db::{
         collections::OutputCollection,
@@ -316,18 +316,17 @@ impl BlockCollection {
 }
 
 impl BlockCollection {
-    /// Gathers past-cone activity statistics for a given milestone.
-    pub async fn get_milestone_activity_analytics(
+    /// Gathers past-cone payload activity statistics for a given milestone.
+    pub async fn get_payload_activity_analytics(
         &self,
         index: MilestoneIndex,
-    ) -> Result<MilestoneActivityAnalytics, Error> {
+    ) -> Result<PayloadActivityAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$group": {
                         "_id": null,
-                        "count": { "$sum": 1 },
                         "transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
                         } },
@@ -343,6 +342,27 @@ impl BlockCollection {
                         "no_payload_count": { "$sum": {
                             "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
                         } },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
+    }
+
+    /// Gathers past-cone transaction activity statistics for a given milestone.
+    pub async fn get_transaction_activity_analytics(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<TransactionActivityAnalytics, Error> {
+        Ok(self
+            .aggregate(
+                vec![
+                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                    doc! { "$group": {
+                        "_id": null,
                         "confirmed_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
                         } },

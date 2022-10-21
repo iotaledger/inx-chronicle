@@ -243,7 +243,7 @@ impl InxWorker {
 
         // Only want to accumulate some of the analytics.
         analytics.storage_deposits = prev_analytics.storage_deposits;
-        analytics.unspent_outputs = prev_analytics.unspent_outputs;
+        analytics.ledger_outputs = prev_analytics.ledger_outputs;
         let analytics = Arc::new(Mutex::new(analytics.processor()));
 
         let mut tasks = JoinSet::new();

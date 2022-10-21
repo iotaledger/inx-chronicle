@@ -324,17 +324,19 @@ mod test_rand {
             .await
             .unwrap();
 
-        let activity = block_collection
-            .get_milestone_activity_analytics(1.into())
-            .await
-            .unwrap();
+        let activity = block_collection.get_payload_activity_analytics(1.into()).await.unwrap();
 
-        assert_eq!(activity.count, 5);
         assert_eq!(activity.transaction_count, 1);
         assert_eq!(activity.treasury_transaction_count, 1);
         assert_eq!(activity.milestone_count, 1);
         assert_eq!(activity.tagged_data_count, 1);
         assert_eq!(activity.no_payload_count, 1);
+
+        let activity = block_collection
+            .get_transaction_activity_analytics(1.into())
+            .await
+            .unwrap();
+
         assert_eq!(activity.confirmed_count, 1);
         assert_eq!(activity.conflicting_count, 1);
         assert_eq!(activity.no_transaction_count, 3);

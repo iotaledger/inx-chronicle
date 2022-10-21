@@ -3,8 +3,12 @@
 
 mod indexer;
 
-use std::{borrow::Borrow, collections::HashSet};
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, HashSet},
+};
 
+use decimal::d128;
 use futures::TryStreamExt;
 use mongodb::{
     bson::{doc, to_bson, to_document},
@@ -18,14 +22,13 @@ use tracing::instrument;
 pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
-use super::{
-    analytics::{
-        AddressAnalytics, ClaimedTokensAnalytics, OutputAnalytics, OutputDiffTracker, StorageDepositAnalytics,
-    },
-    OutputKindQuery,
+use super::analytics::{
+    AddressActivityAnalytics, AliasDiffTracker, BaseTokenActivityAnalytics, ClaimedTokensAnalytics,
+    LedgerOutputAnalytics, LedgerSizeAnalytics, OutputDiffTracker,
 };
 use crate::{
     db::{
+        collections::analytics::AddressTracker,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -34,7 +37,10 @@ use crate::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
         },
         stardust::block::{
-            output::{FoundryId, NftId, Output, OutputId},
+            output::{
+                AliasId, AliasOutput, BasicOutput, FoundryId, FoundryOutput, NftId, NftOutput, Output, OutputId,
+                TreasuryOutput,
+            },
             Address, BlockId,
         },
         tangle::MilestoneIndex,
@@ -399,32 +405,22 @@ pub struct OutputAnalyticsResult {
 
 impl OutputCollection {
     /// Gathers output analytics.
-    pub async fn get_output_analytics<O: OutputKindQuery>(
+    pub async fn get_base_token_activity_analytics(
         &self,
-        start_index: impl Into<Option<MilestoneIndex>>,
-        end_index: impl Into<Option<MilestoneIndex>>,
-    ) -> Result<OutputAnalytics, Error> {
-        let mut queries = vec![doc! {
-            "$nor": [
-                { "metadata.booked.milestone_index": { "$lt": start_index.into() } },
-                { "metadata.booked.milestone_index": { "$gte": end_index.into() } },
-            ]
-        }];
-        if let Some(kind) = O::kind() {
-            queries.push(doc! { "output.kind": kind });
-        }
+        milestone_index: MilestoneIndex,
+    ) -> Result<BaseTokenActivityAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![
-                    doc! { "$match": { "$and": queries } },
+                    doc! { "$match": {
+                        "metadata.booked.milestone_index": milestone_index,
+                    } },
                     doc! { "$group" : {
                         "_id": null,
-                        "count": { "$sum": 1 },
-                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "transferred_value": { "$sum": { "$toDecimal": "$output.amount" } },
                     } },
                     doc! { "$project": {
-                        "count": 1,
-                        "total_value": { "$toString": "$total_value" },
+                        "transferred_value": { "$toString": "$transferred_value" },
                     } },
                 ],
                 None,
@@ -435,49 +431,76 @@ impl OutputCollection {
             .unwrap_or_default())
     }
 
-    /// Gathers unspent output analytics.
-    pub async fn get_unspent_output_analytics<O: OutputKindQuery>(
+    /// Gathers ledger (unspent) output analytics.
+    pub async fn get_ledger_output_analytics(
         &self,
         ledger_index: MilestoneIndex,
-    ) -> Result<OutputAnalytics, Error> {
-        let mut queries = vec![doc! {
-            "metadata.booked.milestone_index": { "$lte": ledger_index },
-            "$or": [
-                { "metadata.spent_metadata.spent": null },
-                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-            ],
-        }];
-        if let Some(kind) = O::kind() {
-            queries.push(doc! { "output.kind": kind });
+    ) -> Result<LedgerOutputAnalytics, Error> {
+        #[derive(Default, Deserialize)]
+        struct Res {
+            count: u64,
+            value: d128,
         }
-        Ok(self
-            .aggregate(
-                vec![
-                    doc! { "$match": { "$and": queries } },
-                    doc! { "$group" : {
-                        "_id": null,
-                        "count": { "$sum": 1 },
-                        "total_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                    } },
-                    doc! { "$project": {
-                        "count": 1,
-                        "total_value": { "$toString": "$total_value" },
-                    } },
-                ],
-                None,
+
+        let query = |kind: &'static str| async move {
+            Result::<_, Error>::Ok(
+                self.aggregate::<Res>(
+                    vec![
+                        doc! { "$match": {
+                            "output.kind": kind,
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "$or": [
+                                { "metadata.spent_metadata.spent": null },
+                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
+                            ],
+                        } },
+                        doc! { "$group" : {
+                            "_id": null,
+                            "count": { "$sum": 1 },
+                            "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$project": {
+                            "count": 1,
+                            "value": { "$toString": "$total_value" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default(),
             )
-            .await?
-            .try_next()
-            .await?
-            .unwrap_or_default())
+        };
+
+        let (basic, alias, foundry, nft, treasury) = tokio::try_join!(
+            query(BasicOutput::KIND),
+            query(AliasOutput::KIND),
+            query(FoundryOutput::KIND),
+            query(NftOutput::KIND),
+            query(TreasuryOutput::KIND)
+        )?;
+
+        Ok(LedgerOutputAnalytics {
+            basic_count: basic.count,
+            basic_value: basic.value,
+            alias_count: alias.count,
+            alias_value: alias.value,
+            foundry_count: foundry.count,
+            foundry_value: foundry.value,
+            nft_count: nft.count,
+            nft_value: nft.value,
+            treasury_count: treasury.count,
+            treasury_value: treasury.value,
+        })
     }
 }
 
 impl OutputCollection {
     pub(crate) async fn get_unique_nft_ids(&self, index: MilestoneIndex) -> Result<HashSet<NftId>, Error> {
-        #[derive(Default, Deserialize)]
+        #[derive(Deserialize)]
         struct NftIdsResult {
-            nft_ids: HashSet<NftId>,
+            id: NftId,
         }
 
         Ok(self
@@ -491,18 +514,16 @@ impl OutputCollection {
                             { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
                         ],
                     } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "nft_ids": { "$addToSet": "$output.nft_id" }
+                    doc! { "$project": {
+                        "id": "$output.nft_id"
                     } },
                 ],
                 None,
             )
             .await?
-            .try_next()
-            .await?
-            .unwrap_or_default()
-            .nft_ids)
+            .map_ok(|res| res.id)
+            .try_collect()
+            .await?)
     }
 
     /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
@@ -513,19 +534,20 @@ impl OutputCollection {
         if index == 0 {
             return Ok(Default::default());
         }
-        let start_state = self.get_unique_nft_ids(index - 1).await?;
-        let end_state = self.get_unique_nft_ids(index).await?;
+        let (start_state, end_state) =
+            tokio::try_join!(self.get_unique_nft_ids(index - 1), self.get_unique_nft_ids(index))?;
+
         Ok(OutputDiffTracker {
             created: end_state.difference(&start_state).copied().collect(),
             transferred: start_state.intersection(&end_state).copied().collect(),
-            burned: start_state.difference(&end_state).copied().collect(),
+            destroyed: start_state.difference(&end_state).copied().collect(),
         })
     }
 
     pub(crate) async fn get_unique_foundry_ids(&self, index: MilestoneIndex) -> Result<HashSet<FoundryId>, Error> {
-        #[derive(Default, Deserialize)]
+        #[derive(Deserialize)]
         struct FoundryIdsResult {
-            foundry_ids: HashSet<FoundryId>,
+            id: FoundryId,
         }
 
         Ok(self
@@ -539,18 +561,16 @@ impl OutputCollection {
                             { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
                         ],
                     } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "foundry_ids": { "$addToSet": "$output.foundry_id" }
+                    doc! { "$project": {
+                        "id": "$output.foundry_id"
                     } },
                 ],
                 None,
             )
             .await?
-            .try_next()
-            .await?
-            .unwrap_or_default()
-            .foundry_ids)
+            .map_ok(|res| res.id)
+            .try_collect()
+            .await?)
     }
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
@@ -561,13 +581,106 @@ impl OutputCollection {
         if index == 0 {
             return Ok(Default::default());
         }
-        let start_state = self.get_unique_foundry_ids(index - 1).await?;
-        let end_state = self.get_unique_foundry_ids(index).await?;
+        let (start_state, end_state) = tokio::try_join!(
+            self.get_unique_foundry_ids(index - 1),
+            self.get_unique_foundry_ids(index)
+        )?;
         Ok(OutputDiffTracker {
             created: end_state.difference(&start_state).copied().collect(),
             transferred: start_state.intersection(&end_state).copied().collect(),
-            burned: start_state.difference(&end_state).copied().collect(),
+            destroyed: start_state.difference(&end_state).copied().collect(),
         })
+    }
+
+    /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
+    pub(crate) async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasDiffTracker, Error> {
+        if index == 0 {
+            return Ok(Default::default());
+        }
+        let (start_state, end_state) =
+            tokio::try_join!(self.get_unique_alias_ids(index - 1), self.get_unique_alias_ids(index))?;
+
+        Ok(AliasDiffTracker {
+            created: end_state
+                .iter()
+                .filter_map(|(end_id, end_state)| {
+                    if start_state.get(end_id).is_some() {
+                        None
+                    } else {
+                        Some((*end_id, *end_state))
+                    }
+                })
+                .collect(),
+            governor_changed: start_state
+                .iter()
+                .filter_map(|(start_id, start_state)| {
+                    if let Some(end_state) = end_state.get(start_id) {
+                        if end_state == start_state {
+                            Some((*start_id, *end_state))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            state_changed: start_state
+                .iter()
+                .filter_map(|(start_id, start_state)| {
+                    if let Some(end_state) = end_state.get(start_id) {
+                        if end_state != start_state {
+                            Some((*start_id, *end_state))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            destroyed: start_state
+                .keys()
+                .filter_map(|start_id| {
+                    if end_state.get(start_id).is_some() {
+                        None
+                    } else {
+                        Some(*start_id)
+                    }
+                })
+                .collect(),
+        })
+    }
+
+    pub(crate) async fn get_unique_alias_ids(&self, index: MilestoneIndex) -> Result<HashMap<AliasId, u32>, Error> {
+        #[derive(Deserialize)]
+        struct AliasIdsResult {
+            id: AliasId,
+            state_index: u32,
+        }
+
+        Ok(self
+            .aggregate::<AliasIdsResult>(
+                vec![
+                    doc! { "$match": {
+                        "output.kind": "alias",
+                        "metadata.booked.milestone_index": { "$lte": index },
+                        "$or": [
+                            { "metadata.spent_metadata.spent": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
+                        ],
+                    } },
+                    doc! { "$project": {
+                        "id": "$output.alias_id",
+                        "state_index": "$output.state_index"
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|res| (res.id, res.state_index))
+            .try_collect()
+            .await?)
     }
 }
 
@@ -576,7 +689,7 @@ impl OutputCollection {
     pub async fn get_storage_deposit_analytics(
         &self,
         ledger_index: MilestoneIndex,
-    ) -> Result<StorageDepositAnalytics, Error> {
+    ) -> Result<LedgerSizeAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![
@@ -632,72 +745,119 @@ impl OutputCollection {
 
 impl OutputCollection {
     /// Create aggregate statistics of all addresses.
-    pub async fn get_address_analytics(
+    pub async fn get_address_activity_analytics(
         &self,
-        start_index: impl Into<Option<MilestoneIndex>>,
-        end_index: impl Into<Option<MilestoneIndex>>,
-    ) -> Result<AddressAnalytics, Error> {
-        let (start_index, end_index) = (start_index.into(), end_index.into());
-        Ok(self
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "details.address": { "$exists": true }
-                    } },
-                    doc! { "$facet": {
-                        "total": [
-                            { "$match": {
+        milestone_index: MilestoneIndex,
+    ) -> Result<AddressActivityAnalytics, Error> {
+        #[derive(Default, Deserialize)]
+        struct Res {
+            address_count: u64,
+        }
+
+        let (total, receiving, sending) = tokio::try_join!(
+            async {
+                Result::<Res, Error>::Ok(
+                    self.aggregate(
+                        vec![
+                            doc! { "$match": {
+                                "details.address": { "$exists": true },
                                 "$or": [
-                                    { "$nor": [
-                                        { "metadata.booked.milestone_index": { "$lt": start_index } },
-                                        { "metadata.booked.milestone_index": { "$gte": end_index } },
-                                    ] },
-                                    { "$and": [
-                                        { "metadata.spent_metadata.spent": { "exists": true } },
-                                        { "$nor": [
-                                            { "metadata.spent_metadata.spent.milestone_index": { "$lt": start_index } },
-                                            { "metadata.spent_metadata.spent.milestone_index": { "$gte": end_index } },
-                                        ] },
-                                    ] },
+                                    { "metadata.booked.milestone_index": milestone_index },
+                                    { "metadata.spent_metadata.spent.milestone_index": milestone_index },
                                 ],
                             } },
-                            { "$group" : { "_id": "$details.address" }},
-                            { "$count": "addresses" },
+                            doc! { "$group" : { "_id": "$details.address" } },
+                            doc! { "$count": "address_count" },
                         ],
-                        "receiving": [
-                            { "$match": {
-                                "$nor": [
-                                    { "metadata.booked.milestone_index": { "$lt": start_index } },
-                                    { "metadata.booked.milestone_index": { "$gte": end_index } },
-                                ],
-                             } },
-                            { "$group" : { "_id": "$details.address" }},
-                            { "$count": "addresses" },
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default(),
+                )
+            },
+            async {
+                Result::<Res, Error>::Ok(
+                    self.aggregate(
+                        vec![
+                            doc! { "$match": {
+                                "details.address": { "$exists": true },
+                                "metadata.booked.milestone_index": milestone_index
+                            } },
+                            doc! { "$group" : { "_id": "$details.address" }},
+                            doc! { "$count": "address_count" },
                         ],
-                        "sending": [
-                            { "$match": {
-                                "metadata.spent_metadata.spent": { "exists": true },
-                                "$nor": [
-                                    { "metadata.spent_metadata.spent.milestone_index": { "$lt": start_index } },
-                                    { "metadata.spent_metadata.spent.milestone_index": { "$gte": end_index } },
-                                ],
-                             } },
-                            { "$group" : { "_id": "$details.address" }},
-                            { "$count": "addresses" },
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default(),
+                )
+            },
+            async {
+                Result::<Res, Error>::Ok(
+                    self.aggregate(
+                        vec![
+                            doc! { "$match": {
+                                "details.address": { "$exists": true },
+                                "metadata.spent_metadata.spent.milestone_index": milestone_index
+                            } },
+                            doc! { "$group" : { "_id": "$details.address" }},
+                            doc! { "$count": "address_count" },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default(),
+                )
+            }
+        )?;
+        Ok(AddressActivityAnalytics {
+            total_count: total.address_count,
+            receiving_count: receiving.address_count,
+            sending_count: sending.address_count,
+        })
+    }
+
+    /// Get ledger address analytics.
+    pub async fn get_address_tracker(&self, ledger_index: MilestoneIndex) -> Result<AddressTracker, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            address: Address,
+            count: usize,
+        }
+
+        let addresses = self
+            .aggregate::<Res>(
+                vec![
+                    doc! { "$match": {
+                        "details.address": { "$exists": true },
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "$or": [
+                            { "metadata.spent_metadata.spent": null },
+                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                         ],
                     } },
+                    doc! { "$group" : {
+                        "_id": "$details.address",
+                        "count": { "$sum": 1 }
+                    }},
                     doc! { "$project": {
-                        "total_active_addresses": { "$max": [ 0, { "$first": "$total.addresses" } ] },
-                        "receiving_addresses": { "$max": [ 0, { "$first": "$receiving.addresses" } ] },
-                        "sending_addresses": { "$max": [ 0, { "$first": "$sending.addresses" } ] },
+                        "address": "&_id",
+                        "count": 1
                     } },
                 ],
                 None,
             )
             .await?
-            .try_next()
-            .await?
-            .unwrap_or_default())
+            .map_ok(|res| (res.address, res.count))
+            .try_collect()
+            .await?;
+        Ok(AddressTracker { addresses })
     }
 }
 
