@@ -503,27 +503,26 @@ impl OutputCollection {
             id: NftId,
         }
 
-        Ok(self
-            .aggregate::<NftIdsResult>(
-                vec![
-                    doc! { "$match": {
-                        "output.kind": "nft",
-                        "metadata.booked.milestone_index": { "$lte": index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
-                        ],
-                    } },
-                    doc! { "$project": {
-                        "id": "$output.nft_id"
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| res.id)
-            .try_collect()
-            .await?)
+        self.aggregate::<NftIdsResult>(
+            vec![
+                doc! { "$match": {
+                    "output.kind": "nft",
+                    "metadata.booked.milestone_index": { "$lte": index },
+                    "$or": [
+                        { "metadata.spent_metadata.spent": null },
+                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
+                    ],
+                } },
+                doc! { "$project": {
+                    "id": "$output.nft_id"
+                } },
+            ],
+            None,
+        )
+        .await?
+        .map_ok(|res| res.id)
+        .try_collect()
+        .await
     }
 
     /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
@@ -550,27 +549,26 @@ impl OutputCollection {
             id: FoundryId,
         }
 
-        Ok(self
-            .aggregate::<FoundryIdsResult>(
-                vec![
-                    doc! { "$match": {
-                        "output.kind": "foundry",
-                        "metadata.booked.milestone_index": { "$lte": index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
-                        ],
-                    } },
-                    doc! { "$project": {
-                        "id": "$output.foundry_id"
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| res.id)
-            .try_collect()
-            .await?)
+        self.aggregate::<FoundryIdsResult>(
+            vec![
+                doc! { "$match": {
+                    "output.kind": "foundry",
+                    "metadata.booked.milestone_index": { "$lte": index },
+                    "$or": [
+                        { "metadata.spent_metadata.spent": null },
+                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
+                    ],
+                } },
+                doc! { "$project": {
+                    "id": "$output.foundry_id"
+                } },
+            ],
+            None,
+        )
+        .await?
+        .map_ok(|res| res.id)
+        .try_collect()
+        .await
     }
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
@@ -659,28 +657,27 @@ impl OutputCollection {
             state_index: u32,
         }
 
-        Ok(self
-            .aggregate::<AliasIdsResult>(
-                vec![
-                    doc! { "$match": {
-                        "output.kind": "alias",
-                        "metadata.booked.milestone_index": { "$lte": index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
-                        ],
-                    } },
-                    doc! { "$project": {
-                        "id": "$output.alias_id",
-                        "state_index": "$output.state_index"
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| (res.id, res.state_index))
-            .try_collect()
-            .await?)
+        self.aggregate::<AliasIdsResult>(
+            vec![
+                doc! { "$match": {
+                    "output.kind": "alias",
+                    "metadata.booked.milestone_index": { "$lte": index },
+                    "$or": [
+                        { "metadata.spent_metadata.spent": null },
+                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
+                    ],
+                } },
+                doc! { "$project": {
+                    "id": "$output.alias_id",
+                    "state_index": "$output.state_index"
+                } },
+            ],
+            None,
+        )
+        .await?
+        .map_ok(|res| (res.id, res.state_index))
+        .try_collect()
+        .await
     }
 }
 
@@ -982,12 +979,12 @@ impl OutputCollection {
                     } },
                     doc! { "$group": {
                         "_id": null,
-                        "count": { "$sum": 1 },
-                        "total_amount": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "claimed_count": { "$sum": 1 },
+                        "claimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
                     } },
                     doc! { "$project": {
-                        "count": 1,
-                        "total_amount": { "$toString": "$total_amount" },
+                        "claimed_count": 1,
+                        "claimed_value": { "$toString": "$claimed_value" },
                     } },
                 ],
                 None,

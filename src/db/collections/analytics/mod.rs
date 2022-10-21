@@ -251,8 +251,8 @@ impl AnalyticsProcessor {
                         .aliases
                         .created
                         .remove(&alias.alias_id)
-                        .or(self.analytics.aliases.governor_changed.remove(&alias.alias_id))
-                        .or(self.analytics.aliases.state_changed.remove(&alias.alias_id))
+                        .or_else(|| self.analytics.aliases.governor_changed.remove(&alias.alias_id))
+                        .or_else(|| self.analytics.aliases.state_changed.remove(&alias.alias_id))
                     {
                         self.alias_states.insert(alias.alias_id, state);
                     }
@@ -502,7 +502,7 @@ pub struct ClaimedTokensAnalytics {
     pub claimed_value: d128,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct AliasActivityAnalytics {
     pub created_count: u64,
@@ -511,7 +511,7 @@ pub struct AliasActivityAnalytics {
     pub destroyed_count: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct NftActivityAnalytics {
     pub created_count: u64,
@@ -519,13 +519,13 @@ pub struct NftActivityAnalytics {
     pub destroyed_count: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct BaseTokenActivityAnalytics {
     pub transferred_value: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct FoundryActivityAnalytics {
     pub created_count: u64,
