@@ -38,6 +38,7 @@ pub struct Analytics {
     pub claimed_tokens: ClaimedTokensAnalytics,
     pub payload_activity: PayloadActivityAnalytics,
     pub transaction_activity: TransactionActivityAnalytics,
+    pub unlock_conditions: UnlockConditionAnalytics,
     pub protocol_params: ProtocolParameters,
 }
 
@@ -55,6 +56,7 @@ impl Default for Analytics {
             claimed_tokens: Default::default(),
             payload_activity: Default::default(),
             transaction_activity: Default::default(),
+            unlock_conditions: Default::default(),
             protocol_params: iota_types::block::protocol::protocol_parameters().into(),
         }
     }
@@ -70,6 +72,7 @@ impl Analytics {
             receiving_addresses: Default::default(),
             removed_outputs: Default::default(),
             removed_storage_deposits: Default::default(),
+            removed_unlock_conditions: Default::default(),
             alias_states: Default::default(),
         }
     }
@@ -99,6 +102,9 @@ impl MongoDb {
             payload_activity: block_collection.get_payload_activity_analytics(milestone_index).await?,
             transaction_activity: block_collection
                 .get_transaction_activity_analytics(milestone_index)
+                .await?,
+            unlock_conditions: output_collection
+                .get_unlock_condition_analytics(milestone_index)
                 .await?,
             protocol_params: protocol_param_collection
                 .get_protocol_parameters_for_ledger_index(milestone_index)
@@ -187,6 +193,7 @@ pub struct AnalyticsProcessor {
     receiving_addresses: HashSet<Address>,
     removed_outputs: LedgerOutputAnalytics,
     removed_storage_deposits: LedgerSizeAnalytics,
+    removed_unlock_conditions: UnlockConditionAnalytics,
     alias_states: HashMap<AliasId, u32>,
 }
 
@@ -230,7 +237,7 @@ impl AnalyticsProcessor {
             self.analytics.base_token.transferred_value += output.output.amount().0;
         }
 
-        let (ledger_output_analytics, storage_deposits) = if is_spent {
+        let (ledger_output_analytics, storage_deposits, unlock_conditions) = if is_spent {
             match &output.output {
                 Output::Foundry(foundry) => {
                     self.analytics.native_tokens.created.remove(&foundry.foundry_id);
@@ -264,7 +271,11 @@ impl AnalyticsProcessor {
             }
             // To workaround spent outputs being processed first, we keep track of a separate set
             // of values which will be subtracted at the end.
-            (&mut self.removed_outputs, &mut self.removed_storage_deposits)
+            (
+                &mut self.removed_outputs,
+                &mut self.removed_storage_deposits,
+                &mut self.removed_unlock_conditions,
+            )
         } else {
             match &output.output {
                 Output::Foundry(foundry) => {
@@ -319,7 +330,11 @@ impl AnalyticsProcessor {
                 }
                 _ => (),
             }
-            (&mut self.analytics.ledger_outputs, &mut self.analytics.storage_deposits)
+            (
+                &mut self.analytics.ledger_outputs,
+                &mut self.analytics.storage_deposits,
+                &mut self.analytics.unlock_conditions,
+            )
         };
         match &output.output {
             Output::Treasury(_) => {
@@ -354,8 +369,37 @@ impl AnalyticsProcessor {
                 storage_deposit_return_unlock_condition: Some(uc),
                 ..
             }) => {
-                storage_deposits.storage_deposit_count += 1;
+                unlock_conditions.storage_deposit_return_count += 1;
+                unlock_conditions.storage_deposit_return_value += output.output.amount().0.into();
                 storage_deposits.total_storage_deposit_value += uc.amount.0.into();
+            }
+            _ => (),
+        }
+        match output.output {
+            Output::Basic(BasicOutput {
+                timelock_unlock_condition: Some(_),
+                ..
+            })
+            | Output::Nft(NftOutput {
+                timelock_unlock_condition: Some(_),
+                ..
+            }) => {
+                unlock_conditions.timelock_count += 1;
+                unlock_conditions.timelock_value += output.output.amount().0.into();
+            }
+            _ => (),
+        }
+        match output.output {
+            Output::Basic(BasicOutput {
+                expiration_unlock_condition: Some(_),
+                ..
+            })
+            | Output::Nft(NftOutput {
+                expiration_unlock_condition: Some(_),
+                ..
+            }) => {
+                unlock_conditions.expiration_count += 1;
+                unlock_conditions.expiration_value += output.output.amount().0.into();
             }
             _ => (),
         }
@@ -400,7 +444,7 @@ impl AnalyticsProcessor {
             }
         }
         self.analytics.ledger_outputs -= self.removed_outputs;
-        self.analytics.storage_deposits.storage_deposit_count -= self.removed_storage_deposits.storage_deposit_count;
+        self.analytics.unlock_conditions -= self.removed_unlock_conditions;
         self.analytics.storage_deposits.total_storage_deposit_value -=
             self.removed_storage_deposits.total_storage_deposit_value;
         self.analytics.storage_deposits.total_data_bytes -= self.removed_storage_deposits.total_data_bytes;
@@ -425,7 +469,7 @@ pub struct AddressAnalytics {
     pub address_with_balance_count: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct UnlockConditionAnalytics {
     pub timelock_count: u64,
@@ -434,6 +478,27 @@ pub struct UnlockConditionAnalytics {
     pub expiration_value: d128,
     pub storage_deposit_return_count: u64,
     pub storage_deposit_return_value: d128,
+}
+
+impl std::ops::Sub<UnlockConditionAnalytics> for UnlockConditionAnalytics {
+    type Output = UnlockConditionAnalytics;
+
+    fn sub(self, rhs: UnlockConditionAnalytics) -> Self::Output {
+        Self {
+            timelock_count: self.timelock_count - rhs.timelock_count,
+            timelock_value: self.timelock_value - rhs.timelock_value,
+            expiration_count: self.expiration_count - rhs.expiration_count,
+            expiration_value: self.expiration_value - rhs.expiration_value,
+            storage_deposit_return_count: self.storage_deposit_return_count - rhs.storage_deposit_return_count,
+            storage_deposit_return_value: self.storage_deposit_return_value - rhs.storage_deposit_return_value,
+        }
+    }
+}
+
+impl std::ops::SubAssign<UnlockConditionAnalytics> for UnlockConditionAnalytics {
+    fn sub_assign(&mut self, rhs: UnlockConditionAnalytics) {
+        *self = *self - rhs
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -477,7 +542,6 @@ impl std::ops::SubAssign<LedgerOutputAnalytics> for LedgerOutputAnalytics {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LedgerSizeAnalytics {
-    pub storage_deposit_count: u64,
     pub total_storage_deposit_value: d128,
     pub total_key_bytes: d128,
     pub total_data_bytes: d128,
@@ -566,7 +630,7 @@ mod test {
         db::collections::analytics::{
             AddressActivityAnalytics, AddressAnalytics, AliasActivityAnalytics, ClaimedTokensAnalytics,
             FoundryActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics,
-            PayloadActivityAnalytics, TransactionActivityAnalytics,
+            PayloadActivityAnalytics, TransactionActivityAnalytics, UnlockConditionAnalytics,
         },
         types::{
             ledger::{
@@ -1026,19 +1090,6 @@ mod test {
         assert_eq!(
             analytics.storage_deposits,
             LedgerSizeAnalytics {
-                storage_deposit_count: unspent_outputs
-                    .iter()
-                    .filter(|o| matches!(
-                        o.output,
-                        Output::Basic(BasicOutput {
-                            storage_deposit_return_unlock_condition: Some(_),
-                            ..
-                        }) | Output::Nft(NftOutput {
-                            storage_deposit_return_unlock_condition: Some(_),
-                            ..
-                        })
-                    ))
-                    .count() as u64,
                 total_storage_deposit_value: unspent_outputs
                     .iter()
                     .filter_map(|o| match o.output {
@@ -1072,12 +1123,95 @@ mod test {
                     .count() as _,
                 claimed_value: spent_outputs
                     .iter()
-                    .filter_map(|o| if o.output.booked.milestone_index == 0 {
-                        Some(d128::from(o.output.output.amount().0))
-                    } else {
-                        None
-                    })
+                    .filter(|o| o.output.booked.milestone_index == 0)
+                    .map(|o| d128::from(o.output.output.amount().0))
                     .sum::<d128>()
+            }
+        );
+        assert_eq!(
+            analytics.unlock_conditions,
+            UnlockConditionAnalytics {
+                timelock_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            timelock_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            timelock_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .count() as u64,
+                timelock_value: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            timelock_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            timelock_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .map(|o| d128::from(o.output.amount().0))
+                    .sum::<d128>(),
+                expiration_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            expiration_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            expiration_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .count() as u64,
+                expiration_value: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            expiration_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            expiration_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .map(|o| d128::from(o.output.amount().0))
+                    .sum::<d128>(),
+                storage_deposit_return_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            storage_deposit_return_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            storage_deposit_return_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .count() as u64,
+                storage_deposit_return_value: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(
+                        o.output,
+                        Output::Basic(BasicOutput {
+                            storage_deposit_return_unlock_condition: Some(_),
+                            ..
+                        }) | Output::Nft(NftOutput {
+                            storage_deposit_return_unlock_condition: Some(_),
+                            ..
+                        })
+                    ))
+                    .map(|o| d128::from(o.output.amount().0))
+                    .sum::<d128>(),
             }
         );
         assert_eq!(

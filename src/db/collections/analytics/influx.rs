@@ -68,6 +68,7 @@ impl InfluxDb {
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.storage_deposits),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.claimed_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.payload_activity),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.transaction_activity),
         )?;
         Ok(())
@@ -160,7 +161,6 @@ impl InfluxDbWriteable for Schema<LedgerSizeAnalytics> {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
             .add_tag("milestone_index", self.milestone_index)
-            .add_field("storage_deposit_return_count", self.analytics.storage_deposit_count)
             .add_field(
                 "total_storage_deposit_value",
                 self.analytics
@@ -295,4 +295,38 @@ impl InfluxDbWriteable for Schema<NftActivityAnalytics> {
 
 impl InfluxDbMeasurement for Schema<NftActivityAnalytics> {
     const NAME: &'static str = "stardust_nft_activity";
+}
+
+impl InfluxDbWriteable for Schema<UnlockConditionAnalytics> {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_tag("milestone_index", self.milestone_index)
+            .add_field("expiration_count", self.analytics.expiration_count)
+            .add_field(
+                "expiration_value",
+                self.analytics.expiration_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field("timelock_count", self.analytics.timelock_count)
+            .add_field(
+                "timelock_value",
+                self.analytics.timelock_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field(
+                "storage_deposit_return_count",
+                self.analytics.storage_deposit_return_count,
+            )
+            .add_field(
+                "storage_deposit_return_value",
+                self.analytics
+                    .storage_deposit_return_value
+                    .to_string()
+                    .parse::<u64>()
+                    .unwrap(),
+            )
+    }
+}
+
+impl InfluxDbMeasurement for Schema<UnlockConditionAnalytics> {
+    const NAME: &'static str = "stardust_unlock_conditions";
 }
