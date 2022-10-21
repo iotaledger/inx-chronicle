@@ -28,7 +28,7 @@ use super::analytics::{
 };
 use crate::{
     db::{
-        collections::analytics::AddressTracker,
+        collections::analytics::AddressBalances,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -405,6 +405,7 @@ pub struct OutputAnalyticsResult {
 
 impl OutputCollection {
     /// Gathers output analytics.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_base_token_activity_analytics(
         &self,
         milestone_index: MilestoneIndex,
@@ -432,6 +433,7 @@ impl OutputCollection {
     }
 
     /// Gathers ledger (unspent) output analytics.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_ledger_output_analytics(
         &self,
         ledger_index: MilestoneIndex,
@@ -461,7 +463,7 @@ impl OutputCollection {
                         } },
                         doc! { "$project": {
                             "count": 1,
-                            "value": { "$toString": "$total_value" },
+                            "value": { "$toString": "$value" },
                         } },
                     ],
                     None,
@@ -526,10 +528,8 @@ impl OutputCollection {
     }
 
     /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
-    pub(crate) async fn get_nft_output_tracker(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<OutputDiffTracker<NftId>, Error> {
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_nft_output_tracker(&self, index: MilestoneIndex) -> Result<OutputDiffTracker<NftId>, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
@@ -572,7 +572,8 @@ impl OutputCollection {
     }
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
-    pub(crate) async fn get_foundry_output_tracker(
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_foundry_output_tracker(
         &self,
         index: MilestoneIndex,
     ) -> Result<OutputDiffTracker<FoundryId>, Error> {
@@ -591,7 +592,8 @@ impl OutputCollection {
     }
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
-    pub(crate) async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasDiffTracker, Error> {
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasDiffTracker, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
@@ -638,12 +640,12 @@ impl OutputCollection {
                 })
                 .collect(),
             destroyed: start_state
-                .keys()
-                .filter_map(|start_id| {
+                .iter()
+                .filter_map(|(start_id, start_state)| {
                     if end_state.get(start_id).is_some() {
                         None
                     } else {
-                        Some(*start_id)
+                        Some((*start_id, *start_state))
                     }
                 })
                 .collect(),
@@ -683,10 +685,8 @@ impl OutputCollection {
 
 impl OutputCollection {
     /// Gathers byte cost and storage deposit analytics.
-    pub async fn get_storage_deposit_analytics(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<LedgerSizeAnalytics, Error> {
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_ledger_size_analytics(&self, ledger_index: MilestoneIndex) -> Result<LedgerSizeAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![
@@ -697,38 +697,16 @@ impl OutputCollection {
                             { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
                         ],
                     } },
-                    doc! {
-                        "$facet": {
-                            "all": [
-                                { "$group" : {
-                                    "_id": null,
-                                    "output_count": { "$sum": 1 },
-                                    "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                                    "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                                } },
-                            ],
-                            "storage_deposit": [
-                                { "$match": { "output.storage_deposit_return_unlock_condition": { "$exists": true } } },
-                                { "$group" : {
-                                    "_id": null,
-                                    "return_count": { "$sum": 1 },
-                                    "return_total_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
-                                } },
-                            ],
-                        }
-                    },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                        "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+                    } },
                     doc! { "$project": {
-                        "output_count": { "$first": "$all.output_count" },
-                        "storage_deposit_return_count": { "$ifNull": [ { "$first": "$storage_deposit.return_count" }, 0 ] },
-                        "storage_deposit_return_total_value": { 
-                            "$toString": { "$ifNull": [ { "$first": "$storage_deposit.return_total_value" }, 0 ] } 
-                        },
-                        "total_key_bytes": { 
-                            "$toString": { "$first": "$all.total_key_bytes" } 
-                        },
-                        "total_data_bytes": { 
-                            "$toString": { "$first": "$all.total_data_bytes" } 
-                        },
+                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                        "total_key_bytes": { "$toString": "$total_key_bytes" },
+                        "total_data_bytes": { "$toString": "$total_data_bytes" },
                     } },
                 ],
                 None,
@@ -742,6 +720,7 @@ impl OutputCollection {
 
 impl OutputCollection {
     /// Create aggregate statistics of all addresses.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_address_activity_analytics(
         &self,
         milestone_index: MilestoneIndex,
@@ -821,14 +800,15 @@ impl OutputCollection {
     }
 
     /// Get ledger address analytics.
-    pub async fn get_address_tracker(&self, ledger_index: MilestoneIndex) -> Result<AddressTracker, Error> {
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_address_balances(&self, ledger_index: MilestoneIndex) -> Result<AddressBalances, Error> {
         #[derive(Deserialize)]
         struct Res {
             address: Address,
-            count: usize,
+            balance: d128,
         }
 
-        let addresses = self
+        let balances = self
             .aggregate::<Res>(
                 vec![
                     doc! { "$match": {
@@ -841,20 +821,20 @@ impl OutputCollection {
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
-                        "count": { "$sum": 1 }
+                        "balance": { "$sum": { "$toDecimal": "$output.amount" } }
                     }},
                     doc! { "$project": {
-                        "address": "&_id",
-                        "count": 1
+                        "address": "$_id",
+                        "balance": { "$toString": "$balance" }
                     } },
                 ],
                 None,
             )
             .await?
-            .map_ok(|res| (res.address, res.count))
+            .map_ok(|res| (res.address, res.balance))
             .try_collect()
             .await?;
-        Ok(AddressTracker { addresses })
+        Ok(AddressBalances { balances })
     }
 }
 
@@ -966,6 +946,7 @@ impl OutputCollection {
 
 impl OutputCollection {
     /// Gets the number of claimed tokens.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_claimed_token_analytics(
         &self,
         ledger_index: MilestoneIndex,
@@ -998,6 +979,7 @@ impl OutputCollection {
 
 impl OutputCollection {
     /// Gets analytics about unlock conditions.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_unlock_condition_analytics(
         &self,
         ledger_index: MilestoneIndex,

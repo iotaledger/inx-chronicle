@@ -420,7 +420,7 @@ impl InxWorker {
         Ok(())
     }
 
-    #[instrument(skip(self), err, level = "trace")]
+    #[instrument(skip(self, inx, analytics), err, level = "trace")]
     async fn handle_cone_stream(
         &mut self,
         inx: &mut Inx,

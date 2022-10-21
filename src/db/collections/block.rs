@@ -317,6 +317,7 @@ impl BlockCollection {
 
 impl BlockCollection {
     /// Gathers past-cone payload activity statistics for a given milestone.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_payload_activity_analytics(
         &self,
         index: MilestoneIndex,
@@ -353,6 +354,7 @@ impl BlockCollection {
     }
 
     /// Gathers past-cone transaction activity statistics for a given milestone.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_transaction_activity_analytics(
         &self,
         index: MilestoneIndex,

@@ -28,7 +28,7 @@ use crate::{
 #[allow(missing_docs)]
 pub struct Analytics {
     pub address_activity: AddressActivityAnalytics,
-    pub addresses: AddressTracker,
+    pub addresses: AddressBalances,
     pub base_token: BaseTokenActivityAnalytics,
     pub ledger_outputs: LedgerOutputAnalytics,
     pub aliases: AliasDiffTracker,
@@ -70,16 +70,18 @@ impl Analytics {
             addresses: Default::default(),
             sending_addresses: Default::default(),
             receiving_addresses: Default::default(),
+            removed_balances: Default::default(),
             removed_outputs: Default::default(),
             removed_storage_deposits: Default::default(),
             removed_unlock_conditions: Default::default(),
-            alias_states: Default::default(),
+            spent_aliases: Default::default(),
         }
     }
 }
 
 impl MongoDb {
     /// Gets all analytics for a milestone index, fetching the data from the collections.
+    #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
         let output_collection = self.collection::<OutputCollection>();
         let block_collection = self.collection::<BlockCollection>();
@@ -89,7 +91,7 @@ impl MongoDb {
             address_activity: output_collection
                 .get_address_activity_analytics(milestone_index)
                 .await?,
-            addresses: output_collection.get_address_tracker(milestone_index).await?,
+            addresses: output_collection.get_address_balances(milestone_index).await?,
             base_token: output_collection
                 .get_base_token_activity_analytics(milestone_index)
                 .await?,
@@ -97,7 +99,7 @@ impl MongoDb {
             aliases: output_collection.get_alias_output_tracker(milestone_index).await?,
             native_tokens: output_collection.get_foundry_output_tracker(milestone_index).await?,
             nfts: output_collection.get_nft_output_tracker(milestone_index).await?,
-            storage_deposits: output_collection.get_storage_deposit_analytics(milestone_index).await?,
+            storage_deposits: output_collection.get_ledger_size_analytics(milestone_index).await?,
             claimed_tokens: output_collection.get_claimed_token_analytics(milestone_index).await?,
             payload_activity: block_collection.get_payload_activity_analytics(milestone_index).await?,
             transaction_activity: block_collection
@@ -156,7 +158,7 @@ pub struct AliasDiffTracker {
     pub created: HashMap<AliasId, u32>,
     pub governor_changed: HashMap<AliasId, u32>,
     pub state_changed: HashMap<AliasId, u32>,
-    pub destroyed: HashSet<AliasId>,
+    pub destroyed: HashMap<AliasId, u32>,
 }
 
 impl From<AliasDiffTracker> for AliasActivityAnalytics {
@@ -171,14 +173,14 @@ impl From<AliasDiffTracker> for AliasActivityAnalytics {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct AddressTracker {
-    pub addresses: HashMap<Address, usize>,
+pub struct AddressBalances {
+    pub balances: HashMap<Address, d128>,
 }
 
-impl From<AddressTracker> for AddressAnalytics {
-    fn from(value: AddressTracker) -> Self {
+impl From<AddressBalances> for AddressAnalytics {
+    fn from(value: AddressBalances) -> Self {
         Self {
-            address_with_balance_count: value.addresses.len() as _,
+            address_with_balance_count: value.balances.len() as _,
         }
     }
 }
@@ -193,7 +195,8 @@ pub struct AnalyticsProcessor {
     removed_outputs: LedgerOutputAnalytics,
     removed_storage_deposits: LedgerSizeAnalytics,
     removed_unlock_conditions: UnlockConditionAnalytics,
-    alias_states: HashMap<AliasId, u32>,
+    removed_balances: HashMap<Address, d128>,
+    spent_aliases: HashMap<AliasId, u32>,
 }
 
 impl AnalyticsProcessor {
@@ -227,13 +230,14 @@ impl AnalyticsProcessor {
             self.addresses.insert(address);
             if is_spent {
                 self.sending_addresses.insert(address);
+                *self.removed_balances.entry(address).or_default() += 1.into();
             } else {
                 self.receiving_addresses.insert(address);
-                *self.analytics.addresses.addresses.entry(address).or_default() += 1;
+                *self.analytics.addresses.balances.entry(address).or_default() += 1.into();
             }
         }
         if !is_spent {
-            self.analytics.base_token.transferred_value += output.output.amount().0;
+            self.analytics.base_token.transferred_value += d128::from(output.output.amount().0);
         }
 
         let (ledger_output_analytics, storage_deposits, unlock_conditions) = if is_spent {
@@ -249,17 +253,11 @@ impl AnalyticsProcessor {
                     self.analytics.nfts.destroyed.insert(nft.nft_id);
                 }
                 Output::Alias(alias) => {
-                    if let Some(state) = self
-                        .analytics
-                        .aliases
-                        .created
-                        .remove(&alias.alias_id)
-                        .or_else(|| self.analytics.aliases.governor_changed.remove(&alias.alias_id))
-                        .or_else(|| self.analytics.aliases.state_changed.remove(&alias.alias_id))
-                    {
-                        self.alias_states.insert(alias.alias_id, state);
-                    }
-                    self.analytics.aliases.destroyed.insert(alias.alias_id);
+                    self.analytics.aliases.created.remove(&alias.alias_id);
+                    self.analytics.aliases.governor_changed.remove(&alias.alias_id);
+                    self.analytics.aliases.state_changed.remove(&alias.alias_id);
+                    self.analytics.aliases.destroyed.remove(&alias.alias_id);
+                    self.spent_aliases.insert(alias.alias_id, alias.state_index);
                 }
                 _ => (),
             }
@@ -298,30 +296,26 @@ impl AnalyticsProcessor {
                     }
                 }
                 Output::Alias(alias) => {
-                    if self.analytics.aliases.created.remove(&alias.alias_id).is_some()
-                        || self
-                            .analytics
-                            .aliases
-                            .governor_changed
-                            .remove(&alias.alias_id)
-                            .is_some()
-                        || self.analytics.aliases.state_changed.remove(&alias.alias_id).is_some()
-                        || self.analytics.aliases.destroyed.remove(&alias.alias_id)
+                    if let Some(spent_state) = self
+                        .analytics
+                        .aliases
+                        .created
+                        .remove(&alias.alias_id)
+                        .or_else(|| self.analytics.aliases.governor_changed.remove(&alias.alias_id))
+                        .or_else(|| self.analytics.aliases.state_changed.remove(&alias.alias_id))
+                        .or_else(|| self.analytics.aliases.destroyed.remove(&alias.alias_id))
+                        .or_else(|| self.spent_aliases.remove(&alias.alias_id))
                     {
-                        if let Some(state) = self.alias_states.get(&alias.alias_id) {
-                            if alias.state_index == *state {
-                                self.analytics
-                                    .aliases
-                                    .governor_changed
-                                    .insert(alias.alias_id, alias.state_index);
-                            } else {
-                                self.analytics
-                                    .aliases
-                                    .state_changed
-                                    .insert(alias.alias_id, alias.state_index);
-                            }
+                        if alias.state_index == spent_state {
+                            self.analytics
+                                .aliases
+                                .governor_changed
+                                .insert(alias.alias_id, alias.state_index);
                         } else {
-                            unreachable!("the alias state should always be in the map, or something is wrong");
+                            self.analytics
+                                .aliases
+                                .state_changed
+                                .insert(alias.alias_id, alias.state_index);
                         }
                     } else {
                         self.analytics.aliases.created.insert(alias.alias_id, alias.state_index);
@@ -432,11 +426,11 @@ impl AnalyticsProcessor {
         self.analytics.address_activity.total_count = self.addresses.len() as _;
         self.analytics.address_activity.receiving_count = self.receiving_addresses.len() as _;
         self.analytics.address_activity.sending_count = self.sending_addresses.len() as _;
-        for address in self.sending_addresses {
-            if let Some(output_count) = self.analytics.addresses.addresses.get_mut(&address) {
-                *output_count -= 1;
-                if *output_count == 0 {
-                    self.analytics.addresses.addresses.remove(&address);
+        for (address, removed) in self.removed_balances {
+            if let Some(balance) = self.analytics.addresses.balances.get_mut(&address) {
+                *balance -= removed;
+                if *balance == 0.into() {
+                    self.analytics.addresses.balances.remove(&address);
                 }
             } else {
                 unreachable!("the address should always be in the map, or something is wrong");
@@ -579,10 +573,10 @@ pub struct NftActivityAnalytics {
     pub destroyed_count: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct BaseTokenActivityAnalytics {
-    pub transferred_value: u64,
+    pub transferred_value: d128,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -973,7 +967,7 @@ mod test {
                 transferred_value: to_spend_outputs
                     .iter()
                     .chain(unspent_outputs.iter())
-                    .map(|o| o.output.amount().0)
+                    .map(|o| d128::from(o.output.amount().0))
                     .sum(),
             }
         );
@@ -1102,15 +1096,15 @@ mod test {
                         }) => Some(d128::from(uc.amount.0)),
                         _ => None,
                     })
-                    .sum::<d128>(),
+                    .sum(),
                 total_key_bytes: unspent_outputs
                     .iter()
                     .map(|o| d128::from(o.rent_structure.num_key_bytes))
-                    .sum::<d128>(),
+                    .sum(),
                 total_data_bytes: unspent_outputs
                     .iter()
                     .map(|o| d128::from(o.rent_structure.num_data_bytes))
-                    .sum::<d128>(),
+                    .sum(),
             }
         );
         assert_eq!(
@@ -1124,7 +1118,7 @@ mod test {
                     .iter()
                     .filter(|o| o.output.booked.milestone_index == 0)
                     .map(|o| d128::from(o.output.output.amount().0))
-                    .sum::<d128>()
+                    .sum()
             }
         );
         assert_eq!(
@@ -1156,7 +1150,7 @@ mod test {
                         })
                     ))
                     .map(|o| d128::from(o.output.amount().0))
-                    .sum::<d128>(),
+                    .sum(),
                 expiration_count: unspent_outputs
                     .iter()
                     .filter(|o| matches!(
@@ -1183,7 +1177,7 @@ mod test {
                         })
                     ))
                     .map(|o| d128::from(o.output.amount().0))
-                    .sum::<d128>(),
+                    .sum(),
                 storage_deposit_return_count: unspent_outputs
                     .iter()
                     .filter(|o| matches!(
@@ -1210,7 +1204,7 @@ mod test {
                         })
                     ))
                     .map(|o| d128::from(o.output.amount().0))
-                    .sum::<d128>(),
+                    .sum(),
             }
         );
         assert_eq!(
