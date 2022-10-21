@@ -4,7 +4,10 @@
 use influxdb::{InfluxDbWriteable, Timestamp};
 
 use super::*;
-use crate::db::influxdb::{InfluxDb, InfluxDbMeasurement};
+use crate::{
+    db::influxdb::{InfluxDb, InfluxDbMeasurement},
+    types::stardust::milestone::MilestoneTimestamp,
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Schema<A> {

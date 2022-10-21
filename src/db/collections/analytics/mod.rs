@@ -15,12 +15,9 @@ use crate::{
     db::MongoDb,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent},
-        stardust::{
-            block::{
-                output::{AliasId, BasicOutput, FoundryId, NftId, NftOutput},
-                Address, Block, Output, Payload,
-            },
-            milestone::MilestoneTimestamp,
+        stardust::block::{
+            output::{AliasId, BasicOutput, FoundryId, NftId, NftOutput},
+            Address, Block, Output, Payload,
         },
         tangle::{MilestoneIndex, ProtocolParameters},
     },
