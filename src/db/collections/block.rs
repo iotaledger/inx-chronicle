@@ -11,6 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::analytics::MilestoneActivityAnalytics;
 use crate::{
     db::{
         collections::OutputCollection,
@@ -314,60 +315,41 @@ impl BlockCollection {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct MilestoneActivityResult {
-    /// The number of blocks referenced by a milestone.
-    pub num_blocks: u32,
-    /// The number of blocks referenced by a milestone that contain a payload.
-    pub num_tx_payload: u32,
-    /// The number of blocks containing a treasury transaction payload.
-    pub num_treasury_tx_payload: u32,
-    /// The number of blocks containing a milestone payload.
-    pub num_milestone_payload: u32,
-    /// The number of blocks containing a tagged data payload.
-    pub num_tagged_data_payload: u32,
-    /// The number of blocks referenced by a milestone that contain no payload.
-    pub num_no_payload: u32,
-    /// The number of blocks containing a confirmed transaction.
-    pub num_confirmed_tx: u32,
-    /// The number of blocks containing a conflicting transaction.
-    pub num_conflicting_tx: u32,
-    /// The number of blocks containing no transaction.
-    pub num_no_tx: u32,
-}
-
 impl BlockCollection {
     /// Gathers past-cone activity statistics for a given milestone.
-    pub async fn get_milestone_activity(&self, index: MilestoneIndex) -> Result<MilestoneActivityResult, Error> {
+    pub async fn get_milestone_activity_analytics(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<MilestoneActivityAnalytics, Error> {
         Ok(self
             .aggregate(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$group": {
                         "_id": null,
-                        "num_blocks": { "$count": {} },
-                        "num_tx_payload": { "$sum": {
+                        "count": { "$sum": 1 },
+                        "transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
                         } },
-                        "num_treasury_tx_payload": { "$sum": {
+                        "treasury_transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
                         } },
-                        "num_milestone_payload": { "$sum": {
+                        "milestone_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
                         } },
-                        "num_tagged_data_payload": { "$sum": {
+                        "tagged_data_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
                         } },
-                        "num_no_payload": { "$sum": {
+                        "no_payload_count": { "$sum": {
                             "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
                         } },
-                        "num_confirmed_tx": { "$sum": {
+                        "confirmed_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
                         } },
-                        "num_conflicting_tx": { "$sum": {
+                        "conflicting_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
                         } },
-                        "num_no_tx": { "$sum": {
+                        "no_transaction_count": { "$sum": {
                             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
                         } },
                     } },

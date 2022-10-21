@@ -7,6 +7,10 @@
 #[cfg(feature = "stardust")]
 pub mod collections;
 
+#[cfg(feature = "inx")]
+mod influxdb;
 mod mongodb;
 
+#[cfg(feature = "inx")]
+pub use self::influxdb::{InfluxDb, InfluxDbConfig};
 pub use self::mongodb::{MongoDb, MongoDbCollection, MongoDbCollectionExt, MongoDbConfig};

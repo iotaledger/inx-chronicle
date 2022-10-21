@@ -10,7 +10,7 @@ use mongodb::{
     error::Error,
     options::{
         AggregateOptions, CreateIndexOptions, FindOneOptions, FindOptions, InsertManyOptions, InsertOneOptions,
-        ReplaceOptions,
+        ReplaceOptions, UpdateModifications, UpdateOptions,
     },
     results::{CreateIndexResult, InsertManyResult, InsertOneResult, UpdateResult},
     Cursor, IndexModel,
@@ -37,6 +37,12 @@ pub trait MongoDbCollection {
     /// Coerce the underlying collection to the needed type.
     fn with_type<T>(&self) -> mongodb::Collection<T> {
         self.collection().clone_with_type()
+    }
+
+    /// Creates the collection.
+    async fn create_collection(&self, db: &MongoDb) -> Result<(), Error> {
+        db.db.create_collection(Self::NAME, None).await.ok();
+        Ok(())
     }
 
     /// Creates the collection indexes.
@@ -107,6 +113,16 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
         options: impl Into<Option<InsertOneOptions>> + Send + Sync,
     ) -> Result<InsertOneResult, Error> {
         self.with_type().insert_one(doc, options).await
+    }
+
+    /// Calls [`mongodb::Collection::update_one()`].
+    async fn update_one(
+        &self,
+        doc: Document,
+        update: impl Into<UpdateModifications> + Send + Sync,
+        options: impl Into<Option<UpdateOptions>> + Send + Sync,
+    ) -> Result<UpdateResult, Error> {
+        self.collection().update_one(doc, update, options).await
     }
 
     /// Calls [`mongodb::Collection::replace_one()`] and coerces the document type.

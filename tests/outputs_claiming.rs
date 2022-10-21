@@ -16,6 +16,7 @@ mod test_rand {
             },
         },
     };
+    use decimal::d128;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -72,21 +73,25 @@ mod test_rand {
 
         output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        let total = output_collection
-            .get_claimed_token_analytics(None)
-            .await
-            .unwrap()
-            .unwrap()
-            .count;
-        assert_eq!(total, (1 + 2 + 3 + 4).to_string());
+        let claimed = output_collection.get_claimed_token_analytics(1.into()).await.unwrap();
+        assert_eq!(claimed.count, 1);
+        assert_eq!(claimed.total_amount, d128::from(1));
 
-        let third = output_collection
-            .get_claimed_token_analytics(Some(3.into()))
-            .await
-            .unwrap()
-            .unwrap()
-            .count;
-        assert_eq!(third, "3");
+        let claimed = output_collection.get_claimed_token_analytics(2.into()).await.unwrap();
+        assert_eq!(claimed.count, 2);
+        assert_eq!(claimed.total_amount, d128::from((1..=2).sum::<u32>()));
+
+        let claimed = output_collection.get_claimed_token_analytics(3.into()).await.unwrap();
+        assert_eq!(claimed.count, 3);
+        assert_eq!(claimed.total_amount, d128::from((1..=3).sum::<u32>()));
+
+        let claimed = output_collection.get_claimed_token_analytics(4.into()).await.unwrap();
+        assert_eq!(claimed.count, 4);
+        assert_eq!(claimed.total_amount, d128::from((1..=4).sum::<u32>()));
+
+        let claimed = output_collection.get_claimed_token_analytics(5.into()).await.unwrap();
+        assert_eq!(claimed.count, 4);
+        assert_eq!(claimed.total_amount, d128::from((1..=4).sum::<u32>()));
 
         teardown(db).await;
     }

@@ -93,22 +93,22 @@ async fn milestone_activity_analytics(
 
     let activity = database
         .collection::<BlockCollection>()
-        .get_milestone_activity(index)
+        .get_milestone_activity_analytics(index)
         .await?;
 
     Ok(MilestoneAnalyticsResponse {
-        blocks_count: activity.num_blocks,
+        blocks_count: activity.count,
         per_payload_type: ActivityPerPayloadTypeDto {
-            tx_payload_count: activity.num_tx_payload,
-            treasury_tx_payload_count: activity.num_treasury_tx_payload,
-            tagged_data_payload_count: activity.num_tagged_data_payload,
-            milestone_payload_count: activity.num_milestone_payload,
-            no_payload_count: activity.num_no_payload,
+            transaction_count: activity.transaction_count,
+            treasury_transaction_count: activity.treasury_transaction_count,
+            tagged_data_count: activity.tagged_data_count,
+            milestone_count: activity.milestone_count,
+            no_payload_count: activity.no_payload_count,
         },
         per_inclusion_state: ActivityPerInclusionStateDto {
-            confirmed_tx_count: activity.num_confirmed_tx,
-            conflicting_tx_count: activity.num_conflicting_tx,
-            no_tx_count: activity.num_no_tx,
+            confirmed_count: activity.confirmed_count,
+            conflicting_count: activity.conflicting_count,
+            no_transaction_count: activity.no_transaction_count,
         },
     })
 }
@@ -129,22 +129,22 @@ async fn milestone_activity_analytics_by_id(
 
     let activity = database
         .collection::<BlockCollection>()
-        .get_milestone_activity(index)
+        .get_milestone_activity_analytics(index)
         .await?;
 
     Ok(MilestoneAnalyticsResponse {
-        blocks_count: activity.num_blocks,
+        blocks_count: activity.count,
         per_payload_type: ActivityPerPayloadTypeDto {
-            tx_payload_count: activity.num_tx_payload,
-            treasury_tx_payload_count: activity.num_treasury_tx_payload,
-            tagged_data_payload_count: activity.num_tagged_data_payload,
-            milestone_payload_count: activity.num_milestone_payload,
-            no_payload_count: activity.num_no_payload,
+            transaction_count: activity.transaction_count,
+            treasury_transaction_count: activity.treasury_transaction_count,
+            tagged_data_count: activity.tagged_data_count,
+            milestone_count: activity.milestone_count,
+            no_payload_count: activity.no_payload_count,
         },
         per_inclusion_state: ActivityPerInclusionStateDto {
-            confirmed_tx_count: activity.num_confirmed_tx,
-            conflicting_tx_count: activity.num_conflicting_tx,
-            no_tx_count: activity.num_no_tx,
+            confirmed_count: activity.confirmed_count,
+            conflicting_count: activity.conflicting_count,
+            no_transaction_count: activity.no_transaction_count,
         },
     })
 }
@@ -160,7 +160,7 @@ async fn output_activity_analytics<O: OutputKindQuery>(
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
-        total_value: res.total_value,
+        total_value: res.total_value.to_string(),
     })
 }
 
@@ -168,15 +168,15 @@ async fn unspent_output_ledger_analytics<O: OutputKindQuery>(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<OutputAnalyticsResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
-        .get_unspent_output_analytics::<O>(resolve_ledger_index(&database, ledger_index).await?)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .get_unspent_output_analytics::<O>(ledger_index)
+        .await?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
-        total_value: res.total_value,
+        total_value: res.total_value.to_string(),
     })
 }
 
@@ -185,29 +185,30 @@ async fn storage_deposit_ledger_analytics(
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<StorageDepositAnalyticsResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+
+    let res = database
+        .collection::<OutputCollection>()
+        .get_storage_deposit_analytics(ledger_index)
+        .await?;
+
     let protocol_params = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
         .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
         .parameters;
-    let res = database
-        .collection::<OutputCollection>()
-        .get_storage_deposit_analytics(ledger_index, protocol_params)
-        .await?;
 
     Ok(StorageDepositAnalyticsResponse {
-        output_count: res.output_count.to_string(),
         storage_deposit_return_count: res.storage_deposit_return_count.to_string(),
-        storage_deposit_return_total_value: res.storage_deposit_return_total_value,
-        total_key_bytes: res.total_key_bytes,
-        total_data_bytes: res.total_data_bytes,
-        total_byte_cost: res.total_byte_cost,
+        storage_deposit_return_total_value: res.storage_deposit_return_total_value.to_string(),
+        total_key_bytes: res.total_key_bytes.to_string(),
+        total_data_bytes: res.total_data_bytes.to_string(),
+        total_byte_cost: res.total_byte_cost(&protocol_params).to_string(),
         ledger_index,
         rent_structure: RentStructureResponse {
-            v_byte_cost: res.rent_structure.v_byte_cost,
-            v_byte_factor_key: res.rent_structure.v_byte_factor_key,
-            v_byte_factor_data: res.rent_structure.v_byte_factor_data,
+            v_byte_cost: protocol_params.rent_structure.v_byte_cost,
+            v_byte_factor_key: protocol_params.rent_structure.v_byte_factor_key,
+            v_byte_factor_data: protocol_params.rent_structure.v_byte_factor_data,
         },
     })
 }
@@ -309,11 +310,13 @@ async fn claimed_tokens_analytics(
     database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<ClaimedTokensAnalyticsResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
         .get_claimed_token_analytics(ledger_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+        .await?;
 
-    Ok(ClaimedTokensAnalyticsResponse { count: res.count })
+    Ok(ClaimedTokensAnalyticsResponse {
+        count: res.count.to_string(),
+    })
 }

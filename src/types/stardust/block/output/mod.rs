@@ -183,6 +183,17 @@ impl Output {
         let bee_output = iota_types::block::output::Output::try_from_with_context(&ctx.try_into()?, self)?;
         Ok(bee_output.pack_to_vec())
     }
+
+    /// Get the output kind as a string.
+    pub fn kind(&self) -> &str {
+        match self {
+            Output::Treasury(_) => TreasuryOutput::KIND,
+            Output::Basic(_) => BasicOutput::KIND,
+            Output::Alias(_) => AliasOutput::KIND,
+            Output::Foundry(_) => FoundryOutput::KIND,
+            Output::Nft(_) => NftOutput::KIND,
+        }
+    }
 }
 
 impl<T: Borrow<iota::Output>> From<T> for Output {
