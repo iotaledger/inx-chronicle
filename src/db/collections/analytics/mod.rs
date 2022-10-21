@@ -577,7 +577,7 @@ mod test {
                 MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata,
             },
             stardust::block::{
-                output::{BasicOutput, NftOutput, OutputId},
+                output::{AliasId, AliasOutput, BasicOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
                 payload::TransactionId,
                 Block, BlockId, Output, Payload,
             },
@@ -588,7 +588,17 @@ mod test {
     fn test_analytics_processor() {
         let protocol_params = iota_types::block::protocol::protocol_parameters();
 
-        let outputs = std::iter::repeat_with(|| LedgerOutput {
+        let gov_changed_alias_id = AliasId::rand();
+        let state_changed_alias_id = AliasId::rand();
+        let destroyed_alias_id = AliasId::rand();
+
+        let transferred_foundry_id = FoundryId::rand();
+        let burned_foundry_id = FoundryId::rand();
+
+        let transferred_nft_id = NftId::rand();
+        let burned_nft_id = NftId::rand();
+
+        let to_spend_outputs = std::iter::repeat_with(|| LedgerOutput {
             output_id: OutputId::rand(),
             rent_structure: RentStructureBytes {
                 num_key_bytes: 0,
@@ -602,25 +612,234 @@ mod test {
             },
         })
         .take(100)
+        // Governor changed
+        .chain(std::iter::once_with(|| {
+            let mut output = AliasOutput::rand(&protocol_params);
+            output.alias_id = gov_changed_alias_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Alias(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
+        // State index changed
+        .chain(std::iter::once_with(|| {
+            let mut output = AliasOutput::rand(&protocol_params);
+            output.alias_id = state_changed_alias_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Alias(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
+        // Destroyed
+        .chain(std::iter::once_with(|| {
+            let mut output = AliasOutput::rand(&protocol_params);
+            output.alias_id = destroyed_alias_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Alias(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
+        // Transferred foundry
+        .chain(std::iter::once_with(|| {
+            let mut output = FoundryOutput::rand(&protocol_params);
+            output.foundry_id = transferred_foundry_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Foundry(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
+        // Burned foundry
+        .chain(std::iter::once_with(|| {
+            let mut output = FoundryOutput::rand(&protocol_params);
+            output.foundry_id = burned_foundry_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Foundry(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
+        // Transferred nft
+        .chain(std::iter::once_with(|| {
+            let mut output = NftOutput::rand(&protocol_params);
+            output.nft_id = transferred_nft_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Nft(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
+        // Burned nft
+        .chain(std::iter::once_with(|| {
+            let mut output = NftOutput::rand(&protocol_params);
+            output.nft_id = burned_nft_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Nft(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            }
+        }))
         .collect::<Vec<_>>();
 
-        let spent_outputs = outputs
+        let unspent_outputs = std::iter::repeat_with(|| LedgerOutput {
+            output_id: OutputId::rand(),
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::rand(&protocol_params),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: rand::thread_rng().gen_range(0..2).into(),
+                milestone_timestamp: 12345.into(),
+            },
+        })
+        .take(100)
+        // Governor changed
+        .chain(std::iter::once_with(|| {
+            let mut output = AliasOutput::rand(&protocol_params);
+            output.alias_id = gov_changed_alias_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Alias(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 10.into(),
+                    milestone_timestamp: 123456.into(),
+                },
+            }
+        }))
+        // State index changed
+        .chain(std::iter::once_with(|| {
+            let mut output = AliasOutput::rand(&protocol_params);
+            output.alias_id = state_changed_alias_id;
+            output.state_index = 1;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Alias(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 10.into(),
+                    milestone_timestamp: 123456.into(),
+                },
+            }
+        }))
+        // Transferred foundry
+        .chain(std::iter::once_with(|| {
+            let mut output = FoundryOutput::rand(&protocol_params);
+            output.foundry_id = transferred_foundry_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Foundry(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 10.into(),
+                    milestone_timestamp: 123456.into(),
+                },
+            }
+        }))
+        // Transferred nft
+        .chain(std::iter::once_with(|| {
+            let mut output = NftOutput::rand(&protocol_params);
+            output.nft_id = transferred_nft_id;
+            LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: Output::Nft(output),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 10.into(),
+                    milestone_timestamp: 123456.into(),
+                },
+            }
+        }))
+        .collect::<Vec<_>>();
+
+        let spent_outputs = to_spend_outputs
             .iter()
-            .filter_map(|output| {
-                if rand::random::<bool>() {
-                    Some(LedgerSpent {
-                        output: output.clone(),
-                        spent_metadata: SpentMetadata {
-                            transaction_id: TransactionId::rand(),
-                            spent: MilestoneIndexTimestamp {
-                                milestone_index: output.booked.milestone_index + rand::thread_rng().gen_range(0..2),
-                                milestone_timestamp: 23456.into(),
-                            },
-                        },
-                    })
-                } else {
-                    None
-                }
+            .map(|output| LedgerSpent {
+                output: output.clone(),
+                spent_metadata: SpentMetadata {
+                    transaction_id: TransactionId::rand(),
+                    spent: MilestoneIndexTimestamp {
+                        milestone_index: output.booked.milestone_index + rand::thread_rng().gen_range(0..2),
+                        milestone_timestamp: 23456.into(),
+                    },
+                },
             })
             .collect::<Vec<_>>();
 
@@ -647,8 +866,9 @@ mod test {
 
         let mut analytics = Analytics::default().processor();
 
+        analytics.process_created_outputs(&to_spend_outputs);
         analytics.process_consumed_outputs(&spent_outputs);
-        analytics.process_created_outputs(&outputs);
+        analytics.process_created_outputs(&unspent_outputs);
         analytics.process_blocks(blocks.iter().map(|(block, metadata)| (block, metadata)));
 
         let analytics = analytics.clone().finish();
@@ -659,12 +879,14 @@ mod test {
                 total_count: spent_outputs
                     .iter()
                     .map(|o| &o.output.output)
-                    .chain(outputs.iter().map(|o| &o.output))
+                    .chain(to_spend_outputs.iter().map(|o| &o.output))
+                    .chain(unspent_outputs.iter().map(|o| &o.output))
                     .filter_map(|o| o.owning_address().cloned())
                     .collect::<HashSet<_>>()
                     .len() as _,
-                receiving_count: outputs
+                receiving_count: to_spend_outputs
                     .iter()
+                    .chain(unspent_outputs.iter())
                     .filter_map(|o| o.output.owning_address().cloned())
                     .collect::<HashSet<_>>()
                     .len() as _,
@@ -678,51 +900,67 @@ mod test {
         assert_eq!(
             AddressAnalytics::from(analytics.addresses),
             AddressAnalytics {
-                address_with_balance_count: outputs.iter().filter(|o| matches!(o.output, Output::Basic(_))).count()
-                    as _
+                address_with_balance_count: unspent_outputs
+                    .iter()
+                    .filter_map(|o| o.output.owning_address().cloned())
+                    .collect::<HashSet<_>>()
+                    .len() as _
             }
         );
         assert_eq!(
             analytics.base_token,
             BaseTokenActivityAnalytics {
-                transferred_value: outputs.iter().map(|o| o.output.amount().0).sum(),
+                transferred_value: to_spend_outputs
+                    .iter()
+                    .chain(unspent_outputs.iter())
+                    .map(|o| o.output.amount().0)
+                    .sum(),
             }
         );
         assert_eq!(
             analytics.ledger_outputs,
             LedgerOutputAnalytics {
-                basic_count: outputs.iter().filter(|o| matches!(o.output, Output::Basic(_))).count() as _,
-                basic_value: outputs
+                basic_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(o.output, Output::Basic(_)))
+                    .count() as _,
+                basic_value: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Basic(_)))
                     .map(|o| d128::from(o.output.amount().0))
                     .sum(),
-                alias_count: outputs.iter().filter(|o| matches!(o.output, Output::Alias(_))).count() as _,
-                alias_value: outputs
+                alias_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(o.output, Output::Alias(_)))
+                    .count() as _,
+                alias_value: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Alias(_)))
                     .map(|o| d128::from(o.output.amount().0))
                     .sum(),
-                foundry_count: outputs
+                foundry_count: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Foundry(_)))
                     .count() as _,
-                foundry_value: outputs
+                foundry_value: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Foundry(_)))
                     .map(|o| d128::from(o.output.amount().0))
                     .sum(),
-                nft_count: outputs.iter().filter(|o| matches!(o.output, Output::Nft(_))).count() as _,
-                nft_value: outputs
+                nft_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(o.output, Output::Nft(_)))
+                    .count() as _,
+                nft_value: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Nft(_)))
                     .map(|o| d128::from(o.output.amount().0))
                     .sum(),
-                treasury_count: outputs
+                treasury_count: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Treasury(_)))
                     .count() as _,
-                treasury_value: outputs
+                treasury_value: unspent_outputs
                     .iter()
                     .filter(|o| matches!(o.output, Output::Treasury(_)))
                     .map(|o| d128::from(o.output.amount().0))
@@ -732,32 +970,66 @@ mod test {
         assert_eq!(
             AliasActivityAnalytics::from(analytics.aliases),
             AliasActivityAnalytics {
-                created_count: todo!(),
-                governor_changed_count: todo!(),
-                state_changed_count: todo!(),
-                destroyed_count: todo!()
+                created_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Alias(alias)
+                        if alias.alias_id != gov_changed_alias_id && alias.alias_id != state_changed_alias_id
+                    ))
+                    .count() as _,
+                governor_changed_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Alias(alias) if alias.alias_id == gov_changed_alias_id))
+                    .count() as _,
+                state_changed_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Alias(alias) if alias.alias_id == state_changed_alias_id))
+                    .count() as _,
+                destroyed_count: spent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output.output, Output::Alias(alias)
+                        if alias.alias_id != gov_changed_alias_id && alias.alias_id != state_changed_alias_id
+                    ))
+                    .count() as _,
             }
         );
         assert_eq!(
             FoundryActivityAnalytics::from(analytics.native_tokens),
             FoundryActivityAnalytics {
-                created_count: todo!(),
-                transferred_count: todo!(),
-                destroyed_count: todo!()
+                created_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Foundry(foundry) if foundry.foundry_id != transferred_foundry_id))
+                    .count() as _,
+                transferred_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Foundry(foundry) if foundry.foundry_id == transferred_foundry_id))
+                    .count() as _,
+                destroyed_count: spent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output.output, Output::Foundry(foundry) if foundry.foundry_id != transferred_foundry_id))
+                    .count() as _,
             }
         );
         assert_eq!(
             NftActivityAnalytics::from(analytics.nfts),
             NftActivityAnalytics {
-                created_count: todo!(),
-                transferred_count: todo!(),
-                destroyed_count: todo!()
+                created_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Nft(nft) if nft.nft_id != transferred_nft_id))
+                    .count() as _,
+                transferred_count: unspent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output, Output::Nft(nft) if nft.nft_id == transferred_nft_id))
+                    .count() as _,
+                destroyed_count: spent_outputs
+                    .iter()
+                    .filter(|o| matches!(&o.output.output, Output::Nft(nft) if nft.nft_id != transferred_nft_id))
+                    .count() as _,
             }
         );
         assert_eq!(
             analytics.storage_deposits,
             LedgerSizeAnalytics {
-                storage_deposit_count: outputs
+                storage_deposit_count: unspent_outputs
                     .iter()
                     .filter(|o| matches!(
                         o.output,
@@ -769,21 +1041,8 @@ mod test {
                             ..
                         })
                     ))
-                    .count() as u64
-                    - spent_outputs
-                        .iter()
-                        .filter(|o| matches!(
-                            o.output.output,
-                            Output::Basic(BasicOutput {
-                                storage_deposit_return_unlock_condition: Some(_),
-                                ..
-                            }) | Output::Nft(NftOutput {
-                                storage_deposit_return_unlock_condition: Some(_),
-                                ..
-                            })
-                        ))
-                        .count() as u64,
-                total_storage_deposit_value: outputs
+                    .count() as u64,
+                total_storage_deposit_value: unspent_outputs
                     .iter()
                     .filter_map(|o| match o.output {
                         Output::Basic(BasicOutput {
@@ -796,37 +1055,15 @@ mod test {
                         }) => Some(d128::from(uc.amount.0)),
                         _ => None,
                     })
-                    .sum::<d128>()
-                    - spent_outputs
-                        .iter()
-                        .filter_map(|o| match o.output.output {
-                            Output::Basic(BasicOutput {
-                                storage_deposit_return_unlock_condition: Some(uc),
-                                ..
-                            })
-                            | Output::Nft(NftOutput {
-                                storage_deposit_return_unlock_condition: Some(uc),
-                                ..
-                            }) => Some(d128::from(uc.amount.0)),
-                            _ => None,
-                        })
-                        .sum::<d128>(),
-                total_key_bytes: outputs
+                    .sum::<d128>(),
+                total_key_bytes: unspent_outputs
                     .iter()
                     .map(|o| d128::from(o.rent_structure.num_key_bytes))
-                    .sum::<d128>()
-                    - spent_outputs
-                        .iter()
-                        .map(|o| d128::from(o.output.rent_structure.num_key_bytes))
-                        .sum::<d128>(),
-                total_data_bytes: outputs
+                    .sum::<d128>(),
+                total_data_bytes: unspent_outputs
                     .iter()
                     .map(|o| d128::from(o.rent_structure.num_data_bytes))
-                    .sum::<d128>()
-                    - spent_outputs
-                        .iter()
-                        .map(|o| d128::from(o.output.rent_structure.num_data_bytes))
-                        .sum::<d128>(),
+                    .sum::<d128>(),
             }
         );
         assert_eq!(
