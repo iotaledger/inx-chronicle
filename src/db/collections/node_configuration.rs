@@ -9,14 +9,13 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::node::{BaseToken, NodeConfiguration},
+    types::node::NodeConfiguration,
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct NodeConfigurationDocument {
-    pub base_token: BaseToken,
-}
+#[serde(transparent)]
+pub struct NodeConfigurationDocument(NodeConfiguration);
 
 /// A single-document collection to store the latest [`NodeConfiguration`].
 pub struct NodeConfigurationCollection {
@@ -40,30 +39,21 @@ impl NodeConfigurationCollection {
     /// Updates the stored node configuration - if necessary.
     pub async fn update_node_configuration(&self, config: NodeConfiguration) -> Result<(), Error> {
         if let Some(latest_config) = self.get_latest_node_configuration().await? {
-            if latest_config.base_token != config.base_token {
-                self.replace_one(
-                    doc! {},
-                    NodeConfigurationDocument {
-                        base_token: config.base_token,
-                    },
-                    None,
-                )
-                .await?;
+            if latest_config != config {
+                self.replace_one(doc! {}, NodeConfigurationDocument(config), None)
+                    .await?;
             }
         } else {
-            self.insert_one(
-                NodeConfigurationDocument {
-                    base_token: config.base_token,
-                },
-                None,
-            )
-            .await?;
+            self.insert_one(NodeConfigurationDocument(config), None).await?;
         }
         Ok(())
     }
 
     /// Returns the latest node configuration known to Chronicle.
-    pub async fn get_latest_node_configuration(&self) -> Result<Option<NodeConfigurationDocument>, Error> {
-        self.find_one(doc! {}, None).await
+    pub async fn get_latest_node_configuration(&self) -> Result<Option<NodeConfiguration>, Error> {
+        Ok(self
+            .find_one(doc! {}, None)
+            .await?
+            .map(|node_configuration: NodeConfigurationDocument| node_configuration.0))
     }
 }
