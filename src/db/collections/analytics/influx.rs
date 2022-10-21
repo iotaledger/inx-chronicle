@@ -249,9 +249,13 @@ impl InfluxDbWriteable for Schema<ProtocolParameters> {
             .add_field("min_pow_score", self.analytics.min_pow_score)
             .add_field("below_max_depth", self.analytics.below_max_depth)
             .add_field("v_byte_cost", self.analytics.rent_structure.v_byte_cost)
-            .add_field("v_factor_key", self.analytics.rent_structure.v_byte_factor_key)
-            .add_field("v_factor_data", self.analytics.rent_structure.v_byte_factor_data)
+            .add_field("v_byte_factor_key", self.analytics.rent_structure.v_byte_factor_key)
+            .add_field("v_byte_factor_data", self.analytics.rent_structure.v_byte_factor_data)
     }
+}
+
+impl InfluxDbMeasurement for Schema<ProtocolParameters> {
+    const NAME: &'static str = "stardust_protocol_params";
 }
 
 impl InfluxDbWriteable for Schema<AliasActivityAnalytics> {
@@ -268,10 +272,6 @@ impl InfluxDbWriteable for Schema<AliasActivityAnalytics> {
 
 impl InfluxDbMeasurement for Schema<AliasActivityAnalytics> {
     const NAME: &'static str = "stardust_alias_activity";
-}
-
-impl InfluxDbMeasurement for Schema<ProtocolParameters> {
-    const NAME: &'static str = "stardust_protocol_params";
 }
 
 impl InfluxDbWriteable for Schema<FoundryActivityAnalytics> {

@@ -30,7 +30,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -109,7 +109,7 @@
                     "alias": "Value",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -125,7 +125,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_outputs",
+                    "measurement": "stardust_base_token_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -134,7 +134,7 @@
                         [
                             {
                                 "params": [
-                                    "total_value"
+                                    "transferred_value"
                                 ],
                                 "type": "field"
                             },
@@ -153,7 +153,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -231,7 +231,7 @@
                     "alias": "Transaction",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -248,7 +248,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_payload_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -273,7 +273,7 @@
                     "alias": "Milestone",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -290,7 +290,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_payload_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -315,7 +315,7 @@
                     "alias": "Tagged Data",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -332,7 +332,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_payload_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "C",
@@ -357,7 +357,7 @@
                     "alias": "No Payload",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -374,7 +374,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_payload_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "D",
@@ -402,7 +402,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -480,7 +480,7 @@
                     "alias": "Confirmed",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -496,7 +496,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_transaction_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -521,7 +521,7 @@
                     "alias": "Conflicting",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -538,7 +538,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_transaction_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -566,7 +566,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -645,7 +645,7 @@
                     "alias": "Key bytes",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -662,7 +662,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_storage_deposits",
+                    "measurement": "stardust_ledger_size",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -687,7 +687,7 @@
                     "alias": "Data bytes",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -704,7 +704,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_storage_deposits",
+                    "measurement": "stardust_ledger_size",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -732,7 +732,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "description": "",
             "fieldConfig": {
@@ -813,7 +813,7 @@
                     "alias": "Basic",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -829,7 +829,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_outputs",
+                    "measurement": "stardust_ledger_outputs",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -838,7 +838,7 @@
                         [
                             {
                                 "params": [
-                                    "count"
+                                    "basic_count"
                                 ],
                                 "type": "field"
                             },
@@ -848,19 +848,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "basic"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Alias",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -877,7 +871,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_outputs",
+                    "measurement": "stardust_ledger_outputs",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -886,7 +880,7 @@
                         [
                             {
                                 "params": [
-                                    "count"
+                                    "alias_count"
                                 ],
                                 "type": "field"
                             },
@@ -896,19 +890,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "alias"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Foundry",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -925,7 +913,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_outputs",
+                    "measurement": "stardust_ledger_outputs",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "C",
@@ -934,7 +922,7 @@
                         [
                             {
                                 "params": [
-                                    "count"
+                                    "foundry_count"
                                 ],
                                 "type": "field"
                             },
@@ -944,19 +932,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "foundry"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Nft",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -973,7 +955,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_outputs",
+                    "measurement": "stardust_ledger_outputs",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "D",
@@ -982,7 +964,7 @@
                         [
                             {
                                 "params": [
-                                    "count"
+                                    "nft_count"
                                 ],
                                 "type": "field"
                             },
@@ -992,13 +974,49 @@
                             }
                         ]
                     ],
-                    "tags": [
+                    "tags": []
+                },
+                {
+                    "alias": "Treasury",
+                    "datasource": {
+                        "type": "influxdb",
+                        "uid": "K8xN1gNVz"
+                    },
+                    "groupBy": [
                         {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "nft"
+                            "params": [
+                                "$__interval"
+                            ],
+                            "type": "time"
+                        },
+                        {
+                            "params": [
+                                "null"
+                            ],
+                            "type": "fill"
                         }
-                    ]
+                    ],
+                    "hide": false,
+                    "measurement": "stardust_ledger_outputs",
+                    "orderByTime": "ASC",
+                    "policy": "default",
+                    "refId": "E",
+                    "resultFormat": "time_series",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "treasury_count"
+                                ],
+                                "type": "field"
+                            },
+                            {
+                                "params": [],
+                                "type": "sum"
+                            }
+                        ]
+                    ],
+                    "tags": []
                 }
             ],
             "title": "Outputs",
@@ -1007,12 +1025,12 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
+            "description": "",
             "fieldConfig": {
                 "defaults": {
                     "color": {
-                        "fixedColor": "red",
                         "mode": "palette-classic"
                     },
                     "custom": {
@@ -1022,7 +1040,7 @@
                         "axisPlacement": "auto",
                         "barAlignment": 0,
                         "drawStyle": "line",
-                        "fillOpacity": 100,
+                        "fillOpacity": 0,
                         "gradientMode": "none",
                         "hideFrom": {
                             "legend": false,
@@ -1030,7 +1048,7 @@
                             "viz": false
                         },
                         "lineInterpolation": "stepAfter",
-                        "lineWidth": 0,
+                        "lineWidth": 1,
                         "pointSize": 5,
                         "scaleDistribution": {
                             "type": "linear"
@@ -1039,12 +1057,13 @@
                         "spanNulls": true,
                         "stacking": {
                             "group": "A",
-                            "mode": "normal"
+                            "mode": "none"
                         },
                         "thresholdsStyle": {
                             "mode": "off"
                         }
                     },
+                    "decimals": 0,
                     "mappings": [],
                     "thresholds": {
                         "mode": "absolute",
@@ -1058,8 +1077,7 @@
                                 "value": 80
                             }
                         ]
-                    },
-                    "unit": "none"
+                    }
                 },
                 "overrides": []
             },
@@ -1069,7 +1087,7 @@
                 "x": 0,
                 "y": 24
             },
-            "id": 2,
+            "id": 22,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -1078,16 +1096,16 @@
                     "showLegend": true
                 },
                 "tooltip": {
-                    "mode": "multi",
+                    "mode": "single",
                     "sort": "none"
                 }
             },
             "targets": [
                 {
-                    "alias": "Transaction payload",
+                    "alias": "Created",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1103,49 +1121,7 @@
                             "type": "fill"
                         }
                     ],
-                    "hide": false,
-                    "measurement": "stardust_milestone_activity",
-                    "orderByTime": "ASC",
-                    "policy": "default",
-                    "refId": "B",
-                    "resultFormat": "time_series",
-                    "select": [
-                        [
-                            {
-                                "params": [
-                                    "transaction_count"
-                                ],
-                                "type": "field"
-                            },
-                            {
-                                "params": [],
-                                "type": "sum"
-                            }
-                        ]
-                    ],
-                    "tags": []
-                },
-                {
-                    "alias": "Milestone payload",
-                    "datasource": {
-                        "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
-                    },
-                    "groupBy": [
-                        {
-                            "params": [
-                                "$__interval"
-                            ],
-                            "type": "time"
-                        },
-                        {
-                            "params": [
-                                "null"
-                            ],
-                            "type": "fill"
-                        }
-                    ],
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_alias_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -1154,7 +1130,7 @@
                         [
                             {
                                 "params": [
-                                    "milestone_count"
+                                    "created_count"
                                 ],
                                 "type": "field"
                             },
@@ -1167,10 +1143,10 @@
                     "tags": []
                 },
                 {
-                    "alias": "Tagged data payload",
+                    "alias": "Governor Changed",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1187,16 +1163,16 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_alias_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
-                    "refId": "D",
+                    "refId": "B",
                     "resultFormat": "time_series",
                     "select": [
                         [
                             {
                                 "params": [
-                                    "tagged_data_count"
+                                    "governor_changed_count"
                                 ],
                                 "type": "field"
                             },
@@ -1209,10 +1185,10 @@
                     "tags": []
                 },
                 {
-                    "alias": "No payload",
+                    "alias": "State Changed",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1229,7 +1205,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_milestone_activity",
+                    "measurement": "stardust_alias_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "C",
@@ -1238,7 +1214,49 @@
                         [
                             {
                                 "params": [
-                                    "no_payload_count"
+                                    "state_changed_count"
+                                ],
+                                "type": "field"
+                            },
+                            {
+                                "params": [],
+                                "type": "sum"
+                            }
+                        ]
+                    ],
+                    "tags": []
+                },
+                {
+                    "alias": "Destroyed",
+                    "datasource": {
+                        "type": "influxdb",
+                        "uid": "K8xN1gNVz"
+                    },
+                    "groupBy": [
+                        {
+                            "params": [
+                                "$__interval"
+                            ],
+                            "type": "time"
+                        },
+                        {
+                            "params": [
+                                "null"
+                            ],
+                            "type": "fill"
+                        }
+                    ],
+                    "hide": false,
+                    "measurement": "stardust_alias_activity",
+                    "orderByTime": "ASC",
+                    "policy": "default",
+                    "refId": "D",
+                    "resultFormat": "time_series",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "destroyed_count"
                                 ],
                                 "type": "field"
                             },
@@ -1251,13 +1269,13 @@
                     "tags": []
                 }
             ],
-            "title": "Milestone Activity",
+            "title": "Alias Activity",
             "type": "timeseries"
         },
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "description": "",
             "fieldConfig": {
@@ -1337,7 +1355,7 @@
                     "alias": "Total",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1353,7 +1371,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_addresses",
+                    "measurement": "stardust_address_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -1362,7 +1380,7 @@
                         [
                             {
                                 "params": [
-                                    "total_active_addresses"
+                                    "total_count"
                                 ],
                                 "type": "field"
                             },
@@ -1378,7 +1396,7 @@
                     "alias": "Receiving",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1395,7 +1413,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_addresses",
+                    "measurement": "stardust_address_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -1404,7 +1422,7 @@
                         [
                             {
                                 "params": [
-                                    "receiving_addresses"
+                                    "receiving_count"
                                 ],
                                 "type": "field"
                             },
@@ -1420,7 +1438,7 @@
                     "alias": "Sending",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1437,7 +1455,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_addresses",
+                    "measurement": "stardust_address_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "C",
@@ -1446,7 +1464,7 @@
                         [
                             {
                                 "params": [
-                                    "sending_addresses"
+                                    "sending_count"
                                 ],
                                 "type": "field"
                             },
@@ -1465,7 +1483,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "description": "",
             "fieldConfig": {
@@ -1522,7 +1540,7 @@
                 "overrides": []
             },
             "gridPos": {
-                "h": 8,
+                "h": 9,
                 "w": 12,
                 "x": 0,
                 "y": 33
@@ -1542,10 +1560,10 @@
             },
             "targets": [
                 {
-                    "alias": "Created",
+                    "alias": "Minted",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1561,7 +1579,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_output_diff",
+                    "measurement": "stardust_nft_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -1580,19 +1598,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "native_tokens"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Transferred",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1609,7 +1621,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_output_diff",
+                    "measurement": "stardust_nft_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -1628,19 +1640,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "native_tokens"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Burned",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1657,16 +1663,16 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_output_diff",
+                    "measurement": "stardust_nft_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
-                    "refId": "C",
+                    "refId": "D",
                     "resultFormat": "time_series",
                     "select": [
                         [
                             {
                                 "params": [
-                                    "burned_count"
+                                    "destroyed_count"
                                 ],
                                 "type": "field"
                             },
@@ -1676,22 +1682,16 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "native_tokens"
-                        }
-                    ]
+                    "tags": []
                 }
             ],
-            "title": "Native Tokens",
+            "title": "NFT Activity",
             "type": "timeseries"
         },
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "description": "",
             "fieldConfig": {
@@ -1748,12 +1748,12 @@
                 "overrides": []
             },
             "gridPos": {
-                "h": 8,
+                "h": 9,
                 "w": 12,
                 "x": 12,
                 "y": 33
             },
-            "id": 18,
+            "id": 23,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -1768,10 +1768,10 @@
             },
             "targets": [
                 {
-                    "alias": "Created",
+                    "alias": "Minted",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1787,7 +1787,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_output_diff",
+                    "measurement": "stardust_foundry_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -1806,19 +1806,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "nfts"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Transferred",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1835,7 +1829,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_output_diff",
+                    "measurement": "stardust_foundry_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -1854,19 +1848,13 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "nfts"
-                        }
-                    ]
+                    "tags": []
                 },
                 {
                     "alias": "Burned",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -1883,16 +1871,16 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_output_diff",
+                    "measurement": "stardust_foundry_activity",
                     "orderByTime": "ASC",
                     "policy": "default",
-                    "refId": "C",
+                    "refId": "D",
                     "resultFormat": "time_series",
                     "select": [
                         [
                             {
                                 "params": [
-                                    "burned_count"
+                                    "destroyed_count"
                                 ],
                                 "type": "field"
                             },
@@ -1902,22 +1890,16 @@
                             }
                         ]
                     ],
-                    "tags": [
-                        {
-                            "key": "kind",
-                            "operator": "=",
-                            "value": "nfts"
-                        }
-                    ]
+                    "tags": []
                 }
             ],
-            "title": "NFTs",
+            "title": "Foundry Activity",
             "type": "timeseries"
         },
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -2000,7 +1982,7 @@
                 "h": 8,
                 "w": 4,
                 "x": 0,
-                "y": 41
+                "y": 42
             },
             "id": 8,
             "options": {
@@ -2017,10 +1999,10 @@
             },
             "targets": [
                 {
-                    "alias": "Sum of claimed tokens",
+                    "alias": "Claimed Value",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2036,7 +2018,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_claimed_tokens",
+                    "measurement": "stardust_claiming_rewards",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -2045,7 +2027,7 @@
                         [
                             {
                                 "params": [
-                                    "count"
+                                    "claimed_value"
                                 ],
                                 "type": "field"
                             },
@@ -2064,7 +2046,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -2123,7 +2105,7 @@
                 "h": 8,
                 "w": 5,
                 "x": 4,
-                "y": 41
+                "y": 42
             },
             "id": 13,
             "options": {
@@ -2143,7 +2125,7 @@
                     "alias": "Value",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2174,7 +2156,7 @@
                             },
                             {
                                 "params": [],
-                                "type": "mean"
+                                "type": "sum"
                             }
                         ]
                     ],
@@ -2187,7 +2169,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -2246,7 +2228,7 @@
                 "h": 8,
                 "w": 5,
                 "x": 9,
-                "y": 41
+                "y": 42
             },
             "id": 15,
             "options": {
@@ -2266,7 +2248,7 @@
                     "alias": "Byte Cost",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2307,7 +2289,7 @@
                     "alias": "Data Byte Factor",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2349,7 +2331,7 @@
                     "alias": "Key Byte Factor",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2394,7 +2376,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -2452,7 +2434,7 @@
                 "h": 8,
                 "w": 5,
                 "x": 14,
-                "y": 41
+                "y": 42
             },
             "id": 14,
             "options": {
@@ -2472,7 +2454,7 @@
                     "alias": "Min Score",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2516,7 +2498,7 @@
         {
             "datasource": {
                 "type": "influxdb",
-                "uid": "P951FEA4DE68E13C5"
+                "uid": "K8xN1gNVz"
             },
             "fieldConfig": {
                 "defaults": {
@@ -2574,7 +2556,7 @@
                 "h": 8,
                 "w": 5,
                 "x": 19,
-                "y": 41
+                "y": 42
             },
             "id": 16,
             "options": {
@@ -2594,7 +2576,7 @@
                     "alias": "Depth",
                     "datasource": {
                         "type": "influxdb",
-                        "uid": "P951FEA4DE68E13C5"
+                        "uid": "K8xN1gNVz"
                     },
                     "groupBy": [
                         {
@@ -2644,13 +2626,13 @@
         "list": []
     },
     "time": {
-        "from": "now-30m",
+        "from": "now-3h",
         "to": "now"
     },
     "timepicker": {},
     "timezone": "",
     "title": "Analytics",
     "uid": "w6B8aUI4z",
-    "version": 4,
+    "version": 7,
     "weekStart": ""
 }
