@@ -9,13 +9,13 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::node::NodeConfiguration,
+    types::node::{BaseToken, NodeConfiguration},
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NodeConfigurationDocument {
-    pub config: NodeConfiguration,
+    pub base_token: BaseToken,
 }
 
 /// A single-document collection to store the latest [`NodeConfiguration`].
@@ -40,12 +40,24 @@ impl NodeConfigurationCollection {
     /// Updates the stored node configuration - if necessary.
     pub async fn update_node_configuration(&self, config: NodeConfiguration) -> Result<(), Error> {
         if let Some(latest_config) = self.get_latest_node_configuration().await? {
-            if latest_config.config != config {
-                self.replace_one(doc! {}, NodeConfigurationDocument { config }, None)
-                    .await?;
+            if latest_config.base_token != config.base_token {
+                self.replace_one(
+                    doc! {},
+                    NodeConfigurationDocument {
+                        base_token: config.base_token,
+                    },
+                    None,
+                )
+                .await?;
             }
         } else {
-            self.insert_one(NodeConfigurationDocument { config }, None).await?;
+            self.insert_one(
+                NodeConfigurationDocument {
+                    base_token: config.base_token,
+                },
+                None,
+            )
+            .await?;
         }
         Ok(())
     }

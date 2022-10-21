@@ -40,7 +40,7 @@ mod test_rand {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
+        assert_eq!(&latest_config.base_token.ticker_symbol, "SMR");
 
         node_configuration
             .update_node_configuration(config.clone())
@@ -60,12 +60,12 @@ mod test_rand {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SHI");
-        assert_eq!(&latest_config.config.base_token.unit, "suSHI");
-        assert_eq!(&latest_config.config.base_token.subunit, "rice");
-        assert_eq!(latest_config.config.base_token.decimals, 6);
-        assert!(!latest_config.config.base_token.use_metric_prefix);
+        assert_eq!(&latest_config.base_token.name, "Shimmer");
+        assert_eq!(&latest_config.base_token.ticker_symbol, "SHI");
+        assert_eq!(&latest_config.base_token.unit, "suSHI");
+        assert_eq!(&latest_config.base_token.subunit, "rice");
+        assert_eq!(latest_config.base_token.decimals, 6);
+        assert!(!latest_config.base_token.use_metric_prefix);
 
         teardown(db).await;
     }
