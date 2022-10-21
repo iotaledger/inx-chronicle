@@ -235,15 +235,11 @@ impl InxWorker {
             "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
         );
 
-        let mut analytics = Analytics::default();
-        let prev_analytics = match self.analytics.take() {
+        let analytics = match self.analytics.take() {
             Some(res) => res,
             None => self.db.get_all_analytics(milestone_index - 1).await?,
         };
 
-        // Only want to accumulate some of the analytics.
-        analytics.storage_deposits = prev_analytics.storage_deposits;
-        analytics.ledger_outputs = prev_analytics.ledger_outputs;
         let analytics = Arc::new(Mutex::new(analytics.processor()));
 
         let mut tasks = JoinSet::new();
@@ -364,15 +360,14 @@ impl InxWorker {
             .await?
             .map(|d| d.parameters);
 
+        if Some(&params) != last_params.as_ref() {
+            analytics.lock().await.process_protocol_params(params.clone());
+        }
+
         self.db
             .collection::<ProtocolUpdateCollection>()
-            .update_latest_protocol_parameters(milestone_index, params.clone())
+            .update_latest_protocol_parameters(milestone_index, params)
             .await?;
-
-        analytics
-            .lock()
-            .await
-            .process_protocol_params((Some(&params) != last_params.as_ref()).then_some(params));
 
         Ok(())
     }

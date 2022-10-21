@@ -23,8 +23,8 @@ pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
 use super::analytics::{
-    AddressActivityAnalytics, AliasDiffTracker, BaseTokenActivityAnalytics, ClaimedTokensAnalytics,
-    LedgerOutputAnalytics, LedgerSizeAnalytics, OutputDiffTracker, UnlockConditionAnalytics,
+    AddressActivityAnalytics, AliasDeltas, BaseTokenActivityAnalytics, ClaimedTokensAnalytics, LedgerOutputAnalytics,
+    LedgerSizeAnalytics, OutputDeltas, UnlockConditionAnalytics,
 };
 use crate::{
     db::{
@@ -529,14 +529,14 @@ impl OutputCollection {
 
     /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_nft_output_tracker(&self, index: MilestoneIndex) -> Result<OutputDiffTracker<NftId>, Error> {
+    pub async fn get_nft_output_tracker(&self, index: MilestoneIndex) -> Result<OutputDeltas<NftId>, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
         let (start_state, end_state) =
             tokio::try_join!(self.get_unique_nft_ids(index - 1), self.get_unique_nft_ids(index))?;
 
-        Ok(OutputDiffTracker {
+        Ok(OutputDeltas {
             created: end_state.difference(&start_state).copied().collect(),
             transferred: start_state.intersection(&end_state).copied().collect(),
             destroyed: start_state.difference(&end_state).copied().collect(),
@@ -573,10 +573,7 @@ impl OutputCollection {
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_foundry_output_tracker(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<OutputDiffTracker<FoundryId>, Error> {
+    pub async fn get_foundry_output_tracker(&self, index: MilestoneIndex) -> Result<OutputDeltas<FoundryId>, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
@@ -584,7 +581,7 @@ impl OutputCollection {
             self.get_unique_foundry_ids(index - 1),
             self.get_unique_foundry_ids(index)
         )?;
-        Ok(OutputDiffTracker {
+        Ok(OutputDeltas {
             created: end_state.difference(&start_state).copied().collect(),
             transferred: start_state.intersection(&end_state).copied().collect(),
             destroyed: start_state.difference(&end_state).copied().collect(),
@@ -593,14 +590,14 @@ impl OutputCollection {
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasDiffTracker, Error> {
+    pub async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasDeltas, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
         let (start_state, end_state) =
             tokio::try_join!(self.get_unique_alias_ids(index - 1), self.get_unique_alias_ids(index))?;
 
-        Ok(AliasDiffTracker {
+        Ok(AliasDeltas {
             created: end_state
                 .iter()
                 .filter_map(|(end_id, end_state)| {

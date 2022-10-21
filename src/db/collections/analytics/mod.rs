@@ -10,7 +10,7 @@ use decimal::d128;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
-use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
+use super::{OutputCollection, ProtocolUpdateCollection};
 use crate::{
     db::MongoDb,
     types::{
@@ -24,16 +24,16 @@ use crate::{
 };
 
 /// Holds analytics about stardust data.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct Analytics {
     pub address_activity: AddressActivityAnalytics,
     pub addresses: AddressBalances,
     pub base_token: BaseTokenActivityAnalytics,
     pub ledger_outputs: LedgerOutputAnalytics,
-    pub aliases: AliasDiffTracker,
-    pub native_tokens: OutputDiffTracker<FoundryId>,
-    pub nfts: OutputDiffTracker<NftId>,
+    pub aliases: AliasDeltas,
+    pub native_tokens: OutputDeltas<FoundryId>,
+    pub nfts: OutputDeltas<NftId>,
     pub storage_deposits: LedgerSizeAnalytics,
     pub claimed_tokens: ClaimedTokensAnalytics,
     pub payload_activity: PayloadActivityAnalytics,
@@ -42,39 +42,18 @@ pub struct Analytics {
     pub protocol_params: Option<ProtocolParameters>,
 }
 
-impl Default for Analytics {
-    fn default() -> Self {
-        Self {
-            address_activity: Default::default(),
-            addresses: Default::default(),
-            base_token: Default::default(),
-            ledger_outputs: Default::default(),
-            aliases: Default::default(),
-            native_tokens: Default::default(),
-            nfts: Default::default(),
-            storage_deposits: Default::default(),
-            claimed_tokens: Default::default(),
-            payload_activity: Default::default(),
-            transaction_activity: Default::default(),
-            unlock_conditions: Default::default(),
-            protocol_params: Default::default(),
-        }
-    }
-}
-
 impl Analytics {
     /// Get a processor to update the analytics with new data.
-    pub fn processor(self) -> AnalyticsProcessor {
+    pub fn processor(mut self) -> AnalyticsProcessor {
+        // Only want to accumulate some of the analytics.
+        self.address_activity = Default::default();
+        self.base_token = Default::default();
+        self.payload_activity = Default::default();
+        self.transaction_activity = Default::default();
+        self.protocol_params = Default::default();
         AnalyticsProcessor {
             analytics: self,
-            addresses: Default::default(),
-            sending_addresses: Default::default(),
-            receiving_addresses: Default::default(),
-            removed_balances: Default::default(),
-            removed_outputs: Default::default(),
-            removed_storage_deposits: Default::default(),
-            removed_unlock_conditions: Default::default(),
-            spent_aliases: Default::default(),
+            ..Default::default()
         }
     }
 }
@@ -84,27 +63,16 @@ impl MongoDb {
     #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
         let output_collection = self.collection::<OutputCollection>();
-        let block_collection = self.collection::<BlockCollection>();
         let protocol_param_collection = self.collection::<ProtocolUpdateCollection>();
 
         Ok(Analytics {
-            address_activity: output_collection
-                .get_address_activity_analytics(milestone_index)
-                .await?,
             addresses: output_collection.get_address_balances(milestone_index).await?,
-            base_token: output_collection
-                .get_base_token_activity_analytics(milestone_index)
-                .await?,
             ledger_outputs: output_collection.get_ledger_output_analytics(milestone_index).await?,
             aliases: output_collection.get_alias_output_tracker(milestone_index).await?,
             native_tokens: output_collection.get_foundry_output_tracker(milestone_index).await?,
             nfts: output_collection.get_nft_output_tracker(milestone_index).await?,
             storage_deposits: output_collection.get_ledger_size_analytics(milestone_index).await?,
             claimed_tokens: output_collection.get_claimed_token_analytics(milestone_index).await?,
-            payload_activity: block_collection.get_payload_activity_analytics(milestone_index).await?,
-            transaction_activity: block_collection
-                .get_transaction_activity_analytics(milestone_index)
-                .await?,
             unlock_conditions: output_collection
                 .get_unlock_condition_analytics(milestone_index)
                 .await?,
@@ -112,18 +80,19 @@ impl MongoDb {
                 .get_protocol_parameters_for_ledger_index(milestone_index)
                 .await?
                 .map(|p| p.parameters),
+            ..Default::default()
         })
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputDiffTracker<T: std::hash::Hash + Eq> {
+pub struct OutputDeltas<T: std::hash::Hash + Eq> {
     pub created: HashSet<T>,
     pub transferred: HashSet<T>,
     pub destroyed: HashSet<T>,
 }
 
-impl<T: std::hash::Hash + Eq> Default for OutputDiffTracker<T> {
+impl<T: std::hash::Hash + Eq> Default for OutputDeltas<T> {
     fn default() -> Self {
         Self {
             created: Default::default(),
@@ -133,8 +102,8 @@ impl<T: std::hash::Hash + Eq> Default for OutputDiffTracker<T> {
     }
 }
 
-impl<T: std::hash::Hash + Eq> From<OutputDiffTracker<T>> for FoundryActivityAnalytics {
-    fn from(value: OutputDiffTracker<T>) -> Self {
+impl<T: std::hash::Hash + Eq> From<OutputDeltas<T>> for FoundryActivityAnalytics {
+    fn from(value: OutputDeltas<T>) -> Self {
         Self {
             created_count: value.created.len() as _,
             transferred_count: value.transferred.len() as _,
@@ -143,8 +112,8 @@ impl<T: std::hash::Hash + Eq> From<OutputDiffTracker<T>> for FoundryActivityAnal
     }
 }
 
-impl<T: std::hash::Hash + Eq> From<OutputDiffTracker<T>> for NftActivityAnalytics {
-    fn from(value: OutputDiffTracker<T>) -> Self {
+impl<T: std::hash::Hash + Eq> From<OutputDeltas<T>> for NftActivityAnalytics {
+    fn from(value: OutputDeltas<T>) -> Self {
         Self {
             created_count: value.created.len() as _,
             transferred_count: value.transferred.len() as _,
@@ -154,15 +123,15 @@ impl<T: std::hash::Hash + Eq> From<OutputDiffTracker<T>> for NftActivityAnalytic
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct AliasDiffTracker {
+pub struct AliasDeltas {
     pub created: HashMap<AliasId, u32>,
     pub governor_changed: HashMap<AliasId, u32>,
     pub state_changed: HashMap<AliasId, u32>,
     pub destroyed: HashMap<AliasId, u32>,
 }
 
-impl From<AliasDiffTracker> for AliasActivityAnalytics {
-    fn from(value: AliasDiffTracker) -> Self {
+impl From<AliasDeltas> for AliasActivityAnalytics {
+    fn from(value: AliasDeltas) -> Self {
         Self {
             created_count: value.created.len() as _,
             governor_changed_count: value.governor_changed.len() as _,
@@ -196,13 +165,12 @@ pub struct AnalyticsProcessor {
     removed_storage_deposits: LedgerSizeAnalytics,
     removed_unlock_conditions: UnlockConditionAnalytics,
     removed_balances: HashMap<Address, d128>,
-    spent_aliases: HashMap<AliasId, u32>,
 }
 
 impl AnalyticsProcessor {
     /// Process a protocol parameter update.
-    pub fn process_protocol_params(&mut self, params: Option<ProtocolParameters>) {
-        self.analytics.protocol_params = params;
+    pub fn process_protocol_params(&mut self, params: ProtocolParameters) {
+        self.analytics.protocol_params.replace(params);
     }
 
     /// Process a batch of created outputs.
@@ -256,8 +224,10 @@ impl AnalyticsProcessor {
                     self.analytics.aliases.created.remove(&alias.alias_id);
                     self.analytics.aliases.governor_changed.remove(&alias.alias_id);
                     self.analytics.aliases.state_changed.remove(&alias.alias_id);
-                    self.analytics.aliases.destroyed.remove(&alias.alias_id);
-                    self.spent_aliases.insert(alias.alias_id, alias.state_index);
+                    self.analytics
+                        .aliases
+                        .destroyed
+                        .insert(alias.alias_id, alias.state_index);
                 }
                 _ => (),
             }
@@ -304,7 +274,6 @@ impl AnalyticsProcessor {
                         .or_else(|| self.analytics.aliases.governor_changed.remove(&alias.alias_id))
                         .or_else(|| self.analytics.aliases.state_changed.remove(&alias.alias_id))
                         .or_else(|| self.analytics.aliases.destroyed.remove(&alias.alias_id))
-                        .or_else(|| self.spent_aliases.remove(&alias.alias_id))
                     {
                         if alias.state_index == spent_state {
                             self.analytics
