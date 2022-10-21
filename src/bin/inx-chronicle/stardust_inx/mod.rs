@@ -94,9 +94,9 @@ impl InxWorker {
         info!("Connected to INX.");
 
         // Request the node status so we can get the pruning index and latest confirmed milestone
-        let node_status = loop { 
+        let node_status = loop {
             match inx.read_node_status().await {
-                Ok(node_status) =>  break node_status,
+                Ok(node_status) => break node_status,
                 Err(InxError::MissingField(_)) => {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
