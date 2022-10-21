@@ -70,6 +70,13 @@ impl InfluxDb {
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.payload_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.transaction_activity),
+            async {
+                if let Some(protocol_params) = analytics.protocol_params {
+                    self.insert_analytics(milestone_timestamp, milestone_index, protocol_params)
+                        .await?;
+                }
+                Ok(())
+            }
         )?;
         Ok(())
     }

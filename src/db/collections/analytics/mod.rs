@@ -39,7 +39,7 @@ pub struct Analytics {
     pub payload_activity: PayloadActivityAnalytics,
     pub transaction_activity: TransactionActivityAnalytics,
     pub unlock_conditions: UnlockConditionAnalytics,
-    pub protocol_params: ProtocolParameters,
+    pub protocol_params: Option<ProtocolParameters>,
 }
 
 impl Default for Analytics {
@@ -57,7 +57,7 @@ impl Default for Analytics {
             payload_activity: Default::default(),
             transaction_activity: Default::default(),
             unlock_conditions: Default::default(),
-            protocol_params: iota_types::block::protocol::protocol_parameters().into(),
+            protocol_params: Default::default(),
         }
     }
 }
@@ -109,8 +109,7 @@ impl MongoDb {
             protocol_params: protocol_param_collection
                 .get_protocol_parameters_for_ledger_index(milestone_index)
                 .await?
-                .map(|p| p.parameters)
-                .unwrap_or_else(|| iota_types::block::protocol::protocol_parameters().into()),
+                .map(|p| p.parameters),
         })
     }
 }
@@ -199,7 +198,7 @@ pub struct AnalyticsProcessor {
 
 impl AnalyticsProcessor {
     /// Process a protocol parameter update.
-    pub fn process_protocol_params(&mut self, params: ProtocolParameters) {
+    pub fn process_protocol_params(&mut self, params: Option<ProtocolParameters>) {
         self.analytics.protocol_params = params;
     }
 

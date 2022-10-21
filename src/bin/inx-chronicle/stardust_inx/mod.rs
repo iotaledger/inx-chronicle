@@ -357,12 +357,22 @@ impl InxWorker {
 
         let params: ProtocolParameters = parameters.into();
 
+        let last_params = self
+            .db
+            .collection::<ProtocolUpdateCollection>()
+            .get_latest_protocol_parameters()
+            .await?
+            .map(|d| d.parameters);
+
         self.db
             .collection::<ProtocolUpdateCollection>()
             .update_latest_protocol_parameters(milestone_index, params.clone())
             .await?;
 
-        analytics.lock().await.process_protocol_params(params);
+        analytics
+            .lock()
+            .await
+            .process_protocol_params((Some(&params) != last_params.as_ref()).then_some(params));
 
         Ok(())
     }
