@@ -6,7 +6,7 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::{collections::NodeConfigurationCollection, MongoDbCollectionExt},
+        db::{collections::ConfigurationUpdateCollection, MongoDbCollectionExt},
         types::node::{BaseToken, NodeConfiguration},
     };
 
@@ -15,7 +15,7 @@ mod test_rand {
     #[tokio::test]
     async fn test_node_configuration() {
         let db = setup_database("test-node-configuration").await.unwrap();
-        let node_configuration = setup_collection::<NodeConfigurationCollection>(&db).await.unwrap();
+        let node_configuration = setup_collection::<ConfigurationUpdateCollection>(&db).await.unwrap();
 
         let mut config = NodeConfiguration {
             base_token: BaseToken {
@@ -30,7 +30,7 @@ mod test_rand {
         assert_eq!(node_configuration.count().await.unwrap(), 0);
 
         node_configuration
-            .update_node_configuration(config.clone())
+            .update_latest_node_configuration(0.into(), config.clone())
             .await
             .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
@@ -40,19 +40,23 @@ mod test_rand {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.base_token.ticker_symbol, "SMR");
+        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
 
         node_configuration
-            .update_node_configuration(config.clone())
+            .upsert_node_configuration(0.into(), latest_config.config.clone())
             .await
             .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
+        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
 
         config.base_token.ticker_symbol = "SHI".to_string();
         config.base_token.unit = "suSHI".to_string();
         config.base_token.subunit = "rice".to_string();
 
-        node_configuration.update_node_configuration(config).await.unwrap();
+        node_configuration
+            .upsert_node_configuration(0.into(), config)
+            .await
+            .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
 
         let latest_config = node_configuration
@@ -60,12 +64,12 @@ mod test_rand {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.base_token.name, "Shimmer");
-        assert_eq!(&latest_config.base_token.ticker_symbol, "SHI");
-        assert_eq!(&latest_config.base_token.unit, "suSHI");
-        assert_eq!(&latest_config.base_token.subunit, "rice");
-        assert_eq!(latest_config.base_token.decimals, 6);
-        assert!(!latest_config.base_token.use_metric_prefix);
+        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
+        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SHI");
+        assert_eq!(&latest_config.config.base_token.unit, "suSHI");
+        assert_eq!(&latest_config.config.base_token.subunit, "rice");
+        assert_eq!(latest_config.config.base_token.decimals, 6);
+        assert!(!latest_config.config.base_token.use_metric_prefix);
 
         teardown(db).await;
     }

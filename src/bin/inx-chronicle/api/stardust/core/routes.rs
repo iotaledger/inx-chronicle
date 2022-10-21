@@ -12,8 +12,9 @@ use axum::{
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, MilestoneCollection, NodeConfigurationCollection, OutputCollection, OutputMetadataResult,
-            OutputWithMetadataResult, ProtocolUpdateCollection, TreasuryCollection, UtxoChangesResult,
+            BlockCollection, ConfigurationUpdateCollection, MilestoneCollection, OutputCollection,
+            OutputMetadataResult, OutputWithMetadataResult, ProtocolUpdateCollection, TreasuryCollection,
+            UtxoChangesResult,
         },
         MongoDb,
     },
@@ -159,12 +160,13 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
     };
 
     let base_token = database
-        .collection::<NodeConfigurationCollection>()
+        .collection::<ConfigurationUpdateCollection>()
         .get_latest_node_configuration()
         .await?
         .ok_or(ApiError::Internal(InternalApiError::CorruptState(
             "no node configuration in the database",
         )))?
+        .config
         .base_token;
 
     Ok(InfoResponse {

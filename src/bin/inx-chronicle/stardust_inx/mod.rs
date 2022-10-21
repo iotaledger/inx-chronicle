@@ -9,8 +9,8 @@ use std::{sync::Arc, time::Duration};
 use chronicle::{
     db::{
         collections::{
-            Analytics, AnalyticsProcessor, BlockCollection, LedgerUpdateCollection, MilestoneCollection,
-            NodeConfigurationCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            Analytics, AnalyticsProcessor, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
+            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         InfluxDb, MongoDb,
     },
@@ -158,8 +158,8 @@ impl InxWorker {
         );
 
         self.db
-            .collection::<NodeConfigurationCollection>()
-            .update_node_configuration(node_configuration.into())
+            .collection::<ConfigurationUpdateCollection>()
+            .update_latest_node_configuration(node_status.ledger_index, node_configuration.into())
             .await?;
 
         if let Some(latest) = self
@@ -345,7 +345,7 @@ impl InxWorker {
 
         self.handle_cone_stream(inx, &analytics, milestone_index).await?;
         self.handle_protocol_params(inx, milestone_index).await?;
-        self.handle_node_configuration(inx).await?;
+        self.handle_node_configuration(inx, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.handle_milestone(
@@ -384,12 +384,16 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, level = "trace")]
-    async fn handle_node_configuration(&self, inx: &mut Inx) -> Result<(), InxWorkerError> {
+    async fn handle_node_configuration(
+        &self,
+        inx: &mut Inx,
+        milestone_index: MilestoneIndex,
+    ) -> Result<(), InxWorkerError> {
         let node_configuration = inx.read_node_configuration().await?;
 
         self.db
-            .collection::<NodeConfigurationCollection>()
-            .update_node_configuration(node_configuration.into())
+            .collection::<ConfigurationUpdateCollection>()
+            .update_latest_node_configuration(milestone_index, node_configuration.into())
             .await?;
 
         Ok(())
