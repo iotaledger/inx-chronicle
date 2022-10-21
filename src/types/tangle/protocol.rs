@@ -7,7 +7,7 @@ use iota_types::block as iota;
 use serde::{Deserialize, Serialize};
 
 /// Parameters relevant to byte cost calculations.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RentStructure {
     pub v_byte_cost: u32,
     pub v_byte_factor_data: u8,

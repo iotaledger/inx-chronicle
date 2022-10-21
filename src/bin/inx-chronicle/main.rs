@@ -79,7 +79,11 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
-        let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
+        info!("Connecting to influx database at address `{}`", config.influxdb.url);
+        let influx_db = chronicle::db::InfluxDb::connect(&config.influxdb).await?;
+        info!("Connected to influx database `{}`", influx_db.database_name());
+
+        let mut worker = stardust_inx::InxWorker::new(&db, &influx_db, &config.inx);
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {

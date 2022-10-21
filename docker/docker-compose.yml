@@ -14,6 +14,19 @@ services:
     ports:
       - 27017:27017
 
+  influx:
+    image: influxdb:1.8
+    container_name: influx
+    volumes:
+      - ./data/chronicle/influxdb:/var/lib/influxdb
+    environment:
+      - INFLUXDB_DB=chronicle_analytics
+      - INFLUXDB_ADMIN_USER=root
+      - INFLUXDB_ADMIN_PASSWORD=password
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
+    ports:
+      - 8086:8086
+      
   inx-chronicle:
     container_name: inx-chronicle
     depends_on: [mongo, hornet]
@@ -28,12 +41,10 @@ services:
       - RUST_LOG=warn,inx_chronicle=debug
     tty: true
     command:
-      - "-c"
-      - "config.toml"
-      - "--inx-addr"
-      - "http://hornet:9029"
-      - "--mongodb-conn-str"
-      - "mongodb://mongo:27017"
+      - "--config=config.toml"
+      - "--inx-addr=http://hornet:9029"
+      - "--mongodb-conn-str=mongodb://mongo:27017"
+      - "--influxdb-url=http://influx:8086"
     volumes:
       - ../config.template.toml:/app/config.toml:ro
 

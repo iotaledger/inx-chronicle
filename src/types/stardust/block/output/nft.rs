@@ -18,7 +18,7 @@ use super::{
 use crate::types::{context::TryFromWithContext, util::bytify};
 
 /// Uniquely identifies an NFT.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct NftId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 

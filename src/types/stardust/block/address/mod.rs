@@ -16,7 +16,7 @@ mod nft;
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
 /// The different [`Address`] types supported by the network.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Address {
     /// An Ed25519 address.
