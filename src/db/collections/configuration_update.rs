@@ -65,8 +65,13 @@ impl ConfigurationUpdateCollection {
         config: NodeConfiguration,
     ) -> Result<(), Error> {
         if let Some(latest_config) = self.get_node_configuration_for_ledger_index(ledger_index).await? {
-            if latest_config.ledger_index == ledger_index && latest_config.config != config {
-                self.replace_one(doc! {}, ConfigurationUpdateDocument { ledger_index, config }, None)
+            if latest_config.ledger_index == ledger_index {
+                if latest_config.config != config {
+                    self.replace_one(doc! {}, ConfigurationUpdateDocument { ledger_index, config }, None)
+                        .await?;
+                }
+            } else {
+                self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
                     .await?;
             }
         } else {
