@@ -160,7 +160,7 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/ledger/richest-addresses:
+  /api/explorer/v2/ledger/richest-addresses:
     get:
       tags:
         - ledger
@@ -186,7 +186,7 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
-  /api/analytics/v2/ledger/token-distribution:
+  /api/explorer/v2/ledger/token-distribution:
     get:
       tags:
         - ledger
