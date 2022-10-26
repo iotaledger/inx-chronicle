@@ -26,7 +26,7 @@ use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 pub use self::{config::InxConfig, error::InxWorkerError};
 
 /// Batch size for insert operations.
-pub const INSERT_BATCH_SIZE: usize = 10000;
+pub const INSERT_BATCH_SIZE: usize = 1000;
 
 pub struct InxWorker {
     db: MongoDb,
