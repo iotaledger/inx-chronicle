@@ -344,17 +344,12 @@ impl InxWorker {
         let db = self.db.clone();
         let influx_db = self.influx_db.clone();
         tokio::spawn(async move {
-            tokio::select! {
-                analytics = db.get_all_analytics(milestone_index) => {
-                    influx_db
-                        .insert_all_analytics(milestone_timestamp, milestone_index, analytics?)
-                        .await?;
-                    tracing::debug!("Finished analytics for milestone: {}", milestone_index);
-                },
-                _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {
-                    tracing::warn!("Abandoned analytics for milestone: {}", milestone_index);
-                }
-            }
+            let analytics = db.get_all_analytics(milestone_index).await?;
+            influx_db
+                .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                .await?;
+
+            tracing::debug!("Finished analytics for milestone: {}", milestone_index);
 
             Result::<_, InxWorkerError>::Ok(())
         });
