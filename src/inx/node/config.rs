@@ -4,7 +4,11 @@
 use inx::proto;
 use iota_types::block as iota;
 
-use crate::{inx::InxError, maybe_missing};
+use crate::{
+    inx::InxError,
+    maybe_missing,
+    types::node::{BaseToken, NodeConfiguration},
+};
 
 /// The [`BaseTokenMessage`] type.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -110,6 +114,21 @@ impl From<NodeConfigurationMessage> for proto::NodeConfiguration {
                 .into_iter()
                 .map(|v| v as _)
                 .collect(),
+        }
+    }
+}
+
+impl From<NodeConfigurationMessage> for NodeConfiguration {
+    fn from(value: NodeConfigurationMessage) -> Self {
+        Self {
+            base_token: BaseToken {
+                name: value.base_token.name,
+                ticker_symbol: value.base_token.ticker_symbol,
+                unit: value.base_token.unit,
+                subunit: value.base_token.subunit,
+                decimals: value.base_token.decimals,
+                use_metric_prefix: value.base_token.use_metric_prefix,
+            },
         }
     }
 }

@@ -14,6 +14,7 @@ pub struct InfoResponse {
     pub version: String,
     pub status: iota::StatusResponse,
     pub protocol: iota::ProtocolResponse,
+    pub base_token: iota::BaseTokenResponse,
 }
 
 impl_success_response!(InfoResponse);

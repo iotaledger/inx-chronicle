@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! TODO
+//! Module that holds the entry point of the Chronicle application.
 
 /// Module containing the API.
 #[cfg(feature = "api")]
