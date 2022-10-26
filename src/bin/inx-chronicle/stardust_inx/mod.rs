@@ -349,10 +349,10 @@ impl InxWorker {
                     influx_db
                         .insert_all_analytics(milestone_timestamp, milestone_index, analytics?)
                         .await?;
-                    tracing::info!("Finished analytics for milestone: {}", milestone_index);
+                    tracing::debug!("Finished analytics for milestone: {}", milestone_index);
                 },
                 _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {
-                    tracing::info!("Abandoned analytics for milestone: {}", milestone_index);
+                    tracing::warn!("Abandoned analytics for milestone: {}", milestone_index);
                 }
             }
 
