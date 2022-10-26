@@ -23,12 +23,12 @@ pub use self::indexer::{
     AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, IndexedId, NftOutputsQuery, OutputsResult,
 };
 use super::analytics::{
-    AddressActivityAnalytics, AliasDeltas, BaseTokenActivityAnalytics, ClaimedTokensAnalytics, LedgerOutputAnalytics,
-    LedgerSizeAnalytics, OutputDeltas, UnlockConditionAnalytics,
+    AddressActivityAnalytics, AddressAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
+    ClaimedTokensAnalytics, FoundryActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics,
+    UnlockConditionAnalytics,
 };
 use crate::{
     db::{
-        collections::analytics::AddressBalances,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -529,17 +529,17 @@ impl OutputCollection {
 
     /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_nft_output_tracker(&self, index: MilestoneIndex) -> Result<OutputDeltas<NftId>, Error> {
+    pub async fn get_nft_output_analytics(&self, index: MilestoneIndex) -> Result<NftActivityAnalytics, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
         let (start_state, end_state) =
             tokio::try_join!(self.get_unique_nft_ids(index - 1), self.get_unique_nft_ids(index))?;
 
-        Ok(OutputDeltas {
-            created: end_state.difference(&start_state).copied().collect(),
-            transferred: start_state.intersection(&end_state).copied().collect(),
-            destroyed: start_state.difference(&end_state).copied().collect(),
+        Ok(NftActivityAnalytics {
+            created_count: end_state.difference(&start_state).copied().count() as _,
+            transferred_count: start_state.intersection(&end_state).copied().count() as _,
+            destroyed_count: start_state.difference(&end_state).copied().count() as _,
         })
     }
 
@@ -573,7 +573,7 @@ impl OutputCollection {
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_foundry_output_tracker(&self, index: MilestoneIndex) -> Result<OutputDeltas<FoundryId>, Error> {
+    pub async fn get_foundry_output_analytics(&self, index: MilestoneIndex) -> Result<FoundryActivityAnalytics, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
@@ -581,24 +581,24 @@ impl OutputCollection {
             self.get_unique_foundry_ids(index - 1),
             self.get_unique_foundry_ids(index)
         )?;
-        Ok(OutputDeltas {
-            created: end_state.difference(&start_state).copied().collect(),
-            transferred: start_state.intersection(&end_state).copied().collect(),
-            destroyed: start_state.difference(&end_state).copied().collect(),
+        Ok(FoundryActivityAnalytics {
+            created_count: end_state.difference(&start_state).copied().count() as _,
+            transferred_count: start_state.intersection(&end_state).copied().count() as _,
+            destroyed_count: start_state.difference(&end_state).copied().count() as _,
         })
     }
 
     /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasDeltas, Error> {
+    pub async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasActivityAnalytics, Error> {
         if index == 0 {
             return Ok(Default::default());
         }
         let (start_state, end_state) =
             tokio::try_join!(self.get_unique_alias_ids(index - 1), self.get_unique_alias_ids(index))?;
 
-        Ok(AliasDeltas {
-            created: end_state
+        Ok(AliasActivityAnalytics {
+            created_count: end_state
                 .iter()
                 .filter_map(|(end_id, end_state)| {
                     if start_state.get(end_id).is_some() {
@@ -607,8 +607,8 @@ impl OutputCollection {
                         Some((*end_id, *end_state))
                     }
                 })
-                .collect(),
-            governor_changed: start_state
+                .count() as _,
+            governor_changed_count: start_state
                 .iter()
                 .filter_map(|(start_id, start_state)| {
                     if let Some(end_state) = end_state.get(start_id) {
@@ -621,8 +621,8 @@ impl OutputCollection {
                         None
                     }
                 })
-                .collect(),
-            state_changed: start_state
+                .count() as _,
+            state_changed_count: start_state
                 .iter()
                 .filter_map(|(start_id, start_state)| {
                     if let Some(end_state) = end_state.get(start_id) {
@@ -635,8 +635,8 @@ impl OutputCollection {
                         None
                     }
                 })
-                .collect(),
-            destroyed: start_state
+                .count() as _,
+            destroyed_count: start_state
                 .iter()
                 .filter_map(|(start_id, start_state)| {
                     if end_state.get(start_id).is_some() {
@@ -645,7 +645,7 @@ impl OutputCollection {
                         Some((*start_id, *start_state))
                     }
                 })
-                .collect(),
+                .count() as _,
         })
     }
 
@@ -798,15 +798,9 @@ impl OutputCollection {
 
     /// Get ledger address analytics.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_address_balances(&self, ledger_index: MilestoneIndex) -> Result<AddressBalances, Error> {
-        #[derive(Deserialize)]
-        struct Res {
-            address: Address,
-            balance: d128,
-        }
-
-        let balances = self
-            .aggregate::<Res>(
+    pub async fn get_address_analytics(&self, ledger_index: MilestoneIndex) -> Result<AddressAnalytics, Error> {
+        Ok(self
+            .aggregate(
                 vec![
                     doc! { "$match": {
                         "details.address": { "$exists": true },
@@ -818,20 +812,21 @@ impl OutputCollection {
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
-                        "balance": { "$sum": { "$toDecimal": "$output.amount" } }
+                    }},
+                    doc! { "$group" : {
+                        "_id": null,
+                        "address_with_balance_count": { "$sum": 1 }
                     }},
                     doc! { "$project": {
-                        "address": "$_id",
-                        "balance": { "$toString": "$balance" }
+                        "address_with_balance_count": "$address_with_balance_count"
                     } },
                 ],
                 None,
             )
             .await?
-            .map_ok(|res| (res.address, res.balance))
-            .try_collect()
-            .await?;
-        Ok(AddressBalances { balances })
+            .try_next()
+            .await?
+            .unwrap_or_default())
     }
 }
 
