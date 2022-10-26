@@ -43,28 +43,12 @@ impl InfluxDb {
     ) -> Result<(), influxdb::Error> {
         tokio::try_join!(
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.address_activity),
-            self.insert_analytics(
-                milestone_timestamp,
-                milestone_index,
-                AddressAnalytics::from(analytics.addresses)
-            ),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.addresses),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
-            self.insert_analytics(
-                milestone_timestamp,
-                milestone_index,
-                AliasActivityAnalytics::from(analytics.aliases)
-            ),
-            self.insert_analytics(
-                milestone_timestamp,
-                milestone_index,
-                FoundryActivityAnalytics::from(analytics.native_tokens)
-            ),
-            self.insert_analytics(
-                milestone_timestamp,
-                milestone_index,
-                NftActivityAnalytics::from(analytics.nfts)
-            ),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.aliases),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.native_tokens),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.nfts),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.storage_deposits),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.claimed_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.payload_activity),
