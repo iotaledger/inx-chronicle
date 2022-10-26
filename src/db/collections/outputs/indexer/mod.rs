@@ -86,10 +86,7 @@ impl OutputCollection {
                     doc! { "$match": {
                         id_string: id,
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "$or": [
-                            { "metadata.spent_metadata": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                        ]
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
                     doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
                 ],
@@ -136,10 +133,7 @@ impl OutputCollection {
         let mut additional_queries = vec![doc! { "metadata.booked.milestone_index": { "$lte": ledger_index } }];
         if !include_spent {
             additional_queries.push(doc! {
-                "$or": [
-                    { "metadata.spent_metadata": null },
-                    { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                ]
+                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
             });
         }
         if let Some((start_ms, start_output_id)) = cursor {
@@ -181,12 +175,7 @@ impl OutputCollection {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "output.kind": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_kind_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
-                        .build(),
-                )
+                .options(IndexOptions::builder().name("output_kind_index".to_string()).build())
                 .build(),
             None,
         )
@@ -200,7 +189,6 @@ impl OutputCollection {
                         .name("output_alias_id_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.alias_id": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -217,7 +205,6 @@ impl OutputCollection {
                         .name("output_foundry_id_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.foundry_id": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -234,7 +221,6 @@ impl OutputCollection {
                         .name("output_nft_id_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.nft_id": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -251,7 +237,6 @@ impl OutputCollection {
                         .name("output_address_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.address_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -268,7 +253,6 @@ impl OutputCollection {
                         .name("output_storage_deposit_return_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.storage_deposit_return_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -285,7 +269,6 @@ impl OutputCollection {
                         .name("output_timelock_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.timelock_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -302,7 +285,6 @@ impl OutputCollection {
                         .name("output_expiration_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.expiration_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -319,7 +301,6 @@ impl OutputCollection {
                         .name("output_state_controller_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.state_controller_address_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -336,7 +317,6 @@ impl OutputCollection {
                         .name("output_governor_address_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.governor_address_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -353,7 +333,6 @@ impl OutputCollection {
                         .name("output_immutable_alias_address_unlock_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.immutable_alias_address_unlock_condition": { "$exists": true },
-                            "metadata.spent_metadata": null
                         })
                         .build(),
                 )
@@ -365,12 +344,7 @@ impl OutputCollection {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "output.features": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_feature_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
-                        .build(),
-                )
+                .options(IndexOptions::builder().name("output_feature_index".to_string()).build())
                 .build(),
             None,
         )
@@ -382,7 +356,6 @@ impl OutputCollection {
                 .options(
                     IndexOptions::builder()
                         .name("output_native_tokens_index".to_string())
-                        .partial_filter_expression(doc! { "metadata.spent_metadata": null })
                         .build(),
                 )
                 .build(),
@@ -392,26 +365,13 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.booked.milestone_index": -1 })
+                .keys(doc! {
+                    "metadata.booked.milestone_index": -1,
+                    "metadata.spent_metadata.spent.milestone_index": -1
+                })
                 .options(
                     IndexOptions::builder()
-                        .name("output_booked_milestone_index".to_string())
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "metadata.spent_metadata.spent.milestone_index": -1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_spent_milestone_index".to_string())
-                        .partial_filter_expression(
-                            doc! { "metadata.spent_metadata.spent.milestone_index": { "$exists": true } },
-                        )
+                        .name("output_milestone_indexes".to_string())
                         .build(),
                 )
                 .build(),

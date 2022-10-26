@@ -339,10 +339,7 @@ impl OutputCollection {
                     doc! { "$match": {
                         "details.address": &address,
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                        ]
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
                     doc! { "$group": {
                         "_id": null,
@@ -451,10 +448,7 @@ impl OutputCollection {
                         doc! { "$match": {
                             "output.kind": kind,
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "$or": [
-                                { "metadata.spent_metadata.spent": null },
-                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                            ],
+                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                         } },
                         doc! { "$group" : {
                             "_id": null,
@@ -510,10 +504,7 @@ impl OutputCollection {
                 doc! { "$match": {
                     "output.kind": "nft",
                     "metadata.booked.milestone_index": { "$lte": index },
-                    "$or": [
-                        { "metadata.spent_metadata.spent": null },
-                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
-                    ],
+                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } }
                 } },
                 doc! { "$project": {
                     "id": "$output.nft_id"
@@ -554,10 +545,7 @@ impl OutputCollection {
                 doc! { "$match": {
                     "output.kind": "foundry",
                     "metadata.booked.milestone_index": { "$lte": index },
-                    "$or": [
-                        { "metadata.spent_metadata.spent": null },
-                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
-                    ],
+                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } }
                 } },
                 doc! { "$project": {
                     "id": "$output.foundry_id"
@@ -661,10 +649,7 @@ impl OutputCollection {
                 doc! { "$match": {
                     "output.kind": "alias",
                     "metadata.booked.milestone_index": { "$lte": index },
-                    "$or": [
-                        { "metadata.spent_metadata.spent": null },
-                        { "metadata.spent_metadata.spent.milestone_index": { "$gt": index } },
-                    ],
+                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } }
                 } },
                 doc! { "$project": {
                     "id": "$output.alias_id",
@@ -689,10 +674,7 @@ impl OutputCollection {
                 vec![
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                        ],
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
                     doc! { "$group" : {
                         "_id": null,
@@ -805,10 +787,7 @@ impl OutputCollection {
                     doc! { "$match": {
                         "details.address": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                        ],
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
@@ -871,10 +850,7 @@ impl OutputCollection {
                     doc! { "$match": {
                         "details.address": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                        ]
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
@@ -904,10 +880,7 @@ impl OutputCollection {
                     doc! { "$match": {
                         "details.address": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "$or": [
-                            { "metadata.spent_metadata.spent": null },
-                            { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                        ]
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",
@@ -989,10 +962,7 @@ impl OutputCollection {
                         doc! { "$match": {
                             format!("output.{kind}"): { "$exists": true },
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "$or": [
-                                { "metadata.spent_metadata.spent": null },
-                                { "metadata.spent_metadata.spent.milestone_index": { "$gt": ledger_index } },
-                            ]
+                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                         } },
                         doc! { "$group": {
                             "_id": null,
