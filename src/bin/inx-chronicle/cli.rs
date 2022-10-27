@@ -15,21 +15,29 @@ pub struct ClArgs {
     /// The location of the configuration file.
     #[arg(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
-    /// The MongoDB connection string.
-    #[arg(long = "mongodb.conn-str", env = "MONGODB_CONN_STR")]
-    pub mongodb_conn_str: Option<String>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long = "influxdb.url", env = "INFLUXDB_URL")]
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub influxdb_url: Option<String>,
-    /// The address of the INX interface provided by the node.
-    #[arg(long = "inx.url", env = "INX_URL")]
-    #[cfg(feature = "inx")]
-    pub inx_url: Option<String>,
     /// Toggle INX write workflow.
     #[arg(long = "inx.enabled", env = "INX_ENABLED")]
     #[cfg(feature = "inx")]
     pub enable_inx: Option<bool>,
+    /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
+    #[arg(long = "inx.sync-start", env = "SYNC_START")]
+    #[cfg(feature = "inx")]
+    pub sync_start: Option<u32>,
+    /// The address of the INX interface provided by the node.
+    #[arg(long = "inx.url", env = "INX_URL")]
+    #[cfg(feature = "inx")]
+    pub inx_url: Option<String>,
+    /// The MongoDB connection string.
+    #[arg(long = "mongodb.conn-str", env = "MONGODB_CONN_STR")]
+    pub mongodb_conn_str: Option<String>,
+    /// Toggle REST API.
+    #[arg(long = "rest-api.enabled", env = "REST_API_ENABLED")]
+    #[cfg(feature = "api")]
+    pub enable_api: Option<bool>,
     /// The location of the identity file for JWT auth.
     #[arg(long = "rest-api.jwt.identity", env = "JWT_IDENTITY_PATH")]
     #[cfg(feature = "api")]
@@ -38,11 +46,7 @@ pub struct ClArgs {
     #[arg(long = "rest-api.jwt.password")]
     #[cfg(feature = "api")]
     pub password: Option<String>,
-    /// Toggle REST API.
-    #[arg(long = "rest-api.enabled", env = "REST_API_ENABLED")]
-    #[cfg(feature = "api")]
-    pub enable_api: Option<bool>,
-    /// Toggle the metrics server.
+    /// Toggle the prometheus server.
     #[arg(long = "prometheus.enabled", env = "PROMETHEUS_ENABLED")]
     pub enable_metrics: Option<bool>,
     /// Subcommands.
@@ -74,6 +78,9 @@ impl ClArgs {
             }
             if let Some(url) = &self.influxdb_url {
                 config.influxdb.url = url.clone();
+            }
+            if let Some(sync_start) = self.sync_start {
+                config.inx.sync_start_milestone = sync_start.into();
             }
         }
 
