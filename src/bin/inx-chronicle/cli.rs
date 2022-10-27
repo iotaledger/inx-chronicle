@@ -16,34 +16,34 @@ pub struct ClArgs {
     #[arg(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
     /// The MongoDB connection string.
-    #[arg(long, env = "MONGODB_CONN_STR")]
+    #[arg(long = "mongodb.conn-str", env = "MONGODB_CONN_STR")]
     pub mongodb_conn_str: Option<String>,
     /// The url pointing to an InfluxDb instance.
-    #[arg(long, env = "INFLUXDB_URL")]
+    #[arg(long = "influxdb.url", env = "INFLUXDB_URL")]
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub influxdb_url: Option<String>,
     /// The address of the INX interface provided by the node.
-    #[arg(long, env = "INX_ADDR")]
+    #[arg(long = "inx.url", env = "INX_URL")]
     #[cfg(feature = "inx")]
-    pub inx_addr: Option<String>,
+    pub inx_url: Option<String>,
     /// Toggle INX write workflow.
-    #[arg(long, env = "INX")]
+    #[arg(long = "inx.enabled", env = "INX_ENABLED")]
     #[cfg(feature = "inx")]
     pub enable_inx: Option<bool>,
     /// The location of the identity file for JWT auth.
-    #[arg(long, env = "JWT_IDENTITY_PATH")]
+    #[arg(long = "rest-api.jwt.identity", env = "JWT_IDENTITY_PATH")]
     #[cfg(feature = "api")]
     pub identity_path: Option<String>,
     /// The password used for JWT authentication.
-    #[arg(long)]
+    #[arg(long = "rest-api.jwt.password")]
     #[cfg(feature = "api")]
     pub password: Option<String>,
     /// Toggle REST API.
-    #[arg(long, env = "API")]
+    #[arg(long = "rest-api.enabled", env = "REST_API_ENABLED")]
     #[cfg(feature = "api")]
     pub enable_api: Option<bool>,
     /// Toggle the metrics server.
-    #[arg(long, env = "METRICS")]
+    #[arg(long = "prometheus.enabled", env = "PROMETHEUS_ENABLED")]
     pub enable_metrics: Option<bool>,
     /// Subcommands.
     #[command(subcommand)]
@@ -66,7 +66,7 @@ impl ClArgs {
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
-            if let Some(connect_url) = &self.inx_addr {
+            if let Some(connect_url) = &self.inx_url {
                 config.inx.connect_url = connect_url.clone();
             }
             if let Some(enabled) = self.enable_inx {
