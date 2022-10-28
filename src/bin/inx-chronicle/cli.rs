@@ -20,7 +20,7 @@ pub struct ClArgs {
     pub mongodb_conn_str: Option<String>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
-    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[cfg(feature = "influxdb")]
     pub influxdb_url: Option<String>,
     /// The address of the INX interface provided by the node.
     #[arg(long, env = "INX_ADDR")]
