@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-#[cfg(feature = "inx")]
+#[cfg(feature = "influxdb")]
 mod influx;
 
 use decimal::d128;

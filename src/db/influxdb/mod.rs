@@ -65,6 +65,8 @@ pub struct InfluxDbConfig {
     pub password: String,
     /// The name of the database to connect to.
     pub database_name: String,
+    /// Whether to enable influx writes.
+    pub enabled: bool,
 }
 
 impl Default for InfluxDbConfig {
@@ -74,6 +76,7 @@ impl Default for InfluxDbConfig {
             database_name: "chronicle_analytics".to_string(),
             username: "root".to_string(),
             password: "password".to_string(),
+            enabled: true,
         }
     }
 }

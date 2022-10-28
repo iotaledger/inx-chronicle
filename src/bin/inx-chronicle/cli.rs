@@ -72,9 +72,11 @@ impl ClArgs {
             if let Some(enabled) = self.enable_inx {
                 config.inx.enabled = enabled;
             }
-            if let Some(url) = &self.influxdb_url {
-                config.influxdb.url = url.clone();
-            }
+        }
+
+        #[cfg(feature = "influxdb")]
+        if let Some(url) = &self.influxdb_url {
+            config.influxdb.url = url.clone();
         }
 
         #[cfg(feature = "api")]
