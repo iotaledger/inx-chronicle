@@ -20,7 +20,7 @@ pub struct ClArgs {
     pub mongodb_conn_str: Option<String>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
-    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[cfg(feature = "influxdb")]
     pub influxdb_url: Option<String>,
     /// The address of the INX interface provided by the node.
     #[arg(long, env = "INX_ADDR")]
@@ -72,9 +72,11 @@ impl ClArgs {
             if let Some(enabled) = self.enable_inx {
                 config.inx.enabled = enabled;
             }
-            if let Some(url) = &self.influxdb_url {
-                config.influxdb.url = url.clone();
-            }
+        }
+
+        #[cfg(feature = "influxdb")]
+        if let Some(url) = &self.influxdb_url {
+            config.influxdb.url = url.clone();
         }
 
         #[cfg(feature = "api")]

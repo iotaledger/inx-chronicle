@@ -23,7 +23,7 @@ pub enum ConfigError {
 #[serde(default)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
-    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[cfg(feature = "influxdb")]
     pub influxdb: chronicle::db::InfluxDbConfig,
     #[cfg(feature = "api")]
     pub api: crate::api::ApiConfig,

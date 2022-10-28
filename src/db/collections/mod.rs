@@ -23,7 +23,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub use self::{
-    analytics::{Analytics, AnalyticsProcessor},
+    analytics::Analytics,
     block::BlockCollection,
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},

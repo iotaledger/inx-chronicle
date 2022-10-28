@@ -8,6 +8,7 @@ use thiserror::Error;
 pub enum InxWorkerError {
     #[error("failed to establish connection")]
     ConnectionError,
+    #[cfg(feature = "influxdb")]
     #[error("InfluxDb error: {0}")]
     InfluxDb(#[from] influxdb::Error),
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]

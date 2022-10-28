@@ -90,6 +90,7 @@ rand = { version = "0.8", default-features = false, features = [ "std" ] }
 [features]
 default = [ 
     "api",
+    "influxdb",
     "inx",
     "stardust",
 ]
@@ -113,7 +114,6 @@ api = [
     "stardust",
 ]
 inx = [ 
-    "dep:influxdb",
     "dep:inx",
     "dep:packable",
     "dep:tonic",

@@ -4,15 +4,15 @@
 mod config;
 mod error;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use chronicle::{
     db::{
         collections::{
-            Analytics, AnalyticsProcessor, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
-            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
+            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
-        InfluxDb, MongoDb,
+        MongoDb,
     },
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
@@ -22,18 +22,18 @@ use chronicle::{
     },
 };
 use futures::{StreamExt, TryStreamExt};
-use tokio::{sync::Mutex, task::JoinSet, try_join};
+use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
 
 /// Batch size for insert operations.
-pub const INSERT_BATCH_SIZE: usize = 10000;
+pub const INSERT_BATCH_SIZE: usize = 1000;
 
 pub struct InxWorker {
     db: MongoDb,
-    influx_db: InfluxDb,
-    analytics: Option<Analytics>,
+    #[cfg(feature = "influxdb")]
+    influx_db: Option<chronicle::db::InfluxDb>,
     config: InxConfig,
 }
 
@@ -43,11 +43,15 @@ const METRIC_MILESTONE_SYNC_TIME: &str = "milestone_sync_time";
 
 impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
-    pub fn new(db: &MongoDb, influx_db: &InfluxDb, inx_config: &InxConfig) -> Self {
+    pub fn new(
+        db: &MongoDb,
+        #[cfg(feature = "influxdb")] influx_db: Option<&chronicle::db::InfluxDb>,
+        inx_config: &InxConfig,
+    ) -> Self {
         Self {
             db: db.clone(),
-            influx_db: influx_db.clone(),
-            analytics: None,
+            #[cfg(feature = "influxdb")]
+            influx_db: influx_db.cloned(),
             config: inx_config.clone(),
         }
     }
@@ -255,17 +259,6 @@ impl InxWorker {
             "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
         );
 
-        let mut analytics = Analytics::default();
-        let prev_analytics = match self.analytics.take() {
-            Some(res) => res,
-            None => self.db.get_all_analytics(milestone_index - 1).await?,
-        };
-
-        // Only want to accumulate some of the analytics.
-        analytics.storage_deposits = prev_analytics.storage_deposits;
-        analytics.unspent_outputs = prev_analytics.unspent_outputs;
-        let analytics = Arc::new(Mutex::new(analytics.processor()));
-
         let mut tasks = JoinSet::new();
         let mut actual_created_count = 0;
         let mut actual_consumed_count = 0;
@@ -283,11 +276,7 @@ impl InxWorker {
             // Convert batches to tasks
             .try_fold(&mut tasks, |tasks, batch| async {
                 let db = self.db.clone();
-                let analytics = analytics.clone();
-                tasks.spawn(async move {
-                    analytics.lock().await.process_consumed_outputs(&batch);
-                    update_spent_outputs(&db, &batch).await
-                });
+                tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
                 Result::<_, InxWorkerError>::Ok(tasks)
             })
             .await?;
@@ -305,11 +294,7 @@ impl InxWorker {
             // Convert batches to tasks
             .try_fold(&mut tasks, |tasks, batch| async {
                 let db = self.db.clone();
-                let analytics = analytics.clone();
-                tasks.spawn(async move {
-                    analytics.lock().await.process_created_outputs(&batch);
-                    insert_unspent_outputs(&db, &batch).await
-                });
+                tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
                 Result::<_, InxWorkerError>::Ok(tasks)
             })
             .await?;
@@ -343,18 +328,12 @@ impl InxWorker {
         tracing::Span::current().record("created", created_count);
         tracing::Span::current().record("consumed", consumed_count);
 
-        self.handle_cone_stream(inx, &analytics, milestone_index).await?;
+        self.handle_cone_stream(inx, milestone_index).await?;
         self.handle_protocol_params(inx, milestone_index).await?;
         self.handle_node_configuration(inx, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        self.handle_milestone(
-            inx,
-            milestone_index,
-            // Panic: Cannot fail as all other references are held by the tasks and we await them above.
-            Arc::try_unwrap(analytics).unwrap().into_inner().finish(),
-        )
-        .await?;
+        self.handle_milestone(inx, milestone_index).await?;
 
         let elapsed = start_time.elapsed();
 
@@ -400,23 +379,28 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn handle_milestone(
-        &mut self,
-        inx: &mut Inx,
-        milestone_index: MilestoneIndex,
-        analytics: Analytics,
-    ) -> Result<(), InxWorkerError> {
+    async fn handle_milestone(&mut self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWorkerError> {
         let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
 
-        self.influx_db
-            .insert_all_analytics(milestone_timestamp, milestone_index, analytics.clone())
-            .await?;
+        #[cfg(feature = "influxdb")]
+        if let Some(influx_db) = &self.influx_db {
+            let db = self.db.clone();
+            let influx_db = influx_db.clone();
+            tokio::spawn(async move {
+                let analytics = db.get_all_analytics(milestone_index).await?;
+                influx_db
+                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                    .await?;
 
-        self.analytics.replace(analytics);
+                tracing::debug!("Finished analytics for milestone: {}", milestone_index);
+
+                Result::<_, InxWorkerError>::Ok(())
+            });
+        }
 
         let milestone_id = milestone
             .milestone_info
@@ -442,11 +426,10 @@ impl InxWorker {
         Ok(())
     }
 
-    #[instrument(skip(self), err, level = "trace")]
+    #[instrument(skip(self, inx), err, level = "trace")]
     async fn handle_cone_stream(
         &mut self,
         inx: &mut Inx,
-        analytics: &Arc<Mutex<AnalyticsProcessor>>,
         milestone_index: MilestoneIndex,
     ) -> Result<(), InxWorkerError> {
         let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
@@ -465,7 +448,6 @@ impl InxWorker {
             .map_err(|e| e.1)
             .try_fold(JoinSet::new(), |mut tasks, batch| async {
                 let db = self.db.clone();
-                let analytics = analytics.clone();
                 tasks.spawn(async move {
                     let payloads = batch
                         .iter()
@@ -487,10 +469,6 @@ impl InxWorker {
                             .insert_treasury_payloads(payloads)
                             .await?;
                     }
-                    analytics
-                        .lock()
-                        .await
-                        .process_blocks(batch.iter().map(|(_, block, _, metadata)| (block, metadata)));
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;
