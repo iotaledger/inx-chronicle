@@ -17,7 +17,7 @@ pub struct ClArgs {
     pub config: Option<String>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long = "influxdb.url", env = "INFLUXDB_URL")]
-    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[cfg(feature = "influxdb")]
     pub influxdb_url: Option<String>,
     /// Toggle INX write workflow.
     #[arg(long = "inx.enabled", env = "INX_ENABLED")]
@@ -76,12 +76,14 @@ impl ClArgs {
             if let Some(enabled) = self.enable_inx {
                 config.inx.enabled = enabled;
             }
-            if let Some(url) = &self.influxdb_url {
-                config.influxdb.url = url.clone();
-            }
             if let Some(sync_start) = self.sync_start {
                 config.inx.sync_start_milestone = sync_start.into();
             }
+        }
+
+        #[cfg(feature = "influxdb")]
+        if let Some(url) = &self.influxdb_url {
+            config.influxdb.url = url.clone();
         }
 
         #[cfg(feature = "api")]

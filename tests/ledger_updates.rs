@@ -208,10 +208,10 @@ mod test_rand {
         let spent_outputs = unspent_outputs
             .into_iter()
             .enumerate()
-            .filter_map(|(i, unspent_output)| {
+            .filter_map(|(i, output)| {
                 if i % 2 == 0 {
                     Some(LedgerSpent {
-                        output: unspent_output,
+                        output,
                         spent_metadata: SpentMetadata {
                             transaction_id: OutputId::rand().transaction_id,
                             spent: MilestoneIndexTimestamp {

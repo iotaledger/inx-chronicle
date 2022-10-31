@@ -13,7 +13,7 @@ use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, Nat
 use crate::types::{context::TryFromWithContext, util::bytify};
 
 /// The id of a foundry.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct FoundryId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
