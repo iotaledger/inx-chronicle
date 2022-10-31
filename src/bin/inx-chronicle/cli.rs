@@ -16,38 +16,38 @@ pub struct ClArgs {
     #[arg(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
     /// The url pointing to an InfluxDb instance.
-    #[arg(long = "influxdb.url", env = "INFLUXDB_URL")]
+    #[arg(long = "db-influx-url", env = "INFLUXDB_URL")]
     #[cfg(feature = "influxdb")]
     pub influxdb_url: Option<String>,
+    /// The MongoDB connection string.
+    #[arg(long = "db-mongo-conn-str", env = "MONGODB_CONN_STR")]
+    pub mongodb_conn_str: Option<String>,
     /// Toggle INX write workflow.
-    #[arg(long = "inx.enabled", env = "INX_ENABLED")]
+    #[arg(long = "inx-enabled", env = "INX_ENABLED")]
     #[cfg(feature = "inx")]
     pub enable_inx: Option<bool>,
-    /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
-    #[arg(long = "inx.sync-start", env = "SYNC_START")]
-    #[cfg(feature = "inx")]
-    pub sync_start: Option<u32>,
     /// The address of the INX interface provided by the node.
-    #[arg(long = "inx.url", env = "INX_URL")]
+    #[arg(long = "inx-url", env = "INX_URL")]
     #[cfg(feature = "inx")]
     pub inx_url: Option<String>,
-    /// The MongoDB connection string.
-    #[arg(long = "mongodb.conn-str", env = "MONGODB_CONN_STR")]
-    pub mongodb_conn_str: Option<String>,
+    /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
+    #[arg(long = "inx-sync-start", env = "SYNC_START")]
+    #[cfg(feature = "inx")]
+    pub sync_start: Option<u32>,
     /// Toggle REST API.
-    #[arg(long = "rest-api.enabled", env = "REST_API_ENABLED")]
+    #[arg(long = "api-enabled", env = "REST_API_ENABLED")]
     #[cfg(feature = "api")]
     pub enable_api: Option<bool>,
     /// The location of the identity file for JWT auth.
-    #[arg(long = "rest-api.jwt.identity", env = "JWT_IDENTITY_PATH")]
+    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
     #[cfg(feature = "api")]
     pub identity_path: Option<String>,
     /// The password used for JWT authentication.
-    #[arg(long = "rest-api.jwt.password")]
+    #[arg(long = "api-jwt-password")]
     #[cfg(feature = "api")]
     pub password: Option<String>,
     /// Toggle the prometheus server.
-    #[arg(long = "prometheus.enabled", env = "PROMETHEUS_ENABLED")]
+    #[arg(long = "metrics-prometheus-enabled", env = "PROMETHEUS_ENABLED")]
     pub enable_metrics: Option<bool>,
     /// Subcommands.
     #[command(subcommand)]
