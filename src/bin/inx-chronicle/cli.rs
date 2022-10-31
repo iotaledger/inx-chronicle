@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use clap::{Parser, Subcommand};
+use clap::{ArgGroup, Args, Parser, Subcommand};
 
 use crate::{
     config::{ChronicleConfig, ConfigError},
@@ -15,43 +15,90 @@ pub struct ClArgs {
     /// The location of the configuration file.
     #[arg(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
-    /// The url pointing to an InfluxDb instance.
-    #[arg(long = "db-influx-url", env = "INFLUXDB_URL")]
+    /// Rest API arguments.
+    #[cfg(feature = "api")]
+    #[command(flatten)]
+    pub api: ApiArgs,
+    /// InfluxDb arguments.
     #[cfg(feature = "influxdb")]
-    pub influxdb_url: Option<String>,
-    /// The MongoDB connection string.
-    #[arg(long = "db-mongo-conn-str", env = "MONGODB_CONN_STR")]
-    pub mongodb_conn_str: Option<String>,
-    /// Toggle INX write workflow.
-    #[arg(long = "inx-enabled", env = "INX_ENABLED")]
+    #[command(flatten)]
+    pub influxdb: InfluxDbArgs,
+    /// INX arguments.
     #[cfg(feature = "inx")]
-    pub enable_inx: Option<bool>,
-    /// The address of the INX interface provided by the node.
-    #[arg(long = "inx-url", env = "INX_URL")]
-    #[cfg(feature = "inx")]
-    pub inx_url: Option<String>,
-    /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
-    #[arg(long = "inx-sync-start", env = "SYNC_START")]
-    #[cfg(feature = "inx")]
-    pub sync_start: Option<u32>,
-    /// Toggle REST API.
-    #[arg(long = "api-enabled", env = "REST_API_ENABLED")]
-    #[cfg(feature = "api")]
-    pub enable_api: Option<bool>,
-    /// The location of the identity file for JWT auth.
-    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
-    #[cfg(feature = "api")]
-    pub identity_path: Option<String>,
-    /// The password used for JWT authentication.
-    #[arg(long = "api-jwt-password")]
-    #[cfg(feature = "api")]
-    pub password: Option<String>,
-    /// Toggle the prometheus server.
-    #[arg(long = "metrics-prometheus-enabled", env = "PROMETHEUS_ENABLED")]
-    pub enable_metrics: Option<bool>,
+    #[command(flatten)]
+    pub inx: InxArgs,
+    /// Metrics arguments.
+    #[command(flatten)]
+    pub metrics: MetricsArgs,
+    /// MongoDb arguments.
+    #[command(flatten)]
+    pub mongodb: MongoDbArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
+}
+
+#[cfg(feature = "api")]
+#[derive(Args, Debug)]
+#[command(group = ArgGroup::new("api"))]
+pub struct ApiArgs {
+    /// Toggle REST API.
+    #[arg(long = "api-enabled", env = "REST_API_ENABLED", group = "api")]
+    pub api_enabled: Option<bool>,
+    /// JWT arguments.
+    #[command(flatten)]
+    pub jwt: JwtArgs,
+}
+
+#[derive(Args, Debug)]
+#[command(group = ArgGroup::new("jwt"))]
+pub struct JwtArgs {
+    /// The location of the identity file for JWT auth.
+    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH", group = "jwt")]
+    pub identity_path: Option<String>,
+    /// The password used for JWT authentication.
+    #[arg(long = "api-jwt-password", group = "jwt")]
+    pub password: Option<String>,
+}
+
+#[cfg(feature = "inx")]
+#[derive(Args, Debug)]
+#[command(group = ArgGroup::new("inx"))]
+pub struct InxArgs {
+    /// Toggle INX write workflow.
+    #[arg(long = "inx-enabled", env = "INX_ENABLED", group = "inx")]
+    pub inx_enabled: Option<bool>,
+    /// The address of the INX interface provided by the node.
+    #[arg(long = "inx-url", env = "INX_URL", group = "inx")]
+    pub inx_url: Option<String>,
+    /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
+    #[arg(long = "inx-sync-start", env = "SYNC_START", group = "inx")]
+    pub sync_start: Option<u32>,
+}
+
+#[derive(Args, Debug)]
+#[command(group = ArgGroup::new("mongodb"))]
+pub struct MongoDbArgs {
+    /// The MongoDB connection string.
+    #[arg(long = "mongodb-conn-str", env = "MONGODB_CONN_STR", group = "mongodb")]
+    pub conn_str: Option<String>,
+}
+
+#[cfg(feature = "influxdb")]
+#[derive(Args, Debug)]
+#[command(group = ArgGroup::new("influxdb"))]
+pub struct InfluxDbArgs {
+    /// The url pointing to an InfluxDb instance.
+    #[arg(long = "influxdb-url", env = "INFLUXDB_URL", group = "influxdb")]
+    pub influxdb_url: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(group = ArgGroup::new("metrics"))]
+pub struct MetricsArgs {
+    /// Toggle the prometheus server.
+    #[arg(long = "metrics-prometheus-enabled", env = "PROMETHEUS_ENABLED", group = "metrics")]
+    pub prometheus_enabled: Option<bool>,
 }
 
 impl ClArgs {
@@ -64,31 +111,31 @@ impl ClArgs {
             .transpose()?
             .unwrap_or_default();
 
-        if let Some(conn_str) = &self.mongodb_conn_str {
+        if let Some(conn_str) = &self.mongodb.conn_str {
             config.mongodb.conn_str = conn_str.clone();
         }
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
-            if let Some(connect_url) = &self.inx_url {
+            if let Some(connect_url) = &self.inx.inx_url {
                 config.inx.connect_url = connect_url.clone();
             }
-            if let Some(enabled) = self.enable_inx {
+            if let Some(enabled) = self.inx.inx_enabled {
                 config.inx.enabled = enabled;
             }
-            if let Some(sync_start) = self.sync_start {
+            if let Some(sync_start) = self.inx.sync_start {
                 config.inx.sync_start_milestone = sync_start.into();
             }
         }
 
         #[cfg(feature = "influxdb")]
-        if let Some(url) = &self.influxdb_url {
+        if let Some(url) = &self.influxdb.influxdb_url {
             config.influxdb.url = url.clone();
         }
 
         #[cfg(feature = "api")]
         {
-            if let Some(password) = &self.password {
+            if let Some(password) = &self.api.jwt.password {
                 config.api.password_hash = hex::encode(
                     argon2::hash_raw(
                         password.as_bytes(),
@@ -99,15 +146,15 @@ impl ClArgs {
                     .expect("invalid JWT config"),
                 );
             }
-            if let Some(path) = &self.identity_path {
+            if let Some(path) = &self.api.jwt.identity_path {
                 config.api.identity_path.replace(path.clone());
             }
-            if let Some(enabled) = self.enable_api {
+            if let Some(enabled) = self.api.api_enabled {
                 config.api.enabled = enabled;
             }
         }
 
-        if let Some(enabled) = self.enable_metrics {
+        if let Some(enabled) = self.metrics.prometheus_enabled {
             config.metrics.enabled = enabled;
         }
 
