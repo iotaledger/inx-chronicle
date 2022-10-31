@@ -29,9 +29,9 @@ services:
     tty: true
     command:
       - "--config=config.toml"
-      - "--inx.url=http://hornet:9029"
-      - "--mongodb.conn-str=mongodb://mongo:27017"
-      - "--influxdb.url=http://influx:8086"
+      - "--inx-url=http://hornet:9029"
+      - "--mongodb-conn-str=mongodb://mongo:27017"
+      - "--influxdb-url=http://influx:8086"
     volumes:
       - ../config.template.toml:/app/config.toml:ro
 
