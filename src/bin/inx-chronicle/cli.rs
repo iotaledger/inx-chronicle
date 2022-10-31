@@ -40,10 +40,10 @@ pub struct ClArgs {
 
 #[cfg(feature = "api")]
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("api"))]
+#[command(group = ArgGroup::new("api").args(["api_enabled"]))]
 pub struct ApiArgs {
     /// Toggle REST API.
-    #[arg(long = "api-enabled", env = "REST_API_ENABLED", group = "api")]
+    #[arg(long = "api-enabled", env = "REST_API_ENABLED")]
     pub api_enabled: Option<bool>,
     /// JWT arguments.
     #[command(flatten)]
@@ -51,53 +51,53 @@ pub struct ApiArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("jwt"))]
+#[command(group = ArgGroup::new("jwt").args(["identity_path", "password"]))]
 pub struct JwtArgs {
     /// The location of the identity file for JWT auth.
-    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH", group = "jwt")]
+    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
     pub identity_path: Option<String>,
     /// The password used for JWT authentication.
-    #[arg(long = "api-jwt-password", group = "jwt")]
+    #[arg(long = "api-jwt-password")]
     pub password: Option<String>,
 }
 
 #[cfg(feature = "inx")]
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("inx"))]
+#[command(group = ArgGroup::new("inx").args(["inx_enabled", "inx_url", "sync_start"]))]
 pub struct InxArgs {
     /// Toggle INX write workflow.
-    #[arg(long = "inx-enabled", env = "INX_ENABLED", group = "inx")]
+    #[arg(long = "inx-enabled", env = "INX_ENABLED")]
     pub inx_enabled: Option<bool>,
     /// The address of the INX interface provided by the node.
-    #[arg(long = "inx-url", env = "INX_URL", group = "inx")]
+    #[arg(long = "inx-url", env = "INX_URL")]
     pub inx_url: Option<String>,
     /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
-    #[arg(long = "inx-sync-start", env = "SYNC_START", group = "inx")]
+    #[arg(long = "inx-sync-start", env = "SYNC_START")]
     pub sync_start: Option<u32>,
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("mongodb"))]
+#[command(group = ArgGroup::new("mongodb").args(["conn_str"]))]
 pub struct MongoDbArgs {
     /// The MongoDB connection string.
-    #[arg(long = "mongodb-conn-str", env = "MONGODB_CONN_STR", group = "mongodb")]
+    #[arg(long = "mongodb-conn-str", env = "MONGODB_CONN_STR")]
     pub conn_str: Option<String>,
 }
 
 #[cfg(feature = "influxdb")]
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("influxdb"))]
+#[command(group = ArgGroup::new("influxdb").args(["influxdb_url"]))]
 pub struct InfluxDbArgs {
     /// The url pointing to an InfluxDb instance.
-    #[arg(long = "influxdb-url", env = "INFLUXDB_URL", group = "influxdb")]
+    #[arg(long = "influxdb-url", env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("metrics"))]
+#[command(group = ArgGroup::new("metrics").args(["prometheus_enabled"]))]
 pub struct MetricsArgs {
     /// Toggle the prometheus server.
-    #[arg(long = "metrics-prometheus-enabled", env = "PROMETHEUS_ENABLED", group = "metrics")]
+    #[arg(long = "prometheus-enabled", env = "PROMETHEUS_ENABLED")]
     pub prometheus_enabled: Option<bool>,
 }
 
