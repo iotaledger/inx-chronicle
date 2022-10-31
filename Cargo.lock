@@ -1261,7 +1261,7 @@ dependencies = [
 [[package]]
 name = "iota-pow"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/iotaledger/iota.rs#f9efaf6384d93d9f08d81be6043923f2b13cd4dd"
+source = "git+https://github.com/iotaledger/iota.rs#6f3f9a7f1b448bdf59bd0634ad822f43d5706fb1"
 dependencies = [
  "iota-crypto",
  "thiserror",
@@ -1270,7 +1270,7 @@ dependencies = [
 [[package]]
 name = "iota-types"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/iotaledger/iota.rs#f9efaf6384d93d9f08d81be6043923f2b13cd4dd"
+source = "git+https://github.com/iotaledger/iota.rs#6f3f9a7f1b448bdf59bd0634ad822f43d5706fb1"
 dependencies = [
  "bech32",
  "bitflags",
