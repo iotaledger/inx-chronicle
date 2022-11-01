@@ -32,14 +32,11 @@ use tracing::info;
 use self::routes::routes;
 pub use self::{
     config::{ApiConfig, ApiData},
-    error::{ApiError, ConfigError},
+    error::{ApiError, ApiResult, AuthError, ConfigError},
     secret_key::SecretKey,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
-
-/// The result of a request to the api
-pub type ApiResult<T> = Result<T, ApiError>;
 
 /// The Chronicle API actor
 #[derive(Debug)]

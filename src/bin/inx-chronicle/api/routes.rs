@@ -21,11 +21,11 @@ use time::{Duration, OffsetDateTime};
 use super::{
     auth::Auth,
     config::ApiData,
-    error::ApiError,
+    error::{ApiError, MissingError, UnimplementedError},
     extractors::ListRoutesQuery,
     responses::RoutesResponse,
     router::{RouteNode, Router},
-    ApiResult,
+    ApiResult, AuthError,
 };
 
 const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
@@ -59,27 +59,22 @@ struct LoginInfo {
 async fn login(
     Json(LoginInfo { password }): Json<LoginInfo>,
     Extension(config): Extension<ApiData>,
-) -> Result<String, ApiError> {
+) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
         config.password_salt.as_bytes(),
         &config.password_hash,
         Into::into(&config.argon_config),
-    )
-    .map_err(ApiError::internal)?
-    {
+    )? {
         let jwt = JsonWebToken::new(
-            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)
-                .map_err(ApiError::internal)?
-                .expires_after_duration(config.jwt_expiration)
-                .map_err(ApiError::internal)?,
+            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)?
+                .expires_after_duration(config.jwt_expiration)?,
             config.secret_key.as_ref(),
-        )
-        .map_err(ApiError::internal)?;
+        )?;
 
         Ok(format!("Bearer {}", jwt))
     } else {
-        Err(ApiError::IncorrectPassword)
+        Err(ApiError::new(AuthError::IncorrectPassword))
     }
 }
 
@@ -116,7 +111,7 @@ async fn list_routes(
                 .validate_nbf(true),
             config.secret_key.as_ref(),
         )
-        .map_err(ApiError::InvalidJwt)?;
+        .map_err(AuthError::InvalidJwt)?;
 
         root.list_routes(None, depth)
     } else {
@@ -138,8 +133,7 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
         let newest = match database
             .collection::<MilestoneCollection>()
             .get_newest_milestone()
-            .await
-            .map_err(ApiError::internal)?
+            .await?
         {
             Some(last) => last,
             None => return Ok(false),
@@ -154,8 +148,8 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
 }
 
 pub async fn health(database: Extension<MongoDb>) -> StatusCode {
-    let handle_error = |e| {
-        tracing::error!("An error occured during health check: {e}");
+    let handle_error = |ApiError { error, .. }| {
+        tracing::error!("An error occured during health check: {error}");
         false
     };
 
@@ -166,10 +160,10 @@ pub async fn health(database: Extension<MongoDb>) -> StatusCode {
     }
 }
 
-pub async fn not_found() -> ApiError {
-    ApiError::NotFound
+pub async fn not_found() -> MissingError {
+    MissingError::NotFound
 }
 
-pub async fn not_implemented() -> ApiError {
-    ApiError::NotImplemented
+pub async fn not_implemented() -> UnimplementedError {
+    UnimplementedError
 }

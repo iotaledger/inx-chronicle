@@ -9,7 +9,7 @@ use axum::{
 use chronicle::types::tangle::MilestoneIndex;
 use serde::Deserialize;
 
-use crate::api::{config::ApiData, ApiError};
+use crate::api::{config::ApiData, error::RequestError, ApiError};
 
 const DEFAULT_TOP_RICHLIST: usize = 100;
 
@@ -36,10 +36,8 @@ impl<B: Send> FromRequest<B> for RichestAddressesQuery {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(mut query) = Query::<RichestAddressesQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(ApiError::internal)?;
+            .map_err(ApiError::bad_request)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
         query.top = query.top.min(config.max_page_size);
         Ok(query)
     }
@@ -58,7 +56,7 @@ impl<B: Send> FromRequest<B> for LedgerIndex {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<LedgerIndex>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
+            .map_err(ApiError::bad_request)?;
         Ok(query)
     }
 }
@@ -77,9 +75,9 @@ impl<B: Send> FromRequest<B> for MilestoneRange {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(MilestoneRange { start_index, end_index }) = Query::<MilestoneRange>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
+            .map_err(ApiError::bad_request)?;
         if matches!((start_index, end_index), (Some(start), Some(end)) if end < start) {
-            return Err(ApiError::BadTimeRange);
+            return Err(ApiError::new(RequestError::BadTimeRange));
         }
         Ok(MilestoneRange { start_index, end_index })
     }

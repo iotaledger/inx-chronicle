@@ -9,7 +9,7 @@ use axum::{
     Extension, TypedHeader,
 };
 
-use super::{config::ApiData, ApiError};
+use super::{config::ApiData, ApiError, AuthError};
 
 pub struct Auth;
 
@@ -21,9 +21,7 @@ impl<B: Send> FromRequest<B> for Auth {
         // Unwrap: <OriginalUri as FromRequest>::Rejection = Infallable
         let OriginalUri(uri) = OriginalUri::from_request(req).await.unwrap();
 
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(ApiError::internal)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         if config.public_routes.is_match(&uri.to_string()) {
             return Ok(Auth);
@@ -39,7 +37,7 @@ impl<B: Send> FromRequest<B> for Auth {
                 .validate_nbf(true),
             config.secret_key.as_ref(),
         )
-        .map_err(ApiError::InvalidJwt)?;
+        .map_err(AuthError::InvalidJwt)?;
 
         Ok(Auth)
     }

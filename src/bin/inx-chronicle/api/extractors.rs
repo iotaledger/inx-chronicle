@@ -33,10 +33,8 @@ impl<B: Send> FromRequest<B> for Pagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(mut pagination) = Query::<Pagination>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(ApiError::internal)?;
+            .map_err(ApiError::bad_request)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
@@ -55,7 +53,7 @@ impl<B: Send> FromRequest<B> for ListRoutesQuery {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<ListRoutesQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
+            .map_err(ApiError::bad_request)?;
         Ok(query)
     }
 }
@@ -72,6 +70,7 @@ mod stardust {
     use chronicle::types::stardust::milestone::MilestoneTimestamp;
 
     use super::*;
+    use crate::api::error::RequestError;
 
     #[derive(Copy, Clone)]
     pub struct TimeRange {
@@ -89,9 +88,9 @@ mod stardust {
                 end_timestamp,
             }) = Query::<TimeRangeQuery>::from_request(req)
                 .await
-                .map_err(ApiError::QueryError)?;
+                .map_err(ApiError::bad_request)?;
             if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
-                return Err(ApiError::BadTimeRange);
+                Err(RequestError::BadTimeRange)?;
             }
             let time_range = TimeRange {
                 start_timestamp: start_timestamp.map(Into::into),

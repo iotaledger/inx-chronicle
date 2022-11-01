@@ -28,7 +28,11 @@ use super::{
         TokenDistributionResponse,
     },
 };
-use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
+use crate::api::{
+    error::{CorruptStateError, MissingError},
+    router::Router,
+    ApiError, ApiResult,
+};
 
 pub fn routes() -> Router {
     Router::new()
@@ -73,8 +77,7 @@ async fn address_activity_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_address_analytics(start_index, end_index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(AddressAnalyticsResponse {
         total_active_addresses: res.total_active_addresses.to_string(),
@@ -87,13 +90,12 @@ async fn milestone_activity_analytics(
     database: Extension<MongoDb>,
     Path(milestone_index): Path<String>,
 ) -> ApiResult<MilestoneAnalyticsResponse> {
-    let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_parse)?;
+    let index = MilestoneIndex::from_str(&milestone_index).map_err(ApiError::bad_request)?;
 
     let activity = database
         .collection::<BlockCollection>()
         .get_milestone_activity(index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.num_blocks,
@@ -116,22 +118,20 @@ async fn milestone_activity_analytics_by_id(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
 ) -> ApiResult<MilestoneAnalyticsResponse> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_request)?;
 
     let index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
-        .await
-        .map_err(ApiError::internal)?
-        .ok_or(ApiError::NotFound)?
+        .await?
+        .ok_or(MissingError::NotFound)?
         .essence
         .index;
 
     let activity = database
         .collection::<BlockCollection>()
         .get_milestone_activity(index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(MilestoneAnalyticsResponse {
         blocks_count: activity.num_blocks,
@@ -157,8 +157,7 @@ async fn output_activity_analytics<O: OutputKind>(
     let res = database
         .collection::<OutputCollection>()
         .get_output_analytics::<O>(start_index, end_index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -173,9 +172,8 @@ async fn unspent_output_ledger_analytics<O: OutputKind>(
     let res = database
         .collection::<OutputCollection>()
         .get_unspent_output_analytics::<O>(resolve_ledger_index(&database, ledger_index).await?)
-        .await
-        .map_err(ApiError::internal)?
-        .ok_or(ApiError::NoResults)?;
+        .await?
+        .ok_or(MissingError::NoResults)?;
 
     Ok(OutputAnalyticsResponse {
         count: res.count.to_string(),
@@ -191,15 +189,13 @@ async fn storage_deposit_ledger_analytics(
     let protocol_params = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
-        .await
-        .map_err(ApiError::internal)?
-        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no protocol parameters")))?
+        .await?
+        .ok_or(CorruptStateError::NoProtocolParams)?
         .parameters;
     let res = database
         .collection::<OutputCollection>()
         .get_storage_deposit_analytics(ledger_index, protocol_params)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(StorageDepositAnalyticsResponse {
         output_count: res.output_count.to_string(),
@@ -224,8 +220,7 @@ async fn nft_activity_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_nft_output_analytics(start_index, end_index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),
@@ -241,8 +236,7 @@ async fn native_token_activity_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_foundry_output_analytics(start_index, end_index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(OutputDiffAnalyticsResponse {
         created_count: res.created_count.to_string(),
@@ -259,15 +253,13 @@ async fn richest_addresses_ledger_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_richest_addresses(ledger_index, top)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     let hrp = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
-        .await
-        .map_err(ApiError::internal)?
-        .ok_or_else(|| ApiError::internal(InternalApiError::CorruptState("no protocol parameters")))?
+        .await?
+        .ok_or(CorruptStateError::NoProtocolParams)?
         .parameters
         .bech32_hrp;
 
@@ -292,8 +284,7 @@ async fn token_distribution_ledger_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_token_distribution(ledger_index)
-        .await
-        .map_err(ApiError::internal)?;
+        .await?;
 
     Ok(TokenDistributionResponse {
         distribution: res.distribution.into_iter().map(Into::into).collect(),
@@ -310,9 +301,8 @@ async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<Milestone
         database
             .collection::<MilestoneCollection>()
             .get_ledger_index()
-            .await
-            .map_err(ApiError::internal)?
-            .ok_or(ApiError::NoResults)?
+            .await?
+            .ok_or(MissingError::NoResults)?
     })
 }
 
@@ -323,9 +313,8 @@ async fn claimed_tokens_analytics(
     let res = database
         .collection::<OutputCollection>()
         .get_claimed_token_analytics(ledger_index)
-        .await
-        .map_err(ApiError::internal)?
-        .ok_or(ApiError::NoResults)?;
+        .await?
+        .ok_or(MissingError::NoResults)?;
 
     Ok(ClaimedTokensAnalyticsResponse { count: res.count })
 }

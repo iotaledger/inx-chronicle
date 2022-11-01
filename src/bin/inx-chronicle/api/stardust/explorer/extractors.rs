@@ -17,7 +17,7 @@ use chronicle::{
 };
 use serde::Deserialize;
 
-use crate::api::{config::ApiData, error::ParseError, ApiError, DEFAULT_PAGE_SIZE};
+use crate::api::{config::ApiData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LedgerUpdatesByAddressPagination {
@@ -50,12 +50,12 @@ impl FromStr for LedgerUpdatesByAddressCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [ms, o, sp, ps] => LedgerUpdatesByAddressCursor {
-                milestone_index: ms.parse().map_err(ApiError::bad_parse)?,
-                output_id: o.parse().map_err(ApiError::bad_parse)?,
-                is_spent: sp.parse().map_err(ApiError::bad_parse)?,
-                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+                milestone_index: ms.parse().map_err(ApiError::bad_request)?,
+                output_id: o.parse().map_err(ApiError::bad_request)?,
+                is_spent: sp.parse().map_err(ApiError::bad_request)?,
+                page_size: ps.parse().map_err(ApiError::bad_request)?,
             },
-            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+            _ => return Err(ApiError::new(RequestError::BadPagingState)),
         })
     }
 }
@@ -80,16 +80,14 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(ApiError::internal)?;
+            .map_err(ApiError::bad_request)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let sort = query
             .sort
             .as_deref()
             .map_or(Ok(Default::default()), str::parse)
-            .map_err(ParseError::SortOrder)?;
+            .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByAddressCursor = cursor.parse()?;
@@ -139,11 +137,11 @@ impl FromStr for LedgerUpdatesByMilestoneCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [o, sp, ps] => LedgerUpdatesByMilestoneCursor {
-                output_id: o.parse().map_err(ApiError::bad_parse)?,
-                is_spent: sp.parse().map_err(ApiError::bad_parse)?,
-                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+                output_id: o.parse().map_err(ApiError::bad_request)?,
+                is_spent: sp.parse().map_err(ApiError::bad_request)?,
+                page_size: ps.parse().map_err(ApiError::bad_request)?,
             },
-            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+            _ => return Err(ApiError::bad_request(RequestError::BadPagingState)),
         })
     }
 }
@@ -161,10 +159,8 @@ impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(ApiError::internal)?;
+            .map_err(ApiError::bad_request)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
@@ -211,10 +207,10 @@ impl FromStr for MilestonesCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [m, ps] => MilestonesCursor {
-                milestone_index: m.parse().map_err(ApiError::bad_parse)?,
-                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+                milestone_index: m.parse().map_err(ApiError::bad_request)?,
+                page_size: ps.parse().map_err(ApiError::bad_request)?,
             },
-            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+            _ => return Err(ApiError::bad_request(RequestError::BadPagingState)),
         })
     }
 }
@@ -232,20 +228,18 @@ impl<B: Send> FromRequest<B> for MilestonesPagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<MilestonesPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
-        let Extension(config) = Extension::<ApiData>::from_request(req)
-            .await
-            .map_err(ApiError::internal)?;
+            .map_err(ApiError::bad_request)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         if matches!((query.start_timestamp, query.end_timestamp), (Some(start), Some(end)) if end < start) {
-            return Err(ApiError::BadTimeRange);
+            return Err(ApiError::new(RequestError::BadTimeRange));
         }
 
         let sort = query
             .sort
             .as_deref()
             .map_or(Ok(Default::default()), str::parse)
-            .map_err(ParseError::SortOrder)?;
+            .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: MilestonesCursor = cursor.parse()?;
