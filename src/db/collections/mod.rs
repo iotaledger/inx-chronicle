@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+/// Module containing the time-series analytics model.
+pub mod analytics;
 /// Module containing the Block document model.
 mod block;
 /// Module containing the node configuration collection.
@@ -15,8 +17,6 @@ mod outputs;
 mod protocol_update;
 /// Module containing the treasury model.
 mod treasury;
-// Module containing the time-series analytics model.
-mod analytics;
 
 use std::str::FromStr;
 

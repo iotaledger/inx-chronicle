@@ -42,9 +42,6 @@ pub struct ClArgs {
     #[arg(long, env = "API")]
     #[cfg(feature = "api")]
     pub enable_api: Option<bool>,
-    /// Toggle the metrics server.
-    #[arg(long, env = "METRICS")]
-    pub enable_metrics: Option<bool>,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
@@ -98,10 +95,6 @@ impl ClArgs {
             if let Some(enabled) = self.enable_api {
                 config.api.enabled = enabled;
             }
-        }
-
-        if let Some(enabled) = self.enable_metrics {
-            config.metrics.enabled = enabled;
         }
 
         Ok(config)

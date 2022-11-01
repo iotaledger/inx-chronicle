@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[cfg(feature = "influxdb")]
-mod influx;
+/// Schema implementation for InfluxDb.
+pub mod influx;
 
 use decimal::d128;
 use futures::TryFutureExt;
@@ -93,6 +94,7 @@ impl MongoDb {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct AddressActivityAnalytics {
     /// The number of addresses used in the time period.
     pub total_count: u64,
@@ -120,6 +122,7 @@ pub struct UnlockConditionAnalytics {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct LedgerOutputAnalytics {
     pub basic_count: u64,
     pub basic_value: d128,
@@ -134,12 +137,14 @@ pub struct LedgerOutputAnalytics {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct LedgerSizeAnalytics {
     pub total_storage_deposit_value: d128,
     pub total_key_bytes: d128,
     pub total_data_bytes: d128,
 }
 
+#[allow(missing_docs)]
 impl LedgerSizeAnalytics {
     pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
         let rent_structure = protocol_params.rent_structure;
@@ -188,6 +193,7 @@ pub struct FoundryActivityAnalytics {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct PayloadActivityAnalytics {
     /// The number of blocks referenced by a milestone that contain a payload.
     pub transaction_count: u32,
@@ -202,6 +208,7 @@ pub struct PayloadActivityAnalytics {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct TransactionActivityAnalytics {
     /// The number of blocks containing a confirmed transaction.
     pub confirmed_count: u32,
@@ -209,4 +216,10 @@ pub struct TransactionActivityAnalytics {
     pub conflicting_count: u32,
     /// The number of blocks containing no transaction.
     pub no_transaction_count: u32,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct SyncAnalytics {
+    pub sync_time: u64,
 }

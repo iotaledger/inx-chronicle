@@ -17,7 +17,10 @@ use chronicle::{
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{Block, BlockId, Payload},
+        stardust::{
+            block::{Block, BlockId, Payload},
+            milestone::MilestoneTimestamp,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -36,10 +39,6 @@ pub struct InxWorker {
     influx_db: Option<chronicle::db::InfluxDb>,
     config: InxConfig,
 }
-
-const METRIC_MILESTONE_INDEX: &str = "milestone_index";
-const METRIC_MILESTONE_TIMESTAMP: &str = "milestone_timestamp";
-const METRIC_MILESTONE_SYNC_TIME: &str = "milestone_sync_time";
 
 impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
@@ -229,14 +228,6 @@ impl InxWorker {
                 .await?;
         }
 
-        metrics::describe_histogram!(
-            METRIC_MILESTONE_SYNC_TIME,
-            metrics::Unit::Seconds,
-            "the time it took to sync the last milestone"
-        );
-        metrics::describe_gauge!(METRIC_MILESTONE_INDEX, "the last milestone index");
-        metrics::describe_gauge!(METRIC_MILESTONE_TIMESTAMP, "the last milestone timestamp");
-
         Ok((start_index, inx))
     }
 
@@ -247,7 +238,8 @@ impl InxWorker {
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
     ) -> Result<(), InxWorkerError> {
-        let start_time = std::time::Instant::now();
+        #[cfg(feature = "influxdb")]
+        let start_time = self.influx_db.is_some().then(std::time::Instant::now);
 
         let MarkerMessage {
             milestone_index,
@@ -333,11 +325,24 @@ impl InxWorker {
         self.handle_node_configuration(inx, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        self.handle_milestone(inx, milestone_index).await?;
+        #[allow(unused)]
+        let milestone_timestamp = self.handle_milestone(inx, milestone_index).await?;
 
-        let elapsed = start_time.elapsed();
-
-        metrics::histogram!(METRIC_MILESTONE_SYNC_TIME, elapsed);
+        #[cfg(feature = "influxdb")]
+        if let Some(influx_db) = &self.influx_db {
+            use chronicle::db::collections::analytics;
+            // Unwrap: Safe because we checked above
+            let elapsed = start_time.unwrap().elapsed();
+            influx_db
+                .insert(analytics::influx::Schema {
+                    milestone_timestamp,
+                    milestone_index,
+                    analytics: analytics::SyncAnalytics {
+                        sync_time: elapsed.as_millis() as u64,
+                    },
+                })
+                .await?;
+        }
 
         Ok(())
     }
@@ -379,7 +384,11 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn handle_milestone(&mut self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<(), InxWorkerError> {
+    async fn handle_milestone(
+        &mut self,
+        inx: &mut Inx,
+        milestone_index: MilestoneIndex,
+    ) -> Result<MilestoneTimestamp, InxWorkerError> {
         let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
@@ -420,10 +429,7 @@ impl InxWorker {
             .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
             .await?;
 
-        metrics::gauge!(METRIC_MILESTONE_INDEX, milestone_index.0 as f64);
-        metrics::gauge!(METRIC_MILESTONE_TIMESTAMP, milestone_timestamp.0 as f64);
-
-        Ok(())
+        Ok(milestone_timestamp)
     }
 
     #[instrument(skip(self, inx), err, level = "trace")]

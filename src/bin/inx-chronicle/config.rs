@@ -29,7 +29,6 @@ pub struct ChronicleConfig {
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub inx: super::stardust_inx::InxConfig,
-    pub metrics: crate::metrics::MetricsConfig,
 }
 
 impl ChronicleConfig {

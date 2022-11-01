@@ -10,6 +10,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct Schema<A> {
     pub milestone_timestamp: MilestoneTimestamp,
     pub milestone_index: MilestoneIndex,
@@ -70,7 +71,7 @@ impl InfluxDbWriteable for Schema<AddressActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("total_count", self.analytics.total_count)
             .add_field("receiving_count", self.analytics.receiving_count)
             .add_field("sending_count", self.analytics.sending_count)
@@ -85,7 +86,7 @@ impl InfluxDbWriteable for Schema<AddressAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("address_with_balance_count", self.analytics.address_with_balance_count)
     }
 }
@@ -98,7 +99,7 @@ impl InfluxDbWriteable for Schema<LedgerOutputAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("basic_count", self.analytics.basic_count)
             .add_field(
                 "basic_value",
@@ -135,7 +136,7 @@ impl InfluxDbWriteable for Schema<BaseTokenActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field(
                 "transferred_value",
                 self.analytics.transferred_value.to_string().parse::<u64>().unwrap(),
@@ -151,7 +152,7 @@ impl InfluxDbWriteable for Schema<LedgerSizeAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field(
                 "total_storage_deposit_value",
                 self.analytics
@@ -179,7 +180,7 @@ impl InfluxDbWriteable for Schema<ClaimedTokensAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("claimed_count", self.analytics.claimed_count)
             .add_field(
                 "claimed_value",
@@ -196,7 +197,7 @@ impl InfluxDbWriteable for Schema<PayloadActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("transaction_count", self.analytics.transaction_count)
             .add_field("treasury_transaction_count", self.analytics.treasury_transaction_count)
             .add_field("milestone_count", self.analytics.milestone_count)
@@ -213,7 +214,7 @@ impl InfluxDbWriteable for Schema<TransactionActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("confirmed_count", self.analytics.confirmed_count)
             .add_field("conflicting_count", self.analytics.conflicting_count)
             .add_field("no_transaction_count", self.analytics.no_transaction_count)
@@ -228,7 +229,7 @@ impl InfluxDbWriteable for Schema<ProtocolParameters> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("token_supply", self.analytics.token_supply)
             .add_field("min_pow_score", self.analytics.min_pow_score)
             .add_field("below_max_depth", self.analytics.below_max_depth)
@@ -246,7 +247,7 @@ impl InfluxDbWriteable for Schema<AliasActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("created_count", self.analytics.created_count)
             .add_field("state_changed_count", self.analytics.state_changed_count)
             .add_field("governor_changed_count", self.analytics.governor_changed_count)
@@ -262,7 +263,7 @@ impl InfluxDbWriteable for Schema<FoundryActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("created_count", self.analytics.created_count)
             .add_field("transferred_count", self.analytics.transferred_count)
             .add_field("destroyed_count", self.analytics.destroyed_count)
@@ -277,7 +278,7 @@ impl InfluxDbWriteable for Schema<NftActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("created_count", self.analytics.created_count)
             .add_field("transferred_count", self.analytics.transferred_count)
             .add_field("destroyed_count", self.analytics.destroyed_count)
@@ -292,7 +293,7 @@ impl InfluxDbWriteable for Schema<UnlockConditionAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
-            .add_tag("milestone_index", self.milestone_index)
+            .add_field("milestone_index", self.milestone_index)
             .add_field("expiration_count", self.analytics.expiration_count)
             .add_field(
                 "expiration_value",
@@ -320,4 +321,17 @@ impl InfluxDbWriteable for Schema<UnlockConditionAnalytics> {
 
 impl InfluxDbMeasurement for Schema<UnlockConditionAnalytics> {
     const NAME: &'static str = "stardust_unlock_conditions";
+}
+
+impl InfluxDbWriteable for Schema<SyncAnalytics> {
+    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
+        Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_field("milestone_index", self.milestone_index)
+            .add_field("sync_time", self.analytics.sync_time)
+    }
+}
+
+impl InfluxDbMeasurement for Schema<SyncAnalytics> {
+    const NAME: &'static str = "stardust_sync_analytics";
 }
