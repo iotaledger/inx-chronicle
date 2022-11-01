@@ -9,8 +9,8 @@ pub mod payload;
 pub mod signature;
 pub mod unlock;
 
-use bee::protocol::ProtocolParameters;
-use bee_block_stardust as bee;
+use iota::protocol::ProtocolParameters;
+use iota_types::block as iota;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
@@ -34,8 +34,8 @@ pub struct Block {
     pub nonce: u64,
 }
 
-impl From<bee::Block> for Block {
-    fn from(value: bee::Block) -> Self {
+impl From<iota::Block> for Block {
+    fn from(value: iota::Block) -> Self {
         Self {
             protocol_version: value.protocol_version(),
             parents: value.parents().iter().map(|&id| BlockId::from(id)).collect(),
@@ -45,11 +45,11 @@ impl From<bee::Block> for Block {
     }
 }
 
-impl TryFromWithContext<Block> for bee::Block {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<Block> for iota::Block {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
-        let mut builder = bee::BlockBuilder::<u64>::new(bee::parent::Parents::new(
+        let mut builder = iota::BlockBuilder::<u64>::new(iota::parent::Parents::new(
             value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
         )?)
         .with_nonce_provider(value.nonce);
@@ -60,16 +60,16 @@ impl TryFromWithContext<Block> for bee::Block {
     }
 }
 
-impl TryFromWithContext<Block> for bee::BlockDto {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<Block> for iota::BlockDto {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
-        let stardust = bee::Block::try_from_with_context(ctx, value)?;
+        let stardust = iota::Block::try_from_with_context(ctx, value)?;
         Ok(Self::from(&stardust))
     }
 }
 
-impl From<Block> for bee::BlockDto {
+impl From<Block> for iota::BlockDto {
     fn from(value: Block) -> Self {
         Self {
             protocol_version: value.protocol_version,
@@ -82,13 +82,13 @@ impl From<Block> for bee::BlockDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee::rand::number::rand_number;
+    use iota::rand::number::rand_number;
 
     use super::*;
 
     impl Block {
         /// Generates a random [`Block`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -98,7 +98,7 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a [`TransactionPayload`](payload::TransactionPayload).
-        pub fn rand_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -108,7 +108,7 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a [`MilestonePayload`](payload::MilestonePayload).
-        pub fn rand_milestone(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_milestone(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -129,7 +129,7 @@ mod rand {
 
         /// Generates a random [`Block`] with a
         /// [`TreasuryTransactionPayload`](payload::TreasuryTransactionPayload).
-        pub fn rand_treasury_transaction(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand_treasury_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
                 parents: BlockId::rand_parents(),
@@ -176,7 +176,7 @@ mod test {
 
     #[test]
     fn test_transaction_block_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let block = Block::rand_transaction(&ctx);
         let mut bson = to_bson(&block).unwrap();
         // Need to re-add outputs as they are not serialized
@@ -199,10 +199,10 @@ mod test {
 
     #[test]
     fn test_milestone_block_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let block = Block::rand_milestone(&ctx);
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
-        bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
+        let ctx = iota_types::block::protocol::protocol_parameters();
+        iota::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }
@@ -210,15 +210,15 @@ mod test {
     #[test]
     fn test_tagged_data_block_bson() {
         let block = Block::rand_tagged_data();
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
-        bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
+        let ctx = iota_types::block::protocol::protocol_parameters();
+        iota::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }
 
     #[test]
     fn test_treasury_transaction_block_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let block = Block::rand_treasury_transaction(&ctx);
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
@@ -227,8 +227,8 @@ mod test {
     #[test]
     fn test_no_payload_block_bson() {
         let block = Block::rand_no_payload();
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
-        bee::Block::try_from_with_context(&ctx, block.clone()).unwrap();
+        let ctx = iota_types::block::protocol::protocol_parameters();
+        iota::Block::try_from_with_context(&ctx, block.clone()).unwrap();
         let bson = to_bson(&block).unwrap();
         assert_eq!(block, from_bson::<Block>(bson).unwrap());
     }

@@ -29,7 +29,7 @@ mod test_rand {
         let db = setup_database("test-blocks").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
-        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
 
         let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&protocol_params)))
             .take(100)
@@ -39,7 +39,7 @@ mod test_rand {
                 (
                     block_id,
                     block,
-                    bee_block_stardust::rand::bytes::rand_bytes(100),
+                    iota_types::block::rand::bytes::rand_bytes(100),
                     BlockMetadata {
                         parents,
                         is_solid: true,
@@ -141,7 +141,7 @@ mod test_rand {
             (
                 block_id,
                 block,
-                bee_block_stardust::rand::bytes::rand_bytes(100),
+                iota_types::block::rand::bytes::rand_bytes(100),
                 BlockMetadata {
                     parents,
                     is_solid: true,
@@ -193,7 +193,7 @@ mod test_rand {
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
         let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let (block_id, block, transaction_id, input_id, outputs) =
             std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&ctx)))
@@ -226,7 +226,7 @@ mod test_rand {
                 .unwrap();
 
         let parents = block.parents.clone();
-        let raw = bee_block_stardust::rand::bytes::rand_bytes(100);
+        let raw = iota_types::block::rand::bytes::rand_bytes(100);
         let metadata = BlockMetadata {
             parents,
             is_solid: true,
@@ -279,7 +279,7 @@ mod test_rand {
         let db = setup_database("test-milestone-activity").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
-        let protocol_params = bee_block_stardust::protocol::protocol_parameters();
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
 
         let blocks = vec![
             Block::rand_treasury_transaction(&protocol_params),
@@ -295,7 +295,7 @@ mod test_rand {
             (
                 BlockId::rand(),
                 block,
-                bee_block_stardust::rand::bytes::rand_bytes(100),
+                iota_types::block::rand::bytes::rand_bytes(100),
                 BlockMetadata {
                     parents,
                     is_solid: true,
@@ -324,17 +324,22 @@ mod test_rand {
             .await
             .unwrap();
 
-        let activity = block_collection.get_milestone_activity(1.into()).await.unwrap();
+        let activity = block_collection.get_payload_activity_analytics(1.into()).await.unwrap();
 
-        assert_eq!(activity.num_blocks, 5);
-        assert_eq!(activity.num_tx_payload, 1);
-        assert_eq!(activity.num_treasury_tx_payload, 1);
-        assert_eq!(activity.num_milestone_payload, 1);
-        assert_eq!(activity.num_tagged_data_payload, 1);
-        assert_eq!(activity.num_no_payload, 1);
-        assert_eq!(activity.num_confirmed_tx, 1);
-        assert_eq!(activity.num_conflicting_tx, 1);
-        assert_eq!(activity.num_no_tx, 3);
+        assert_eq!(activity.transaction_count, 1);
+        assert_eq!(activity.treasury_transaction_count, 1);
+        assert_eq!(activity.milestone_count, 1);
+        assert_eq!(activity.tagged_data_count, 1);
+        assert_eq!(activity.no_payload_count, 1);
+
+        let activity = block_collection
+            .get_transaction_activity_analytics(1.into())
+            .await
+            .unwrap();
+
+        assert_eq!(activity.confirmed_count, 1);
+        assert_eq!(activity.conflicting_count, 1);
+        assert_eq!(activity.no_transaction_count, 3);
 
         teardown(db).await;
     }

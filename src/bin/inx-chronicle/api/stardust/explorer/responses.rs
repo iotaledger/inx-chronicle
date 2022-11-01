@@ -1,8 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::Range;
+
 use chronicle::{
-    db::collections::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult},
+    db::collections::{DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult},
     types::{
         stardust::{block::Address, milestone::MilestoneTimestamp},
         tangle::MilestoneIndex,
@@ -114,6 +116,48 @@ impl From<MilestoneResult> for MilestoneDto {
         Self {
             milestone_id: res.milestone_id.to_hex(),
             index: res.index,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RichestAddressesResponse {
+    pub top: Vec<AddressStatDto>,
+    pub ledger_index: MilestoneIndex,
+}
+
+impl_success_response!(RichestAddressesResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AddressStatDto {
+    pub address: String,
+    pub balance: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenDistributionResponse {
+    pub distribution: Vec<DistributionStatDto>,
+    pub ledger_index: MilestoneIndex,
+}
+
+impl_success_response!(TokenDistributionResponse);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DistributionStatDto {
+    pub range: Range<u64>,
+    pub address_count: String,
+    pub total_balance: String,
+}
+
+impl From<DistributionStat> for DistributionStatDto {
+    fn from(s: DistributionStat) -> Self {
+        Self {
+            range: 10_u64.pow(s.index)..10_u64.pow(s.index + 1),
+            address_count: s.address_count.to_string(),
+            total_balance: s.total_balance,
         }
     }
 }

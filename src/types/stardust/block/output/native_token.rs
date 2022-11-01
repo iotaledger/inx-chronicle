@@ -3,7 +3,7 @@
 
 use std::{borrow::Borrow, mem::size_of, str::FromStr};
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as iota;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ impl From<NativeTokenAmount> for U256 {
     }
 }
 
-impl From<NativeTokenAmount> for bee_block_stardust::dto::U256Dto {
+impl From<NativeTokenAmount> for iota_types::block::dto::U256Dto {
     fn from(value: NativeTokenAmount) -> Self {
         Into::into(&U256::from(value))
     }
@@ -39,32 +39,32 @@ impl From<NativeTokenAmount> for bee_block_stardust::dto::U256Dto {
 pub struct NativeTokenId(#[serde(with = "bytify")] pub [u8; Self::LENGTH]);
 
 impl NativeTokenId {
-    const LENGTH: usize = bee::TokenId::LENGTH;
+    const LENGTH: usize = iota::TokenId::LENGTH;
 }
 
-impl From<bee::TokenId> for NativeTokenId {
-    fn from(value: bee::TokenId) -> Self {
+impl From<iota::TokenId> for NativeTokenId {
+    fn from(value: iota::TokenId) -> Self {
         Self(*value)
     }
 }
 
-impl From<NativeTokenId> for bee::TokenId {
+impl From<NativeTokenId> for iota::TokenId {
     fn from(value: NativeTokenId) -> Self {
-        bee::TokenId::new(value.0)
+        iota::TokenId::new(value.0)
     }
 }
 
-impl From<NativeTokenId> for bee::dto::TokenIdDto {
+impl From<NativeTokenId> for iota::dto::TokenIdDto {
     fn from(value: NativeTokenId) -> Self {
-        Into::into(&bee::TokenId::from(value))
+        Into::into(&iota::TokenId::from(value))
     }
 }
 
 impl FromStr for NativeTokenId {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::TokenId::from_str(s)?.into())
+        Ok(iota::TokenId::from_str(s)?.into())
     }
 }
 
@@ -83,10 +83,10 @@ pub enum TokenScheme {
     },
 }
 
-impl<T: Borrow<bee::TokenScheme>> From<T> for TokenScheme {
+impl<T: Borrow<iota::TokenScheme>> From<T> for TokenScheme {
     fn from(value: T) -> Self {
         match value.borrow() {
-            bee::TokenScheme::Simple(a) => Self::Simple {
+            iota::TokenScheme::Simple(a) => Self::Simple {
                 minted_tokens: a.minted_tokens().into(),
                 melted_tokens: a.melted_tokens().into(),
                 maximum_supply: a.maximum_supply().into(),
@@ -95,8 +95,8 @@ impl<T: Borrow<bee::TokenScheme>> From<T> for TokenScheme {
     }
 }
 
-impl TryFrom<TokenScheme> for bee::TokenScheme {
-    type Error = bee_block_stardust::Error;
+impl TryFrom<TokenScheme> for iota::TokenScheme {
+    type Error = iota_types::block::Error;
 
     fn try_from(value: TokenScheme) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -104,7 +104,7 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
                 minted_tokens,
                 melted_tokens,
                 maximum_supply,
-            } => bee::TokenScheme::Simple(bee::SimpleTokenScheme::new(
+            } => iota::TokenScheme::Simple(iota::SimpleTokenScheme::new(
                 minted_tokens.into(),
                 melted_tokens.into(),
                 maximum_supply.into(),
@@ -113,15 +113,15 @@ impl TryFrom<TokenScheme> for bee::TokenScheme {
     }
 }
 
-impl From<TokenScheme> for bee::dto::TokenSchemeDto {
+impl From<TokenScheme> for iota::dto::TokenSchemeDto {
     fn from(value: TokenScheme) -> Self {
         match value {
             TokenScheme::Simple {
                 minted_tokens,
                 melted_tokens,
                 maximum_supply,
-            } => Self::Simple(bee::dto::SimpleTokenSchemeDto {
-                kind: bee::SimpleTokenScheme::KIND,
+            } => Self::Simple(iota::dto::SimpleTokenSchemeDto {
+                kind: iota::SimpleTokenScheme::KIND,
                 minted_tokens: minted_tokens.into(),
                 melted_tokens: melted_tokens.into(),
                 maximum_supply: maximum_supply.into(),
@@ -139,7 +139,7 @@ pub struct NativeToken {
     pub amount: NativeTokenAmount,
 }
 
-impl<T: Borrow<bee::NativeToken>> From<T> for NativeToken {
+impl<T: Borrow<iota::NativeToken>> From<T> for NativeToken {
     fn from(value: T) -> Self {
         Self {
             token_id: NativeTokenId(**value.borrow().token_id()),
@@ -148,15 +148,15 @@ impl<T: Borrow<bee::NativeToken>> From<T> for NativeToken {
     }
 }
 
-impl TryFrom<NativeToken> for bee::NativeToken {
-    type Error = bee_block_stardust::Error;
+impl TryFrom<NativeToken> for iota::NativeToken {
+    type Error = iota_types::block::Error;
 
     fn try_from(value: NativeToken) -> Result<Self, Self::Error> {
         Self::new(value.token_id.into(), value.amount.into())
     }
 }
 
-impl From<NativeToken> for bee::dto::NativeTokenDto {
+impl From<NativeToken> for iota::dto::NativeTokenDto {
     fn from(value: NativeToken) -> Self {
         Self {
             token_id: value.token_id.into(),
@@ -167,7 +167,7 @@ impl From<NativeToken> for bee::dto::NativeTokenDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::{
+    use iota_types::block::rand::{
         bytes::{rand_bytes, rand_bytes_array},
         output::rand_token_scheme,
     };

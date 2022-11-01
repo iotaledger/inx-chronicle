@@ -25,6 +25,7 @@ path = "src/bin/inx-chronicle/main.rs"
 async-trait = { version = "0.1", default-features = false }
 bytesize = { version = "1.1", default-features = false }
 clap = { version = "4.0", default-features = false, features = ["env", "derive", "std", "help", "usage", "error-context", "wrap_help"] }
+decimal = { version = "2.1", default-features = false, features = [ "serde" ] }
 derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut" ] }
 dotenvy = { version = "0.15", default-features = false }
 eyre = { version = "0.6", default-features = false, features = [ "track-caller" ] }
@@ -34,7 +35,7 @@ humantime-serde = { version = "1.1", default-features = false }
 mongodb = { version = "2.2", default-features = false, features = [ "tokio-runtime" ] }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.5.0", default-features = false, features = [ "primitive-types" ] }
-primitive-types = { version = "0.11", default-features = false }
+primitive-types = { version = "0.12", default-features = false }
 serde = { version = "1.0", features = [ "derive" ], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = [ "std" ] }
@@ -58,7 +59,7 @@ ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_b
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
 lazy_static = { version = "1.4", default-features = false, optional = true }
-packable = { version = "0.6", default-features = false, optional = true }
+packable = { version = "0.7", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
 regex = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 rust-argon2 = { version = "1.0.0", default-features = false, optional = true }
@@ -68,6 +69,7 @@ tower-http = { version = "0.3", default-features = false, features = [ "cors", "
 zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 
 # INX
+influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
 inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
@@ -80,16 +82,16 @@ opentelemetry-jaeger = { version = "0.17", default-features = false, features = 
 tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
 
 # Stardust types
-bee-api-types-stardust = { package = "bee-api-types", version = "1.0.1", default-features = false, features = [ "axum" ], optional = true }
-bee-block-stardust = { package = "bee-block", version = "1.0.1", default-features = false, features = [ "dto", "inx", "rand", "std" ], optional = true }
-iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "dto", "std", "rand" ], optional = true }
+iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
 
 [dev-dependencies]
+iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
 default = [ 
     "api",
+    "influxdb",
     "inx",
     "stardust",
 ]
@@ -123,11 +125,10 @@ opentelemetry = [
     "dep:tracing-opentelemetry",
 ]
 rand = [
-    "bee-block-stardust?/rand",
+    "iota-types?/rand",
 ]
 stardust = [
-    "dep:bee-block-stardust",
-    "dep:bee-api-types-stardust",
+    "dep:iota-types",
 ]
 
 [profile.production]

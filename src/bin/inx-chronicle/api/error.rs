@@ -73,9 +73,11 @@ impl IntoResponse for ApiError {
 #[allow(missing_docs)]
 pub enum CorruptStateError {
     #[error("no milestone in the database")]
-    NoMilestone,
+    Milestone,
+    #[error("no node configuration in the database")]
+    NodeConfig,
     #[error("no protocol parameters in the database")]
-    NoProtocolParams,
+    ProtocolParams,
 }
 
 impl ErrorStatus for CorruptStateError {
@@ -145,7 +147,7 @@ pub enum RequestError {
     BadTimeRange,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    BeeBlockStardust(#[from] bee_block_stardust::Error),
+    BeeBlockStardust(#[from] iota_types::block::Error),
     #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
     #[error("invalid U256 value provided: {0}")]

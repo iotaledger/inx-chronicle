@@ -3,40 +3,40 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::address as bee;
+use iota_types::block::address as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
 use crate::types::stardust::block::output::NftId;
 
 /// An NFT address.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(transparent)]
 pub struct NftAddress(pub NftId);
 
-impl From<bee::NftAddress> for NftAddress {
-    fn from(value: bee::NftAddress) -> Self {
+impl From<iota::NftAddress> for NftAddress {
+    fn from(value: iota::NftAddress) -> Self {
         Self((*value).into())
     }
 }
 
-impl From<NftAddress> for bee::NftAddress {
+impl From<NftAddress> for iota::NftAddress {
     fn from(value: NftAddress) -> Self {
-        bee::NftAddress::new(value.0.into())
+        iota::NftAddress::new(value.0.into())
     }
 }
 
-impl From<NftAddress> for bee::dto::NftAddressDto {
+impl From<NftAddress> for iota::dto::NftAddressDto {
     fn from(value: NftAddress) -> Self {
-        Into::into(&bee::NftAddress::from(value))
+        Into::into(&iota::NftAddress::from(value))
     }
 }
 
 impl FromStr for NftAddress {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::NftAddress::from_str(s)?.into())
+        Ok(iota::NftAddress::from_str(s)?.into())
     }
 }
 
@@ -49,7 +49,7 @@ impl From<NftAddress> for Bson {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::address::rand_nft_address;
+    use iota_types::block::rand::address::rand_nft_address;
 
     use super::*;
 

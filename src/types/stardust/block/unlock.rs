@@ -3,7 +3,7 @@
 
 //! Module containing the [`Unlock`] types.
 
-use bee_block_stardust::unlock as bee;
+use iota_types::block::unlock as iota;
 use serde::{Deserialize, Serialize};
 
 use super::Signature;
@@ -34,49 +34,49 @@ pub enum Unlock {
     },
 }
 
-impl From<&bee::Unlock> for Unlock {
-    fn from(value: &bee::Unlock) -> Self {
+impl From<&iota::Unlock> for Unlock {
+    fn from(value: &iota::Unlock) -> Self {
         match value {
-            bee::Unlock::Signature(s) => Self::Signature {
+            iota::Unlock::Signature(s) => Self::Signature {
                 signature: s.signature().into(),
             },
-            bee::Unlock::Reference(r) => Self::Reference { index: r.index() },
-            bee::Unlock::Alias(a) => Self::Alias { index: a.index() },
-            bee::Unlock::Nft(n) => Self::Nft { index: n.index() },
+            iota::Unlock::Reference(r) => Self::Reference { index: r.index() },
+            iota::Unlock::Alias(a) => Self::Alias { index: a.index() },
+            iota::Unlock::Nft(n) => Self::Nft { index: n.index() },
         }
     }
 }
 
-impl TryFrom<Unlock> for bee::Unlock {
-    type Error = bee_block_stardust::Error;
+impl TryFrom<Unlock> for iota::Unlock {
+    type Error = iota_types::block::Error;
 
     fn try_from(value: Unlock) -> Result<Self, Self::Error> {
         Ok(match value {
-            Unlock::Signature { signature } => bee::Unlock::Signature(bee::SignatureUnlock::new(signature.into())),
-            Unlock::Reference { index } => bee::Unlock::Reference(bee::ReferenceUnlock::new(index)?),
-            Unlock::Alias { index } => bee::Unlock::Alias(bee::AliasUnlock::new(index)?),
-            Unlock::Nft { index } => bee::Unlock::Nft(bee::NftUnlock::new(index)?),
+            Unlock::Signature { signature } => iota::Unlock::Signature(iota::SignatureUnlock::new(signature.into())),
+            Unlock::Reference { index } => iota::Unlock::Reference(iota::ReferenceUnlock::new(index)?),
+            Unlock::Alias { index } => iota::Unlock::Alias(iota::AliasUnlock::new(index)?),
+            Unlock::Nft { index } => iota::Unlock::Nft(iota::NftUnlock::new(index)?),
         })
     }
 }
 
-impl From<Unlock> for bee::dto::UnlockDto {
+impl From<Unlock> for iota::dto::UnlockDto {
     fn from(value: Unlock) -> Self {
         match value {
-            Unlock::Signature { signature } => Self::Signature(bee::dto::SignatureUnlockDto {
-                kind: bee::SignatureUnlock::KIND,
+            Unlock::Signature { signature } => Self::Signature(iota::dto::SignatureUnlockDto {
+                kind: iota::SignatureUnlock::KIND,
                 signature: signature.into(),
             }),
-            Unlock::Reference { index } => Self::Reference(bee::dto::ReferenceUnlockDto {
-                kind: bee::ReferenceUnlock::KIND,
+            Unlock::Reference { index } => Self::Reference(iota::dto::ReferenceUnlockDto {
+                kind: iota::ReferenceUnlock::KIND,
                 index,
             }),
-            Unlock::Alias { index } => Self::Alias(bee::dto::AliasUnlockDto {
-                kind: bee::AliasUnlock::KIND,
+            Unlock::Alias { index } => Self::Alias(iota::dto::AliasUnlockDto {
+                kind: iota::AliasUnlock::KIND,
                 index,
             }),
-            Unlock::Nft { index } => Self::Nft(bee::dto::NftUnlockDto {
-                kind: bee::NftUnlock::KIND,
+            Unlock::Nft { index } => Self::Nft(iota::dto::NftUnlockDto {
+                kind: iota::NftUnlock::KIND,
                 index,
             }),
         }
@@ -85,7 +85,7 @@ impl From<Unlock> for bee::dto::UnlockDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
+    use iota_types::block::{rand::number::rand_number_range, unlock::UNLOCK_INDEX_RANGE};
 
     use super::*;
 

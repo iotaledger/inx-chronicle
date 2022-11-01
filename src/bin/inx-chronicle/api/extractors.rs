@@ -90,7 +90,7 @@ mod stardust {
                 .await
                 .map_err(ApiError::bad_request)?;
             if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
-                Err(RequestError::BadTimeRange)?;
+                return Err(ApiError::new(RequestError::BadTimeRange));
             }
             let time_range = TimeRange {
                 start_timestamp: start_timestamp.map(Into::into),

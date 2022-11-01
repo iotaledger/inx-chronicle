@@ -57,6 +57,14 @@ impl ProtocolUpdateCollection {
         .await
     }
 
+    /// Gets the protocol parameters for the given milestone index, if they were changed.
+    pub async fn get_protocol_parameters_for_milestone_index(
+        &self,
+        milestone_index: MilestoneIndex,
+    ) -> Result<Option<ProtocolUpdateDocument>, Error> {
+        self.find_one(doc! { "_id": milestone_index }, None).await
+    }
+
     /// Gets the protocol parameters for a given protocol version.
     pub async fn get_protocol_parameters_for_version(
         &self,

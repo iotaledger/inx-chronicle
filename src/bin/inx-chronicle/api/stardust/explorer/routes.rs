@@ -6,24 +6,34 @@ use std::str::FromStr;
 use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
-        collections::{BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection},
+        collections::{
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
+        },
         MongoDb,
     },
-    types::stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
+    types::{
+        stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
+        tangle::MilestoneIndex,
+    },
 };
 use futures::{StreamExt, TryStreamExt};
 
 use super::{
     extractors::{
-        LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
-        LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination,
+        LedgerIndex, LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
+        LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination, RichestAddressesQuery,
     },
     responses::{
-        BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse,
-        MilestonesResponse,
+        AddressStatDto, BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse,
+        LedgerUpdatesByMilestoneResponse, MilestonesResponse, RichestAddressesResponse, TokenDistributionResponse,
     },
 };
-use crate::api::{error::MissingError, extractors::Pagination, router::Router, ApiError, ApiResult};
+use crate::api::{
+    error::{CorruptStateError, MissingError},
+    extractors::Pagination,
+    router::Router,
+    ApiError, ApiResult,
+};
 
 pub fn routes() -> Router {
     Router::new()
@@ -31,10 +41,16 @@ pub fn routes() -> Router {
         .route("/blocks/:block_id/children", get(block_children))
         .route("/milestones", get(milestones))
         .nest(
-            "/ledger/updates",
+            "/ledger",
             Router::new()
-                .route("/by-address/:address", get(ledger_updates_by_address))
-                .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+                .route("/richest-addresses", get(richest_addresses_ledger_analytics))
+                .route("/token-distribution", get(token_distribution_ledger_analytics))
+                .nest(
+                    "/updates",
+                    Router::new()
+                        .route("/by-address/:address", get(ledger_updates_by_address))
+                        .route("/by-milestone/:milestone_id", get(ledger_updates_by_milestone)),
+                ),
         )
 }
 
@@ -205,4 +221,65 @@ async fn milestones(
     });
 
     Ok(MilestonesResponse { items, cursor })
+}
+
+async fn richest_addresses_ledger_analytics(
+    database: Extension<MongoDb>,
+    RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
+) -> ApiResult<RichestAddressesResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let res = database
+        .collection::<OutputCollection>()
+        .get_richest_addresses(ledger_index, top)
+        .await?;
+
+    let hrp = database
+        .collection::<ProtocolUpdateCollection>()
+        .get_protocol_parameters_for_ledger_index(ledger_index)
+        .await?
+        .ok_or(CorruptStateError::ProtocolParams)?
+        .parameters
+        .bech32_hrp;
+
+    Ok(RichestAddressesResponse {
+        top: res
+            .top
+            .into_iter()
+            .map(|stat| AddressStatDto {
+                address: iota_types::block::address::Address::from(stat.address).to_bech32(hrp.clone()),
+                balance: stat.balance,
+            })
+            .collect(),
+        ledger_index,
+    })
+}
+
+async fn token_distribution_ledger_analytics(
+    database: Extension<MongoDb>,
+    LedgerIndex { ledger_index }: LedgerIndex,
+) -> ApiResult<TokenDistributionResponse> {
+    let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
+    let res = database
+        .collection::<OutputCollection>()
+        .get_token_distribution(ledger_index)
+        .await?;
+
+    Ok(TokenDistributionResponse {
+        distribution: res.distribution.into_iter().map(Into::into).collect(),
+        ledger_index,
+    })
+}
+
+/// This is just a helper fn to either unwrap an optional ledger index param or fetch the latest
+/// index from the database.
+async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<MilestoneIndex>) -> ApiResult<MilestoneIndex> {
+    Ok(if let Some(ledger_index) = ledger_index {
+        ledger_index
+    } else {
+        database
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .ok_or(MissingError::NoResults)?
+    })
 }
