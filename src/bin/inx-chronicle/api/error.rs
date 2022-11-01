@@ -146,8 +146,8 @@ pub enum RequestError {
     #[error("invalid time range")]
     BadTimeRange,
     #[cfg(feature = "stardust")]
-    #[error(transparent)]
-    BeeBlockStardust(#[from] iota_types::block::Error),
+    #[error("invalid IOTA Stardust data: {0}")]
+    IotaStardust(#[from] iota_types::block::Error),
     #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
     #[error("invalid U256 value provided: {0}")]
