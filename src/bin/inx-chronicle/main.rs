@@ -81,7 +81,7 @@ async fn main() -> Result<(), Error> {
         #[cfg(feature = "influxdb")]
         let influx_db = if config.influxdb.enabled {
             info!("Connecting to influx database at address `{}`", config.influxdb.url);
-            let influx_db = chronicle::db::InfluxDb::connect(&config.influxdb).await?;
+            let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             info!("Connected to influx database `{}`", influx_db.database_name());
             Some(influx_db)
         } else {

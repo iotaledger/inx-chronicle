@@ -24,7 +24,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -97,7 +96,7 @@
               "type": "fill"
             }
           ],
-          "measurement": "stardust_sync_analytics",
+          "measurement": "sync_metrics",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",
@@ -222,7 +221,7 @@
             }
           ],
           "hide": false,
-          "measurement": "stardust_sync_analytics",
+          "measurement": "sync_metrics",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "C",
@@ -266,7 +265,7 @@
             }
           ],
           "hide": false,
-          "measurement": "stardust_sync_analytics",
+          "measurement": "sync_metrics",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "D",
@@ -310,7 +309,7 @@
             }
           ],
           "hide": false,
-          "measurement": "stardust_sync_analytics",
+          "measurement": "sync_metrics",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "B",
@@ -353,7 +352,7 @@
               "type": "fill"
             }
           ],
-          "measurement": "stardust_sync_analytics",
+          "measurement": "sync_metrics",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// Module containing the time-series analytics model.
+#[cfg(feature = "analytics")]
 pub mod analytics;
 /// Module containing the Block document model.
 mod block;
@@ -9,6 +10,9 @@ mod block;
 mod configuration_update;
 /// Module containing the LedgerUpdate model.
 mod ledger_update;
+/// Module containing the time-series metrics model.
+#[cfg(feature = "metrics")]
+pub mod metrics;
 /// Module containing the Milestone document model.
 mod milestone;
 /// Module containing Block outputs.
@@ -23,7 +27,6 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub use self::{
-    analytics::Analytics,
     block::BlockCollection,
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},

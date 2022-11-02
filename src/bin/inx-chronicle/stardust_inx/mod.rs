@@ -36,7 +36,7 @@ pub const INSERT_BATCH_SIZE: usize = 1000;
 pub struct InxWorker {
     db: MongoDb,
     #[cfg(feature = "influxdb")]
-    influx_db: Option<chronicle::db::InfluxDb>,
+    influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
 }
 
@@ -44,7 +44,7 @@ impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(
         db: &MongoDb,
-        #[cfg(feature = "influxdb")] influx_db: Option<&chronicle::db::InfluxDb>,
+        #[cfg(feature = "influxdb")] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
         inx_config: &InxConfig,
     ) -> Self {
         Self {
@@ -238,7 +238,7 @@ impl InxWorker {
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
     ) -> Result<(), InxWorkerError> {
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "metrics")]
         let start_time = self.influx_db.is_some().then(std::time::Instant::now);
 
         let MarkerMessage {
@@ -328,18 +328,15 @@ impl InxWorker {
         #[allow(unused)]
         let milestone_timestamp = self.handle_milestone(inx, milestone_index).await?;
 
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
-            use chronicle::db::collections::analytics;
             // Unwrap: Safe because we checked above
             let elapsed = start_time.unwrap().elapsed();
             influx_db
-                .insert(analytics::influx::Schema {
-                    milestone_timestamp,
+                .insert(chronicle::db::collections::metrics::SyncMetrics {
+                    time: chrono::Utc::now(),
                     milestone_index,
-                    analytics: analytics::SyncAnalytics {
-                        sync_time: elapsed.as_millis() as u64,
-                    },
+                    sync_time: elapsed.as_millis() as u64,
                 })
                 .await?;
         }
@@ -395,7 +392,7 @@ impl InxWorker {
 
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
 
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             let db = self.db.clone();
             let influx_db = influx_db.clone();
