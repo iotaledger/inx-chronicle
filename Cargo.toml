@@ -44,7 +44,6 @@ tokio = { version = "1.21", default-features = false, features = [ "macros", "rt
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
 tracing = { version = "0.1", default-features = false, features = [ "std", "attributes", "release_max_level_debug" ] }
-tracing-futures = { version = "0.2", default-features = false, features = [ "std", "std-future" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "std", "fmt", "ansi", "smallvec", "tracing-log", "local-time", "env-filter" ] }
 uint = { version = "0.9", default-features = false }
 url = { version = "2.3", default-features = false }
@@ -81,10 +80,10 @@ opentelemetry-jaeger = { version = "0.17", default-features = false, features = 
 tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
 
 # Stardust types
-iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
+iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
 
 [dev-dependencies]
-iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
+iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
@@ -117,6 +116,7 @@ inx = [
     "dep:inx",
     "dep:packable",
     "dep:tonic",
+    "stardust",
 ]
 opentelemetry = [
     "dep:opentelemetry",
@@ -128,6 +128,7 @@ rand = [
 ]
 stardust = [
     "dep:iota-types",
+    "dep:packable",
 ]
 
 [profile.production]

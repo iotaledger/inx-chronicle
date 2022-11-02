@@ -338,7 +338,6 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
- "tracing-futures",
  "tracing-opentelemetry",
  "tracing-subscriber",
  "uint",
@@ -1046,9 +1045,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "0.14.20"
+version = "0.14.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02c929dc5c39e335a03c405292728118860721b10190d98c2a0f0efd5baafbac"
+checksum = "abfba89e19b959ca163c7752ba59d737c1ceea53a5d31a149c805446fc958064"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1261,7 +1260,8 @@ dependencies = [
 [[package]]
 name = "iota-pow"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/iotaledger/iota.rs#f9efaf6384d93d9f08d81be6043923f2b13cd4dd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6389c089d439fa7b4ed98983ed2c5e0c2fc08b4b28f1e2503b3298cbcbc2bc87"
 dependencies = [
  "iota-crypto",
  "thiserror",
@@ -1270,7 +1270,8 @@ dependencies = [
 [[package]]
 name = "iota-types"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/iotaledger/iota.rs#f9efaf6384d93d9f08d81be6043923f2b13cd4dd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c20dbea6079108f7d9bfac4d4d65f6029441e822bc7a5cba53d408c953bb395d"
 dependencies = [
  "bech32",
  "bitflags",
