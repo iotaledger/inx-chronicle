@@ -338,7 +338,6 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
- "tracing-futures",
  "tracing-opentelemetry",
  "tracing-subscriber",
  "uint",
