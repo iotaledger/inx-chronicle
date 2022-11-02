@@ -43,7 +43,7 @@ pub struct ClArgs {
 #[command(group = ArgGroup::new("api").args(["api_enabled"]))]
 pub struct ApiArgs {
     /// Toggle REST API.
-    #[arg(long = "api-enabled", env = "REST_API_ENABLED")]
+    #[arg(long, env = "REST_API_ENABLED")]
     pub api_enabled: Option<bool>,
     /// JWT arguments.
     #[command(flatten)]
@@ -66,10 +66,10 @@ pub struct JwtArgs {
 #[command(group = ArgGroup::new("inx").args(["inx_enabled", "inx_url", "sync_start"]))]
 pub struct InxArgs {
     /// Toggle INX write workflow.
-    #[arg(long = "inx-enabled", env = "INX_ENABLED")]
+    #[arg(long, env = "INX_ENABLED")]
     pub inx_enabled: Option<bool>,
     /// The address of the INX interface provided by the node.
-    #[arg(long = "inx-url", env = "INX_URL")]
+    #[arg(long, env = "INX_URL")]
     pub inx_url: Option<String>,
     /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
     #[arg(long = "inx-sync-start", env = "SYNC_START")]
@@ -77,11 +77,11 @@ pub struct InxArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("mongodb").args(["conn_str"]))]
+#[command(group = ArgGroup::new("mongodb").args(["mongodb_conn_str"]))]
 pub struct MongoDbArgs {
     /// The MongoDB connection string.
-    #[arg(long = "mongodb-conn-str", env = "MONGODB_CONN_STR")]
-    pub conn_str: Option<String>,
+    #[arg(long, env = "MONGODB_CONN_STR")]
+    pub mongodb_conn_str: Option<String>,
 }
 
 #[cfg(feature = "influxdb")]
@@ -89,7 +89,7 @@ pub struct MongoDbArgs {
 #[command(group = ArgGroup::new("influxdb").args(["influxdb_url"]))]
 pub struct InfluxDbArgs {
     /// The url pointing to an InfluxDb instance.
-    #[arg(long = "influxdb-url", env = "INFLUXDB_URL")]
+    #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
 }
 
@@ -97,7 +97,7 @@ pub struct InfluxDbArgs {
 #[command(group = ArgGroup::new("metrics").args(["prometheus_enabled"]))]
 pub struct MetricsArgs {
     /// Toggle the prometheus server.
-    #[arg(long = "prometheus-enabled", env = "PROMETHEUS_ENABLED")]
+    #[arg(long, env = "PROMETHEUS_ENABLED")]
     pub prometheus_enabled: Option<bool>,
 }
 
@@ -111,7 +111,7 @@ impl ClArgs {
             .transpose()?
             .unwrap_or_default();
 
-        if let Some(conn_str) = &self.mongodb.conn_str {
+        if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
             config.mongodb.conn_str = conn_str.clone();
         }
 
