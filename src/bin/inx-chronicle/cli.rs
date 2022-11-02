@@ -71,8 +71,8 @@ pub struct InxArgs {
     /// The address of the INX interface provided by the node.
     #[arg(long, env = "INX_URL")]
     pub inx_url: Option<String>,
-    /// Set the milestone index at which synchronization should start (1 includes everything until genesis).
-    #[arg(long = "inx-sync-start", env = "SYNC_START")]
+    /// Milestone at which synchronization should begin. A value of `1` means syncing back until genesis (default).
+    #[arg(long = "inx-sync-start")]
     pub sync_start: Option<u32>,
 }
 
