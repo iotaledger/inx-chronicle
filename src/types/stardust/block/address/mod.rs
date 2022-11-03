@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use bee_block_stardust::address as bee;
+use iota_types::block::address as iota;
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ mod nft;
 pub use self::{alias::AliasAddress, ed25519::Ed25519Address, nft::NftAddress};
 
 /// The different [`Address`] types supported by the network.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Address {
     /// An Ed25519 address.
@@ -27,27 +27,27 @@ pub enum Address {
     Nft(NftAddress),
 }
 
-impl From<bee::Address> for Address {
-    fn from(value: bee::Address) -> Self {
+impl From<iota::Address> for Address {
+    fn from(value: iota::Address) -> Self {
         match value {
-            bee::Address::Ed25519(a) => Self::Ed25519(a.into()),
-            bee::Address::Alias(a) => Self::Alias(a.into()),
-            bee::Address::Nft(a) => Self::Nft(a.into()),
+            iota::Address::Ed25519(a) => Self::Ed25519(a.into()),
+            iota::Address::Alias(a) => Self::Alias(a.into()),
+            iota::Address::Nft(a) => Self::Nft(a.into()),
         }
     }
 }
 
-impl From<&bee::Address> for Address {
-    fn from(value: &bee::Address) -> Self {
+impl From<&iota::Address> for Address {
+    fn from(value: &iota::Address) -> Self {
         match *value {
-            bee::Address::Ed25519(a) => Self::Ed25519(a.into()),
-            bee::Address::Alias(a) => Self::Alias(a.into()),
-            bee::Address::Nft(a) => Self::Nft(a.into()),
+            iota::Address::Ed25519(a) => Self::Ed25519(a.into()),
+            iota::Address::Alias(a) => Self::Alias(a.into()),
+            iota::Address::Nft(a) => Self::Nft(a.into()),
         }
     }
 }
 
-impl From<Address> for bee::Address {
+impl From<Address> for iota::Address {
     fn from(value: Address) -> Self {
         match value {
             Address::Ed25519(a) => Self::Ed25519(a.into()),
@@ -57,7 +57,7 @@ impl From<Address> for bee::Address {
     }
 }
 
-impl From<Address> for bee::dto::AddressDto {
+impl From<Address> for iota::dto::AddressDto {
     fn from(value: Address) -> Self {
         match value {
             Address::Ed25519(a) => Self::Ed25519(a.into()),
@@ -68,10 +68,10 @@ impl From<Address> for bee::dto::AddressDto {
 }
 
 impl FromStr for Address {
-    type Err = bee_block_stardust::Error;
+    type Err = iota_types::block::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(bee::Address::try_from_bech32(s)?.1.into())
+        Ok(iota::Address::try_from_bech32(s)?.1.into())
     }
 }
 

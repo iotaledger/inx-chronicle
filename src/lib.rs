@@ -7,5 +7,6 @@
 //! The basic types and MongoDb queries for Chronicle.
 
 pub mod db;
-/// Module that contains the types.
+#[cfg(feature = "inx")]
+pub mod inx;
 pub mod types;

@@ -58,8 +58,9 @@ impl MongoDb {
 
     /// Creates a collection if it does not exist.
     pub async fn create_indexes<T: MongoDbCollection + Send + Sync>(&self) -> Result<(), Error> {
-        self.db.create_collection(T::NAME, None).await.ok();
-        self.collection::<T>().create_indexes().await?;
+        let collection = self.collection::<T>();
+        collection.create_collection(self).await?;
+        collection.create_indexes().await?;
         Ok(())
     }
 
@@ -87,7 +88,7 @@ impl MongoDb {
             .list_collection_names(doc! { "name": { "$not": { "$regex": "^system." } } })
             .await?;
 
-        for c in collections {
+        for c in collections.into_iter().filter(|c| c != "system.views") {
             self.db.collection::<Document>(&c).drop(None).await?;
         }
 

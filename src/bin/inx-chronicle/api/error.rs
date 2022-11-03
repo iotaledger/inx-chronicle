@@ -19,7 +19,7 @@ use tracing::error;
 pub enum InternalApiError {
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    BeeStardust(#[from] bee_block_stardust::Error),
+    BeeStardust(#[from] iota_types::block::Error),
     #[error(transparent)]
     BsonDeserialize(#[from] mongodb::bson::de::Error),
     #[error("corrupt state: {0}")]
@@ -112,7 +112,7 @@ pub enum ParseError {
     BadPagingState,
     #[cfg(feature = "stardust")]
     #[error(transparent)]
-    BeeBlockStardust(#[from] bee_block_stardust::Error),
+    BeeBlockStardust(#[from] iota_types::block::Error),
     #[error(transparent)]
     Bool(#[from] ParseBoolError),
     #[error(transparent)]

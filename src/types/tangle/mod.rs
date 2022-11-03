@@ -3,10 +3,10 @@
 
 //! Module containing the tangle models.
 
-mod milestone_index;
+mod milestone;
 mod protocol;
 
 pub use self::{
-    milestone_index::MilestoneIndex,
+    milestone::MilestoneIndex,
     protocol::{ProtocolParameters, RentStructure},
 };

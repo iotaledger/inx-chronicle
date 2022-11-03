@@ -7,7 +7,6 @@ mod common;
 mod test_rand {
     use std::collections::{HashMap, HashSet};
 
-    use bee_block_stardust::rand::number::rand_number_range;
     use chronicle::{
         db::{
             collections::{
@@ -24,6 +23,7 @@ mod test_rand {
         },
     };
     use futures::TryStreamExt;
+    use iota_types::block::rand::number::rand_number_range;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -32,7 +32,7 @@ mod test_rand {
         let db = setup_database("test-ledger-updates-by-address").await.unwrap();
         let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let mut outputs = HashSet::new();
         let address_unlock_condition = AddressUnlockCondition::rand();
@@ -124,7 +124,7 @@ mod test_rand {
         let db = setup_database("test-ledger-updates-by-milestone").await.unwrap();
         let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let mut outputs = HashMap::new();
         let ledger_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
@@ -179,7 +179,7 @@ mod test_rand {
         let db = setup_database("test-insert-spent-ledger-updates").await.unwrap();
         let update_collection = setup_collection::<LedgerUpdateCollection>(&db).await.unwrap();
 
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
 
         let unspent_outputs = std::iter::repeat_with(|| (BlockId::rand(), Output::rand_basic(&ctx), OutputId::rand()))
             .take(100)
@@ -208,10 +208,10 @@ mod test_rand {
         let spent_outputs = unspent_outputs
             .into_iter()
             .enumerate()
-            .filter_map(|(i, unspent_output)| {
+            .filter_map(|(i, output)| {
                 if i % 2 == 0 {
                     Some(LedgerSpent {
-                        output: unspent_output,
+                        output,
                         spent_metadata: SpentMetadata {
                             transaction_id: OutputId::rand().transaction_id,
                             spent: MilestoneIndexTimestamp {

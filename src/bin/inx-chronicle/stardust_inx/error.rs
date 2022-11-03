@@ -5,9 +5,12 @@ use chronicle::types::tangle::MilestoneIndex;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum InxError {
+pub enum InxWorkerError {
     #[error("failed to establish connection")]
     ConnectionError,
+    #[cfg(feature = "influxdb")]
+    #[error("InfluxDb error: {0}")]
+    InfluxDb(#[from] influxdb::Error),
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
     #[error("wrong number of ledger updates: `{received}` but expected `{expected}`")]
@@ -27,5 +30,5 @@ pub enum InxError {
     #[error("node confirmed milestone index `{node}` is less than index in database `{db}`")]
     SyncMilestoneIndexMismatch { node: MilestoneIndex, db: MilestoneIndex },
     #[error("INX error: {0}")]
-    BeeInx(#[from] bee_inx::Error),
+    Inx(#[from] chronicle::inx::InxError),
 }

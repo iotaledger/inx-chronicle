@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! TODO
+//! Module that holds the entry point of the Chronicle application.
 
 /// Module containing the API.
 #[cfg(feature = "api")]
@@ -81,7 +81,23 @@ async fn main() -> Result<(), Error> {
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
         let db = MongoDb::connect(&config.mongodb, "INX Worker").await?;
-        let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
+
+        #[cfg(feature = "influxdb")]
+        let influx_db = if config.influxdb.enabled {
+            info!("Connecting to influx database at address `{}`", config.influxdb.url);
+            let influx_db = chronicle::db::InfluxDb::connect(&config.influxdb).await?;
+            info!("Connected to influx database `{}`", influx_db.database_name());
+            Some(influx_db)
+        } else {
+            None
+        };
+
+        let mut worker = stardust_inx::InxWorker::new(
+            &db,
+            #[cfg(feature = "influxdb")]
+            influx_db.as_ref(),
+            &config.inx,
+        );
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {

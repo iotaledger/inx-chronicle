@@ -13,6 +13,20 @@ database_name = "chronicle"
 ### The minimum amount of connections in the pool.
 min_pool_size = 2
 
+[influxdb]
+### Whether influx time-series data will be written.
+enabled = true
+
+### URL pointing to the InfluxDB instance.
+url = "http://localhost:8086"
+
+### The database name used for analytics.
+database_name = "chronicle_analytics"
+
+### InfluxDb basic credentials.
+username = "root"
+password = "password"
+
 [api]
 ### Whether API requests will be served.
 enabled = true
@@ -67,9 +81,6 @@ connection_retry_interval = "5s"
 
 ### Maximum number of tries to establish an INX connection.
 connection_retry_count = 30
-
-### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
-sync_start_milestone = 1
 
 ### Marks when a query is considered slow and a warning should be emitted.
 slow_query_millis = 200

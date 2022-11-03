@@ -5,7 +5,7 @@
 
 use std::borrow::Borrow;
 
-use bee_block_stardust::output as bee;
+use iota_types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -38,7 +38,12 @@ pub struct BasicOutput {
     pub features: Box<[Feature]>,
 }
 
-impl<T: Borrow<bee::BasicOutput>> From<T> for BasicOutput {
+impl BasicOutput {
+    /// A `&str` representation of the type.
+    pub const KIND: &'static str = "basic";
+}
+
+impl<T: Borrow<iota::BasicOutput>> From<T> for BasicOutput {
     fn from(value: T) -> Self {
         let value = value.borrow();
         Self {
@@ -54,29 +59,29 @@ impl<T: Borrow<bee::BasicOutput>> From<T> for BasicOutput {
     }
 }
 
-impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
-    type Error = bee_block_stardust::Error;
+impl TryFromWithContext<BasicOutput> for iota::BasicOutput {
+    type Error = iota_types::block::Error;
 
     fn try_from_with_context(
-        ctx: &bee_block_stardust::protocol::ProtocolParameters,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
         value: BasicOutput,
     ) -> Result<Self, Self::Error> {
         // The order of the conditions is imporant here because unlock conditions have to be sorted by type.
         let unlock_conditions = [
-            Some(bee::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
+            Some(iota::unlock_condition::AddressUnlockCondition::from(value.address_unlock_condition).into()),
             value
                 .storage_deposit_return_unlock_condition
-                .map(|x| bee::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
+                .map(|x| iota::unlock_condition::StorageDepositReturnUnlockCondition::try_from_with_context(ctx, x))
                 .transpose()?
                 .map(Into::into),
             value
                 .timelock_unlock_condition
-                .map(bee::unlock_condition::TimelockUnlockCondition::try_from)
+                .map(iota::unlock_condition::TimelockUnlockCondition::try_from)
                 .transpose()?
                 .map(Into::into),
             value
                 .expiration_unlock_condition
-                .map(bee::unlock_condition::ExpirationUnlockCondition::try_from)
+                .map(iota::unlock_condition::ExpirationUnlockCondition::try_from)
                 .transpose()?
                 .map(Into::into),
         ];
@@ -103,24 +108,24 @@ impl TryFromWithContext<BasicOutput> for bee::BasicOutput {
     }
 }
 
-impl From<BasicOutput> for bee::dto::BasicOutputDto {
+impl From<BasicOutput> for iota::dto::BasicOutputDto {
     fn from(value: BasicOutput) -> Self {
-        let mut unlock_conditions = vec![bee::unlock_condition::dto::UnlockConditionDto::Address(
+        let mut unlock_conditions = vec![iota::unlock_condition::dto::UnlockConditionDto::Address(
             value.address_unlock_condition.into(),
         )];
         if let Some(uc) = value.storage_deposit_return_unlock_condition {
-            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::StorageDepositReturn(
+            unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::StorageDepositReturn(
                 uc.into(),
             ));
         }
         if let Some(uc) = value.timelock_unlock_condition {
-            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::Timelock(uc.into()));
+            unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::Timelock(uc.into()));
         }
         if let Some(uc) = value.expiration_unlock_condition {
-            unlock_conditions.push(bee::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
+            unlock_conditions.push(iota::unlock_condition::dto::UnlockConditionDto::Expiration(uc.into()));
         }
         Self {
-            kind: bee::BasicOutput::KIND,
+            kind: iota::BasicOutput::KIND,
             amount: value.amount.0.to_string(),
             native_tokens: value.native_tokens.into_vec().into_iter().map(Into::into).collect(),
             unlock_conditions,
@@ -131,13 +136,13 @@ impl From<BasicOutput> for bee::dto::BasicOutputDto {
 
 #[cfg(feature = "rand")]
 mod rand {
-    use bee_block_stardust::rand::output::rand_basic_output;
+    use iota_types::block::rand::output::rand_basic_output;
 
     use super::*;
 
     impl BasicOutput {
         /// Generates a random [`BasicOutput`].
-        pub fn rand(ctx: &bee_block_stardust::protocol::ProtocolParameters) -> Self {
+        pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_basic_output(ctx.token_supply()).into()
         }
     }
@@ -151,9 +156,9 @@ mod test {
 
     #[test]
     fn test_basic_output_bson() {
-        let ctx = bee_block_stardust::protocol::protocol_parameters();
+        let ctx = iota_types::block::protocol::protocol_parameters();
         let output = BasicOutput::rand(&ctx);
-        bee::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
+        iota::BasicOutput::try_from_with_context(&ctx, output.clone()).unwrap();
         let bson = to_bson(&output).unwrap();
         assert_eq!(output, from_bson::<BasicOutput>(bson).unwrap());
     }
