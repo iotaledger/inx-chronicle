@@ -158,7 +158,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -184,6 +184,45 @@ impl ClArgs {
                     );
                     return Ok(true);
                 }
+                //#[cfg(feature = "analytics")]
+                #[cfg(feature = "influxdb")]
+                Subcommands::FillAnalytics {
+                    start_milestone,
+                    end_milestone,
+                    tasks,
+                } => {
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    let influx_db = chronicle::db::InfluxDb::connect(&config.influxdb).await?;
+                    let tasks = tasks.unwrap_or(1);
+                    let mut join_set = tokio::task::JoinSet::new();
+                    for i in 0..tasks {
+                        let db = db.clone();
+                        let influx_db = influx_db.clone();
+                        let (start_milestone, end_milestone) = (*start_milestone, *end_milestone);
+                        join_set.spawn(async move {
+                            for index in (start_milestone..end_milestone).skip(i).step_by(tasks) {
+                                let index = index.into();
+                                let analytics = db.get_all_analytics(index).await?;
+                                if let Some(timestamp) = db
+                                    .collection::<chronicle::db::collections::MilestoneCollection>()
+                                    .get_milestone_timestamp(index)
+                                    .await?
+                                {
+                                    influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+                                    println!("Finished analytics for milestone: {}", index);
+                                } else {
+                                    println!("No milestone in database for index {}", index);
+                                }
+                            }
+                            Result::<_, Error>::Ok(())
+                        });
+                    }
+                    while let Some(res) = join_set.join_next().await {
+                        // Panic: Acceptable risk
+                        res.unwrap()?;
+                    }
+                    return Ok(true);
+                }
                 _ => (),
             }
         }
@@ -196,4 +235,11 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    //#[cfg(feature = "analytics")]
+    #[cfg(feature = "influxdb")]
+    FillAnalytics {
+        start_milestone: u32,
+        end_milestone: u32,
+        tasks: Option<usize>,
+    },
 }

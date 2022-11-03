@@ -34,7 +34,7 @@ async fn main() -> Result<(), Error> {
 
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config()?;
-    if cl_args.process_subcommands(&config)? {
+    if cl_args.process_subcommands(&config).await? {
         return Ok(());
     }
 
