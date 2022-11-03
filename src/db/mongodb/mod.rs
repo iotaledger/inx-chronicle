@@ -134,8 +134,33 @@ impl MongoDb {
     pub async fn enable_query_profiler(&self) -> Result<(), Error> {
         let command = doc! {
             "profile": 1,
-            "slowOpThresholdMs": 100,
-            "sampleRate": 0.1,
+            "slowms": 100,
+            "filter": {
+                "op": "query",
+                "appName": "Chronicle"
+            }
+        };
+
+        let _ = self.db.run_command(command, None).await?;
+
+        let command = doc! {
+            "profile": 1,
+            "slowms": 50,
+            "filter": {
+                "op": "insert",
+                "appName": "Chronicle"
+            }
+        };
+
+        let _ = self.db.run_command(command, None).await?;
+
+        let command = doc! {
+            "profile": 1,
+            "slowms": 50,
+            "filter": {
+                "op": "update",
+                "appName": "Chronicle"
+            }
         };
 
         let _ = self.db.run_command(command, None).await?;
