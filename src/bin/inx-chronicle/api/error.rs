@@ -3,7 +3,10 @@
 
 use std::{num::ParseIntError, str::ParseBoolError};
 
-use axum::{extract::rejection::TypedHeaderRejection, response::IntoResponse};
+use axum::{
+    extract::rejection::{QueryRejection, TypedHeaderRejection},
+    response::IntoResponse,
+};
 use chronicle::db::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use serde::Serialize;
@@ -23,40 +26,47 @@ pub trait ErrorStatus: std::error::Error {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 #[allow(missing_docs)]
+#[error("{code}: {error}")]
 /// This type wraps errors that are associated with an HTTP status code.
-/// It intentionally does not impl std::error::Error so that we can use
-/// the impl From below to convert errors to internal 500 codes by default.
 pub struct ApiError {
+    #[source]
     pub error: Box<dyn std::error::Error + Send + Sync>,
     code: StatusCode,
 }
 
-impl<T: 'static + std::error::Error + Send + Sync> From<T> for ApiError {
+impl<T: 'static + ErrorStatus + Send + Sync> From<T> for ApiError {
     fn from(error: T) -> Self {
-        Self {
-            error: Box::new(error) as _,
-            code: StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-}
-
-impl ApiError {
-    pub fn new<T: 'static + ErrorStatus + Send + Sync>(error: T) -> Self {
         Self {
             code: error.status(),
             error: Box::new(error) as _,
         }
     }
-
-    pub fn bad_request<T: 'static + std::error::Error + Send + Sync>(error: T) -> Self {
-        Self {
-            error: Box::new(error) as _,
-            code: StatusCode::BAD_REQUEST,
-        }
-    }
 }
+
+macro_rules! impl_internal_error {
+    ($($type:ty),*) => {
+        $(
+            impl From<$type> for ApiError {
+                fn from(error: $type) -> Self {
+                    Self {
+                        code: StatusCode::INTERNAL_SERVER_ERROR,
+                        error: Box::new(error) as _,
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_internal_error!(
+    mongodb::error::Error,
+    axum::extract::rejection::ExtensionRejection,
+    auth_helper::jwt::Error,
+    argon2::Error,
+    iota_types::block::Error
+);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
@@ -114,7 +124,7 @@ impl ErrorStatus for UnimplementedError {
 
 impl IntoResponse for UnimplementedError {
     fn into_response(self) -> axum::response::Response {
-        ApiError::new(self).into_response()
+        ApiError::from(self).into_response()
     }
 }
 
@@ -135,7 +145,7 @@ impl ErrorStatus for MissingError {
 
 impl IntoResponse for MissingError {
     fn into_response(self) -> axum::response::Response {
-        ApiError::new(self).into_response()
+        ApiError::from(self).into_response()
     }
 }
 
@@ -156,6 +166,8 @@ pub enum RequestError {
     Int(#[from] ParseIntError),
     #[error("invalid authorization header provided: {0}")]
     InvalidAuthHeader(#[from] TypedHeaderRejection),
+    #[error("invalid query parameters provided: {0}")]
+    InvalidQueryParams(#[from] QueryRejection),
     #[error("invalid sort order provided: {0}")]
     SortOrder(#[from] ParseSortError),
 }

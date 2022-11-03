@@ -8,7 +8,11 @@ use axum::{
 };
 use serde::Deserialize;
 
-use super::{config::ApiData, error::ApiError, DEFAULT_PAGE_SIZE};
+use super::{
+    config::ApiData,
+    error::{ApiError, RequestError},
+    DEFAULT_PAGE_SIZE,
+};
 
 #[derive(Debug, Copy, Clone, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
@@ -33,7 +37,7 @@ impl<B: Send> FromRequest<B> for Pagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(mut pagination) = Query::<Pagination>::from_request(req)
             .await
-            .map_err(ApiError::bad_request)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
@@ -53,7 +57,7 @@ impl<B: Send> FromRequest<B> for ListRoutesQuery {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<ListRoutesQuery>::from_request(req)
             .await
-            .map_err(ApiError::bad_request)?;
+            .map_err(RequestError::from)?;
         Ok(query)
     }
 }
@@ -88,9 +92,9 @@ mod stardust {
                 end_timestamp,
             }) = Query::<TimeRangeQuery>::from_request(req)
                 .await
-                .map_err(ApiError::bad_request)?;
+                .map_err(RequestError::from)?;
             if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
-                return Err(ApiError::new(RequestError::BadTimeRange));
+                return Err(ApiError::from(RequestError::BadTimeRange));
             }
             let time_range = TimeRange {
                 start_timestamp: start_timestamp.map(Into::into),

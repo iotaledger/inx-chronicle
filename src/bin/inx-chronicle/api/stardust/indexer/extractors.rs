@@ -47,11 +47,11 @@ impl FromStr for IndexedOutputsCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [ms, o, ps] => IndexedOutputsCursor {
-                milestone_index: ms.parse().map_err(ApiError::bad_request)?,
-                output_id: o.parse().map_err(ApiError::bad_request)?,
-                page_size: ps.parse().map_err(ApiError::bad_request)?,
+                milestone_index: ms.parse().map_err(RequestError::from)?,
+                output_id: o.parse().map_err(RequestError::from)?,
+                page_size: ps.parse().map_err(RequestError::from)?,
             },
-            _ => return Err(ApiError::new(RequestError::BadPagingState)),
+            _ => return Err(ApiError::from(RequestError::BadPagingState)),
         })
     }
 }
@@ -101,7 +101,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::bad_request)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
@@ -123,24 +123,24 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                     .address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 max_native_token_count: query
                     .max_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_storage_deposit_return: query.has_storage_deposit_return,
                 storage_deposit_return_address: query
                     .storage_deposit_return_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_timelock: query.has_timelock,
                 timelocked_before: query.timelocked_before.map(Into::into),
                 timelocked_after: query.timelocked_after.map(Into::into),
@@ -151,12 +151,12 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                     .expiration_return_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 sender: query
                     .sender
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 tag: query.tag,
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
@@ -194,7 +194,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::bad_request)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
@@ -216,33 +216,33 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
                     .state_controller
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 governor: query
                     .governor
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 issuer: query
                     .issuer
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 sender: query
                     .sender
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 max_native_token_count: query
                     .max_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
@@ -276,7 +276,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::bad_request)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
@@ -298,18 +298,18 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
                     .alias_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 max_native_token_count: query
                     .max_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
@@ -355,7 +355,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<NftOutputsPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::bad_request)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
@@ -377,34 +377,34 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                     .address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 issuer: query
                     .issuer
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 sender: query
                     .sender
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_native_tokens: query.has_native_tokens,
                 min_native_token_count: query
                     .min_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 max_native_token_count: query
                     .max_native_token_count
                     .map(|c| U256::from_dec_str(&c))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_storage_deposit_return: query.has_storage_deposit_return,
                 storage_deposit_return_address: query
                     .storage_deposit_return_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 has_timelock: query.has_timelock,
                 timelocked_before: query.timelocked_before.map(Into::into),
                 timelocked_after: query.timelocked_after.map(Into::into),
@@ -415,7 +415,7 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                     .expiration_return_address
                     .map(|address| Address::from_str(&address))
                     .transpose()
-                    .map_err(ApiError::bad_request)?,
+                    .map_err(RequestError::from)?,
                 tag: query.tag,
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),

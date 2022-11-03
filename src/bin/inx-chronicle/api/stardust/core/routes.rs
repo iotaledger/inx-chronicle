@@ -48,7 +48,7 @@ use packable::PackableExt;
 
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
-    error::{ApiError, CorruptStateError, MissingError},
+    error::{ApiError, CorruptStateError, MissingError, RequestError},
     router::Router,
     routes::{is_healthy, not_implemented},
     ApiResult,
@@ -197,7 +197,7 @@ async fn block(
     Path(block_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<BlockDto>> {
-    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_request)?;
+    let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
@@ -224,7 +224,7 @@ async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id_str): Path<String>,
 ) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
-    let block_id = BlockId::from_str(&block_id_str).map_err(ApiError::bad_request)?;
+    let block_id = BlockId::from_str(&block_id_str).map_err(RequestError::from)?;
     let metadata = database
         .collection::<BlockCollection>()
         .get_block_metadata(&block_id)
@@ -283,7 +283,7 @@ async fn output(
         .get_ledger_index()
         .await?
         .ok_or(MissingError::NoResults)?;
-    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_request)?;
+    let output_id = OutputId::from_str(&output_id).map_err(RequestError::from)?;
 
     let OutputWithMetadataResult { output, metadata } = database
         .collection::<OutputCollection>()
@@ -321,7 +321,7 @@ async fn output_metadata(
         .get_ledger_index()
         .await?
         .ok_or(MissingError::NoResults)?;
-    let output_id = OutputId::from_str(&output_id).map_err(ApiError::bad_request)?;
+    let output_id = OutputId::from_str(&output_id).map_err(RequestError::from)?;
     let metadata = database
         .collection::<OutputCollection>()
         .get_output_metadata(&output_id, ledger_index)
@@ -336,7 +336,7 @@ async fn transaction_included_block(
     Path(transaction_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<BlockDto>> {
-    let transaction_id = TransactionId::from_str(&transaction_id).map_err(ApiError::bad_request)?;
+    let transaction_id = TransactionId::from_str(&transaction_id).map_err(RequestError::from)?;
 
     if let Some(value) = headers.get(axum::http::header::ACCEPT) {
         if value.eq(&*BYTE_CONTENT_HEADER) {
@@ -417,7 +417,7 @@ async fn milestone(
     Path(milestone_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<MilestonePayloadDto>> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_request)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
     let milestone_payload = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
@@ -481,7 +481,7 @@ async fn utxo_changes(
     database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
 ) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_request)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
     let milestone_index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)

@@ -74,7 +74,7 @@ async fn login(
 
         Ok(format!("Bearer {}", jwt))
     } else {
-        Err(ApiError::new(AuthError::IncorrectPassword))
+        Err(ApiError::from(AuthError::IncorrectPassword))
     }
 }
 

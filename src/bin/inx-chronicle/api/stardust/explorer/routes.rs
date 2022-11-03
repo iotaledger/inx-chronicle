@@ -29,10 +29,10 @@ use super::{
     },
 };
 use crate::api::{
-    error::{CorruptStateError, MissingError},
+    error::{CorruptStateError, MissingError, RequestError},
     extractors::Pagination,
     router::Router,
-    ApiError, ApiResult,
+    ApiResult,
 };
 
 pub fn routes() -> Router {
@@ -63,7 +63,7 @@ async fn ledger_updates_by_address(
         cursor,
     }: LedgerUpdatesByAddressPagination,
 ) -> ApiResult<LedgerUpdatesByAddressResponse> {
-    let address_dto = Address::from_str(&address).map_err(ApiError::bad_request)?;
+    let address_dto = Address::from_str(&address).map_err(RequestError::from)?;
 
     let mut record_stream = database
         .collection::<LedgerUpdateCollection>()
@@ -103,7 +103,7 @@ async fn ledger_updates_by_milestone(
     Path(milestone_id): Path<String>,
     LedgerUpdatesByMilestonePagination { page_size, cursor }: LedgerUpdatesByMilestonePagination,
 ) -> ApiResult<LedgerUpdatesByMilestoneResponse> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_request)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
 
     let milestone_index = database
         .collection::<MilestoneCollection>()
@@ -149,7 +149,7 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> A
         .get_ledger_index()
         .await?
         .ok_or(MissingError::NoResults)?;
-    let address = Address::from_str(&address).map_err(ApiError::bad_request)?;
+    let address = Address::from_str(&address).map_err(RequestError::from)?;
     let res = database
         .collection::<OutputCollection>()
         .get_address_balance(address, ledger_index)
@@ -168,7 +168,7 @@ async fn block_children(
     Path(block_id): Path<String>,
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<BlockChildrenResponse> {
-    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_request)?;
+    let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
     let mut block_children = database
         .collection::<BlockCollection>()
         .get_block_children(&block_id, page_size, page)
