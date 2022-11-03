@@ -82,7 +82,10 @@ impl MongoDb {
 
     /// Clears all the collections from the database.
     pub async fn clear(&self) -> Result<(), Error> {
-        let collections = self.db.list_collection_names(None).await?;
+        let collections = self
+            .db
+            .list_collection_names(doc! { "name": { "$not": { "$regex": "^system." } } })
+            .await?;
 
         for c in collections {
             self.db.collection::<Document>(&c).drop(None).await?;
@@ -129,13 +132,6 @@ impl MongoDb {
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
         self.db.name()
-    }
-
-    /// Disables the query profiler. MongoDb REALLY does not like it when you drop the
-    /// `system.profile` table without doing this first.
-    pub async fn disable_query_profiler(&self) -> Result<(), Error> {
-        self.db.run_command(doc! { "profile": 0 }, None).await?;
-        Ok(())
     }
 
     /// Enables storing slow operations of the given type in `system.profile`.

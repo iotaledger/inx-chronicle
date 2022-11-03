@@ -126,7 +126,6 @@ async fn main() -> Result<(), Error> {
             },
             _ = handle.recv() => {},
         }
-        worker.clear().await?;
         Ok(())
     });
 

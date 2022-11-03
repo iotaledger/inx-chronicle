@@ -67,8 +67,4 @@ impl ProfilerWorker {
         }
         Ok(())
     }
-
-    pub async fn clear(&self) -> Result<(), Error> {
-        self.db.disable_query_profiler().await
-    }
 }
