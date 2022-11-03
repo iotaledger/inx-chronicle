@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use clap::{ArgGroup, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 use crate::{
     config::{ChronicleConfig, ConfigError},
@@ -40,7 +40,6 @@ pub struct ClArgs {
 
 #[cfg(feature = "api")]
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("api").args(["api_enabled"]))]
 pub struct ApiArgs {
     /// Toggle REST API.
     #[arg(long, env = "REST_API_ENABLED")]
@@ -51,7 +50,6 @@ pub struct ApiArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("jwt").args(["identity_path", "password"]))]
 pub struct JwtArgs {
     /// The location of the identity file for JWT auth.
     #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
@@ -63,7 +61,6 @@ pub struct JwtArgs {
 
 #[cfg(feature = "inx")]
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("inx").args(["inx_enabled", "inx_url", "sync_start"]))]
 pub struct InxArgs {
     /// Toggle INX write workflow.
     #[arg(long, env = "INX_ENABLED")]
@@ -77,7 +74,6 @@ pub struct InxArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("mongodb").args(["mongodb_conn_str"]))]
 pub struct MongoDbArgs {
     /// The MongoDB connection string.
     #[arg(long, env = "MONGODB_CONN_STR")]
@@ -86,7 +82,6 @@ pub struct MongoDbArgs {
 
 #[cfg(feature = "influxdb")]
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("influxdb").args(["influxdb_url"]))]
 pub struct InfluxDbArgs {
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
@@ -94,7 +89,6 @@ pub struct InfluxDbArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(group = ArgGroup::new("metrics").args(["prometheus_enabled"]))]
 pub struct MetricsArgs {
     /// Toggle the prometheus server.
     #[arg(long, env = "PROMETHEUS_ENABLED")]
