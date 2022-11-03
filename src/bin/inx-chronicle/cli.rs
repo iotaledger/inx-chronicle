@@ -10,7 +10,7 @@ use crate::{
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version, about, next_display_order = None)]
 pub struct ClArgs {
     /// The location of the configuration file.
     #[arg(short, long, env = "CONFIG_PATH")]
