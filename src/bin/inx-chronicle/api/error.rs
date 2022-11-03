@@ -70,10 +70,17 @@ impl_internal_error!(
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
+        // Hide internal errors from the client, but print them to the server.
+        let message = if self.code == StatusCode::INTERNAL_SERVER_ERROR {
+            tracing::error!("Internal API error: {}", self.error);
+            "internal server error".to_string()
+        } else {
+            self.error.to_string()
+        };
         ErrorBody {
             status: self.code,
             code: self.code.as_u16(),
-            message: self.error.to_string(),
+            message,
         }
         .into_response()
     }
