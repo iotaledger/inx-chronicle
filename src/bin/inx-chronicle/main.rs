@@ -11,6 +11,7 @@ mod config;
 mod error;
 mod metrics;
 mod process;
+mod profiler;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
 
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Error> {
     }
 
     info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
-    let db = MongoDb::connect(&config.mongodb).await?;
+    let db = MongoDb::connect(&config.mongodb, "Chronicle").await?;
     debug!("Available databases: `{:?}`", db.get_databases().await?);
     info!(
         "Connected to database `{}` ({})",
@@ -79,6 +80,7 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
+        let db = MongoDb::connect(&config.mongodb, "INX Worker").await?;
         let mut worker = stardust_inx::InxWorker::new(&db, &config.inx);
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
@@ -95,9 +97,10 @@ async fn main() -> Result<(), Error> {
     #[cfg(feature = "api")]
     if config.api.enabled {
         use futures::FutureExt;
+        let db = MongoDb::connect(&config.mongodb, "API Worker").await?;
         let mut handle = shutdown_signal.subscribe();
+        let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });
@@ -113,6 +116,19 @@ async fn main() -> Result<(), Error> {
             );
         };
     }
+
+    let mut handle = shutdown_signal.subscribe();
+    let worker = profiler::ProfilerWorker::new(&db, &config);
+    tasks.spawn(async move {
+        tokio::select! {
+            res = worker.run() => {
+                res?;
+            },
+            _ = handle.recv() => {},
+        }
+        worker.clear().await?;
+        Ok(())
+    });
 
     // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
     tokio::select! {

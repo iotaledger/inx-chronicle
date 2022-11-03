@@ -16,6 +16,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
+use super::collections::ProfileFilter;
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 
@@ -31,10 +32,10 @@ impl MongoDb {
     const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
-    pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
+    pub async fn connect(config: &MongoDbConfig, app_name: &str) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
-        client_options.app_name = Some("Chronicle".to_string());
+        client_options.app_name = Some(app_name.to_string());
         client_options.min_pool_size = config.min_pool_size;
 
         if client_options.credential.is_none() {
@@ -130,40 +131,23 @@ impl MongoDb {
         self.db.name()
     }
 
-    /// Logs slow queries with a certain sample rate and stores it in "system.profile".
-    pub async fn enable_query_profiler(&self) -> Result<(), Error> {
+    /// Disables the query profiler. MongoDb REALLY does not like it when you drop the
+    /// `system.profile` table without doing this first.
+    pub async fn disable_query_profiler(&self) -> Result<(), Error> {
+        self.db.run_command(doc! { "profile": 0 }, None).await?;
+        Ok(())
+    }
+
+    /// Enables storing slow operations of the given type in `system.profile`.
+    pub async fn enable_query_profiler(&self, apps: Vec<ProfileFilter>) -> Result<(), Error> {
         let command = doc! {
             "profile": 1,
-            "slowms": 100,
             "filter": {
-                "op": "query",
-                "appName": "Chronicle"
+                "$or": apps
             }
         };
 
-        let _ = self.db.run_command(command, None).await?;
-
-        let command = doc! {
-            "profile": 1,
-            "slowms": 50,
-            "filter": {
-                "op": "insert",
-                "appName": "Chronicle"
-            }
-        };
-
-        let _ = self.db.run_command(command, None).await?;
-
-        let command = doc! {
-            "profile": 1,
-            "slowms": 50,
-            "filter": {
-                "op": "update",
-                "appName": "Chronicle"
-            }
-        };
-
-        let _ = self.db.run_command(command, None).await?;
+        self.db.run_command(command, None).await?;
 
         Ok(())
     }

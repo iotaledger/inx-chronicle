@@ -35,8 +35,11 @@ public_routes = [
     "api/core/v2/*",
 ]
 
-### Maximum number of records returned by a single API call
+### Maximum number of records returned by a single API call.
 max_page_size = 1000
+
+### Marks when a query is considered slow and a warning should be emitted.
+slow_query_millis = 200
 
 [api.argon_config]
 ### The length of the resulting hash.
@@ -66,7 +69,10 @@ connection_retry_interval = "5s"
 connection_retry_count = 30
 
 ### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
-sync_start_milestone = 1 
+sync_start_milestone = 1
+
+### Marks when a query is considered slow and a warning should be emitted.
+slow_query_millis = 200
 
 [metrics]
 ### Whether metrics will be served.

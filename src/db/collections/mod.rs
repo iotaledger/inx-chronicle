@@ -14,6 +14,8 @@ mod protocol_update;
 /// Module containing the treasury model.
 mod treasury;
 
+mod system_profile;
+
 use std::str::FromStr;
 
 use thiserror::Error;
@@ -28,6 +30,7 @@ pub use self::{
         UtxoChangesResult,
     },
     protocol_update::ProtocolUpdateCollection,
+    system_profile::{ProfileFilter, SystemProfileCollection},
     treasury::{TreasuryCollection, TreasuryResult},
 };
 use crate::types::stardust::block::{

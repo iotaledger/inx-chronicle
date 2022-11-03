@@ -25,6 +25,8 @@ pub struct ApiConfig {
     pub identity_path: Option<String>,
     pub max_page_size: usize,
     pub argon_config: ArgonConfig,
+    /// Marks when a query is considered slow and a warning should be emitted.
+    pub slow_query_millis: u32,
 }
 
 impl Default for ApiConfig {
@@ -41,6 +43,7 @@ impl Default for ApiConfig {
             identity_path: None,
             max_page_size: 1000,
             argon_config: Default::default(),
+            slow_query_millis: 200,
         }
     }
 }

@@ -32,7 +32,7 @@ pub async fn setup_database(database_name: impl ToString) -> Result<MongoDb, Tes
     };
     config.database_name = database_name.to_string();
 
-    let db = MongoDb::connect(&config).await?;
+    let db = MongoDb::connect(&config, "Chronicle Test").await?;
     db.clear().await?;
     Ok(db)
 }
