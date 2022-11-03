@@ -79,9 +79,6 @@ connection_retry_interval = "5s"
 ### Maximum number of tries to establish an INX connection.
 connection_retry_count = 30
 
-### Milestone at which synchronization should begin. A value of `1` means syncing back until genesis.
-sync_start_milestone = 1 
-
 [metrics]
 ### Whether metrics will be served.
 enabled = true
