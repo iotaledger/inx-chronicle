@@ -321,7 +321,8 @@ impl InxWorker {
         tracing::Span::current().record("consumed", consumed_count);
 
         self.handle_cone_stream(inx, milestone_index).await?;
-        self.handle_protocol_params(inx, milestone_index).await?;
+        #[allow(unused)]
+        let network_name = self.handle_protocol_params(inx, milestone_index).await?;
         self.handle_node_configuration(inx, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
@@ -337,6 +338,8 @@ impl InxWorker {
                     time: chrono::Utc::now(),
                     milestone_index,
                     sync_time: elapsed.as_millis() as u64,
+                    network_name,
+                    chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                 })
                 .await?;
         }
@@ -349,19 +352,21 @@ impl InxWorker {
         &self,
         inx: &mut Inx,
         milestone_index: MilestoneIndex,
-    ) -> Result<(), InxWorkerError> {
+    ) -> Result<String, InxWorkerError> {
         let parameters = inx
             .read_protocol_parameters(milestone_index.0.into())
             .await?
             .params
             .inner(&())?;
 
+        let network_name = parameters.network_name().to_string();
+
         self.db
             .collection::<ProtocolUpdateCollection>()
             .update_latest_protocol_parameters(milestone_index, parameters.into())
             .await?;
 
-        Ok(())
+        Ok(network_name)
     }
 
     #[instrument(skip_all, level = "trace")]

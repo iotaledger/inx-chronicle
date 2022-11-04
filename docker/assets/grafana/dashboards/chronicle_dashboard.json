@@ -201,7 +201,7 @@
       "pluginVersion": "9.1.0",
       "targets": [
         {
-          "alias": "5%",
+          "alias": "Network: \"$tag_network_name\", Chronicle Version: $tag_chronicle_version",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -215,135 +215,15 @@
             },
             {
               "params": [
-                "null"
+                "chronicle_version"
               ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "sync_metrics",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "C",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "sync_time"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [
-                  "5"
-                ],
-                "type": "percentile"
-              }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "50%",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
+              "type": "tag"
             },
             {
               "params": [
-                "null"
+                "network_name"
               ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "sync_metrics",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "D",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "sync_time"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [
-                  "50"
-                ],
-                "type": "percentile"
-              }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "95%",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "sync_metrics",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "sync_time"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [
-                  "95"
-                ],
-                "type": "percentile"
-              }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "100%",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
+              "type": "tag"
             },
             {
               "params": [
@@ -367,7 +247,7 @@
               },
               {
                 "params": [
-                  "100"
+                  "95"
                 ],
                 "type": "percentile"
               }
@@ -703,7 +583,7 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
