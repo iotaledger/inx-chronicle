@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use chronicle::types::tangle::MilestoneIndex;
 use clap::{Args, Parser, Subcommand};
 
 use crate::{
@@ -182,18 +183,35 @@ impl ClArgs {
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
-                    tasks,
+                    num_tasks,
                 } => {
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    let start_milestone = if let Some(index) = start_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_oldest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    let end_milestone = if let Some(index) = end_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_newest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
-                    let tasks = tasks.unwrap_or(1);
+                    let num_tasks = num_tasks.unwrap_or(1);
                     let mut join_set = tokio::task::JoinSet::new();
-                    for i in 0..tasks {
+                    for i in 0..num_tasks {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
-                        let (start_milestone, end_milestone) = (*start_milestone, *end_milestone);
                         join_set.spawn(async move {
-                            for index in (start_milestone..end_milestone).skip(i).step_by(tasks) {
+                            for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let index = index.into();
                                 if let Some(timestamp) = db
                                     .collection::<chronicle::db::collections::MilestoneCollection>()
@@ -230,8 +248,11 @@ pub enum Subcommands {
     GenerateJWT,
     #[cfg(feature = "analytics")]
     FillAnalytics {
-        start_milestone: u32,
-        end_milestone: u32,
-        tasks: Option<usize>,
+        #[arg(short, long)]
+        start_milestone: Option<MilestoneIndex>,
+        #[arg(short, long)]
+        end_milestone: Option<MilestoneIndex>,
+        #[arg(short, long)]
+        num_tasks: Option<usize>,
     },
 }
