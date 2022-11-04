@@ -178,15 +178,14 @@ impl ClArgs {
                     );
                     return Ok(true);
                 }
-                //#[cfg(feature = "analytics")]
-                #[cfg(feature = "influxdb")]
+                #[cfg(feature = "analytics")]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
                     tasks,
                 } => {
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
-                    let influx_db = chronicle::db::InfluxDb::connect(&config.influxdb).await?;
+                    let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
                     let tasks = tasks.unwrap_or(1);
                     let mut join_set = tokio::task::JoinSet::new();
                     for i in 0..tasks {
@@ -229,8 +228,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    //#[cfg(feature = "analytics")]
-    #[cfg(feature = "influxdb")]
+    #[cfg(feature = "analytics")]
     FillAnalytics {
         start_milestone: u32,
         end_milestone: u32,
