@@ -75,7 +75,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.3",
+      "pluginVersion": "9.1.6",
       "targets": [
         {
           "datasource": {
@@ -209,12 +209,6 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
                 "chronicle_version"
               ],
               "type": "tag"
@@ -224,12 +218,6 @@
                 "network_name"
               ],
               "type": "tag"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
             }
           ],
           "measurement": "sync_metrics",
@@ -244,12 +232,6 @@
                   "sync_time"
                 ],
                 "type": "field"
-              },
-              {
-                "params": [
-                  "95"
-                ],
-                "type": "percentile"
               }
             ]
           ],
@@ -590,6 +572,6 @@
   "timezone": "",
   "title": "Chronicle",
   "uid": "up-bdCiVz",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
