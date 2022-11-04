@@ -27,9 +27,6 @@ pub struct ClArgs {
     #[cfg(feature = "inx")]
     #[command(flatten)]
     pub inx: InxArgs,
-    /// Metrics arguments.
-    #[command(flatten)]
-    pub metrics: MetricsArgs,
     /// MongoDb arguments.
     #[command(flatten)]
     pub mongodb: MongoDbArgs,
@@ -83,16 +80,12 @@ pub struct MongoDbArgs {
 #[cfg(feature = "influxdb")]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
+    /// Toggle InfluxDb time-series writes.
+    #[arg(long, env = "INFLUXDB_ENABLED")]
+    pub influxdb_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
-}
-
-#[derive(Args, Debug)]
-pub struct MetricsArgs {
-    /// Toggle the prometheus server.
-    #[arg(long, env = "PROMETHEUS_ENABLED")]
-    pub prometheus_enabled: Option<bool>,
 }
 
 impl ClArgs {
@@ -123,8 +116,13 @@ impl ClArgs {
         }
 
         #[cfg(feature = "influxdb")]
-        if let Some(url) = &self.influxdb.influxdb_url {
-            config.influxdb.url = url.clone();
+        {
+            if let Some(enabled) = self.influxdb.influxdb_enabled {
+                config.influxdb.enabled = enabled;
+            }
+            if let Some(url) = &self.influxdb.influxdb_url {
+                config.influxdb.url = url.clone();
+            }
         }
 
         #[cfg(feature = "api")]
@@ -146,10 +144,6 @@ impl ClArgs {
             if let Some(enabled) = self.api.api_enabled {
                 config.api.enabled = enabled;
             }
-        }
-
-        if let Some(enabled) = self.metrics.prometheus_enabled {
-            config.metrics.enabled = enabled;
         }
 
         Ok(config)
