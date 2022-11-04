@@ -78,13 +78,3 @@ connection_retry_interval = "5s"
 
 ### Maximum number of tries to establish an INX connection.
 connection_retry_count = 30
-
-[metrics]
-### Whether metrics will be served.
-enabled = true
-
-### Bind address of the metrics server.
-address = "0.0.0.0"
-
-### Bind port of the metrics server.
-port = 9100
