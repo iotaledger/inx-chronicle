@@ -195,12 +195,12 @@ impl ClArgs {
                         join_set.spawn(async move {
                             for index in (start_milestone..end_milestone).skip(i).step_by(tasks) {
                                 let index = index.into();
-                                let analytics = db.get_all_analytics(index).await?;
                                 if let Some(timestamp) = db
                                     .collection::<chronicle::db::collections::MilestoneCollection>()
                                     .get_milestone_timestamp(index)
                                     .await?
                                 {
+                                    let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
                                     println!("Finished analytics for milestone: {}", index);
                                 } else {
