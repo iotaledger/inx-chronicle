@@ -8,9 +8,8 @@
 pub mod collections;
 
 #[cfg(feature = "influxdb")]
-mod influxdb;
+/// Module containing InfluxDb types and traits.
+pub mod influxdb;
 mod mongodb;
 
-#[cfg(feature = "influxdb")]
-pub use self::influxdb::{InfluxDb, InfluxDbConfig};
 pub use self::mongodb::{MongoDb, MongoDbCollection, MongoDbCollectionExt, MongoDbConfig};
