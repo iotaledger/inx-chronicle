@@ -75,7 +75,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.6",
+      "pluginVersion": "9.2.3",
       "targets": [
         {
           "datasource": {
@@ -134,12 +134,12 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "Sync time",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
+            "drawStyle": "bars",
+            "fillOpacity": 6,
+            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -152,7 +152,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -180,12 +180,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 3
       },
-      "id": 7,
+      "id": 15,
       "options": {
         "legend": {
           "calcs": [],
@@ -198,7 +198,6 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.1.0",
       "targets": [
         {
           "alias": "Network: \"$tag_network_name\", Chronicle Version: $tag_chronicle_version",
@@ -209,7 +208,7 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "1m"
               ],
               "type": "time"
             },
@@ -232,10 +231,11 @@
               "type": "fill"
             }
           ],
+          "hide": false,
           "measurement": "sync_metrics",
-          "orderByTime": "ASC",
+          "orderByTime": "DESC",
           "policy": "default",
-          "refId": "A",
+          "refId": "C",
           "resultFormat": "time_series",
           "select": [
             [
@@ -321,7 +321,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 13
       },
       "id": 9,
       "options": {
@@ -414,7 +414,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 13
       },
       "id": 11,
       "options": {
@@ -543,7 +543,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 21
       },
       "id": 13,
       "options": {
@@ -590,6 +590,6 @@
   "timezone": "",
   "title": "Chronicle",
   "uid": "up-bdCiVz",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
