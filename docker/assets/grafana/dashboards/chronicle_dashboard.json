@@ -134,12 +134,12 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "",
+            "axisLabel": "Sync time",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 6,
-            "gradientMode": "none",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -152,7 +152,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
-            "spanNulls": false,
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -180,12 +180,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 12,
         "w": 24,
         "x": 0,
         "y": 3
       },
-      "id": 15,
+      "id": 7,
       "options": {
         "legend": {
           "calcs": [],
@@ -198,6 +198,7 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "9.2.3",
       "targets": [
         {
           "alias": "Network: \"$tag_network_name\", Chronicle Version: $tag_chronicle_version",
@@ -208,7 +209,7 @@
           "groupBy": [
             {
               "params": [
-                "1m"
+                "$__interval"
               ],
               "type": "time"
             },
@@ -231,11 +232,10 @@
               "type": "fill"
             }
           ],
-          "hide": false,
           "measurement": "sync_metrics",
-          "orderByTime": "DESC",
+          "orderByTime": "ASC",
           "policy": "default",
-          "refId": "C",
+          "refId": "A",
           "resultFormat": "time_series",
           "select": [
             [
@@ -321,7 +321,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 15
       },
       "id": 9,
       "options": {
@@ -414,7 +414,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 15
       },
       "id": 11,
       "options": {
@@ -543,7 +543,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 23
       },
       "id": 13,
       "options": {
