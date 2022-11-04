@@ -75,7 +75,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.6",
+      "pluginVersion": "9.2.3",
       "targets": [
         {
           "datasource": {
@@ -134,12 +134,12 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "Sync time",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
+            "drawStyle": "bars",
+            "fillOpacity": 6,
+            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -152,7 +152,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -180,12 +180,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 3
       },
-      "id": 7,
+      "id": 15,
       "options": {
         "legend": {
           "calcs": [],
@@ -198,10 +198,9 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.1.0",
       "targets": [
         {
-          "alias": "5%",
+          "alias": "100%",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -209,7 +208,7 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "1m"
               ],
               "type": "time"
             },
@@ -220,11 +219,10 @@
               "type": "fill"
             }
           ],
-          "hide": false,
           "measurement": "sync_metrics",
-          "orderByTime": "ASC",
+          "orderByTime": "DESC",
           "policy": "default",
-          "refId": "C",
+          "refId": "A",
           "resultFormat": "time_series",
           "select": [
             [
@@ -236,51 +234,7 @@
               },
               {
                 "params": [
-                  "5"
-                ],
-                "type": "percentile"
-              }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "50%",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "sync_metrics",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "D",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "sync_time"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [
-                  "50"
+                  "100"
                 ],
                 "type": "percentile"
               }
@@ -297,7 +251,7 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "1m"
               ],
               "type": "time"
             },
@@ -310,7 +264,7 @@
           ],
           "hide": false,
           "measurement": "sync_metrics",
-          "orderByTime": "ASC",
+          "orderByTime": "DESC",
           "policy": "default",
           "refId": "B",
           "resultFormat": "time_series",
@@ -333,7 +287,7 @@
           "tags": []
         },
         {
-          "alias": "100%",
+          "alias": "50%",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -341,7 +295,7 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "1m"
               ],
               "type": "time"
             },
@@ -352,10 +306,11 @@
               "type": "fill"
             }
           ],
+          "hide": false,
           "measurement": "sync_metrics",
-          "orderByTime": "ASC",
+          "orderByTime": "DESC",
           "policy": "default",
-          "refId": "A",
+          "refId": "C",
           "resultFormat": "time_series",
           "select": [
             [
@@ -367,7 +322,7 @@
               },
               {
                 "params": [
-                  "100"
+                  "50"
                 ],
                 "type": "percentile"
               }
@@ -441,7 +396,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 13
       },
       "id": 9,
       "options": {
@@ -534,7 +489,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 13
       },
       "id": 11,
       "options": {
@@ -663,7 +618,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 21
       },
       "id": 13,
       "options": {
@@ -703,13 +658,13 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Chronicle",
   "uid": "up-bdCiVz",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
