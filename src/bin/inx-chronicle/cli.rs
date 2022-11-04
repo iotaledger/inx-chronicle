@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::types::tangle::MilestoneIndex;
 use clap::{Args, Parser, Subcommand};
 
 use crate::{
@@ -249,9 +248,9 @@ pub enum Subcommands {
     #[cfg(feature = "analytics")]
     FillAnalytics {
         #[arg(short, long)]
-        start_milestone: Option<MilestoneIndex>,
+        start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         #[arg(short, long)]
-        end_milestone: Option<MilestoneIndex>,
+        end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         #[arg(short, long)]
         num_tasks: Option<usize>,
     },
