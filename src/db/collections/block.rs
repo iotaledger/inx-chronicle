@@ -20,6 +20,7 @@ use crate::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
+        tangle::MilestoneIndex,
     },
 };
 
@@ -186,6 +187,14 @@ impl BlockCollection {
             )
             .await?
             .map_ok(|BlockIdResult { block_id }| block_id))
+    }
+
+    /// Get the past-cone of a [`Milestone`].
+    pub async fn get_milestone_past_cone_by_index(
+        &self,
+        milestone_index: MilestoneIndex,
+    ) -> Result<Vec<BlockId>, Error> {
+        Ok(vec![])
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].

@@ -54,15 +54,18 @@ pub enum ApiError {
     #[error("Internal server error")]
     Internal(InternalApiError),
     #[error(transparent)]
-    InvalidJwt(auth_helper::jwt::Error),
-    #[error(transparent)]
     InvalidAuthHeader(#[from] TypedHeaderRejection),
+    #[error(transparent)]
+    InvalidJwt(auth_helper::jwt::Error),
     #[error("No results returned")]
     NoResults,
     #[error("No endpoint found")]
     NotFound,
     #[error("Endpoint not implemented")]
     NotImplemented,
+    #[cfg(feature = "poi")]
+    #[error(transparent)]
+    PoI(#[from] crate::api::stardust::poi::PoIError),
     #[error(transparent)]
     QueryError(#[from] QueryRejection),
 }
@@ -76,6 +79,8 @@ impl ApiError {
             | ApiError::BadParse(_)
             | ApiError::InvalidAuthHeader(_)
             | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
+            #[cfg(feature = "poi")]
+            ApiError::PoI(_) => StatusCode::BAD_REQUEST,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::IncorrectPassword | ApiError::InvalidJwt(_) => StatusCode::UNAUTHORIZED,
             ApiError::NotImplemented => StatusCode::NOT_IMPLEMENTED,

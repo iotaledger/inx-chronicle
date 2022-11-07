@@ -311,6 +311,7 @@ dependencies = [
  "hyper",
  "influxdb",
  "inx",
+ "iota-crypto",
  "iota-types",
  "lazy_static",
  "mongodb",
