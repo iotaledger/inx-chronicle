@@ -111,7 +111,7 @@ services:
     restart: unless-stopped
     user: "65532"
     ports:
-      - '9090:9090'
+      - 9090:9090
     volumes:
       - ./data/prometheus/:/prometheus
       - ./assets/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -130,7 +130,7 @@ services:
     restart: unless-stopped
     user: "65532"
     ports:
-      - '9216:9261'
+      - 9216:9261
     command:
       - '--mongodb.uri=mongodb://root:root@mongo:27017'
       - '--mongodb.direct-connect=true'
@@ -147,7 +147,7 @@ services:
     restart: unless-stopped
     user: "65532"
     ports:
-      - '3000:3000'
+      - 3000:3000
     volumes:
       - ./data/grafana:/var/lib/grafana
       - ./assets/grafana/:/etc/grafana/provisioning/
@@ -166,3 +166,25 @@ services:
       - 6832:6832/udp # accept jaeger.thrift over binary thrift protocol
       - 5778:5778 # serve configs
       - 16686:16686 # serve frontend
+
+  loki:
+    image: grafana/loki:latest
+    profiles:
+      - metrics
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - 3100:3100
+    volumes:
+      - ./assets/loki/:/etc/loki/
+    command: -config.file=/etc/loki/config.yml
+
+  promtail:
+    image: grafana/promtail:latest
+    profiles:
+      - metrics
+    container_name: promtail
+    volumes:
+      - ./assets/promtail/:/etc/promtail/
+      - ./data/promtail/log:/var/log
+    command: -config.file=/etc/promtail/config.yml

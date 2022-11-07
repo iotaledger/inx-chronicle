@@ -16,16 +16,16 @@ mod stardust_inx;
 use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
+use config::ChronicleConfig;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
-use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, EnvFilter};
 
 use crate::{cli::ClArgs, error::Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenvy::dotenv().ok();
-    set_up_logging();
 
     std::panic::set_hook(Box::new(|p| {
         error!("{}", p);
@@ -36,6 +36,8 @@ async fn main() -> Result<(), Error> {
     if cl_args.process_subcommands(&config).await? {
         return Ok(());
     }
+
+    set_up_logging(&config)?;
 
     info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
     let db = MongoDb::connect(&config.mongodb).await?;
@@ -146,34 +148,42 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn set_up_logging() {
-    #[cfg(feature = "opentelemetry")]
-    {
-        use tracing_subscriber::prelude::*;
+#[allow(unused)]
+fn set_up_logging(config: &ChronicleConfig) -> Result<(), Error> {
+    let registry = tracing_subscriber::registry();
 
+    #[cfg(feature = "opentelemetry")]
+    let registry = {
         let tracer = opentelemetry_jaeger::new_agent_pipeline()
             .with_service_name("Chronicle")
             .install_batch(opentelemetry::runtime::Tokio)
             .unwrap();
 
-        let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-
-        tracing_subscriber::registry()
-        .with(opentelemetry)
-        // This filter should not exist, but if I remove it,
-        // it causes the buffer to overflow
-        .with(EnvFilter::from_default_env())
-        .with(
-            tracing_subscriber::fmt::layer()
-                .with_span_events(FmtSpan::CLOSE)
-                // The filter should only be on the console logs
-                //.with_filter(EnvFilter::from_default_env()),
-        )
-        .init();
-    }
+        registry
+            .with(tracing_opentelemetry::layer().with_tracer(tracer))
+            // This filter should not exist, but if I remove it,
+            // it causes the buffer to overflow
+            .with(EnvFilter::from_default_env())
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_span_events(FmtSpan::CLOSE)
+                    // The filter should only be on the console logs
+                    //.with_filter(EnvFilter::from_default_env()),
+            )
+    };
     #[cfg(not(feature = "opentelemetry"))]
-    tracing_subscriber::fmt()
-        .with_span_events(FmtSpan::CLOSE)
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    let registry = {
+        registry
+            .with(EnvFilter::from_default_env())
+            .with(tracing_subscriber::fmt::layer().with_span_events(FmtSpan::CLOSE))
+    };
+    #[cfg(feature = "loki")]
+    let registry = {
+        let (layer, task) = tracing_loki::layer(config.loki.url.parse()?, [].into(), [].into())?;
+        tokio::spawn(task);
+        registry.with(layer)
+    };
+
+    registry.init();
+    Ok(())
 }

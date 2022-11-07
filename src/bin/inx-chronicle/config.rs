@@ -29,6 +29,8 @@ pub struct ChronicleConfig {
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub inx: super::stardust_inx::InxConfig,
+    #[cfg(feature = "loki")]
+    pub loki: LokiConfig,
 }
 
 impl ChronicleConfig {
@@ -37,6 +39,22 @@ impl ChronicleConfig {
         fs::read_to_string(&path)
             .map_err(|e| ConfigError::FileRead(path.as_ref().display().to_string(), e))
             .and_then(|contents| toml::from_str::<Self>(&contents).map_err(ConfigError::TomlDeserialization))
+    }
+}
+
+#[cfg(feature = "loki")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LokiConfig {
+    pub url: String,
+}
+
+#[cfg(feature = "loki")]
+impl Default for LokiConfig {
+    fn default() -> Self {
+        Self {
+            url: "http://127.0.0.1:3100".to_owned(),
+        }
     }
 }
 
