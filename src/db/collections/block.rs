@@ -11,7 +11,6 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::analytics::{PayloadActivityAnalytics, TransactionActivityAnalytics};
 use crate::{
     db::{
         collections::OutputCollection,
@@ -21,7 +20,6 @@ use crate::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
-        tangle::MilestoneIndex,
     },
 };
 
@@ -315,72 +313,81 @@ impl BlockCollection {
     }
 }
 
-impl BlockCollection {
-    /// Gathers past-cone payload activity statistics for a given milestone.
-    #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_payload_activity_analytics(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<PayloadActivityAnalytics, Error> {
-        Ok(self
-            .aggregate(
-                vec![
-                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "transaction_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
-                        } },
-                        "treasury_transaction_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
-                        } },
-                        "milestone_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
-                        } },
-                        "tagged_data_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
-                        } },
-                        "no_payload_count": { "$sum": {
-                            "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
-                        } },
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .unwrap_or_default())
-    }
+#[cfg(feature = "analytics")]
+mod analytics {
+    use super::*;
+    use crate::{
+        db::collections::analytics::{PayloadActivityAnalytics, TransactionActivityAnalytics},
+        types::tangle::MilestoneIndex,
+    };
 
-    /// Gathers past-cone transaction activity statistics for a given milestone.
-    #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_transaction_activity_analytics(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<TransactionActivityAnalytics, Error> {
-        Ok(self
-            .aggregate(
-                vec![
-                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                    doc! { "$group": {
-                        "_id": null,
-                        "confirmed_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
+    impl BlockCollection {
+        /// Gathers past-cone payload activity statistics for a given milestone.
+        #[tracing::instrument(skip(self), err, level = "trace")]
+        pub async fn get_payload_activity_analytics(
+            &self,
+            index: MilestoneIndex,
+        ) -> Result<PayloadActivityAnalytics, Error> {
+            Ok(self
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                        doc! { "$group": {
+                            "_id": null,
+                            "transaction_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
+                            } },
+                            "treasury_transaction_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
+                            } },
+                            "milestone_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
+                            } },
+                            "tagged_data_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
+                            } },
+                            "no_payload_count": { "$sum": {
+                                "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
+                            } },
                         } },
-                        "conflicting_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default())
+        }
+
+        /// Gathers past-cone transaction activity statistics for a given milestone.
+        #[tracing::instrument(skip(self), err, level = "trace")]
+        pub async fn get_transaction_activity_analytics(
+            &self,
+            index: MilestoneIndex,
+        ) -> Result<TransactionActivityAnalytics, Error> {
+            Ok(self
+                .aggregate(
+                    vec![
+                        doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                        doc! { "$group": {
+                            "_id": null,
+                            "confirmed_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
+                            } },
+                            "conflicting_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
+                            } },
+                            "no_transaction_count": { "$sum": {
+                                "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
+                            } },
                         } },
-                        "no_transaction_count": { "$sum": {
-                            "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
-                        } },
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .unwrap_or_default())
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default())
+        }
     }
 }

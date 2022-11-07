@@ -1,3 +1,41 @@
+## [1.0.0-beta.23](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.22...v1.0.0-beta.23) (2022-11-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **analytics:** use InfluxDB for milestone sync time (#838)
+* **cli:** refactor CLI and environment vars
+* **analytics:** add missing stats (#821)
+* **analytics:** add time-series analytics (#805)
+* **cli:** rework CLI args usage (#725)
+
+### Features
+
+* **analytics:** add missing stats ([#821](https://github.com/iotaledger/inx-chronicle/issues/821)) ([c655fde](https://github.com/iotaledger/inx-chronicle/commit/c655fdeda1aa156c32abae75670ef14f212f0457))
+* **analytics:** add time-series analytics ([#805](https://github.com/iotaledger/inx-chronicle/issues/805)) ([e965092](https://github.com/iotaledger/inx-chronicle/commit/e9650923518064f4e84dbef2b4956f7f67481b3b))
+* **analytics:** use InfluxDB for milestone sync time ([#838](https://github.com/iotaledger/inx-chronicle/issues/838)) ([30353e7](https://github.com/iotaledger/inx-chronicle/commit/30353e7972b300aa1505a509ceb1b578110f8c6a))
+* **cli:** add `fill-analytics` command ([#841](https://github.com/iotaledger/inx-chronicle/issues/841)) ([0d0e2de](https://github.com/iotaledger/inx-chronicle/commit/0d0e2de743ad8a0ca0260d0b8772ff70e08fea09))
+* **cli:** group CLI arguments and change INX config ([#830](https://github.com/iotaledger/inx-chronicle/issues/830)) ([c758809](https://github.com/iotaledger/inx-chronicle/commit/c758809065fce9ef905758d04722d5bea6fe5f01))
+* **cli:** rework CLI args usage ([#725](https://github.com/iotaledger/inx-chronicle/issues/725)) ([ffa43d6](https://github.com/iotaledger/inx-chronicle/commit/ffa43d658e429c2b91232d6db502dda159e851f9))
+* **deps:** remove dependency on `bee-inx` ([#804](https://github.com/iotaledger/inx-chronicle/issues/804)) ([65284b7](https://github.com/iotaledger/inx-chronicle/commit/65284b7c32a4de205bc44fe3da6cd7f72380c552))
+* **deps:** switch from `bee` to `iota-types` ([#813](https://github.com/iotaledger/inx-chronicle/issues/813)) ([469dd4f](https://github.com/iotaledger/inx-chronicle/commit/469dd4f437102e5406d0b030cc42e27b1e68c05d))
+* **grafana:** add InfluxDB data source ([#833](https://github.com/iotaledger/inx-chronicle/issues/833)) ([6115593](https://github.com/iotaledger/inx-chronicle/commit/6115593cc9b8593d1340bc4dafa9f62507af2223))
+* **inx:** remove `LedgerUpdateStream` and manual chunks iter ([#782](https://github.com/iotaledger/inx-chronicle/issues/782)) ([8270bae](https://github.com/iotaledger/inx-chronicle/commit/8270baeb9e15a79d869f345b3a73a442135cefa1))
+* **test:** add even more db query tests ([#806](https://github.com/iotaledger/inx-chronicle/issues/806)) ([55a6882](https://github.com/iotaledger/inx-chronicle/commit/55a68824c04843398f5665fb489ce64f42796817))
+* **test:** add more db query tests ([#699](https://github.com/iotaledger/inx-chronicle/issues/699)) ([9ffccbb](https://github.com/iotaledger/inx-chronicle/commit/9ffccbbc8db5b62950974fa40141916b40a084ba))
+* **tracing:** set max tracing level for release build to debug ([#837](https://github.com/iotaledger/inx-chronicle/issues/837)) ([f3b8e04](https://github.com/iotaledger/inx-chronicle/commit/f3b8e04eb62de84b59d3a21a444840267459391d))
+* **types:** improve and test encoding of `KIND` ([#816](https://github.com/iotaledger/inx-chronicle/issues/816)) ([9c1b2b3](https://github.com/iotaledger/inx-chronicle/commit/9c1b2b386dcfed9f1f9c8d11a1634f5c315c4330))
+
+
+### Bug Fixes
+
+* **api:** missing base token data in info response ([#807](https://github.com/iotaledger/inx-chronicle/issues/807)) ([a853b3e](https://github.com/iotaledger/inx-chronicle/commit/a853b3e642523411bd2a4d3b359d15f369f2be25))
+* **build:** add missing feature dependencies ([#840](https://github.com/iotaledger/inx-chronicle/issues/840)) ([18d3b7e](https://github.com/iotaledger/inx-chronicle/commit/18d3b7e24c1e586d0952a906ac5fc8d780c0a0fc))
+* **db:** fix unwind stage in receipt queries ([#786](https://github.com/iotaledger/inx-chronicle/issues/786)) ([4ab1951](https://github.com/iotaledger/inx-chronicle/commit/4ab19514df4de529f154185910b75a4eb17215a5))
+* **inx:** fix missing milestone field ([#817](https://github.com/iotaledger/inx-chronicle/issues/817)) ([6ed564d](https://github.com/iotaledger/inx-chronicle/commit/6ed564dbae89ca405162c61fe01d77a0e641d558))
+* **security:** disable `rustc-serialize` feature ([#823](https://github.com/iotaledger/inx-chronicle/issues/823)) ([2e0d4f4](https://github.com/iotaledger/inx-chronicle/commit/2e0d4f48a268466dffeba342a1cf7be2fcdfe8cb))
+* **shutdown:** fix shutdown logic ([#800](https://github.com/iotaledger/inx-chronicle/issues/800)) ([3af58ea](https://github.com/iotaledger/inx-chronicle/commit/3af58eafd046295c423156ddcf23e5d5388c8221))
+
 ## [v1.0.0-beta.22](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.21...v1.0.0-beta.22) (2022-10-05)
 
 

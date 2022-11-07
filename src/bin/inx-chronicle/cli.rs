@@ -27,9 +27,6 @@ pub struct ClArgs {
     #[cfg(feature = "inx")]
     #[command(flatten)]
     pub inx: InxArgs,
-    /// Metrics arguments.
-    #[command(flatten)]
-    pub metrics: MetricsArgs,
     /// MongoDb arguments.
     #[command(flatten)]
     pub mongodb: MongoDbArgs,
@@ -83,16 +80,12 @@ pub struct MongoDbArgs {
 #[cfg(feature = "influxdb")]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
+    /// Toggle InfluxDb time-series writes.
+    #[arg(long, env = "INFLUXDB_ENABLED")]
+    pub influxdb_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
-}
-
-#[derive(Args, Debug)]
-pub struct MetricsArgs {
-    /// Toggle the prometheus server.
-    #[arg(long, env = "PROMETHEUS_ENABLED")]
-    pub prometheus_enabled: Option<bool>,
 }
 
 impl ClArgs {
@@ -123,8 +116,13 @@ impl ClArgs {
         }
 
         #[cfg(feature = "influxdb")]
-        if let Some(url) = &self.influxdb.influxdb_url {
-            config.influxdb.url = url.clone();
+        {
+            if let Some(enabled) = self.influxdb.influxdb_enabled {
+                config.influxdb.enabled = enabled;
+            }
+            if let Some(url) = &self.influxdb.influxdb_url {
+                config.influxdb.url = url.clone();
+            }
         }
 
         #[cfg(feature = "api")]
@@ -148,17 +146,13 @@ impl ClArgs {
             }
         }
 
-        if let Some(enabled) = self.metrics.prometheus_enabled {
-            config.metrics.enabled = enabled;
-        }
-
         Ok(config)
     }
 
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -184,6 +178,61 @@ impl ClArgs {
                     );
                     return Ok(true);
                 }
+                #[cfg(feature = "analytics")]
+                Subcommands::FillAnalytics {
+                    start_milestone,
+                    end_milestone,
+                    num_tasks,
+                } => {
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb, "Chronicle CLI").await?;
+                    let start_milestone = if let Some(index) = start_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_oldest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    let end_milestone = if let Some(index) = end_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_newest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+                    let num_tasks = num_tasks.unwrap_or(1);
+                    let mut join_set = tokio::task::JoinSet::new();
+                    for i in 0..num_tasks {
+                        let db = db.clone();
+                        let influx_db = influx_db.clone();
+                        join_set.spawn(async move {
+                            for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
+                                let index = index.into();
+                                if let Some(timestamp) = db
+                                    .collection::<chronicle::db::collections::MilestoneCollection>()
+                                    .get_milestone_timestamp(index)
+                                    .await?
+                                {
+                                    let analytics = db.get_all_analytics(index).await?;
+                                    influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+                                    println!("Finished analytics for milestone: {}", index);
+                                } else {
+                                    println!("No milestone in database for index {}", index);
+                                }
+                            }
+                            Result::<_, Error>::Ok(())
+                        });
+                    }
+                    while let Some(res) = join_set.join_next().await {
+                        // Panic: Acceptable risk
+                        res.unwrap()?;
+                    }
+                    return Ok(true);
+                }
                 _ => (),
             }
         }
@@ -196,4 +245,13 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    #[cfg(feature = "analytics")]
+    FillAnalytics {
+        #[arg(short, long)]
+        start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        #[arg(short, long)]
+        end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        #[arg(short, long)]
+        num_tasks: Option<usize>,
+    },
 }

@@ -29,8 +29,8 @@
   "panels": [
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "influxdb",
+        "uid": "P951FEA4DE68E13C5"
       },
       "fieldConfig": {
         "defaults": {
@@ -56,7 +56,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 0
       },
@@ -75,21 +75,47 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.1",
+      "pluginVersion": "9.1.6",
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "influxdb",
+            "uid": "P951FEA4DE68E13C5"
           },
-          "editorMode": "builder",
-          "exemplar": false,
-          "expr": "milestone_index",
-          "format": "time_series",
-          "instant": true,
-          "legendFormat": "Milestone Timestamp",
-          "range": false,
-          "refId": "Milestone Timestamp"
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "sync_metrics",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "milestone_index"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
         }
       ],
       "title": "Last Milestone Index",
@@ -97,77 +123,8 @@
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "dateTimeAsIso"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 5,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.1.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "milestone_timestamp * 1000",
-          "format": "time_series",
-          "instant": true,
-          "legendFormat": "Milestone Timestamp",
-          "range": false,
-          "refId": "Milestone Timestamp"
-        }
-      ],
-      "title": "Last Milestone Timestamp",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "influxdb",
+        "uid": "P951FEA4DE68E13C5"
       },
       "fieldConfig": {
         "defaults": {
@@ -195,7 +152,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
-            "spanNulls": false,
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -217,7 +174,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ms"
         },
         "overrides": []
       },
@@ -240,19 +198,44 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.2.3",
       "targets": [
         {
+          "alias": "Network: \"$tag_network_name\", Chronicle Version: $tag_chronicle_version",
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "influxdb",
+            "uid": "P951FEA4DE68E13C5"
           },
-          "editorMode": "builder",
-          "exemplar": false,
-          "expr": "milestone_sync_time",
-          "legendFormat": "q={{quantile}}",
-          "range": true,
-          "refId": "A"
+          "groupBy": [
+            {
+              "params": [
+                "chronicle_version"
+              ],
+              "type": "tag"
+            },
+            {
+              "params": [
+                "network_name"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "sync_metrics",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "sync_time"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
         }
       ],
       "title": "Milestone Sync Time",
@@ -582,7 +565,7 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},

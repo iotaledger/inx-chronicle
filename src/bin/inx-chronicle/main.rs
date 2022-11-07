@@ -9,7 +9,6 @@ mod api;
 mod cli;
 mod config;
 mod error;
-mod metrics;
 mod process;
 mod profiler;
 #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -19,7 +18,7 @@ use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
 use tokio::task::JoinSet;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 use crate::{cli::ClArgs, error::Error};
@@ -35,7 +34,7 @@ async fn main() -> Result<(), Error> {
 
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config()?;
-    if cl_args.process_subcommands(&config)? {
+    if cl_args.process_subcommands(&config).await? {
         return Ok(());
     }
 
@@ -85,7 +84,7 @@ async fn main() -> Result<(), Error> {
         #[cfg(feature = "influxdb")]
         let influx_db = if config.influxdb.enabled {
             info!("Connecting to influx database at address `{}`", config.influxdb.url);
-            let influx_db = chronicle::db::InfluxDb::connect(&config.influxdb).await?;
+            let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             info!("Connected to influx database `{}`", influx_db.database_name());
             Some(influx_db)
         } else {
@@ -120,17 +119,6 @@ async fn main() -> Result<(), Error> {
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });
-    }
-
-    if config.metrics.enabled {
-        if let Err(err) = crate::metrics::setup(&config.metrics) {
-            warn!("Failed to build Prometheus exporter: {err}");
-        } else {
-            info!(
-                "Exporting to Prometheus at bind address: {}:{}",
-                config.metrics.address, config.metrics.port
-            );
-        };
     }
 
     let mut handle = shutdown_signal.subscribe();

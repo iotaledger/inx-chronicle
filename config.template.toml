@@ -84,13 +84,3 @@ connection_retry_count = 30
 
 ### Marks when a query is considered slow and a warning should be emitted.
 slow_query_millis = 200
-
-[metrics]
-### Whether metrics will be served.
-enabled = true
-
-### Bind address of the metrics server.
-address = "0.0.0.0"
-
-### Bind port of the metrics server.
-port = 9100
