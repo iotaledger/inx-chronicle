@@ -1,18 +1,28 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use tokio::signal::unix::{signal, SignalKind};
-
 pub async fn interrupt_or_terminate() {
-    let mut sigterm = signal(SignalKind::terminate()).expect("cannot listen to `SIGTERM`");
-    let mut sigint = signal(SignalKind::interrupt()).expect("cannot listen to `SIGINT`");
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
 
-    tokio::select! {
-        _ = sigterm.recv() => {
-            tracing::info!("received `SIGTERM`, sending shutdown signal")
+        let mut sigterm = signal(SignalKind::terminate()).expect("cannot listen to `SIGTERM`");
+        let mut sigint = signal(SignalKind::interrupt()).expect("cannot listen to `SIGINT`");
+
+        tokio::select! {
+            _ = sigterm.recv() => {
+                tracing::info!("received `SIGTERM`, sending shutdown signal")
+            }
+            _ = sigint.recv() => {
+                tracing::info!("received `SIGINT`, sending shutdown signal")
+            }
         }
-        _ = sigint.recv() => {
-            tracing::info!("received `SIGTERM`, sending shutdown signal")
-        }
+    }
+    #[cfg(not(unix))]
+    {
+        use tokio::signal::ctrl_c;
+
+        ctrl_c().await.expect("cannot listen to `CTRL-C`");
+        tracing::info!("received `CTRL-C`, sending shutdown signal")
     }
 }

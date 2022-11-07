@@ -21,12 +21,11 @@ pub enum ConfigError {
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
     #[cfg(feature = "influxdb")]
-    pub influxdb: chronicle::db::InfluxDbConfig,
+    pub influxdb: chronicle::db::influxdb::InfluxDbConfig,
     #[cfg(feature = "api")]
     pub api: crate::api::ApiConfig,
     #[cfg(all(feature = "stardust", feature = "inx"))]
     pub inx: super::stardust_inx::InxConfig,
-    pub metrics: crate::metrics::MetricsConfig,
 }
 
 impl ChronicleConfig {

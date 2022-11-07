@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.23"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -44,12 +44,15 @@ time = { version = "0.3", default-features = false, features = [ "std" ] }
 tokio = { version = "1.21", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
-tracing = { version = "0.1", default-features = false, features = [ "std", "attributes" ] }
-tracing-futures = { version = "0.2", default-features = false, features = [ "std", "std-future" ] }
+tracing = { version = "0.1", default-features = false, features = [ "std", "attributes", "release_max_level_debug" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "std", "fmt", "ansi", "smallvec", "tracing-log", "local-time", "env-filter" ] }
 uint = { version = "0.9", default-features = false }
 url = { version = "2.3", default-features = false }
 uuid = { version = "1.1", default-features = false, features = [ "v4" ] }
+
+# Optional
+chrono = { version = "0.4", default-features = false, features = [ "std" ], optional = true }
+influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
@@ -69,31 +72,31 @@ tower-http = { version = "0.3", default-features = false, features = [ "cors", "
 zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 
 # INX
-influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
 inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
 # Metrics
-metrics = { version = "0.20.0", default-features = false }
-metrics-exporter-prometheus = { version = "0.11.0", default-features = false, features = [ "http-listener", "tokio" ] }
-metrics-util = { version = "0.14.0", default-features = false }
 opentelemetry = { version = "0.18", default-features = false, features = [ "trace", "rt-tokio" ], optional = true }
 opentelemetry-jaeger = { version = "0.17", default-features = false, features = [ "rt-tokio" ], optional = true }
 tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
 
 # Stardust types
-iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
+iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
 
 [dev-dependencies]
-iota-types = { git = "https://github.com/iotaledger/iota.rs", version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
+iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
-default = [ 
+default = [
+    "analytics",
     "api",
-    "influxdb",
     "inx",
+    "metrics",
     "stardust",
+]
+analytics = [
+    "influxdb",
 ]
 api = [
     "dep:auth-helper",
@@ -118,6 +121,11 @@ inx = [
     "dep:inx",
     "dep:packable",
     "dep:tonic",
+    "stardust",
+]
+metrics = [
+    "influxdb",
+    "dep:chrono",
 ]
 opentelemetry = [
     "dep:opentelemetry",
@@ -129,6 +137,7 @@ rand = [
 ]
 stardust = [
     "dep:iota-types",
+    "dep:packable",
 ]
 
 [profile.production]

@@ -29,7 +29,7 @@ services:
     tty: true
     command:
       - "--config=config.toml"
-      - "--inx-addr=http://hornet:9029"
+      - "--inx-url=http://hornet:9029"
       - "--mongodb-conn-str=mongodb://mongo:27017"
       - "--influxdb-url=http://influx:8086"
     volumes:

@@ -1,50 +1,88 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 use crate::config::{ChronicleConfig, ConfigError};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version, about, next_display_order = None)]
 pub struct ClArgs {
     /// The location of the configuration file.
     #[arg(short, long, env = "CONFIG_PATH")]
     pub config: Option<String>,
-    /// The MongoDB connection string.
-    #[arg(long, env = "MONGODB_CONN_STR")]
-    pub mongodb_conn_str: Option<String>,
-    /// The url pointing to an InfluxDb instance.
-    #[arg(long, env = "INFLUXDB_URL")]
+    /// Rest API arguments.
+    #[cfg(feature = "api")]
+    #[command(flatten)]
+    pub api: ApiArgs,
+    /// InfluxDb arguments.
     #[cfg(feature = "influxdb")]
-    pub influxdb_url: Option<String>,
-    /// The address of the INX interface provided by the node.
-    #[arg(long, env = "INX_ADDR")]
+    #[command(flatten)]
+    pub influxdb: InfluxDbArgs,
+    /// INX arguments.
     #[cfg(feature = "inx")]
-    pub inx_addr: Option<String>,
-    /// Toggle INX write workflow.
-    #[arg(long, env = "INX")]
-    #[cfg(feature = "inx")]
-    pub enable_inx: Option<bool>,
-    /// The location of the identity file for JWT auth.
-    #[arg(long, env = "JWT_IDENTITY_PATH")]
-    #[cfg(feature = "api")]
-    pub identity_path: Option<String>,
-    /// The password used for JWT authentication.
-    #[arg(long)]
-    #[cfg(feature = "api")]
-    pub password: Option<String>,
-    /// Toggle REST API.
-    #[arg(long, env = "API")]
-    #[cfg(feature = "api")]
-    pub enable_api: Option<bool>,
-    /// Toggle the metrics server.
-    #[arg(long, env = "METRICS")]
-    pub enable_metrics: Option<bool>,
+    #[command(flatten)]
+    pub inx: InxArgs,
+    /// MongoDb arguments.
+    #[command(flatten)]
+    pub mongodb: MongoDbArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
+}
+
+#[cfg(feature = "api")]
+#[derive(Args, Debug)]
+pub struct ApiArgs {
+    /// Toggle REST API.
+    #[arg(long, env = "REST_API_ENABLED")]
+    pub api_enabled: Option<bool>,
+    /// JWT arguments.
+    #[command(flatten)]
+    pub jwt: JwtArgs,
+}
+
+#[derive(Args, Debug)]
+pub struct JwtArgs {
+    /// The location of the identity file for JWT auth.
+    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
+    pub identity_path: Option<String>,
+    /// The password used for JWT authentication.
+    #[arg(long = "api-jwt-password")]
+    pub password: Option<String>,
+}
+
+#[cfg(feature = "inx")]
+#[derive(Args, Debug)]
+pub struct InxArgs {
+    /// Toggle INX write workflow.
+    #[arg(long, env = "INX_ENABLED")]
+    pub inx_enabled: Option<bool>,
+    /// The address of the INX interface provided by the node.
+    #[arg(long, env = "INX_URL")]
+    pub inx_url: Option<String>,
+    /// Milestone at which synchronization should begin. A value of `1` means syncing back until genesis (default).
+    #[arg(long = "inx-sync-start")]
+    pub sync_start: Option<u32>,
+}
+
+#[derive(Args, Debug)]
+pub struct MongoDbArgs {
+    /// The MongoDB connection string.
+    #[arg(long, env = "MONGODB_CONN_STR")]
+    pub mongodb_conn_str: Option<String>,
+}
+
+#[cfg(feature = "influxdb")]
+#[derive(Args, Debug)]
+pub struct InfluxDbArgs {
+    /// Toggle InfluxDb time-series writes.
+    #[arg(long, env = "INFLUXDB_ENABLED")]
+    pub influxdb_enabled: Option<bool>,
+    /// The url pointing to an InfluxDb instance.
+    #[arg(long, env = "INFLUXDB_URL")]
+    pub influxdb_url: Option<String>,
 }
 
 impl ClArgs {
@@ -57,28 +95,36 @@ impl ClArgs {
             .transpose()?
             .unwrap_or_default();
 
-        if let Some(conn_str) = &self.mongodb_conn_str {
+        if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
             config.mongodb.conn_str = conn_str.clone();
         }
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
-            if let Some(connect_url) = &self.inx_addr {
+            if let Some(connect_url) = &self.inx.inx_url {
                 config.inx.connect_url = connect_url.clone();
             }
-            if let Some(enabled) = self.enable_inx {
+            if let Some(enabled) = self.inx.inx_enabled {
                 config.inx.enabled = enabled;
+            }
+            if let Some(sync_start) = self.inx.sync_start {
+                config.inx.sync_start_milestone = sync_start.into();
             }
         }
 
         #[cfg(feature = "influxdb")]
-        if let Some(url) = &self.influxdb_url {
-            config.influxdb.url = url.clone();
+        {
+            if let Some(enabled) = self.influxdb.influxdb_enabled {
+                config.influxdb.enabled = enabled;
+            }
+            if let Some(url) = &self.influxdb.influxdb_url {
+                config.influxdb.url = url.clone();
+            }
         }
 
         #[cfg(feature = "api")]
         {
-            if let Some(password) = &self.password {
+            if let Some(password) = &self.api.jwt.password {
                 config.api.password_hash = hex::encode(
                     argon2::hash_raw(
                         password.as_bytes(),
@@ -89,16 +135,12 @@ impl ClArgs {
                     .expect("invalid JWT config"),
                 );
             }
-            if let Some(path) = &self.identity_path {
+            if let Some(path) = &self.api.jwt.identity_path {
                 config.api.identity_path.replace(path.clone());
             }
-            if let Some(enabled) = self.enable_api {
+            if let Some(enabled) = self.api.api_enabled {
                 config.api.enabled = enabled;
             }
-        }
-
-        if let Some(enabled) = self.enable_metrics {
-            config.metrics.enabled = enabled;
         }
 
         Ok(config)
@@ -107,7 +149,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub fn process_subcommands(&self, config: &ChronicleConfig) -> eyre::Result<bool> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> eyre::Result<bool> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -133,6 +175,61 @@ impl ClArgs {
                     );
                     return Ok(true);
                 }
+                #[cfg(feature = "analytics")]
+                Subcommands::FillAnalytics {
+                    start_milestone,
+                    end_milestone,
+                    num_tasks,
+                } => {
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    let start_milestone = if let Some(index) = start_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_oldest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    let end_milestone = if let Some(index) = end_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_newest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+                    let num_tasks = num_tasks.unwrap_or(1);
+                    let mut join_set = tokio::task::JoinSet::new();
+                    for i in 0..num_tasks {
+                        let db = db.clone();
+                        let influx_db = influx_db.clone();
+                        join_set.spawn(async move {
+                            for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
+                                let index = index.into();
+                                if let Some(timestamp) = db
+                                    .collection::<chronicle::db::collections::MilestoneCollection>()
+                                    .get_milestone_timestamp(index)
+                                    .await?
+                                {
+                                    let analytics = db.get_all_analytics(index).await?;
+                                    influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+                                    println!("Finished analytics for milestone: {}", index);
+                                } else {
+                                    println!("No milestone in database for index {}", index);
+                                }
+                            }
+                            eyre::Result::<_>::Ok(())
+                        });
+                    }
+                    while let Some(res) = join_set.join_next().await {
+                        // Panic: Acceptable risk
+                        res.unwrap()?;
+                    }
+                    return Ok(true);
+                }
                 _ => (),
             }
         }
@@ -145,4 +242,13 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    #[cfg(feature = "analytics")]
+    FillAnalytics {
+        #[arg(short, long)]
+        start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        #[arg(short, long)]
+        end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        #[arg(short, long)]
+        num_tasks: Option<usize>,
+    },
 }

@@ -2038,6 +2038,48 @@
                         ]
                     ],
                     "tags": []
+                },
+                {
+                    "alias": "Claimed Count",
+                    "datasource": {
+                        "type": "influxdb",
+                        "uid": "P951FEA4DE68E13C5"
+                    },
+                    "groupBy": [
+                        {
+                            "params": [
+                                "$__interval"
+                            ],
+                            "type": "time"
+                        },
+                        {
+                            "params": [
+                                "null"
+                            ],
+                            "type": "fill"
+                        }
+                    ],
+                    "hide": false,
+                    "measurement": "stardust_claiming_rewards",
+                    "orderByTime": "ASC",
+                    "policy": "default",
+                    "refId": "B",
+                    "resultFormat": "time_series",
+                    "select": [
+                        [
+                            {
+                                "params": [
+                                    "claimed_count"
+                                ],
+                                "type": "field"
+                            },
+                            {
+                                "params": [],
+                                "type": "sum"
+                            }
+                        ]
+                    ],
+                    "tags": []
                 }
             ],
             "title": "Claimed Tokens",
@@ -2633,6 +2675,6 @@
     "timezone": "",
     "title": "Analytics",
     "uid": "w6B8aUI4z",
-    "version": 7,
+    "version": 8,
     "weekStart": ""
 }

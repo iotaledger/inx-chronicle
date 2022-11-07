@@ -136,6 +136,29 @@ impl MilestoneCollection {
         .await
     }
 
+    /// Gets the [`MilestoneTimestamp`] of a milestone by [`MilestoneIndex`].
+    pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
+        #[derive(Deserialize)]
+        struct MilestoneTimestampResult {
+            milestone_timestamp: MilestoneTimestamp,
+        }
+
+        Ok(self
+            .aggregate::<MilestoneTimestampResult>(
+                vec![
+                    doc! { "$match": { "at.milestone_index": index } },
+                    doc! { "$project": {
+                        "milestone_timestamp": "$at.milestone_timestamp"
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .map(|ts| ts.milestone_timestamp))
+    }
+
     /// Gets the id of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_id(&self, index: MilestoneIndex) -> Result<Option<MilestoneId>, Error> {
         #[derive(Deserialize)]
