@@ -152,7 +152,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<PostCommand, Error> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -176,7 +176,7 @@ impl ClArgs {
                         exp_ts,
                         humantime::format_duration(api_data.jwt_expiration)
                     );
-                    return Ok(true);
+                    return Ok(PostCommand::Exit);
                 }
                 #[cfg(feature = "analytics")]
                 Subcommands::FillAnalytics {
@@ -184,6 +184,7 @@ impl ClArgs {
                     end_milestone,
                     num_tasks,
                 } => {
+                    println!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     let start_milestone = if let Some(index) = start_milestone {
                         *index
@@ -231,12 +232,29 @@ impl ClArgs {
                         // Panic: Acceptable risk
                         res.unwrap()?;
                     }
-                    return Ok(true);
+                    return Ok(PostCommand::Exit);
+                }
+                #[cfg(debug_assertions)]
+                Subcommands::ClearDatabase { no_run } => {
+                    println!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    db.clear().await?;
+                    println!("Database cleared successfully.");
+                    if *no_run {
+                        return Ok(PostCommand::Exit);
+                    }
+                }
+                Subcommands::BuildIndexes => {
+                    println!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    super::build_indexes(&db).await?;
+                    println!("Indexes built successfully.");
+                    return Ok(PostCommand::Exit);
                 }
                 _ => (),
             }
         }
-        Ok(false)
+        Ok(PostCommand::Start)
     }
 }
 
@@ -254,4 +272,16 @@ pub enum Subcommands {
         #[arg(short, long)]
         num_tasks: Option<usize>,
     },
+    #[cfg(debug_assertions)]
+    ClearDatabase {
+        #[arg(short, long)]
+        no_run: bool,
+    },
+    BuildIndexes,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum PostCommand {
+    Start,
+    Exit,
 }

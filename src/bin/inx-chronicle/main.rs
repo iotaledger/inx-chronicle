@@ -20,7 +20,10 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
-use crate::{cli::ClArgs, error::Error};
+use self::{
+    cli::{ClArgs, PostCommand},
+    error::Error,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -33,7 +36,7 @@ async fn main() -> Result<(), Error> {
 
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config()?;
-    if cl_args.process_subcommands(&config).await? {
+    if cl_args.process_subcommands(&config).await? == PostCommand::Exit {
         return Ok(());
     }
 
@@ -47,30 +50,7 @@ async fn main() -> Result<(), Error> {
     );
 
     #[cfg(feature = "stardust")]
-    {
-        use chronicle::db::collections;
-        let start_indexes = db.get_index_names().await?;
-        db.create_indexes::<collections::OutputCollection>().await?;
-        db.create_indexes::<collections::BlockCollection>().await?;
-        db.create_indexes::<collections::LedgerUpdateCollection>().await?;
-        db.create_indexes::<collections::MilestoneCollection>().await?;
-        let end_indexes = db.get_index_names().await?;
-        for (collection, indexes) in end_indexes {
-            if let Some(old_indexes) = start_indexes.get(&collection) {
-                let num_created = indexes.difference(old_indexes).count();
-                if num_created > 0 {
-                    info!("Created {} new indexes in {}", num_created, collection);
-                    if tracing::enabled!(tracing::Level::DEBUG) {
-                        for index in indexes.difference(old_indexes) {
-                            debug!(" - {}", index);
-                        }
-                    }
-                }
-            } else {
-                info!("Created {} new indexes in {}", indexes.len(), collection);
-            }
-        }
-    }
+    build_indexes(&db).await?;
 
     let mut tasks: JoinSet<Result<(), Error>> = JoinSet::new();
 
@@ -176,4 +156,31 @@ fn set_up_logging() {
         .with_span_events(FmtSpan::CLOSE)
         .with_env_filter(EnvFilter::from_default_env())
         .init();
+}
+
+#[cfg(feature = "stardust")]
+async fn build_indexes(db: &MongoDb) -> Result<(), Error> {
+    use chronicle::db::collections;
+    let start_indexes = db.get_index_names().await?;
+    db.create_indexes::<collections::OutputCollection>().await?;
+    db.create_indexes::<collections::BlockCollection>().await?;
+    db.create_indexes::<collections::LedgerUpdateCollection>().await?;
+    db.create_indexes::<collections::MilestoneCollection>().await?;
+    let end_indexes = db.get_index_names().await?;
+    for (collection, indexes) in end_indexes {
+        if let Some(old_indexes) = start_indexes.get(&collection) {
+            let num_created = indexes.difference(old_indexes).count();
+            if num_created > 0 {
+                info!("Created {} new indexes in {}", num_created, collection);
+                if tracing::enabled!(tracing::Level::DEBUG) {
+                    for index in indexes.difference(old_indexes) {
+                        debug!(" - {}", index);
+                    }
+                }
+            }
+        } else {
+            info!("Created {} new indexes in {}", indexes.len(), collection);
+        }
+    }
+    Ok(())
 }
