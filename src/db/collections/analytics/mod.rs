@@ -149,7 +149,7 @@ impl LedgerSizeAnalytics {
     pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
         let rent_structure = protocol_params.rent_structure;
         d128::from(rent_structure.v_byte_cost)
-            * ((self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32))
+            * ((self.total_key_bytes * d128::from(rent_structure.v_byte_factor_key as u32))
                 + (self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32)))
     }
 }
