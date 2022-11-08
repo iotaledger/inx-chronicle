@@ -16,14 +16,13 @@ use chronicle::{
     types::stardust::block::BlockId,
 };
 use crypto::hashes::blake2b::Blake2b256;
+
 use super::{
     error::PoIError,
     responses::{CreateProofResponse, ValidateProofResponse},
 };
 use crate::api::{
-    error::{InternalApiError},
-    router::Router,
-    ApiError, ApiResult, stardust::poi::merkle_hasher::MerkleHasher,
+    error::InternalApiError, router::Router, stardust::poi::merkle_hasher::MerkleTreeHasher, ApiError, ApiResult,
 };
 
 pub fn routes() -> Router {
@@ -85,7 +84,10 @@ async fn validate_proof(
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed block")))?;
     let block_id = block.id().into();
 
-    if !proof.contains_block_id(&block_id).map_err(|_| PoIError::InvalidProof(block_id.to_hex()))? {
+    if !proof
+        .contains_block_id(&block_id)
+        .map_err(|_| PoIError::InvalidProof(block_id.to_hex()))?
+    {
         return Ok(ValidateProofResponse { valid: false });
     }
 
@@ -95,7 +97,7 @@ async fn validate_proof(
 
     todo!("hash the proof with the merkle hasher");
 
-    let mut hasher = MerkleHasher::<Blake2b256>::new();
+    let mut hasher = MerkleTreeHasher::<Blake2b256>::new();
     let hash = proof.hash(&mut hasher);
 
     Ok(ValidateProofResponse { valid: true })
