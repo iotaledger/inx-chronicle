@@ -329,6 +329,18 @@ impl InxWorker {
         #[allow(unused)]
         let milestone_timestamp = self.handle_milestone(inx, milestone_index).await?;
 
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_start_time = std::time::Instant::now();
+        #[cfg(feature = "analytics")]
+        if let Some(influx_db) = &self.influx_db {
+            let analytics = self.db.get_all_analytics(milestone_index).await?;
+            influx_db
+                .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                .await?;
+        }
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_elapsed = analytics_start_time.elapsed();
+
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
             // Unwrap: Safe because we checked above
@@ -337,7 +349,9 @@ impl InxWorker {
                 .insert(chronicle::db::collections::metrics::SyncMetrics {
                     time: chrono::Utc::now(),
                     milestone_index,
-                    sync_time: elapsed.as_millis() as u64,
+                    milestone_time: elapsed.as_millis() as u64,
+                    #[cfg(feature = "analytics")]
+                    analytics_time: analytics_elapsed.as_millis() as u64,
                     network_name,
                     chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                 })
@@ -396,14 +410,6 @@ impl InxWorker {
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-
-        #[cfg(feature = "analytics")]
-        if let Some(influx_db) = &self.influx_db {
-            let analytics = self.db.get_all_analytics(milestone_index).await?;
-            influx_db
-                .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                .await?;
-        }
 
         let milestone_id = milestone
             .milestone_info
