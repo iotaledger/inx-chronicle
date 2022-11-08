@@ -1959,7 +1959,7 @@
                             "options": {
                                 "mode": "exclude",
                                 "names": [
-                                    "stardust_claimed_tokens.sum"
+                                    "stardust_unclaimed_tokens.sum"
                                 ],
                                 "prefix": "All except:",
                                 "readOnly": true
@@ -2018,7 +2018,7 @@
                             "type": "fill"
                         }
                     ],
-                    "measurement": "stardust_claiming_rewards",
+                    "measurement": "stardust_unclaimed_rewards",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "A",
@@ -2027,7 +2027,7 @@
                         [
                             {
                                 "params": [
-                                    "claimed_value"
+                                    "unclaimed_value"
                                 ],
                                 "type": "field"
                             },
@@ -2060,7 +2060,7 @@
                         }
                     ],
                     "hide": false,
-                    "measurement": "stardust_claiming_rewards",
+                    "measurement": "stardust_unclaimed_rewards",
                     "orderByTime": "ASC",
                     "policy": "default",
                     "refId": "B",
@@ -2069,7 +2069,7 @@
                         [
                             {
                                 "params": [
-                                    "claimed_count"
+                                    "unclaimed_count"
                                 ],
                                 "type": "field"
                             },

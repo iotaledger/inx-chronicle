@@ -28,7 +28,7 @@ pub struct Analytics {
     pub native_tokens: FoundryActivityAnalytics,
     pub nfts: NftActivityAnalytics,
     pub storage_deposits: LedgerSizeAnalytics,
-    pub claimed_tokens: ClaimedTokensAnalytics,
+    pub unclaimed_tokens: UnclaimedTokensAnalytics,
     pub payload_activity: PayloadActivityAnalytics,
     pub transaction_activity: TransactionActivityAnalytics,
     pub unlock_conditions: UnlockConditionAnalytics,
@@ -50,7 +50,7 @@ impl MongoDb {
             native_tokens,
             nfts,
             storage_deposits,
-            claimed_tokens,
+            unclaimed_tokens,
             unlock_conditions,
             address_activity,
             base_token,
@@ -64,7 +64,7 @@ impl MongoDb {
             output_collection.get_foundry_output_analytics(milestone_index),
             output_collection.get_nft_output_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
-            output_collection.get_claimed_token_analytics(milestone_index),
+            output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
             output_collection.get_address_activity_analytics(milestone_index),
             output_collection.get_base_token_activity_analytics(milestone_index),
@@ -84,7 +84,7 @@ impl MongoDb {
             native_tokens,
             nfts,
             storage_deposits,
-            claimed_tokens,
+            unclaimed_tokens,
             payload_activity,
             transaction_activity,
             unlock_conditions,
@@ -156,9 +156,9 @@ impl LedgerSizeAnalytics {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct ClaimedTokensAnalytics {
-    pub claimed_count: u64,
-    pub claimed_value: d128,
+pub struct UnclaimedTokensAnalytics {
+    pub unclaimed_count: u64,
+    pub unclaimed_value: d128,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
