@@ -10,7 +10,7 @@ use mongodb::{
     bson::{doc, to_bson, to_document},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
-    IndexModel,
+    ClientSession, IndexModel,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -179,7 +179,11 @@ impl OutputCollection {
     /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
     /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
+    pub async fn update_spent_outputs(
+        &self,
+        outputs: impl IntoIterator<Item = &LedgerSpent>,
+        session: &mut ClientSession,
+    ) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
         let update_docs = outputs
             .into_iter()
@@ -201,7 +205,10 @@ impl OutputCollection {
                 command.insert("writeConcern", to_bson(write_concern)?);
             }
             let selection_criteria = self.db.selection_criteria().cloned();
-            let _ = self.db.run_command(command, selection_criteria).await?;
+            let _ = self
+                .db
+                .run_command_with_session(command, selection_criteria, session)
+                .await?;
         }
 
         Ok(())

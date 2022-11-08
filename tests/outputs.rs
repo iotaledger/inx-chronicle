@@ -106,7 +106,12 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        output_collection.update_spent_outputs(&outputs).await.unwrap();
+        let mut session = db.start_transaction(None).await.unwrap();
+        output_collection
+            .update_spent_outputs(&outputs, &mut session)
+            .await
+            .unwrap();
+        session.commit_transaction().await.unwrap();
 
         for output in &outputs {
             assert_eq!(

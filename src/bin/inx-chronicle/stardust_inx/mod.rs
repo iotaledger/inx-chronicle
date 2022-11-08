@@ -399,18 +399,10 @@ impl InxWorker {
 
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
-            let db = self.db.clone();
-            let influx_db = influx_db.clone();
-            tokio::spawn(async move {
-                let analytics = db.get_all_analytics(milestone_index).await?;
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                    .await?;
-
-                tracing::debug!("Finished analytics for milestone: {}", milestone_index);
-
-                Result::<_, InxWorkerError>::Ok(())
-            });
+            let analytics = self.db.get_all_analytics(milestone_index).await?;
+            influx_db
+                .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                .await?;
         }
 
         let milestone_id = milestone
@@ -516,15 +508,18 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxWorkerError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
+    let mut session = db.start_transaction(None).await.unwrap();
     try_join! {
         async {
-            output_collection.update_spent_outputs(outputs).await?;
-            Ok(())
+            output_collection.update_spent_outputs(outputs, &mut session).await?;
+            session.commit_transaction().await?;
+            Result::<_, InxWorkerError>::Ok(())
         },
         async {
             ledger_collection.insert_spent_ledger_updates(outputs).await?;
             Ok(())
         }
-    }
-    .and(Ok(()))
+    }?;
+
+    Ok(())
 }

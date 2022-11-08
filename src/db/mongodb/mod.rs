@@ -10,8 +10,8 @@ use std::collections::{HashMap, HashSet};
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential},
-    Client,
+    options::{ClientOptions, Credential, TransactionOptions},
+    Client, ClientSession,
 };
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,16 @@ impl MongoDb {
             db: client.database(&config.database_name),
             client,
         })
+    }
+
+    /// Starts a transaction.
+    pub async fn start_transaction(
+        &self,
+        options: impl Into<Option<TransactionOptions>>,
+    ) -> Result<ClientSession, Error> {
+        let mut session = self.client.start_session(None).await?;
+        session.start_transaction(options).await?;
+        Ok(session)
     }
 
     /// Creates a collection if it does not exist.

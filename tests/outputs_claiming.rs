@@ -71,7 +71,12 @@ mod test_rand {
             })
             .collect::<Vec<_>>();
 
-        output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
+        let mut session = db.start_transaction(None).await.unwrap();
+        output_collection
+            .update_spent_outputs(&spent_outputs, &mut session)
+            .await
+            .unwrap();
+        session.commit_transaction().await.unwrap();
 
         let claimed = output_collection.get_claimed_token_analytics(1.into()).await.unwrap();
         assert_eq!(claimed.claimed_count, 1);
