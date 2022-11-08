@@ -508,18 +508,15 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxWorkerError> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
-    let mut session = db.start_transaction(None).await.unwrap();
     try_join! {
         async {
-            output_collection.update_spent_outputs(outputs, &mut session).await?;
-            session.commit_transaction().await?;
-            Result::<_, InxWorkerError>::Ok(())
+            output_collection.update_spent_outputs(outputs).await?;
+            Ok(())
         },
         async {
             ledger_collection.insert_spent_ledger_updates(outputs).await?;
             Ok(())
         }
-    }?;
-
-    Ok(())
+    }
+    .and(Ok(()))
 }
