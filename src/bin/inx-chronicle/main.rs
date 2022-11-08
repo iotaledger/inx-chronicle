@@ -19,7 +19,7 @@ use clap::Parser;
 use config::ChronicleConfig;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
-use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use crate::{cli::ClArgs, error::Error};
 
@@ -148,8 +148,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-#[allow(unused)]
-fn set_up_logging(config: &ChronicleConfig) -> Result<(), Error> {
+fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> Result<(), Error> {
     let registry = tracing_subscriber::registry();
 
     #[cfg(feature = "opentelemetry")]
