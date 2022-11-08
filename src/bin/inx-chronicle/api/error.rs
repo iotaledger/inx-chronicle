@@ -197,12 +197,6 @@ pub enum ConfigError {
     SecretKey(#[from] super::secret_key::SecretKeyError),
 }
 
-impl ErrorStatus for ConfigError {
-    fn status(&self) -> StatusCode {
-        StatusCode::BAD_REQUEST
-    }
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
     #[serde(skip_serializing)]
