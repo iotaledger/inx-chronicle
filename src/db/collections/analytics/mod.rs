@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// Schema implementation for InfluxDb.
-#[cfg(feature = "influxdb")]
 pub mod influx;
 
 use decimal::d128;

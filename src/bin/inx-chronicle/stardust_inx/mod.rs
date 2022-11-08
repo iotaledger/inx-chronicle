@@ -35,7 +35,7 @@ pub const INSERT_BATCH_SIZE: usize = 1000;
 
 pub struct InxWorker {
     db: MongoDb,
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
 }
@@ -44,12 +44,12 @@ impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(
         db: &MongoDb,
-        #[cfg(feature = "influxdb")] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
+        #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
         inx_config: &InxConfig,
     ) -> Self {
         Self {
             db: db.clone(),
-            #[cfg(feature = "influxdb")]
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db: influx_db.cloned(),
             config: inx_config.clone(),
         }

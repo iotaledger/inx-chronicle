@@ -15,7 +15,8 @@ min_pool_size = 2
 
 [influxdb]
 ### Whether influx time-series data will be written.
-enabled = true
+metrics_enabled = true
+analytics_enabled = true
 
 ### URL pointing to the InfluxDB instance.
 url = "http://localhost:8086"

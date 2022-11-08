@@ -20,7 +20,7 @@ pub struct ClArgs {
     #[command(flatten)]
     pub api: ApiArgs,
     /// InfluxDb arguments.
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     #[command(flatten)]
     pub influxdb: InfluxDbArgs,
     /// INX arguments.
@@ -77,12 +77,15 @@ pub struct MongoDbArgs {
     pub mongodb_conn_str: Option<String>,
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
-    /// Toggle InfluxDb time-series writes.
-    #[arg(long, env = "INFLUXDB_ENABLED")]
-    pub influxdb_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series metrics writes.
+    #[arg(long, env = "METRICS_ENABLED")]
+    pub metrics_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series analytics writes.
+    #[arg(long, env = "ANALYTICS_ENABLED")]
+    pub analytics_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
@@ -115,11 +118,22 @@ impl ClArgs {
             }
         }
 
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "analytics")]
         {
-            if let Some(enabled) = self.influxdb.influxdb_enabled {
-                config.influxdb.enabled = enabled;
+            if let Some(enabled) = self.influxdb.analytics_enabled {
+                config.influxdb.analytics_enabled = enabled;
             }
+        }
+
+        #[cfg(feature = "metrics")]
+        {
+            if let Some(enabled) = self.influxdb.metrics_enabled {
+                config.influxdb.metrics_enabled = enabled;
+            }
+        }
+
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        {
             if let Some(url) = &self.influxdb.influxdb_url {
                 config.influxdb.url = url.clone();
             }

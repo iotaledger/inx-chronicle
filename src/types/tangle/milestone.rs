@@ -85,7 +85,7 @@ impl From<MilestoneIndex> for Bson {
     }
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 impl From<MilestoneIndex> for influxdb::Type {
     fn from(value: MilestoneIndex) -> Self {
         Self::UnsignedInteger(value.0 as _)
