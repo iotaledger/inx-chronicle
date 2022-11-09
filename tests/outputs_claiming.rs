@@ -74,24 +74,24 @@ mod test_rand {
         output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
         let unclaimed = output_collection.get_unclaimed_token_analytics(1.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 1);
-        assert_eq!(unclaimed.unclaimed_value, d128::from(1));
+        assert_eq!(unclaimed.unclaimed_count, 4);
+        assert_eq!(unclaimed.unclaimed_value, d128::from((2..=5).sum::<u32>()));
 
         let unclaimed = output_collection.get_unclaimed_token_analytics(2.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 2);
-        assert_eq!(unclaimed.unclaimed_value, d128::from((1..=2).sum::<u32>()));
+        assert_eq!(unclaimed.unclaimed_count, 3);
+        assert_eq!(unclaimed.unclaimed_value, d128::from((3..=5).sum::<u32>()));
 
         let unclaimed = output_collection.get_unclaimed_token_analytics(3.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 3);
-        assert_eq!(unclaimed.unclaimed_value, d128::from((1..=3).sum::<u32>()));
+        assert_eq!(unclaimed.unclaimed_count, 2);
+        assert_eq!(unclaimed.unclaimed_value, d128::from((4..=5).sum::<u32>()));
 
         let unclaimed = output_collection.get_unclaimed_token_analytics(4.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 4);
-        assert_eq!(unclaimed.unclaimed_value, d128::from((1..=4).sum::<u32>()));
+        assert_eq!(unclaimed.unclaimed_count, 1);
+        assert_eq!(unclaimed.unclaimed_value, d128::from(5));
 
         let unclaimed = output_collection.get_unclaimed_token_analytics(5.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 4);
-        assert_eq!(unclaimed.unclaimed_value, d128::from((1..=4).sum::<u32>()));
+        assert_eq!(unclaimed.unclaimed_count, 1);
+        assert_eq!(unclaimed.unclaimed_value, d128::from(5));
 
         teardown(db).await;
     }
