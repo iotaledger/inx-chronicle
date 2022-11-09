@@ -170,8 +170,8 @@ impl ClArgs {
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
                         .map_err(crate::api::ApiError::InvalidJwt)?;
-                    println!("Bearer {}", jwt);
-                    println!(
+                    tracing::info!("Bearer {}", jwt);
+                    tracing::info!(
                         "Expires: {} ({})",
                         exp_ts,
                         humantime::format_duration(api_data.jwt_expiration)
@@ -184,7 +184,7 @@ impl ClArgs {
                     end_milestone,
                     num_tasks,
                 } => {
-                    println!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    tracing::info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     let start_milestone = if let Some(index) = start_milestone {
                         *index
@@ -220,9 +220,9 @@ impl ClArgs {
                                 {
                                     let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
-                                    println!("Finished analytics for milestone: {}", index);
+                                    tracing::info!("Finished analytics for milestone: {}", index);
                                 } else {
-                                    println!("No milestone in database for index {}", index);
+                                    tracing::info!("No milestone in database for index {}", index);
                                 }
                             }
                             Result::<_, Error>::Ok(())
@@ -236,19 +236,19 @@ impl ClArgs {
                 }
                 #[cfg(debug_assertions)]
                 Subcommands::ClearDatabase { no_run } => {
-                    println!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    tracing::info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     db.clear().await?;
-                    println!("Database cleared successfully.");
+                    tracing::info!("Database cleared successfully.");
                     if *no_run {
                         return Ok(PostCommand::Exit);
                     }
                 }
                 Subcommands::BuildIndexes => {
-                    println!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    tracing::info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     super::build_indexes(&db).await?;
-                    println!("Indexes built successfully.");
+                    tracing::info!("Indexes built successfully.");
                     return Ok(PostCommand::Exit);
                 }
                 _ => (),
