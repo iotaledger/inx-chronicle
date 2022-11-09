@@ -20,12 +20,14 @@ use futures::{StreamExt, TryStreamExt};
 
 use super::{
     extractors::{
-        LedgerIndex, LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
+        BlocksByMilestoneCursor, BlocksByMilestoneIdPagination, BlocksByMilestoneIndexPagination, LedgerIndex,
+        LedgerUpdatesByAddressCursor, LedgerUpdatesByAddressPagination, LedgerUpdatesByMilestoneCursor,
         LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination, RichestAddressesQuery,
     },
     responses::{
-        AddressStatDto, BalanceResponse, BlockChildrenResponse, LedgerUpdatesByAddressResponse,
-        LedgerUpdatesByMilestoneResponse, MilestonesResponse, RichestAddressesResponse, TokenDistributionResponse,
+        AddressStatDto, BalanceResponse, BlockChildrenResponse, BlocksByMilestoneResponse,
+        LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse, MilestonesResponse, RichestAddressesResponse,
+        TokenDistributionResponse,
     },
 };
 use crate::api::{error::InternalApiError, extractors::Pagination, router::Router, ApiError, ApiResult};
@@ -34,7 +36,13 @@ pub fn routes() -> Router {
     Router::new()
         .route("/balance/:address", get(balance))
         .route("/blocks/:block_id/children", get(block_children))
-        .route("/milestones", get(milestones))
+        .nest(
+            "/milestones",
+            Router::new()
+                .route("/", get(milestones))
+                .route("/:milestone_id/blocks", get(blocks_by_milestone_id))
+                .route("/by-index/:milestone_index/blocks", get(blocks_by_milestone_index)),
+        )
         .nest(
             "/ledger",
             Router::new()
@@ -216,6 +224,68 @@ async fn milestones(
     });
 
     Ok(MilestonesResponse { items, cursor })
+}
+
+async fn blocks_by_milestone_index(
+    database: Extension<MongoDb>,
+    BlocksByMilestoneIndexPagination {
+        milestone_index,
+        sort,
+        page_size,
+        cursor,
+    }: BlocksByMilestoneIndexPagination,
+) -> ApiResult<BlocksByMilestoneResponse> {
+    let mut record_stream = database
+        .collection::<BlockCollection>()
+        .get_blocks_by_milestone_index(milestone_index, page_size, cursor, sort)
+        .await?;
+
+    // Take all of the requested records first
+    let blocks = record_stream
+        .by_ref()
+        .take(page_size)
+        .map_ok(|rec| rec.block_id.to_hex())
+        .try_collect()
+        .await?;
+
+    // If any record is left, use it to make the paging state
+    let cursor = record_stream.try_next().await?.map(|rec| {
+        BlocksByMilestoneCursor {
+            white_flag_index: rec.white_flag_index,
+            page_size,
+        }
+        .to_string()
+    });
+
+    Ok(BlocksByMilestoneResponse { blocks, cursor })
+}
+
+async fn blocks_by_milestone_id(
+    database: Extension<MongoDb>,
+    BlocksByMilestoneIdPagination {
+        milestone_id,
+        sort,
+        page_size,
+        cursor,
+    }: BlocksByMilestoneIdPagination,
+) -> ApiResult<BlocksByMilestoneResponse> {
+    let milestone_index = database
+        .collection::<MilestoneCollection>()
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .essence
+        .index;
+    blocks_by_milestone_index(
+        database,
+        BlocksByMilestoneIndexPagination {
+            milestone_index,
+            sort,
+            page_size,
+            cursor,
+        },
+    )
+    .await
 }
 
 async fn richest_addresses_ledger_analytics(
