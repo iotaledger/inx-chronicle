@@ -323,7 +323,7 @@ pub struct BlocksByMilestoneResult {
 }
 
 impl BlockCollection {
-    /// Get the [`Block`]s in a milestone by index as a stream of [`BlocksByMilestoneResult`]s.
+    /// Get the [`Block`]s in a milestone by index as a stream of [`BlockId`]s.
     pub async fn get_blocks_by_milestone_index(
         &self,
         milestone_index: MilestoneIndex,
