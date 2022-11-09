@@ -6,22 +6,8 @@ use crypto::hashes::blake2b::Blake2b256;
 use iota_types::block::{payload::dto::MilestonePayloadDto, BlockDto};
 use serde::{Deserialize, Serialize};
 
-use super::merkle_hasher::MerkleTreeHasher;
+use super::{hasher::MerkleTreeHasher, proof::ProofDto};
 use crate::api::responses::impl_success_response;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProofDto {}
-
-impl ProofDto {
-    pub(crate) fn contains_block_id(&self, block_id: &BlockId) -> Result<bool, ()> {
-        Ok(true)
-    }
-
-    pub(crate) fn hash(&self, hasher: &mut MerkleTreeHasher<Blake2b256>) -> &[u8] {
-        todo!()
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

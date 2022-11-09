@@ -344,8 +344,6 @@ mod test_rand {
         teardown(db).await;
     }
 
-
-
     #[tokio::test]
     async fn test_pastcone_whiteflag_order() {
         let db = setup_database("test-pastcone-whiteflag-order").await.unwrap();
@@ -374,10 +372,10 @@ mod test_rand {
                         inclusion_state: LedgerInclusionState::NoTransaction,
                         conflict_reason: ConflictReason::None,
                         white_flag_index: i as u32,
-                    }
+                    },
                 )
             })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
         // not necessary: just to make sure the insertion order is different from the white flag order.
         blocks.reverse();
@@ -387,7 +385,10 @@ mod test_rand {
             .await
             .unwrap();
 
-        let whiteflag_cone = block_collection.get_pastcone_in_white_flag_order(1.into()).await.unwrap();
+        let whiteflag_cone = block_collection
+            .get_pastcone_in_white_flag_order(1.into())
+            .await
+            .unwrap();
 
         assert_eq!(whiteflag_cone, block_ids);
 

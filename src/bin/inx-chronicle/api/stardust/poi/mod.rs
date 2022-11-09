@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod error;
-mod merkle_hasher;
-mod merkle_proof;
+mod hasher;
+mod proof;
 mod responses;
 mod routes;
 

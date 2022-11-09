@@ -19,11 +19,10 @@ use crypto::hashes::blake2b::Blake2b256;
 
 use super::{
     error::PoIError,
-    responses::{CreateProofResponse, ValidateProofResponse},
+    hasher::MerkleTreeHasher,
+    responses::{CreateProofResponse, ValidateProofResponse}, proof::Proof,
 };
-use crate::api::{
-    error::InternalApiError, router::Router, stardust::poi::merkle_hasher::MerkleTreeHasher, ApiError, ApiResult,
-};
+use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
 
 pub fn routes() -> Router {
     Router::new()
@@ -34,6 +33,7 @@ pub fn routes() -> Router {
 async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
 
+    // Fetch the whole milestone cone in "White Flag" order which the given block also belongs to.
     let block_collection = database.collection::<BlockCollection>();
     let block = block_collection
         .get_block(&block_id)
@@ -51,24 +51,25 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .get_pastcone_in_white_flag_order(referenced_index)
         .await?;
     if block_ids.is_empty() {
-        return Err(ApiError::Internal(InternalApiError::CorruptState("missing past-cone")));
+        return Err(ApiError::Internal(InternalApiError::CorruptState(
+            "missing past-cone of referencing milestone",
+        )));
     }
+
+    //
+    let merkle_hasher = MerkleTreeHasher::<Blake2b256>::new();
+    let proof = merkle_hasher.create_proof(block_ids, &block_id)?;
+
     let milestone_collection = database.collection::<MilestoneCollection>();
-    let milestone_id = milestone_collection
-        .get_milestone_id(referenced_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
     let milestone = milestone_collection
         .get_milestone_payload(referenced_index)
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let proof = super::merkle_proof::create_proof(block_ids, block_id);
-
     Ok(CreateProofResponse {
         milestone: milestone.into(),
         block: block.into(),
-        proof,
+        proof: proof.into(),
     })
 }
 
@@ -83,6 +84,7 @@ async fn validate_proof(
     let block = iota_types::block::Block::try_from_dto_unverified(&block)
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed block")))?;
     let block_id = block.id().into();
+    let proof = Proof::try_from(proof).unwrap();
 
     if !proof
         .contains_block_id(&block_id)
@@ -93,12 +95,11 @@ async fn validate_proof(
 
     let inclusion_merkle_root = milestone.inclusion_merkle_root;
 
-    todo!("verify the contained milestone signatures");
+    // todo!("verify the contained milestone signatures");
 
-    todo!("hash the proof with the merkle hasher");
+    let merkle_hasher = MerkleTreeHasher::<Blake2b256>::new();
 
-    let mut hasher = MerkleTreeHasher::<Blake2b256>::new();
-    let hash = proof.hash(&mut hasher);
-
-    Ok(ValidateProofResponse { valid: true })
+    Ok(ValidateProofResponse {
+        valid: merkle_hasher.validate_proof(proof)?,
+    })
 }
