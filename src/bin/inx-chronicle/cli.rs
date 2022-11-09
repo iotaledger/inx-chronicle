@@ -192,7 +192,7 @@ impl ClArgs {
                     );
                     return Ok(true);
                 }
-                #[cfg(feature = "analytics")]
+                #[cfg(all(feature = "analytics", feature = "stardust"))]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
@@ -259,7 +259,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    #[cfg(feature = "analytics")]
+    #[cfg(all(feature = "analytics", feature = "stardust"))]
     FillAnalytics {
         #[arg(short, long)]
         start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
