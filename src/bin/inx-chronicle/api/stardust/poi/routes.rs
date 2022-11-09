@@ -48,7 +48,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         return Err(ApiError::PoI(PoIError::InvalidRequest("block not referenced")));
     }
     let block_ids = block_collection
-        .get_milestone_past_cone_by_index(referenced_index)
+        .get_pastcone_in_white_flag_order(referenced_index)
         .await?;
     if block_ids.is_empty() {
         return Err(ApiError::Internal(InternalApiError::CorruptState("missing past-cone")));
@@ -63,7 +63,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .await?
         .ok_or(ApiError::NoResults)?;
 
-    let proof = super::proof::create_proof(block_ids, block_id);
+    let proof = super::merkle_proof::create_proof(block_ids, block_id);
 
     Ok(CreateProofResponse {
         milestone: milestone.into(),

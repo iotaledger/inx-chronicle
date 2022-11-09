@@ -3,7 +3,7 @@
 
 mod error;
 mod merkle_hasher;
-mod proof;
+mod merkle_proof;
 mod responses;
 mod routes;
 

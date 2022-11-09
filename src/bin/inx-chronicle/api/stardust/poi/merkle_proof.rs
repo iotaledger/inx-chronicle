@@ -11,3 +11,5 @@ pub(crate) fn create_proof(block_ids: Vec<BlockId>, block_id: BlockId) -> ProofD
 pub(crate) fn validate_proof(proof: ProofDto) -> bool {
     todo!()
 }
+
+fn find_index(block_ids: &[BlockId]) {}

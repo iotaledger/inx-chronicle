@@ -189,12 +189,26 @@ impl BlockCollection {
             .map_ok(|BlockIdResult { block_id }| block_id))
     }
 
-    /// Get the past-cone of a [`Milestone`].
-    pub async fn get_milestone_past_cone_by_index(
-        &self,
-        milestone_index: MilestoneIndex,
-    ) -> Result<Vec<BlockId>, Error> {
-        Ok(vec![])
+    /// Get the past-cone of a [`Milestone`] in "White Flag" order.
+    pub async fn get_pastcone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
+        #[derive(Deserialize)]
+        struct BlockIdResult {
+            id: BlockId,
+        }
+
+        Ok(self
+            .aggregate::<BlockIdResult>(
+                vec![
+                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                    doc! { "$sort": { "metadata.white_flag_index": 1 } },
+                    doc! { "$replaceWith": { "id": "$_id" } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|res| res.id)
+            .try_collect()
+            .await?)
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].

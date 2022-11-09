@@ -63,6 +63,7 @@ impl<D: Default + Digest> MerkleTreeHasher<D> {
 }
 
 fn largest_power_of_two_lte_number(number: u32) -> usize {
+    debug_assert!(number > 0);
     1 << (32 - number.leading_zeros() - 1)
 }
 

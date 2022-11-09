@@ -343,4 +343,54 @@ mod test_rand {
 
         teardown(db).await;
     }
+
+
+
+    #[tokio::test]
+    async fn test_pastcone_whiteflag_order() {
+        let db = setup_database("test-pastcone-whiteflag-order").await.unwrap();
+        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
+
+        let mut block_ids = Vec::with_capacity(10);
+
+        let mut blocks = std::iter::repeat_with(|| BlockId::rand())
+            .take(10)
+            .inspect(|block_id| block_ids.push(*block_id))
+            .enumerate()
+            .map(|(i, block_id)| {
+                let block = Block::rand_no_payload();
+                let parents = block.parents.clone();
+                (
+                    block_id,
+                    block,
+                    iota_types::block::rand::bytes::rand_bytes(100),
+                    BlockMetadata {
+                        parents,
+                        is_solid: true,
+                        should_promote: false,
+                        should_reattach: false,
+                        referenced_by_milestone_index: 1.into(),
+                        milestone_index: 0.into(),
+                        inclusion_state: LedgerInclusionState::NoTransaction,
+                        conflict_reason: ConflictReason::None,
+                        white_flag_index: i as u32,
+                    }
+                )
+            })
+        .collect::<Vec<_>>();
+
+        // not necessary: just to make sure the insertion order is different from the white flag order.
+        blocks.reverse();
+
+        block_collection
+            .insert_blocks_with_metadata(blocks.clone())
+            .await
+            .unwrap();
+
+        let whiteflag_cone = block_collection.get_pastcone_in_white_flag_order(1.into()).await.unwrap();
+
+        assert_eq!(whiteflag_cone, block_ids);
+
+        teardown(db).await;
+    }
 }
