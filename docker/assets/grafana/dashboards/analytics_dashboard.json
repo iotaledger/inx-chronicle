@@ -1999,7 +1999,7 @@
             },
             "targets": [
                 {
-                    "alias": "Claimed Value",
+                    "alias": "Unclaimed Value",
                     "datasource": {
                         "type": "influxdb",
                         "uid": "P951FEA4DE68E13C5"
@@ -2040,7 +2040,7 @@
                     "tags": []
                 },
                 {
-                    "alias": "Claimed Count",
+                    "alias": "Unclaimed Count",
                     "datasource": {
                         "type": "influxdb",
                         "uid": "P951FEA4DE68E13C5"
@@ -2082,7 +2082,7 @@
                     "tags": []
                 }
             ],
-            "title": "Claimed Tokens",
+            "title": "Unclaimed Tokens",
             "type": "timeseries"
         },
         {
