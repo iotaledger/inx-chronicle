@@ -7,8 +7,8 @@
 #[cfg(feature = "stardust")]
 pub mod collections;
 
-#[cfg(any(feature = "analytics", feature = "metrics"))]
 /// Module containing InfluxDb types and traits.
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 pub mod influxdb;
 mod mongodb;
 
