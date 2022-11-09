@@ -393,8 +393,8 @@ mod analytics {
         db::{
             collections::analytics::{
                 AddressActivityAnalytics, AddressAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
-                ClaimedTokensAnalytics, FoundryActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-                NftActivityAnalytics, UnlockConditionAnalytics,
+                FoundryActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics,
+                UnclaimedTokensAnalytics, UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
         },
@@ -821,25 +821,25 @@ mod analytics {
 
         /// Gets the number of claimed tokens.
         #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_claimed_token_analytics(
+        pub async fn get_unclaimed_token_analytics(
             &self,
             ledger_index: MilestoneIndex,
-        ) -> Result<ClaimedTokensAnalytics, Error> {
+        ) -> Result<UnclaimedTokensAnalytics, Error> {
             Ok(self
                 .aggregate(
                     vec![
                         doc! { "$match": {
                             "metadata.booked.milestone_index": { "$eq": 0 },
-                            "metadata.spent_metadata.spent.milestone_index": { "$lte": ledger_index },
+                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                         } },
                         doc! { "$group": {
                             "_id": null,
-                            "claimed_count": { "$sum": 1 },
-                            "claimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "unclaimed_count": { "$sum": 1 },
+                            "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
                         } },
                         doc! { "$project": {
-                            "claimed_count": 1,
-                            "claimed_value": { "$toString": "$claimed_value" },
+                            "unclaimed_count": 1,
+                            "unclaimed_value": { "$toString": "$unclaimed_value" },
                         } },
                     ],
                     None,
