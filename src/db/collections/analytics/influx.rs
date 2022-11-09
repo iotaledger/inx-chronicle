@@ -52,7 +52,7 @@ impl InfluxDb {
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.native_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.nfts),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.storage_deposits),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.claimed_tokens),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.payload_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.transaction_activity),
@@ -168,21 +168,21 @@ impl InfluxDbMeasurement for AnalyticsSchema<LedgerSizeAnalytics> {
     const NAME: &'static str = "stardust_ledger_size";
 }
 
-impl InfluxDbWriteable for AnalyticsSchema<ClaimedTokensAnalytics> {
+impl InfluxDbWriteable for AnalyticsSchema<UnclaimedTokensAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
             .add_tag("milestone_index", self.milestone_index)
-            .add_field("claimed_count", self.data.claimed_count)
+            .add_field("unclaimed_count", self.data.unclaimed_count)
             .add_field(
-                "claimed_value",
-                self.data.claimed_value.to_string().parse::<u64>().unwrap(),
+                "unclaimed_value",
+                self.data.unclaimed_value.to_string().parse::<u64>().unwrap(),
             )
     }
 }
 
-impl InfluxDbMeasurement for AnalyticsSchema<ClaimedTokensAnalytics> {
-    const NAME: &'static str = "stardust_claiming_rewards";
+impl InfluxDbMeasurement for AnalyticsSchema<UnclaimedTokensAnalytics> {
+    const NAME: &'static str = "stardust_unclaimed_rewards";
 }
 
 impl InfluxDbWriteable for AnalyticsSchema<PayloadActivityAnalytics> {
