@@ -40,7 +40,7 @@ async fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+    info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
     let db = MongoDb::connect(&config.mongodb).await?;
     debug!("Available databases: `{:?}`", db.get_databases().await?);
     info!(

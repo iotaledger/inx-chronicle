@@ -184,7 +184,7 @@ impl ClArgs {
                     end_milestone,
                     num_tasks,
                 } => {
-                    tracing::info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     let start_milestone = if let Some(index) = start_milestone {
                         *index
@@ -236,7 +236,7 @@ impl ClArgs {
                 }
                 #[cfg(debug_assertions)]
                 Subcommands::ClearDatabase { no_run } => {
-                    tracing::info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     db.clear().await?;
                     tracing::info!("Database cleared successfully.");
@@ -245,7 +245,7 @@ impl ClArgs {
                     }
                 }
                 Subcommands::BuildIndexes => {
-                    tracing::info!("Connecting to database at bind address `{}`.", config.mongodb.conn_str);
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     super::build_indexes(&db).await?;
                     tracing::info!("Indexes built successfully.");
