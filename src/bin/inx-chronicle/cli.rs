@@ -220,7 +220,7 @@ impl ClArgs {
                                 {
                                     let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
-                                    tracing::info!("Finished analytics for milestone: {}", index);
+                                    tracing::info!("Finished analytics for milestone {}", index);
                                 } else {
                                     tracing::info!("No milestone in database for index {}", index);
                                 }
