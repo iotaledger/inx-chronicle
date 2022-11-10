@@ -235,12 +235,12 @@ impl ClArgs {
                     return Ok(PostCommand::Exit);
                 }
                 #[cfg(debug_assertions)]
-                Subcommands::ClearDatabase { no_run } => {
+                Subcommands::ClearDatabase { run } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     db.clear().await?;
                     tracing::info!("Database cleared successfully.");
-                    if *no_run {
+                    if !run {
                         return Ok(PostCommand::Exit);
                     }
                 }
@@ -263,20 +263,27 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    /// Manually fill the analytics database.
     #[cfg(feature = "analytics")]
     FillAnalytics {
+        /// The inclusive starting milestone index.
         #[arg(short, long)]
         start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The exclusive ending milestone index.
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
     },
+    /// Clear the chronicle database.
     #[cfg(debug_assertions)]
     ClearDatabase {
+        /// Run the application after this command.
         #[arg(short, long)]
-        no_run: bool,
+        run: bool,
     },
+    /// Manually build indexes.
     BuildIndexes,
 }
 
