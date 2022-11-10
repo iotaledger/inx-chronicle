@@ -1293,9 +1293,9 @@ dependencies = [
 
 [[package]]
 name = "iota-types"
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c20dbea6079108f7d9bfac4d4d65f6029441e822bc7a5cba53d408c953bb395d"
+checksum = "1518e8a0e97e9de24a941d9e9df53e3eb6548cdc4b3ecc4cbaad430cd26bdcfc"
 dependencies = [
  "bech32",
  "bitflags",

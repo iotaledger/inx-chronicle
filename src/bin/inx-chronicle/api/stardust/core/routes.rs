@@ -34,8 +34,8 @@ use iota_types::{
         dto::ReceiptDto,
         response::{
             self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
-            LatestMilestoneResponse, OutputMetadataResponse, OutputResponse, ProtocolResponse, ReceiptsResponse,
-            RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse,
+            LatestMilestoneResponse, OutputMetadataResponse, OutputWithMetadataResponse, ProtocolResponse,
+            ReceiptsResponse, RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse,
         },
     },
     block::{
@@ -287,7 +287,7 @@ async fn output(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
     headers: HeaderMap,
-) -> ApiResult<IotaRawResponse<OutputResponse>> {
+) -> ApiResult<IotaRawResponse<OutputWithMetadataResponse>> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
@@ -316,7 +316,7 @@ async fn output(
 
     let metadata = create_output_metadata_response(metadata, ledger_index);
 
-    Ok(IotaRawResponse::Json(OutputResponse {
+    Ok(IotaRawResponse::Json(OutputWithMetadataResponse {
         metadata,
         output: output.into(),
     }))
