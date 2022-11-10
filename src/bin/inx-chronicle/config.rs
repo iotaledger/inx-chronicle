@@ -46,14 +46,16 @@ impl ChronicleConfig {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LokiConfig {
-    pub url: String,
+    pub enabled: bool,
+    pub connect_url: String,
 }
 
 #[cfg(feature = "loki")]
 impl Default for LokiConfig {
     fn default() -> Self {
         Self {
-            url: "http://127.0.0.1:3100".to_owned(),
+            enabled: true,
+            connect_url: "http://127.0.0.1:3100".to_owned(),
         }
     }
 }

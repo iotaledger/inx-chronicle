@@ -30,6 +30,10 @@ pub struct ClArgs {
     /// MongoDb arguments.
     #[command(flatten)]
     pub mongodb: MongoDbArgs,
+    /// Loki arguments.
+    #[cfg(feature = "loki")]
+    #[command(flatten)]
+    pub loki: LokiArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
@@ -88,6 +92,17 @@ pub struct InfluxDbArgs {
     pub influxdb_url: Option<String>,
 }
 
+#[cfg(feature = "influxdb")]
+#[derive(Args, Debug)]
+pub struct LokiArgs {
+    /// Toggle Grafana Loki log writes.
+    #[arg(long, env = "LOKI_ENABLED")]
+    pub loki_enabled: Option<bool>,
+    /// The url pointing to a Grafana Loki instance.
+    #[arg(long, env = "LOKI_URL")]
+    pub loki_url: Option<String>,
+}
+
 impl ClArgs {
     /// Get a config file with CLI args applied.
     pub fn get_config(&self) -> Result<ChronicleConfig, ConfigError> {
@@ -143,6 +158,16 @@ impl ClArgs {
             }
             if let Some(enabled) = self.api.api_enabled {
                 config.api.enabled = enabled;
+            }
+        }
+
+        #[cfg(feature = "loki")]
+        {
+            if let Some(connect_url) = &self.loki.loki_url {
+                config.loki.connect_url = connect_url.clone();
+            }
+            if let Some(enabled) = self.loki.loki_enabled {
+                config.loki.enabled = enabled;
             }
         }
 

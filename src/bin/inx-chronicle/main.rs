@@ -178,7 +178,7 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> Result<(), Error
     };
     #[cfg(feature = "loki")]
     let registry = {
-        let (layer, task) = tracing_loki::layer(config.loki.url.parse()?, [].into(), [].into())?;
+        let (layer, task) = tracing_loki::layer(config.loki.connect_url.parse()?, [].into(), [].into())?;
         tokio::spawn(task);
         registry.with(layer)
     };

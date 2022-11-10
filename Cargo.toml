@@ -92,6 +92,7 @@ default = [
     "analytics",
     "api",
     "inx",
+    "loki",
     "metrics",
     "stardust",
 ]
