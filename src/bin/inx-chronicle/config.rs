@@ -55,7 +55,7 @@ impl Default for LokiConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            connect_url: "http://127.0.0.1:3100".to_owned(),
+            connect_url: "http://localhost:3100".to_owned(),
         }
     }
 }
