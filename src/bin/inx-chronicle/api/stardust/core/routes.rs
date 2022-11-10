@@ -34,8 +34,8 @@ use iota_types::{
         dto::ReceiptDto,
         response::{
             self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
-            LatestMilestoneResponse, OutputMetadataResponse, ProtocolResponse, ReceiptsResponse,
-            RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse, OutputWithMetadataResponse,
+            LatestMilestoneResponse, OutputMetadataResponse, OutputWithMetadataResponse, ProtocolResponse,
+            ReceiptsResponse, RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse,
         },
     },
     block::{
