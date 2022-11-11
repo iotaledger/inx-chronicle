@@ -1,3 +1,24 @@
+## [1.0.0-beta.24](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.23...v1.0.0-beta.24) (2022-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** update `iota-types` to change packing order of `RentStructure` (#877)
+
+### Features
+
+* **cli:** add helpful CLI commands ([#866](https://github.com/iotaledger/inx-chronicle/issues/866)) ([7e4ab39](https://github.com/iotaledger/inx-chronicle/commit/7e4ab393f239e646548bc9b49442e9a7af349fd8))
+* **grafana:** add analytics and improve dashboard ([#882](https://github.com/iotaledger/inx-chronicle/issues/882)) ([303b2e8](https://github.com/iotaledger/inx-chronicle/commit/303b2e82f65cffe6a4a93aa9d94df70f7617bea8))
+* **grafana:** add remaining stats ([#842](https://github.com/iotaledger/inx-chronicle/issues/842)) ([8ea9d19](https://github.com/iotaledger/inx-chronicle/commit/8ea9d19e28a9f23eec66715a11a97f068224fa7d))
+* **tracing:** add loki ([#867](https://github.com/iotaledger/inx-chronicle/issues/867)) ([fdbcea6](https://github.com/iotaledger/inx-chronicle/commit/fdbcea6cee729796a8ce4909869ccc506938b549))
+
+
+### Bug Fixes
+
+* **analytics:** flip claimed to unclaimed analytics ([#871](https://github.com/iotaledger/inx-chronicle/issues/871)) ([bf6bca7](https://github.com/iotaledger/inx-chronicle/commit/bf6bca7423cb352d08a5208e5a921db06bdf259d))
+* **deps:** update `iota-types` to change packing order of `RentStructure` ([#877](https://github.com/iotaledger/inx-chronicle/issues/877)) ([a34ee18](https://github.com/iotaledger/inx-chronicle/commit/a34ee180a6bc75ed64a0847d75f4f7283f03e73d))
+* **docker:** change name of data folder ([#864](https://github.com/iotaledger/inx-chronicle/issues/864)) ([de5a12a](https://github.com/iotaledger/inx-chronicle/commit/de5a12a2aded7ad52529e6da7a8b006320b82e60))
+
 ## [1.0.0-beta.23](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.22...v1.0.0-beta.23) (2022-11-04)
 
 
