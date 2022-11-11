@@ -6,7 +6,7 @@ use crypto::hashes::blake2b::Blake2b256;
 use iota_types::block::{payload::dto::MilestonePayloadDto, BlockDto};
 use serde::{Deserialize, Serialize};
 
-use super::{hasher::MerkleTreeHasher, proof::ProofDto};
+// use super::{hasher::MerkleHasher, proof::ProofDto};
 use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -14,7 +14,7 @@ use crate::api::responses::impl_success_response;
 pub struct CreateProofResponse {
     pub milestone: MilestonePayloadDto,
     pub block: BlockDto,
-    pub proof: ProofDto,
+    // pub proof: ProofDto,
 }
 
 impl_success_response!(CreateProofResponse);

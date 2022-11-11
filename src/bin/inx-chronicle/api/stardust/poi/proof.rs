@@ -2,157 +2,109 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{blake2b::Blake2b256, Output};
+use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 use serde::{Deserialize, Serialize};
 
-use super::{error::PoIError, hasher::MerkleTreeHasher};
+use super::{error::PoIError, hasher::MerkleHasher};
 
-type Hash = Vec<u8>;
+pub type Bytes = Box<[u8]>;
+pub type Hasher = MerkleHasher<Blake2b256>;
 
 #[derive(Debug)]
 pub struct Proof {
-    left: Node,
-    right: Node,
-}
-
-#[derive(Debug)]
-pub enum Node {
-    Hash(Hash),
-    Value(Hash),
-    Path(Box<Proof>),
-}
-
-impl From<Proof> for ProofDto {
-    fn from(value: Proof) -> Self {
-        Self {
-            left: value.left.into(),
-            right: value.right.into(),
-        }
-    }
-}
-
-impl From<Node> for NodeDto {
-    fn from(value: Node) -> Self {
-        match value {
-            Node::Hash(hash) => Self::Hash { hash: prefix_hex::encode(hash) },
-            Node::Value(val) => Self::Value { val: prefix_hex::encode(val) },
-            Node::Path(path) => Self::Path(Box::new((*path).into())),
-        }
-    }
-}
-
-impl TryFrom<ProofDto> for Proof {
-    type Error = prefix_hex::Error;
-
-    fn try_from(proof: ProofDto) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
-impl TryFrom<NodeDto> for Node {
-    type Error = prefix_hex::Error;
-
-    fn try_from(node: NodeDto) -> Result<Self, Self::Error> {
-        todo!()
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProofDto {
-    #[serde(rename = "l")]
-    left: NodeDto,
-    #[serde(rename = "r")]
-    right: NodeDto,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum NodeDto {
-    Hash { 
-        #[serde(rename = "h")]
-        hash: String,
-    },
-    Value {
-        #[serde(rename = "value")]
-        val: String
-    },
-    Path(Box<ProofDto>),
+    left: Hashable,
+    right: Hashable,
 }
 
 impl Proof {
-    pub(crate) fn contains_block_id(&self, block_id: &BlockId) -> Result<bool, ()> {
+    pub fn contains_block_id(&self, block_id: &BlockId) -> Result<bool, ()> {
         Ok(true)
     }
 
-    pub(crate) fn hash(&self, hasher: &mut MerkleTreeHasher<Blake2b256>) -> &[u8] {
-        todo!()
+    pub fn hash(&self, hasher: &Hasher) -> Bytes {
+        let l = self.left.hash(hasher);
+        let r = self.right.hash(hasher);
+        hasher.hash_node(l, r).to_vec().into_boxed_slice()
     }
 }
 
-impl MerkleTreeHasher<Blake2b256> {
+#[derive(Debug)]
+pub enum Hashable {
+    Tree(Bytes),
+    Value(Bytes),
+    Proof(Box<Proof>),
+}
+
+impl Hashable {
+    fn hash(&self, hasher: &Hasher) -> Bytes {
+        match self {
+            Hashable::Tree(h) | Hashable::Value(h) => h.clone(),
+            Hashable::Proof(p) => (**p).hash(hasher),
+        }
+    }
+}
+
+impl MerkleHasher<Blake2b256> {
     pub fn create_proof(&self, block_ids: Vec<BlockId>, block_id: &BlockId) -> Result<Proof, PoIError> {
         let index = find_index(&block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
-
         self.create_proof_from_index(block_ids, index)
     }
 
     // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
     fn create_proof_from_index(&self, block_ids: Vec<BlockId>, index: usize) -> Result<Proof, PoIError> {
-        if block_ids.len() < 2 {
-            return Err(PoIError::InvalidPrecondition(
+        let n = block_ids.len();
+        if n < 2 {
+            Err(PoIError::InvalidPrecondition(
                 "block id list must have at least 2 items",
-            ));
-        }
-
-        if index >= block_ids.len() {
-            return Err(PoIError::InvalidRequest("index out of bounds"));
-        }
-
-        let data = block_ids
-            .into_iter()
-            .map(|block_id| block_id.0.to_vec())
-            .collect::<Vec<_>>();
-        let node = self.compute_proof(&data, index);
-
-        if let Node::Path(proof) = node {
-            Ok(*proof)
+            ))
+        } else if index >= n {
+            Err(PoIError::InvalidRequest("index out of bounds"))
         } else {
-            unreachable!("root node must be a path variant");
+            let data = block_ids.into_iter().map(|block_id| block_id.0).collect::<Vec<_>>();
+            let proof = self.compute_proof(&data, index);
+            if let Hashable::Proof(proof) = proof {
+                Ok(*proof)
+            } else {
+                unreachable!("root wasn't a proof");
+            }
         }
     }
 
-    // NOTE: The root "node" must be a `Node::Proof`.
-    fn compute_proof(&self, data: &[Hash], index: usize) -> Node {
+    fn compute_proof(&self, mut data: &[[u8; 32]], index: usize) -> Hashable {
         let n = data.len();
+        debug_assert!(index < n);
         match n {
-            0 => unreachable!(),
-            1 => Node::Value(data[0].clone()),
+            0 => unreachable!("empty data given"),
+            1 => Hashable::Value(Box::new(data[0])),
             2 => {
-                if index == 0 {
-                    Node::Path(Box::new(Proof {
-                        left: Node::Value(data[0].clone()),
-                        right: Node::Hash(self.hash_leaf(&data[1]).to_vec()),
-                    }))
+                let (l, r) = (data[0], data[1]);
+                let proof = if index == 0 {
+                    Proof {
+                        left: Hashable::Value(Box::new(l)),
+                        right: Hashable::Tree(self.hash_leaf(r).to_vec().into_boxed_slice()),
+                    }
                 } else {
-                    Node::Path(Box::new(Proof {
-                        left: Node::Hash(self.hash_leaf(&data[0]).to_vec()),
-                        right: Node::Value(data[1].clone()),
-                    }))
-                }
+                    Proof {
+                        left: Hashable::Tree(self.hash_leaf(l).to_vec().into_boxed_slice()),
+                        right: Hashable::Value(Box::new(r)),
+                    }
+                };
+                Hashable::Proof(Box::new(proof))
             }
             _ => {
-                let k = super::hasher::largest_power_of_two_lte_number(n as u32 - 1);
-                if index < k {
-                    Node::Path(Box::new(Proof {
+                let k = super::hasher::largest_power_of_two(n);
+                let proof = if index < k {
+                    Proof {
                         left: self.compute_proof(&data[..k], index),
-                        right: Node::Hash(self.hash_node(&data[k..]).to_vec()),
-                    }))
+                        right: Hashable::Tree(self.hash(&data[k..]).to_vec().into_boxed_slice()),
+                    }
                 } else {
-                    Node::Path(Box::new(Proof {
-                        left: Node::Hash(self.hash_node(&data[..k]).to_vec()),
+                    Proof {
+                        left: Hashable::Tree(self.hash(&data[..k]).to_vec().into_boxed_slice()),
                         right: self.compute_proof(&data[k..], index - k),
-                    }))
-                }
+                    }
+                };
+                Hashable::Proof(Box::new(proof))
             }
         }
     }
@@ -186,17 +138,97 @@ mod tests {
             "0x6bf84c7174cb7476364cc3dbd968b0f7172ed85794bb358b0c3b525da1786f9f",
         ]
         .iter()
-        .map(|hash| BlockId::from_str(hash).unwrap().0.to_vec())
+        .map(|hash| BlockId::from_str(hash).unwrap().0)
         .collect::<Vec<_>>();
 
-        let hasher = MerkleTreeHasher::<Blake2b256>::new();
-        let index = 0;
-        let node = hasher.compute_proof(&block_ids, index);
-        if let Node::Path(proof) = node {
-            let proof_dto = ProofDto::from(*proof);
-            println!("{}", serde_json::to_string_pretty(&proof_dto).unwrap());
-        } else {
-            panic!("root should be a path")
+        let hasher = MerkleHasher::<Blake2b256>::new();
+        // let index = 4;
+
+        for index in 0..block_ids.len() {
+            let node = hasher.compute_proof(&block_ids, index);
+            if let Hashable::Proof(proof) = node {
+                println!("{}", prefix_hex::encode((*proof).hash(&hasher)));
+
+                // let proof_dto = ProofDto::from(*proof);
+                // println!("{}", serde_json::to_string_pretty(&proof_dto).unwrap());
+            } else {
+                panic!("root should be a path")
+            }
         }
+    }
+}
+
+#[cfg(feature = "rand")]
+mod test_rand {
+    use chronicle::types::stardust::block::payload::{MilestoneId, MilestonePayload};
+
+    #[tokio::test]
+    async fn test_foo() {
+        let milestone = MilestonePayload::rand(&iota_types::block::protocol::protocol_parameters());
+        let milestone_id = MilestoneId::rand();
+
+        println!("{0:?}", prefix_hex::encode(milestone.essence.inclusion_merkle_root));
+        println!("{0}", milestone_id.to_hex());
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProofDto {
+    #[serde(rename = "l")]
+    left: NodeDto,
+    #[serde(rename = "r")]
+    right: NodeDto,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum NodeDto {
+    Hash {
+        #[serde(rename = "h")]
+        hash: String,
+    },
+    Value {
+        #[serde(rename = "value")]
+        val: String,
+    },
+    Path(Box<ProofDto>),
+}
+
+impl From<Proof> for ProofDto {
+    fn from(value: Proof) -> Self {
+        Self {
+            left: value.left.into(),
+            right: value.right.into(),
+        }
+    }
+}
+
+impl From<Hashable> for NodeDto {
+    fn from(value: Hashable) -> Self {
+        match value {
+            Hashable::Tree(h) => Self::Hash {
+                hash: prefix_hex::encode(h),
+            },
+            Hashable::Value(v) => Self::Value {
+                val: prefix_hex::encode(v),
+            },
+            Hashable::Proof(path) => Self::Path(Box::new((*path).into())),
+        }
+    }
+}
+
+impl TryFrom<ProofDto> for Proof {
+    type Error = prefix_hex::Error;
+
+    fn try_from(proof: ProofDto) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl TryFrom<NodeDto> for Hashable {
+    type Error = prefix_hex::Error;
+
+    fn try_from(node: NodeDto) -> Result<Self, Self::Error> {
+        todo!()
     }
 }

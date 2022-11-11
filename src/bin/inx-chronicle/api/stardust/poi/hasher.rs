@@ -4,69 +4,74 @@
 use std::marker::PhantomData;
 
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{Digest, Output};
+use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 
-/// Leaf prefix.
 const LEAF_HASH_PREFIX: u8 = 0x00;
-/// Node sub-tree prefix.
 const NODE_HASH_PREFIX: u8 = 0x01;
 
-/// A Merkle tree hasher that is generic over the hash function being used.
-pub struct MerkleTreeHasher<D> {
-    _phantom: PhantomData<D>,
+// TODO: store the hash function and reset each time
+
+pub type Bytes<D: Default + Digest> = Output<D>;
+// type Bytes = Box<[u8]>;
+
+/// A Merkle tree hasher that is generic over the hash function `H` being used.
+pub struct MerkleHasher<H> {
+    _phantom: PhantomData<H>,
 }
 
-impl<D: Default + Digest> MerkleTreeHasher<D> {
-    /// Creates a new Merkle tree hasher.
+impl<H: Default + Digest> MerkleHasher<H> {
     pub fn new() -> Self {
         Self { _phantom: PhantomData }
     }
 
-    /// Returns the Merkle root for a list of [`BlockId`]s.
-    pub fn hash_block_ids(&mut self, block_ids: &[BlockId]) -> Vec<u8> {
-        let hashes = block_ids.iter().map(|block_id| block_id.0.to_vec()).collect::<Vec<_>>();
-        self.hash_inner(&hashes).to_vec()
+    pub fn hash_block_ids(&mut self, data: &[BlockId]) -> Box<[u8]> {
+        let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
+        self.hash(&data[..]).to_vec().into_boxed_slice()
     }
 
-    /// Returns the hash for empty data.
-    pub fn hash_empty(&self) -> Output<D> {
-        D::digest([])
+    pub fn hash(&self, data: &[impl AsRef<[u8]>]) -> Bytes<H> {
+        match data {
+            [] => self.hash_empty(),
+            [leaf] => self.hash_leaf(leaf),
+            _ => {
+                let k = largest_power_of_two(data.len());
+                let l = self.hash(&data[..k]);
+                let r = self.hash(&data[k..]);
+                self.hash_node(&l, &r)
+            }
+        }
     }
 
-    /// Returns the hash of a Merkle tree leaf.
-    pub fn hash_leaf(&self, leaf_hash: &Vec<u8>) -> Output<D> {
-        let mut hasher = D::default();
+    pub fn hash_empty(&self) -> Bytes<H> {
+        H::digest([])
+    }
+
+    pub fn hash_leaf(&self, l: impl AsRef<[u8]>) -> Bytes<H> {
+        let mut hasher = H::default();
 
         hasher.update([LEAF_HASH_PREFIX]);
-        hasher.update(leaf_hash);
+        hasher.update(l);
         hasher.finalize()
     }
 
-    /// Returns the hash of a Merkle tree node.
-    pub fn hash_node(&self, node_hashes: &[Vec<u8>]) -> Output<D> {
-        let mut hasher = D::default();
-
-        let mid = largest_power_of_two_lte_number((node_hashes.len() - 1) as u32);
-        let (left, right) = node_hashes.split_at(mid);
+    pub fn hash_node(&self, l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Bytes<H> {
+        let mut hasher = H::default();
 
         hasher.update([NODE_HASH_PREFIX]);
-        hasher.update(self.hash_inner(left));
-        hasher.update(self.hash_inner(right));
+        hasher.update(l);
+        hasher.update(r);
         hasher.finalize()
-    }
-
-    fn hash_inner(&self, hashes: &[Vec<u8>]) -> Output<D> {
-        match hashes {
-            [] => self.hash_empty(),
-            [block_id] => self.hash_leaf(block_id),
-            _ => self.hash_node(hashes),
-        }
     }
 }
 
-pub(crate) fn largest_power_of_two_lte_number(number: u32) -> usize {
-    debug_assert!(number > 0);
-    1 << (32 - number.leading_zeros() - 1)
+/// __NOTE__: Panics for `n < 2`.
+pub(crate) fn largest_power_of_two(n: usize) -> usize {
+    debug_assert!(n > 1);
+    1 << (bit_length((n - 1) as u32) - 1)
+}
+
+const fn bit_length(n: u32) -> u32 {
+    32 - n.leading_zeros()
 }
 
 #[cfg(test)]
@@ -79,22 +84,27 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_largest_power_of_two_lte_number_panic() {
-        let _ = largest_power_of_two_lte_number(0);
+    fn test_largest_power_of_two_panics_for_0() {
+        let _ = largest_power_of_two(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_largest_power_of_two_panics_for_1() {
+        let _ = largest_power_of_two(1);
     }
 
     #[test]
     fn test_largest_power_of_two_lte_number() {
-        assert_eq!(2u32.pow(0) as usize, largest_power_of_two_lte_number(1));
-        assert_eq!(2u32.pow(1) as usize, largest_power_of_two_lte_number(2));
-        assert_eq!(2u32.pow(1) as usize, largest_power_of_two_lte_number(3));
-        assert_eq!(2u32.pow(2) as usize, largest_power_of_two_lte_number(4));
-        assert_eq!(2u32.pow(31) as usize, largest_power_of_two_lte_number(u32::MAX));
+        assert_eq!(2u32.pow(0) as usize, largest_power_of_two(2));
+        assert_eq!(2u32.pow(1) as usize, largest_power_of_two(3));
+        assert_eq!(2u32.pow(1) as usize, largest_power_of_two(4));
+        assert_eq!(2u32.pow(31) as usize, largest_power_of_two(u32::MAX as usize));
     }
 
     #[test]
     fn test_merkle_tree_hasher_empty() {
-        let root = MerkleTreeHasher::<Blake2b256>::new().hash_block_ids(&[]);
+        let root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&[]);
         assert_eq!(
             prefix_hex::encode(root),
             "0x0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
@@ -103,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_merkle_tree_hasher_single() {
-        let root = MerkleTreeHasher::<Blake2b256>::new()
+        let root = MerkleHasher::<Blake2b256>::new()
             .hash_block_ids(&[
                 BlockId::from_str("0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649").unwrap(),
             ]);
@@ -129,7 +139,7 @@ mod tests {
         .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
-        let root = MerkleTreeHasher::<Blake2b256>::new().hash_block_ids(&block_ids);
+        let root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&block_ids);
 
         assert_eq!(
             prefix_hex::encode(root),

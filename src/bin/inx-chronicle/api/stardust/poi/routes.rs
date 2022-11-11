@@ -19,8 +19,9 @@ use crypto::hashes::blake2b::Blake2b256;
 
 use super::{
     error::PoIError,
-    hasher::MerkleTreeHasher,
-    responses::{CreateProofResponse, ValidateProofResponse}, proof::Proof,
+    hasher::MerkleHasher,
+    // proof::Proof,
+    responses::{CreateProofResponse, ValidateProofResponse},
 };
 use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
 
@@ -32,13 +33,9 @@ pub fn routes() -> Router {
 
 async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
-
-    // Fetch the whole milestone cone in "White Flag" order which the given block also belongs to.
     let block_collection = database.collection::<BlockCollection>();
-    let block = block_collection
-        .get_block(&block_id)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+
+    // Ensure the corresponding block was referenced by a milestone.
     let block_metadata = block_collection
         .get_block_metadata(&block_id)
         .await?
@@ -47,6 +44,8 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     if referenced_index == 0 {
         return Err(ApiError::PoI(PoIError::InvalidRequest("block not referenced")));
     }
+
+    // Fetch the corresponding milestone cone in "White Flag" order.
     let block_ids = block_collection
         .get_pastcone_in_white_flag_order(referenced_index)
         .await?;
@@ -56,21 +55,37 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         )));
     }
 
-    //
-    let merkle_hasher = MerkleTreeHasher::<Blake2b256>::new();
-    let proof = merkle_hasher.create_proof(block_ids, &block_id)?;
+    todo!()
 
-    let milestone_collection = database.collection::<MilestoneCollection>();
-    let milestone = milestone_collection
-        .get_milestone_payload(referenced_index)
-        .await?
-        .ok_or(ApiError::NoResults)?;
+    // // Create the inclusion proof to return in the response.
+    // let merkle_hasher = MerkleHasher::<Blake2b256>::new();
+    // let proof = merkle_hasher.create_proof(block_ids, &block_id)?;
 
-    Ok(CreateProofResponse {
-        milestone: milestone.into(),
-        block: block.into(),
-        proof: proof.into(),
-    })
+    // // Fetch the corresponding milestone to return in the response.
+    // let milestone_collection = database.collection::<MilestoneCollection>();
+    // let milestone = milestone_collection
+    //     .get_milestone_payload(referenced_index)
+    //     .await?
+    //     .ok_or(ApiError::NoResults)?;
+
+    // let inclusion_merkle_root = milestone.essence.inclusion_merkle_root;
+    // if proof.hash(&merkle_hasher).as_slice() != &inclusion_merkle_root[..] {
+    //     return Err(ApiError::PoI(PoIError::InvalidProof(
+    //         "cannot create a valid proof for that block".to_string(),
+    //     )));
+    // }
+
+    // // Fetch the corresponding block to return in the response.
+    // let block = block_collection
+    //     .get_block(&block_id)
+    //     .await?
+    //     .ok_or(ApiError::NoResults)?;
+
+    // Ok(CreateProofResponse {
+    //     milestone: milestone.into(),
+    //     block: block.into(),
+    //     proof: proof.into(),
+    // })
 }
 
 async fn validate_proof(
@@ -78,28 +93,29 @@ async fn validate_proof(
     Json(CreateProofResponse {
         milestone,
         block,
-        proof,
+        // proof,
     }): Json<CreateProofResponse>,
 ) -> ApiResult<ValidateProofResponse> {
     let block = iota_types::block::Block::try_from_dto_unverified(&block)
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed block")))?;
-    let block_id = block.id().into();
-    let proof = Proof::try_from(proof).unwrap();
+    todo!()
+    // let block_id = block.id().into();
+    // let proof = Proof::try_from(proof).unwrap();
 
-    if !proof
-        .contains_block_id(&block_id)
-        .map_err(|_| PoIError::InvalidProof(block_id.to_hex()))?
-    {
-        return Ok(ValidateProofResponse { valid: false });
-    }
+    // if !proof
+    //     .contains_block_id(&block_id)
+    //     .map_err(|_| PoIError::InvalidProof(block_id.to_hex()))?
+    // {
+    //     return Ok(ValidateProofResponse { valid: false });
+    // }
 
-    let inclusion_merkle_root = milestone.inclusion_merkle_root;
+    // let inclusion_merkle_root = milestone.inclusion_merkle_root;
 
-    // todo!("verify the contained milestone signatures");
+    // // todo!("verify the contained milestone signatures");
 
-    let merkle_hasher = MerkleTreeHasher::<Blake2b256>::new();
+    // let merkle_hasher = MerkleHasher::<Blake2b256>::new();
 
-    Ok(ValidateProofResponse {
-        valid: merkle_hasher.validate_proof(proof)?,
-    })
+    // Ok(ValidateProofResponse {
+    //     valid: merkle_hasher.validate_proof(proof)?,
+    // })
 }
