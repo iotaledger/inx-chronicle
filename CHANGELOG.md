@@ -8,6 +8,7 @@
 ### Features
 
 * **cli:** add helpful CLI commands ([#866](https://github.com/iotaledger/inx-chronicle/issues/866)) ([7e4ab39](https://github.com/iotaledger/inx-chronicle/commit/7e4ab393f239e646548bc9b49442e9a7af349fd8))
+* **grafana:** add analytics and improve dashboard ([#882](https://github.com/iotaledger/inx-chronicle/issues/882)) ([303b2e8](https://github.com/iotaledger/inx-chronicle/commit/303b2e82f65cffe6a4a93aa9d94df70f7617bea8))
 * **grafana:** add remaining stats ([#842](https://github.com/iotaledger/inx-chronicle/issues/842)) ([8ea9d19](https://github.com/iotaledger/inx-chronicle/commit/8ea9d19e28a9f23eec66715a11a97f068224fa7d))
 * **tracing:** add loki ([#867](https://github.com/iotaledger/inx-chronicle/issues/867)) ([fdbcea6](https://github.com/iotaledger/inx-chronicle/commit/fdbcea6cee729796a8ce4909869ccc506938b549))
 
