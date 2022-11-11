@@ -4,15 +4,12 @@
 use std::marker::PhantomData;
 
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
+use crypto::hashes::{Digest, Output};
 
 const LEAF_HASH_PREFIX: u8 = 0x00;
 const NODE_HASH_PREFIX: u8 = 0x01;
 
 // TODO: store the hash function and reset each time
-
-pub type Bytes<D: Default + Digest> = Output<D>;
-// type Bytes = Box<[u8]>;
 
 /// A Merkle tree hasher that is generic over the hash function `H` being used.
 pub struct MerkleHasher<H> {
@@ -24,12 +21,12 @@ impl<H: Default + Digest> MerkleHasher<H> {
         Self { _phantom: PhantomData }
     }
 
-    pub fn hash_block_ids(&mut self, data: &[BlockId]) -> Box<[u8]> {
+    pub fn hash_block_ids(&self, data: &[BlockId]) -> Box<[u8]> {
         let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
         self.hash(&data[..]).to_vec().into_boxed_slice()
     }
 
-    pub fn hash(&self, data: &[impl AsRef<[u8]>]) -> Bytes<H> {
+    pub fn hash(&self, data: &[impl AsRef<[u8]>]) -> Output<H> {
         match data {
             [] => self.hash_empty(),
             [leaf] => self.hash_leaf(leaf),
@@ -42,21 +39,19 @@ impl<H: Default + Digest> MerkleHasher<H> {
         }
     }
 
-    pub fn hash_empty(&self) -> Bytes<H> {
+    pub fn hash_empty(&self) -> Output<H> {
         H::digest([])
     }
 
-    pub fn hash_leaf(&self, l: impl AsRef<[u8]>) -> Bytes<H> {
+    pub fn hash_leaf(&self, l: impl AsRef<[u8]>) -> Output<H> {
         let mut hasher = H::default();
-
         hasher.update([LEAF_HASH_PREFIX]);
         hasher.update(l);
         hasher.finalize()
     }
 
-    pub fn hash_node(&self, l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Bytes<H> {
+    pub fn hash_node(&self, l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<H> {
         let mut hasher = H::default();
-
         hasher.update([NODE_HASH_PREFIX]);
         hasher.update(l);
         hasher.update(r);
@@ -139,10 +134,10 @@ mod tests {
         .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
-        let root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&block_ids);
+        let merkle_root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&block_ids);
 
         assert_eq!(
-            prefix_hex::encode(root),
+            prefix_hex::encode(merkle_root),
             "0xbf67ce7ba23e8c0951b5abaec4f5524360d2c26d971ff226d3359fa70cdb0beb"
         )
     }

@@ -1,12 +1,10 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::blake2b::Blake2b256;
 use iota_types::block::{payload::dto::MilestonePayloadDto, BlockDto};
 use serde::{Deserialize, Serialize};
 
-// use super::{hasher::MerkleHasher, proof::ProofDto};
+use super::proof::ProofDto;
 use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -14,7 +12,7 @@ use crate::api::responses::impl_success_response;
 pub struct CreateProofResponse {
     pub milestone: MilestonePayloadDto,
     pub block: BlockDto,
-    // pub proof: ProofDto,
+    pub proof: ProofDto,
 }
 
 impl_success_response!(CreateProofResponse);
