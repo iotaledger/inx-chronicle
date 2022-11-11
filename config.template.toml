@@ -79,3 +79,10 @@ connection_retry_interval = "5s"
 
 ### Maximum number of tries to establish an INX connection.
 connection_retry_count = 30
+
+[loki]
+### Whether Grafana Loki is used for writing logs.
+enabled = true
+
+### The Grafana Loki connection URL.
+connect_url = "http://localhost:3100"
