@@ -177,7 +177,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<PostCommand, Error> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -195,13 +195,13 @@ impl ClArgs {
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
                         .map_err(crate::api::ApiError::InvalidJwt)?;
-                    println!("Bearer {}", jwt);
-                    println!(
+                    tracing::info!("Bearer {}", jwt);
+                    tracing::info!(
                         "Expires: {} ({})",
                         exp_ts,
                         humantime::format_duration(api_data.jwt_expiration)
                     );
-                    return Ok(true);
+                    return Ok(PostCommand::Exit);
                 }
                 #[cfg(feature = "analytics")]
                 Subcommands::FillAnalytics {
@@ -209,6 +209,7 @@ impl ClArgs {
                     end_milestone,
                     num_tasks,
                 } => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     let start_milestone = if let Some(index) = start_milestone {
                         *index
@@ -244,9 +245,9 @@ impl ClArgs {
                                 {
                                     let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
-                                    println!("Finished analytics for milestone: {}", index);
+                                    tracing::info!("Finished analytics for milestone {}", index);
                                 } else {
-                                    println!("No milestone in database for index {}", index);
+                                    tracing::info!("No milestone in database for index {}", index);
                                 }
                             }
                             Result::<_, Error>::Ok(())
@@ -256,12 +257,29 @@ impl ClArgs {
                         // Panic: Acceptable risk
                         res.unwrap()?;
                     }
-                    return Ok(true);
+                    return Ok(PostCommand::Exit);
+                }
+                #[cfg(debug_assertions)]
+                Subcommands::ClearDatabase { run } => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    db.clear().await?;
+                    tracing::info!("Database cleared successfully.");
+                    if !run {
+                        return Ok(PostCommand::Exit);
+                    }
+                }
+                Subcommands::BuildIndexes => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    super::build_indexes(&db).await?;
+                    tracing::info!("Indexes built successfully.");
+                    return Ok(PostCommand::Exit);
                 }
                 _ => (),
             }
         }
-        Ok(false)
+        Ok(PostCommand::Start)
     }
 }
 
@@ -270,13 +288,32 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    /// Manually fill the analytics database.
     #[cfg(feature = "analytics")]
     FillAnalytics {
+        /// The inclusive starting milestone index.
         #[arg(short, long)]
         start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The exclusive ending milestone index.
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
     },
+    /// Clear the chronicle database.
+    #[cfg(debug_assertions)]
+    ClearDatabase {
+        /// Run the application after this command.
+        #[arg(short, long)]
+        run: bool,
+    },
+    /// Manually build indexes.
+    BuildIndexes,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum PostCommand {
+    Start,
+    Exit,
 }
