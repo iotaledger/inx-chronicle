@@ -17,14 +17,19 @@ pub struct Proof {
 }
 
 impl Proof {
-    pub fn contains_block_id(&self, block_id: &BlockId) -> Result<bool, ()> {
-        Ok(true)
-    }
-
     pub fn hash(&self, hasher: &Hasher) -> Hash {
         let l = self.left.hash();
         let r = self.right.hash();
         hasher.hash_node(l, r).to_vec().into_boxed_slice()
+    }
+
+    pub fn contains_block_id(&self, block_id: &BlockId, hasher: &Hasher) -> bool {
+        let value = hasher.hash_leaf(block_id.0);
+        self.contains_value(&value)
+    }
+
+    pub fn contains_value(&self, value: &impl AsRef<[u8]>) -> bool {
+        self.left.contains_value(value) || self.right.contains_value(value)
     }
 }
 
@@ -41,16 +46,24 @@ impl Hashed {
             Hashed::Node(h) | Hashed::Value(h) | Hashed::Proof(_, h) => h.clone(),
         }
     }
+
+    fn contains_value(&self, value: &impl AsRef<[u8]>) -> bool {
+        match self {
+            Hashed::Node(_) => false,
+            Hashed::Value(v) => &**v == value.as_ref(),
+            Hashed::Proof(p, _) => (*p).contains_value(value),
+        }
+    }
 }
 
 impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: Vec<BlockId>, block_id: &BlockId) -> Result<Proof, PoIError> {
+    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<Proof, PoIError> {
         let index = find_index(&block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
         self.create_proof_from_index(block_ids, index)
     }
 
     // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index(&self, block_ids: Vec<BlockId>, index: usize) -> Result<Proof, PoIError> {
+    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> Result<Proof, PoIError> {
         let n = block_ids.len();
         if n < 2 {
             Err(PoIError::InvalidPrecondition(
@@ -218,26 +231,21 @@ mod tests {
             "0x6bf84c7174cb7476364cc3dbd968b0f7172ed85794bb358b0c3b525da1786f9f",
         ]
         .iter()
-        .map(|hash| BlockId::from_str(hash).unwrap().0)
+        .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
         let hasher = MerkleHasher::<Blake2b256>::new();
-        let inclusion_merkle_root = hasher.hash(&block_ids).to_vec().into_boxed_slice();
-        // println!("inclusion_merkle_root = {}", prefix_hex::encode(&inclusion_merkle_root[..]));
+        let inclusion_merkle_root = hasher.hash_block_ids(&block_ids).to_vec().into_boxed_slice();
 
         for index in 0..block_ids.len() {
-            let node = hasher.compute_proof(&block_ids, index);
-            if let Hashed::Proof(proof, hash) = node {
-                // println!("proof={}", prefix_hex::encode((*proof).hash(&hasher)));
+            let proof = hasher.create_proof_from_index(&block_ids, index).unwrap();
+            let hash = proof.hash(&hasher);
 
-                // let proof_dto = ProofDto::from(*proof);
-                // println!("{}", serde_json::to_string_pretty(&proof_dto).unwrap());
+            // let proof_dto = ProofDto::from(*proof);
+            // println!("{}", serde_json::to_string_pretty(&proof_dto).unwrap());
 
-                // assert_eq!(inclusion_merkle_root, (*proof).hash(&hasher));
-                assert_eq!(inclusion_merkle_root, hash);
-            } else {
-                panic!("root should be a path")
-            }
+            assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
+            assert!(proof.contains_block_id(&block_ids[index], &hasher), "proof does not contain that block id");
         }
     }
 }
