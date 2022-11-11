@@ -56,8 +56,8 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let merkle_hasher = MerkleHasher::<Blake2b256>::new();
-    let proof = merkle_hasher.create_proof(&block_ids, &block_id)?;
+    let hasher = MerkleHasher::<Blake2b256>::new();
+    let proof = hasher.create_proof(&block_ids, &block_id)?;
 
     // Fetch the corresponding milestone to return in the response.
     let milestone_collection = database.collection::<MilestoneCollection>();
@@ -67,7 +67,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .ok_or(ApiError::NoResults)?;
 
     let inclusion_merkle_root = milestone.essence.inclusion_merkle_root;
-    if &*proof.hash(&merkle_hasher) != &inclusion_merkle_root {
+    if &*proof.hash(&hasher) != &inclusion_merkle_root {
         return Err(ApiError::PoI(PoIError::InvalidProof(
             "cannot create a valid proof for that block".to_string(),
         )));
@@ -87,32 +87,34 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
 }
 
 async fn validate_proof(
-    database: Extension<MongoDb>,
+    _database: Extension<MongoDb>,
     Json(CreateProofResponse {
         milestone,
         block,
         proof,
     }): Json<CreateProofResponse>,
 ) -> ApiResult<ValidateProofResponse> {
+    // Extract the block.
     let block = iota_types::block::Block::try_from_dto_unverified(&block)
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed block")))?;
-    let block_id = block.id().into();
 
+    // Extract the milestone.
+    let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
+        .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed milestone")))?;
+
+    // Extract the proof.
+    let proof = Proof::try_from(proof).map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed proof")))?;
+
+    let block_id = block.id().into();
     let hasher = MerkleHasher::<Blake2b256>::new();
 
-    let proof = Proof::try_from(proof).map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed proof")))?;
-    if !proof.contains_block_id(&block_id, &hasher)
-    // .map_err(|_| PoIError::InvalidProof(block_id.to_hex()))?
-    {
-        Ok(ValidateProofResponse { valid: false })
+    let valid = if !proof.contains_block_id(&block_id, &hasher) {
+        false
     } else {
-        let inclusion_merkle_root = milestone.inclusion_merkle_root;
-
         // todo!("verify the contained milestone signatures");
-        let signatures = milestone.signatures;
+        // let signatures = milestone.signatures;
+        &*proof.hash(&hasher) != **milestone.essence().inclusion_merkle_root()
+    };
 
-        Ok(ValidateProofResponse {
-            valid: hasher.validate_proof(proof)?,
-        })
-    }
+    Ok(ValidateProofResponse { valid })
 }

@@ -21,6 +21,7 @@ impl<H: Default + Digest> MerkleHasher<H> {
         Self { _phantom: PhantomData }
     }
 
+    #[allow(dead_code)]
     pub fn hash_block_ids(&self, data: &[BlockId]) -> Box<[u8]> {
         let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
         self.hash(&data[..]).to_vec().into_boxed_slice()

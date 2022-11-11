@@ -122,10 +122,6 @@ impl MerkleHasher<Blake2b256> {
             }
         }
     }
-
-    pub(crate) fn validate_proof(&self, proof: Proof) -> Result<bool, PoIError> {
-        Ok(false)
-    }
 }
 
 fn find_index(block_ids: &[BlockId], block_id: &BlockId) -> Option<usize> {
@@ -245,7 +241,10 @@ mod tests {
             // println!("{}", serde_json::to_string_pretty(&proof_dto).unwrap());
 
             assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
-            assert!(proof.contains_block_id(&block_ids[index], &hasher), "proof does not contain that block id");
+            assert!(
+                proof.contains_block_id(&block_ids[index], &hasher),
+                "proof does not contain that block id"
+            );
         }
     }
 }
