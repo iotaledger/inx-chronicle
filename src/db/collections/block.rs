@@ -189,7 +189,7 @@ impl BlockCollection {
             .map_ok(|BlockIdResult { block_id }| block_id))
     }
 
-    /// Get the past-cone of a [`Milestone`] in "White Flag" order.
+    /// Get the past-cone of a milestone in "White Flag" order.
     pub async fn get_pastcone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
         #[derive(Deserialize)]
         struct BlockIdResult {

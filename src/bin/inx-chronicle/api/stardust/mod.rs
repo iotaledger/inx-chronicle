@@ -9,14 +9,18 @@ pub mod indexer;
 #[cfg(feature = "poi")]
 pub mod poi;
 
+#[allow(clippy::let_and_return)]
 pub fn routes() -> Router {
-    let router = Router::new()
+    #[allow(unused_mut)]
+    let mut router = Router::new()
         .nest("/core/v2", core::routes())
         .nest("/explorer/v2", explorer::routes())
         .nest("/indexer/v1", indexer::routes());
 
     #[cfg(feature = "poi")]
-    let router = router.nest("/poi/v1", poi::routes());
+    {
+        router = router.nest("/poi/v1", poi::routes());
+    }
 
     router
 }
