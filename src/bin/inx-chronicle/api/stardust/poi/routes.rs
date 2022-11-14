@@ -108,13 +108,11 @@ async fn validate_proof(
     let block_id = block.id().into();
     let hasher = MerkleHasher::<Blake2b256>::new();
 
-    let valid = if !proof.contains_block_id(&block_id, &hasher) {
-        false
-    } else {
-        // todo!("verify the contained milestone signatures");
-        // let signatures = milestone.signatures;
-        *proof.hash(&hasher) != **milestone.essence().inclusion_merkle_root()
-    };
+    // todo!("verify the contained milestone signatures");
+    // let signatures = milestone.signatures;
+
+    let valid = proof.contains_block_id(&block_id, &hasher)
+        && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root();
 
     Ok(ValidateProofResponse { valid })
 }
