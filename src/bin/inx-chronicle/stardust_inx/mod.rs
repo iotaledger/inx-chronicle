@@ -239,7 +239,12 @@ impl InxWorker {
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
     ) -> Result<(), InxWorkerError> {
         #[cfg(feature = "metrics")]
-        let start_time = self.influx_db.is_some().then(std::time::Instant::now);
+        let start_time = self
+            .influx_db
+            .as_ref()
+            .map(|db| db.config().metrics_enabled)
+            .unwrap_or_default()
+            .then(std::time::Instant::now);
 
         let MarkerMessage {
             milestone_index,
@@ -331,17 +336,19 @@ impl InxWorker {
 
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
-            // Unwrap: Safe because we checked above
-            let elapsed = start_time.unwrap().elapsed();
-            influx_db
-                .insert(chronicle::db::collections::metrics::SyncMetrics {
-                    time: chrono::Utc::now(),
-                    milestone_index,
-                    sync_time: elapsed.as_millis() as u64,
-                    network_name,
-                    chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                })
-                .await?;
+            if influx_db.config().metrics_enabled {
+                // Unwrap: Safe because we checked above
+                let elapsed = start_time.unwrap().elapsed();
+                influx_db
+                    .insert(chronicle::db::collections::metrics::SyncMetrics {
+                        time: chrono::Utc::now(),
+                        milestone_index,
+                        sync_time: elapsed.as_millis() as u64,
+                        network_name,
+                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                    })
+                    .await?;
+            }
         }
 
         Ok(())
@@ -399,18 +406,20 @@ impl InxWorker {
 
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
-            let db = self.db.clone();
-            let influx_db = influx_db.clone();
-            tokio::spawn(async move {
-                let analytics = db.get_all_analytics(milestone_index).await?;
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                    .await?;
+            if influx_db.config().analytics_enabled {
+                let db = self.db.clone();
+                let influx_db = influx_db.clone();
+                tokio::spawn(async move {
+                    let analytics = db.get_all_analytics(milestone_index).await?;
+                    influx_db
+                        .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                        .await?;
 
-                tracing::debug!("Finished analytics for milestone: {}", milestone_index);
+                    tracing::debug!("Finished analytics for milestone: {}", milestone_index);
 
-                Result::<_, InxWorkerError>::Ok(())
-            });
+                    Result::<_, InxWorkerError>::Ok(())
+                });
+            }
         }
 
         let milestone_id = milestone

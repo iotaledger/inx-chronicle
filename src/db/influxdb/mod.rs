@@ -12,14 +12,20 @@ pub use self::measurement::InfluxDbMeasurement;
 
 /// A wrapper for the influxdb [`Client`].
 #[derive(Clone, Debug)]
-pub struct InfluxDb(Client);
+pub struct InfluxDb {
+    client: Client,
+    config: InfluxDbConfig,
+}
 
 impl InfluxDb {
     /// Create a new influx connection from config.
     pub async fn connect(config: &InfluxDbConfig) -> Result<Self, influxdb::Error> {
         let client = Client::new(&config.url, &config.database_name).with_auth(&config.username, &config.password);
         client.ping().await?;
-        Ok(Self(client))
+        Ok(Self {
+            client,
+            config: config.clone(),
+        })
     }
 
     /// Insert a measurement value.
@@ -42,13 +48,18 @@ impl InfluxDb {
                 .map(|mut res| res.values.remove(0)),
         ))
     }
+
+    /// Get the config used to create the connection.
+    pub fn config(&self) -> &InfluxDbConfig {
+        &self.config
+    }
 }
 
 impl Deref for InfluxDb {
     type Target = Client;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.client
     }
 }
 
