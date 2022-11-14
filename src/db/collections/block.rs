@@ -196,7 +196,7 @@ impl BlockCollection {
             id: BlockId,
         }
 
-        Ok(self
+        let block_ids = self
             .aggregate::<BlockIdResult>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
@@ -208,7 +208,9 @@ impl BlockCollection {
             .await?
             .map_ok(|res| res.id)
             .try_collect()
-            .await?)
+            .await?;
+
+        Ok(block_ids)
     }
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].

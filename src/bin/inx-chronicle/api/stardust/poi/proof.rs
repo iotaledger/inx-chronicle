@@ -58,7 +58,7 @@ impl Hashed {
 
 impl MerkleHasher<Blake2b256> {
     pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<Proof, PoIError> {
-        let index = find_index(&block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
+        let index = find_index(block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
         self.create_proof_from_index(block_ids, index)
     }
 
@@ -66,13 +66,11 @@ impl MerkleHasher<Blake2b256> {
     fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> Result<Proof, PoIError> {
         let n = block_ids.len();
         if n < 2 {
-            Err(PoIError::InvalidPrecondition(
-                "block id list must have at least 2 items",
-            ))
+            Err(PoIError::CorruptState("block id list must have at least 2 items"))
         } else if index >= n {
             Err(PoIError::InvalidRequest("index out of bounds"))
         } else {
-            let data = block_ids.into_iter().map(|block_id| block_id.0).collect::<Vec<_>>();
+            let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
             let proof = self.compute_proof(&data, index);
             if let Hashed::Proof(proof, _) = proof {
                 Ok(*proof)

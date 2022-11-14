@@ -8,8 +8,8 @@ use thiserror::Error;
 pub enum PoIError {
     #[error("Invalid request: {0}")]
     InvalidRequest(&'static str),
-    #[error("Invalid proof precondition: {0}")]
-    InvalidPrecondition(&'static str),
-    #[error("Invalid proof for: {0}")]
+    #[error("Invalid proof: {0}")]
     InvalidProof(String),
+    #[error("Corrupt state: {0}")]
+    CorruptState(&'static str),
 }

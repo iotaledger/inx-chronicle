@@ -67,7 +67,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .ok_or(ApiError::NoResults)?;
 
     let inclusion_merkle_root = milestone.essence.inclusion_merkle_root;
-    if &*proof.hash(&hasher) != &inclusion_merkle_root {
+    if *proof.hash(&hasher) != inclusion_merkle_root {
         return Err(ApiError::PoI(PoIError::InvalidProof(
             "cannot create a valid proof for that block".to_string(),
         )));
@@ -113,7 +113,7 @@ async fn validate_proof(
     } else {
         // todo!("verify the contained milestone signatures");
         // let signatures = milestone.signatures;
-        &*proof.hash(&hasher) != **milestone.essence().inclusion_merkle_root()
+        *proof.hash(&hasher) != **milestone.essence().inclusion_merkle_root()
     };
 
     Ok(ValidateProofResponse { valid })

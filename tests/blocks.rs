@@ -351,7 +351,7 @@ mod test_rand {
 
         let mut block_ids = Vec::with_capacity(10);
 
-        let mut blocks = std::iter::repeat_with(|| BlockId::rand())
+        let mut blocks = std::iter::repeat_with(BlockId::rand)
             .take(10)
             .inspect(|block_id| block_ids.push(*block_id))
             .enumerate()
