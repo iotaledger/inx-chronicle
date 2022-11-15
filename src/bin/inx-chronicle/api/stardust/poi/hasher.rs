@@ -3,13 +3,10 @@
 
 use std::marker::PhantomData;
 
-use chronicle::types::stardust::block::BlockId;
 use crypto::hashes::{Digest, Output};
 
-const LEAF_HASH_PREFIX: u8 = 0x00;
-const NODE_HASH_PREFIX: u8 = 0x01;
-
-// TODO: store the hash function and reset each time
+const LEAF_HASH_PREFIX: u8 = 0;
+const NODE_HASH_PREFIX: u8 = 1;
 
 /// A Merkle tree hasher that is generic over the hash function `H` being used.
 pub struct MerkleHasher<H> {
@@ -19,12 +16,6 @@ pub struct MerkleHasher<H> {
 impl<H: Default + Digest> MerkleHasher<H> {
     pub fn new() -> Self {
         Self { _phantom: PhantomData }
-    }
-
-    #[allow(dead_code)]
-    pub fn hash_block_ids(&self, data: &[BlockId]) -> Box<[u8]> {
-        let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
-        self.hash(&data[..]).to_vec().into_boxed_slice()
     }
 
     pub fn hash(&self, data: &[impl AsRef<[u8]>]) -> Output<H> {
@@ -60,6 +51,8 @@ impl<H: Default + Digest> MerkleHasher<H> {
     }
 }
 
+/// Returns the largest power of 2 less than a given number `n`.
+///
 /// __NOTE__: Panics for `n < 2`.
 pub(crate) fn largest_power_of_two(n: usize) -> usize {
     debug_assert!(n > 1);
@@ -74,9 +67,17 @@ const fn bit_length(n: u32) -> u32 {
 mod tests {
     use std::str::FromStr;
 
+    use chronicle::types::stardust::block::BlockId;
     use crypto::hashes::blake2b::Blake2b256;
 
     use super::*;
+
+    impl<H: Default + Digest> MerkleHasher<H> {
+        pub fn hash_block_ids(&self, data: &[BlockId]) -> Box<[u8]> {
+            let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
+            self.hash(&data[..]).to_vec().into_boxed_slice()
+        }
+    }
 
     #[test]
     #[should_panic]
