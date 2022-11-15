@@ -6,5 +6,6 @@ mod hasher;
 mod proof;
 mod responses;
 mod routes;
+mod verification;
 
 pub use self::{error::PoIError, routes::routes};

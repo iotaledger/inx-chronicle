@@ -10,7 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::{
-        collections::{BlockCollection, MilestoneCollection},
+        collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
     types::stardust::block::BlockId,
@@ -22,6 +22,7 @@ use super::{
     hasher::MerkleHasher,
     proof::Proof,
     responses::{CreateProofResponse, ValidateProofResponse},
+    verification::MilestoneKeyManager,
 };
 use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
 
@@ -87,31 +88,65 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
 }
 
 async fn validate_proof(
-    _database: Extension<MongoDb>,
+    database: Extension<MongoDb>,
     Json(CreateProofResponse {
         milestone,
         block,
         proof,
     }): Json<CreateProofResponse>,
 ) -> ApiResult<ValidateProofResponse> {
-    // Extract the block.
+    // Extract the block, milestone, and proof.
     let block = iota_types::block::Block::try_from_dto_unverified(&block)
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed block")))?;
-
-    // Extract the milestone.
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed milestone")))?;
-
-    // Extract the proof.
     let proof = Proof::try_from(proof).map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed proof")))?;
 
+    // Fetch the corresponding block referenced index.
+    let block_collection = database.collection::<BlockCollection>();
     let block_id = block.id().into();
+    let block_referenced_index = block_collection
+        .get_block_metadata(&block_id)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .referenced_by_milestone_index;
+
+    // Fetch the corresponding milestone to return in the response.
+    let milestone_id = milestone.id().into();
+    let milestone_collection = database.collection::<MilestoneCollection>();
+    let milestone_index = milestone_collection
+        .get_milestone_payload_by_id(&milestone_id)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .essence
+        .index;
+
+    if block_referenced_index != milestone_index {
+        return Err(ApiError::PoI(PoIError::InvalidProof(
+            "block not referenced by given milestone".to_string(),
+        )));
+    }
+
     let hasher = MerkleHasher::<Blake2b256>::new();
 
-    // todo!("verify the contained milestone signatures");
-    // let signatures = milestone.signatures;
+    // Fetch the node configuration.
+    let update_collection = database.collection::<ConfigurationUpdateCollection>();
+    let node_configuration = update_collection
+        .get_node_configuration_for_ledger_index(milestone_index)
+        .await?
+        .ok_or(ApiError::NoResults)?
+        .config;
+
+    let public_key_count = node_configuration.milestone_public_key_count as usize;
+    let key_ranges = node_configuration.milestone_key_ranges;
+    let key_manager = MilestoneKeyManager::new(key_ranges);
+    let applicable_public_keys = key_manager.get_valid_public_keys_for_index(milestone_index);
 
     let valid = proof.contains_block_id(&block_id, &hasher)
+        && milestone
+            .validate(&applicable_public_keys, public_key_count)
+            .map_err(|_| PoIError::InvalidProof("milestone validation error".to_string()))?
+            .eq(&())
         && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root();
 
     Ok(ValidateProofResponse { valid })
