@@ -60,7 +60,7 @@ impl MongoDb {
         ) = tokio::try_join!(
             output_collection.get_address_analytics(milestone_index),
             output_collection.get_ledger_output_analytics(milestone_index),
-            output_collection.get_alias_output_tracker(milestone_index),
+            output_collection.get_alias_output_analytics(milestone_index),
             output_collection.get_foundry_output_analytics(milestone_index),
             output_collection.get_nft_output_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
