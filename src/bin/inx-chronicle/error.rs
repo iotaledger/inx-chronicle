@@ -22,4 +22,10 @@ pub enum Error {
     Inx(#[from] super::stardust_inx::InxWorkerError),
     #[error(transparent)]
     Shutdown(#[from] tokio::sync::broadcast::error::SendError<()>),
+    #[error(transparent)]
+    #[cfg(feature = "loki")]
+    Loki(#[from] tracing_loki::Error),
+    #[error(transparent)]
+    #[cfg(feature = "loki")]
+    Url(#[from] url::ParseError),
 }

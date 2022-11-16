@@ -1,11 +1,10 @@
-version: '3'
+version: "3"
 services:
-
   mongo:
     image: mongo:latest
     container_name: mongo
     # Warning: We don't keep logs to make development simpler
-    command: ["--quiet", "--logpath", "/dev/null"]  
+    command: ["--quiet", "--logpath", "/dev/null"]
     volumes:
       - ./data/chronicle/mongodb:/data/db
     environment:
@@ -13,7 +12,7 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=root
     ports:
       - 27017:27017
-      
+
   inx-chronicle:
     container_name: inx-chronicle
     depends_on: [mongo, hornet]
@@ -22,8 +21,8 @@ services:
       dockerfile: docker/Dockerfile.debug
     image: inx-chronicle:dev
     ports:
-      - "8042:8042/tcp"   # REST API
-      - "9100:9100/tcp"   # Metrics
+      - "8042:8042/tcp" # REST API
+      - "9100:9100/tcp" # Metrics
     environment:
       - RUST_LOG=warn,inx_chronicle=debug
     tty: true
@@ -32,6 +31,7 @@ services:
       - "--inx-url=http://hornet:9029"
       - "--mongodb-conn-str=mongodb://mongo:27017"
       - "--influxdb-url=http://influx:8086"
+      - "--loki-url=http://loki:3100"
     volumes:
       - ../config.template.toml:/app/config.toml:ro
 
@@ -45,6 +45,10 @@ services:
       - INFLUXDB_ADMIN_USER=root
       - INFLUXDB_ADMIN_PASSWORD=password
       - INFLUXDB_HTTP_AUTH_ENABLED=true
+      # The following variables are used to scale InfluxDB to larger amounts of data. It remains to be seen how this 
+      # will affect performance in the long run.
+      - INFLUXDB_DATA_MAX_SERIES_PER_DATABASE=0
+      - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
     ports:
       - 8086:8086
 
@@ -60,10 +64,10 @@ services:
       - "15600:15600/tcp" # Gossip
       - "14626:14626/udp" # Autopeering
       - "14265:14265/tcp" # REST API
-      - "8081:8081/tcp"   # Dashboard
-      - "8091:8091/tcp"   # Faucet
-      - "9311:9311/tcp"   # Prometheus
-      - "9029:9029/tcp"   # INX
+      - "8081:8081/tcp" # Dashboard
+      - "8091:8091/tcp" # Faucet
+      - "9311:9311/tcp" # Prometheus
+      - "9029:9029/tcp" # INX
     cap_drop:
       - ALL
     volumes:
@@ -82,8 +86,8 @@ services:
       - "--prometheus.enabled=true"
       - "--prometheus.bindAddress=0.0.0.0:9311"
 
-################################################################################
-# The following services can be enabled by setting the `debug` profile.
+  ################################################################################
+  # The following services can be enabled by setting the `debug` profile.
 
   mongo-express:
     image: mongo-express
@@ -100,8 +104,8 @@ services:
       - ME_CONFIG_OPTIONS_READONLY=true
       - VCAP_APP_PORT=8084
 
-################################################################################
-# The following services can be enabled by setting the `metrics` profile.
+  ################################################################################
+  # The following services can be enabled by setting the `metrics` profile.
 
   prometheus:
     image: prom/prometheus:latest
@@ -111,14 +115,14 @@ services:
     restart: unless-stopped
     user: "65532"
     ports:
-      - '9090:9090'
+      - 9090:9090
     volumes:
       - ./data/prometheus/:/prometheus
       - ./assets/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - /etc/localtime:/etc/localtime:ro
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--web.external-url=http://localhost:9090'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.external-url=http://localhost:9090"
 
   mongodb-exporter:
     image: percona/mongodb_exporter:0.34
@@ -130,14 +134,14 @@ services:
     restart: unless-stopped
     user: "65532"
     ports:
-      - '9216:9261'
+      - 9216:9261
     command:
-      - '--mongodb.uri=mongodb://root:root@mongo:27017'
-      - '--mongodb.direct-connect=true'
-      - '--web.listen-address=:9216'
-      - '--log.level=info'
-      - '--discovering-mode'
-      - '--collect-all'
+      - "--mongodb.uri=mongodb://root:root@mongo:27017"
+      - "--mongodb.direct-connect=true"
+      - "--web.listen-address=:9216"
+      - "--log.level=info"
+      - "--discovering-mode"
+      - "--collect-all"
 
   grafana:
     image: grafana/grafana:latest
@@ -147,7 +151,7 @@ services:
     restart: unless-stopped
     user: "65532"
     ports:
-      - '3000:3000'
+      - 3000:3000
     volumes:
       - ./data/grafana:/var/lib/grafana
       - ./assets/grafana/:/etc/grafana/provisioning/
@@ -166,3 +170,25 @@ services:
       - 6832:6832/udp # accept jaeger.thrift over binary thrift protocol
       - 5778:5778 # serve configs
       - 16686:16686 # serve frontend
+
+  loki:
+    image: grafana/loki:latest
+    profiles:
+      - metrics
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - 3100:3100
+    volumes:
+      - ./assets/loki/:/etc/loki/
+    command: -config.file=/etc/loki/config.yml
+
+  promtail:
+    image: grafana/promtail:latest
+    profiles:
+      - metrics
+    container_name: promtail
+    volumes:
+      - ./assets/promtail/:/etc/promtail/
+      - ./data/promtail/log:/var/log
+    command: -config.file=/etc/promtail/config.yml
