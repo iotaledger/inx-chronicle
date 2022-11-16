@@ -233,7 +233,11 @@ mod tests {
             let proof = hasher.create_proof_from_index(&block_ids, index).unwrap();
             let hash = proof.hash(&hasher);
 
-            assert_eq!(proof, MerkleProofDto::from(proof.clone()).try_into().unwrap(), "proof dto rountrip");
+            assert_eq!(
+                proof,
+                MerkleProofDto::from(proof.clone()).try_into().unwrap(),
+                "proof dto roundtrip"
+            );
             assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
             assert!(
                 proof.contains_block_id(&block_ids[index], &hasher),
