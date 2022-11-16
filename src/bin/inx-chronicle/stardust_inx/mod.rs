@@ -333,13 +333,18 @@ impl InxWorker {
         let analytics_start_time = std::time::Instant::now();
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
-            let analytics = self.db.get_all_analytics(milestone_index).await?;
-            influx_db
-                .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                .await?;
+            if influx_db.config().analytics_enabled {
+                let analytics = self.db.get_all_analytics(milestone_index).await?;
+                influx_db
+                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                    .await?;
+            }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
-        let analytics_elapsed = analytics_start_time.elapsed();
+        let analytics_elapsed = self
+            .influx_db
+            .as_ref()
+            .and_then(|db| db.config().analytics_enabled.then_some(analytics_start_time.elapsed()));
 
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
@@ -351,7 +356,7 @@ impl InxWorker {
                         milestone_index,
                         milestone_time: elapsed.as_millis() as u64,
                         #[cfg(feature = "analytics")]
-                        analytics_time: analytics_elapsed.as_millis() as u64,
+                        analytics_time: analytics_elapsed.map(|d| d.as_millis() as u64),
                         network_name,
                         chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                     })

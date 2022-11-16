@@ -18,7 +18,7 @@ pub struct SyncMetrics {
     pub milestone_index: MilestoneIndex,
     pub milestone_time: u64,
     #[cfg(feature = "analytics")]
-    pub analytics_time: u64,
+    pub analytics_time: Option<u64>,
     #[influxdb(tag)]
     pub chronicle_version: String,
     #[influxdb(tag)]
