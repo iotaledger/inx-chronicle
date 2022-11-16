@@ -11,5 +11,5 @@ pub enum PoIError {
     #[error("Invalid request: {0}")]
     InvalidRequest(&'static str),
     #[error("Invalid proof: {0}")]
-    InvalidProof(String),
+    InvalidProof(&'static str),
 }

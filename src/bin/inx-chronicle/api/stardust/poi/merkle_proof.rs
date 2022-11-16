@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{error::PoIError, merkle_hasher::MerkleHasher};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleProof {
     left: Hashable,
     right: Hashable,
@@ -30,7 +30,7 @@ impl MerkleProof {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Hashable {
     MerkleProof(Box<MerkleProof>, Output<Blake2b256>),
     Node(Output<Blake2b256>),
@@ -233,9 +233,7 @@ mod tests {
             let proof = hasher.create_proof_from_index(&block_ids, index).unwrap();
             let hash = proof.hash(&hasher);
 
-            // let proof_dto = ProofDto::from(*proof);
-            // println!("{}", serde_json::to_string_pretty(&proof_dto).unwrap());
-
+            assert_eq!(proof, MerkleProofDto::from(proof.clone()).try_into().unwrap(), "proof dto rountrip");
             assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
             assert!(
                 proof.contains_block_id(&block_ids[index], &hasher),
