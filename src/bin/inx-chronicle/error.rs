@@ -11,7 +11,7 @@ pub enum Error {
     Config(#[from] ConfigError),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     #[error(transparent)]
     InfluxDb(#[from] influxdb::Error),
     #[cfg(feature = "api")]
