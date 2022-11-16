@@ -239,12 +239,7 @@ impl InxWorker {
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
     ) -> Result<(), InxWorkerError> {
         #[cfg(feature = "metrics")]
-        let start_time = self
-            .influx_db
-            .as_ref()
-            .map(|db| db.config().metrics_enabled)
-            .unwrap_or_default()
-            .then(std::time::Instant::now);
+        let start_time = std::time::Instant::now();
 
         let MarkerMessage {
             milestone_index,
@@ -337,8 +332,7 @@ impl InxWorker {
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().metrics_enabled {
-                // Unwrap: Safe because we checked above
-                let elapsed = start_time.unwrap().elapsed();
+                let elapsed = start_time.elapsed();
                 influx_db
                     .insert(chronicle::db::collections::metrics::SyncMetrics {
                         time: chrono::Utc::now(),
