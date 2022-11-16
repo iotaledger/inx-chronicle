@@ -391,14 +391,14 @@ mod analytics {
         db::{
             collections::analytics::{
                 AddressActivityAnalytics, AddressAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
-                FoundryActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics,
-                UnclaimedTokensAnalytics, UnlockConditionAnalytics,
+                LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics, UnclaimedTokensAnalytics,
+                UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
         },
         types::{
             stardust::block::output::{
-                AliasId, AliasOutput, BasicOutput, FoundryId, FoundryOutput, NftId, NftOutput, TreasuryOutput,
+                AliasId, AliasOutput, BasicOutput, FoundryOutput, NftId, NftOutput, TreasuryOutput,
             },
             tangle::MilestoneIndex,
         },
@@ -500,7 +500,7 @@ mod analytics {
             })
         }
 
-        /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
+        /// Gathers analytics about nfts that were created/transferred/burned in the given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
         pub async fn get_nft_output_analytics(&self, index: MilestoneIndex) -> Result<NftActivityAnalytics, Error> {
             Ok(self
@@ -552,62 +552,7 @@ mod analytics {
                 .unwrap_or_default())
         }
 
-        /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_foundry_output_analytics(
-            &self,
-            index: MilestoneIndex,
-        ) -> Result<FoundryActivityAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "output.kind": "foundry",
-                            "$or": [
-                                { "metadata.booked.milestone_index": index },
-                                { "metadata.spent_metadata.spent.milestone_index": index },
-                            ],
-                        } },
-                        doc! { "$facet": {
-                            "created": [
-                                { "$match": {
-                                    "metadata.booked.milestone_index": index,
-                                    "output.foundry_id": FoundryId::implicit(),
-                                } },
-                                { "$group": {
-                                    "_id": null,
-                                    "count": { "$sum": 1 },
-                                } },
-                            ],
-                            "changed": [
-                                { "$match": { "output.foundry_id": { "$ne": FoundryId::implicit() } } },
-                                { "$group": {
-                                    "_id": "$output.foundry_id",
-                                    "transferred": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
-                                    "unspent": { "$max": { "$cond": [ { "$eq": [ "$metadata.spent_metadata", null ] }, 1, 0 ] } },
-                                } },
-                                { "$group": {
-                                    "_id": null,
-                                    "transferred": { "$sum": "$transferred" },
-                                    "destroyed": { "$sum": { "$cond": [ { "$eq": [ "$unspent", 0 ] }, 1, 0 ] } },
-                                } },
-                            ],
-                        } },
-                        doc! { "$project": {
-                            "created_count": { "$ifNull": [ { "$first": "$created.count" }, 0 ] },
-                            "transferred_count": { "$ifNull": [ { "$first": "$changed.transferred" }, 0 ] },
-                            "destroyed_count": { "$ifNull": [ { "$first": "$changed.destroyed" }, 0 ] },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
-        }
-
-        /// Gathers unique alias ids that were created/transferred/burned in the given milestone.
+        /// Gathers analytics about aliases that were created/transferred/burned in the given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
         pub async fn get_alias_output_analytics(&self, index: MilestoneIndex) -> Result<AliasActivityAnalytics, Error> {
             Ok(self
