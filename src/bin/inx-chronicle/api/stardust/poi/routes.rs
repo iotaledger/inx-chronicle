@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{str::FromStr, collections::HashSet};
+use std::{collections::HashSet, str::FromStr};
 
 use axum::{
     extract::{Json, Path},
@@ -13,7 +13,7 @@ use chronicle::{
         collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
-    types::{stardust::block::BlockId, node::MilestoneKeyRange, tangle::MilestoneIndex},
+    types::{node::MilestoneKeyRange, stardust::block::BlockId, tangle::MilestoneIndex},
 };
 use crypto::hashes::blake2b::Blake2b256;
 
