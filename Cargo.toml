@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.23"
+version = "1.0.0-beta.24"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -74,10 +74,13 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
-# Metrics
+# Opentelemetry
 opentelemetry = { version = "0.18", default-features = false, features = [ "trace", "rt-tokio" ], optional = true }
 opentelemetry-jaeger = { version = "0.17", default-features = false, features = [ "rt-tokio" ], optional = true }
 tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
+
+# Loki
+tracing-loki = { version = "0.2", default-features = false, features = [ "compat-0-2-1", "native-tls" ], optional = true }
 
 # Stardust types
 iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
@@ -91,6 +94,7 @@ default = [
     "analytics",
     "api",
     "inx",
+    "loki",
     "metrics",
     "stardust",
 ]
@@ -121,6 +125,9 @@ inx = [
     "dep:packable",
     "dep:tonic",
     "stardust",
+]
+loki = [
+    "dep:tracing-loki",
 ]
 metrics = [
     "influxdb",

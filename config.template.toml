@@ -84,3 +84,10 @@ connection_retry_count = 30
 
 ### Marks when a query is considered slow and a warning should be emitted.
 slow_query_millis = 200
+
+[loki]
+### Whether Grafana Loki is used for writing logs.
+enabled = true
+
+### The Grafana Loki connection URL.
+connect_url = "http://localhost:3100"

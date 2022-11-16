@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential},
+    options::{ClientOptions, ConnectionString, Credential, HostInfo},
     Client,
 };
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub struct MongoDb {
 
 impl MongoDb {
     const DEFAULT_NAME: &'static str = "chronicle";
-    const DEFAULT_CONNECT_URL: &'static str = "mongodb://localhost:27017";
+    const DEFAULT_CONNECT_STR: &'static str = "mongodb://localhost:27017";
 
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig, app_name: &str) -> Result<Self, Error> {
@@ -167,10 +167,22 @@ pub struct MongoDbConfig {
     pub min_pool_size: Option<u32>,
 }
 
+impl MongoDbConfig {
+    /// Get the hosts portion of the connection string.
+    pub fn hosts_str(&self) -> Result<String, Error> {
+        let hosts = ConnectionString::parse(&self.conn_str)?.host_info;
+        Ok(match hosts {
+            HostInfo::HostIdentifiers(hosts) => hosts.iter().map(ToString::to_string).collect::<Vec<_>>().join(","),
+            HostInfo::DnsRecord(hostname) => hostname,
+            _ => unreachable!(),
+        })
+    }
+}
+
 impl Default for MongoDbConfig {
     fn default() -> Self {
         Self {
-            conn_str: MongoDb::DEFAULT_CONNECT_URL.to_string(),
+            conn_str: MongoDb::DEFAULT_CONNECT_STR.to_string(),
             username: None,
             password: None,
             database_name: MongoDb::DEFAULT_NAME.to_string(),
