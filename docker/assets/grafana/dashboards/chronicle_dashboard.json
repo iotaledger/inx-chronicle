@@ -75,7 +75,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.6",
+      "pluginVersion": "9.2.4",
       "targets": [
         {
           "datasource": {
@@ -201,7 +201,7 @@
       "pluginVersion": "9.2.3",
       "targets": [
         {
-          "alias": "Network: \"$tag_network_name\", Chronicle Version: $tag_chronicle_version",
+          "alias": "Milestone Time",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -209,15 +209,180 @@
           "groupBy": [
             {
               "params": [
-                "chronicle_version"
+                "$__interval"
               ],
-              "type": "tag"
+              "type": "time"
             },
             {
               "params": [
-                "network_name"
+                "null"
               ],
-              "type": "tag"
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "sync_metrics",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "milestone_time"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "alias": "Analytics Time",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "P951FEA4DE68E13C5"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "sync_metrics",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "analytics_time"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Milestone Sync Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "P951FEA4DE68E13C5"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "alias": "Last Milestone Index",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "P951FEA4DE68E13C5"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
             }
           ],
           "measurement": "sync_metrics",
@@ -229,16 +394,20 @@
             [
               {
                 "params": [
-                  "sync_time"
+                  "milestone_index"
                 ],
                 "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
               }
             ]
           ],
           "tags": []
         }
       ],
-      "title": "Milestone Sync Time",
+      "title": "Milestone Index over Time",
       "type": "timeseries"
     },
     {
@@ -303,7 +472,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 26
       },
       "id": 9,
       "options": {
@@ -396,7 +565,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 26
       },
       "id": 11,
       "options": {
@@ -418,8 +587,20 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
+          "expr": "mongodb_dbstats_indexSize{database=\"chronicle\"}",
+          "hide": false,
+          "legendFormat": "Total database: {{ database }}",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
           "expr": "mongodb_collstats_storageStats_indexSizes_ledger_update_index",
-          "legendFormat": "{{ collection }}",
+          "legendFormat": "Ledger Update Index",
           "range": true,
           "refId": "A"
         },
@@ -443,7 +624,7 @@
           "editorMode": "code",
           "expr": "mongodb_collstats_storageStats_indexSizes_block_referenced_index",
           "hide": false,
-          "legendFormat": "{{ collection }}",
+          "legendFormat": "Referenced Block Index",
           "range": true,
           "refId": "C"
         },
@@ -453,11 +634,23 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "mongodb_dbstats_indexSize{database=\"chronicle\"}",
+          "expr": "mongodb_collstats_storageStats_indexSizes_output_booked_milestone_index",
           "hide": false,
-          "legendFormat": "{{ database }}",
+          "legendFormat": "Output Booked Index",
           "range": true,
-          "refId": "D"
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "mongodb_collstats_storageStats_indexSizes_id",
+          "hide": false,
+          "legendFormat": "Id Index: {{ collection }}",
+          "range": true,
+          "refId": "F"
         }
       ],
       "title": "MongoDB Index Info",
@@ -525,7 +718,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 34
       },
       "id": 13,
       "options": {
@@ -565,7 +758,7 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
