@@ -18,7 +18,9 @@ use crate::types::tangle::MilestoneIndex;
 pub struct SyncMetrics {
     pub time: DateTime<Utc>,
     pub milestone_index: MilestoneIndex,
-    pub sync_time: u64,
+    pub milestone_time: u64,
+    #[cfg(feature = "analytics")]
+    pub analytics_time: u64,
     #[cfg_attr(feature = "influxdb", influxdb(tag))]
     pub chronicle_version: String,
     #[cfg_attr(feature = "influxdb", influxdb(tag))]
