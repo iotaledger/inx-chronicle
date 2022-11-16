@@ -151,6 +151,7 @@ async fn validate_proof(
     }
 }
 
+// The returned public keys must be hex strings without the `0x` prefix for the milestone validation to work.
 #[allow(clippy::boxed_local)]
 fn get_valid_public_keys_for_index(mut key_ranges: Box<[MilestoneKeyRange]>, index: MilestoneIndex) -> Vec<String> {
     key_ranges.sort();
@@ -159,7 +160,10 @@ fn get_valid_public_keys_for_index(mut key_ranges: Box<[MilestoneKeyRange]>, ind
         match (key_range.start, key_range.end) {
             (start, _) if start > index => break,
             (start, end) if index <= end || start == end => {
-                public_keys.insert(key_range.public_key.clone());
+                // Panic: should never fail
+                let public_key_raw = prefix_hex::decode::<Vec<_>>(&key_range.public_key).unwrap();
+                let public_key_hex = hex::encode(public_key_raw);
+                public_keys.insert(public_key_hex);
             }
             (_, _) => continue,
         }
