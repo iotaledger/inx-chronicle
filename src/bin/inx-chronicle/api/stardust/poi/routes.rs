@@ -124,8 +124,6 @@ async fn validate_proof(
         )));
     }
 
-    let hasher = MerkleHasher::<Blake2b256>::new();
-
     // Fetch the node configuration.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
     let node_configuration = update_collection
@@ -142,6 +140,7 @@ async fn validate_proof(
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
         Err(ApiError::PoI(PoIError::InvalidMilestone(e)))
     } else {
+        let hasher = MerkleHasher::<Blake2b256>::new();
         Ok(ValidateProofResponse {
             valid: proof.contains_block_id(&block_id, &hasher)
                 && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root(),
