@@ -2,28 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::blake2b::Blake2b256;
+use crypto::hashes::{blake2b::Blake2b256, Output};
 use serde::{Deserialize, Serialize};
 
-use super::{error::PoIError, hasher::MerkleHasher};
-
-pub type Hash = Box<[u8]>;
-pub type Hasher = MerkleHasher<Blake2b256>;
+use super::{error::PoIError, merkle_hasher::MerkleHasher};
 
 #[derive(Debug)]
-pub struct Proof {
-    left: Hashed,
-    right: Hashed,
+pub struct MerkleProof {
+    left: Hashable,
+    right: Hashable,
 }
 
-impl Proof {
-    pub fn hash(&self, hasher: &Hasher) -> Hash {
+impl MerkleProof {
+    pub fn hash(&self, hasher: &MerkleHasher<Blake2b256>) -> Output<Blake2b256> {
         let l = self.left.hash();
         let r = self.right.hash();
-        hasher.hash_node(l, r).to_vec().into_boxed_slice()
+        hasher.hash_node(l, r)
     }
 
-    pub fn contains_block_id(&self, block_id: &BlockId, hasher: &Hasher) -> bool {
+    pub fn contains_block_id(&self, block_id: &BlockId, hasher: &MerkleHasher<Blake2b256>) -> bool {
         let value = hasher.hash_leaf(block_id.0);
         self.contains_value(&value)
     }
@@ -34,89 +31,90 @@ impl Proof {
 }
 
 #[derive(Debug)]
-pub enum Hashed {
-    Node(Hash),
-    Proof(Box<Proof>, Hash),
-    Value(Hash),
+pub enum Hashable {
+    MerkleProof(Box<MerkleProof>, Output<Blake2b256>),
+    Node(Output<Blake2b256>),
+    Value(Output<Blake2b256>),
 }
 
-impl Hashed {
-    fn hash(&self) -> Hash {
+impl Hashable {
+    fn hash(&self) -> Output<Blake2b256> {
         match self {
-            Hashed::Node(h) | Hashed::Value(h) | Hashed::Proof(_, h) => h.clone(),
+            Hashable::MerkleProof(_, hash) | Hashable::Node(hash) | Hashable::Value(hash) => *hash,
         }
     }
 
     fn contains_value(&self, value: &impl AsRef<[u8]>) -> bool {
         match self {
-            Hashed::Node(_) => false,
-            Hashed::Value(v) => &**v == value.as_ref(),
-            Hashed::Proof(p, _) => (*p).contains_value(value),
+            Hashable::MerkleProof(p, _) => (*p).contains_value(value),
+            Hashable::Node(_) => false,
+            Hashable::Value(v) => &**v == value.as_ref(),
         }
     }
 }
 
 impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<Proof, PoIError> {
+    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleProof, PoIError> {
         let index = find_index(block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
         self.create_proof_from_index(block_ids, index)
     }
 
     // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> Result<Proof, PoIError> {
+    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> Result<MerkleProof, PoIError> {
         let n = block_ids.len();
         if n < 2 {
-            Err(PoIError::CorruptState("block id list must have at least 2 items"))
+            Err(PoIError::InvalidInput("cannot create proof for less than 2 block ids"))
         } else if index >= n {
-            Err(PoIError::InvalidRequest("index out of bounds"))
+            Err(PoIError::InvalidInput("given index is out of bounds"))
         } else {
             let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
             let proof = self.compute_proof(&data, index);
-            if let Hashed::Proof(proof, _) = proof {
+            if let Hashable::MerkleProof(proof, _) = proof {
                 Ok(*proof)
             } else {
-                unreachable!("root wasn't a proof");
+                // The root of this recursive structure will always be `Hashable::MerkleProof`.
+                unreachable!();
             }
         }
     }
 
-    fn compute_proof(&self, data: &[[u8; 32]], index: usize) -> Hashed {
+    fn compute_proof(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> Hashable {
         let n = data.len();
         debug_assert!(index < n);
         match n {
-            0 => unreachable!("empty data given"),
-            1 => Hashed::Value(self.hash_leaf(data[0]).to_vec().into_boxed_slice()),
+            0 => unreachable!("empty data"),
+            1 => Hashable::Value(self.hash_leaf(data[0])),
             2 => {
                 let (l, r) = (data[0], data[1]);
                 let proof = if index == 0 {
-                    Proof {
-                        left: Hashed::Value(self.hash_leaf(l).to_vec().into_boxed_slice()),
-                        right: Hashed::Node(self.hash_leaf(r).to_vec().into_boxed_slice()),
+                    MerkleProof {
+                        left: Hashable::Value(self.hash_leaf(l)),
+                        right: Hashable::Node(self.hash_leaf(r)),
                     }
                 } else {
-                    Proof {
-                        left: Hashed::Node(self.hash_leaf(l).to_vec().into_boxed_slice()),
-                        right: Hashed::Value(self.hash_leaf(r).to_vec().into_boxed_slice()),
+                    MerkleProof {
+                        left: Hashable::Node(self.hash_leaf(l)),
+                        right: Hashable::Value(self.hash_leaf(r)),
                     }
                 };
                 let hash = proof.hash(self);
-                Hashed::Proof(Box::new(proof), hash)
+                Hashable::MerkleProof(Box::new(proof), hash)
             }
             _ => {
-                let k = super::hasher::largest_power_of_two(n);
+                let k = super::merkle_hasher::largest_power_of_two(n);
                 let proof = if index < k {
-                    Proof {
+                    MerkleProof {
                         left: self.compute_proof(&data[..k], index),
-                        right: Hashed::Node(self.hash(&data[k..]).to_vec().into_boxed_slice()),
+                        right: Hashable::Node(self.hash(&data[k..])),
                     }
                 } else {
-                    Proof {
-                        left: Hashed::Node(self.hash(&data[..k]).to_vec().into_boxed_slice()),
+                    MerkleProof {
+                        left: Hashable::Node(self.hash(&data[..k])),
                         right: self.compute_proof(&data[k..], index - k),
                     }
                 };
                 let hash = proof.hash(self);
-                Hashed::Proof(Box::new(proof), hash)
+                Hashable::MerkleProof(Box::new(proof), hash)
             }
         }
     }
@@ -127,29 +125,15 @@ fn find_index(block_ids: &[BlockId], block_id: &BlockId) -> Option<usize> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProofDto {
+pub struct MerkleProofDto {
     #[serde(rename = "l")]
-    left: HashedDto,
+    left: HashableDto,
     #[serde(rename = "r")]
-    right: HashedDto,
+    right: HashableDto,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum HashedDto {
-    Node {
-        #[serde(rename = "h")]
-        hash: String,
-    },
-    Proof(Box<ProofDto>),
-    Value {
-        #[serde(rename = "value")]
-        value_hash: String,
-    },
-}
-
-impl From<Proof> for ProofDto {
-    fn from(value: Proof) -> Self {
+impl From<MerkleProof> for MerkleProofDto {
+    fn from(value: MerkleProof) -> Self {
         Self {
             left: value.left.into(),
             right: value.right.into(),
@@ -157,49 +141,63 @@ impl From<Proof> for ProofDto {
     }
 }
 
-impl From<Hashed> for HashedDto {
-    fn from(value: Hashed) -> Self {
-        match value {
-            Hashed::Node(h) => Self::Node {
-                hash: prefix_hex::encode(h),
-            },
-            Hashed::Value(v) => Self::Value {
-                value_hash: prefix_hex::encode(v),
-            },
-            Hashed::Proof(p, _) => Self::Proof(Box::new((*p).into())),
-        }
-    }
-}
-
-impl TryFrom<ProofDto> for Proof {
+impl TryFrom<MerkleProofDto> for MerkleProof {
     type Error = prefix_hex::Error;
 
-    fn try_from(proof: ProofDto) -> Result<Self, Self::Error> {
+    fn try_from(proof: MerkleProofDto) -> Result<Self, Self::Error> {
         Ok(Self {
-            left: Hashed::try_from(proof.left)?,
-            right: Hashed::try_from(proof.right)?,
+            left: Hashable::try_from(proof.left)?,
+            right: Hashable::try_from(proof.right)?,
         })
     }
 }
 
-impl TryFrom<HashedDto> for Hashed {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum HashableDto {
+    Node {
+        #[serde(rename = "h")]
+        hash: String,
+    },
+    Proof(Box<MerkleProofDto>),
+    Value {
+        #[serde(rename = "value")]
+        value_hash: String,
+    },
+}
+
+impl From<Hashable> for HashableDto {
+    fn from(value: Hashable) -> Self {
+        match value {
+            Hashable::Node(h) => Self::Node {
+                hash: prefix_hex::encode(h.as_slice()),
+            },
+            Hashable::Value(v) => Self::Value {
+                value_hash: prefix_hex::encode(v.as_slice()),
+            },
+            Hashable::MerkleProof(p, _) => Self::Proof(Box::new((*p).into())),
+        }
+    }
+}
+
+impl TryFrom<HashableDto> for Hashable {
     type Error = prefix_hex::Error;
 
-    fn try_from(hashed: HashedDto) -> Result<Self, Self::Error> {
+    fn try_from(hashed: HashableDto) -> Result<Self, Self::Error> {
         Ok(match hashed {
-            HashedDto::Node { hash } => {
+            HashableDto::Node { hash } => {
                 let hash = prefix_hex::decode::<[u8; 32]>(&hash)?;
-                Hashed::Node(Box::new(hash))
+                Hashable::Node(hash.into())
             }
-            HashedDto::Value { value_hash } => {
+            HashableDto::Value { value_hash } => {
                 let hash = prefix_hex::decode::<[u8; 32]>(&value_hash)?;
-                Hashed::Value(Box::new(hash))
+                Hashable::Value(hash.into())
             }
-            HashedDto::Proof(proof) => {
-                let proof = Proof::try_from(*proof)?;
+            HashableDto::Proof(proof) => {
+                let proof = MerkleProof::try_from(*proof)?;
                 let hasher = MerkleHasher::<Blake2b256>::new();
                 let hash = proof.hash(&hasher);
-                Hashed::Proof(Box::new(proof), hash)
+                Hashable::MerkleProof(Box::new(proof), hash)
             }
         })
     }
@@ -229,7 +227,7 @@ mod tests {
         .collect::<Vec<_>>();
 
         let hasher = MerkleHasher::<Blake2b256>::new();
-        let inclusion_merkle_root = hasher.hash_block_ids(&block_ids).to_vec().into_boxed_slice();
+        let inclusion_merkle_root = hasher.hash_block_ids(&block_ids);
 
         for index in 0..block_ids.len() {
             let proof = hasher.create_proof_from_index(&block_ids, index).unwrap();

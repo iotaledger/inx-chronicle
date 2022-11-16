@@ -19,8 +19,8 @@ use crypto::hashes::blake2b::Blake2b256;
 
 use super::{
     error::PoIError,
-    hasher::MerkleHasher,
-    proof::Proof,
+    merkle_hasher::MerkleHasher,
+    merkle_proof::MerkleProof,
     responses::{CreateProofResponse, ValidateProofResponse},
     verification::MilestoneKeyManager,
 };
@@ -100,7 +100,7 @@ async fn validate_proof(
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed block")))?;
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed milestone")))?;
-    let proof = Proof::try_from(proof).map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed proof")))?;
+    let proof = MerkleProof::try_from(proof).map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed proof")))?;
 
     // Fetch the corresponding block referenced index.
     let block_collection = database.collection::<BlockCollection>();

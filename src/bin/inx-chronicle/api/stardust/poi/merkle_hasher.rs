@@ -73,9 +73,9 @@ mod tests {
     use super::*;
 
     impl<H: Default + Digest> MerkleHasher<H> {
-        pub fn hash_block_ids(&self, data: &[BlockId]) -> Box<[u8]> {
+        pub fn hash_block_ids(&self, data: &[BlockId]) -> Output<H> {
             let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
-            self.hash(&data[..]).to_vec().into_boxed_slice()
+            self.hash(&data[..])
         }
     }
 
@@ -103,7 +103,7 @@ mod tests {
     fn test_merkle_tree_hasher_empty() {
         let root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&[]);
         assert_eq!(
-            prefix_hex::encode(root),
+            prefix_hex::encode(root.as_slice()),
             "0x0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
         )
     }
@@ -116,7 +116,7 @@ mod tests {
             ]);
 
         assert_eq!(
-            prefix_hex::encode(root),
+            prefix_hex::encode(root.as_slice()),
             "0x3d1399c64ff0ae6a074afa4cd2ce4eab8d5c499c1da6afdd1d84b7447cc00544"
         )
     }
@@ -139,7 +139,7 @@ mod tests {
         let merkle_root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&block_ids);
 
         assert_eq!(
-            prefix_hex::encode(merkle_root),
+            prefix_hex::encode(merkle_root.as_slice()),
             "0xbf67ce7ba23e8c0951b5abaec4f5524360d2c26d971ff226d3359fa70cdb0beb"
         )
     }
