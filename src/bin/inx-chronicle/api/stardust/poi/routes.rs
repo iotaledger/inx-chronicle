@@ -68,9 +68,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
 
     let inclusion_merkle_root = milestone.essence.inclusion_merkle_root;
     if *proof.hash(&hasher) != inclusion_merkle_root {
-        return Err(ApiError::PoI(PoIError::InvalidProof(
-            "cannot create a valid proof for that block",
-        )));
+        return Err(ApiError::PoI(PoIError::CreateProofError(block_id.to_hex())));
     }
 
     // Fetch the corresponding block to return in the response.
@@ -121,7 +119,7 @@ async fn validate_proof(
         .index;
 
     if block_referenced_index != milestone_index {
-        return Err(ApiError::PoI(PoIError::InvalidProof(
+        return Err(ApiError::PoI(PoIError::InvalidRequest(
             "block not referenced by given milestone",
         )));
     }
