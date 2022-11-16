@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
+use std::{str::FromStr, collections::HashSet};
 
 use axum::{
     extract::{Json, Path},
@@ -13,7 +13,7 @@ use chronicle::{
         collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
-    types::stardust::block::BlockId,
+    types::{stardust::block::BlockId, node::MilestoneKeyRange, tangle::MilestoneIndex},
 };
 use crypto::hashes::blake2b::Blake2b256;
 
@@ -22,7 +22,6 @@ use super::{
     merkle_hasher::MerkleHasher,
     merkle_proof::MerkleProof,
     responses::{CreateProofResponse, ValidateProofResponse},
-    verification::MilestoneKeyManager,
 };
 use crate::api::{error::InternalApiError, router::Router, ApiError, ApiResult};
 
@@ -137,17 +136,33 @@ async fn validate_proof(
         .ok_or(ApiError::NoResults)?
         .config;
 
+    // Validate the given milestone.
     let public_key_count = node_configuration.milestone_public_key_count as usize;
     let key_ranges = node_configuration.milestone_key_ranges;
-    let key_manager = MilestoneKeyManager::new(key_ranges);
-    let applicable_public_keys = key_manager.get_valid_public_keys_for_index(milestone_index);
+    let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index);
 
-    let valid = proof.contains_block_id(&block_id, &hasher)
-        && milestone
-            .validate(&applicable_public_keys, public_key_count)
-            .map_err(|_| PoIError::InvalidProof("milestone validation error"))?
-            .eq(&())
-        && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root();
+    if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
+        Err(ApiError::PoI(PoIError::InvalidMilestone(e)))
+    } else {
+        Ok(ValidateProofResponse {
+            valid: proof.contains_block_id(&block_id, &hasher)
+                && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root(),
+        })
+    }
+}
 
-    Ok(ValidateProofResponse { valid })
+#[allow(clippy::boxed_local)]
+fn get_valid_public_keys_for_index(mut key_ranges: Box<[MilestoneKeyRange]>, index: MilestoneIndex) -> Vec<String> {
+    key_ranges.sort();
+    let mut public_keys = HashSet::with_capacity(key_ranges.len());
+    for key_range in key_ranges.iter() {
+        match (key_range.start, key_range.end) {
+            (start, _) if start > index => break,
+            (start, end) if index <= end || start == end => {
+                public_keys.insert(key_range.public_key.clone());
+            }
+            (_, _) => continue,
+        }
+    }
+    public_keys.into_iter().collect::<Vec<_>>()
 }

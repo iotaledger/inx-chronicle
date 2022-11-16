@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use iota_types::block::payload::milestone::MilestoneValidationError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,6 +11,8 @@ pub enum PoIError {
     InvalidInput(&'static str),
     #[error("Invalid request: {0}")]
     InvalidRequest(&'static str),
+    #[error("Invalid milestone: {0:?}")]
+    InvalidMilestone(MilestoneValidationError),
     #[error("Invalid proof: {0}")]
     InvalidProof(&'static str),
 }
