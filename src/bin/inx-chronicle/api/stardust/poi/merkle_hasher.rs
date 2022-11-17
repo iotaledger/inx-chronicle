@@ -76,30 +76,22 @@ impl MerkleHasher {
             Err(PoIError::InvalidInput("given index is out of bounds"))
         } else {
             let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-            let proof = Self::compute_proof(&data, index);
-            if let Hashable::MerkleProof(proof) = proof {
-                Ok(*proof)
-            } else {
-                // The root of this recursive structure will always be `Hashable::MerkleProof`.
-                unreachable!();
-            }
+            Ok(Self::compute_proof(&data, index))
         }
     }
 
-    /// Recursively compute either the hash of a subtree or the structure, depending on whether
-    /// the provided index is in that subtree.
-    fn compute_proof<H: Default + Digest>(data: &[[u8; BlockId::LENGTH]], index: usize) -> Hashable<H> {
+    /// Recursively compute a merkle tree.
+    fn compute_proof<H: Default + Digest>(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleProof<H> {
         let n = data.len();
         debug_assert!(index < n);
         match n {
-            0 => unreachable!("empty data"),
-            1 => Hashable::Value(Self::hash_leaf::<H>(data[0])),
+            0 | 1 => unreachable!(),
             // The terminating point, where we only have two values that become
             // left and right leaves. The chosen index is a `Value` while
             // the other is a `Node`.
             2 => {
                 let (l, r) = (data[0], data[1]);
-                let proof = if index == 0 {
+                if index == 0 {
                     MerkleProof {
                         left: Hashable::Value(Self::hash_leaf::<H>(l)),
                         right: Hashable::Node(Self::hash_leaf::<H>(r)),
@@ -109,8 +101,7 @@ impl MerkleHasher {
                         left: Hashable::Node(Self::hash_leaf::<H>(l)),
                         right: Hashable::Value(Self::hash_leaf::<H>(r)),
                     }
-                };
-                Hashable::MerkleProof(Box::new(proof))
+                }
             }
             _ => {
                 // Split the blocks into two halves, ensuring that the tree is approximately balanced
@@ -118,18 +109,25 @@ impl MerkleHasher {
                 // If the chosen index is in the left half of the tree,
                 // we build out that structure by calling this fn recursively.
                 // Otherwise, we simply hash the subtree and store it as a `Node`.
-                let proof = if index < k {
+                if index < k {
                     MerkleProof {
-                        left: Self::compute_proof(&data[..k], index),
+                        left: if data.len() == 1 {
+                            Hashable::Value(Self::hash_leaf::<H>(data[0]))
+                        } else {
+                            Hashable::MerkleProof(Box::new(Self::compute_proof(&data[..k], index)))
+                        },
                         right: Hashable::Node(Self::hash::<H>(&data[k..])),
                     }
                 } else {
                     MerkleProof {
                         left: Hashable::Node(Self::hash::<H>(&data[..k])),
-                        right: Self::compute_proof(&data[k..], index - k),
+                        right: if data.len() == 1 {
+                            Hashable::Value(Self::hash_leaf::<H>(data[0]))
+                        } else {
+                            Hashable::MerkleProof(Box::new(Self::compute_proof(&data[k..], index - k)))
+                        },
                     }
-                };
-                Hashable::MerkleProof(Box::new(proof))
+                }
             }
         }
     }
