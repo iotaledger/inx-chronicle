@@ -25,7 +25,7 @@ impl MerkleHasher {
                 let k = largest_power_of_two(data.len());
                 let l = Self::hash(&data[..k]);
                 let r = Self::hash(&data[k..]);
-                Self::hash_node(&l, &r)
+                Self::hash_node(l, r)
             }
         }
     }
