@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// Schema implementation for InfluxDb.
-#[cfg(feature = "influxdb")]
 pub mod influx;
 
 use decimal::d128;
@@ -25,7 +24,6 @@ pub struct Analytics {
     pub base_token: BaseTokenActivityAnalytics,
     pub ledger_outputs: LedgerOutputAnalytics,
     pub aliases: AliasActivityAnalytics,
-    pub native_tokens: FoundryActivityAnalytics,
     pub nfts: NftActivityAnalytics,
     pub storage_deposits: LedgerSizeAnalytics,
     pub unclaimed_tokens: UnclaimedTokensAnalytics,
@@ -47,7 +45,6 @@ impl MongoDb {
             addresses,
             ledger_outputs,
             aliases,
-            native_tokens,
             nfts,
             storage_deposits,
             unclaimed_tokens,
@@ -60,8 +57,7 @@ impl MongoDb {
         ) = tokio::try_join!(
             output_collection.get_address_analytics(milestone_index),
             output_collection.get_ledger_output_analytics(milestone_index),
-            output_collection.get_alias_output_tracker(milestone_index),
-            output_collection.get_foundry_output_analytics(milestone_index),
+            output_collection.get_alias_output_analytics(milestone_index),
             output_collection.get_nft_output_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
             output_collection.get_unclaimed_token_analytics(milestone_index),
@@ -81,7 +77,6 @@ impl MongoDb {
             base_token,
             ledger_outputs,
             aliases,
-            native_tokens,
             nfts,
             storage_deposits,
             unclaimed_tokens,
@@ -149,7 +144,7 @@ impl LedgerSizeAnalytics {
     pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
         let rent_structure = protocol_params.rent_structure;
         d128::from(rent_structure.v_byte_cost)
-            * ((self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32))
+            * ((self.total_key_bytes * d128::from(rent_structure.v_byte_factor_key as u32))
                 + (self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32)))
     }
 }

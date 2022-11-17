@@ -100,7 +100,7 @@ default = [
     "stardust",
 ]
 analytics = [
-    "influxdb",
+    "dep:influxdb",
 ]
 api = [
     "dep:auth-helper",
@@ -131,7 +131,7 @@ loki = [
     "dep:tracing-loki",
 ]
 metrics = [
-    "influxdb",
+    "dep:influxdb",
     "dep:chrono",
 ]
 opentelemetry = [

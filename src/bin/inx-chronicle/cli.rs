@@ -17,7 +17,7 @@ pub struct ClArgs {
     #[command(flatten)]
     pub api: ApiArgs,
     /// InfluxDb arguments.
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     #[command(flatten)]
     pub influxdb: InfluxDbArgs,
     /// INX arguments.
@@ -78,18 +78,21 @@ pub struct MongoDbArgs {
     pub mongodb_conn_str: Option<String>,
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
-    /// Toggle InfluxDb time-series writes.
-    #[arg(long, env = "INFLUXDB_ENABLED")]
-    pub influxdb_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series metrics writes.
+    #[arg(long, env = "METRICS_ENABLED")]
+    pub metrics_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series analytics writes.
+    #[arg(long, env = "ANALYTICS_ENABLED")]
+    pub analytics_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(feature = "loki")]
 #[derive(Args, Debug)]
 pub struct LokiArgs {
     /// Toggle Grafana Loki log writes.
@@ -127,11 +130,22 @@ impl ClArgs {
             }
         }
 
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "analytics")]
         {
-            if let Some(enabled) = self.influxdb.influxdb_enabled {
-                config.influxdb.enabled = enabled;
+            if let Some(enabled) = self.influxdb.analytics_enabled {
+                config.influxdb.analytics_enabled = enabled;
             }
+        }
+
+        #[cfg(feature = "metrics")]
+        {
+            if let Some(enabled) = self.influxdb.metrics_enabled {
+                config.influxdb.metrics_enabled = enabled;
+            }
+        }
+
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        {
             if let Some(url) = &self.influxdb.influxdb_url {
                 config.influxdb.url = url.clone();
             }
@@ -200,7 +214,7 @@ impl ClArgs {
                     );
                     return Ok(PostCommand::Exit);
                 }
-                #[cfg(feature = "analytics")]
+                #[cfg(all(feature = "analytics", feature = "stardust"))]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
@@ -266,6 +280,7 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                 }
+                #[cfg(feature = "stardust")]
                 Subcommands::BuildIndexes => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -285,8 +300,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    /// Manually fill the analytics database.
-    #[cfg(feature = "analytics")]
+    #[cfg(all(feature = "analytics", feature = "stardust"))]
     FillAnalytics {
         /// The inclusive starting milestone index.
         #[arg(short, long)]
@@ -306,6 +320,7 @@ pub enum Subcommands {
         run: bool,
     },
     /// Manually build indexes.
+    #[cfg(feature = "stardust")]
     BuildIndexes,
 }
 

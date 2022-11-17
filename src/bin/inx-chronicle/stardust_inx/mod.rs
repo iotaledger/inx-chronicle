@@ -36,7 +36,7 @@ pub const INSERT_BATCH_SIZE: usize = 1000;
 
 pub struct InxWorker {
     db: MongoDb,
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
 }
@@ -45,12 +45,12 @@ impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(
         db: &MongoDb,
-        #[cfg(feature = "influxdb")] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
+        #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
         inx_config: &InxConfig,
     ) -> Self {
         Self {
             db: db.clone(),
-            #[cfg(feature = "influxdb")]
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db: influx_db.cloned(),
             config: inx_config.clone(),
         }
@@ -240,7 +240,7 @@ impl InxWorker {
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
-        let start_time = self.influx_db.is_some().then(std::time::Instant::now);
+        let start_time = std::time::Instant::now();
 
         let MarkerMessage {
             milestone_index,
@@ -330,19 +330,39 @@ impl InxWorker {
         #[allow(unused)]
         let milestone_timestamp = self.handle_milestone(inx, milestone_index).await?;
 
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_start_time = std::time::Instant::now();
+        #[cfg(feature = "analytics")]
+        if let Some(influx_db) = &self.influx_db {
+            if influx_db.config().analytics_enabled {
+                let analytics = self.db.get_all_analytics(milestone_index).await?;
+                influx_db
+                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                    .await?;
+            }
+        }
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_elapsed = self
+            .influx_db
+            .as_ref()
+            .and_then(|db| db.config().analytics_enabled.then_some(analytics_start_time.elapsed()));
+
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
-            // Unwrap: Safe because we checked above
-            let elapsed = start_time.unwrap().elapsed();
-            influx_db
-                .insert(chronicle::db::collections::metrics::SyncMetrics {
-                    time: chrono::Utc::now(),
-                    milestone_index,
-                    sync_time: elapsed.as_millis() as u64,
-                    network_name,
-                    chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                })
-                .await?;
+            if influx_db.config().metrics_enabled {
+                let elapsed = start_time.elapsed();
+                influx_db
+                    .insert(chronicle::db::collections::metrics::SyncMetrics {
+                        time: chrono::Utc::now(),
+                        milestone_index,
+                        milestone_time: elapsed.as_millis() as u64,
+                        #[cfg(feature = "analytics")]
+                        analytics_time: analytics_elapsed.map(|d| d.as_millis() as u64),
+                        network_name,
+                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                    })
+                    .await?;
+            }
         }
 
         Ok(())
@@ -385,22 +405,6 @@ impl InxWorker {
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-
-        #[cfg(feature = "analytics")]
-        if let Some(influx_db) = &self.influx_db {
-            let db = self.db.clone();
-            let influx_db = influx_db.clone();
-            tokio::spawn(async move {
-                let analytics = db.get_all_analytics(milestone_index).await?;
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                    .await?;
-
-                tracing::debug!("Finished analytics for milestone: {}", milestone_index);
-
-                Result::<_>::Ok(())
-            });
-        }
 
         let milestone_id = milestone
             .milestone_info
