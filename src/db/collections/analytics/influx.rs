@@ -49,7 +49,6 @@ impl InfluxDb {
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.aliases),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.native_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.nfts),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.storage_deposits),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
