@@ -46,7 +46,6 @@ jwt_expiration = "72h"
 ### Public API routes.
 public_routes = [
     # Activated APIs.
-    "api/analytics/v2/*",
     "api/core/v2/*",
 ]
 
