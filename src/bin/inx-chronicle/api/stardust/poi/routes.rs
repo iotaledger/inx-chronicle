@@ -56,8 +56,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let hasher = MerkleHasher::<Blake2b256>::new();
-    let proof = hasher.create_proof(&block_ids, &block_id)?;
+    let proof = MerkleHasher::create_proof::<Blake2b256>(&block_ids, &block_id)?;
 
     // Fetch the corresponding milestone to return in the response.
     let milestone_collection = database.collection::<MilestoneCollection>();
@@ -67,7 +66,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .ok_or(ApiError::NoResults)?;
 
     let inclusion_merkle_root = milestone.essence.inclusion_merkle_root;
-    if *proof.hash(&hasher) != inclusion_merkle_root {
+    if *proof.hash() != inclusion_merkle_root {
         return Err(ApiError::PoI(PoIError::CreateProofError(block_id.to_hex())));
     }
 
@@ -140,10 +139,8 @@ async fn validate_proof(
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
         Err(ApiError::PoI(PoIError::InvalidMilestone(e)))
     } else {
-        let hasher = MerkleHasher::<Blake2b256>::new();
         Ok(ValidateProofResponse {
-            valid: proof.contains_block_id(&block_id, &hasher)
-                && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root(),
+            valid: proof.contains_block_id(&block_id) && *proof.hash() == **milestone.essence().inclusion_merkle_root(),
         })
     }
 }

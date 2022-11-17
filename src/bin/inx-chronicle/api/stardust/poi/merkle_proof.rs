@@ -1,27 +1,44 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
+
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{blake2b::Blake2b256, Output};
+use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 use serde::{Deserialize, Serialize};
 
-use super::{error::PoIError, merkle_hasher::MerkleHasher};
+use super::merkle_hasher::MerkleHasher;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MerkleProof {
-    left: Hashable,
-    right: Hashable,
+#[derive(Clone)]
+pub struct MerkleProof<H: Default + Digest> {
+    pub left: Hashable<H>,
+    pub right: Hashable<H>,
 }
 
-impl MerkleProof {
-    pub fn hash(&self, hasher: &MerkleHasher<Blake2b256>) -> Output<Blake2b256> {
+impl<H: Default + Digest> PartialEq for MerkleProof<H> {
+    fn eq(&self, other: &Self) -> bool {
+        self.left == other.left && self.right == other.right
+    }
+}
+impl<H: Default + Digest> Eq for MerkleProof<H> {}
+impl<H: Default + Digest> std::fmt::Debug for MerkleProof<H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MerkleProof")
+            .field("left", &self.left)
+            .field("right", &self.right)
+            .finish()
+    }
+}
+
+impl<H: Default + Digest> MerkleProof<H> {
+    pub fn hash(&self) -> Output<H> {
         let l = self.left.hash();
         let r = self.right.hash();
-        hasher.hash_node(l, r)
+        MerkleHasher::hash_node::<H>(l.as_ref(), r.as_ref())
     }
 
-    pub fn contains_block_id(&self, block_id: &BlockId, hasher: &MerkleHasher<Blake2b256>) -> bool {
-        let value = hasher.hash_leaf(block_id.0);
+    pub fn contains_block_id(&self, block_id: &BlockId) -> bool {
+        let value = MerkleHasher::hash_leaf::<H>(block_id.0);
         self.contains_value(&value)
     }
 
@@ -30,98 +47,49 @@ impl MerkleProof {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Hashable {
-    MerkleProof(Box<MerkleProof>, Output<Blake2b256>),
-    Node(Output<Blake2b256>),
-    Value(Output<Blake2b256>),
+#[derive(Clone)]
+pub enum Hashable<H: Default + Digest> {
+    MerkleProof(Box<MerkleProof<H>>),
+    Node(Output<H>),
+    Value(Output<H>),
 }
 
-impl Hashable {
-    fn hash(&self) -> Output<Blake2b256> {
+impl<H: Default + Digest> PartialEq for Hashable<H> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::MerkleProof(l0), Self::MerkleProof(r0)) => l0 == r0,
+            (Self::Node(l0), Self::Node(r0)) => l0 == r0,
+            (Self::Value(l0), Self::Value(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+impl<H: Default + Digest> Eq for Hashable<H> {}
+impl<H: Default + Digest> std::fmt::Debug for Hashable<H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Hashable::MerkleProof(_, hash) | Hashable::Node(hash) | Hashable::Value(hash) => *hash,
+            Self::MerkleProof(arg0) => f.debug_tuple("MerkleProof").field(arg0).finish(),
+            Self::Node(arg0) => f.debug_tuple("Node").field(arg0).finish(),
+            Self::Value(arg0) => f.debug_tuple("Value").field(arg0).finish(),
+        }
+    }
+}
+
+impl<H: Default + Digest> Hashable<H> {
+    fn hash(&self) -> Cow<Output<H>> {
+        match self {
+            Hashable::MerkleProof(proof) => Cow::Owned(proof.hash()),
+            Hashable::Node(hash) | Hashable::Value(hash) => Cow::Borrowed(hash),
         }
     }
 
     fn contains_value(&self, value: &impl AsRef<[u8]>) -> bool {
         match self {
-            Hashable::MerkleProof(p, _) => (*p).contains_value(value),
+            Hashable::MerkleProof(p) => p.contains_value(value),
             Hashable::Node(_) => false,
             Hashable::Value(v) => &**v == value.as_ref(),
         }
     }
-}
-
-impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleProof, PoIError> {
-        let index = find_index(block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
-        self.create_proof_from_index(block_ids, index)
-    }
-
-    // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> Result<MerkleProof, PoIError> {
-        let n = block_ids.len();
-        if n < 2 {
-            Err(PoIError::InvalidInput("cannot create proof for less than 2 block ids"))
-        } else if index >= n {
-            Err(PoIError::InvalidInput("given index is out of bounds"))
-        } else {
-            let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-            let proof = self.compute_proof(&data, index);
-            if let Hashable::MerkleProof(proof, _) = proof {
-                Ok(*proof)
-            } else {
-                // The root of this recursive structure will always be `Hashable::MerkleProof`.
-                unreachable!();
-            }
-        }
-    }
-
-    fn compute_proof(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> Hashable {
-        let n = data.len();
-        debug_assert!(index < n);
-        match n {
-            0 => unreachable!("empty data"),
-            1 => Hashable::Value(self.hash_leaf(data[0])),
-            2 => {
-                let (l, r) = (data[0], data[1]);
-                let proof = if index == 0 {
-                    MerkleProof {
-                        left: Hashable::Value(self.hash_leaf(l)),
-                        right: Hashable::Node(self.hash_leaf(r)),
-                    }
-                } else {
-                    MerkleProof {
-                        left: Hashable::Node(self.hash_leaf(l)),
-                        right: Hashable::Value(self.hash_leaf(r)),
-                    }
-                };
-                let hash = proof.hash(self);
-                Hashable::MerkleProof(Box::new(proof), hash)
-            }
-            _ => {
-                let k = super::merkle_hasher::largest_power_of_two(n);
-                let proof = if index < k {
-                    MerkleProof {
-                        left: self.compute_proof(&data[..k], index),
-                        right: Hashable::Node(self.hash(&data[k..])),
-                    }
-                } else {
-                    MerkleProof {
-                        left: Hashable::Node(self.hash(&data[..k])),
-                        right: self.compute_proof(&data[k..], index - k),
-                    }
-                };
-                let hash = proof.hash(self);
-                Hashable::MerkleProof(Box::new(proof), hash)
-            }
-        }
-    }
-}
-
-fn find_index(block_ids: &[BlockId], block_id: &BlockId) -> Option<usize> {
-    block_ids.iter().position(|id| id == block_id)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -132,8 +100,8 @@ pub struct MerkleProofDto {
     right: HashableDto,
 }
 
-impl From<MerkleProof> for MerkleProofDto {
-    fn from(value: MerkleProof) -> Self {
+impl<H: Default + Digest> From<MerkleProof<H>> for MerkleProofDto {
+    fn from(value: MerkleProof<H>) -> Self {
         Self {
             left: value.left.into(),
             right: value.right.into(),
@@ -141,7 +109,7 @@ impl From<MerkleProof> for MerkleProofDto {
     }
 }
 
-impl TryFrom<MerkleProofDto> for MerkleProof {
+impl TryFrom<MerkleProofDto> for MerkleProof<Blake2b256> {
     type Error = prefix_hex::Error;
 
     fn try_from(proof: MerkleProofDto) -> Result<Self, Self::Error> {
@@ -166,8 +134,8 @@ pub enum HashableDto {
     },
 }
 
-impl From<Hashable> for HashableDto {
-    fn from(value: Hashable) -> Self {
+impl<H: Default + Digest> From<Hashable<H>> for HashableDto {
+    fn from(value: Hashable<H>) -> Self {
         match value {
             Hashable::Node(h) => Self::Node {
                 hash: prefix_hex::encode(h.as_slice()),
@@ -175,12 +143,12 @@ impl From<Hashable> for HashableDto {
             Hashable::Value(v) => Self::Value {
                 value_hash: prefix_hex::encode(v.as_slice()),
             },
-            Hashable::MerkleProof(p, _) => Self::Proof(Box::new((*p).into())),
+            Hashable::MerkleProof(p) => Self::Proof(Box::new((*p).into())),
         }
     }
 }
 
-impl TryFrom<HashableDto> for Hashable {
+impl TryFrom<HashableDto> for Hashable<Blake2b256> {
     type Error = prefix_hex::Error;
 
     fn try_from(hashed: HashableDto) -> Result<Self, Self::Error> {
@@ -195,54 +163,8 @@ impl TryFrom<HashableDto> for Hashable {
             }
             HashableDto::Proof(proof) => {
                 let proof = MerkleProof::try_from(*proof)?;
-                let hasher = MerkleHasher::<Blake2b256>::new();
-                let hash = proof.hash(&hasher);
-                Hashable::MerkleProof(Box::new(proof), hash)
+                Hashable::MerkleProof(Box::new(proof))
             }
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use crypto::hashes::blake2b::Blake2b256;
-
-    use super::*;
-
-    #[test]
-    fn test_compute_proof() {
-        let block_ids = [
-            "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649",
-            "0x81855ad8681d0d86d1e91e00167939cb6694d2c422acd208a0072939487f6999",
-            "0xeb9d18a44784045d87f3c67cf22746e995af5a25367951baa2ff6cd471c483f1",
-            "0x5fb90badb37c5821b6d95526a41a9504680b4e7c8b763a1b1d49d4955c848621",
-            "0x6325253fec738dd7a9e28bf921119c160f0702448615bbda08313f6a8eb668d2",
-            "0x0bf5059875921e668a5bdf2c7fc4844592d2572bcd0668d2d6c52f5054e2d083",
-            "0x6bf84c7174cb7476364cc3dbd968b0f7172ed85794bb358b0c3b525da1786f9f",
-        ]
-        .iter()
-        .map(|hash| BlockId::from_str(hash).unwrap())
-        .collect::<Vec<_>>();
-
-        let hasher = MerkleHasher::<Blake2b256>::new();
-        let inclusion_merkle_root = hasher.hash_block_ids(&block_ids);
-
-        for index in 0..block_ids.len() {
-            let proof = hasher.create_proof_from_index(&block_ids, index).unwrap();
-            let hash = proof.hash(&hasher);
-
-            assert_eq!(
-                proof,
-                MerkleProofDto::from(proof.clone()).try_into().unwrap(),
-                "proof dto roundtrip"
-            );
-            assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
-            assert!(
-                proof.contains_block_id(&block_ids[index], &hasher),
-                "proof does not contain that block id"
-            );
-        }
     }
 }
