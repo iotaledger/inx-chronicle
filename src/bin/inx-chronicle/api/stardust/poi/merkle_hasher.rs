@@ -79,8 +79,7 @@ impl MerkleHasher {
         let n = data.len();
         debug_assert!(index < n);
         match n {
-            0 => unreachable!("zero"),
-            1 => unreachable!("one"),
+            0 | 1 => unreachable!(),
             // The terminating point, where we only have two values that become
             // left and right leaves. The chosen index is a `Value` while
             // the other is a `Node`.
