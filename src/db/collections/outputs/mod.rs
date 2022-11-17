@@ -641,7 +641,7 @@ mod analytics {
                         "total_data_bytes": { "$toString": "$total_data_bytes" },
                     } },
                 ],
-                None,
+                AggregateOptions::builder().hint(Hint::Name("output_spent_milestone_index_comp".to_string())).build(),
             )
             .await?
             .try_next()
