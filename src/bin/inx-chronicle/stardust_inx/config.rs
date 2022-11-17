@@ -7,8 +7,8 @@ use chronicle::types::tangle::MilestoneIndex;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for an INX connection.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InxConfig {
     pub enabled: bool,
     /// The bind address of node's INX interface.
@@ -22,14 +22,29 @@ pub struct InxConfig {
     pub sync_start_milestone: MilestoneIndex,
 }
 
-impl Default for InxConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            connect_url: "http://localhost:9029".into(),
-            connection_retry_interval: Duration::from_secs(5),
-            connection_retry_count: 5,
-            sync_start_milestone: 1.into(),
-        }
+impl InxConfig {
+    /// Applies the corresponding user config.
+    #[allow(clippy::option_map_unit_fn)]
+    pub fn apply_user_config(&mut self, user_config: InxUserConfig) {
+        user_config.enabled.map(|v| self.enabled = v);
+        user_config.connect_url.map(|v| self.connect_url = v);
+        user_config
+            .connection_retry_interval
+            .map(|v| self.connection_retry_interval = v);
+        user_config
+            .connection_retry_count
+            .map(|v| self.connection_retry_count = v);
+        user_config.sync_start_milestone.map(|v| self.sync_start_milestone = v);
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InxUserConfig {
+    pub enabled: Option<bool>,
+    pub connect_url: Option<String>,
+    #[serde(with = "humantime_serde")]
+    pub connection_retry_interval: Option<Duration>,
+    pub connection_retry_count: Option<usize>,
+    pub sync_start_milestone: Option<MilestoneIndex>,
 }

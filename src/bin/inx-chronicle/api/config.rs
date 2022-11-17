@@ -11,8 +11,8 @@ use tower_http::cors::AllowOrigin;
 use super::{error::ConfigError, SecretKey};
 
 /// API configuration
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApiConfig {
     pub enabled: bool,
     pub port: u16,
@@ -27,22 +27,37 @@ pub struct ApiConfig {
     pub argon_config: ArgonConfig,
 }
 
-impl Default for ApiConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            port: 8042,
-            allow_origins: "*".to_string().into(),
-            password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
-            password_salt: "saltines".to_string(),
-            // 72 hours
-            jwt_expiration: Duration::from_secs(72 * 60 * 60),
-            public_routes: Default::default(),
-            identity_path: None,
-            max_page_size: 1000,
-            argon_config: Default::default(),
-        }
+impl ApiConfig {
+    /// Applies the corresponding user config.
+    #[allow(clippy::option_map_unit_fn)]
+    pub fn apply_user_config(&mut self, user_config: ApiUserConfig) {
+        user_config.enabled.map(|v| self.enabled = v);
+        user_config.port.map(|v| self.port = v);
+        user_config.allow_origins.map(|v| self.allow_origins = v);
+        user_config.password_hash.map(|v| self.password_hash = v);
+        user_config.password_salt.map(|v| self.password_salt = v);
+        user_config.jwt_expiration.map(|v| self.jwt_expiration = v);
+        user_config.public_routes.map(|v| self.public_routes = v);
+        self.identity_path = user_config.identity_path;
+        user_config.max_page_size.map(|v| self.max_page_size = v);
+        user_config.argon_config.map(|v| self.argon_config.apply_user_config(v));
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApiUserConfig {
+    pub enabled: Option<bool>,
+    pub port: Option<u16>,
+    pub allow_origins: Option<SingleOrMultiple<String>>,
+    pub password_hash: Option<String>,
+    pub password_salt: Option<String>,
+    #[serde(with = "humantime_serde")]
+    pub jwt_expiration: Option<Duration>,
+    pub public_routes: Option<Vec<String>>,
+    pub identity_path: Option<String>,
+    pub max_page_size: Option<usize>,
+    pub argon_config: Option<ArgonUserConfig>,
 }
 
 #[derive(Clone, Debug)]
@@ -130,8 +145,7 @@ impl TryFrom<SingleOrMultiple<String>> for AllowOrigin {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArgonConfig {
     /// The length of the resulting hash.
     hash_length: u32,
@@ -149,17 +163,37 @@ pub struct ArgonConfig {
     version: argon2::Version,
 }
 
-impl Default for ArgonConfig {
-    fn default() -> Self {
-        Self {
-            hash_length: 32,
-            parallelism: 1,
-            mem_cost: 4096,
-            iterations: 3,
-            variant: Default::default(),
-            version: Default::default(),
-        }
+impl ArgonConfig {
+    /// Applies the corresponding user config.
+    #[allow(clippy::option_map_unit_fn)]
+    pub fn apply_user_config(&mut self, user_config: ArgonUserConfig) {
+        user_config.hash_length.map(|v| self.hash_length = v);
+        user_config.parallelism.map(|v| self.parallelism = v);
+        user_config
+            .mem_cost
+            .map(|v| self.mem_cost = v);
+        user_config
+            .iterations
+            .map(|v| self.iterations = v);
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ArgonUserConfig {
+    /// The length of the resulting hash.
+    hash_length: Option<u32>,
+    /// The number of lanes in parallel.
+    parallelism: Option<u32>,
+    /// The amount of memory requested (KB).
+    mem_cost: Option<u32>,
+    /// The number of passes.
+    iterations: Option<u32>,
+    /// The variant.
+    #[serde(with = "variant")]
+    variant: argon2::Variant,
+    /// The version.
+    #[serde(with = "version")]
+    version: argon2::Version,
 }
 
 impl<'a> From<&'a ArgonConfig> for argon2::Config<'a> {

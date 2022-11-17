@@ -28,7 +28,10 @@ use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
 
-pub use self::{config::InxConfig, error::InxWorkerError};
+pub use self::{
+    config::{InxConfig, InxUserConfig},
+    error::InxWorkerError,
+};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;

@@ -111,7 +111,7 @@ mod test {
     };
 
     use super::*;
-    use crate::api::ApiConfig;
+    use crate::api::default_api_config;
 
     #[tokio::test]
     async fn page_size_clamped() {
@@ -119,7 +119,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/?pageSize=9999999")
-                .extension(ApiData::try_from(ApiConfig::default()).unwrap())
+                .extension(ApiData::try_from(default_api_config()).unwrap())
                 .body(())
                 .unwrap(),
         );

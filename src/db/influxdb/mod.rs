@@ -66,7 +66,7 @@ impl Deref for InfluxDb {
 /// The influxdb [`Client`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct InfluxDbConfig {
     /// The address of the InfluxDb instance.
     pub url: String,
@@ -82,15 +82,27 @@ pub struct InfluxDbConfig {
     pub analytics_enabled: bool,
 }
 
-impl Default for InfluxDbConfig {
-    fn default() -> Self {
-        Self {
-            url: "http://localhost:8086".to_string(),
-            database_name: "chronicle_analytics".to_string(),
-            username: "root".to_string(),
-            password: "password".to_string(),
-            metrics_enabled: true,
-            analytics_enabled: true,
-        }
+impl InfluxDbConfig {
+    /// Applies the corresponding user config.
+    #[allow(clippy::option_map_unit_fn)]
+    pub fn apply_user_config(&mut self, user_config: InfluxDbUserConfig) {
+        user_config.url.map(|v| self.url = v);
+        user_config.username.map(|v| self.username = v);
+        user_config.password.map(|v| self.password = v);
+        user_config.database_name.map(|v| self.database_name = v);
+        user_config.metrics_enabled.map(|v| self.metrics_enabled = v);
+        user_config.analytics_enabled.map(|v| self.analytics_enabled = v);
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(missing_docs)]
+pub struct InfluxDbUserConfig {
+    pub url: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub database_name: Option<String>,
+    pub metrics_enabled: Option<bool>,
+    pub analytics_enabled: Option<bool>,
 }

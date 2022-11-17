@@ -31,7 +31,7 @@ use tracing::info;
 
 use self::routes::routes;
 pub use self::{
-    config::{ApiConfig, ApiData},
+    config::{ApiConfig, ApiData, ApiUserConfig},
     error::{ApiError, ConfigError},
     secret_key::SecretKey,
 };
@@ -81,4 +81,13 @@ impl ApiWorker {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+fn default_api_config() -> ApiConfig {
+    let path = "config.defaults.toml";
+    let contents = std::fs::read_to_string(path).unwrap();
+    let toml = toml::from_str::<toml::Value>(&contents).unwrap();
+    let api = toml.get("api").cloned().unwrap();
+    api.try_into().unwrap()
 }

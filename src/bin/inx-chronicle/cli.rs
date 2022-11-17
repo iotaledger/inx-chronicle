@@ -4,7 +4,7 @@
 use clap::{Args, Parser, Subcommand};
 
 use crate::{
-    config::{ChronicleConfig, ConfigError},
+    config::{ChronicleConfig, ChronicleUserConfig, ConfigError},
     error::Error,
 };
 
@@ -109,12 +109,11 @@ pub struct LokiArgs {
 impl ClArgs {
     /// Get a config file with CLI args applied.
     pub fn get_config(&self) -> Result<ChronicleConfig, ConfigError> {
-        let mut config = self
-            .config
-            .as_ref()
-            .map(ChronicleConfig::from_file)
-            .transpose()?
-            .unwrap_or_default();
+        let mut config = ChronicleConfig::from_file("config.defaults.toml")?;
+
+        if let Some(path) = self.config.as_ref() {
+            config.apply_user_config(ChronicleUserConfig::from_file(path)?);
+        }
 
         if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
             config.mongodb.conn_str = conn_str.clone();

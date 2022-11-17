@@ -33,7 +33,7 @@ services:
       - "--influxdb-url=http://influx:8086"
       - "--loki-url=http://loki:3100"
     volumes:
-      - ../config.template.toml:/app/config.toml:ro
+      - ../config.defaults.toml:/app/config.defaults.toml:ro
 
   influx:
     image: influxdb:1.8

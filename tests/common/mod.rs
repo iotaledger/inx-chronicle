@@ -8,7 +8,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TestDbError {
-    #[error("failed to read config at '{0}': {1}")]
+    #[error("failed to read config file at '{0}': {1}")]
     FileRead(String, std::io::Error),
     #[error("toml deserialization failed: {0}")]
     TomlDeserialization(toml::de::Error),
@@ -18,17 +18,14 @@ pub enum TestDbError {
 
 #[allow(unused)]
 pub async fn setup_database(database_name: impl ToString) -> Result<MongoDb, TestDbError> {
-    let mut config = if let Ok(path) = std::env::var("CONFIG_PATH") {
-        let val = std::fs::read_to_string(&path)
-            .map_err(|e| TestDbError::FileRead(AsRef::<Path>::as_ref(&path).display().to_string(), e))
+    let mut config: MongoDbConfig = {
+        let path = "config.defaults.toml";
+        let val = std::fs::read_to_string(path)
+            .map_err(|e| TestDbError::FileRead(AsRef::<Path>::as_ref(path).display().to_string(), e))
             .and_then(|contents| toml::from_str::<toml::Value>(&contents).map_err(TestDbError::TomlDeserialization))?;
-        if let Some(mongodb) = val.get("mongodb").cloned() {
-            mongodb.try_into().map_err(TestDbError::TomlDeserialization)?
-        } else {
-            MongoDbConfig::default()
-        }
-    } else {
-        MongoDbConfig::default()
+        // Panic: cannot fail because this section has to exist.
+        let mongodb = val.get("mongodb").cloned().unwrap();
+        mongodb.try_into().map_err(TestDbError::TomlDeserialization)?
     };
     config.database_name = database_name.to_string();
 

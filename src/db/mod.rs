@@ -12,4 +12,4 @@ pub mod collections;
 pub mod influxdb;
 mod mongodb;
 
-pub use self::mongodb::{MongoDb, MongoDbCollection, MongoDbCollectionExt, MongoDbConfig};
+pub use self::mongodb::{MongoDb, MongoDbCollection, MongoDbCollectionExt, MongoDbConfig, MongoDbUserConfig};

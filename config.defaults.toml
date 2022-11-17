@@ -1,0 +1,45 @@
+[mongodb]
+conn_str = "mongodb://localhost:27017"
+database_name = "chronicle"
+min_pool_size = 2
+username = "root"
+password = "root"
+
+[influxdb]
+analytics_enabled = true
+database_name = "chronicle_analytics"
+metrics_enabled = true
+url = "http://localhost:8086"
+username = "root"
+password = "password"
+
+[api]
+allow_origins = "0.0.0.0"
+enabled = true
+jwt_expiration = "72h"
+max_page_size = 1000
+port = 8042
+password_hash = "f36605441dd3b99a0448bc76f51f0e619f47051989cfcbf2fef18670f21799ad" # "password"
+password_salt = "saltines"
+public_routes = [
+    "api/core/v2/*",
+]
+
+[api.argon_config]
+hash_length = 32
+iterations = 3
+mem_cost = 4096
+parallelism = 1
+variant = "argon2i"
+version = "0x13"
+
+[inx]
+connect_url = "http://localhost:9029"
+connection_retry_interval = "5s"
+connection_retry_count = 30
+enabled = true
+sync_start_milestone = 1
+
+[loki]
+connect_url = "http://localhost:3100"
+enabled = true

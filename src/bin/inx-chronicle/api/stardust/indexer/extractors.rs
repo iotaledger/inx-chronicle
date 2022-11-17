@@ -433,7 +433,7 @@ mod test {
     use axum::{extract::RequestParts, http::Request};
 
     use super::*;
-    use crate::api::ApiConfig;
+    use crate::api::default_api_config;
 
     #[test]
     fn indexed_outputs_cursor_from_to_str() {
@@ -452,7 +452,7 @@ mod test {
             Request::builder()
                 .method("GET")
                 .uri("/outputs/basic?pageSize=9999999")
-                .extension(ApiData::try_from(ApiConfig::default()).unwrap())
+                .extension(ApiData::try_from(default_api_config()).unwrap())
                 .body(())
                 .unwrap(),
         );

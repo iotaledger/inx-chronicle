@@ -27,24 +27,19 @@ pub struct MongoDb {
 }
 
 impl MongoDb {
-    const DEFAULT_NAME: &'static str = "chronicle";
-    const DEFAULT_CONNECT_STR: &'static str = "mongodb://localhost:27017";
-
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
-        client_options.min_pool_size = config.min_pool_size;
+        client_options.min_pool_size = Some(config.min_pool_size);
 
         if client_options.credential.is_none() {
-            if let (Some(username), Some(password)) = (&config.username, &config.password) {
-                let credential = Credential::builder()
-                    .username(username.clone())
-                    .password(password.clone())
-                    .build();
-                client_options.credential = Some(credential);
-            }
+            let credential = Credential::builder()
+                .username(config.username.clone())
+                .password(config.password.clone())
+                .build();
+            client_options.credential = Some(credential);
         }
 
         let client = Client::with_options(client_options)?;
@@ -134,19 +129,19 @@ impl MongoDb {
 
 /// The [`MongoDb`] config.
 #[must_use]
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MongoDbConfig {
     /// The bind address of the database.
     pub conn_str: String,
     /// The MongoDB username.
-    pub username: Option<String>,
+    pub username: String,
     /// The MongoDB password.
-    pub password: Option<String>,
+    pub password: String,
     /// The name of the database to connect to.
     pub database_name: String,
     /// The minimum amount of connections in the pool.
-    pub min_pool_size: Option<u32>,
+    pub min_pool_size: u32,
 }
 
 impl MongoDbConfig {
@@ -159,16 +154,25 @@ impl MongoDbConfig {
             _ => unreachable!(),
         })
     }
+
+    /// Applies the corresponding user config.
+    #[allow(clippy::option_map_unit_fn)]
+    pub fn apply_user_config(&mut self, user_config: MongoDbUserConfig) {
+        user_config.conn_str.map(|v| self.conn_str = v);
+        user_config.username.map(|v| self.username = v);
+        user_config.password.map(|v| self.password = v);
+        user_config.database_name.map(|v| self.database_name = v);
+        user_config.min_pool_size.map(|v| self.min_pool_size = v);
+    }
 }
 
-impl Default for MongoDbConfig {
-    fn default() -> Self {
-        Self {
-            conn_str: MongoDb::DEFAULT_CONNECT_STR.to_string(),
-            username: None,
-            password: None,
-            database_name: MongoDb::DEFAULT_NAME.to_string(),
-            min_pool_size: None,
-        }
-    }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(missing_docs)]
+pub struct MongoDbUserConfig {
+    pub conn_str: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub database_name: Option<String>,
+    pub min_pool_size: Option<u32>,
 }
