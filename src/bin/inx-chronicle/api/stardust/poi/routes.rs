@@ -56,7 +56,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let proof = MerkleHasher::create_proof::<Blake2b256>(&block_ids, &block_id)?;
+    let proof = MerkleHasher::<Blake2b256>::create_proof(&block_ids, &block_id)?;
 
     // Fetch the corresponding milestone to return in the response.
     let milestone_collection = database.collection::<MilestoneCollection>();

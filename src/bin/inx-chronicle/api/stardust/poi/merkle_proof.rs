@@ -34,11 +34,11 @@ impl<H: Default + Digest> MerkleProof<H> {
     pub fn hash(&self) -> Output<H> {
         let l = self.left.hash();
         let r = self.right.hash();
-        MerkleHasher::hash_node::<H>(l.as_ref(), r.as_ref())
+        MerkleHasher::<H>::hash_node(l.as_ref(), r.as_ref())
     }
 
     pub fn contains_block_id(&self, block_id: &BlockId) -> bool {
-        let value = MerkleHasher::hash_leaf::<H>(block_id.0);
+        let value = MerkleHasher::<H>::hash_leaf(block_id.0);
         self.contains_value(&value)
     }
 

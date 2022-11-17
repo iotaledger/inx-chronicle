@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::marker::PhantomData;
+
 use chronicle::types::stardust::block::BlockId;
 use crypto::hashes::{Digest, Output};
 
@@ -13,29 +15,29 @@ const LEAF_HASH_PREFIX: u8 = 0;
 const NODE_HASH_PREFIX: u8 = 1;
 
 /// A Merkle tree hasher.
-pub struct MerkleHasher;
+pub struct MerkleHasher<H>(PhantomData<H>);
 
-impl MerkleHasher {
+impl<H: Default + Digest> MerkleHasher<H> {
     /// Hash data using the provided hasher type.
-    pub fn hash<H: Default + Digest>(data: &[impl AsRef<[u8]>]) -> Output<H> {
+    pub fn hash(data: &[impl AsRef<[u8]>]) -> Output<H> {
         match data {
-            [] => Self::hash_empty::<H>(),
-            [leaf] => Self::hash_leaf::<H>(leaf),
+            [] => Self::hash_empty(),
+            [leaf] => Self::hash_leaf(leaf),
             _ => {
                 let k = largest_power_of_two(data.len());
-                let l = Self::hash::<H>(&data[..k]);
-                let r = Self::hash::<H>(&data[k..]);
-                Self::hash_node::<H>(&l, &r)
+                let l = Self::hash(&data[..k]);
+                let r = Self::hash(&data[k..]);
+                Self::hash_node(&l, &r)
             }
         }
     }
 
-    fn hash_empty<H: Default + Digest>() -> Output<H> {
+    fn hash_empty() -> Output<H> {
         H::digest([])
     }
 
     /// Hash a terminating leaf of the tree.
-    pub fn hash_leaf<H: Default + Digest>(l: impl AsRef<[u8]>) -> Output<H> {
+    pub fn hash_leaf(l: impl AsRef<[u8]>) -> Output<H> {
         let mut hasher = H::default();
         hasher.update([LEAF_HASH_PREFIX]);
         hasher.update(l);
@@ -43,7 +45,7 @@ impl MerkleHasher {
     }
 
     /// Hash a subtree.
-    pub fn hash_node<H: Default + Digest>(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<H> {
+    pub fn hash_node(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<H> {
         let mut hasher = H::default();
         hasher.update([NODE_HASH_PREFIX]);
         hasher.update(l);
@@ -53,10 +55,7 @@ impl MerkleHasher {
 
     /// Create a merkle proof given a list of block IDs and a chosen block ID. The chosen leaf will become a
     /// value node, and the path will contain all hashes above it. The remaining branches will be terminated early.
-    pub fn create_proof<H: Default + Digest>(
-        block_ids: &[BlockId],
-        chosen_block_id: &BlockId,
-    ) -> Result<MerkleProof<H>, PoIError> {
+    pub fn create_proof(block_ids: &[BlockId], chosen_block_id: &BlockId) -> Result<MerkleProof<H>, PoIError> {
         let index = block_ids
             .iter()
             .position(|id| id == chosen_block_id)
@@ -65,10 +64,7 @@ impl MerkleHasher {
     }
 
     // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index<H: Default + Digest>(
-        block_ids: &[BlockId],
-        index: usize,
-    ) -> Result<MerkleProof<H>, PoIError> {
+    fn create_proof_from_index(block_ids: &[BlockId], index: usize) -> Result<MerkleProof<H>, PoIError> {
         let n = block_ids.len();
         if n < 2 {
             Err(PoIError::InvalidInput("cannot create proof for less than 2 block ids"))
@@ -81,7 +77,7 @@ impl MerkleHasher {
     }
 
     /// Recursively compute a merkle tree.
-    fn compute_proof<H: Default + Digest>(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleProof<H> {
+    fn compute_proof(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleProof<H> {
         let n = data.len();
         debug_assert!(index < n);
         match n {
@@ -93,13 +89,13 @@ impl MerkleHasher {
                 let (l, r) = (data[0], data[1]);
                 if index == 0 {
                     MerkleProof {
-                        left: Hashable::Value(Self::hash_leaf::<H>(l)),
-                        right: Hashable::Node(Self::hash_leaf::<H>(r)),
+                        left: Hashable::Value(Self::hash_leaf(l)),
+                        right: Hashable::Node(Self::hash_leaf(r)),
                     }
                 } else {
                     MerkleProof {
-                        left: Hashable::Node(Self::hash_leaf::<H>(l)),
-                        right: Hashable::Value(Self::hash_leaf::<H>(r)),
+                        left: Hashable::Node(Self::hash_leaf(l)),
+                        right: Hashable::Value(Self::hash_leaf(r)),
                     }
                 }
             }
@@ -112,17 +108,17 @@ impl MerkleHasher {
                 if index < k {
                     MerkleProof {
                         left: if data.len() == 1 {
-                            Hashable::Value(Self::hash_leaf::<H>(data[0]))
+                            Hashable::Value(Self::hash_leaf(data[0]))
                         } else {
                             Hashable::MerkleProof(Box::new(Self::compute_proof(&data[..k], index)))
                         },
-                        right: Hashable::Node(Self::hash::<H>(&data[k..])),
+                        right: Hashable::Node(Self::hash(&data[k..])),
                     }
                 } else {
                     MerkleProof {
-                        left: Hashable::Node(Self::hash::<H>(&data[..k])),
+                        left: Hashable::Node(Self::hash(&data[..k])),
                         right: if data.len() == 1 {
-                            Hashable::Value(Self::hash_leaf::<H>(data[0]))
+                            Hashable::Value(Self::hash_leaf(data[0]))
                         } else {
                             Hashable::MerkleProof(Box::new(Self::compute_proof(&data[k..], index - k)))
                         },
@@ -155,10 +151,10 @@ mod tests {
     use super::*;
     use crate::api::stardust::poi::merkle_proof::MerkleProofDto;
 
-    impl MerkleHasher {
-        pub fn hash_block_ids<H: Default + Digest>(data: &[BlockId]) -> Output<H> {
+    impl MerkleHasher<Blake2b256> {
+        pub fn hash_block_ids(data: &[BlockId]) -> Output<Blake2b256> {
             let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
-            Self::hash::<H>(&data[..])
+            Self::hash(&data[..])
         }
     }
 
@@ -184,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_merkle_tree_hasher_empty() {
-        let root = MerkleHasher::hash_block_ids::<Blake2b256>(&[]);
+        let root = MerkleHasher::hash_block_ids(&[]);
         assert_eq!(
             prefix_hex::encode(root.as_slice()),
             "0x0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
@@ -193,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_merkle_tree_hasher_single() {
-        let root = MerkleHasher::hash_block_ids::<Blake2b256>(&[BlockId::from_str(
+        let root = MerkleHasher::hash_block_ids(&[BlockId::from_str(
             "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649",
         )
         .unwrap()]);
@@ -219,7 +215,7 @@ mod tests {
         .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
-        let merkle_root = MerkleHasher::hash_block_ids::<Blake2b256>(&block_ids);
+        let merkle_root = MerkleHasher::hash_block_ids(&block_ids);
 
         assert_eq!(
             prefix_hex::encode(merkle_root.as_slice()),
@@ -242,10 +238,10 @@ mod tests {
         .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
-        let inclusion_merkle_root = MerkleHasher::hash_block_ids::<Blake2b256>(&block_ids);
+        let inclusion_merkle_root = MerkleHasher::hash_block_ids(&block_ids);
 
         for index in 0..block_ids.len() {
-            let proof = MerkleHasher::create_proof_from_index::<Blake2b256>(&block_ids, index).unwrap();
+            let proof = MerkleHasher::<Blake2b256>::create_proof_from_index(&block_ids, index).unwrap();
             let hash = proof.hash();
 
             assert_eq!(
