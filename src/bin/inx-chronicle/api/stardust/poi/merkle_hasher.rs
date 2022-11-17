@@ -1,10 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::marker::PhantomData;
-
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{Digest, Output};
+use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 
 use super::{
     merkle_proof::{Hashable, MerkleProof},
@@ -15,11 +13,11 @@ const LEAF_HASH_PREFIX: u8 = 0;
 const NODE_HASH_PREFIX: u8 = 1;
 
 /// A Merkle tree hasher.
-pub struct MerkleHasher<H>(PhantomData<H>);
+pub struct MerkleHasher;
 
-impl<H: Default + Digest> MerkleHasher<H> {
+impl MerkleHasher {
     /// Hash data using the provided hasher type.
-    pub fn hash(data: &[impl AsRef<[u8]>]) -> Output<H> {
+    pub fn hash(data: &[impl AsRef<[u8]>]) -> Output<Blake2b256> {
         match data {
             [] => Self::hash_empty(),
             [leaf] => Self::hash_leaf(leaf),
@@ -32,21 +30,21 @@ impl<H: Default + Digest> MerkleHasher<H> {
         }
     }
 
-    fn hash_empty() -> Output<H> {
-        H::digest([])
+    fn hash_empty() -> Output<Blake2b256> {
+        Blake2b256::digest([])
     }
 
     /// Hash a terminating leaf of the tree.
-    pub fn hash_leaf(l: impl AsRef<[u8]>) -> Output<H> {
-        let mut hasher = H::default();
+    pub fn hash_leaf(l: impl AsRef<[u8]>) -> Output<Blake2b256> {
+        let mut hasher = Blake2b256::default();
         hasher.update([LEAF_HASH_PREFIX]);
         hasher.update(l);
         hasher.finalize()
     }
 
     /// Hash a subtree.
-    pub fn hash_node(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<H> {
-        let mut hasher = H::default();
+    pub fn hash_node(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<Blake2b256> {
+        let mut hasher = Blake2b256::default();
         hasher.update([NODE_HASH_PREFIX]);
         hasher.update(l);
         hasher.update(r);
@@ -55,7 +53,7 @@ impl<H: Default + Digest> MerkleHasher<H> {
 
     /// Create a merkle proof given a list of block IDs and a chosen block ID. The chosen leaf will become a
     /// value node, and the path will contain all hashes above it. The remaining branches will be terminated early.
-    pub fn create_proof(block_ids: &[BlockId], chosen_block_id: &BlockId) -> Result<MerkleProof<H>, PoIError> {
+    pub fn create_proof(block_ids: &[BlockId], chosen_block_id: &BlockId) -> Result<MerkleProof, PoIError> {
         let index = block_ids
             .iter()
             .position(|id| id == chosen_block_id)
@@ -64,7 +62,7 @@ impl<H: Default + Digest> MerkleHasher<H> {
     }
 
     // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index(block_ids: &[BlockId], index: usize) -> Result<MerkleProof<H>, PoIError> {
+    fn create_proof_from_index(block_ids: &[BlockId], index: usize) -> Result<MerkleProof, PoIError> {
         let n = block_ids.len();
         if n < 2 {
             Err(PoIError::InvalidInput("cannot create proof for less than 2 block ids"))
@@ -77,7 +75,7 @@ impl<H: Default + Digest> MerkleHasher<H> {
     }
 
     /// Recursively compute a merkle tree.
-    fn compute_proof(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleProof<H> {
+    fn compute_proof(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleProof {
         let n = data.len();
         debug_assert!(index < n);
         match n {
@@ -152,7 +150,7 @@ mod tests {
     use super::*;
     use crate::api::stardust::poi::merkle_proof::MerkleProofDto;
 
-    impl MerkleHasher<Blake2b256> {
+    impl MerkleHasher {
         pub fn hash_block_ids(data: &[BlockId]) -> Output<Blake2b256> {
             let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
             Self::hash(&data[..])
@@ -242,7 +240,7 @@ mod tests {
         let inclusion_merkle_root = MerkleHasher::hash_block_ids(&block_ids);
 
         for index in 0..block_ids.len() {
-            let proof = MerkleHasher::<Blake2b256>::create_proof_from_index(&block_ids, index).unwrap();
+            let proof = MerkleHasher::create_proof_from_index(&block_ids, index).unwrap();
             let hash = proof.hash();
 
             assert_eq!(

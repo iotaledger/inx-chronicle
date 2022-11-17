@@ -4,41 +4,26 @@
 use std::borrow::Cow;
 
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
+use crypto::hashes::{blake2b::Blake2b256, Output};
 use serde::{Deserialize, Serialize};
 
 use super::merkle_hasher::MerkleHasher;
 
-#[derive(Clone)]
-pub struct MerkleProof<H: Default + Digest> {
-    pub left: Hashable<H>,
-    pub right: Hashable<H>,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MerkleProof {
+    pub left: Hashable,
+    pub right: Hashable,
 }
 
-impl<H: Default + Digest> PartialEq for MerkleProof<H> {
-    fn eq(&self, other: &Self) -> bool {
-        self.left == other.left && self.right == other.right
-    }
-}
-impl<H: Default + Digest> Eq for MerkleProof<H> {}
-impl<H: Default + Digest> std::fmt::Debug for MerkleProof<H> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MerkleProof")
-            .field("left", &self.left)
-            .field("right", &self.right)
-            .finish()
-    }
-}
-
-impl<H: Default + Digest> MerkleProof<H> {
-    pub fn hash(&self) -> Output<H> {
+impl MerkleProof {
+    pub fn hash(&self) -> Output<Blake2b256> {
         let l = self.left.hash();
         let r = self.right.hash();
-        MerkleHasher::<H>::hash_node(l.as_ref(), r.as_ref())
+        MerkleHasher::hash_node(l.as_ref(), r.as_ref())
     }
 
     pub fn contains_block_id(&self, block_id: &BlockId) -> bool {
-        let value = MerkleHasher::<H>::hash_leaf(block_id.0);
+        let value = MerkleHasher::hash_leaf(block_id.0);
         self.contains_value(&value)
     }
 
@@ -47,36 +32,15 @@ impl<H: Default + Digest> MerkleProof<H> {
     }
 }
 
-#[derive(Clone)]
-pub enum Hashable<H: Default + Digest> {
-    MerkleProof(Box<MerkleProof<H>>),
-    Node(Output<H>),
-    Value(Output<H>),
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Hashable {
+    MerkleProof(Box<MerkleProof>),
+    Node(Output<Blake2b256>),
+    Value(Output<Blake2b256>),
 }
 
-impl<H: Default + Digest> PartialEq for Hashable<H> {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::MerkleProof(l0), Self::MerkleProof(r0)) => l0 == r0,
-            (Self::Node(l0), Self::Node(r0)) => l0 == r0,
-            (Self::Value(l0), Self::Value(r0)) => l0 == r0,
-            _ => false,
-        }
-    }
-}
-impl<H: Default + Digest> Eq for Hashable<H> {}
-impl<H: Default + Digest> std::fmt::Debug for Hashable<H> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MerkleProof(arg0) => f.debug_tuple("MerkleProof").field(arg0).finish(),
-            Self::Node(arg0) => f.debug_tuple("Node").field(arg0).finish(),
-            Self::Value(arg0) => f.debug_tuple("Value").field(arg0).finish(),
-        }
-    }
-}
-
-impl<H: Default + Digest> Hashable<H> {
-    fn hash(&self) -> Cow<Output<H>> {
+impl Hashable {
+    fn hash(&self) -> Cow<Output<Blake2b256>> {
         match self {
             Hashable::MerkleProof(proof) => Cow::Owned(proof.hash()),
             Hashable::Node(hash) | Hashable::Value(hash) => Cow::Borrowed(hash),
@@ -100,8 +64,8 @@ pub struct MerkleProofDto {
     right: HashableDto,
 }
 
-impl<H: Default + Digest> From<MerkleProof<H>> for MerkleProofDto {
-    fn from(value: MerkleProof<H>) -> Self {
+impl From<MerkleProof> for MerkleProofDto {
+    fn from(value: MerkleProof) -> Self {
         Self {
             left: value.left.into(),
             right: value.right.into(),
@@ -109,7 +73,7 @@ impl<H: Default + Digest> From<MerkleProof<H>> for MerkleProofDto {
     }
 }
 
-impl TryFrom<MerkleProofDto> for MerkleProof<Blake2b256> {
+impl TryFrom<MerkleProofDto> for MerkleProof {
     type Error = prefix_hex::Error;
 
     fn try_from(proof: MerkleProofDto) -> Result<Self, Self::Error> {
@@ -134,8 +98,8 @@ pub enum HashableDto {
     },
 }
 
-impl<H: Default + Digest> From<Hashable<H>> for HashableDto {
-    fn from(value: Hashable<H>) -> Self {
+impl From<Hashable> for HashableDto {
+    fn from(value: Hashable) -> Self {
         match value {
             Hashable::Node(h) => Self::Node {
                 hash: prefix_hex::encode(h.as_slice()),
@@ -148,7 +112,7 @@ impl<H: Default + Digest> From<Hashable<H>> for HashableDto {
     }
 }
 
-impl TryFrom<HashableDto> for Hashable<Blake2b256> {
+impl TryFrom<HashableDto> for Hashable {
     type Error = prefix_hex::Error;
 
     fn try_from(hashed: HashableDto) -> Result<Self, Self::Error> {
