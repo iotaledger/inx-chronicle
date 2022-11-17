@@ -20,7 +20,7 @@ pub struct ClArgs {
     #[command(flatten)]
     pub api: ApiArgs,
     /// InfluxDb arguments.
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     #[command(flatten)]
     pub influxdb: InfluxDbArgs,
     /// INX arguments.
@@ -30,6 +30,10 @@ pub struct ClArgs {
     /// MongoDb arguments.
     #[command(flatten)]
     pub mongodb: MongoDbArgs,
+    /// Loki arguments.
+    #[cfg(feature = "loki")]
+    #[command(flatten)]
+    pub loki: LokiArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
@@ -77,15 +81,29 @@ pub struct MongoDbArgs {
     pub mongodb_conn_str: Option<String>,
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
-    /// Toggle InfluxDb time-series writes.
-    #[arg(long, env = "INFLUXDB_ENABLED")]
-    pub influxdb_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series metrics writes.
+    #[arg(long, env = "METRICS_ENABLED")]
+    pub metrics_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series analytics writes.
+    #[arg(long, env = "ANALYTICS_ENABLED")]
+    pub analytics_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
+}
+
+#[cfg(feature = "loki")]
+#[derive(Args, Debug)]
+pub struct LokiArgs {
+    /// Toggle Grafana Loki log writes.
+    #[arg(long, env = "LOKI_ENABLED")]
+    pub loki_enabled: Option<bool>,
+    /// The url pointing to a Grafana Loki instance.
+    #[arg(long, env = "LOKI_URL")]
+    pub loki_url: Option<String>,
 }
 
 impl ClArgs {
@@ -115,11 +133,22 @@ impl ClArgs {
             }
         }
 
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "analytics")]
         {
-            if let Some(enabled) = self.influxdb.influxdb_enabled {
-                config.influxdb.enabled = enabled;
+            if let Some(enabled) = self.influxdb.analytics_enabled {
+                config.influxdb.analytics_enabled = enabled;
             }
+        }
+
+        #[cfg(feature = "metrics")]
+        {
+            if let Some(enabled) = self.influxdb.metrics_enabled {
+                config.influxdb.metrics_enabled = enabled;
+            }
+        }
+
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        {
             if let Some(url) = &self.influxdb.influxdb_url {
                 config.influxdb.url = url.clone();
             }
@@ -146,13 +175,23 @@ impl ClArgs {
             }
         }
 
+        #[cfg(feature = "loki")]
+        {
+            if let Some(connect_url) = &self.loki.loki_url {
+                config.loki.connect_url = connect_url.clone();
+            }
+            if let Some(enabled) = self.loki.loki_enabled {
+                config.loki.enabled = enabled;
+            }
+        }
+
         Ok(config)
     }
 
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<bool, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<PostCommand, Error> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -170,20 +209,21 @@ impl ClArgs {
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
                         .map_err(crate::api::ApiError::InvalidJwt)?;
-                    println!("Bearer {}", jwt);
-                    println!(
+                    tracing::info!("Bearer {}", jwt);
+                    tracing::info!(
                         "Expires: {} ({})",
                         exp_ts,
                         humantime::format_duration(api_data.jwt_expiration)
                     );
-                    return Ok(true);
+                    return Ok(PostCommand::Exit);
                 }
-                #[cfg(feature = "analytics")]
+                #[cfg(all(feature = "analytics", feature = "stardust"))]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
                     num_tasks,
                 } => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
                     let start_milestone = if let Some(index) = start_milestone {
                         *index
@@ -219,9 +259,9 @@ impl ClArgs {
                                 {
                                     let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
-                                    println!("Finished analytics for milestone: {}", index);
+                                    tracing::info!("Finished analytics for milestone {}", index);
                                 } else {
-                                    println!("No milestone in database for index {}", index);
+                                    tracing::info!("No milestone in database for index {}", index);
                                 }
                             }
                             Result::<_, Error>::Ok(())
@@ -231,12 +271,30 @@ impl ClArgs {
                         // Panic: Acceptable risk
                         res.unwrap()?;
                     }
-                    return Ok(true);
+                    return Ok(PostCommand::Exit);
+                }
+                #[cfg(debug_assertions)]
+                Subcommands::ClearDatabase { run } => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    db.clear().await?;
+                    tracing::info!("Database cleared successfully.");
+                    if !run {
+                        return Ok(PostCommand::Exit);
+                    }
+                }
+                #[cfg(feature = "stardust")]
+                Subcommands::BuildIndexes => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    super::build_indexes(&db).await?;
+                    tracing::info!("Indexes built successfully.");
+                    return Ok(PostCommand::Exit);
                 }
                 _ => (),
             }
         }
-        Ok(false)
+        Ok(PostCommand::Start)
     }
 }
 
@@ -245,13 +303,32 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    #[cfg(feature = "analytics")]
+    #[cfg(all(feature = "analytics", feature = "stardust"))]
     FillAnalytics {
+        /// The inclusive starting milestone index.
         #[arg(short, long)]
         start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The exclusive ending milestone index.
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
     },
+    /// Clear the chronicle database.
+    #[cfg(debug_assertions)]
+    ClearDatabase {
+        /// Run the application after this command.
+        #[arg(short, long)]
+        run: bool,
+    },
+    /// Manually build indexes.
+    #[cfg(feature = "stardust")]
+    BuildIndexes,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum PostCommand {
+    Start,
+    Exit,
 }

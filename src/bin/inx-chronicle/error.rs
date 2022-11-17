@@ -11,7 +11,7 @@ pub enum Error {
     Config(#[from] ConfigError),
     #[error(transparent)]
     MongoDb(#[from] mongodb::error::Error),
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     #[error(transparent)]
     InfluxDb(#[from] influxdb::Error),
     #[cfg(feature = "api")]
@@ -22,4 +22,10 @@ pub enum Error {
     Inx(#[from] super::stardust_inx::InxWorkerError),
     #[error(transparent)]
     Shutdown(#[from] tokio::sync::broadcast::error::SendError<()>),
+    #[error(transparent)]
+    #[cfg(feature = "loki")]
+    Loki(#[from] tracing_loki::Error),
+    #[error(transparent)]
+    #[cfg(feature = "loki")]
+    Url(#[from] url::ParseError),
 }

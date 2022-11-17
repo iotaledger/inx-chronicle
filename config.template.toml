@@ -15,7 +15,8 @@ min_pool_size = 2
 
 [influxdb]
 ### Whether influx time-series data will be written.
-enabled = true
+metrics_enabled = true
+analytics_enabled = true
 
 ### URL pointing to the InfluxDB instance.
 url = "http://localhost:8086"
@@ -45,7 +46,6 @@ jwt_expiration = "72h"
 ### Public API routes.
 public_routes = [
     # Activated APIs.
-    "api/analytics/v2/*",
     "api/core/v2/*",
 ]
 
@@ -78,3 +78,10 @@ connection_retry_interval = "5s"
 
 ### Maximum number of tries to establish an INX connection.
 connection_retry_count = 30
+
+[loki]
+### Whether Grafana Loki is used for writing logs.
+enabled = true
+
+### The Grafana Loki connection URL.
+connect_url = "http://localhost:3100"

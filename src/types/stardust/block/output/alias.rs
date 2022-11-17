@@ -27,7 +27,12 @@ impl AliasId {
 
     /// The [`AliasId`] is derived from the [`OutputId`](super::OutputId) that created the alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, iota_types::block::Error> {
-        Ok(iota::AliasId::from(iota::OutputId::from_str(s)?).into())
+        Ok(iota::AliasId::from(&iota::OutputId::from_str(s)?).into())
+    }
+
+    /// Get an implicit (zeroed) alias ID, for new alias outputs.
+    pub fn implicit() -> Self {
+        Self([0; Self::LENGTH])
     }
 }
 

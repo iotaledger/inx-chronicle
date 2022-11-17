@@ -384,8 +384,6 @@ impl OutputCollection {
 
 #[cfg(feature = "analytics")]
 mod analytics {
-    use std::collections::{HashMap, HashSet};
-
     use decimal::d128;
 
     use super::*;
@@ -393,14 +391,14 @@ mod analytics {
         db::{
             collections::analytics::{
                 AddressActivityAnalytics, AddressAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
-                ClaimedTokensAnalytics, FoundryActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-                NftActivityAnalytics, UnlockConditionAnalytics,
+                LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics, UnclaimedTokensAnalytics,
+                UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
         },
         types::{
             stardust::block::output::{
-                AliasId, AliasOutput, BasicOutput, FoundryId, FoundryOutput, NftId, NftOutput, TreasuryOutput,
+                AliasId, AliasOutput, BasicOutput, FoundryOutput, NftId, NftOutput, TreasuryOutput,
             },
             tangle::MilestoneIndex,
         },
@@ -502,178 +500,119 @@ mod analytics {
             })
         }
 
-        pub(crate) async fn get_unique_nft_ids(&self, index: MilestoneIndex) -> Result<HashSet<NftId>, Error> {
-            #[derive(Deserialize)]
-            struct NftIdsResult {
-                id: NftId,
-            }
-
-            self.aggregate::<NftIdsResult>(
-                vec![
-                    doc! { "$match": {
-                        "output.kind": "nft",
-                        "metadata.booked.milestone_index": { "$lte": index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } }
-                    } },
-                    doc! { "$project": {
-                        "id": "$output.nft_id"
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| res.id)
-            .try_collect()
-            .await
-        }
-
-        /// Gathers unique nft ids that were created/transferred/burned in the given milestone.
+        /// Gathers analytics about nfts that were created/transferred/burned in the given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
         pub async fn get_nft_output_analytics(&self, index: MilestoneIndex) -> Result<NftActivityAnalytics, Error> {
-            if index == 0 {
-                return Ok(Default::default());
-            }
-            let (start_state, end_state) =
-                tokio::try_join!(self.get_unique_nft_ids(index - 1), self.get_unique_nft_ids(index))?;
-
-            Ok(NftActivityAnalytics {
-                created_count: end_state.difference(&start_state).copied().count() as _,
-                transferred_count: start_state.intersection(&end_state).copied().count() as _,
-                destroyed_count: start_state.difference(&end_state).copied().count() as _,
-            })
+            Ok(self
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "output.kind": "nft",
+                            "$or": [
+                                { "metadata.booked.milestone_index": index },
+                                { "metadata.spent_metadata.spent.milestone_index": index },
+                            ],
+                        } },
+                        doc! { "$facet": {
+                            "created": [
+                                { "$match": {
+                                    "metadata.booked.milestone_index": index,
+                                    "output.nft_id": NftId::implicit(),
+                                } },
+                                { "$group": {
+                                    "_id": null,
+                                    "count": { "$sum": 1 },
+                                } },
+                            ],
+                            "changed": [
+                                { "$match": { "output.nft_id": { "$ne": NftId::implicit() } } },
+                                { "$group": {
+                                    "_id": "$output.nft_id",
+                                    "transferred": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
+                                    "unspent": { "$max": { "$cond": [ { "$eq": [ "$metadata.spent_metadata", null ] }, 1, 0 ] } },
+                                } },
+                                { "$group": {
+                                    "_id": null,
+                                    "transferred": { "$sum": "$transferred" },
+                                    "destroyed": { "$sum": { "$cond": [ { "$eq": [ "$unspent", 0 ] }, 1, 0 ] } },
+                                } },
+                            ],
+                        } },
+                        doc! { "$project": {
+                            "created_count": { "$ifNull": [ { "$first": "$created.count" }, 0 ] },
+                            "transferred_count": { "$ifNull": [ { "$first": "$changed.transferred" }, 0 ] },
+                            "destroyed_count": { "$ifNull": [ { "$first": "$changed.destroyed" }, 0 ] },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default())
         }
 
-        pub(crate) async fn get_unique_foundry_ids(&self, index: MilestoneIndex) -> Result<HashSet<FoundryId>, Error> {
-            #[derive(Deserialize)]
-            struct FoundryIdsResult {
-                id: FoundryId,
-            }
-
-            self.aggregate::<FoundryIdsResult>(
-                vec![
-                    doc! { "$match": {
-                        "output.kind": "foundry",
-                        "metadata.booked.milestone_index": { "$lte": index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } }
-                    } },
-                    doc! { "$project": {
-                        "id": "$output.foundry_id"
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| res.id)
-            .try_collect()
-            .await
-        }
-
-        /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
+        /// Gathers analytics about aliases that were created/transferred/burned in the given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_foundry_output_analytics(
-            &self,
-            index: MilestoneIndex,
-        ) -> Result<FoundryActivityAnalytics, Error> {
-            if index == 0 {
-                return Ok(Default::default());
-            }
-            let (start_state, end_state) = tokio::try_join!(
-                self.get_unique_foundry_ids(index - 1),
-                self.get_unique_foundry_ids(index)
-            )?;
-            Ok(FoundryActivityAnalytics {
-                created_count: end_state.difference(&start_state).copied().count() as _,
-                transferred_count: start_state.intersection(&end_state).copied().count() as _,
-                destroyed_count: start_state.difference(&end_state).copied().count() as _,
-            })
-        }
-
-        /// Gathers unique foundry ids that were created/transferred/burned in the given milestone.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_alias_output_tracker(&self, index: MilestoneIndex) -> Result<AliasActivityAnalytics, Error> {
-            if index == 0 {
-                return Ok(Default::default());
-            }
-            let (start_state, end_state) =
-                tokio::try_join!(self.get_unique_alias_ids(index - 1), self.get_unique_alias_ids(index))?;
-
-            Ok(AliasActivityAnalytics {
-                created_count: end_state
-                    .iter()
-                    .filter_map(|(end_id, end_state)| {
-                        if start_state.get(end_id).is_some() {
-                            None
-                        } else {
-                            Some((*end_id, *end_state))
-                        }
-                    })
-                    .count() as _,
-                governor_changed_count: start_state
-                    .iter()
-                    .filter_map(|(start_id, start_state)| {
-                        if let Some(end_state) = end_state.get(start_id) {
-                            if end_state == start_state {
-                                Some((*start_id, *end_state))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    })
-                    .count() as _,
-                state_changed_count: start_state
-                    .iter()
-                    .filter_map(|(start_id, start_state)| {
-                        if let Some(end_state) = end_state.get(start_id) {
-                            if end_state != start_state {
-                                Some((*start_id, *end_state))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    })
-                    .count() as _,
-                destroyed_count: start_state
-                    .iter()
-                    .filter_map(|(start_id, start_state)| {
-                        if end_state.get(start_id).is_some() {
-                            None
-                        } else {
-                            Some((*start_id, *start_state))
-                        }
-                    })
-                    .count() as _,
-            })
-        }
-
-        pub(crate) async fn get_unique_alias_ids(&self, index: MilestoneIndex) -> Result<HashMap<AliasId, u32>, Error> {
-            #[derive(Deserialize)]
-            struct AliasIdsResult {
-                id: AliasId,
-                state_index: u32,
-            }
-
-            self.aggregate::<AliasIdsResult>(
-                vec![
-                    doc! { "$match": {
-                        "output.kind": "alias",
-                        "metadata.booked.milestone_index": { "$lte": index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": index } }
-                    } },
-                    doc! { "$project": {
-                        "id": "$output.alias_id",
-                        "state_index": "$output.state_index"
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|res| (res.id, res.state_index))
-            .try_collect()
-            .await
+        pub async fn get_alias_output_analytics(&self, index: MilestoneIndex) -> Result<AliasActivityAnalytics, Error> {
+            Ok(self
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "output.kind": "alias",
+                            "$or": [
+                                { "metadata.booked.milestone_index": index },
+                                { "metadata.spent_metadata.spent.milestone_index": index },
+                            ],
+                        } },
+                        doc! { "$facet": {
+                            "created": [
+                                { "$match": {
+                                    "metadata.booked.milestone_index": index,
+                                    "output.alias_id": AliasId::implicit(),
+                                } },
+                                { "$group": {
+                                    "_id": null,
+                                    "count": { "$sum": 1 },
+                                } },
+                            ],
+                            "changed": [
+                                { "$match": { "output.alias_id": { "$ne": AliasId::implicit() } } },
+                                // Group by state indexes to find where it changed
+                                { "$group": {
+                                    "_id": { "alias_id": "$output.alias_id", "state_index": "$output.state_index" },
+                                    "total": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
+                                    "unspent": { "$max": { "$cond": [ { "$eq": [ "$metadata.spent_metadata", null ] }, 1, 0 ] } },
+                                    "prev_state": { "$max": { "$cond": [ { "$lt": [ "$metadata.booked.milestone_index", index ] }, "$output.state_index", 0 ] } },
+                                } },
+                                { "$group": {
+                                    "_id": "$_id.alias_id",
+                                    "total": { "$sum": "$total" },
+                                    "state": { "$sum": { "$cond": [ { "$ne": [ "$_id.state_index", "$prev_state" ] }, 1, 0 ] } },
+                                    "unspent": { "$max": "$unspent" },
+                                } },
+                                { "$group": {
+                                    "_id": null,
+                                    "total": { "$sum": "$total" },
+                                    "state": { "$sum": "$state" },
+                                    "destroyed": { "$sum": { "$cond": [ { "$eq": [ "$unspent", 0 ] }, 1, 0 ] } },
+                                } },
+                                { "$set": { "governor": { "$subtract": [ "$total", "$state" ] } } },
+                            ],
+                        } },
+                        doc! { "$project": {
+                            "created_count": { "$ifNull": [ { "$first": "$created.count" }, 0 ] },
+                            "state_changed_count": { "$ifNull": [ { "$first": "$changed.state" }, 0 ] },
+                            "governor_changed_count": { "$ifNull": [ { "$first": "$changed.governor" }, 0 ] },
+                            "destroyed_count": { "$ifNull": [ { "$first": "$changed.destroyed" }, 0 ] },
+                        } }
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default())
         }
 
         /// Gathers byte cost and storage deposit analytics.
@@ -821,25 +760,25 @@ mod analytics {
 
         /// Gets the number of claimed tokens.
         #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_claimed_token_analytics(
+        pub async fn get_unclaimed_token_analytics(
             &self,
             ledger_index: MilestoneIndex,
-        ) -> Result<ClaimedTokensAnalytics, Error> {
+        ) -> Result<UnclaimedTokensAnalytics, Error> {
             Ok(self
                 .aggregate(
                     vec![
                         doc! { "$match": {
                             "metadata.booked.milestone_index": { "$eq": 0 },
-                            "metadata.spent_metadata.spent.milestone_index": { "$lte": ledger_index },
+                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                         } },
                         doc! { "$group": {
                             "_id": null,
-                            "claimed_count": { "$sum": 1 },
-                            "claimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                            "unclaimed_count": { "$sum": 1 },
+                            "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
                         } },
                         doc! { "$project": {
-                            "claimed_count": 1,
-                            "claimed_value": { "$toString": "$claimed_value" },
+                            "unclaimed_count": 1,
+                            "unclaimed_value": { "$toString": "$unclaimed_value" },
                         } },
                     ],
                     None,

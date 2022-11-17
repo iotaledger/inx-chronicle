@@ -27,7 +27,12 @@ impl NftId {
 
     /// The [`NftId`] is derived from the [`super::OutputId`] that created the alias.
     pub fn from_output_id_str(s: &str) -> Result<Self, iota_types::block::Error> {
-        Ok(iota::NftId::from(iota::OutputId::from_str(s)?).into())
+        Ok(iota::NftId::from(&iota::OutputId::from_str(s)?).into())
+    }
+
+    /// Get an implicit (zeroed) nft ID, for new nft outputs.
+    pub fn implicit() -> Self {
+        Self([0; Self::LENGTH])
     }
 }
 

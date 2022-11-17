@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// Schema implementation for InfluxDb.
-#[cfg(feature = "influxdb")]
 pub mod influx;
 
 use decimal::d128;
@@ -25,10 +24,9 @@ pub struct Analytics {
     pub base_token: BaseTokenActivityAnalytics,
     pub ledger_outputs: LedgerOutputAnalytics,
     pub aliases: AliasActivityAnalytics,
-    pub native_tokens: FoundryActivityAnalytics,
     pub nfts: NftActivityAnalytics,
     pub storage_deposits: LedgerSizeAnalytics,
-    pub claimed_tokens: ClaimedTokensAnalytics,
+    pub unclaimed_tokens: UnclaimedTokensAnalytics,
     pub payload_activity: PayloadActivityAnalytics,
     pub transaction_activity: TransactionActivityAnalytics,
     pub unlock_conditions: UnlockConditionAnalytics,
@@ -47,10 +45,9 @@ impl MongoDb {
             addresses,
             ledger_outputs,
             aliases,
-            native_tokens,
             nfts,
             storage_deposits,
-            claimed_tokens,
+            unclaimed_tokens,
             unlock_conditions,
             address_activity,
             base_token,
@@ -60,11 +57,10 @@ impl MongoDb {
         ) = tokio::try_join!(
             output_collection.get_address_analytics(milestone_index),
             output_collection.get_ledger_output_analytics(milestone_index),
-            output_collection.get_alias_output_tracker(milestone_index),
-            output_collection.get_foundry_output_analytics(milestone_index),
+            output_collection.get_alias_output_analytics(milestone_index),
             output_collection.get_nft_output_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
-            output_collection.get_claimed_token_analytics(milestone_index),
+            output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
             output_collection.get_address_activity_analytics(milestone_index),
             output_collection.get_base_token_activity_analytics(milestone_index),
@@ -81,10 +77,9 @@ impl MongoDb {
             base_token,
             ledger_outputs,
             aliases,
-            native_tokens,
             nfts,
             storage_deposits,
-            claimed_tokens,
+            unclaimed_tokens,
             payload_activity,
             transaction_activity,
             unlock_conditions,
@@ -156,9 +151,9 @@ impl LedgerSizeAnalytics {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct ClaimedTokensAnalytics {
-    pub claimed_count: u64,
-    pub claimed_value: d128,
+pub struct UnclaimedTokensAnalytics {
+    pub unclaimed_count: u64,
+    pub unclaimed_value: d128,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
