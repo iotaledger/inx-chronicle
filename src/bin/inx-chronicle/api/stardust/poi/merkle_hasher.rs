@@ -81,7 +81,8 @@ impl<H: Default + Digest> MerkleHasher<H> {
         let n = data.len();
         debug_assert!(index < n);
         match n {
-            0 | 1 => unreachable!(),
+            0 => unreachable!("zero"),
+            1 => unreachable!("one"),
             // The terminating point, where we only have two values that become
             // left and right leaves. The chosen index is a `Value` while
             // the other is a `Node`.
@@ -107,7 +108,7 @@ impl<H: Default + Digest> MerkleHasher<H> {
                 // Otherwise, we simply hash the subtree and store it as a `Node`.
                 if index < k {
                     MerkleProof {
-                        left: if data.len() == 1 {
+                        left: if data[..k].len() == 1 {
                             Hashable::Value(Self::hash_leaf(data[0]))
                         } else {
                             Hashable::MerkleProof(Box::new(Self::compute_proof(&data[..k], index)))
@@ -117,8 +118,8 @@ impl<H: Default + Digest> MerkleHasher<H> {
                 } else {
                     MerkleProof {
                         left: Hashable::Node(Self::hash(&data[..k])),
-                        right: if data.len() == 1 {
-                            Hashable::Value(Self::hash_leaf(data[0]))
+                        right: if data[k..].len() == 1 {
+                            Hashable::Value(Self::hash_leaf(data[k]))
                         } else {
                             Hashable::MerkleProof(Box::new(Self::compute_proof(&data[k..], index - k)))
                         },
