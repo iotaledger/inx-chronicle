@@ -341,10 +341,22 @@ impl InxWorker {
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
-        let analytics_elapsed = self
-            .influx_db
-            .as_ref()
-            .and_then(|db| db.config().analytics_enabled.then_some(analytics_start_time.elapsed()));
+        {
+            if let Some(influx_db) = &self.influx_db {
+                if influx_db.config().analytics_enabled {
+                    let analytics_elapsed = analytics_start_time.elapsed();
+                    influx_db
+                        .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                            time: chrono::Utc::now(),
+                            milestone_index,
+                            analytics_time: analytics_elapsed.as_millis() as u64,
+                            network_name: network_name.clone(),
+                            chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                        })
+                        .await?;
+                }
+            }
+        }
 
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
@@ -355,8 +367,6 @@ impl InxWorker {
                         time: chrono::Utc::now(),
                         milestone_index,
                         milestone_time: elapsed.as_millis() as u64,
-                        #[cfg(feature = "analytics")]
-                        analytics_time: analytics_elapsed.map(|d| d.as_millis() as u64),
                         network_name,
                         chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                     })

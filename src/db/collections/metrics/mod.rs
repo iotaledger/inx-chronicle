@@ -17,8 +17,19 @@ pub struct SyncMetrics {
     pub time: DateTime<Utc>,
     pub milestone_index: MilestoneIndex,
     pub milestone_time: u64,
-    #[cfg(feature = "analytics")]
-    pub analytics_time: Option<u64>,
+    #[influxdb(tag)]
+    pub chronicle_version: String,
+    #[influxdb(tag)]
+    pub network_name: String,
+}
+
+#[cfg(feature = "analytics")]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, InfluxDbWriteable)]
+#[allow(missing_docs)]
+pub struct AnalyticsMetrics {
+    pub time: DateTime<Utc>,
+    pub milestone_index: MilestoneIndex,
+    pub analytics_time: u64,
     #[influxdb(tag)]
     pub chronicle_version: String,
     #[influxdb(tag)]

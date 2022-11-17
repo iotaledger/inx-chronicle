@@ -257,8 +257,31 @@ impl ClArgs {
                                     .get_milestone_timestamp(index)
                                     .await?
                                 {
+                                    #[cfg(feature = "metrics")]
+                                    let start_time = std::time::Instant::now();
                                     let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+                                    #[cfg(feature = "metrics")]
+                                    {
+                                        let elapsed = start_time.elapsed();
+                                        let network_name = db
+                                            .collection::<chronicle::db::collections::ProtocolUpdateCollection>()
+                                            .get_protocol_parameters_for_ledger_index(index)
+                                            .await?
+                                            // TODO: Replace with an error once the eyre PR is merged
+                                            .expect("corrupt state")
+                                            .parameters
+                                            .network_name;
+                                        influx_db
+                                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                                                time: chrono::Utc::now(),
+                                                milestone_index: index,
+                                                analytics_time: elapsed.as_millis() as u64,
+                                                network_name,
+                                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                                            })
+                                            .await?;
+                                    }
                                     tracing::info!("Finished analytics for milestone {}", index);
                                 } else {
                                     tracing::info!("No milestone in database for index {}", index);
