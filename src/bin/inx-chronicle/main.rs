@@ -60,8 +60,8 @@ async fn main() -> Result<(), Error> {
 
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
-        #[cfg(feature = "influxdb")]
-        let influx_db = if config.influxdb.enabled {
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        let influx_db = if config.influxdb.analytics_enabled || config.influxdb.metrics_enabled {
             info!("Connecting to influx database at address `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             info!("Connected to influx database `{}`", influx_db.database_name());
@@ -72,7 +72,7 @@ async fn main() -> Result<(), Error> {
 
         let mut worker = stardust_inx::InxWorker::new(
             &db,
-            #[cfg(feature = "influxdb")]
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db.as_ref(),
             &config.inx,
         );

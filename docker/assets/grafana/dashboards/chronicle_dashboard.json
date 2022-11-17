@@ -55,7 +55,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
@@ -75,7 +75,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.4",
+      "pluginVersion": "9.3.0-beta1",
       "targets": [
         {
           "datasource": {
@@ -85,15 +85,15 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "chronicle_version"
               ],
-              "type": "time"
+              "type": "tag"
             },
             {
               "params": [
-                "null"
+                "network_name"
               ],
-              "type": "fill"
+              "type": "tag"
             }
           ],
           "measurement": "sync_metrics",
@@ -108,10 +108,6 @@
                   "milestone_index"
                 ],
                 "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
               }
             ]
           ],
@@ -119,6 +115,7 @@
         }
       ],
       "title": "Last Milestone Index",
+      "transformations": [],
       "type": "stat"
     },
     {
@@ -183,7 +180,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 5
       },
       "id": 7,
       "options": {
@@ -194,14 +191,14 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
       "pluginVersion": "9.2.3",
       "targets": [
         {
-          "alias": "Milestone Time",
+          "alias": "$col ($tag_chronicle_version)",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -212,6 +209,12 @@
                 "$__interval"
               ],
               "type": "time"
+            },
+            {
+              "params": [
+                "chronicle_version"
+              ],
+              "type": "tag"
             },
             {
               "params": [
@@ -237,38 +240,14 @@
               {
                 "params": [],
                 "type": "mean"
+              },
+              {
+                "params": [
+                  "Milestone Time"
+                ],
+                "type": "alias"
               }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "Analytics Time",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "sync_metrics",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
+            ],
             [
               {
                 "params": [
@@ -279,6 +258,12 @@
               {
                 "params": [],
                 "type": "mean"
+              },
+              {
+                "params": [
+                  "Analytics Time"
+                ],
+                "type": "alias"
               }
             ]
           ],
@@ -286,6 +271,7 @@
         }
       ],
       "title": "Milestone Sync Time",
+      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -349,7 +335,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 17
       },
       "id": 15,
       "options": {
@@ -472,7 +458,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 28
       },
       "id": 9,
       "options": {
@@ -565,7 +551,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 28
       },
       "id": 11,
       "options": {
@@ -701,8 +687,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -718,7 +703,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 34
+        "y": 36
       },
       "id": 13,
       "options": {
