@@ -254,8 +254,22 @@ impl ClArgs {
                                     .get_milestone_timestamp(index)
                                     .await?
                                 {
+                                    #[cfg(feature = "metrics")]
+                                    let start_time = std::time::Instant::now();
                                     let analytics = db.get_all_analytics(index).await?;
                                     influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+                                    #[cfg(feature = "metrics")]
+                                    {
+                                        let elapsed = start_time.elapsed();
+                                        influx_db
+                                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                                                time: chrono::Utc::now(),
+                                                milestone_index: index,
+                                                analytics_time: elapsed.as_millis() as u64,
+                                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                                            })
+                                            .await?;
+                                    }
                                     tracing::info!("Finished analytics for milestone {}", index);
                                 } else {
                                     tracing::info!("No milestone in database for index {}", index);

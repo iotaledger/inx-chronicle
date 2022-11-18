@@ -322,8 +322,7 @@ impl InxWorker {
         tracing::Span::current().record("consumed", consumed_count);
 
         self.handle_cone_stream(inx, milestone_index).await?;
-        #[allow(unused)]
-        let network_name = self.handle_protocol_params(inx, milestone_index).await?;
+        self.handle_protocol_params(inx, milestone_index).await?;
         self.handle_node_configuration(inx, milestone_index).await?;
 
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
@@ -342,10 +341,21 @@ impl InxWorker {
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
-        let analytics_elapsed = self
-            .influx_db
-            .as_ref()
-            .and_then(|db| db.config().analytics_enabled.then_some(analytics_start_time.elapsed()));
+        {
+            if let Some(influx_db) = &self.influx_db {
+                if influx_db.config().analytics_enabled {
+                    let analytics_elapsed = analytics_start_time.elapsed();
+                    influx_db
+                        .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                            time: chrono::Utc::now(),
+                            milestone_index,
+                            analytics_time: analytics_elapsed.as_millis() as u64,
+                            chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                        })
+                        .await?;
+                }
+            }
+        }
 
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
@@ -356,9 +366,6 @@ impl InxWorker {
                         time: chrono::Utc::now(),
                         milestone_index,
                         milestone_time: elapsed.as_millis() as u64,
-                        #[cfg(feature = "analytics")]
-                        analytics_time: analytics_elapsed.map(|d| d.as_millis() as u64),
-                        network_name,
                         chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                     })
                     .await?;
@@ -369,21 +376,19 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, level = "trace")]
-    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<String> {
+    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
         let parameters = inx
             .read_protocol_parameters(milestone_index.0.into())
             .await?
             .params
             .inner(&())?;
 
-        let network_name = parameters.network_name().to_string();
-
         self.db
             .collection::<ProtocolUpdateCollection>()
             .update_latest_protocol_parameters(milestone_index, parameters.into())
             .await?;
 
-        Ok(network_name)
+        Ok(())
     }
 
     #[instrument(skip_all, level = "trace")]
