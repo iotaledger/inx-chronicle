@@ -1057,7 +1057,7 @@
           "tags": []
         }
       ],
-      "title": "Average Number of Active Addresses",
+      "title": "Average Number of Active Addresses per Milestone",
       "type": "timeseries"
     },
     {
