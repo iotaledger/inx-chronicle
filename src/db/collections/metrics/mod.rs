@@ -17,7 +17,6 @@ pub struct SyncMetrics {
     pub time: DateTime<Utc>,
     pub milestone_index: MilestoneIndex,
     pub milestone_time: u64,
-    pub chronicle_version: String,
 }
 
 #[cfg(feature = "analytics")]
@@ -27,5 +26,4 @@ pub struct AnalyticsMetrics {
     pub time: DateTime<Utc>,
     pub milestone_index: MilestoneIndex,
     pub analytics_time: u64,
-    pub chronicle_version: String,
 }
