@@ -1246,8 +1246,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1430,8 +1429,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1611,8 +1609,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1776,8 +1773,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1973,8 +1969,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2104,8 +2099,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2240,8 +2234,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2387,8 +2380,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2483,9 +2475,9 @@
         "auto_count": 30,
         "auto_min": "10s",
         "current": {
-          "selected": false,
-          "text": "30m",
-          "value": "30m"
+          "selected": true,
+          "text": "6h",
+          "value": "6h"
         },
         "description": "The time interval over which the data is aggregated.",
         "hide": 0,
@@ -2498,7 +2490,7 @@
             "value": "1m"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "30m",
             "value": "30m"
           },
@@ -2508,7 +2500,7 @@
             "value": "1h"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "6h",
             "value": "6h"
           },
@@ -2544,6 +2536,6 @@
   "timezone": "",
   "title": "Analytics",
   "uid": "w6B8aUI4z",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
