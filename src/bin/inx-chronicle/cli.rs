@@ -3,10 +3,7 @@
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::{
-    config::{ChronicleConfig, ConfigError},
-    error::Error,
-};
+use crate::config::{ChronicleConfig, ConfigError};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -20,7 +17,7 @@ pub struct ClArgs {
     #[command(flatten)]
     pub api: ApiArgs,
     /// InfluxDb arguments.
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     #[command(flatten)]
     pub influxdb: InfluxDbArgs,
     /// INX arguments.
@@ -81,18 +78,21 @@ pub struct MongoDbArgs {
     pub mongodb_conn_str: Option<String>,
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
-    /// Toggle InfluxDb time-series writes.
-    #[arg(long, env = "INFLUXDB_ENABLED")]
-    pub influxdb_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series metrics writes.
+    #[arg(long, env = "METRICS_ENABLED")]
+    pub metrics_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series analytics writes.
+    #[arg(long, env = "ANALYTICS_ENABLED")]
+    pub analytics_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
     #[arg(long, env = "INFLUXDB_URL")]
     pub influxdb_url: Option<String>,
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(feature = "loki")]
 #[derive(Args, Debug)]
 pub struct LokiArgs {
     /// Toggle Grafana Loki log writes.
@@ -130,11 +130,22 @@ impl ClArgs {
             }
         }
 
-        #[cfg(feature = "influxdb")]
+        #[cfg(feature = "analytics")]
         {
-            if let Some(enabled) = self.influxdb.influxdb_enabled {
-                config.influxdb.enabled = enabled;
+            if let Some(enabled) = self.influxdb.analytics_enabled {
+                config.influxdb.analytics_enabled = enabled;
             }
+        }
+
+        #[cfg(feature = "metrics")]
+        {
+            if let Some(enabled) = self.influxdb.metrics_enabled {
+                config.influxdb.metrics_enabled = enabled;
+            }
+        }
+
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        {
             if let Some(url) = &self.influxdb.influxdb_url {
                 config.influxdb.url = url.clone();
             }
@@ -177,7 +188,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<PostCommand, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> eyre::Result<PostCommand> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -191,10 +202,10 @@ impl ClArgs {
                     )
                     .unwrap() // Panic: Cannot fail.
                     .expires_after_duration(api_data.jwt_expiration)
-                    .map_err(crate::api::ApiError::InvalidJwt)?;
+                    .map_err(crate::api::AuthError::InvalidJwt)?;
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
-                        .map_err(crate::api::ApiError::InvalidJwt)?;
+                        .map_err(crate::api::AuthError::InvalidJwt)?;
                     tracing::info!("Bearer {}", jwt);
                     tracing::info!(
                         "Expires: {} ({})",
@@ -203,7 +214,7 @@ impl ClArgs {
                     );
                     return Ok(PostCommand::Exit);
                 }
-                #[cfg(feature = "analytics")]
+                #[cfg(all(feature = "analytics", feature = "stardust"))]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
@@ -250,7 +261,7 @@ impl ClArgs {
                                     tracing::info!("No milestone in database for index {}", index);
                                 }
                             }
-                            Result::<_, Error>::Ok(())
+                            eyre::Result::<_>::Ok(())
                         });
                     }
                     while let Some(res) = join_set.join_next().await {
@@ -269,6 +280,7 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                 }
+                #[cfg(feature = "stardust")]
                 Subcommands::BuildIndexes => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb, "Chronicle CLI").await?;
@@ -288,8 +300,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    /// Manually fill the analytics database.
-    #[cfg(feature = "analytics")]
+    #[cfg(all(feature = "analytics", feature = "stardust"))]
     FillAnalytics {
         /// The inclusive starting milestone index.
         #[arg(short, long)]
@@ -309,6 +320,7 @@ pub enum Subcommands {
         run: bool,
     },
     /// Manually build indexes.
+    #[cfg(feature = "stardust")]
     BuildIndexes,
 }
 

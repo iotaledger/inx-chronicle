@@ -15,7 +15,13 @@ services:
 
   inx-chronicle:
     container_name: inx-chronicle
-    depends_on: [mongo, hornet]
+    depends_on:
+      influx:
+        condition: service_started
+      mongo:
+        condition: service_started
+      hornet:
+        condition: service_healthy
     build:
       context: ..
       dockerfile: docker/Dockerfile.debug
@@ -45,6 +51,10 @@ services:
       - INFLUXDB_ADMIN_USER=root
       - INFLUXDB_ADMIN_PASSWORD=password
       - INFLUXDB_HTTP_AUTH_ENABLED=true
+      # The following variables are used to scale InfluxDB to larger amounts of data. It remains to be seen how this 
+      # will affect performance in the long run.
+      - INFLUXDB_DATA_MAX_SERIES_PER_DATABASE=0
+      - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
     ports:
       - 8086:8086
 

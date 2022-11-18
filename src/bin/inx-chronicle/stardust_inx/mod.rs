@@ -24,6 +24,7 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
+use eyre::{bail, eyre, Result};
 use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
@@ -35,7 +36,7 @@ pub const INSERT_BATCH_SIZE: usize = 1000;
 
 pub struct InxWorker {
     db: MongoDb,
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
 }
@@ -44,22 +45,22 @@ impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(
         db: &MongoDb,
-        #[cfg(feature = "influxdb")] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
+        #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
         inx_config: &InxConfig,
     ) -> Self {
         Self {
             db: db.clone(),
-            #[cfg(feature = "influxdb")]
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db: influx_db.cloned(),
             config: inx_config.clone(),
         }
     }
 
-    async fn connect(&self) -> Result<Inx, InxWorkerError> {
+    async fn connect(&self) -> Result<Inx> {
         let url = url::Url::parse(&self.config.connect_url)?;
 
         if url.scheme() != "http" {
-            return Err(InxWorkerError::InvalidAddress(self.config.connect_url.clone()));
+            bail!(InxWorkerError::InvalidAddress(self.config.connect_url.clone()));
         }
 
         for i in 0..self.config.connection_retry_count {
@@ -75,10 +76,10 @@ impl InxWorker {
                 }
             }
         }
-        Err(InxWorkerError::ConnectionError)
+        Err(eyre!(InxWorkerError::ConnectionError))
     }
 
-    pub async fn run(&mut self) -> Result<(), InxWorkerError> {
+    pub async fn run(&mut self) -> Result<()> {
         let (start_index, mut inx) = self.init().await?;
 
         let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
@@ -95,7 +96,7 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn init(&mut self) -> Result<(MilestoneIndex, Inx), InxWorkerError> {
+    async fn init(&mut self) -> Result<(MilestoneIndex, Inx)> {
         info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
@@ -127,12 +128,12 @@ impl InxWorker {
             .await?
         {
             if node_status.tangle_pruning_index.0 > latest_milestone.0 {
-                return Err(InxWorkerError::SyncMilestoneGap {
+                bail!(InxWorkerError::SyncMilestoneGap {
                     start: latest_milestone + 1,
                     end: node_status.tangle_pruning_index,
                 });
             } else if node_status.confirmed_milestone.milestone_info.milestone_index.0 < latest_milestone.0 {
-                return Err(InxWorkerError::SyncMilestoneIndexMismatch {
+                bail!(InxWorkerError::SyncMilestoneIndexMismatch {
                     node: node_status.confirmed_milestone.milestone_info.milestone_index,
                     db: latest_milestone,
                 });
@@ -173,7 +174,7 @@ impl InxWorker {
         {
             let protocol_parameters = chronicle::types::tangle::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
-                return Err(InxWorkerError::NetworkChanged(
+                bail!(InxWorkerError::NetworkChanged(
                     latest.parameters.network_name,
                     protocol_parameters.network_name,
                 ));
@@ -200,12 +201,12 @@ impl InxWorker {
                 .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
-                .map_err(|e| InxWorkerError::Inx(e.1))
+                .map_err(|e| e.1)
                 // Convert batches to tasks
                 .try_fold(JoinSet::new(), |mut tasks, batch| async {
                     let db = self.db.clone();
                     tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-                    Ok(tasks)
+                    Result::<_>::Ok(tasks)
                 })
                 .await?;
 
@@ -237,9 +238,9 @@ impl InxWorker {
         inx: &mut Inx,
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
-    ) -> Result<(), InxWorkerError> {
+    ) -> Result<()> {
         #[cfg(feature = "metrics")]
-        let start_time = self.influx_db.is_some().then(std::time::Instant::now);
+        let start_time = std::time::Instant::now();
 
         let MarkerMessage {
             milestone_index,
@@ -258,7 +259,7 @@ impl InxWorker {
         stream
             .by_ref()
             .take(consumed_count)
-            .map(|res| res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState))
+            .map(|res| Result::<_>::Ok(res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState)?))
             .inspect_ok(|_| {
                 actual_consumed_count += 1;
             })
@@ -269,14 +270,14 @@ impl InxWorker {
             .try_fold(&mut tasks, |tasks, batch| async {
                 let db = self.db.clone();
                 tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
-                Result::<_, InxWorkerError>::Ok(tasks)
+                Ok(tasks)
             })
             .await?;
 
         stream
             .by_ref()
             .take(created_count)
-            .map(|res| res?.created().ok_or(InxWorkerError::InvalidMilestoneState))
+            .map(|res| Result::<_>::Ok(res?.created().ok_or(InxWorkerError::InvalidMilestoneState)?))
             .inspect_ok(|_| {
                 actual_created_count += 1;
             })
@@ -287,7 +288,7 @@ impl InxWorker {
             .try_fold(&mut tasks, |tasks, batch| async {
                 let db = self.db.clone();
                 tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-                Result::<_, InxWorkerError>::Ok(tasks)
+                Ok(tasks)
             })
             .await?;
 
@@ -309,7 +310,7 @@ impl InxWorker {
             "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
         );
         if actual_created_count != created_count || actual_consumed_count != consumed_count {
-            return Err(InxWorkerError::InvalidLedgerUpdateCount {
+            bail!(InxWorkerError::InvalidLedgerUpdateCount {
                 received: actual_consumed_count + actual_created_count,
                 expected: consumed_count + created_count,
             });
@@ -329,30 +330,46 @@ impl InxWorker {
         #[allow(unused)]
         let milestone_timestamp = self.handle_milestone(inx, milestone_index).await?;
 
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_start_time = std::time::Instant::now();
+        #[cfg(feature = "analytics")]
+        if let Some(influx_db) = &self.influx_db {
+            if influx_db.config().analytics_enabled {
+                let analytics = self.db.get_all_analytics(milestone_index).await?;
+                influx_db
+                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                    .await?;
+            }
+        }
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_elapsed = self
+            .influx_db
+            .as_ref()
+            .and_then(|db| db.config().analytics_enabled.then_some(analytics_start_time.elapsed()));
+
         #[cfg(feature = "metrics")]
         if let Some(influx_db) = &self.influx_db {
-            // Unwrap: Safe because we checked above
-            let elapsed = start_time.unwrap().elapsed();
-            influx_db
-                .insert(chronicle::db::collections::metrics::SyncMetrics {
-                    time: chrono::Utc::now(),
-                    milestone_index,
-                    sync_time: elapsed.as_millis() as u64,
-                    network_name,
-                    chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                })
-                .await?;
+            if influx_db.config().metrics_enabled {
+                let elapsed = start_time.elapsed();
+                influx_db
+                    .insert(chronicle::db::collections::metrics::SyncMetrics {
+                        time: chrono::Utc::now(),
+                        milestone_index,
+                        milestone_time: elapsed.as_millis() as u64,
+                        #[cfg(feature = "analytics")]
+                        analytics_time: analytics_elapsed.map(|d| d.as_millis() as u64),
+                        network_name,
+                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                    })
+                    .await?;
+            }
         }
 
         Ok(())
     }
 
     #[instrument(skip_all, level = "trace")]
-    async fn handle_protocol_params(
-        &self,
-        inx: &mut Inx,
-        milestone_index: MilestoneIndex,
-    ) -> Result<String, InxWorkerError> {
+    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<String> {
         let parameters = inx
             .read_protocol_parameters(milestone_index.0.into())
             .await?
@@ -370,11 +387,7 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, level = "trace")]
-    async fn handle_node_configuration(
-        &self,
-        inx: &mut Inx,
-        milestone_index: MilestoneIndex,
-    ) -> Result<(), InxWorkerError> {
+    async fn handle_node_configuration(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
         let node_configuration = inx.read_node_configuration().await?;
 
         self.db
@@ -386,32 +399,12 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn handle_milestone(
-        &mut self,
-        inx: &mut Inx,
-        milestone_index: MilestoneIndex,
-    ) -> Result<MilestoneTimestamp, InxWorkerError> {
+    async fn handle_milestone(&mut self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<MilestoneTimestamp> {
         let milestone = inx.read_milestone(milestone_index.0.into()).await?;
 
         let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
 
         let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-
-        #[cfg(feature = "analytics")]
-        if let Some(influx_db) = &self.influx_db {
-            let db = self.db.clone();
-            let influx_db = influx_db.clone();
-            tokio::spawn(async move {
-                let analytics = db.get_all_analytics(milestone_index).await?;
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                    .await?;
-
-                tracing::debug!("Finished analytics for milestone: {}", milestone_index);
-
-                Result::<_, InxWorkerError>::Ok(())
-            });
-        }
 
         let milestone_id = milestone
             .milestone_info
@@ -435,17 +428,13 @@ impl InxWorker {
     }
 
     #[instrument(skip(self, inx), err, level = "trace")]
-    async fn handle_cone_stream(
-        &mut self,
-        inx: &mut Inx,
-        milestone_index: MilestoneIndex,
-    ) -> Result<(), InxWorkerError> {
+    async fn handle_cone_stream(&mut self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
         let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
 
         let mut tasks = cone_stream
             .map(|res| {
                 let BlockWithMetadataMessage { block, metadata } = res?;
-                Result::<_, InxWorkerError>::Ok((
+                Result::<_>::Ok((
                     metadata.block_id,
                     block.clone().inner_unverified()?.into(),
                     block.data(),
@@ -480,7 +469,7 @@ impl InxWorker {
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;
-                    Result::<_, InxWorkerError>::Ok(())
+                    Result::<_>::Ok(())
                 });
                 Ok(tasks)
             })
@@ -496,13 +485,13 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<(), InxWorkerError> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
         async {
             output_collection.insert_unspent_outputs(outputs).await?;
-            Result::<_, InxWorkerError>::Ok(())
+            Result::<_>::Ok(())
         },
         async {
             ledger_collection.insert_unspent_ledger_updates(outputs).await?;
@@ -513,7 +502,7 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(), InxWorkerError> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<()> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {

@@ -21,6 +21,13 @@ impl FoundryId {
     const LENGTH: usize = iota::FoundryId::LENGTH;
 }
 
+impl FoundryId {
+    /// Get an implicit (zeroed) foundry ID, for new foundry outputs.
+    pub fn implicit() -> Self {
+        Self([0; Self::LENGTH])
+    }
+}
+
 impl From<iota::FoundryId> for FoundryId {
     fn from(value: iota::FoundryId) -> Self {
         Self(*value)
