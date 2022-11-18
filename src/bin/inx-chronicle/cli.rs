@@ -264,20 +264,11 @@ impl ClArgs {
                                     #[cfg(feature = "metrics")]
                                     {
                                         let elapsed = start_time.elapsed();
-                                        let network_name = db
-                                            .collection::<chronicle::db::collections::ProtocolUpdateCollection>()
-                                            .get_protocol_parameters_for_ledger_index(index)
-                                            .await?
-                                            // TODO: Replace with an error once the eyre PR is merged
-                                            .expect("corrupt state")
-                                            .parameters
-                                            .network_name;
                                         influx_db
                                             .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
                                                 time: chrono::Utc::now(),
                                                 milestone_index: index,
                                                 analytics_time: elapsed.as_millis() as u64,
-                                                network_name,
                                                 chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                                             })
                                             .await?;
