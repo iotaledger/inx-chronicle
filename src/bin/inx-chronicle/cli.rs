@@ -3,10 +3,7 @@
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::{
-    config::{ChronicleConfig, ConfigError},
-    error::Error,
-};
+use crate::config::{ChronicleConfig, ConfigError};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -191,7 +188,7 @@ impl ClArgs {
     /// Process subcommands and return whether the app should early exit.
     #[allow(unused)]
     #[allow(clippy::collapsible_match)]
-    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> Result<PostCommand, Error> {
+    pub async fn process_subcommands(&self, config: &ChronicleConfig) -> eyre::Result<PostCommand> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
                 #[cfg(feature = "api")]
@@ -205,10 +202,10 @@ impl ClArgs {
                     )
                     .unwrap() // Panic: Cannot fail.
                     .expires_after_duration(api_data.jwt_expiration)
-                    .map_err(crate::api::ApiError::InvalidJwt)?;
+                    .map_err(crate::api::AuthError::InvalidJwt)?;
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
                     let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
-                        .map_err(crate::api::ApiError::InvalidJwt)?;
+                        .map_err(crate::api::AuthError::InvalidJwt)?;
                     tracing::info!("Bearer {}", jwt);
                     tracing::info!(
                         "Expires: {} ({})",
@@ -278,7 +275,7 @@ impl ClArgs {
                                     tracing::info!("No milestone in database for index {}", index);
                                 }
                             }
-                            Result::<_, Error>::Ok(())
+                            eyre::Result::<_>::Ok(())
                         });
                     }
                     while let Some(res) = join_set.join_next().await {

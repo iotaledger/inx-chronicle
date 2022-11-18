@@ -21,11 +21,11 @@ use time::{Duration, OffsetDateTime};
 use super::{
     auth::Auth,
     config::ApiData,
-    error::ApiError,
+    error::{ApiError, MissingError, UnimplementedError},
     extractors::ListRoutesQuery,
     responses::RoutesResponse,
     router::{RouteNode, Router},
-    ApiResult,
+    ApiResult, AuthError,
 };
 
 const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
@@ -59,7 +59,7 @@ struct LoginInfo {
 async fn login(
     Json(LoginInfo { password }): Json<LoginInfo>,
     Extension(config): Extension<ApiData>,
-) -> Result<String, ApiError> {
+) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
         config.password_salt.as_bytes(),
@@ -74,7 +74,7 @@ async fn login(
 
         Ok(format!("Bearer {}", jwt))
     } else {
-        Err(ApiError::IncorrectPassword)
+        Err(ApiError::from(AuthError::IncorrectPassword))
     }
 }
 
@@ -111,7 +111,7 @@ async fn list_routes(
                 .validate_nbf(true),
             config.secret_key.as_ref(),
         )
-        .map_err(ApiError::InvalidJwt)?;
+        .map_err(AuthError::InvalidJwt)?;
 
         root.list_routes(None, depth)
     } else {
@@ -148,8 +148,8 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
 }
 
 pub async fn health(database: Extension<MongoDb>) -> StatusCode {
-    let handle_error = |e| {
-        tracing::error!("An error occured during health check: {e}");
+    let handle_error = |ApiError { error, .. }| {
+        tracing::error!("An error occured during health check: {error}");
         false
     };
 
@@ -160,10 +160,10 @@ pub async fn health(database: Extension<MongoDb>) -> StatusCode {
     }
 }
 
-pub async fn not_found() -> ApiError {
-    ApiError::NotFound
+pub async fn not_found() -> MissingError {
+    MissingError::NotFound
 }
 
-pub async fn not_implemented() -> ApiError {
-    ApiError::NotImplemented
+pub async fn not_implemented() -> UnimplementedError {
+    UnimplementedError
 }

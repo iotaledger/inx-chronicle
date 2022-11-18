@@ -9,9 +9,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[cfg(feature = "api")]
-    #[error(transparent)]
-    Api(#[from] crate::api::ConfigError),
     #[error("failed to read config at '{0}': {1}")]
     FileRead(String, std::io::Error),
     #[error("toml deserialization failed: {0}")]
