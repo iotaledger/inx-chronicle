@@ -17,10 +17,7 @@ use chronicle::{
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::{
-            block::{Block, BlockId, Payload},
-            milestone::MilestoneTimestamp,
-        },
+        stardust::block::{Block, BlockId, Payload},
         tangle::MilestoneIndex,
     },
 };
@@ -325,9 +322,24 @@ impl InxWorker {
         let network_name = self.handle_protocol_params(inx, milestone_index).await?;
         self.handle_node_configuration(inx, milestone_index).await?;
 
-        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
-        #[allow(unused)]
-        let milestone_timestamp = self.handle_milestone(inx, milestone_index).await?;
+        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
+
+        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
+
+        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
+
+        let milestone_id = milestone
+            .milestone_info
+            .milestone_id
+            .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
+
+        let payload =
+            if let iota_types::block::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
+                chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
+            } else {
+                // The raw data is guaranteed to contain a milestone payload.
+                unreachable!();
+            };
 
         #[cfg(all(feature = "analytics", feature = "metrics"))]
         let analytics_start_time = std::time::Instant::now();
@@ -363,6 +375,12 @@ impl InxWorker {
                     .await?;
             }
         }
+
+        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
+        self.db
+            .collection::<MilestoneCollection>()
+            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+            .await?;
 
         Ok(())
     }
@@ -403,39 +421,6 @@ impl InxWorker {
             .await?;
 
         Ok(())
-    }
-
-    #[instrument(skip_all, err, level = "trace")]
-    async fn handle_milestone(
-        &mut self,
-        inx: &mut Inx,
-        milestone_index: MilestoneIndex,
-    ) -> Result<MilestoneTimestamp, InxWorkerError> {
-        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
-
-        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
-
-        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-
-        let milestone_id = milestone
-            .milestone_info
-            .milestone_id
-            .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
-
-        let payload =
-            if let iota_types::block::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
-                chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
-            } else {
-                // The raw data is guaranteed to contain a milestone payload.
-                unreachable!();
-            };
-
-        self.db
-            .collection::<MilestoneCollection>()
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
-            .await?;
-
-        Ok(milestone_timestamp)
     }
 
     #[instrument(skip(self, inx), err, level = "trace")]
