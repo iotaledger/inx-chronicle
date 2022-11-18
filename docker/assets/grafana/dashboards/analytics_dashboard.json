@@ -125,7 +125,7 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "$aggregation_interval"
               ],
               "type": "time"
             },
@@ -238,7 +238,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
+            "drawStyle": "bars",
             "fillOpacity": 30,
             "gradientMode": "none",
             "hideFrom": {
@@ -287,6 +287,7 @@
         "y": 1
       },
       "id": 19,
+      "interval": "1m",
       "options": {
         "legend": {
           "calcs": [],
@@ -295,13 +296,13 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
       "targets": [
         {
-          "alias": "Confirmed",
+          "alias": "$col Transactions",
           "datasource": {
             "type": "influxdb",
             "uid": "P951FEA4DE68E13C5"
@@ -309,7 +310,7 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "$aggregation_interval"
               ],
               "type": "time"
             },
@@ -336,38 +337,14 @@
               {
                 "params": [],
                 "type": "sum"
+              },
+              {
+                "params": [
+                  "Confirmed"
+                ],
+                "type": "alias"
               }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "Conflicting",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "stardust_transaction_activity",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
+            ],
             [
               {
                 "params": [
@@ -378,6 +355,12 @@
               {
                 "params": [],
                 "type": "sum"
+              },
+              {
+                "params": [
+                  "Conflicting"
+                ],
+                "type": "alias"
               }
             ]
           ],
@@ -3771,7 +3754,64 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "auto": false,
+        "auto_count": 30,
+        "auto_min": "10s",
+        "current": {
+          "selected": false,
+          "text": "1m",
+          "value": "1m"
+        },
+        "description": "The time interval over which the data is aggregated.",
+        "hide": 0,
+        "label": "Time Interval",
+        "name": "aggregation_interval",
+        "options": [
+          {
+            "selected": true,
+            "text": "1m",
+            "value": "1m"
+          },
+          {
+            "selected": false,
+            "text": "30m",
+            "value": "30m"
+          },
+          {
+            "selected": false,
+            "text": "1h",
+            "value": "1h"
+          },
+          {
+            "selected": false,
+            "text": "6h",
+            "value": "6h"
+          },
+          {
+            "selected": false,
+            "text": "12h",
+            "value": "12h"
+          },
+          {
+            "selected": false,
+            "text": "1d",
+            "value": "1d"
+          },
+          {
+            "selected": false,
+            "text": "30d",
+            "value": "30d"
+          }
+        ],
+        "query": "1m,30m,1h,6h,12h,1d,30d",
+        "queryValue": "",
+        "refresh": 2,
+        "skipUrlSync": false,
+        "type": "interval"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
