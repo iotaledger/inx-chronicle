@@ -6,7 +6,7 @@ use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 
 use super::{
     merkle_proof::{Hashable, MerkleProof},
-    PoIError,
+    CreateProofError,
 };
 
 const LEAF_HASH_PREFIX: u8 = 0;
@@ -53,22 +53,25 @@ impl MerkleHasher {
 
     /// Create a merkle proof given a list of block IDs and a chosen block ID. The chosen leaf will become a
     /// value node, and the path will contain all hashes above it. The remaining branches will be terminated early.
-    pub fn create_proof(block_ids: &[BlockId], chosen_block_id: &BlockId) -> Result<MerkleProof, PoIError> {
+    pub fn create_proof(block_ids: &[BlockId], chosen_block_id: &BlockId) -> Result<MerkleProof, CreateProofError> {
         let index = block_ids
             .iter()
             .position(|id| id == chosen_block_id)
-            .ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
+            .ok_or_else(|| CreateProofError::BlockNotIncluded(chosen_block_id.to_hex()))?;
         Self::create_proof_from_index(block_ids, index)
     }
 
-    // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index(block_ids: &[BlockId], index: usize) -> Result<MerkleProof, PoIError> {
-        let n = block_ids.len();
-        if n < 2 {
-            Err(PoIError::InvalidInput("cannot create proof for less than 2 block ids"))
-        } else if index >= n {
-            Err(PoIError::InvalidInput("given index is out of bounds"))
+    // NOTE:
+    // * `block_ids` is the list of past-cone block ids in "White Flag" order;
+    // * `block_ids.len() >= 2` must be true, or this function panics;
+    // * `index < block_ids.len()` must be true, or this function panics;
+    fn create_proof_from_index(block_ids: &[BlockId], index: usize) -> Result<MerkleProof, CreateProofError> {
+        if block_ids.len() < 2 {
+            Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
         } else {
+            let n = block_ids.len();
+            debug_assert!(index < n);
+
             let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
             Ok(Self::compute_proof(&data, index))
         }
@@ -99,7 +102,7 @@ impl MerkleHasher {
             }
             _ => {
                 // Split the blocks into two halves, ensuring that the tree is approximately balanced
-                let k = super::merkle_hasher::largest_power_of_two(n);
+                let k = largest_power_of_two(n);
                 // If the chosen index is in the left half of the tree,
                 // we build out that structure by calling this fn recursively.
                 // Otherwise, we simply hash the subtree and store it as a `Node`.

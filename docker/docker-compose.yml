@@ -15,7 +15,13 @@ services:
 
   inx-chronicle:
     container_name: inx-chronicle
-    depends_on: [mongo, hornet]
+    depends_on:
+      influx:
+        condition: service_started
+      mongo:
+        condition: service_started
+      hornet:
+        condition: service_healthy
     build:
       context: ..
       dockerfile: docker/Dockerfile.debug
