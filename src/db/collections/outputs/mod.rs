@@ -751,7 +751,9 @@ mod analytics {
                             "address_with_balance_count": "$address_with_balance_count"
                         } },
                     ],
-                    AggregateOptions::builder().hint(Hint::Name("output_spent_milestone_index_comp".to_string())).build()
+                    AggregateOptions::builder()
+                        .hint(Hint::Name("output_spent_milestone_index_comp".to_string()))
+                        .build(),
                 )
                 .await?
                 .try_next()
