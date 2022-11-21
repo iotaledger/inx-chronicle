@@ -137,7 +137,7 @@
             }
           ],
           "hide": false,
-          "measurement": "stardust_payload_activity",
+          "measurement": "stardust_block_activity",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "B",
@@ -321,7 +321,7 @@
               "type": "fill"
             }
           ],
-          "measurement": "stardust_transaction_activity",
+          "measurement": "stardust_block_activity",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",
