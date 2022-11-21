@@ -18,7 +18,10 @@ use mongodb::bson;
 
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
 use crate::api::{
-    error::ParseError, router::Router, stardust::indexer::extractors::IndexedOutputsCursor, ApiError, ApiResult,
+    error::{MissingError, RequestError},
+    router::Router,
+    stardust::indexer::extractors::IndexedOutputsCursor,
+    ApiResult,
 };
 
 pub fn routes() -> Router {
@@ -53,19 +56,19 @@ async fn indexed_output_by_id<ID>(
 ) -> ApiResult<IndexerOutputsResponse>
 where
     ID: Into<IndexedId> + FromStr,
-    ParseError: From<ID::Err>,
+    RequestError: From<ID::Err>,
 {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
         .await?
-        .ok_or(ApiError::NoResults)?;
-    let id = ID::from_str(&id).map_err(ApiError::bad_parse)?;
+        .ok_or(MissingError::NoResults)?;
+    let id = ID::from_str(&id).map_err(RequestError::from)?;
     let res = database
         .collection::<OutputCollection>()
         .get_indexed_output_by_id(id, ledger_index)
         .await?
-        .ok_or(ApiError::NoResults)?;
+        .ok_or(MissingError::NoResults)?;
     Ok(IndexerOutputsResponse {
         ledger_index,
         items: vec![res.output_id.to_hex()],
@@ -90,7 +93,7 @@ where
         .collection::<MilestoneCollection>()
         .get_ledger_index()
         .await?
-        .ok_or(ApiError::NoResults)?;
+        .ok_or(MissingError::NoResults)?;
     let res = database
         .collection::<OutputCollection>()
         .get_indexed_outputs(

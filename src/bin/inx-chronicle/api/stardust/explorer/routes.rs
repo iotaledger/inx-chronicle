@@ -28,7 +28,12 @@ use super::{
         LedgerUpdatesByMilestoneResponse, MilestonesResponse, RichestAddressesResponse, TokenDistributionResponse,
     },
 };
-use crate::api::{error::InternalApiError, extractors::Pagination, router::Router, ApiError, ApiResult};
+use crate::api::{
+    error::{CorruptStateError, MissingError, RequestError},
+    extractors::Pagination,
+    router::Router,
+    ApiResult,
+};
 
 pub fn routes() -> Router {
     Router::new()
@@ -58,7 +63,7 @@ async fn ledger_updates_by_address(
         cursor,
     }: LedgerUpdatesByAddressPagination,
 ) -> ApiResult<LedgerUpdatesByAddressResponse> {
-    let address_dto = Address::from_str(&address).map_err(ApiError::bad_parse)?;
+    let address_dto = Address::from_str(&address).map_err(RequestError::from)?;
 
     let mut record_stream = database
         .collection::<LedgerUpdateCollection>()
@@ -98,13 +103,13 @@ async fn ledger_updates_by_milestone(
     Path(milestone_id): Path<String>,
     LedgerUpdatesByMilestonePagination { page_size, cursor }: LedgerUpdatesByMilestonePagination,
 ) -> ApiResult<LedgerUpdatesByMilestoneResponse> {
-    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(ApiError::bad_parse)?;
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
 
     let milestone_index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
         .await?
-        .ok_or(ApiError::NotFound)?
+        .ok_or(MissingError::NotFound)?
         .essence
         .index;
 
@@ -143,13 +148,13 @@ async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> A
         .collection::<MilestoneCollection>()
         .get_ledger_index()
         .await?
-        .ok_or(ApiError::NoResults)?;
-    let address = Address::from_str(&address).map_err(ApiError::bad_parse)?;
+        .ok_or(MissingError::NoResults)?;
+    let address = Address::from_str(&address).map_err(RequestError::from)?;
     let res = database
         .collection::<OutputCollection>()
         .get_address_balance(address, ledger_index)
         .await?
-        .ok_or(ApiError::NoResults)?;
+        .ok_or(MissingError::NoResults)?;
 
     Ok(BalanceResponse {
         total_balance: res.total_balance,
@@ -163,12 +168,12 @@ async fn block_children(
     Path(block_id): Path<String>,
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<BlockChildrenResponse> {
-    let block_id = BlockId::from_str(&block_id).map_err(ApiError::bad_parse)?;
+    let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
     let mut block_children = database
         .collection::<BlockCollection>()
         .get_block_children(&block_id, page_size, page)
         .await
-        .map_err(|_| ApiError::NoResults)?;
+        .map_err(|_| MissingError::NoResults)?;
 
     let mut children = Vec::new();
     while let Some(block_id) = block_children.try_next().await? {
@@ -232,7 +237,7 @@ async fn richest_addresses_ledger_analytics(
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(ledger_index)
         .await?
-        .ok_or(InternalApiError::CorruptState("no protocol parameters"))?
+        .ok_or(CorruptStateError::ProtocolParams)?
         .parameters
         .bech32_hrp;
 
@@ -275,6 +280,6 @@ async fn resolve_ledger_index(database: &MongoDb, ledger_index: Option<Milestone
             .collection::<MilestoneCollection>()
             .get_ledger_index()
             .await?
-            .ok_or(ApiError::NoResults)?
+            .ok_or(MissingError::NoResults)?
     })
 }
