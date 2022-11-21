@@ -384,8 +384,6 @@ impl OutputCollection {
 
 #[cfg(feature = "analytics")]
 mod analytics {
-    use decimal::d128;
-
     use super::*;
     use crate::{
         db::{
@@ -424,10 +422,7 @@ mod analytics {
                         } },
                         doc! { "$group" : {
                             "_id": null,
-                            "transferred_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$project": {
-                            "transferred_value": { "$toString": "$transferred_value" },
+                            "transferred_value": { "$sum": { "$toDouble": "$output.amount" } },
                         } },
                     ],
                     None,
@@ -447,7 +442,7 @@ mod analytics {
             #[derive(Default, Deserialize)]
             struct Res {
                 count: u64,
-                value: d128,
+                value: f64,
             }
 
             let query = |kind: &'static str| async move {
@@ -462,11 +457,7 @@ mod analytics {
                             doc! { "$group" : {
                                 "_id": null,
                                 "count": { "$sum": 1 },
-                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "count": 1,
-                                "value": { "$toString": "$value" },
+                                "value": { "$sum": { "$toDouble": "$output.amount" } },
                             } },
                         ],
                         None,
@@ -630,14 +621,9 @@ mod analytics {
                     } },
                     doc! { "$group" : {
                         "_id": null,
-                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                        "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
-                    } },
-                    doc! { "$project": {
-                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
-                        "total_key_bytes": { "$toString": "$total_key_bytes" },
-                        "total_data_bytes": { "$toString": "$total_data_bytes" },
+                        "total_key_bytes": { "$sum": { "$toDouble": "$details.rent_structure.num_key_bytes" } },
+                        "total_data_bytes": { "$sum": { "$toDouble": "$details.rent_structure.num_data_bytes" } },
+                        "total_storage_deposit_value": { "$sum": { "$toDouble": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
                     } },
                 ],
                 None,
@@ -774,11 +760,7 @@ mod analytics {
                         doc! { "$group": {
                             "_id": null,
                             "unclaimed_count": { "$sum": 1 },
-                            "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$project": {
-                            "unclaimed_count": 1,
-                            "unclaimed_value": { "$toString": "$unclaimed_value" },
+                            "unclaimed_value": { "$sum": { "$toDouble": "$output.amount" } },
                         } },
                     ],
                     None,
@@ -798,7 +780,7 @@ mod analytics {
             #[derive(Default, Deserialize)]
             struct Res {
                 count: u64,
-                value: d128,
+                value: f64,
             }
 
             let query = |kind: &'static str| async move {
@@ -813,11 +795,7 @@ mod analytics {
                             doc! { "$group": {
                                 "_id": null,
                                 "count": { "$sum": 1 },
-                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "count": 1,
-                                "value": { "$toString": "$value" },
+                                "value": { "$sum": { "$toDouble": "$output.amount" } },
                             } },
                         ],
                         None,

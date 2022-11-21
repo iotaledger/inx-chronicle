@@ -4,7 +4,6 @@
 /// Schema implementation for InfluxDb.
 pub mod influx;
 
-use decimal::d128;
 use futures::TryFutureExt;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
@@ -109,43 +108,43 @@ pub struct AddressAnalytics {
 #[allow(missing_docs)]
 pub struct UnlockConditionAnalytics {
     pub timelock_count: u64,
-    pub timelock_value: d128,
+    pub timelock_value: f64,
     pub expiration_count: u64,
-    pub expiration_value: d128,
+    pub expiration_value: f64,
     pub storage_deposit_return_count: u64,
-    pub storage_deposit_return_value: d128,
+    pub storage_deposit_return_value: f64,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct LedgerOutputAnalytics {
     pub basic_count: u64,
-    pub basic_value: d128,
+    pub basic_value: f64,
     pub alias_count: u64,
-    pub alias_value: d128,
+    pub alias_value: f64,
     pub foundry_count: u64,
-    pub foundry_value: d128,
+    pub foundry_value: f64,
     pub nft_count: u64,
-    pub nft_value: d128,
+    pub nft_value: f64,
     pub treasury_count: u64,
-    pub treasury_value: d128,
+    pub treasury_value: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct LedgerSizeAnalytics {
-    pub total_storage_deposit_value: d128,
-    pub total_key_bytes: d128,
-    pub total_data_bytes: d128,
+    pub total_storage_deposit_value: f64,
+    pub total_key_bytes: f64,
+    pub total_data_bytes: f64,
 }
 
 #[allow(missing_docs)]
 impl LedgerSizeAnalytics {
-    pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
+    pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> f64 {
         let rent_structure = protocol_params.rent_structure;
-        d128::from(rent_structure.v_byte_cost)
-            * ((self.total_key_bytes * d128::from(rent_structure.v_byte_factor_key as u32))
-                + (self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32)))
+        rent_structure.v_byte_cost as f64
+            * ((self.total_key_bytes * rent_structure.v_byte_factor_key as f64)
+                + (self.total_data_bytes * rent_structure.v_byte_factor_data as f64))
     }
 }
 
@@ -153,7 +152,7 @@ impl LedgerSizeAnalytics {
 #[allow(missing_docs)]
 pub struct UnclaimedTokensAnalytics {
     pub unclaimed_count: u64,
-    pub unclaimed_value: d128,
+    pub unclaimed_value: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,7 +175,7 @@ pub struct NftActivityAnalytics {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct BaseTokenActivityAnalytics {
-    pub transferred_value: d128,
+    pub transferred_value: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
