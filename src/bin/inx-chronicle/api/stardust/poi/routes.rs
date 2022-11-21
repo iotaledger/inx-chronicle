@@ -99,35 +99,15 @@ async fn validate_proof(
         .map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed milestone")))?;
     let proof = MerkleProof::try_from(proof).map_err(|_| ApiError::PoI(PoIError::InvalidRequest("malformed proof")))?;
 
-    // Fetch the corresponding block referenced index.
-    let block_collection = database.collection::<BlockCollection>();
     let block_id = block.id().into();
-    let block_referenced_index = block_collection
-        .get_block_metadata(&block_id)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .referenced_by_milestone_index;
 
     // Fetch the corresponding milestone to return in the response.
-    let milestone_id = milestone.id().into();
-    let milestone_collection = database.collection::<MilestoneCollection>();
-    let milestone_index = milestone_collection
-        .get_milestone_payload_by_id(&milestone_id)
-        .await?
-        .ok_or(ApiError::NoResults)?
-        .essence
-        .index;
-
-    if block_referenced_index != milestone_index {
-        return Err(ApiError::PoI(PoIError::InvalidRequest(
-            "block not referenced by given milestone",
-        )));
-    }
+    let milestone_index = milestone.essence().index();
 
     // Fetch the node configuration.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
     let node_configuration = update_collection
-        .get_node_configuration_for_ledger_index(milestone_index)
+        .get_node_configuration_for_ledger_index(milestone_index.into())
         .await?
         .ok_or(ApiError::NoResults)?
         .config;
@@ -135,7 +115,7 @@ async fn validate_proof(
     // Validate the given milestone.
     let public_key_count = node_configuration.milestone_public_key_count as usize;
     let key_ranges = node_configuration.milestone_key_ranges;
-    let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index);
+    let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index.into());
 
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
         Err(ApiError::PoI(PoIError::InvalidMilestone(e)))
