@@ -1,7 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use clap::{Args, Parser, Subcommand};
+use std::collections::HashSet;
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
 
@@ -219,6 +221,7 @@ impl ClArgs {
                     start_milestone,
                     end_milestone,
                     num_tasks,
+                    analytics,
                 } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -241,11 +244,13 @@ impl ClArgs {
                             .unwrap_or_default()
                     };
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+                    let mut analytics = analytics.iter().copied().collect::<HashSet<_>>();
                     let num_tasks = num_tasks.unwrap_or(1);
-                    let mut join_set = tokio::task::JoinSet::new();
+                    let mut join_set = tokio::task::JoinSet::<eyre::Result<()>>::new();
                     for i in 0..num_tasks {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
+                        let analytics = analytics.clone();
                         join_set.spawn(async move {
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let index = index.into();
@@ -256,8 +261,14 @@ impl ClArgs {
                                 {
                                     #[cfg(feature = "metrics")]
                                     let start_time = std::time::Instant::now();
-                                    let analytics = db.get_all_analytics(index).await?;
-                                    influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+
+                                    futures::future::join_all(
+                                        analytics
+                                            .iter()
+                                            .map(|analytic| analytic.gather(&db, &influx_db, index, timestamp)),
+                                    )
+                                    .await;
+
                                     #[cfg(feature = "metrics")]
                                     {
                                         let elapsed = start_time.elapsed();
@@ -275,7 +286,7 @@ impl ClArgs {
                                     tracing::info!("No milestone in database for index {}", index);
                                 }
                             }
-                            eyre::Result::<_>::Ok(())
+                            Ok(())
                         });
                     }
                     while let Some(res) = join_set.join_next().await {
@@ -325,6 +336,9 @@ pub enum Subcommands {
         /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
+        /// The list of analytics to fill.
+        #[arg(short, long, value_enum, default_values_t = Analytic::all())]
+        analytics: Vec<Analytic>,
     },
     /// Clear the chronicle database.
     #[cfg(debug_assertions)]
@@ -342,4 +356,140 @@ pub enum Subcommands {
 pub enum PostCommand {
     Start,
     Exit,
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
+pub enum Analytic {
+    AddressActivity,
+    Addresses,
+    BaseTokens,
+    LedgerOutputs,
+    Aliases,
+    Nfts,
+    LedgerSize,
+    UnclaimedTokens,
+    UnlockConditions,
+    PayloadActivity,
+    TransactionActivity,
+    ProtocolParams,
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+impl Analytic {
+    fn all() -> Vec<Self> {
+        vec![
+            Self::AddressActivity,
+            Self::Addresses,
+            Self::BaseTokens,
+            Self::LedgerOutputs,
+            Self::Aliases,
+            Self::Nfts,
+            Self::LedgerSize,
+            Self::UnclaimedTokens,
+            Self::UnlockConditions,
+            Self::PayloadActivity,
+            Self::TransactionActivity,
+            Self::ProtocolParams,
+        ]
+    }
+
+    async fn gather(
+        &self,
+        db: &chronicle::db::MongoDb,
+        influx_db: &chronicle::db::influxdb::InfluxDb,
+        index: chronicle::types::tangle::MilestoneIndex,
+        timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
+    ) -> eyre::Result<()> {
+        match self {
+            Analytic::AddressActivity => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_address_activity_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::Addresses => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_address_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::BaseTokens => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_base_token_activity_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::LedgerOutputs => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_ledger_output_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::Aliases => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_alias_output_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::Nfts => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_nft_output_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::LedgerSize => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_ledger_size_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::UnclaimedTokens => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_unclaimed_token_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::UnlockConditions => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::OutputCollection>()
+                    .get_unlock_condition_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::PayloadActivity => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::BlockCollection>()
+                    .get_payload_activity_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::TransactionActivity => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::BlockCollection>()
+                    .get_transaction_activity_analytics(index)
+                    .await?;
+                influx_db.insert_analytics(timestamp, index, analytics).await?;
+            }
+            Analytic::ProtocolParams => {
+                let analytics = db
+                    .collection::<chronicle::db::collections::ProtocolUpdateCollection>()
+                    .get_protocol_parameters_for_milestone_index(index)
+                    .await?
+                    .map(|p| p.parameters);
+                if let Some(analytics) = analytics {
+                    influx_db.insert_analytics(timestamp, index, analytics).await?;
+                }
+            }
+        }
+        Ok(())
+    }
 }

@@ -19,7 +19,8 @@ pub struct AnalyticsSchema<T> {
 }
 
 impl InfluxDb {
-    async fn insert_analytics<A>(
+    /// Insert a single analytic record.
+    pub async fn insert_analytics<A>(
         &self,
         milestone_timestamp: MilestoneTimestamp,
         milestone_index: MilestoneIndex,
