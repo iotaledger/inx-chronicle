@@ -26,6 +26,8 @@ pub enum CorruptStateError {
     NoMilestoneCone,
     #[error("Creating proof failed: {0}")]
     CreateProof(#[from] CreateProofError),
+    #[error("Error decoding public key")]
+    DecodePublicKey,
 }
 
 #[derive(Error, Debug)]

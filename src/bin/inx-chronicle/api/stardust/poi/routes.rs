@@ -126,7 +126,7 @@ async fn validate_proof(
     // Validate the given milestone.
     let public_key_count = node_configuration.milestone_public_key_count as usize;
     let key_ranges = node_configuration.milestone_key_ranges;
-    let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index.into());
+    let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index.into())?;
 
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
         Err(RequestError::PoI(poi::RequestError::InvalidMilestone(e)).into())
@@ -141,20 +141,23 @@ async fn validate_proof(
 
 // The returned public keys must be hex strings without the `0x` prefix for the milestone validation to work.
 #[allow(clippy::boxed_local)]
-fn get_valid_public_keys_for_index(mut key_ranges: Box<[MilestoneKeyRange]>, index: MilestoneIndex) -> Vec<String> {
+fn get_valid_public_keys_for_index(
+    mut key_ranges: Box<[MilestoneKeyRange]>,
+    index: MilestoneIndex,
+) -> Result<Vec<String>, CorruptStateError> {
     key_ranges.sort();
     let mut public_keys = HashSet::with_capacity(key_ranges.len());
     for key_range in key_ranges.iter() {
         match (key_range.start, key_range.end) {
             (start, _) if start > index => break,
             (start, end) if index <= end || start == end => {
-                // Panic: should never fail
-                let public_key_raw = prefix_hex::decode::<Vec<_>>(&key_range.public_key).unwrap();
+                let public_key_raw = prefix_hex::decode::<Vec<_>>(&key_range.public_key)
+                    .map_err(|_| CorruptStateError::PoI(poi::CorruptStateError::DecodePublicKey))?;
                 let public_key_hex = hex::encode(public_key_raw);
                 public_keys.insert(public_key_hex);
             }
             (_, _) => continue,
         }
     }
-    public_keys.into_iter().collect::<Vec<_>>()
+    Ok(public_keys.into_iter().collect::<Vec<_>>())
 }
