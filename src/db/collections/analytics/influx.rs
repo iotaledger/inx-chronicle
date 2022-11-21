@@ -48,9 +48,8 @@ impl InfluxDb {
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.addresses),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.aliases),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.nfts),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.storage_deposits),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.output_activity),
+            self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_size),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.payload_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
@@ -234,50 +233,23 @@ impl InfluxDbMeasurement for AnalyticsSchema<ProtocolParameters> {
     const NAME: &'static str = "stardust_protocol_params";
 }
 
-impl InfluxDbWriteable for AnalyticsSchema<AliasActivityAnalytics> {
+impl InfluxDbWriteable for AnalyticsSchema<OutputActivityAnalytics> {
     fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
         Timestamp::from(self.milestone_timestamp)
             .into_query(name)
             .add_field("milestone_index", self.milestone_index)
-            .add_field("created_count", self.data.created_count)
-            .add_field("state_changed_count", self.data.state_changed_count)
-            .add_field("governor_changed_count", self.data.governor_changed_count)
-            .add_field("destroyed_count", self.data.destroyed_count)
+            .add_field("alias_created_count", self.data.alias.created_count)
+            .add_field("alias_state_changed_count", self.data.alias.state_changed_count)
+            .add_field("alias_governor_changed_count", self.data.alias.governor_changed_count)
+            .add_field("alias_destroyed_count", self.data.alias.destroyed_count)
+            .add_field("nft_created_count", self.data.nft.created_count)
+            .add_field("nft_transferred_count", self.data.nft.transferred_count)
+            .add_field("nft_destroyed_count", self.data.nft.destroyed_count)
     }
 }
 
-impl InfluxDbMeasurement for AnalyticsSchema<AliasActivityAnalytics> {
-    const NAME: &'static str = "stardust_alias_activity";
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<FoundryActivityAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("created_count", self.data.created_count)
-            .add_field("transferred_count", self.data.transferred_count)
-            .add_field("destroyed_count", self.data.destroyed_count)
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<FoundryActivityAnalytics> {
-    const NAME: &'static str = "stardust_foundry_activity";
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<NftActivityAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("created_count", self.data.created_count)
-            .add_field("transferred_count", self.data.transferred_count)
-            .add_field("destroyed_count", self.data.destroyed_count)
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<NftActivityAnalytics> {
-    const NAME: &'static str = "stardust_nft_activity";
+impl InfluxDbMeasurement for AnalyticsSchema<OutputActivityAnalytics> {
+    const NAME: &'static str = "stardust_output_activity";
 }
 
 impl InfluxDbWriteable for AnalyticsSchema<UnlockConditionAnalytics> {

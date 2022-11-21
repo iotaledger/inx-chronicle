@@ -23,9 +23,8 @@ pub struct Analytics {
     pub addresses: AddressAnalytics,
     pub base_token: BaseTokenActivityAnalytics,
     pub ledger_outputs: LedgerOutputAnalytics,
-    pub aliases: AliasActivityAnalytics,
-    pub nfts: NftActivityAnalytics,
-    pub storage_deposits: LedgerSizeAnalytics,
+    pub output_activity: OutputActivityAnalytics,
+    pub ledger_size: LedgerSizeAnalytics,
     pub unclaimed_tokens: UnclaimedTokensAnalytics,
     pub payload_activity: PayloadActivityAnalytics,
     pub transaction_activity: TransactionActivityAnalytics,
@@ -44,9 +43,8 @@ impl MongoDb {
         let (
             addresses,
             ledger_outputs,
-            aliases,
-            nfts,
-            storage_deposits,
+            output_activity,
+            ledger_size,
             unclaimed_tokens,
             unlock_conditions,
             address_activity,
@@ -57,8 +55,7 @@ impl MongoDb {
         ) = tokio::try_join!(
             output_collection.get_address_analytics(milestone_index),
             output_collection.get_ledger_output_analytics(milestone_index),
-            output_collection.get_alias_output_analytics(milestone_index),
-            output_collection.get_nft_output_analytics(milestone_index),
+            output_collection.get_output_activity_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
             output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
@@ -76,9 +73,8 @@ impl MongoDb {
             addresses,
             base_token,
             ledger_outputs,
-            aliases,
-            nfts,
-            storage_deposits,
+            output_activity,
+            ledger_size,
             unclaimed_tokens,
             payload_activity,
             transaction_activity,
@@ -158,6 +154,15 @@ pub struct UnclaimedTokensAnalytics {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(default)]
+pub struct OutputActivityAnalytics {
+    alias: AliasActivityAnalytics,
+    nft: NftActivityAnalytics,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[serde(default)]
 pub struct AliasActivityAnalytics {
     pub created_count: u64,
     pub governor_changed_count: u64,
@@ -167,6 +172,7 @@ pub struct AliasActivityAnalytics {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(default)]
 pub struct NftActivityAnalytics {
     pub created_count: u64,
     pub transferred_count: u64,
@@ -181,6 +187,7 @@ pub struct BaseTokenActivityAnalytics {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
+#[serde(default)]
 pub struct FoundryActivityAnalytics {
     pub created_count: u64,
     pub transferred_count: u64,
