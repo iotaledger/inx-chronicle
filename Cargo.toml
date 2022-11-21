@@ -99,6 +99,7 @@ default = [
     "inx",
     "loki",
     "metrics",
+    "poi",
     "stardust",
 ]
 analytics = [
