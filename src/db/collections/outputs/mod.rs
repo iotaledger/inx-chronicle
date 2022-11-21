@@ -397,9 +397,7 @@ mod analytics {
             mongodb::MongoDbCollectionExt,
         },
         types::{
-            stardust::block::output::{
-                AliasId, AliasOutput, BasicOutput, FoundryOutput, NftId, NftOutput, TreasuryOutput,
-            },
+            stardust::block::output::{AliasId, NftId},
             tangle::MilestoneIndex,
         },
     };
@@ -445,58 +443,65 @@ mod analytics {
             ledger_index: MilestoneIndex,
         ) -> Result<LedgerOutputAnalytics, Error> {
             #[derive(Default, Deserialize)]
-            struct Res {
+            struct Sums {
                 count: u64,
                 value: d128,
             }
 
-            let query = |kind: &'static str| async move {
-                Result::<_, Error>::Ok(
-                    self.aggregate::<Res>(
-                        vec![
-                            doc! { "$match": {
-                                "output.kind": kind,
-                                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                            } },
-                            doc! { "$group" : {
-                                "_id": null,
-                                "count": { "$sum": 1 },
-                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "count": 1,
-                                "value": { "$toString": "$value" },
-                            } },
-                        ],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .unwrap_or_default(),
-                )
-            };
+            #[derive(Default, Deserialize)]
+            #[serde(default)]
+            struct Res {
+                basic: Sums,
+                alias: Sums,
+                foundry: Sums,
+                nft: Sums,
+                treasury: Sums,
+            }
 
-            let (basic, alias, foundry, nft, treasury) = tokio::try_join!(
-                query(BasicOutput::KIND),
-                query(AliasOutput::KIND),
-                query(FoundryOutput::KIND),
-                query(NftOutput::KIND),
-                query(TreasuryOutput::KIND)
-            )?;
+            let res = self
+                .aggregate::<Res>(
+                    vec![
+                        doc! { "$match": {
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$output.kind",
+                            "count": { "$sum": 1 },
+                            "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$group" : {
+                            "_id": null,
+                            "result": { "$addToSet": {
+                                "k": "$_id",
+                                "v": {
+                                    "count": "$count",
+                                    "value": { "$toString": "$value" },
+                                }
+                            } },
+                        } },
+                        doc! { "$replaceWith": {
+                            "$arrayToObject": "$result"
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default();
 
             Ok(crate::db::collections::analytics::LedgerOutputAnalytics {
-                basic_count: basic.count,
-                basic_value: basic.value,
-                alias_count: alias.count,
-                alias_value: alias.value,
-                foundry_count: foundry.count,
-                foundry_value: foundry.value,
-                nft_count: nft.count,
-                nft_value: nft.value,
-                treasury_count: treasury.count,
-                treasury_value: treasury.value,
+                basic_count: res.basic.count,
+                basic_value: res.basic.value,
+                alias_count: res.alias.count,
+                alias_value: res.alias.value,
+                foundry_count: res.foundry.count,
+                foundry_value: res.foundry.value,
+                nft_count: res.nft.count,
+                nft_value: res.nft.value,
+                treasury_count: res.treasury.count,
+                treasury_value: res.treasury.value,
             })
         }
 
