@@ -5,7 +5,7 @@ use chronicle::types::stardust::block::BlockId;
 use crypto::hashes::{blake2b::Blake2b256, Output};
 use serde::{Deserialize, Serialize};
 
-use super::{error::PoIError, merkle_hasher::MerkleHasher};
+use super::{error::CreateProofError, merkle_hasher::MerkleHasher};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleProof {
@@ -54,27 +54,31 @@ impl Hashable {
 }
 
 impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleProof, PoIError> {
-        let index = find_index(block_ids, block_id).ok_or(PoIError::InvalidRequest("invalid BlockId"))?;
-        self.create_proof_from_index(block_ids, index)
+    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleProof, CreateProofError> {
+        if block_ids.len() < 2 {
+            Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
+        } else {
+            let index =
+                find_index(block_ids, block_id).ok_or_else(|| CreateProofError::BlockNotIncluded(block_id.to_hex()))?;
+            Ok(self.create_proof_from_index(block_ids, index))
+        }
     }
 
-    // NOTE: `block_ids` is the list of past-cone block ids in "White Flag" order.
-    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> Result<MerkleProof, PoIError> {
+    // NOTE:
+    // * `block_ids` is the list of past-cone block ids in "White Flag" order;
+    // * `block_ids.len() >= 2` must be true, or this function panics;
+    // * `index < block_ids.len()` must be true, or this function panics;
+    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> MerkleProof {
         let n = block_ids.len();
-        if n < 2 {
-            Err(PoIError::InvalidInput("cannot create proof for less than 2 block ids"))
-        } else if index >= n {
-            Err(PoIError::InvalidInput("given index is out of bounds"))
+        debug_assert!(index < n);
+
+        let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
+        let proof = self.compute_proof(&data, index);
+        if let Hashable::MerkleProof(proof, _) = proof {
+            *proof
         } else {
-            let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-            let proof = self.compute_proof(&data, index);
-            if let Hashable::MerkleProof(proof, _) = proof {
-                Ok(*proof)
-            } else {
-                // The root of this recursive structure will always be `Hashable::MerkleProof`.
-                unreachable!();
-            }
+            // The root of this recursive structure will always be `Hashable::MerkleProof`.
+            unreachable!();
         }
     }
 
@@ -230,7 +234,7 @@ mod tests {
         let inclusion_merkle_root = hasher.hash_block_ids(&block_ids);
 
         for index in 0..block_ids.len() {
-            let proof = hasher.create_proof_from_index(&block_ids, index).unwrap();
+            let proof = hasher.create_proof_from_index(&block_ids, index);
             let hash = proof.hash(&hasher);
 
             assert_eq!(

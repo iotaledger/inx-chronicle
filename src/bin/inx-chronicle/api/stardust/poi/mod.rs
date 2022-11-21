@@ -7,4 +7,4 @@ mod merkle_proof;
 mod responses;
 mod routes;
 
-pub use self::{error::PoIError, routes::routes};
+pub use self::{error::*, routes::routes};

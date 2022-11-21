@@ -9,9 +9,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[cfg(feature = "api")]
-    #[error(transparent)]
-    Api(#[from] crate::api::ConfigError),
     #[error("failed to read config at '{0}': {1}")]
     FileRead(String, std::io::Error),
     #[error("toml deserialization failed: {0}")]
@@ -23,7 +20,7 @@ pub enum ConfigError {
 #[serde(default)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
-    #[cfg(feature = "influxdb")]
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
     pub influxdb: chronicle::db::influxdb::InfluxDbConfig,
     #[cfg(feature = "api")]
     pub api: crate::api::ApiConfig,

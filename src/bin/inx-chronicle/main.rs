@@ -8,7 +8,6 @@
 mod api;
 mod cli;
 mod config;
-mod error;
 mod process;
 #[cfg(all(feature = "stardust", feature = "inx"))]
 mod stardust_inx;
@@ -21,13 +20,10 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use self::{
-    cli::{ClArgs, PostCommand},
-    error::Error,
-};
+use self::cli::{ClArgs, PostCommand};
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> eyre::Result<()> {
     dotenvy::dotenv().ok();
 
     std::panic::set_hook(Box::new(|p| {
@@ -54,14 +50,14 @@ async fn main() -> Result<(), Error> {
     #[cfg(feature = "stardust")]
     build_indexes(&db).await?;
 
-    let mut tasks: JoinSet<Result<(), Error>> = JoinSet::new();
+    let mut tasks: JoinSet<eyre::Result<()>> = JoinSet::new();
 
     let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
 
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
-        #[cfg(feature = "influxdb")]
-        let influx_db = if config.influxdb.enabled {
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        let influx_db = if config.influxdb.analytics_enabled || config.influxdb.metrics_enabled {
             info!("Connecting to influx database at address `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             info!("Connected to influx database `{}`", influx_db.database_name());
@@ -72,7 +68,7 @@ async fn main() -> Result<(), Error> {
 
         let mut worker = stardust_inx::InxWorker::new(
             &db,
-            #[cfg(feature = "influxdb")]
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db.as_ref(),
             &config.inx,
         );
@@ -93,7 +89,7 @@ async fn main() -> Result<(), Error> {
         use futures::FutureExt;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api).map_err(config::ConfigError::Api)?;
+            let worker = api::ApiWorker::new(&db, &config.api)?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });
@@ -128,7 +124,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> Result<(), Error> {
+fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()> {
     let registry = tracing_subscriber::registry();
 
     #[cfg(feature = "opentelemetry")]
@@ -168,7 +164,7 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> Result<(), Error
 }
 
 #[cfg(feature = "stardust")]
-async fn build_indexes(db: &MongoDb) -> Result<(), Error> {
+async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     use chronicle::db::collections;
     let start_indexes = db.get_index_names().await?;
     db.create_indexes::<collections::OutputCollection>().await?;

@@ -24,7 +24,7 @@ impl From<MilestoneTimestamp> for Bson {
     }
 }
 
-#[cfg(feature = "influxdb")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
 impl From<MilestoneTimestamp> for influxdb::Timestamp {
     fn from(value: MilestoneTimestamp) -> Self {
         Self::Seconds(value.0 as _)
