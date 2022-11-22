@@ -233,8 +233,8 @@ async fn milestones(
 
 async fn blocks_by_milestone_index(
     database: Extension<MongoDb>,
+    Path(milestone_index): Path<MilestoneIndex>,
     BlocksByMilestoneIndexPagination {
-        milestone_index,
         sort,
         page_size,
         cursor,
@@ -267,13 +267,14 @@ async fn blocks_by_milestone_index(
 
 async fn blocks_by_milestone_id(
     database: Extension<MongoDb>,
+    Path(milestone_id): Path<String>,
     BlocksByMilestoneIdPagination {
-        milestone_id,
         sort,
         page_size,
         cursor,
     }: BlocksByMilestoneIdPagination,
 ) -> ApiResult<BlocksByMilestoneResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
     let milestone_index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
@@ -283,8 +284,8 @@ async fn blocks_by_milestone_id(
         .index;
     blocks_by_milestone_index(
         database,
+        Path(milestone_index),
         BlocksByMilestoneIndexPagination {
-            milestone_index,
             sort,
             page_size,
             cursor,
