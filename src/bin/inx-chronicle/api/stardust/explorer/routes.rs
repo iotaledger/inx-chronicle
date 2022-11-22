@@ -233,8 +233,8 @@ async fn milestones(
 
 async fn blocks_by_milestone_index(
     database: Extension<MongoDb>,
+    Path(milestone_index): Path<MilestoneIndex>,
     BlocksByMilestoneIndexPagination {
-        milestone_index,
         sort,
         page_size,
         cursor,
@@ -267,8 +267,8 @@ async fn blocks_by_milestone_index(
 
 async fn blocks_by_milestone_id(
     database: Extension<MongoDb>,
+    Path(milestone_id): Path<MilestoneId>,
     BlocksByMilestoneIdPagination {
-        milestone_id,
         sort,
         page_size,
         cursor,
@@ -283,8 +283,8 @@ async fn blocks_by_milestone_id(
         .index;
     blocks_by_milestone_index(
         database,
+        Path(milestone_index),
         BlocksByMilestoneIndexPagination {
-            milestone_index,
             sort,
             page_size,
             cursor,

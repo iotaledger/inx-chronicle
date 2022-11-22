@@ -11,10 +11,7 @@ use axum::{
 use chronicle::{
     db::collections::SortOrder,
     types::{
-        stardust::{
-            block::{output::OutputId, payload::MilestoneId},
-            milestone::MilestoneTimestamp,
-        },
+        stardust::{block::output::OutputId, milestone::MilestoneTimestamp},
         tangle::MilestoneIndex,
     },
 };
@@ -334,7 +331,6 @@ impl<B: Send> FromRequest<B> for MilestoneRange {
 }
 
 pub struct BlocksByMilestoneIndexPagination {
-    pub milestone_index: MilestoneIndex,
     pub sort: SortOrder,
     pub page_size: usize,
     pub cursor: Option<u32>,
@@ -343,7 +339,6 @@ pub struct BlocksByMilestoneIndexPagination {
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct BlocksByMilestoneIndexPaginationQuery {
-    pub milestone_index: MilestoneIndex,
     pub sort: Option<String>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
@@ -400,7 +395,6 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
         };
 
         Ok(BlocksByMilestoneIndexPagination {
-            milestone_index: query.milestone_index,
             sort,
             page_size: page_size.min(config.max_page_size),
             cursor,
@@ -409,7 +403,6 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
 }
 
 pub struct BlocksByMilestoneIdPagination {
-    pub milestone_id: MilestoneId,
     pub sort: SortOrder,
     pub page_size: usize,
     pub cursor: Option<u32>,
@@ -418,7 +411,6 @@ pub struct BlocksByMilestoneIdPagination {
 #[derive(Clone, Deserialize, Default)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct BlocksByMilestoneIdPaginationQuery {
-    pub milestone_id: String,
     pub sort: Option<String>,
     pub page_size: Option<usize>,
     pub cursor: Option<String>,
@@ -434,8 +426,6 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
             .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
-        let milestone_id = MilestoneId::from_str(&query.milestone_id)?;
-
         let sort = query
             .sort
             .as_deref()
@@ -450,7 +440,6 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
         };
 
         Ok(BlocksByMilestoneIdPagination {
-            milestone_id,
             sort,
             page_size: page_size.min(config.max_page_size),
             cursor,
