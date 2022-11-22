@@ -390,16 +390,13 @@ mod analytics {
     use crate::{
         db::{
             collections::analytics::{
-                AddressActivityAnalytics, AddressAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
-                LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics, UnclaimedTokensAnalytics,
-                UnlockConditionAnalytics,
+                AddressActivityAnalytics, AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
+                LedgerSizeAnalytics, OutputActivityAnalytics, UnclaimedTokensAnalytics, UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
         },
         types::{
-            stardust::block::output::{
-                AliasId, AliasOutput, BasicOutput, FoundryOutput, NftId, NftOutput, TreasuryOutput,
-            },
+            stardust::block::output::{AliasId, NftId},
             tangle::MilestoneIndex,
         },
     };
@@ -445,76 +442,85 @@ mod analytics {
             ledger_index: MilestoneIndex,
         ) -> Result<LedgerOutputAnalytics, Error> {
             #[derive(Default, Deserialize)]
-            struct Res {
+            struct Sums {
                 count: u64,
                 value: d128,
             }
 
-            let query = |kind: &'static str| async move {
-                Result::<_, Error>::Ok(
-                    self.aggregate::<Res>(
-                        vec![
-                            doc! { "$match": {
-                                "output.kind": kind,
-                                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                            } },
-                            doc! { "$group" : {
-                                "_id": null,
-                                "count": { "$sum": 1 },
-                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "count": 1,
-                                "value": { "$toString": "$value" },
-                            } },
-                        ],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .unwrap_or_default(),
-                )
-            };
+            #[derive(Default, Deserialize)]
+            #[serde(default)]
+            struct Res {
+                basic: Sums,
+                alias: Sums,
+                foundry: Sums,
+                nft: Sums,
+                treasury: Sums,
+            }
 
-            let (basic, alias, foundry, nft, treasury) = tokio::try_join!(
-                query(BasicOutput::KIND),
-                query(AliasOutput::KIND),
-                query(FoundryOutput::KIND),
-                query(NftOutput::KIND),
-                query(TreasuryOutput::KIND)
-            )?;
+            let res = self
+                .aggregate::<Res>(
+                    vec![
+                        doc! { "$match": {
+                            "metadata.booked.milestone_index": { "$lte": ledger_index },
+                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        } },
+                        doc! { "$group" : {
+                            "_id": "$output.kind",
+                            "count": { "$sum": 1 },
+                            "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$group" : {
+                            "_id": null,
+                            "result": { "$addToSet": {
+                                "k": "$_id",
+                                "v": {
+                                    "count": "$count",
+                                    "value": { "$toString": "$value" },
+                                }
+                            } },
+                        } },
+                        doc! { "$replaceWith": {
+                            "$arrayToObject": "$result"
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default();
 
             Ok(crate::db::collections::analytics::LedgerOutputAnalytics {
-                basic_count: basic.count,
-                basic_value: basic.value,
-                alias_count: alias.count,
-                alias_value: alias.value,
-                foundry_count: foundry.count,
-                foundry_value: foundry.value,
-                nft_count: nft.count,
-                nft_value: nft.value,
-                treasury_count: treasury.count,
-                treasury_value: treasury.value,
+                basic_count: res.basic.count,
+                basic_value: res.basic.value,
+                alias_count: res.alias.count,
+                alias_value: res.alias.value,
+                foundry_count: res.foundry.count,
+                foundry_value: res.foundry.value,
+                nft_count: res.nft.count,
+                nft_value: res.nft.value,
+                treasury_count: res.treasury.count,
+                treasury_value: res.treasury.value,
             })
         }
 
-        /// Gathers analytics about nfts that were created/transferred/burned in the given milestone.
+        /// Gathers analytics about outputs that were created/transferred/burned in the given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_nft_output_analytics(&self, index: MilestoneIndex) -> Result<NftActivityAnalytics, Error> {
+        pub async fn get_output_activity_analytics(
+            &self,
+            index: MilestoneIndex,
+        ) -> Result<OutputActivityAnalytics, Error> {
             Ok(self
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "output.kind": "nft",
                             "$or": [
                                 { "metadata.booked.milestone_index": index },
                                 { "metadata.spent_metadata.spent.milestone_index": index },
                             ],
                         } },
                         doc! { "$facet": {
-                            "created": [
+                            "nft_created": [
                                 { "$match": {
                                     "metadata.booked.milestone_index": index,
                                     "output.nft_id": NftId::implicit(),
@@ -524,7 +530,7 @@ mod analytics {
                                     "count": { "$sum": 1 },
                                 } },
                             ],
-                            "changed": [
+                            "nft_changed": [
                                 { "$match": { "output.nft_id": { "$ne": NftId::implicit() } } },
                                 { "$group": {
                                     "_id": "$output.nft_id",
@@ -537,36 +543,7 @@ mod analytics {
                                     "destroyed": { "$sum": { "$cond": [ { "$eq": [ "$unspent", 0 ] }, 1, 0 ] } },
                                 } },
                             ],
-                        } },
-                        doc! { "$project": {
-                            "created_count": { "$ifNull": [ { "$first": "$created.count" }, 0 ] },
-                            "transferred_count": { "$ifNull": [ { "$first": "$changed.transferred" }, 0 ] },
-                            "destroyed_count": { "$ifNull": [ { "$first": "$changed.destroyed" }, 0 ] },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
-        }
-
-        /// Gathers analytics about aliases that were created/transferred/burned in the given milestone.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_alias_output_analytics(&self, index: MilestoneIndex) -> Result<AliasActivityAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "output.kind": "alias",
-                            "$or": [
-                                { "metadata.booked.milestone_index": index },
-                                { "metadata.spent_metadata.spent.milestone_index": index },
-                            ],
-                        } },
-                        doc! { "$facet": {
-                            "created": [
+                            "alias_created": [
                                 { "$match": {
                                     "metadata.booked.milestone_index": index,
                                     "output.alias_id": AliasId::implicit(),
@@ -576,7 +553,7 @@ mod analytics {
                                     "count": { "$sum": 1 },
                                 } },
                             ],
-                            "changed": [
+                            "alias_changed": [
                                 { "$match": { "output.alias_id": { "$ne": AliasId::implicit() } } },
                                 // Group by state indexes to find where it changed
                                 { "$group": {
@@ -601,11 +578,18 @@ mod analytics {
                             ],
                         } },
                         doc! { "$project": {
-                            "created_count": { "$ifNull": [ { "$first": "$created.count" }, 0 ] },
-                            "state_changed_count": { "$ifNull": [ { "$first": "$changed.state" }, 0 ] },
-                            "governor_changed_count": { "$ifNull": [ { "$first": "$changed.governor" }, 0 ] },
-                            "destroyed_count": { "$ifNull": [ { "$first": "$changed.destroyed" }, 0 ] },
-                        } }
+                            "alias": {
+                                "created_count": { "$first": "$alias_created.count" },
+                                "state_changed_count": { "$first": "$alias_changed.state" },
+                                "governor_changed_count": { "$first": "$alias_changed.governor" },
+                                "destroyed_count": { "$first": "$alias_changed.destroyed" },
+                            },
+                            "nft": {
+                                "created_count": { "$first": "$nft_created.count" },
+                                "transferred_count": { "$first": "$nft_changed.transferred" },
+                                "destroyed_count": { "$first": "$nft_changed.destroyed" },
+                            },
+                        } },
                     ],
                     None,
                 )
