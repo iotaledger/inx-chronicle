@@ -242,7 +242,7 @@ async fn blocks_by_milestone_index(
 ) -> ApiResult<BlocksByMilestoneResponse> {
     let mut record_stream = database
         .collection::<BlockCollection>()
-        .get_blocks_by_milestone_index(milestone_index, page_size, cursor, sort)
+        .get_blocks_by_milestone_index(milestone_index, page_size + 1, cursor, sort)
         .await?;
 
     // Take all of the requested records first
