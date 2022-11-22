@@ -267,13 +267,14 @@ async fn blocks_by_milestone_index(
 
 async fn blocks_by_milestone_id(
     database: Extension<MongoDb>,
-    Path(milestone_id): Path<MilestoneId>,
+    Path(milestone_id): Path<String>,
     BlocksByMilestoneIdPagination {
         sort,
         page_size,
         cursor,
     }: BlocksByMilestoneIdPagination,
 ) -> ApiResult<BlocksByMilestoneResponse> {
+    let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
     let milestone_index = database
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
