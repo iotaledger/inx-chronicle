@@ -336,7 +336,7 @@ impl BlockCollection {
             SortOrder::Oldest => (doc! {"metadata.white_flag_index": 1 }, "$gte"),
         };
 
-        let mut queries = vec![doc! { "block.referenced_by_milestone_index": milestone_index }];
+        let mut queries = vec![doc! { "metadata.referenced_by_milestone_index": milestone_index }];
         if let Some(white_flag_index) = cursor {
             queries.push(doc! { "metadata.white_flag_index": { cmp: white_flag_index } });
         }
