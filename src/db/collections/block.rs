@@ -360,18 +360,15 @@ impl BlockCollection {
 #[cfg(feature = "analytics")]
 mod analytics {
     use super::*;
-    use crate::{
-        db::collections::analytics::{PayloadActivityAnalytics, TransactionActivityAnalytics},
-        types::tangle::MilestoneIndex,
-    };
+    use crate::{db::collections::analytics::BlockActivityAnalytics, types::tangle::MilestoneIndex};
 
     impl BlockCollection {
         /// Gathers past-cone payload activity statistics for a given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_payload_activity_analytics(
+        pub async fn get_block_activity_analytics(
             &self,
             index: MilestoneIndex,
-        ) -> Result<PayloadActivityAnalytics, Error> {
+        ) -> Result<BlockActivityAnalytics, Error> {
             Ok(self
                 .aggregate(
                     vec![
@@ -393,28 +390,6 @@ mod analytics {
                             "no_payload_count": { "$sum": {
                                 "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
                             } },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
-        }
-
-        /// Gathers past-cone transaction activity statistics for a given milestone.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_transaction_activity_analytics(
-            &self,
-            index: MilestoneIndex,
-        ) -> Result<TransactionActivityAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                        doc! { "$group": {
-                            "_id": null,
                             "confirmed_count": { "$sum": {
                                 "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
                             } },
@@ -424,6 +399,20 @@ mod analytics {
                             "no_transaction_count": { "$sum": {
                                 "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
                             } },
+                        } },
+                        doc! { "$project": {
+                            "payload": {
+                                "transaction_count": "$transaction_count",
+                                "treasury_transaction_count": "$treasury_transaction_count",
+                                "milestone_count": "$milestone_count",
+                                "tagged_data_count": "$tagged_data_count",
+                                "no_payload_count": "$no_payload_count",
+                            },
+                            "transaction": {
+                                "confirmed_count": "$confirmed_count",
+                                "conflicting_count": "$conflicting_count",
+                                "no_transaction_count": "$no_transaction_count",
+                            }
                         } },
                     ],
                     None,
