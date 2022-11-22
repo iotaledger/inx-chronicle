@@ -352,12 +352,16 @@ impl InxWorker {
             if influx_db.config().analytics_enabled {
                 if let Some(prev_analytics) = self.analytics.as_mut() {
                     self.db.update_all_analytics(milestone_index, prev_analytics).await?;
+                    influx_db
+                        .insert_all_analytics(milestone_timestamp, milestone_index, prev_analytics.clone())
+                        .await?;
                 } else {
-                    self.analytics = Some(self.db.get_all_analytics(milestone_index).await?);
+                    let analytics = self.db.get_all_analytics(milestone_index).await?;
+                    self.analytics = Some(analytics.clone());
+                    influx_db
+                        .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                        .await?;
                 }
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, self.analytics.clone().unwrap())
-                    .await?;
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
