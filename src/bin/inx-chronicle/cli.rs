@@ -248,8 +248,6 @@ impl ClArgs {
                     for i in 0..num_tasks {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
-                        // Account for inclusive end
-                        start_milestone = end_milestone + 1;
                         // Each task gets an even share of the milestones, but we must also
                         // assign the remainders if the total number of milestones isn't evenly
                         // divided.
@@ -258,7 +256,6 @@ impl ClArgs {
                         // Account for inclusive end (again)
                         end_milestone = start_milestone + task_milestones - 1;
                         join_set.spawn(async move {
-                            println!("Task range: {}..={}", start_milestone, end_milestone);
                             let mut prev_analytics = None;
                             for index in start_milestone..=end_milestone {
                                 let index = index.into();
@@ -300,6 +297,8 @@ impl ClArgs {
                             }
                             Ok(())
                         });
+                        // Account for inclusive end
+                        start_milestone = end_milestone + 1;
                     }
                     while let Some(res) = join_set.join_next().await {
                         // Panic: Acceptable risk
