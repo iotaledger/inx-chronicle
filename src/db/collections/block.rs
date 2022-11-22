@@ -345,7 +345,7 @@ impl BlockCollection {
             vec![
                 doc! { "$match": { "$and": queries } },
                 doc! { "$sort": sort },
-                doc! { "$limit": page_size as i64 },
+                doc! { "$limit": (page_size + 1) as i64 },
                 doc! { "$replaceWith": {
                     "block_id": "$_id",
                     "white_flag_index": "$metadata.white_flag_index"
