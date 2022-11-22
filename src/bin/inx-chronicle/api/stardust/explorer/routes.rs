@@ -278,7 +278,7 @@ async fn blocks_by_milestone_id(
         .collection::<MilestoneCollection>()
         .get_milestone_payload_by_id(&milestone_id)
         .await?
-        .ok_or(ApiError::NoResults)?
+        .ok_or(MissingError::NoResults)?
         .essence
         .index;
     blocks_by_milestone_index(

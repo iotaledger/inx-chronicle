@@ -362,10 +362,10 @@ impl FromStr for BlocksByMilestoneCursor {
         let parts: Vec<_> = s.split('.').collect();
         Ok(match parts[..] {
             [wfi, ps] => BlocksByMilestoneCursor {
-                white_flag_index: wfi.parse().map_err(ApiError::bad_parse)?,
-                page_size: ps.parse().map_err(ApiError::bad_parse)?,
+                white_flag_index: wfi.parse().map_err(RequestError::from)?,
+                page_size: ps.parse().map_err(RequestError::from)?,
             },
-            _ => return Err(ApiError::bad_parse(ParseError::BadPagingState)),
+            _ => return Err(ApiError::from(RequestError::BadPagingState)),
         })
     }
 }
@@ -383,14 +383,14 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<BlocksByMilestoneIndexPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
         let sort = query
             .sort
             .as_deref()
             .map_or(Ok(Default::default()), str::parse)
-            .map_err(ParseError::SortOrder)?;
+            .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: BlocksByMilestoneCursor = cursor.parse()?;
@@ -431,16 +431,16 @@ impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
     async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         let Query(query) = Query::<BlocksByMilestoneIdPaginationQuery>::from_request(req)
             .await
-            .map_err(ApiError::QueryError)?;
+            .map_err(RequestError::from)?;
         let Extension(config) = Extension::<ApiData>::from_request(req).await?;
 
-        let milestone_id = MilestoneId::from_str(&query.milestone_id).map_err(ApiError::bad_parse)?;
+        let milestone_id = MilestoneId::from_str(&query.milestone_id)?;
 
         let sort = query
             .sort
             .as_deref()
             .map_or(Ok(Default::default()), str::parse)
-            .map_err(ParseError::SortOrder)?;
+            .map_err(RequestError::SortOrder)?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: BlocksByMilestoneCursor = cursor.parse()?;
