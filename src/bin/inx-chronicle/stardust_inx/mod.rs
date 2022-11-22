@@ -36,6 +36,8 @@ pub struct InxWorker {
     #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
+    #[cfg(feature = "analytics")]
+    analytics: Option<chronicle::db::collections::analytics::Analytics>,
 }
 
 impl InxWorker {
@@ -50,6 +52,8 @@ impl InxWorker {
             #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db: influx_db.cloned(),
             config: inx_config.clone(),
+            #[cfg(feature = "analytics")]
+            analytics: None,
         }
     }
 
@@ -346,9 +350,13 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                let analytics = self.db.get_all_analytics(milestone_index).await?;
+                if let Some(prev_analytics) = self.analytics.as_mut() {
+                    self.db.update_all_analytics(milestone_index, prev_analytics).await?;
+                } else {
+                    self.analytics = Some(self.db.get_all_analytics(milestone_index).await?);
+                }
                 influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                    .insert_all_analytics(milestone_timestamp, milestone_index, self.analytics.clone().unwrap())
                     .await?;
             }
         }

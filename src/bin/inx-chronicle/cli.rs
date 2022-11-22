@@ -1,9 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 
 use crate::config::{ChronicleConfig, ConfigError};
 
@@ -221,38 +219,48 @@ impl ClArgs {
                     start_milestone,
                     end_milestone,
                     num_tasks,
-                    analytics,
                 } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
-                    let start_milestone = if let Some(index) = start_milestone {
-                        *index
+                    let mut start_milestone = if let Some(index) = start_milestone {
+                        **index
                     } else {
-                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                        *db.collection::<chronicle::db::collections::MilestoneCollection>()
                             .get_oldest_milestone()
                             .await?
                             .map(|ts| ts.milestone_index)
                             .unwrap_or_default()
                     };
-                    let end_milestone = if let Some(index) = end_milestone {
-                        *index
+                    let mut end_milestone = if let Some(index) = end_milestone {
+                        **index
                     } else {
-                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                        *db.collection::<chronicle::db::collections::MilestoneCollection>()
                             .get_newest_milestone()
                             .await?
                             .map(|ts| ts.milestone_index)
                             .unwrap_or_default()
                     };
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
-                    let mut analytics = analytics.iter().copied().collect::<HashSet<_>>();
                     let num_tasks = num_tasks.unwrap_or(1);
                     let mut join_set = tokio::task::JoinSet::<eyre::Result<()>>::new();
+                    // Inclusive end
+                    let total_milestones = end_milestone - start_milestone + 1;
                     for i in 0..num_tasks {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
-                        let analytics = analytics.clone();
+                        // Account for inclusive end
+                        start_milestone = end_milestone + 1;
+                        // Each task gets an even share of the milestones, but we must also
+                        // assign the remainders if the total number of milestones isn't evenly
+                        // divided.
+                        let task_milestones = (total_milestones / num_tasks as u32)
+                            + ((i as u32) < (total_milestones % num_tasks as u32)) as u32;
+                        // Account for inclusive end (again)
+                        end_milestone = start_milestone + task_milestones - 1;
                         join_set.spawn(async move {
-                            for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
+                            println!("Task range: {}..={}", start_milestone, end_milestone);
+                            let mut prev_analytics = None;
+                            for index in start_milestone..=end_milestone {
                                 let index = index.into();
                                 if let Some(timestamp) = db
                                     .collection::<chronicle::db::collections::MilestoneCollection>()
@@ -262,12 +270,16 @@ impl ClArgs {
                                     #[cfg(feature = "metrics")]
                                     let start_time = std::time::Instant::now();
 
-                                    futures::future::join_all(
-                                        analytics
-                                            .iter()
-                                            .map(|analytic| analytic.gather(&db, &influx_db, index, timestamp)),
-                                    )
-                                    .await;
+                                    if let Some(prev_analytics) = prev_analytics.as_mut() {
+                                        db.update_all_analytics(index, prev_analytics).await?;
+                                        influx_db
+                                            .insert_all_analytics(timestamp, index, prev_analytics.clone())
+                                            .await?;
+                                    } else {
+                                        let analytics = db.get_all_analytics(index).await?;
+                                        prev_analytics = Some(analytics.clone());
+                                        influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+                                    }
 
                                     #[cfg(feature = "metrics")]
                                     {
@@ -336,9 +348,6 @@ pub enum Subcommands {
         /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
-        /// The list of analytics to fill.
-        #[arg(short, long, value_enum, default_values_t = Analytic::all())]
-        analytics: Vec<Analytic>,
     },
     /// Clear the chronicle database.
     #[cfg(debug_assertions)]
@@ -356,140 +365,4 @@ pub enum Subcommands {
 pub enum PostCommand {
     Start,
     Exit,
-}
-
-#[cfg(all(feature = "analytics", feature = "stardust"))]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
-pub enum Analytic {
-    AddressActivity,
-    Addresses,
-    BaseTokens,
-    LedgerOutputs,
-    Aliases,
-    Nfts,
-    LedgerSize,
-    UnclaimedTokens,
-    UnlockConditions,
-    PayloadActivity,
-    TransactionActivity,
-    ProtocolParams,
-}
-
-#[cfg(all(feature = "analytics", feature = "stardust"))]
-impl Analytic {
-    fn all() -> Vec<Self> {
-        vec![
-            Self::AddressActivity,
-            Self::Addresses,
-            Self::BaseTokens,
-            Self::LedgerOutputs,
-            Self::Aliases,
-            Self::Nfts,
-            Self::LedgerSize,
-            Self::UnclaimedTokens,
-            Self::UnlockConditions,
-            Self::PayloadActivity,
-            Self::TransactionActivity,
-            Self::ProtocolParams,
-        ]
-    }
-
-    async fn gather(
-        &self,
-        db: &chronicle::db::MongoDb,
-        influx_db: &chronicle::db::influxdb::InfluxDb,
-        index: chronicle::types::tangle::MilestoneIndex,
-        timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
-    ) -> eyre::Result<()> {
-        match self {
-            Analytic::AddressActivity => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_address_activity_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::Addresses => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_address_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::BaseTokens => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_base_token_activity_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::LedgerOutputs => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_ledger_output_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::Aliases => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_alias_output_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::Nfts => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_nft_output_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::LedgerSize => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_ledger_size_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::UnclaimedTokens => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_unclaimed_token_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::UnlockConditions => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::OutputCollection>()
-                    .get_unlock_condition_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::PayloadActivity => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::BlockCollection>()
-                    .get_payload_activity_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::TransactionActivity => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::BlockCollection>()
-                    .get_transaction_activity_analytics(index)
-                    .await?;
-                influx_db.insert_analytics(timestamp, index, analytics).await?;
-            }
-            Analytic::ProtocolParams => {
-                let analytics = db
-                    .collection::<chronicle::db::collections::ProtocolUpdateCollection>()
-                    .get_protocol_parameters_for_milestone_index(index)
-                    .await?
-                    .map(|p| p.parameters);
-                if let Some(analytics) = analytics {
-                    influx_db.insert_analytics(timestamp, index, analytics).await?;
-                }
-            }
-        }
-        Ok(())
-    }
 }

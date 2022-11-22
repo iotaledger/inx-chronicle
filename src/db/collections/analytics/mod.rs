@@ -78,6 +78,42 @@ impl MongoDb {
             protocol_params,
         })
     }
+
+    /// Updates all analytics from a previous milestone index, fetching the data from the collections.
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn update_all_analytics(
+        &self,
+        milestone_index: MilestoneIndex,
+        prev_analytics: &mut Analytics,
+    ) -> Result<(), Error> {
+        let output_collection = self.collection::<OutputCollection>();
+        let block_collection = self.collection::<BlockCollection>();
+        let protocol_param_collection = self.collection::<ProtocolUpdateCollection>();
+
+        let (addresses, output_activity, address_activity, base_token, block_activity, protocol_params, ..) = tokio::try_join!(
+            output_collection.get_address_analytics(milestone_index),
+            output_collection.get_output_activity_analytics(milestone_index),
+            output_collection.get_address_activity_analytics(milestone_index),
+            output_collection.get_base_token_activity_analytics(milestone_index),
+            block_collection.get_block_activity_analytics(milestone_index),
+            protocol_param_collection
+                .get_protocol_parameters_for_milestone_index(milestone_index)
+                .and_then(|p| async move { Ok(p.map(|p| p.parameters)) }),
+            output_collection.update_ledger_size_analytics(&mut prev_analytics.ledger_size, milestone_index),
+            output_collection.update_ledger_output_analytics(&mut prev_analytics.ledger_outputs, milestone_index),
+            output_collection.update_unclaimed_token_analytics(&mut prev_analytics.unclaimed_tokens, milestone_index),
+            output_collection.update_unlock_condition_analytics(&mut prev_analytics.unlock_conditions, milestone_index),
+        )?;
+
+        prev_analytics.addresses = addresses;
+        prev_analytics.output_activity = output_activity;
+        prev_analytics.address_activity = address_activity;
+        prev_analytics.base_token = base_token;
+        prev_analytics.block_activity = block_activity;
+        prev_analytics.protocol_params = protocol_params;
+
+        Ok(())
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,7 +133,9 @@ pub struct AddressAnalytics {
     pub address_with_balance_count: u64,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, derive_more::AddAssign, derive_more::SubAssign,
+)]
 #[allow(missing_docs)]
 pub struct UnlockConditionAnalytics {
     pub timelock_count: u64,
@@ -108,7 +146,9 @@ pub struct UnlockConditionAnalytics {
     pub storage_deposit_return_value: d128,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, derive_more::AddAssign, derive_more::SubAssign,
+)]
 #[allow(missing_docs)]
 pub struct LedgerOutputAnalytics {
     pub basic_count: u64,
@@ -123,7 +163,7 @@ pub struct LedgerOutputAnalytics {
     pub treasury_value: d128,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, derive_more::AddAssign, derive_more::SubAssign)]
 #[allow(missing_docs)]
 pub struct LedgerSizeAnalytics {
     pub total_storage_deposit_value: d128,
@@ -141,7 +181,7 @@ impl LedgerSizeAnalytics {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, derive_more::SubAssign)]
 #[allow(missing_docs)]
 pub struct UnclaimedTokensAnalytics {
     pub unclaimed_count: u64,

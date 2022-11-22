@@ -490,7 +490,7 @@ mod analytics {
                 .await?
                 .unwrap_or_default();
 
-            Ok(crate::db::collections::analytics::LedgerOutputAnalytics {
+            Ok(LedgerOutputAnalytics {
                 basic_count: res.basic.count,
                 basic_value: res.basic.value,
                 alias_count: res.alias.count,
@@ -502,6 +502,133 @@ mod analytics {
                 treasury_count: res.treasury.count,
                 treasury_value: res.treasury.value,
             })
+        }
+
+        /// Gathers ledger (unspent) output analytics and updates the analytics from the previous ledger index.
+        ///
+        /// NOTE: The `prev_analytics` must be from `ledger_index - 1` or the results are invalid.
+        #[tracing::instrument(skip(self), err, level = "trace")]
+        pub async fn update_ledger_output_analytics(
+            &self,
+            prev_analytics: &mut LedgerOutputAnalytics,
+            ledger_index: MilestoneIndex,
+        ) -> Result<(), Error> {
+            #[derive(Default, Deserialize)]
+            struct Sums {
+                count: u64,
+                value: d128,
+            }
+
+            #[derive(Default, Deserialize)]
+            #[serde(default)]
+            struct Res {
+                basic: Sums,
+                alias: Sums,
+                foundry: Sums,
+                nft: Sums,
+                treasury: Sums,
+            }
+
+            let (created, consumed) = tokio::try_join!(
+                async {
+                    Result::<_, Error>::Ok(
+                        self.aggregate::<Res>(
+                            vec![
+                                doc! { "$match": {
+                                    "metadata.booked.milestone_index": ledger_index,
+                                    "metadata.spent_metadata.spent.milestone_index": { "$ne": ledger_index }
+                                } },
+                                doc! { "$group" : {
+                                    "_id": "$output.kind",
+                                    "count": { "$sum": 1 },
+                                    "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                                } },
+                                doc! { "$group" : {
+                                    "_id": null,
+                                    "result": { "$addToSet": {
+                                        "k": "$_id",
+                                        "v": {
+                                            "count": "$count",
+                                            "value": { "$toString": "$value" },
+                                        }
+                                    } },
+                                } },
+                                doc! { "$replaceWith": {
+                                    "$arrayToObject": "$result"
+                                } },
+                            ],
+                            None,
+                        )
+                        .await?
+                        .try_next()
+                        .await?
+                        .unwrap_or_default(),
+                    )
+                },
+                async {
+                    Ok(self
+                        .aggregate::<Res>(
+                            vec![
+                                doc! { "$match": {
+                                    "metadata.booked.milestone_index": { "$ne": ledger_index },
+                                    "metadata.spent_metadata.spent.milestone_index": ledger_index
+                                } },
+                                doc! { "$group" : {
+                                    "_id": "$output.kind",
+                                    "count": { "$sum": 1 },
+                                    "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                                } },
+                                doc! { "$group" : {
+                                    "_id": null,
+                                    "result": { "$addToSet": {
+                                        "k": "$_id",
+                                        "v": {
+                                            "count": "$count",
+                                            "value": { "$toString": "$value" },
+                                        }
+                                    } },
+                                } },
+                                doc! { "$replaceWith": {
+                                    "$arrayToObject": "$result"
+                                } },
+                            ],
+                            None,
+                        )
+                        .await?
+                        .try_next()
+                        .await?
+                        .unwrap_or_default())
+                }
+            )?;
+
+            let created = LedgerOutputAnalytics {
+                basic_count: created.basic.count,
+                basic_value: created.basic.value,
+                alias_count: created.alias.count,
+                alias_value: created.alias.value,
+                foundry_count: created.foundry.count,
+                foundry_value: created.foundry.value,
+                nft_count: created.nft.count,
+                nft_value: created.nft.value,
+                treasury_count: created.treasury.count,
+                treasury_value: created.treasury.value,
+            };
+            let consumed = LedgerOutputAnalytics {
+                basic_count: consumed.basic.count,
+                basic_value: consumed.basic.value,
+                alias_count: consumed.alias.count,
+                alias_value: consumed.alias.value,
+                foundry_count: consumed.foundry.count,
+                foundry_value: consumed.foundry.value,
+                nft_count: consumed.nft.count,
+                nft_value: consumed.nft.value,
+                treasury_count: consumed.treasury.count,
+                treasury_value: consumed.treasury.value,
+            };
+            *prev_analytics += created;
+            *prev_analytics -= consumed;
+
+            Ok(())
         }
 
         /// Gathers analytics about outputs that were created/transferred/burned in the given milestone.
@@ -630,6 +757,75 @@ mod analytics {
             .try_next()
             .await?
             .unwrap_or_default())
+        }
+
+        /// Gathers byte cost and storage deposit analytics and updates the analytics from the previous ledger index.
+        ///
+        /// NOTE: The `prev_analytics` must be from `ledger_index - 1` or the results are invalid.
+        #[tracing::instrument(skip(self), err, level = "trace")]
+        pub async fn update_ledger_size_analytics(
+            &self,
+            prev_analytics: &mut LedgerSizeAnalytics,
+            ledger_index: MilestoneIndex,
+        ) -> Result<(), Error> {
+            let (created, consumed) = tokio::try_join!(
+                async {
+                    Result::<_, Error>::Ok(self.aggregate::<LedgerSizeAnalytics>(
+                        vec![
+                            doc! { "$match": {
+                                "metadata.booked.milestone_index": ledger_index,
+                                "metadata.spent_metadata.spent.milestone_index": { "$ne": ledger_index }
+                            } },
+                            doc! { "$group" : {
+                                "_id": null,
+                                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+                            } },
+                            doc! { "$project": {
+                                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                                "total_key_bytes": { "$toString": "$total_key_bytes" },
+                                "total_data_bytes": { "$toString": "$total_data_bytes" },
+                            } },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default())
+                },
+                async {
+                    Ok(self.aggregate::<LedgerSizeAnalytics>(
+                        vec![
+                            doc! { "$match": {
+                                "metadata.booked.milestone_index": { "$ne": ledger_index },
+                                "metadata.spent_metadata.spent.milestone_index": ledger_index
+                            } },
+                            doc! { "$group" : {
+                                "_id": null,
+                                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+                            } },
+                            doc! { "$project": {
+                                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                                "total_key_bytes": { "$toString": "$total_key_bytes" },
+                                "total_data_bytes": { "$toString": "$total_data_bytes" },
+                            } },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default())
+                }
+            )?;
+            *prev_analytics += created;
+            *prev_analytics -= consumed;
+
+            Ok(())
         }
 
         /// Create aggregate statistics of all addresses.
@@ -773,6 +969,44 @@ mod analytics {
                 .unwrap_or_default())
         }
 
+        /// Updates the number of claimed tokens from the previous ledger index.
+        ///
+        /// NOTE: The `prev_analytics` must be from `ledger_index - 1` or the results are invalid.
+        #[tracing::instrument(skip(self), err, level = "trace")]
+        pub async fn update_unclaimed_token_analytics(
+            &self,
+            prev_analytics: &mut UnclaimedTokensAnalytics,
+            ledger_index: MilestoneIndex,
+        ) -> Result<(), Error> {
+            let claimed = self
+                .aggregate(
+                    vec![
+                        doc! { "$match": {
+                            "metadata.booked.milestone_index": { "$eq": 0 },
+                            "metadata.spent_metadata.spent.milestone_index": ledger_index
+                        } },
+                        doc! { "$group": {
+                            "_id": null,
+                            "unclaimed_count": { "$sum": 1 },
+                            "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } },
+                        doc! { "$project": {
+                            "unclaimed_count": 1,
+                            "unclaimed_value": { "$toString": "$unclaimed_value" },
+                        } },
+                    ],
+                    None,
+                )
+                .await?
+                .try_next()
+                .await?
+                .unwrap_or_default();
+
+            *prev_analytics -= claimed;
+
+            Ok(())
+        }
+
         /// Gets analytics about unlock conditions.
         #[tracing::instrument(skip(self), err, level = "trace")]
         pub async fn get_unlock_condition_analytics(
@@ -827,6 +1061,110 @@ mod analytics {
                 storage_deposit_return_count: sdruc.count,
                 storage_deposit_return_value: sdruc.value,
             })
+        }
+
+        /// Gets analytics about unlock conditions.
+        #[tracing::instrument(skip(self), err, level = "trace")]
+        pub async fn update_unlock_condition_analytics(
+            &self,
+            prev_analytics: &mut UnlockConditionAnalytics,
+            ledger_index: MilestoneIndex,
+        ) -> Result<(), Error> {
+            #[derive(Default, Deserialize)]
+            struct Res {
+                count: u64,
+                value: d128,
+            }
+
+            let query = |kind: &'static str| async move {
+                tokio::try_join!(
+                    async {
+                        Result::<Res, Error>::Ok(
+                            self.aggregate(
+                                vec![
+                                    doc! { "$match": {
+                                        format!("output.{kind}"): { "$exists": true },
+                                        "metadata.booked.milestone_index": ledger_index,
+                                        "metadata.spent_metadata.spent.milestone_index": { "$ne": ledger_index }
+                                    } },
+                                    doc! { "$group": {
+                                        "_id": null,
+                                        "count": { "$sum": 1 },
+                                        "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                                    } },
+                                    doc! { "$project": {
+                                        "count": 1,
+                                        "value": { "$toString": "$value" },
+                                    } },
+                                ],
+                                None,
+                            )
+                            .await?
+                            .try_next()
+                            .await?
+                            .unwrap_or_default(),
+                        )
+                    },
+                    async {
+                        Result::<Res, Error>::Ok(
+                            self.aggregate(
+                                vec![
+                                    doc! { "$match": {
+                                        format!("output.{kind}"): { "$exists": true },
+                                        "metadata.booked.milestone_index": { "$ne": ledger_index },
+                                        "metadata.spent_metadata.spent.milestone_index": ledger_index
+                                    } },
+                                    doc! { "$group": {
+                                        "_id": null,
+                                        "count": { "$sum": 1 },
+                                        "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                                    } },
+                                    doc! { "$project": {
+                                        "count": 1,
+                                        "value": { "$toString": "$value" },
+                                    } },
+                                ],
+                                None,
+                            )
+                            .await?
+                            .try_next()
+                            .await?
+                            .unwrap_or_default(),
+                        )
+                    }
+                )
+            };
+
+            let (
+                (timelock_created, timelock_consumed),
+                (expiration_created, expiration_consumed),
+                (sdruc_created, sdruc_consumed),
+            ) = tokio::try_join!(
+                query("timelock_unlock_condition"),
+                query("expiration_unlock_condition"),
+                query("storage_deposit_return_unlock_condition"),
+            )?;
+
+            let created = UnlockConditionAnalytics {
+                timelock_count: timelock_created.count,
+                timelock_value: timelock_created.value,
+                expiration_count: expiration_created.count,
+                expiration_value: expiration_created.value,
+                storage_deposit_return_count: sdruc_created.count,
+                storage_deposit_return_value: sdruc_created.value,
+            };
+            let consumed = UnlockConditionAnalytics {
+                timelock_count: timelock_consumed.count,
+                timelock_value: timelock_consumed.value,
+                expiration_count: expiration_consumed.count,
+                expiration_value: expiration_consumed.value,
+                storage_deposit_return_count: sdruc_consumed.count,
+                storage_deposit_return_value: sdruc_consumed.value,
+            };
+            *prev_analytics += created;
+            *prev_analytics -= consumed;
+
+            Ok(())
         }
     }
 }
