@@ -9,7 +9,7 @@ use axum::{
     Extension, TypedHeader,
 };
 
-use super::{config::ApiData, ApiError};
+use super::{config::ApiData, error::RequestError, ApiError, AuthError};
 
 pub struct Auth;
 
@@ -27,7 +27,9 @@ impl<B: Send> FromRequest<B> for Auth {
             return Ok(Auth);
         }
 
-        let TypedHeader(Authorization(bearer)) = TypedHeader::<Authorization<Bearer>>::from_request(req).await?;
+        let TypedHeader(Authorization(bearer)) = TypedHeader::<Authorization<Bearer>>::from_request(req)
+            .await
+            .map_err(RequestError::from)?;
         let jwt = JsonWebToken(bearer.token().to_string());
 
         jwt.validate(
@@ -37,7 +39,7 @@ impl<B: Send> FromRequest<B> for Auth {
                 .validate_nbf(true),
             config.secret_key.as_ref(),
         )
-        .map_err(ApiError::InvalidJwt)?;
+        .map_err(AuthError::InvalidJwt)?;
 
         Ok(Auth)
     }

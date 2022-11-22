@@ -32,14 +32,11 @@ use tracing::info;
 use self::routes::routes;
 pub use self::{
     config::{ApiConfig, ApiData},
-    error::{ApiError, ConfigError},
+    error::{ApiError, ApiResult, AuthError, ConfigError},
     secret_key::SecretKey,
 };
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
-
-/// The result of a request to the api
-pub type ApiResult<T> = Result<T, ApiError>;
 
 /// The Chronicle API actor
 #[derive(Debug)]
@@ -57,7 +54,7 @@ impl ApiWorker {
         })
     }
 
-    pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> Result<(), ApiError> {
+    pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> eyre::Result<()> {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;

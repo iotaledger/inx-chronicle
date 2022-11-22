@@ -19,16 +19,10 @@ pub enum InxWorkerError {
     InvalidMilestoneState,
     #[error("missing milestone id for milestone index `{0}`")]
     MissingMilestoneInfo(MilestoneIndex),
-    #[error("MongoDB error: {0}")]
-    MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: `{0}`, new network name: `{1}`")]
     NetworkChanged(String, String),
-    #[error(transparent)]
-    ParsingAddressFailed(#[from] url::ParseError),
     #[error("node pruned required milestones between `{start}` and `{end}`")]
     SyncMilestoneGap { start: MilestoneIndex, end: MilestoneIndex },
     #[error("node confirmed milestone index `{node}` is less than index in database `{db}`")]
     SyncMilestoneIndexMismatch { node: MilestoneIndex, db: MilestoneIndex },
-    #[error("INX error: {0}")]
-    Inx(#[from] chronicle::inx::InxError),
 }

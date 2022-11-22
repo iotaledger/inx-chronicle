@@ -4,140 +4,199 @@
 use std::{num::ParseIntError, str::ParseBoolError};
 
 use axum::{
-    extract::rejection::{ExtensionRejection, QueryRejection, TypedHeaderRejection},
+    extract::rejection::{QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
 use chronicle::db::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
-use mongodb::bson::document::ValueAccessError;
 use serde::Serialize;
 use thiserror::Error;
 use tracing::error;
 
-#[derive(Error, Debug)]
-#[allow(missing_docs)]
-pub enum InternalApiError {
-    #[cfg(feature = "stardust")]
-    #[error(transparent)]
-    BeeStardust(#[from] iota_types::block::Error),
-    #[error(transparent)]
-    BsonDeserialize(#[from] mongodb::bson::de::Error),
-    #[error("corrupt state: {0}")]
-    CorruptState(&'static str),
-    #[error(transparent)]
-    Config(#[from] ConfigError),
-    #[error(transparent)]
-    ExtensionRejection(#[from] ExtensionRejection),
-    #[error(transparent)]
-    Hyper(#[from] hyper::Error),
-    #[error(transparent)]
-    Jwt(#[from] auth_helper::jwt::Error),
-    #[error(transparent)]
-    MongoDb(#[from] mongodb::error::Error),
-    #[error(transparent)]
-    PasswordHash(#[from] auth_helper::password::Error),
-    #[error(transparent)]
-    UrlEncoding(#[from] serde_urlencoded::de::Error),
-    #[error(transparent)]
-    ValueAccess(#[from] ValueAccessError),
-}
+/// The result of a request to the api
+pub type ApiResult<T> = Result<T, ApiError>;
 
-#[derive(Error, Debug)]
-#[allow(missing_docs)]
-pub enum ApiError {
-    #[error(transparent)]
-    BadParse(#[from] ParseError),
-    #[error("Invalid time range")]
-    BadTimeRange,
-    #[error("Invalid password provided")]
-    IncorrectPassword,
-    #[error("Internal server error")]
-    Internal(InternalApiError),
-    #[error(transparent)]
-    InvalidJwt(auth_helper::jwt::Error),
-    #[error(transparent)]
-    InvalidAuthHeader(#[from] TypedHeaderRejection),
-    #[error("No results returned")]
-    NoResults,
-    #[error("No endpoint found")]
-    NotFound,
-    #[error("Endpoint not implemented")]
-    NotImplemented,
-    #[error(transparent)]
-    QueryError(#[from] QueryRejection),
-}
-
-impl ApiError {
+pub trait ErrorStatus: std::error::Error {
     /// Gets the HTTP status code associated with this error.
-    pub fn status(&self) -> StatusCode {
-        match self {
-            ApiError::NoResults | ApiError::NotFound => StatusCode::NOT_FOUND,
-            ApiError::BadTimeRange
-            | ApiError::BadParse(_)
-            | ApiError::InvalidAuthHeader(_)
-            | ApiError::QueryError(_) => StatusCode::BAD_REQUEST,
-            ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ApiError::IncorrectPassword | ApiError::InvalidJwt(_) => StatusCode::UNAUTHORIZED,
-            ApiError::NotImplemented => StatusCode::NOT_IMPLEMENTED,
-        }
-    }
+    fn status(&self) -> StatusCode;
 
     /// Gets the u16 status code representation associated with this error.
-    pub fn code(&self) -> u16 {
+    fn code(&self) -> u16 {
         self.status().as_u16()
     }
+}
 
-    /// Creates a new ApiError from a bad parse.
-    pub fn bad_parse(err: impl Into<ParseError>) -> Self {
-        ApiError::BadParse(err.into())
+#[derive(Debug, Error)]
+#[allow(missing_docs)]
+#[error("{code}: {error}")]
+/// This type wraps errors that are associated with an HTTP status code.
+pub struct ApiError {
+    #[source]
+    pub error: Box<dyn std::error::Error + Send + Sync>,
+    code: StatusCode,
+}
+
+impl<T: 'static + ErrorStatus + Send + Sync> From<T> for ApiError {
+    fn from(error: T) -> Self {
+        Self {
+            code: error.status(),
+            error: Box::new(error) as _,
+        }
     }
 }
 
-impl<T: Into<InternalApiError>> From<T> for ApiError {
-    fn from(err: T) -> Self {
-        ApiError::Internal(err.into())
-    }
+macro_rules! impl_internal_error {
+    ($($type:ty),*) => {
+        $(
+            impl From<$type> for ApiError {
+                fn from(error: $type) -> Self {
+                    Self {
+                        code: StatusCode::INTERNAL_SERVER_ERROR,
+                        error: Box::new(error) as _,
+                    }
+                }
+            }
+        )*
+    };
 }
+
+impl_internal_error!(
+    mongodb::error::Error,
+    axum::extract::rejection::ExtensionRejection,
+    auth_helper::jwt::Error,
+    argon2::Error,
+    iota_types::block::Error
+);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
-        ErrorBody::from(self).into_response()
+        // Hide internal errors from the client, but print them to the server.
+        let message = if self.code == StatusCode::INTERNAL_SERVER_ERROR {
+            tracing::error!("Internal API error: {}", self.error);
+            "internal server error".to_string()
+        } else {
+            self.error.to_string()
+        };
+        ErrorBody {
+            status: self.code,
+            code: self.code.as_u16(),
+            message,
+        }
+        .into_response()
     }
 }
 
 #[derive(Error, Debug)]
-pub enum ParseError {
-    #[allow(dead_code)]
-    #[error("Invalid cursor")]
+#[allow(missing_docs)]
+pub enum CorruptStateError {
+    #[error("no milestone in the database")]
+    Milestone,
+    #[error("no node configuration in the database")]
+    NodeConfig,
+    #[error("no protocol parameters in the database")]
+    ProtocolParams,
+}
+
+impl ErrorStatus for CorruptStateError {
+    fn status(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+}
+
+#[derive(Error, Debug)]
+#[allow(missing_docs)]
+pub enum AuthError {
+    #[error("invalid password provided")]
+    IncorrectPassword,
+    #[error("invalid JWT provided: {0}")]
+    InvalidJwt(auth_helper::jwt::Error),
+}
+
+impl ErrorStatus for AuthError {
+    fn status(&self) -> StatusCode {
+        StatusCode::UNAUTHORIZED
+    }
+}
+
+#[derive(Error, Debug)]
+#[allow(missing_docs)]
+#[error("endpoint not implemented")]
+pub struct UnimplementedError;
+
+impl ErrorStatus for UnimplementedError {
+    fn status(&self) -> StatusCode {
+        StatusCode::NOT_IMPLEMENTED
+    }
+}
+
+impl IntoResponse for UnimplementedError {
+    fn into_response(self) -> axum::response::Response {
+        ApiError::from(self).into_response()
+    }
+}
+
+#[derive(Error, Debug)]
+#[allow(missing_docs)]
+pub enum MissingError {
+    #[error("no results returned")]
+    NoResults,
+    #[error("no endpoint found")]
+    NotFound,
+}
+
+impl ErrorStatus for MissingError {
+    fn status(&self) -> StatusCode {
+        StatusCode::NOT_FOUND
+    }
+}
+
+impl IntoResponse for MissingError {
+    fn into_response(self) -> axum::response::Response {
+        ApiError::from(self).into_response()
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum RequestError {
+    #[error("invalid cursor")]
     BadPagingState,
+    #[error("invalid time range")]
+    BadTimeRange,
     #[cfg(feature = "stardust")]
-    #[error(transparent)]
-    BeeBlockStardust(#[from] iota_types::block::Error),
-    #[error(transparent)]
+    #[error("invalid IOTA Stardust data: {0}")]
+    IotaStardust(#[from] iota_types::block::Error),
+    #[error("invalid bool value provided: {0}")]
     Bool(#[from] ParseBoolError),
-    #[error(transparent)]
+    #[error("invalid U256 value provided: {0}")]
     DecimalU256(#[from] uint::FromDecStrErr),
-    #[error(transparent)]
+    #[error("invalid integer value provided: {0}")]
     Int(#[from] ParseIntError),
-    #[error(transparent)]
+    #[error("invalid authorization header provided: {0}")]
+    InvalidAuthHeader(#[from] TypedHeaderRejection),
+    #[error("invalid query parameters provided: {0}")]
+    InvalidQueryParams(#[from] QueryRejection),
+    #[error("invalid sort order provided: {0}")]
     SortOrder(#[from] ParseSortError),
-    #[error(transparent)]
-    TimeRange(#[from] time::error::ComponentRange),
+}
+
+impl ErrorStatus for RequestError {
+    fn status(&self) -> StatusCode {
+        StatusCode::BAD_REQUEST
+    }
 }
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error(transparent)]
+    #[error("invalid allow-origin header in config: {0}")]
     InvalidHeader(#[from] InvalidHeaderValue),
-    #[error(transparent)]
+    #[error("invalid hex value in config: {0}")]
     InvalidHex(#[from] hex::FromHexError),
-    #[error("Invalid regex in config: {0}")]
+    #[error("invalid regex in config: {0}")]
     InvalidRegex(#[from] regex::Error),
-    #[error(transparent)]
+    #[error("invalid secret key: {0}")]
     SecretKey(#[from] super::secret_key::SecretKeyError),
-    #[error(transparent)]
-    TimeConversion(#[from] time::error::ConversionRange),
 }
+
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrorBody {
     #[serde(skip_serializing)]
@@ -159,20 +218,6 @@ impl IntoResponse for ErrorBody {
                 error!("Unable to serialize error body: {}", e);
                 Result::<(), _>::Err(format!("Unable to serialize error body: {}", e)).into_response()
             }
-        }
-    }
-}
-
-impl From<ApiError> for ErrorBody {
-    fn from(err: ApiError) -> Self {
-        if let ApiError::Internal(e) = &err {
-            error!("Internal API error: {}", e);
-        }
-
-        Self {
-            status: err.status(),
-            code: err.code(),
-            message: err.to_string(),
         }
     }
 }
