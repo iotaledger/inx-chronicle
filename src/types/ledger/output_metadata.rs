@@ -35,6 +35,7 @@ pub struct OutputMetadata {
     pub block_id: BlockId,
     pub booked: MilestoneIndexTimestamp,
     pub spent_metadata: Option<SpentMetadata>,
+    pub location: [MilestoneIndex; 2],
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

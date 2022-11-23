@@ -107,6 +107,7 @@ impl From<&LedgerOutput> for OutputDocument {
             output: rec.output.clone(),
             metadata: OutputMetadata {
                 block_id: rec.block_id,
+                location: [rec.booked.milestone_index, u32::MAX.into()],
                 booked: rec.booked,
                 spent_metadata: None,
             },
@@ -122,6 +123,7 @@ impl From<&LedgerOutput> for OutputDocument {
 impl From<&LedgerSpent> for OutputDocument {
     fn from(rec: &LedgerSpent) -> Self {
         let mut res = Self::from(&rec.output);
+        res.metadata.location[1] = rec.spent_metadata.spent.milestone_index;
         res.metadata.spent_metadata.replace(rec.spent_metadata);
         res
     }
@@ -309,8 +311,10 @@ impl OutputCollection {
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
                         "details.address": &address,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.location": { "$geoWithin": { "$box": [
+                            [0, ledger_index + 1],
+                            [ledger_index, u32::MAX]
+                        ] } }
                     } },
                     doc! { "$group": {
                         "_id": null,
@@ -444,8 +448,10 @@ mod analytics {
                 .aggregate::<Res>(
                     vec![
                         doc! { "$match": {
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                            "metadata.location": { "$geoWithin": { "$box": [
+                                [0, ledger_index + 1],
+                                [ledger_index, u32::MAX]
+                            ] } }
                         } },
                         doc! { "$group" : {
                             "_id": "$output.kind",
@@ -592,8 +598,10 @@ mod analytics {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.location": { "$geoWithin": { "$box": [
+                            [0, ledger_index + 1],
+                            [ledger_index, u32::MAX]
+                        ] } }
                     } },
                     doc! { "$group" : {
                         "_id": null,
@@ -699,8 +707,10 @@ mod analytics {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                            "metadata.location": { "$geoWithin": { "$box": [
+                                [0, ledger_index + 1],
+                                [ledger_index, u32::MAX]
+                            ] } }
                         } },
                         doc! { "$group" : {
                             "_id": "$details.address",
@@ -770,8 +780,10 @@ mod analytics {
                         vec![
                             doc! { "$match": {
                                 format!("output.{kind}"): { "$exists": true },
-                                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                                "metadata.location": { "$geoWithin": { "$box": [
+                                    [0, ledger_index + 1],
+                                    [ledger_index, u32::MAX]
+                                ] } }
                             } },
                             doc! { "$group": {
                                 "_id": null,
@@ -878,8 +890,10 @@ impl OutputCollection {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.location": { "$geoWithin": { "$box": [
+                            [0, ledger_index + 1],
+                            [ledger_index, u32::MAX]
+                        ] } }
                     } },
                     doc! { "$group" : {
                         "_id": "$details.address",

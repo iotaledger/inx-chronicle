@@ -85,10 +85,12 @@ impl OutputCollection {
                 vec![
                     doc! { "$match": {
                         id_string: id,
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                        "metadata.location": { "$geoWithin": { "$box": [
+                            [0, ledger_index + 1],
+                            [ledger_index, u32::MAX]
+                        ] } }
                     } },
-                    doc! { "$sort": { "metadata.booked.milestone_index": -1 } },
+                    doc! { "$sort": { "metadata.location.0": -1 } },
                 ],
                 None,
             )
@@ -378,12 +380,25 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(
-                    doc! { "metadata.spent_metadata.spent.milestone_index": -1, "metadata.booked.milestone_index": -1,  "details.address": 1 },
-                )
+                .keys(doc! { "metadata.spent_metadata.spent.milestone_index": -1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_spent_milestone_index_comp".to_string())
+                        .name("output_spent_milestone_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.location": "2d", "details.address": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_location_index".to_string())
+                        .min(0_f64)
+                        .max(u32::MAX as f64)
                         .build(),
                 )
                 .build(),
