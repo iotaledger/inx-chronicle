@@ -82,8 +82,6 @@ pub struct BalanceResponse {
 
 impl_success_response!(BalanceResponse);
 
-/// Response of GET /api/explorer/v2/blocks/{block_id}/children.
-/// Returns all children of a specific block.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockChildrenResponse {
@@ -103,6 +101,15 @@ pub struct MilestonesResponse {
 }
 
 impl_success_response!(MilestonesResponse);
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlocksByMilestoneResponse {
+    pub blocks: Vec<String>,
+    pub cursor: Option<String>,
+}
+
+impl_success_response!(BlocksByMilestoneResponse);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
