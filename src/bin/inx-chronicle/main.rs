@@ -32,11 +32,12 @@ async fn main() -> eyre::Result<()> {
 
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config()?;
+
+    set_up_logging(&config)?;
+
     if cl_args.process_subcommands(&config).await? == PostCommand::Exit {
         return Ok(());
     }
-
-    set_up_logging(&config)?;
 
     info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
     let db = MongoDb::connect(&config.mongodb).await?;
