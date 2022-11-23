@@ -1,3 +1,15 @@
+## [1.0.0-beta.26](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.25...v1.0.0-beta.26) (2022-11-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **influxdb:** consolidate queries (#921)
+
+### Features
+
+* **api:** add blocks by milestone endpoints ([#876](https://github.com/iotaledger/inx-chronicle/issues/876)) ([be1b9cb](https://github.com/iotaledger/inx-chronicle/commit/be1b9cbe81e73a2415944ffe33c6dc1ac3c63418)), closes [#922](https://github.com/iotaledger/inx-chronicle/issues/922) [#923](https://github.com/iotaledger/inx-chronicle/issues/923)
+* **influxdb:** consolidate queries ([#921](https://github.com/iotaledger/inx-chronicle/issues/921)) ([ec9f1c0](https://github.com/iotaledger/inx-chronicle/commit/ec9f1c0035af5b980e5650f656793379ad9cc2bd))
+
 ## [1.0.0-beta.25](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.24...v1.0.0-beta.25) (2022-11-21)
 
 
