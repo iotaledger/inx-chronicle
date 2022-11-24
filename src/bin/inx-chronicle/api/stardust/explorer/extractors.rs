@@ -330,6 +330,123 @@ impl<B: Send> FromRequest<B> for MilestoneRange {
     }
 }
 
+pub struct BlocksByMilestoneIndexPagination {
+    pub sort: SortOrder,
+    pub page_size: usize,
+    pub cursor: Option<u32>,
+}
+
+#[derive(Clone, Deserialize, Default)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct BlocksByMilestoneIndexPaginationQuery {
+    pub sort: Option<String>,
+    pub page_size: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct BlocksByMilestoneCursor {
+    pub white_flag_index: u32,
+    pub page_size: usize,
+}
+
+impl FromStr for BlocksByMilestoneCursor {
+    type Err = ApiError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<_> = s.split('.').collect();
+        Ok(match parts[..] {
+            [wfi, ps] => BlocksByMilestoneCursor {
+                white_flag_index: wfi.parse().map_err(RequestError::from)?,
+                page_size: ps.parse().map_err(RequestError::from)?,
+            },
+            _ => return Err(ApiError::from(RequestError::BadPagingState)),
+        })
+    }
+}
+
+impl Display for BlocksByMilestoneCursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.white_flag_index, self.page_size)
+    }
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksByMilestoneIndexPaginationQuery>::from_request(req)
+            .await
+            .map_err(RequestError::from)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(RequestError::SortOrder)?;
+
+        let (page_size, cursor) = if let Some(cursor) = query.cursor {
+            let cursor: BlocksByMilestoneCursor = cursor.parse()?;
+            (cursor.page_size, Some(cursor.white_flag_index))
+        } else {
+            (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
+        };
+
+        Ok(BlocksByMilestoneIndexPagination {
+            sort,
+            page_size: page_size.min(config.max_page_size),
+            cursor,
+        })
+    }
+}
+
+pub struct BlocksByMilestoneIdPagination {
+    pub sort: SortOrder,
+    pub page_size: usize,
+    pub cursor: Option<u32>,
+}
+
+#[derive(Clone, Deserialize, Default)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub struct BlocksByMilestoneIdPaginationQuery {
+    pub sort: Option<String>,
+    pub page_size: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+#[async_trait]
+impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksByMilestoneIdPaginationQuery>::from_request(req)
+            .await
+            .map_err(RequestError::from)?;
+        let Extension(config) = Extension::<ApiData>::from_request(req).await?;
+
+        let sort = query
+            .sort
+            .as_deref()
+            .map_or(Ok(Default::default()), str::parse)
+            .map_err(RequestError::SortOrder)?;
+
+        let (page_size, cursor) = if let Some(cursor) = query.cursor {
+            let cursor: BlocksByMilestoneCursor = cursor.parse()?;
+            (cursor.page_size, Some(cursor.white_flag_index))
+        } else {
+            (query.page_size.unwrap_or(DEFAULT_PAGE_SIZE), None)
+        };
+
+        Ok(BlocksByMilestoneIdPagination {
+            sort,
+            page_size: page_size.min(config.max_page_size),
+            cursor,
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use axum::{extract::RequestParts, http::Request};

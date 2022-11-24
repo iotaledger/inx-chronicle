@@ -11,6 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::SortOrder;
 use crate::{
     db::{
         collections::OutputCollection,
@@ -20,6 +21,7 @@ use crate::{
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
+        tangle::MilestoneIndex,
     },
 };
 
@@ -309,6 +311,48 @@ impl BlockCollection {
         )
         .await?
         .try_next()
+        .await
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+#[allow(missing_docs)]
+pub struct BlocksByMilestoneResult {
+    pub block_id: BlockId,
+    pub white_flag_index: u32,
+}
+
+impl BlockCollection {
+    /// Get the [`Block`]s in a milestone by index as a stream of [`BlockId`]s.
+    pub async fn get_blocks_by_milestone_index(
+        &self,
+        milestone_index: MilestoneIndex,
+        page_size: usize,
+        cursor: Option<u32>,
+        sort: SortOrder,
+    ) -> Result<impl Stream<Item = Result<BlocksByMilestoneResult, Error>>, Error> {
+        let (sort, cmp) = match sort {
+            SortOrder::Newest => (doc! {"metadata.white_flag_index": -1 }, "$lte"),
+            SortOrder::Oldest => (doc! {"metadata.white_flag_index": 1 }, "$gte"),
+        };
+
+        let mut queries = vec![doc! { "metadata.referenced_by_milestone_index": milestone_index }];
+        if let Some(white_flag_index) = cursor {
+            queries.push(doc! { "metadata.white_flag_index": { cmp: white_flag_index } });
+        }
+
+        self.aggregate(
+            vec![
+                doc! { "$match": { "$and": queries } },
+                doc! { "$sort": sort },
+                doc! { "$limit": page_size as i64 },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "white_flag_index": "$metadata.white_flag_index"
+                } },
+            ],
+            None,
+        )
         .await
     }
 }
