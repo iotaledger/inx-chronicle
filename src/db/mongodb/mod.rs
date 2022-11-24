@@ -14,10 +14,16 @@ use mongodb::{
     Client,
 };
 use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime};
 
 pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
+use crate::types::stardust::milestone::MilestoneTimestamp;
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
+
+// Similar to Hornet, we enforce that the latest known milestone is newer than 5 minutes. This should give Chronicle
+// sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
+const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
@@ -121,6 +127,27 @@ impl MongoDb {
         )
     }
 
+    /// Returns whether the database can be considered healthy.
+    pub async fn is_healthy(&self) -> Result<bool, Error> {
+        #[cfg(feature = "stardust")]
+        {
+            let newest = match self
+                .collection::<super::collections::MilestoneCollection>()
+                .get_newest_milestone()
+                .await?
+            {
+                Some(last) => last,
+                None => return Ok(false),
+            };
+
+            if !is_new_enough(newest.milestone_timestamp) {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
     /// Returns the names of all available databases.
     pub async fn get_databases(&self) -> Result<Vec<String>, Error> {
         self.client.list_database_names(None, None).await
@@ -171,4 +198,10 @@ impl Default for MongoDbConfig {
             min_pool_size: None,
         }
     }
+}
+
+fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
+    // Panic: The milestone_timestamp is guaranteeed to be valid.
+    let timestamp = OffsetDateTime::from_unix_timestamp(timestamp.0 as i64).unwrap();
+    OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
 }

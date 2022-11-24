@@ -302,6 +302,19 @@ impl ClArgs {
                     tracing::info!("Indexes built successfully.");
                     return Ok(PostCommand::Exit);
                 }
+                #[cfg(feature = "stardust")]
+                Subcommands::HealthCheck => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+                    if db.is_healthy().await? {
+                        tracing::info!("Healthy.");
+                    } else {
+                        tracing::warn!("Not healthy.");
+                        // TEMP
+                        std::process::exit(1);
+                    }
+                    return Ok(PostCommand::Exit);
+                }
                 _ => (),
             }
         }
@@ -336,6 +349,9 @@ pub enum Subcommands {
     /// Manually build indexes.
     #[cfg(feature = "stardust")]
     BuildIndexes,
+    /// Perform a health check.
+    #[cfg(feature = "api")]
+    HealthCheck,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]

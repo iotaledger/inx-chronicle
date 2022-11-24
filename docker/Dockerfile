@@ -35,6 +35,8 @@ EXPOSE 8042/tcp
 # Metrics
 EXPOSE 9100/tcp
 
+HEALTHCHECK --interval=10s --timeout=5s --retries=30 CMD ["/app/inx-chronicle", "health-check"]
+
 COPY --chown=nonroot:nonroot --from=builder /inx-chronicle/target/production/inx-chronicle /app/inx-chronicle
 
 WORKDIR /app

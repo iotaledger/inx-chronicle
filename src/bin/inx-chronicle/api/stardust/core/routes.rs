@@ -48,9 +48,9 @@ use packable::PackableExt;
 
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
-    error::{ApiError, CorruptStateError, MissingError, RequestError},
+    error::{CorruptStateError, MissingError, RequestError},
     router::Router,
-    routes::{is_healthy, not_implemented},
+    routes::not_implemented,
     ApiResult,
 };
 
@@ -113,7 +113,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .ok_or(CorruptStateError::ProtocolParams)?
         .parameters;
 
-    let is_healthy = is_healthy(&database).await.unwrap_or_else(|ApiError { error, .. }| {
+    let is_healthy = database.is_healthy().await.unwrap_or_else(|error| {
         tracing::error!("An error occured during health check: {error}");
         false
     });
