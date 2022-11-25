@@ -105,13 +105,69 @@ paths:
           $ref: "#/components/responses/NoResults"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/explorer/v2/milestones/{milestoneId}/blocks:
+    get:
+      tags:
+        - blocks
+      summary: Returns blocks in a given milestone by ID.
+      description: >-
+        Returns block IDs in a given milestone by ID sorted by white flag index.
+      parameters:
+        - $ref: "#/components/parameters/milestoneId"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlocksByMilestoneResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/blocks-by-milestone-example"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/explorer/v2/milestones/by-index/{milestoneIndex}/blocks:
+    get:
+      tags:
+        - blocks
+      summary: Returns blocks in a given milestone by index.
+      description: >-
+        Returns block IDs in a given milestone by index sorted by white flag index.
+      parameters:
+        - $ref: "#/components/parameters/milestoneIndex"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlocksByMilestoneResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/blocks-by-milestone-example"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NoResults"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /api/explorer/v2/ledger/updates/by-address/{address}:
     get:
       tags:
         - ledger
-      summary: Get all ledger updates involving a given bech32 address.
+      summary: Returns all ledger updates involving a given bech32 address.
       description: >-
-        Get all ledger updates involving a given bech32 address.
+        Returns all ledger updates involving a given bech32 address, sorted by milestone index.
       parameters:
         - $ref: "#/components/parameters/address"
         - $ref: "#/components/parameters/pageSize"
@@ -138,8 +194,8 @@ paths:
     get:
       tags:
         - ledger
-      summary: Get all ledger updates for a given milestone index.
-      description: Get all ledger updates for a given milestone index.
+      summary: Returns all ledger updates for a given milestone index.
+      description: Returns all ledger updates that occurred in the milestone with the provided index.
       parameters:
         - $ref: "#/components/parameters/milestoneId"
         - $ref: "#/components/parameters/pageSize"
@@ -166,7 +222,7 @@ paths:
         - ledger
       summary: Returns the top richest addresses.
       description: >-
-        Returns analytics about the top richest addresses at the ledger state specified by the provided index
+        Returns the top richest addresses at the ledger state specified by the provided index.
       parameters:
         - $ref: "#/components/parameters/ledgerIndex"
         - $ref: "#/components/parameters/top"
@@ -192,7 +248,7 @@ paths:
         - ledger
       summary: Returns the current token distribution.
       description: >-
-        Returns analytics about the distribution of IOTA tokens at the ledger state specified by the provided index
+        Returns the distribution of IOTA tokens at the ledger state specified by the provided index.
       parameters:
         - $ref: "#/components/parameters/ledgerIndex"
       responses:
@@ -336,6 +392,19 @@ components:
           description: The cursor which can be used to retrieve the next logical page of results.
       required:
         - items
+    BlocksByMilestoneResponse:
+      description: Paged block IDs by milestone.
+      properties:
+        blocks:
+          type: array
+          description: A list of block ids.
+          items:
+            type: string
+        cursor:
+          type: string
+          description: The cursor which can be used to retrieve the next logical page of results.
+      required:
+        - blocks
     RichestAddressesResponse:
       description: Richest addresses statistics.
       properties:
@@ -486,6 +555,15 @@ components:
       description: >-
         The milestone index to be used to determine the ledger state. Defaults to the 
         application's current ledger index.
+    milestoneIndex:
+      in: path
+      name: milestoneIndex
+      schema:
+        type: integer
+      example: 200000
+      required: true
+      description: >-
+        The milestone index to be used.
     top:
       in: query
       name: top
@@ -493,7 +571,7 @@ components:
         type: number
       example: 100
       required: false
-      description: The milestone index to be used to determine the ledger state. Defaults to 200.
+      description: The number of richest addresses to return.
   examples:
     balance-example:
       value:
@@ -531,7 +609,7 @@ components:
             index: 100
           - milestoneId: "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2"
             index: 101
-        cursor: 102.2
+        cursor: "102.2"
     richest-addresses-example:
       value:
         top:
@@ -563,3 +641,10 @@ components:
             addressCount: "27"
             totalBalance: "25486528000"
         ledgerIndex: 1005429
+    blocks-by-milestone-example:
+      value:
+        blocks:
+          - "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
+          - "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
+          - "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2"
+        cursor: "4.100"

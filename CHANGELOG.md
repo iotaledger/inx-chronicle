@@ -1,3 +1,44 @@
+## [1.0.0-beta.26](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.25...v1.0.0-beta.26) (2022-11-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **influxdb:** consolidate queries (#921)
+
+### Features
+
+* **api:** add blocks by milestone endpoints ([#876](https://github.com/iotaledger/inx-chronicle/issues/876)) ([be1b9cb](https://github.com/iotaledger/inx-chronicle/commit/be1b9cbe81e73a2415944ffe33c6dc1ac3c63418)), closes [#922](https://github.com/iotaledger/inx-chronicle/issues/922) [#923](https://github.com/iotaledger/inx-chronicle/issues/923)
+* **influxdb:** consolidate queries ([#921](https://github.com/iotaledger/inx-chronicle/issues/921)) ([ec9f1c0](https://github.com/iotaledger/inx-chronicle/commit/ec9f1c0035af5b980e5650f656793379ad9cc2bd))
+
+## [1.0.0-beta.25](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.24...v1.0.0-beta.25) (2022-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **influx:** remove unnecessary `tag` fields (#909)
+* **analytics:** correctly calculate alias and NFT analytics (#887)
+
+### Features
+
+* **cli:** add analytics timings to `fill-analytics` CLI command ([#898](https://github.com/iotaledger/inx-chronicle/issues/898)) ([de6f640](https://github.com/iotaledger/inx-chronicle/commit/de6f6409bc2ff1384f205ce29f178a1dd816ea6e))
+* **cli:** split `influxdb` feature properly ([#870](https://github.com/iotaledger/inx-chronicle/issues/870)) ([0cd627c](https://github.com/iotaledger/inx-chronicle/commit/0cd627cfaf9f43e28b0fb28e589d94c6223b6367))
+* **docker:** add `service_healthy` condition to `docker-compose.yml` ([#903](https://github.com/iotaledger/inx-chronicle/issues/903)) ([77df296](https://github.com/iotaledger/inx-chronicle/commit/77df29622312e433ca97392978d977e22cb6477f))
+* **error:** clean up errors with `eyre` lib ([#811](https://github.com/iotaledger/inx-chronicle/issues/811)) ([b4f803b](https://github.com/iotaledger/inx-chronicle/commit/b4f803b15b5520edd8ec2985787c7c5d4f9a6d79))
+* **grafana:** improve display of `sync_time` ([#895](https://github.com/iotaledger/inx-chronicle/issues/895)) ([3ad260c](https://github.com/iotaledger/inx-chronicle/commit/3ad260c7643610fa9a4f0959a8137b30a5a3b7cf))
+
+
+### Bug Fixes
+
+* **analytics:** correctly calculate alias and NFT analytics ([#887](https://github.com/iotaledger/inx-chronicle/issues/887)) ([dce3d1c](https://github.com/iotaledger/inx-chronicle/commit/dce3d1c2d5afa508792a1fad518e11c98dde49c8))
+* **db:** total byte cost calculation ([#897](https://github.com/iotaledger/inx-chronicle/issues/897)) ([a28623d](https://github.com/iotaledger/inx-chronicle/commit/a28623de1a62c97a2ecd69dc4444e9ef6273e04e))
+* **docker:** scale InfluxDB to bigger data ([#889](https://github.com/iotaledger/inx-chronicle/issues/889)) ([86d87b3](https://github.com/iotaledger/inx-chronicle/commit/86d87b33e634331e21d07c1d7dbe6fef1831cfde))
+* **docs:** cleanup explorer docs ([#917](https://github.com/iotaledger/inx-chronicle/issues/917)) ([c2f8d30](https://github.com/iotaledger/inx-chronicle/commit/c2f8d3073b61ebcb4a8075be50bb7dfddb7b6138))
+* **grafana:** Further improves the performance of the analytics dashboard ([#905](https://github.com/iotaledger/inx-chronicle/issues/905)) ([925b1a3](https://github.com/iotaledger/inx-chronicle/commit/925b1a3f4f68ea70bfc0c60bdb9a530332fa9e49))
+* **grafana:** show both `metrics` and `analytics` time ([#914](https://github.com/iotaledger/inx-chronicle/issues/914)) ([d390de6](https://github.com/iotaledger/inx-chronicle/commit/d390de68f64bb3ee53340a992b7e9ca4bffce18d))
+* **influx:** remove unnecessary `tag` fields ([#909](https://github.com/iotaledger/inx-chronicle/issues/909)) ([6a5975d](https://github.com/iotaledger/inx-chronicle/commit/6a5975d1098d509a88c63e90d262c56ea04fa58f))
+* **inx:** dedicated `analytics_time` in `sync_time` metrics ([#888](https://github.com/iotaledger/inx-chronicle/issues/888)) ([e94c171](https://github.com/iotaledger/inx-chronicle/commit/e94c171586c13ba9481e01908572df97fd91293c))
+* **inx:** reorder sync process to always insert milestone last ([#907](https://github.com/iotaledger/inx-chronicle/issues/907)) ([4b97af7](https://github.com/iotaledger/inx-chronicle/commit/4b97af7ec9efd5721f3ecc9a5ae825fe43db27cc))
+
 ## [1.0.0-beta.24](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.23...v1.0.0-beta.24) (2022-11-11)
 
 
