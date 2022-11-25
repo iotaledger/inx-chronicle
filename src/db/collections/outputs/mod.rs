@@ -595,16 +595,11 @@ mod analytics {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
-                    doc! { "$group" : {
+                    doc! { "$project" : {
                         "_id": null,
-                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                        "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
-                    } },
-                    doc! { "$project": {
-                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
-                        "total_key_bytes": { "$toString": "$total_key_bytes" },
-                        "total_data_bytes": { "$toString": "$total_data_bytes" },
+                        "total_key_bytes": { "$toString": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } } },
+                        "total_data_bytes": { "$toString": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } } },
+                        "total_storage_deposit_value": { "$toString": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } } },
                     } },
                 ],
                 None,
