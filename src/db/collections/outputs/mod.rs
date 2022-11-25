@@ -699,13 +699,10 @@ mod analytics {
                         } },
                         doc! { "$group" : {
                             "_id": "$details.address",
-                        }},
-                        doc! { "$group" : {
+                        } },
+                        doc! { "$project": {
                             "_id": null,
                             "address_with_balance_count": { "$sum": 1 }
-                        }},
-                        doc! { "$project": {
-                            "address_with_balance_count": "$address_with_balance_count"
                         } },
                     ],
                     None,
