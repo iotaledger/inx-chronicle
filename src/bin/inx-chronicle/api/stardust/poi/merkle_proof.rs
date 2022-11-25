@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::types::stardust::block::BlockId;
-use crypto::hashes::{blake2b::Blake2b256, Output};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -29,7 +28,7 @@ impl MerkleAuditPath {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Hashable {
     Path(Box<MerkleAuditPath>),
-    Node(Output<Blake2b256>),
+    Node(MerkleHash),
     Value([u8; BlockId::LENGTH]),
 }
 
