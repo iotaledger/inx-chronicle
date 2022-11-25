@@ -20,7 +20,7 @@ use crypto::hashes::blake2b::Blake2b256;
 use super::{
     error as poi,
     merkle_hasher::MerkleHasher,
-    merkle_proof::MerkleAuditPath,
+    merkle_proof::{MerkleAuditPath, MerkleProof},
     responses::{CreateProofResponse, ValidateProofResponse},
 };
 use crate::api::{
@@ -58,9 +58,9 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let hasher = MerkleHasher::<Blake2b256>::new();
-    let proof = hasher
-        .create_proof(&block_ids, &block_id)
+    let merkle_proof = MerkleProof::new();
+    let merkle_audit_path = merkle_proof
+        .create_audit_path(&block_ids, &block_id)
         .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
 
     // Fetch the corresponding milestone to return in the response.
@@ -70,12 +70,12 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    let calculated_merkle_root = &*proof.hash(&hasher);
+    let calculated_merkle_root = merkle_proof.get_merkle_root(&merkle_audit_path);
     let expected_merkle_root = milestone.essence.inclusion_merkle_root;
-    if calculated_merkle_root != expected_merkle_root {
+    if calculated_merkle_root.as_slice() != expected_merkle_root {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::CreateProof(
             poi::CreateProofError::MerkleRootMismatch {
-                calculated_merkle_root: prefix_hex::encode(calculated_merkle_root),
+                calculated_merkle_root: prefix_hex::encode(calculated_merkle_root.as_slice()),
                 expected_merkle_root: prefix_hex::encode(expected_merkle_root),
             },
         ))
@@ -91,7 +91,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     Ok(CreateProofResponse {
         milestone: milestone.into(),
         block: block.into(),
-        proof: proof.into(),
+        proof: merkle_audit_path.into(),
     })
 }
 

@@ -48,14 +48,24 @@ impl Hashable {
     }
 }
 
-impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleAuditPath, CreateProofError> {
+pub struct MerkleProof {
+    pub hasher: MerkleHasher<Blake2b256>,
+}
+
+impl MerkleProof {
+    pub fn new() -> Self {
+        Self {
+            hasher: MerkleHasher::new(),
+        }
+    }
+
+    pub fn create_audit_path(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleAuditPath, CreateProofError> {
         if block_ids.len() < 2 {
             Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
         } else {
             let index =
                 find_index(block_ids, block_id).ok_or_else(|| CreateProofError::BlockNotIncluded(block_id.to_hex()))?;
-            Ok(self.create_proof_from_index(block_ids, index))
+            Ok(self.create_audit_path_from_index(block_ids, index))
         }
     }
 
@@ -63,16 +73,16 @@ impl MerkleHasher<Blake2b256> {
     // * `block_ids` is the list of past-cone block ids in "White Flag" order;
     // * `block_ids.len() >= 2` must be true, or this function panics;
     // * `index < block_ids.len()` must be true, or this function panics;
-    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
+    pub fn create_audit_path_from_index(&self, block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
         let n = block_ids.len();
         debug_assert!(index < n);
 
         let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-        self.compute_proof(&data, index)
+        self.compute_audit_path(&data, index)
     }
 
-    /// TODO
-    fn compute_proof(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
+    /// Calculates the "Merkle Audit Path"
+    fn compute_audit_path(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = data.len();
         debug_assert!(index < n);
         match n {
@@ -82,11 +92,11 @@ impl MerkleHasher<Blake2b256> {
                 if index == 0 {
                     MerkleAuditPath {
                         left: Hashable::Value(left),
-                        right: Hashable::Node(self.hash_leaf(right)),
+                        right: Hashable::Node(self.hasher.hash_leaf(right)),
                     }
                 } else {
                     MerkleAuditPath {
-                        left: Hashable::Node(self.hash_leaf(left)),
+                        left: Hashable::Node(self.hasher.hash_leaf(left)),
                         right: Hashable::Value(right),
                     }
                 }
@@ -99,22 +109,26 @@ impl MerkleHasher<Blake2b256> {
                         left: if left.len() == 1 {
                             Hashable::Value(left[0])
                         } else {
-                            Hashable::Path(Box::new(self.compute_proof(left, index)))
+                            Hashable::Path(Box::new(self.compute_audit_path(left, index)))
                         },
-                        right: Hashable::Node(self.hash(right)),
+                        right: Hashable::Node(self.hasher.hash(right)),
                     }
                 } else {
                     MerkleAuditPath {
-                        left: Hashable::Node(self.hash(left)),
+                        left: Hashable::Node(self.hasher.hash(left)),
                         right: if right.len() == 1 {
                             Hashable::Value(right[0])
                         } else {
-                            Hashable::Path(Box::new(self.compute_proof(&data[mid..], index - mid)))
+                            Hashable::Path(Box::new(self.compute_audit_path(right, index - mid)))
                         },
                     }
                 }
             }
         }
+    }
+
+    pub fn get_merkle_root(&self, merkle_audit_path: &MerkleAuditPath) -> Output<Blake2b256> {
+        merkle_audit_path.hash(&self.hasher)
     }
 }
 
@@ -197,8 +211,6 @@ impl TryFrom<HashableDto> for Hashable {
 mod tests {
     use std::str::FromStr;
 
-    use crypto::hashes::blake2b::Blake2b256;
-
     use super::*;
 
     #[test]
@@ -216,21 +228,21 @@ mod tests {
         .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
-        let hasher = MerkleHasher::<Blake2b256>::new();
-        let inclusion_merkle_root = hasher.hash_block_ids(&block_ids);
+        let proof = MerkleProof::new();
+        let expected_merkle_root = proof.hasher.hash_block_ids(&block_ids);
 
         for index in 0..block_ids.len() {
-            let proof = hasher.create_proof_from_index(&block_ids, index);
-            let hash = proof.hash(&hasher);
+            let merkle_audit_path = proof.create_audit_path_from_index(&block_ids, index);
+            let calculated_merkle_root = proof.get_merkle_root(&merkle_audit_path);
 
             assert_eq!(
-                proof,
-                MerklePathDto::from(proof.clone()).try_into().unwrap(),
+                merkle_audit_path,
+                MerklePathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
                 "proof dto roundtrip"
             );
-            assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
+            assert_eq!(expected_merkle_root, calculated_merkle_root, "proof hash doesn't equal the merkle root");
             assert!(
-                proof.contains_block_id(&block_ids[index]),
+                merkle_audit_path.contains_block_id(&block_ids[index]),
                 "proof does not contain that block id"
             );
         }
