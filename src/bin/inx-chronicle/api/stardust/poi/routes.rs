@@ -56,7 +56,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let proof = MerkleHasher::create_audit_path(&block_ids, &block_id)?;
+    let merkle_audit_path = MerkleHasher::create_audit_path(&block_ids, &block_id)?;
 
     // Fetch the corresponding milestone to return in the response.
     let milestone_collection = database.collection::<MilestoneCollection>();
@@ -65,11 +65,11 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    let calculated_merkle_root = &*proof.hash();
+    let calculated_merkle_root = merkle_audit_path.hash();
     let expected_merkle_root = milestone.essence.inclusion_merkle_root;
-    if calculated_merkle_root != expected_merkle_root {
+    if calculated_merkle_root.as_slice() != expected_merkle_root {
         return Err(ApiError::from(CreateAuditPathError::MerkleRootMismatch {
-            calculated_merkle_root: prefix_hex::encode(calculated_merkle_root),
+            calculated_merkle_root: prefix_hex::encode(calculated_merkle_root.as_slice()),
             expected_merkle_root: prefix_hex::encode(expected_merkle_root),
         }));
     }
@@ -83,7 +83,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     Ok(CreateProofResponse {
         milestone: milestone.into(),
         block: block.into(),
-        proof: proof.into(),
+        proof: merkle_audit_path.into(),
     })
 }
 

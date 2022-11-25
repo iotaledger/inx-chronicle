@@ -12,12 +12,14 @@ pub use self::{audit_path::MerkleAuditPath, dto::MerkleAuditPathDto, error::Crea
 const LEAF_HASH_PREFIX: u8 = 0;
 const NODE_HASH_PREFIX: u8 = 1;
 
+pub type MerkleHash = Output<Blake2b256>;
+
 /// A Merkle tree hasher.
 pub struct MerkleHasher;
 
 impl MerkleHasher {
     /// Hash data using the provided hasher type.
-    pub fn hash(data: &[impl AsRef<[u8]>]) -> Output<Blake2b256> {
+    pub fn hash(data: &[impl AsRef<[u8]>]) -> MerkleHash {
         match data {
             [] => Self::hash_empty(),
             [leaf] => Self::hash_leaf(leaf),
@@ -30,20 +32,19 @@ impl MerkleHasher {
         }
     }
 
-    fn hash_empty() -> Output<Blake2b256> {
+    fn hash_empty() -> MerkleHash {
         Blake2b256::digest([])
     }
 
     /// Hash a terminating leaf of the tree.
-    pub fn hash_leaf(l: impl AsRef<[u8]>) -> Output<Blake2b256> {
+    pub fn hash_leaf(l: impl AsRef<[u8]>) -> MerkleHash {
         let mut hasher = Blake2b256::default();
         hasher.update([LEAF_HASH_PREFIX]);
         hasher.update(l);
         hasher.finalize()
     }
 
-    /// Hash a subtree.
-    pub fn hash_node(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<Blake2b256> {
+    pub fn hash_node(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> MerkleHash {
         let mut hasher = Blake2b256::default();
         hasher.update([NODE_HASH_PREFIX]);
         hasher.update(l);
@@ -69,12 +70,11 @@ mod tests {
     use std::str::FromStr;
 
     use chronicle::types::stardust::block::BlockId;
-    use crypto::hashes::blake2b::Blake2b256;
 
     use super::*;
 
     impl MerkleHasher {
-        pub fn hash_block_ids(data: &[BlockId]) -> Output<Blake2b256> {
+        pub fn hash_block_ids(data: &[BlockId]) -> MerkleHash {
             let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
             Self::hash(&data[..])
         }
