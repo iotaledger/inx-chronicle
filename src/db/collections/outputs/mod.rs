@@ -641,7 +641,12 @@ mod analytics {
                                 } },
                             ],
                             "nft_changed": [
-                                { "$match": { "output.nft_id": { "$ne": NftId::implicit() } } },
+                                { "$match": { 
+                                    "$and": [
+                                        { "output.nft_id": { "$exists": true } },
+                                        { "output.nft_id": { "$ne": NftId::implicit() } },
+                                    ]
+                                } },
                                 { "$group": {
                                     "_id": "$output.nft_id",
                                     "transferred": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
@@ -664,7 +669,10 @@ mod analytics {
                                 } },
                             ],
                             "alias_changed": [
-                                { "$match": { "output.alias_id": { "$ne": AliasId::implicit() } } },
+                                { "$match": { "$and": [
+                                    { "output.alias_id": { "$exists": true } },
+                                    { "output.alias_id": { "$ne": AliasId::implicit() } },
+                                  ] } },
                                 // Group by state indexes to find where it changed
                                 { "$group": {
                                     "_id": { "alias_id": "$output.alias_id", "state_index": "$output.state_index" },
