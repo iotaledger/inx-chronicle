@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 use super::{error::CreateProofError, merkle_hasher::MerkleHasher};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MerklePath {
+pub struct MerkleAuditPath {
     left: Hashable,
     right: Hashable,
 }
 
-impl MerklePath {
+impl MerkleAuditPath {
     pub fn hash(&self, hasher: &MerkleHasher<Blake2b256>) -> Output<Blake2b256> {
         hasher.hash_node(self.left.hash(hasher), self.right.hash(hasher))
     }
@@ -25,7 +25,7 @@ impl MerklePath {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Hashable {
-    Path(Box<MerklePath>),
+    Path(Box<MerkleAuditPath>),
     Node(Output<Blake2b256>),
     Value([u8; BlockId::LENGTH]),
 }
@@ -49,7 +49,7 @@ impl Hashable {
 }
 
 impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerklePath, CreateProofError> {
+    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleAuditPath, CreateProofError> {
         if block_ids.len() < 2 {
             Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
         } else {
@@ -63,56 +63,56 @@ impl MerkleHasher<Blake2b256> {
     // * `block_ids` is the list of past-cone block ids in "White Flag" order;
     // * `block_ids.len() >= 2` must be true, or this function panics;
     // * `index < block_ids.len()` must be true, or this function panics;
-    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> MerklePath {
+    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
         let n = block_ids.len();
         debug_assert!(index < n);
 
         let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-        let proof = self.compute_proof(&data, index);
-        if let Hashable::Path(proof) = proof {
-            *proof
-        } else {
-            // The root of this recursive structure will always be `Hashable::MerkleProof`.
-            unreachable!();
-        }
+        self.compute_proof(&data, index)
     }
 
     /// TODO
-    fn compute_proof(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> Hashable {
+    fn compute_proof(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = data.len();
         debug_assert!(index < n);
         match n {
-            0 => unreachable!("empty data"),
-            1 => Hashable::Value(data[0]),
+            0 | 1 => unreachable!("invalid input data"),
             2 => {
-                let (l, r) = (data[0], data[1]);
-                let proof = if index == 0 {
-                    MerklePath {
-                        left: Hashable::Value(l),
-                        right: Hashable::Node(self.hash_leaf(r)),
+                let (left, right) = (data[0], data[1]);
+                if index == 0 {
+                    MerkleAuditPath {
+                        left: Hashable::Value(left),
+                        right: Hashable::Node(self.hash_leaf(right)),
                     }
                 } else {
-                    MerklePath {
-                        left: Hashable::Node(self.hash_leaf(l)),
-                        right: Hashable::Value(r),
+                    MerkleAuditPath {
+                        left: Hashable::Node(self.hash_leaf(left)),
+                        right: Hashable::Value(right),
                     }
-                };
-                Hashable::Path(Box::new(proof))
+                }
             }
             _ => {
-                let k = super::merkle_hasher::largest_power_of_two(n);
-                let proof = if index < k {
-                    MerklePath {
-                        left: self.compute_proof(&data[..k], index),
-                        right: Hashable::Node(self.hash(&data[k..])),
+                let mid = super::merkle_hasher::largest_power_of_two(n);
+                let (left, right) = data.split_at(mid);
+                if index < mid {
+                    MerkleAuditPath {
+                        left: if left.len() == 1 {
+                            Hashable::Value(left[0])
+                        } else {
+                            Hashable::Path(Box::new(self.compute_proof(left, index)))
+                        },
+                        right: Hashable::Node(self.hash(right)),
                     }
                 } else {
-                    MerklePath {
-                        left: Hashable::Node(self.hash(&data[..k])),
-                        right: self.compute_proof(&data[k..], index - k),
+                    MerkleAuditPath {
+                        left: Hashable::Node(self.hash(left)),
+                        right: if right.len() == 1 {
+                            Hashable::Value(right[0])
+                        } else {
+                            Hashable::Path(Box::new(self.compute_proof(&data[mid..], index - mid)))
+                        },
                     }
-                };
-                Hashable::Path(Box::new(proof))
+                }
             }
         }
     }
@@ -130,8 +130,8 @@ pub struct MerklePathDto {
     right: HashableDto,
 }
 
-impl From<MerklePath> for MerklePathDto {
-    fn from(value: MerklePath) -> Self {
+impl From<MerkleAuditPath> for MerklePathDto {
+    fn from(value: MerkleAuditPath) -> Self {
         Self {
             left: value.left.into(),
             right: value.right.into(),
@@ -139,7 +139,7 @@ impl From<MerklePath> for MerklePathDto {
     }
 }
 
-impl TryFrom<MerklePathDto> for MerklePath {
+impl TryFrom<MerklePathDto> for MerkleAuditPath {
     type Error = prefix_hex::Error;
 
     fn try_from(proof: MerklePathDto) -> Result<Self, Self::Error> {
@@ -185,7 +185,7 @@ impl TryFrom<HashableDto> for Hashable {
         use iota_types::block::payload::milestone::MerkleRoot;
         Ok(match hashed {
             HashableDto::Node { hash } => Hashable::Node(prefix_hex::decode::<[u8; MerkleRoot::LENGTH]>(&hash)?.into()),
-            HashableDto::Path(path) => Hashable::Path(Box::new(MerklePath::try_from(*path)?)),
+            HashableDto::Path(path) => Hashable::Path(Box::new(MerkleAuditPath::try_from(*path)?)),
             HashableDto::Value { block_id_hex } => {
                 Hashable::Value(prefix_hex::decode::<[u8; BlockId::LENGTH]>(&block_id_hex)?)
             }

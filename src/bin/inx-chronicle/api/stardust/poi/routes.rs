@@ -20,7 +20,7 @@ use crypto::hashes::blake2b::Blake2b256;
 use super::{
     error as poi,
     merkle_hasher::MerkleHasher,
-    merkle_proof::MerklePath,
+    merkle_proof::MerkleAuditPath,
     responses::{CreateProofResponse, ValidateProofResponse},
 };
 use crate::api::{
@@ -108,7 +108,8 @@ async fn validate_proof(
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonBlock))?;
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
-    let proof = MerklePath::try_from(proof).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonProof))?;
+    let proof =
+        MerkleAuditPath::try_from(proof).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonProof))?;
 
     let block_id = block.id().into();
 
