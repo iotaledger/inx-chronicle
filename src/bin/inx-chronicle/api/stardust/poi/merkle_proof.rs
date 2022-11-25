@@ -59,7 +59,11 @@ impl MerkleProof {
         }
     }
 
-    pub fn create_audit_path(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleAuditPath, CreateProofError> {
+    pub fn create_audit_path(
+        &self,
+        block_ids: &[BlockId],
+        block_id: &BlockId,
+    ) -> Result<MerkleAuditPath, CreateProofError> {
         if block_ids.len() < 2 {
             Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
         } else {
@@ -81,10 +85,23 @@ impl MerkleProof {
         self.compute_audit_path(&data, index)
     }
 
-    /// Calculates the "Merkle Audit Path"
+    /// Recursively computes the "Merkle Audit Path" for a certain `BlockId` that is given by its index in a list of
+    /// ordered and unique `BlockId`s.
+    ///
+    /// Given `n` block ids, the algorithm deterministically selects a `mid` (largest power of two
+    /// less than `n`), at which it splits the data into a `left` and a `right` side ranging from `[0...mid)` and
+    /// `[mid..n)` repectively. Depending on which range `index` belongs to (i.e. the location of the `BlockId` in the
+    /// binary subtree), the function recursively calls itself on the associated slice and creates the Merkle tree
+    /// hash for the opposite side/subtree. It terminates if either of two things occur: (a) the given slice consists
+    /// only of 2 elements; in that case - depending on `index` - one is the `value` leaf and the other a hash of a
+    /// leaf; (b) after splitting `data` into two slices/subtrees (as described above), one side/subtree just
+    /// consists of the `value` leaf and the other of a hash of a Merkle sub tree not containing the `value` leaf.
+    ///
+    /// For further details on Merkle trees, Merkle audit paths and Proof of Inclusion have a look at:
+    /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md) for more details.
     fn compute_audit_path(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = data.len();
-        debug_assert!(index < n);
+        debug_assert!(n > 1 && index < n);
         match n {
             0 | 1 => unreachable!("invalid input data"),
             2 => {
@@ -240,7 +257,10 @@ mod tests {
                 MerklePathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
                 "proof dto roundtrip"
             );
-            assert_eq!(expected_merkle_root, calculated_merkle_root, "proof hash doesn't equal the merkle root");
+            assert_eq!(
+                expected_merkle_root, calculated_merkle_root,
+                "proof hash doesn't equal the merkle root"
+            );
             assert!(
                 merkle_audit_path.contains_block_id(&block_ids[index]),
                 "proof does not contain that block id"
