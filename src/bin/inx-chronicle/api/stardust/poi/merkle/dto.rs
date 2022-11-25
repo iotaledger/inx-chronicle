@@ -56,7 +56,7 @@ impl From<Hashable> for HashableDto {
             },
             Hashable::Path(path) => Self::Path(Box::new((*path).into())),
             Hashable::Value(block_id) => Self::Value {
-                block_id_hex: prefix_hex::encode(block_id.as_slice()),
+                block_id_hex: block_id.to_hex(),
             },
         }
     }
@@ -71,7 +71,7 @@ impl TryFrom<HashableDto> for Hashable {
             HashableDto::Node { hash } => Hashable::Node(prefix_hex::decode::<[u8; MerkleRoot::LENGTH]>(&hash)?.into()),
             HashableDto::Path(path) => Hashable::Path(Box::new(MerkleAuditPath::try_from(*path)?)),
             HashableDto::Value { block_id_hex } => {
-                Hashable::Value(prefix_hex::decode::<[u8; BlockId::LENGTH]>(&block_id_hex)?)
+                Hashable::Value(BlockId(prefix_hex::decode::<[u8; BlockId::LENGTH]>(&block_id_hex)?))
             }
         })
     }

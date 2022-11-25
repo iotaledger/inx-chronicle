@@ -27,7 +27,7 @@ impl MerkleAuditPath {
 pub enum Hashable {
     Path(Box<MerkleAuditPath>),
     Node(MerkleHash),
-    Value([u8; BlockId::LENGTH]),
+    Value(BlockId),
 }
 
 impl Hashable {
@@ -43,7 +43,7 @@ impl Hashable {
         match self {
             Hashable::Node(_) => false,
             Hashable::Path(path) => path.contains_block_id(block_id),
-            Hashable::Value(v) => v == &block_id.0,
+            Hashable::Value(v) => v == block_id,
         }
     }
 }
@@ -75,9 +75,7 @@ impl MerkleHasher {
         } else {
             let n = block_ids.len();
             debug_assert!(index < n);
-
-            let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-            Ok(Self::compute_audit_path(&data, index))
+            Ok(Self::compute_audit_path(block_ids, index))
         }
     }
 
@@ -86,7 +84,7 @@ impl MerkleHasher {
     ///
     /// For further details on Merkle trees, Merkle audit paths and Proof of Inclusion have a look at:
     /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md) for more details.
-    fn compute_audit_path(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
+    fn compute_audit_path(data: &[BlockId], index: usize) -> MerkleAuditPath {
         let n = data.len();
         debug_assert!(n > 1 && index < n);
         match n {

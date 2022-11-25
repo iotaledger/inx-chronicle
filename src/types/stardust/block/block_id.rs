@@ -46,6 +46,12 @@ impl FromStr for BlockId {
     }
 }
 
+impl AsRef<[u8]> for BlockId {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl From<BlockId> for Bson {
     fn from(val: BlockId) -> Self {
         Binary {
