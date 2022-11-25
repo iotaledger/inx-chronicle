@@ -17,10 +17,9 @@ use chronicle::{
 };
 
 use super::{
-    error as poi,
-    merkle_hasher::MerkleHasher,
-    merkle_proof::MerkleProof,
+    merkle::{CreateProofError, MerkleHasher, MerkleProof},
     responses::{CreateProofResponse, ValidateProofResponse},
+    CorruptStateError as PoiCorruptStateError, RequestError as PoiRequestError,
 };
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
@@ -45,7 +44,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .ok_or(MissingError::NoResults)?;
     let referenced_index = block_metadata.referenced_by_milestone_index;
     if referenced_index == 0 {
-        return Err(ApiError::from(poi::RequestError::BlockNotReferenced(block_id.to_hex())));
+        return Err(ApiError::from(PoiRequestError::BlockNotReferenced(block_id.to_hex())));
     }
 
     // Fetch the corresponding milestone cone in "White Flag" order.
@@ -53,7 +52,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .get_pastcone_in_white_flag_order(referenced_index)
         .await?;
     if block_ids.is_empty() {
-        return Err(ApiError::from(poi::CorruptStateError::NoMilestoneCone));
+        return Err(ApiError::from(PoiCorruptStateError::NoMilestoneCone));
     }
 
     // Create the inclusion proof to return in the response.
@@ -69,7 +68,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     let calculated_merkle_root = &*proof.hash();
     let expected_merkle_root = milestone.essence.inclusion_merkle_root;
     if calculated_merkle_root != expected_merkle_root {
-        return Err(ApiError::from(poi::CreateProofError::MerkleRootMismatch {
+        return Err(ApiError::from(CreateProofError::MerkleRootMismatch {
             calculated_merkle_root: prefix_hex::encode(calculated_merkle_root),
             expected_merkle_root: prefix_hex::encode(expected_merkle_root),
         }));
@@ -98,10 +97,10 @@ async fn validate_proof(
 ) -> ApiResult<ValidateProofResponse> {
     // Extract the block, milestone, and proof.
     let block = iota_types::block::Block::try_from_dto_unverified(&block)
-        .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonBlock))?;
+        .map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonBlock))?;
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
-        .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
-    let proof = MerkleProof::try_from(proof).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonProof))?;
+        .map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonMilestone))?;
+    let proof = MerkleProof::try_from(proof).map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonProof))?;
 
     let block_id = block.id().into();
 
@@ -122,7 +121,7 @@ async fn validate_proof(
     let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index.into())?;
 
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
-        Err(RequestError::PoI(poi::RequestError::InvalidMilestone(e)).into())
+        Err(RequestError::PoI(PoiRequestError::InvalidMilestone(e)).into())
     } else {
         Ok(ValidateProofResponse {
             valid: proof.contains_block_id(&block_id) && *proof.hash() == **milestone.essence().inclusion_merkle_root(),
@@ -143,7 +142,7 @@ fn get_valid_public_keys_for_index(
             (start, _) if start > index => break,
             (start, end) if index <= end || start == end => {
                 let public_key_raw = prefix_hex::decode::<Vec<_>>(&key_range.public_key)
-                    .map_err(|_| CorruptStateError::PoI(poi::CorruptStateError::DecodePublicKey))?;
+                    .map_err(|_| CorruptStateError::PoI(PoiCorruptStateError::DecodePublicKey))?;
                 let public_key_hex = hex::encode(public_key_raw);
                 public_keys.insert(public_key_hex);
             }

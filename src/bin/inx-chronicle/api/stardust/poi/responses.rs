@@ -4,7 +4,7 @@
 use iota_types::block::{payload::dto::MilestonePayloadDto, BlockDto};
 use serde::{Deserialize, Serialize};
 
-use super::merkle_proof::MerkleProofDto;
+use super::merkle::MerkleProofDto;
 use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

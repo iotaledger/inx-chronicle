@@ -51,7 +51,7 @@ macro_rules! impl_internal_error {
             impl From<$type> for crate::api::ApiError {
                 fn from(error: $type) -> Self {
                     Self {
-                        code: StatusCode::INTERNAL_SERVER_ERROR,
+                        code: hyper::StatusCode::INTERNAL_SERVER_ERROR,
                         error: Box::new(error) as _,
                     }
                 }
