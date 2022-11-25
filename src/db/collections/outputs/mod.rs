@@ -597,9 +597,14 @@ mod analytics {
                     } },
                     doc! { "$project" : {
                         "_id": null,
-                        "total_key_bytes": { "$toString": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } } },
-                        "total_data_bytes": { "$toString": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } } },
-                        "total_storage_deposit_value": { "$toString": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } } },
+                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                        "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } },
+                    } },
+                    doc! { "$project": {
+                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                        "total_key_bytes": { "$toString": "$total_key_bytes" },
+                        "total_data_bytes": { "$toString": "$total_data_bytes" },
                     } },
                 ],
                 None,
@@ -699,10 +704,13 @@ mod analytics {
                         } },
                         doc! { "$group" : {
                             "_id": "$details.address",
-                        } },
-                        doc! { "$project": {
+                        }},
+                        doc! { "$group" : {
                             "_id": null,
                             "address_with_balance_count": { "$sum": 1 }
+                        }},
+                        doc! { "$project": {
+                            "address_with_balance_count": "$address_with_balance_count"
                         } },
                     ],
                     None,
