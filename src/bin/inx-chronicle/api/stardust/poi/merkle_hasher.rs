@@ -1,49 +1,43 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::marker::PhantomData;
-
-use crypto::hashes::{Digest, Output};
+use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 
 const LEAF_HASH_PREFIX: u8 = 0;
 const NODE_HASH_PREFIX: u8 = 1;
 
-/// A Merkle tree hasher that is generic over the hash function `H` being used.
-pub struct MerkleHasher<H> {
-    _phantom: PhantomData<H>,
-}
+pub type MerkleHash = Output<Blake2b256>;
 
-impl<H: Default + Digest> MerkleHasher<H> {
-    pub fn new() -> Self {
-        Self { _phantom: PhantomData }
-    }
+/// A Merkle tree hasher that uses the `Blake2b256` hash function.
+pub struct MerkleHasher;
 
-    pub fn hash(&self, data: &[impl AsRef<[u8]>]) -> Output<H> {
+impl MerkleHasher {
+    pub fn hash(data: &[impl AsRef<[u8]>]) -> MerkleHash {
         match data {
-            [] => self.hash_empty(),
-            [leaf] => self.hash_leaf(leaf),
+            [] => Self::hash_empty(),
+            [leaf] => Self::hash_leaf(leaf),
             _ => {
                 let k = largest_power_of_two(data.len());
-                let l = self.hash(&data[..k]);
-                let r = self.hash(&data[k..]);
-                self.hash_node(&l, &r)
+                let l = Self::hash(&data[..k]);
+                let r = Self::hash(&data[k..]);
+                Self::hash_node(l, r)
             }
         }
     }
 
-    pub fn hash_empty(&self) -> Output<H> {
-        H::digest([])
+    pub fn hash_empty() -> MerkleHash {
+        Blake2b256::digest([])
     }
 
-    pub fn hash_leaf(&self, l: impl AsRef<[u8]>) -> Output<H> {
-        let mut hasher = H::default();
+    pub fn hash_leaf(l: impl AsRef<[u8]>) -> MerkleHash {
+        let mut hasher = Blake2b256::default();
         hasher.update([LEAF_HASH_PREFIX]);
         hasher.update(l);
         hasher.finalize()
     }
 
-    pub fn hash_node(&self, l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> Output<H> {
-        let mut hasher = H::default();
+    pub fn hash_node(l: impl AsRef<[u8]>, r: impl AsRef<[u8]>) -> MerkleHash {
+        let mut hasher = Blake2b256::default();
         hasher.update([NODE_HASH_PREFIX]);
         hasher.update(l);
         hasher.update(r);
@@ -68,14 +62,13 @@ mod tests {
     use std::str::FromStr;
 
     use chronicle::types::stardust::block::BlockId;
-    use crypto::hashes::blake2b::Blake2b256;
 
     use super::*;
 
-    impl<H: Default + Digest> MerkleHasher<H> {
-        pub fn hash_block_ids(&self, data: &[BlockId]) -> Output<H> {
+    impl MerkleHasher {
+        pub fn hash_block_ids(data: &[BlockId]) -> MerkleHash {
             let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
-            self.hash(&data[..])
+            Self::hash(&data[..])
         }
     }
 
@@ -101,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_merkle_tree_hasher_empty() {
-        let root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&[]);
+        let root = MerkleHasher::hash_block_ids(&[]);
         assert_eq!(
             prefix_hex::encode(root.as_slice()),
             "0x0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
@@ -110,10 +103,10 @@ mod tests {
 
     #[test]
     fn test_merkle_tree_hasher_single() {
-        let root = MerkleHasher::<Blake2b256>::new()
-            .hash_block_ids(&[
-                BlockId::from_str("0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649").unwrap(),
-            ]);
+        let root = MerkleHasher::hash_block_ids(&[BlockId::from_str(
+            "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649",
+        )
+        .unwrap()]);
 
         assert_eq!(
             prefix_hex::encode(root.as_slice()),
@@ -136,7 +129,7 @@ mod tests {
         .map(|hash| BlockId::from_str(hash).unwrap())
         .collect::<Vec<_>>();
 
-        let merkle_root = MerkleHasher::<Blake2b256>::new().hash_block_ids(&block_ids);
+        let merkle_root = MerkleHasher::hash_block_ids(&block_ids);
 
         assert_eq!(
             prefix_hex::encode(merkle_root.as_slice()),

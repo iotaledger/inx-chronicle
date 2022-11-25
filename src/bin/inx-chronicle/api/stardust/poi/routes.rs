@@ -15,11 +15,9 @@ use chronicle::{
     },
     types::{node::MilestoneKeyRange, stardust::block::BlockId, tangle::MilestoneIndex},
 };
-use crypto::hashes::blake2b::Blake2b256;
 
 use super::{
     error as poi,
-    merkle_hasher::MerkleHasher,
     merkle_proof::{MerkleAuditPath, MerkleProof},
     responses::{CreateProofResponse, ValidateProofResponse},
 };
@@ -58,9 +56,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let merkle_proof = MerkleProof::new();
-    let merkle_audit_path = merkle_proof
-        .create_audit_path(&block_ids, &block_id)
+    let merkle_audit_path = MerkleProof::create_audit_path(&block_ids, &block_id)
         .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
 
     // Fetch the corresponding milestone to return in the response.
@@ -70,7 +66,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    let calculated_merkle_root = merkle_proof.get_merkle_root(&merkle_audit_path);
+    let calculated_merkle_root = merkle_audit_path.hash();
     let expected_merkle_root = milestone.essence.inclusion_merkle_root;
     if calculated_merkle_root.as_slice() != expected_merkle_root {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::CreateProof(
@@ -132,10 +128,8 @@ async fn validate_proof(
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
         Err(RequestError::PoI(poi::RequestError::InvalidMilestone(e)).into())
     } else {
-        let hasher = MerkleHasher::<Blake2b256>::new();
         Ok(ValidateProofResponse {
-            valid: proof.contains_block_id(&block_id)
-                && *proof.hash(&hasher) == **milestone.essence().inclusion_merkle_root(),
+            valid: proof.contains_block_id(&block_id) && *proof.hash() == **milestone.essence().inclusion_merkle_root(),
         })
     }
 }
