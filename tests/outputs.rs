@@ -234,12 +234,12 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_alias_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.governor_changed_count, 1);
-        assert_eq!(analytics.state_changed_count, 2);
-        assert_eq!(analytics.destroyed_count, 0);
+        assert_eq!(analytics.alias.created_count, 1);
+        assert_eq!(analytics.alias.governor_changed_count, 1);
+        assert_eq!(analytics.alias.state_changed_count, 2);
+        assert_eq!(analytics.alias.destroyed_count, 0);
 
         // t -> s -> s
         let mut output = AliasOutput::rand(&protocol_params);
@@ -281,12 +281,12 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_alias_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.governor_changed_count, 2);
-        assert_eq!(analytics.state_changed_count, 4);
-        assert_eq!(analytics.destroyed_count, 0);
+        assert_eq!(analytics.alias.created_count, 1);
+        assert_eq!(analytics.alias.governor_changed_count, 2);
+        assert_eq!(analytics.alias.state_changed_count, 4);
+        assert_eq!(analytics.alias.destroyed_count, 0);
 
         // s -> t -> d
         let mut output = AliasOutput::rand(&protocol_params);
@@ -319,12 +319,12 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_alias_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.governor_changed_count, 3);
-        assert_eq!(analytics.state_changed_count, 5);
-        assert_eq!(analytics.destroyed_count, 1);
+        assert_eq!(analytics.alias.created_count, 1);
+        assert_eq!(analytics.alias.governor_changed_count, 3);
+        assert_eq!(analytics.alias.state_changed_count, 5);
+        assert_eq!(analytics.alias.destroyed_count, 1);
 
         // c -> s -> s -> d
         let mut output = AliasOutput::rand(&protocol_params);
@@ -342,12 +342,12 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_alias_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 2);
-        assert_eq!(analytics.governor_changed_count, 3);
-        assert_eq!(analytics.state_changed_count, 7);
-        assert_eq!(analytics.destroyed_count, 2);
+        assert_eq!(analytics.alias.created_count, 2);
+        assert_eq!(analytics.alias.governor_changed_count, 3);
+        assert_eq!(analytics.alias.state_changed_count, 7);
+        assert_eq!(analytics.alias.destroyed_count, 2);
 
         // c -> t -> t -> d
         let mut output = AliasOutput::rand(&protocol_params);
@@ -369,12 +369,12 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_alias_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 3);
-        assert_eq!(analytics.governor_changed_count, 5);
-        assert_eq!(analytics.state_changed_count, 7);
-        assert_eq!(analytics.destroyed_count, 3);
+        assert_eq!(analytics.alias.created_count, 3);
+        assert_eq!(analytics.alias.governor_changed_count, 5);
+        assert_eq!(analytics.alias.state_changed_count, 7);
+        assert_eq!(analytics.alias.destroyed_count, 3);
 
         teardown(db).await;
     }
@@ -430,11 +430,11 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_nft_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.transferred_count, 3);
-        assert_eq!(analytics.destroyed_count, 0);
+        assert_eq!(analytics.nft.created_count, 1);
+        assert_eq!(analytics.nft.transferred_count, 3);
+        assert_eq!(analytics.nft.destroyed_count, 0);
 
         // t -> t -> t
         let output = NftOutput::rand(&protocol_params);
@@ -472,11 +472,11 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_nft_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.transferred_count, 6);
-        assert_eq!(analytics.destroyed_count, 0);
+        assert_eq!(analytics.nft.created_count, 1);
+        assert_eq!(analytics.nft.transferred_count, 6);
+        assert_eq!(analytics.nft.destroyed_count, 0);
 
         // t -> t -> d
         let output = NftOutput::rand(&protocol_params);
@@ -504,33 +504,11 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_nft_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.transferred_count, 8);
-        assert_eq!(analytics.destroyed_count, 1);
-
-        // c -> t -> t -> d
-        let output = NftOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.nft_id = NftId::implicit();
-        let created_outputs = vec![created_output, output.clone(), output.clone()]
-            .into_iter()
-            .map(ledger_output)
-            .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
-
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection.get_nft_output_analytics(2.into()).await.unwrap();
-
-        assert_eq!(analytics.created_count, 2);
-        assert_eq!(analytics.transferred_count, 10);
-        assert_eq!(analytics.destroyed_count, 2);
+        assert_eq!(analytics.nft.created_count, 1);
+        assert_eq!(analytics.nft.transferred_count, 8);
+        assert_eq!(analytics.nft.destroyed_count, 1);
 
         // c -> t -> t -> d
         let output = NftOutput::rand(&protocol_params);
@@ -548,11 +526,33 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_nft_output_analytics(2.into()).await.unwrap();
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
 
-        assert_eq!(analytics.created_count, 3);
-        assert_eq!(analytics.transferred_count, 12);
-        assert_eq!(analytics.destroyed_count, 3);
+        assert_eq!(analytics.nft.created_count, 2);
+        assert_eq!(analytics.nft.transferred_count, 10);
+        assert_eq!(analytics.nft.destroyed_count, 2);
+
+        // c -> t -> t -> d
+        let output = NftOutput::rand(&protocol_params);
+        let mut created_output = output.clone();
+        created_output.nft_id = NftId::implicit();
+        let created_outputs = vec![created_output, output.clone(), output.clone()]
+            .into_iter()
+            .map(ledger_output)
+            .collect::<Vec<_>>();
+        output_collection
+            .insert_unspent_outputs(&created_outputs)
+            .await
+            .unwrap();
+
+        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
+        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
+
+        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+
+        assert_eq!(analytics.nft.created_count, 3);
+        assert_eq!(analytics.nft.transferred_count, 12);
+        assert_eq!(analytics.nft.destroyed_count, 3);
 
         teardown(db).await;
     }

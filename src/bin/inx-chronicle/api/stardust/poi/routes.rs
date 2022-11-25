@@ -17,7 +17,7 @@ use chronicle::{
 };
 
 use super::{
-    merkle::{CreateProofError, MerkleHasher, MerkleProof},
+    merkle::{CreateAuditPathError, MerkleAuditPath, MerkleHasher},
     responses::{CreateProofResponse, ValidateProofResponse},
     CorruptStateError as PoiCorruptStateError, RequestError as PoiRequestError,
 };
@@ -56,7 +56,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     }
 
     // Create the inclusion proof to return in the response.
-    let proof = MerkleHasher::create_proof(&block_ids, &block_id)?;
+    let proof = MerkleHasher::create_audit_path(&block_ids, &block_id)?;
 
     // Fetch the corresponding milestone to return in the response.
     let milestone_collection = database.collection::<MilestoneCollection>();
@@ -68,7 +68,7 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
     let calculated_merkle_root = &*proof.hash();
     let expected_merkle_root = milestone.essence.inclusion_merkle_root;
     if calculated_merkle_root != expected_merkle_root {
-        return Err(ApiError::from(CreateProofError::MerkleRootMismatch {
+        return Err(ApiError::from(CreateAuditPathError::MerkleRootMismatch {
             calculated_merkle_root: prefix_hex::encode(calculated_merkle_root),
             expected_merkle_root: prefix_hex::encode(expected_merkle_root),
         }));
@@ -100,7 +100,7 @@ async fn validate_proof(
         .map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonBlock))?;
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonMilestone))?;
-    let proof = MerkleProof::try_from(proof).map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonProof))?;
+    let proof = MerkleAuditPath::try_from(proof).map_err(|_| RequestError::PoI(PoiRequestError::MalformedJsonProof))?;
 
     let block_id = block.id().into();
 

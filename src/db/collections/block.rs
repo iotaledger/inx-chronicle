@@ -11,6 +11,7 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::SortOrder;
 use crate::{
     db::{
         collections::OutputCollection,
@@ -77,10 +78,10 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.referenced_by_milestone_index": -1 })
+                .keys(doc! { "metadata.referenced_by_milestone_index": -1, "metadata.white_flag_index": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("block_referenced_index".to_string())
+                        .name("block_referenced_index_comp".to_string())
                         .build(),
                 )
                 .build(),
@@ -338,21 +339,60 @@ impl BlockCollection {
     }
 }
 
+#[derive(Copy, Clone, Debug, Deserialize)]
+#[allow(missing_docs)]
+pub struct BlocksByMilestoneResult {
+    pub block_id: BlockId,
+    pub white_flag_index: u32,
+}
+
+impl BlockCollection {
+    /// Get the [`Block`]s in a milestone by index as a stream of [`BlockId`]s.
+    pub async fn get_blocks_by_milestone_index(
+        &self,
+        milestone_index: MilestoneIndex,
+        page_size: usize,
+        cursor: Option<u32>,
+        sort: SortOrder,
+    ) -> Result<impl Stream<Item = Result<BlocksByMilestoneResult, Error>>, Error> {
+        let (sort, cmp) = match sort {
+            SortOrder::Newest => (doc! {"metadata.white_flag_index": -1 }, "$lte"),
+            SortOrder::Oldest => (doc! {"metadata.white_flag_index": 1 }, "$gte"),
+        };
+
+        let mut queries = vec![doc! { "metadata.referenced_by_milestone_index": milestone_index }];
+        if let Some(white_flag_index) = cursor {
+            queries.push(doc! { "metadata.white_flag_index": { cmp: white_flag_index } });
+        }
+
+        self.aggregate(
+            vec![
+                doc! { "$match": { "$and": queries } },
+                doc! { "$sort": sort },
+                doc! { "$limit": page_size as i64 },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "white_flag_index": "$metadata.white_flag_index"
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+}
+
 #[cfg(feature = "analytics")]
 mod analytics {
     use super::*;
-    use crate::{
-        db::collections::analytics::{PayloadActivityAnalytics, TransactionActivityAnalytics},
-        types::tangle::MilestoneIndex,
-    };
+    use crate::{db::collections::analytics::BlockActivityAnalytics, types::tangle::MilestoneIndex};
 
     impl BlockCollection {
         /// Gathers past-cone payload activity statistics for a given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_payload_activity_analytics(
+        pub async fn get_block_activity_analytics(
             &self,
             index: MilestoneIndex,
-        ) -> Result<PayloadActivityAnalytics, Error> {
+        ) -> Result<BlockActivityAnalytics, Error> {
             Ok(self
                 .aggregate(
                     vec![
@@ -374,28 +414,6 @@ mod analytics {
                             "no_payload_count": { "$sum": {
                                 "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
                             } },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
-        }
-
-        /// Gathers past-cone transaction activity statistics for a given milestone.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_transaction_activity_analytics(
-            &self,
-            index: MilestoneIndex,
-        ) -> Result<TransactionActivityAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
-                        doc! { "$group": {
-                            "_id": null,
                             "confirmed_count": { "$sum": {
                                 "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
                             } },
@@ -405,6 +423,20 @@ mod analytics {
                             "no_transaction_count": { "$sum": {
                                 "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
                             } },
+                        } },
+                        doc! { "$project": {
+                            "payload": {
+                                "transaction_count": "$transaction_count",
+                                "treasury_transaction_count": "$treasury_transaction_count",
+                                "milestone_count": "$milestone_count",
+                                "tagged_data_count": "$tagged_data_count",
+                                "no_payload_count": "$no_payload_count",
+                            },
+                            "transaction": {
+                                "confirmed_count": "$confirmed_count",
+                                "conflicting_count": "$conflicting_count",
+                                "no_transaction_count": "$no_transaction_count",
+                            }
                         } },
                     ],
                     None,

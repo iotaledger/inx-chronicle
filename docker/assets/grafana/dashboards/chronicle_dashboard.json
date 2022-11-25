@@ -75,7 +75,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.3.0-beta1",
+      "pluginVersion": "9.2.5",
       "targets": [
         {
           "datasource": {
@@ -135,7 +135,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 15,
+            "fillOpacity": 80,
             "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
@@ -149,7 +149,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -247,7 +247,43 @@
                 ],
                 "type": "alias"
               }
-            ],
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "alias": "$col ($tag_chronicle_version)",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "P951FEA4DE68E13C5"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "chronicle_version"
+              ],
+              "type": "tag"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "analytics_metrics",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "B",
+          "resultFormat": "time_series",
+          "select": [
             [
               {
                 "params": [

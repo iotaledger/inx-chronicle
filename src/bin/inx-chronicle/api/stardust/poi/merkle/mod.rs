@@ -1,15 +1,13 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod audit_path;
+mod dto;
 mod error;
-mod proof;
 
 use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 
-pub use self::{
-    error::CreateProofError,
-    proof::{MerkleProof, MerkleProofDto},
-};
+pub use self::{audit_path::MerkleAuditPath, dto::MerkleAuditPathDto, error::CreateAuditPathError};
 
 const LEAF_HASH_PREFIX: u8 = 0;
 const NODE_HASH_PREFIX: u8 = 1;

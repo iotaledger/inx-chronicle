@@ -7,10 +7,10 @@ use crate::api::error::impl_internal_error;
 
 #[derive(Error, Debug)]
 #[allow(missing_docs)]
-pub enum CreateProofError {
+pub enum CreateAuditPathError {
     #[error("Block '{0}' is not included in the given ordered list of blocks")]
     BlockNotIncluded(String),
-    #[error("A proof cannot be created from {0} block ids")]
+    #[error("An audit path cannot be created from {0} block ids")]
     InsufficientBlockIds(usize),
     #[error(
         "The calculated merkle root '{calculated_merkle_root}' does not match the expected: '{expected_merkle_root}'"
@@ -21,4 +21,4 @@ pub enum CreateProofError {
     },
 }
 
-impl_internal_error!(CreateProofError);
+impl_internal_error!(CreateAuditPathError);
