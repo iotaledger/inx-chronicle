@@ -1,3 +1,16 @@
+## [1.0.0-beta.27](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.26...v1.0.0-beta.27) (2022-11-25)
+
+
+### Features
+
+* **grafana:** annotate sync time with milestone index ([#930](https://github.com/iotaledger/inx-chronicle/issues/930)) ([cf8393c](https://github.com/iotaledger/inx-chronicle/commit/cf8393c8aabe11a35683a2ad73fdbd2fcb3b4cd2))
+
+
+### Bug Fixes
+
+* **db:** improve performance of analytics queries ([#900](https://github.com/iotaledger/inx-chronicle/issues/900)) ([48a74a1](https://github.com/iotaledger/inx-chronicle/commit/48a74a109ffbd72c338ff22f87142fca42b73bfe))
+* **logging:** set up logging before subcommands are executed ([#927](https://github.com/iotaledger/inx-chronicle/issues/927)) ([7464781](https://github.com/iotaledger/inx-chronicle/commit/746478169bdbad470b8b45a2e7753c0bb02e3168))
+
 ## [1.0.0-beta.26](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.25...v1.0.0-beta.26) (2022-11-23)
 
 
