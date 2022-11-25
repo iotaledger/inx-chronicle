@@ -8,53 +8,48 @@ use serde::{Deserialize, Serialize};
 use super::{error::CreateProofError, merkle_hasher::MerkleHasher};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MerkleProof {
+pub struct MerklePath {
     left: Hashable,
     right: Hashable,
 }
 
-impl MerkleProof {
+impl MerklePath {
     pub fn hash(&self, hasher: &MerkleHasher<Blake2b256>) -> Output<Blake2b256> {
-        let l = self.left.hash();
-        let r = self.right.hash();
-        hasher.hash_node(l, r)
+        hasher.hash_node(self.left.hash(hasher), self.right.hash(hasher))
     }
 
-    pub fn contains_block_id(&self, block_id: &BlockId, hasher: &MerkleHasher<Blake2b256>) -> bool {
-        let value = hasher.hash_leaf(block_id.0);
-        self.contains_value(&value)
-    }
-
-    pub fn contains_value(&self, value: &impl AsRef<[u8]>) -> bool {
-        self.left.contains_value(value) || self.right.contains_value(value)
+    pub fn contains_block_id(&self, block_id: &BlockId) -> bool {
+        self.left.contains_block_id(block_id) || self.right.contains_block_id(block_id)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Hashable {
-    MerkleProof(Box<MerkleProof>, Output<Blake2b256>),
+    Path(Box<MerklePath>),
     Node(Output<Blake2b256>),
-    Value(Output<Blake2b256>),
+    Value([u8; BlockId::LENGTH]),
 }
 
 impl Hashable {
-    fn hash(&self) -> Output<Blake2b256> {
+    fn hash(&self, hasher: &MerkleHasher<Blake2b256>) -> Output<Blake2b256> {
         match self {
-            Hashable::MerkleProof(_, hash) | Hashable::Node(hash) | Hashable::Value(hash) => *hash,
+            Hashable::Node(hash) => *hash,
+            Hashable::Path(path) => path.hash(hasher),
+            Hashable::Value(block_id) => hasher.hash_leaf(block_id),
         }
     }
 
-    fn contains_value(&self, value: &impl AsRef<[u8]>) -> bool {
+    fn contains_block_id(&self, block_id: &BlockId) -> bool {
         match self {
-            Hashable::MerkleProof(p, _) => (*p).contains_value(value),
             Hashable::Node(_) => false,
-            Hashable::Value(v) => &**v == value.as_ref(),
+            Hashable::Path(path) => (*path).contains_block_id(block_id),
+            Hashable::Value(v) => v == &block_id.0,
         }
     }
 }
 
 impl MerkleHasher<Blake2b256> {
-    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleProof, CreateProofError> {
+    pub fn create_proof(&self, block_ids: &[BlockId], block_id: &BlockId) -> Result<MerklePath, CreateProofError> {
         if block_ids.len() < 2 {
             Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
         } else {
@@ -68,13 +63,13 @@ impl MerkleHasher<Blake2b256> {
     // * `block_ids` is the list of past-cone block ids in "White Flag" order;
     // * `block_ids.len() >= 2` must be true, or this function panics;
     // * `index < block_ids.len()` must be true, or this function panics;
-    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> MerkleProof {
+    fn create_proof_from_index(&self, block_ids: &[BlockId], index: usize) -> MerklePath {
         let n = block_ids.len();
         debug_assert!(index < n);
 
         let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
         let proof = self.compute_proof(&data, index);
-        if let Hashable::MerkleProof(proof, _) = proof {
+        if let Hashable::Path(proof) = proof {
             *proof
         } else {
             // The root of this recursive structure will always be `Hashable::MerkleProof`.
@@ -82,43 +77,42 @@ impl MerkleHasher<Blake2b256> {
         }
     }
 
+    /// TODO
     fn compute_proof(&self, data: &[[u8; BlockId::LENGTH]], index: usize) -> Hashable {
         let n = data.len();
         debug_assert!(index < n);
         match n {
             0 => unreachable!("empty data"),
-            1 => Hashable::Value(self.hash_leaf(data[0])),
+            1 => Hashable::Value(data[0]),
             2 => {
                 let (l, r) = (data[0], data[1]);
                 let proof = if index == 0 {
-                    MerkleProof {
-                        left: Hashable::Value(self.hash_leaf(l)),
+                    MerklePath {
+                        left: Hashable::Value(l),
                         right: Hashable::Node(self.hash_leaf(r)),
                     }
                 } else {
-                    MerkleProof {
+                    MerklePath {
                         left: Hashable::Node(self.hash_leaf(l)),
-                        right: Hashable::Value(self.hash_leaf(r)),
+                        right: Hashable::Value(r),
                     }
                 };
-                let hash = proof.hash(self);
-                Hashable::MerkleProof(Box::new(proof), hash)
+                Hashable::Path(Box::new(proof))
             }
             _ => {
                 let k = super::merkle_hasher::largest_power_of_two(n);
                 let proof = if index < k {
-                    MerkleProof {
+                    MerklePath {
                         left: self.compute_proof(&data[..k], index),
                         right: Hashable::Node(self.hash(&data[k..])),
                     }
                 } else {
-                    MerkleProof {
+                    MerklePath {
                         left: Hashable::Node(self.hash(&data[..k])),
                         right: self.compute_proof(&data[k..], index - k),
                     }
                 };
-                let hash = proof.hash(self);
-                Hashable::MerkleProof(Box::new(proof), hash)
+                Hashable::Path(Box::new(proof))
             }
         }
     }
@@ -129,15 +123,15 @@ fn find_index(block_ids: &[BlockId], block_id: &BlockId) -> Option<usize> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MerkleProofDto {
+pub struct MerklePathDto {
     #[serde(rename = "l")]
     left: HashableDto,
     #[serde(rename = "r")]
     right: HashableDto,
 }
 
-impl From<MerkleProof> for MerkleProofDto {
-    fn from(value: MerkleProof) -> Self {
+impl From<MerklePath> for MerklePathDto {
+    fn from(value: MerklePath) -> Self {
         Self {
             left: value.left.into(),
             right: value.right.into(),
@@ -145,10 +139,10 @@ impl From<MerkleProof> for MerkleProofDto {
     }
 }
 
-impl TryFrom<MerkleProofDto> for MerkleProof {
+impl TryFrom<MerklePathDto> for MerklePath {
     type Error = prefix_hex::Error;
 
-    fn try_from(proof: MerkleProofDto) -> Result<Self, Self::Error> {
+    fn try_from(proof: MerklePathDto) -> Result<Self, Self::Error> {
         Ok(Self {
             left: Hashable::try_from(proof.left)?,
             right: Hashable::try_from(proof.right)?,
@@ -163,23 +157,23 @@ pub enum HashableDto {
         #[serde(rename = "h")]
         hash: String,
     },
-    Proof(Box<MerkleProofDto>),
+    Path(Box<MerklePathDto>),
     Value {
         #[serde(rename = "value")]
-        value_hash: String,
+        block_id_hex: String,
     },
 }
 
 impl From<Hashable> for HashableDto {
     fn from(value: Hashable) -> Self {
         match value {
-            Hashable::Node(h) => Self::Node {
-                hash: prefix_hex::encode(h.as_slice()),
+            Hashable::Node(hash) => Self::Node {
+                hash: prefix_hex::encode(hash.as_slice()),
             },
-            Hashable::Value(v) => Self::Value {
-                value_hash: prefix_hex::encode(v.as_slice()),
+            Hashable::Path(path) => Self::Path(Box::new((*path).into())),
+            Hashable::Value(block_id) => Self::Value {
+                block_id_hex: prefix_hex::encode(block_id.as_slice()),
             },
-            Hashable::MerkleProof(p, _) => Self::Proof(Box::new((*p).into())),
         }
     }
 }
@@ -188,20 +182,12 @@ impl TryFrom<HashableDto> for Hashable {
     type Error = prefix_hex::Error;
 
     fn try_from(hashed: HashableDto) -> Result<Self, Self::Error> {
+        use iota_types::block::payload::milestone::MerkleRoot;
         Ok(match hashed {
-            HashableDto::Node { hash } => {
-                let hash = prefix_hex::decode::<[u8; 32]>(&hash)?;
-                Hashable::Node(hash.into())
-            }
-            HashableDto::Value { value_hash } => {
-                let hash = prefix_hex::decode::<[u8; 32]>(&value_hash)?;
-                Hashable::Value(hash.into())
-            }
-            HashableDto::Proof(proof) => {
-                let proof = MerkleProof::try_from(*proof)?;
-                let hasher = MerkleHasher::<Blake2b256>::new();
-                let hash = proof.hash(&hasher);
-                Hashable::MerkleProof(Box::new(proof), hash)
+            HashableDto::Node { hash } => Hashable::Node(prefix_hex::decode::<[u8; MerkleRoot::LENGTH]>(&hash)?.into()),
+            HashableDto::Path(path) => Hashable::Path(Box::new(MerklePath::try_from(*path)?)),
+            HashableDto::Value { block_id_hex } => {
+                Hashable::Value(prefix_hex::decode::<[u8; BlockId::LENGTH]>(&block_id_hex)?)
             }
         })
     }
@@ -239,12 +225,12 @@ mod tests {
 
             assert_eq!(
                 proof,
-                MerkleProofDto::from(proof.clone()).try_into().unwrap(),
+                MerklePathDto::from(proof.clone()).try_into().unwrap(),
                 "proof dto roundtrip"
             );
             assert_eq!(inclusion_merkle_root, hash, "proof hash doesn't equal the merkle root");
             assert!(
-                proof.contains_block_id(&block_ids[index], &hasher),
+                proof.contains_block_id(&block_ids[index]),
                 "proof does not contain that block id"
             );
         }
