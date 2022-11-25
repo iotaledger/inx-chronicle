@@ -702,16 +702,8 @@ mod analytics {
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
                             "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                         } },
-                        doc! { "$group" : {
-                            "_id": "$details.address",
-                        }},
-                        doc! { "$group" : {
-                            "_id": null,
-                            "address_with_balance_count": { "$sum": 1 }
-                        }},
-                        doc! { "$project": {
-                            "address_with_balance_count": "$address_with_balance_count"
-                        } },
+                        doc! { "$group" : { "_id": "$details.address" } },
+                        doc! { "$count" : "address_with_balance_count" },
                     ],
                     None,
                 )
