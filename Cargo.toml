@@ -84,7 +84,7 @@ tracing-opentelemetry = { version = "0.18", default-features = false, features =
 tracing-loki = { version = "0.2", default-features = false, features = [ "compat-0-2-1", "native-tls" ], optional = true }
 
 # Stardust types
-iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
+iota-types = { version = "1.0.0-rc.3.3", default-features = false, features = [ "api", "block", "std" ], optional = true }
 
 [dev-dependencies]
 iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std", "rand" ] }
