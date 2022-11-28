@@ -390,6 +390,33 @@ mod analytics {
         value: d128,
     }
 
+    #[derive(Default, Deserialize)]
+    #[serde(default)]
+    struct LedgerOutputsRes {
+        basic: Sums,
+        alias: Sums,
+        foundry: Sums,
+        nft: Sums,
+        treasury: Sums,
+    }
+
+    impl From<LedgerOutputsRes> for LedgerOutputAnalytics {
+        fn from(res: LedgerOutputsRes) -> Self {
+            Self {
+                basic_count: res.basic.count,
+                basic_value: res.basic.value,
+                alias_count: res.alias.count,
+                alias_value: res.alias.value,
+                foundry_count: res.foundry.count,
+                foundry_value: res.foundry.value,
+                nft_count: res.nft.count,
+                nft_value: res.nft.value,
+                treasury_count: res.treasury.count,
+                treasury_value: res.treasury.value,
+            }
+        }
+    }
+
     impl OutputCollection {
         /// Gathers output analytics.
         #[tracing::instrument(skip(self), err, level = "trace")]
@@ -425,18 +452,8 @@ mod analytics {
             &self,
             ledger_index: MilestoneIndex,
         ) -> Result<LedgerOutputAnalytics, Error> {
-            #[derive(Default, Deserialize)]
-            #[serde(default)]
-            struct Res {
-                basic: Sums,
-                alias: Sums,
-                foundry: Sums,
-                nft: Sums,
-                treasury: Sums,
-            }
-
-            let res = self
-                .aggregate::<Res>(
+            Ok(self
+                .aggregate::<LedgerOutputsRes>(
                     vec![
                         doc! { "$match": {
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
@@ -466,20 +483,8 @@ mod analytics {
                 .await?
                 .try_next()
                 .await?
-                .unwrap_or_default();
-
-            Ok(LedgerOutputAnalytics {
-                basic_count: res.basic.count,
-                basic_value: res.basic.value,
-                alias_count: res.alias.count,
-                alias_value: res.alias.value,
-                foundry_count: res.foundry.count,
-                foundry_value: res.foundry.value,
-                nft_count: res.nft.count,
-                nft_value: res.nft.value,
-                treasury_count: res.treasury.count,
-                treasury_value: res.treasury.value,
-            })
+                .unwrap_or_default()
+                .into())
         }
 
         /// Gathers ledger (unspent) output analytics and updates the analytics from the previous ledger index.
@@ -491,26 +496,10 @@ mod analytics {
             prev_analytics: &mut LedgerOutputAnalytics,
             ledger_index: MilestoneIndex,
         ) -> Result<(), Error> {
-            #[derive(Default, Deserialize)]
-            struct Sums {
-                count: u64,
-                value: d128,
-            }
-
-            #[derive(Default, Deserialize)]
-            #[serde(default)]
-            struct Res {
-                basic: Sums,
-                alias: Sums,
-                foundry: Sums,
-                nft: Sums,
-                treasury: Sums,
-            }
-
             let (created, consumed) = tokio::try_join!(
                 async {
                     Result::<_, Error>::Ok(
-                        self.aggregate::<Res>(
+                        self.aggregate::<LedgerOutputsRes>(
                             vec![
                                 doc! { "$match": {
                                     "metadata.booked.milestone_index": ledger_index,
@@ -545,7 +534,7 @@ mod analytics {
                 },
                 async {
                     Ok(self
-                        .aggregate::<Res>(
+                        .aggregate::<LedgerOutputsRes>(
                             vec![
                                 doc! { "$match": {
                                     "metadata.booked.milestone_index": { "$ne": ledger_index },
@@ -578,33 +567,8 @@ mod analytics {
                         .unwrap_or_default())
                 }
             )?;
-
-            let created = LedgerOutputAnalytics {
-                basic_count: created.basic.count,
-                basic_value: created.basic.value,
-                alias_count: created.alias.count,
-                alias_value: created.alias.value,
-                foundry_count: created.foundry.count,
-                foundry_value: created.foundry.value,
-                nft_count: created.nft.count,
-                nft_value: created.nft.value,
-                treasury_count: created.treasury.count,
-                treasury_value: created.treasury.value,
-            };
-            let consumed = LedgerOutputAnalytics {
-                basic_count: consumed.basic.count,
-                basic_value: consumed.basic.value,
-                alias_count: consumed.alias.count,
-                alias_value: consumed.alias.value,
-                foundry_count: consumed.foundry.count,
-                foundry_value: consumed.foundry.value,
-                nft_count: consumed.nft.count,
-                nft_value: consumed.nft.value,
-                treasury_count: consumed.treasury.count,
-                treasury_value: consumed.treasury.value,
-            };
-            *prev_analytics += created;
-            *prev_analytics -= consumed;
+            *prev_analytics += created.into();
+            *prev_analytics -= consumed.into();
 
             Ok(())
         }
@@ -1038,16 +1002,10 @@ mod analytics {
             prev_analytics: &mut UnlockConditionAnalytics,
             ledger_index: MilestoneIndex,
         ) -> Result<(), Error> {
-            #[derive(Default, Deserialize)]
-            struct Res {
-                count: u64,
-                value: d128,
-            }
-
             let query = |kind: &'static str| async move {
                 tokio::try_join!(
                     async {
-                        Result::<Res, Error>::Ok(
+                        Result::<Sums, Error>::Ok(
                             self.aggregate(
                                 vec![
                                     doc! { "$match": {
@@ -1074,7 +1032,7 @@ mod analytics {
                         )
                     },
                     async {
-                        Result::<Res, Error>::Ok(
+                        Result::<Sums, Error>::Ok(
                             self.aggregate(
                                 vec![
                                     doc! { "$match": {
