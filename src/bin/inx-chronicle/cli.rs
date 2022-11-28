@@ -268,23 +268,19 @@ impl ClArgs {
                         // Account for inclusive end
                         start_milestone = end_milestone + 1;
                     }
+                    let abort_handle = tokio::task::spawn(async move {
+                        crate::process::interrupt_or_terminate().await;
+                        tracing::info!("received ctrl-c or terminate");
+                        shutdown_signal.send(()).unwrap();
+                    });
 
                     // We wait for either the interrupt signal or the completion of filling the analytics.
-                    loop {
-                        tokio::select! {
-                            _ = crate::process::interrupt_or_terminate() => {
-                                tracing::info!("received ctrl-c or terminate");
-                                shutdown_signal.send(())?;
-                            },
-                            res = join_set.join_next() => {
-                                if res.is_none() {
-                                    // All spawned tasks have been terminated.
-                                    break;
-                                } else {
-                                    res.unwrap()?;
-                                }
-                            }
-                        }
+                    while let Some(res) = join_set.join_next().await {
+                        res.unwrap()?;
+                    }
+
+                    if !abort_handle.is_finished() {
+                        abort_handle.abort()
                     }
 
                     return Ok(PostCommand::Exit);
