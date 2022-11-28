@@ -1,13 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::{influxdb::InfluxDb, MongoDb};
 use clap::{Args, Parser, Subcommand};
 
-use crate::{
-    config::{ChronicleConfig, ConfigError},
-    process,
-};
+use crate::config::{ChronicleConfig, ConfigError};
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -276,7 +272,7 @@ impl ClArgs {
                     // We wait for either the interrupt signal or the completion of filling the analytics.
                     loop {
                         tokio::select! {
-                            _ = process::interrupt_or_terminate() => {
+                            _ = crate::process::interrupt_or_terminate() => {
                                 tracing::info!("received ctrl-c or terminate");
                                 shutdown_signal.send(())?;
                             },
@@ -318,9 +314,10 @@ impl ClArgs {
     }
 }
 
+#[cfg(all(feature = "analytics", feature = "stardust"))]
 async fn fill_analytics(
-    db: MongoDb,
-    influx_db: InfluxDb,
+    db: chronicle::db::MongoDb,
+    influx_db: chronicle::db::influxdb::InfluxDb,
     start_milestone: u32,
     end_milestone: u32,
 ) -> eyre::Result<()> {
