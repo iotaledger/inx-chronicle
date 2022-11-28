@@ -21,8 +21,11 @@ analytics_enabled = true
 ### URL pointing to the InfluxDB instance.
 url = "http://localhost:8086"
 
+### The database name used for metrics.
+metrics_database_name = "chronicle_metrics"
+
 ### The database name used for analytics.
-database_name = "chronicle_analytics"
+analytics_database_name = "chronicle_analytics"
 
 ### InfluxDb basic credentials.
 username = "root"
