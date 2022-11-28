@@ -11,10 +11,12 @@ pub enum RequestError {
     MalformedJsonBlock,
     #[error("Invalid JSON representation of given milestone")]
     MalformedJsonMilestone,
-    #[error("Invalid JSON representation of given proof")]
-    MalformedJsonProof,
-    #[error("Block '{0}' not referenced")]
+    #[error("Invalid JSON representation of given audit path")]
+    MalformedJsonAuditPath,
+    #[error("Block '{0}' was not referenced by a milestone")]
     BlockNotReferenced(String),
+    #[error("Block '{0}' was not applied to the ledger")]
+    BlockNotApplied(String),
     #[error("Invalid milestone: {0:?}")]
     InvalidMilestone(MilestoneValidationError),
 }

@@ -78,7 +78,7 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.referenced_by_milestone_index": -1, "metadata.white_flag_index": 1 })
+                .keys(doc! { "metadata.referenced_by_milestone_index": -1, "metadata.white_flag_index": 1, "metadata.inclusion_state": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("block_referenced_index_comp".to_string())
@@ -191,7 +191,7 @@ impl BlockCollection {
     }
 
     /// Get the past-cone of a milestone in "White Flag" order.
-    pub async fn get_pastcone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
+    pub async fn get_referenced_cone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
         #[derive(Deserialize)]
         struct BlockIdResult {
             id: BlockId,
@@ -201,6 +201,33 @@ impl BlockCollection {
             .aggregate::<BlockIdResult>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                    doc! { "$sort": { "metadata.white_flag_index": 1 } },
+                    doc! { "$replaceWith": { "id": "$_id" } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|res| res.id)
+            .try_collect()
+            .await?;
+
+        Ok(block_ids)
+    }
+
+    /// Get the past-cone of a milestone in "White Flag" order.
+    pub async fn get_applied_cone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
+        #[derive(Deserialize)]
+        struct BlockIdResult {
+            id: BlockId,
+        }
+
+        let block_ids = self
+            .aggregate::<BlockIdResult>(
+                vec![
+                    doc! { "$match": { 
+                        "metadata.referenced_by_milestone_index": index,
+                        "metadata.inclusion_state": LedgerInclusionState::Included,
+                    } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
                     doc! { "$replaceWith": { "id": "$_id" } },
                 ],

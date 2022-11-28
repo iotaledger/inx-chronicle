@@ -4,7 +4,7 @@
 use iota_types::block::{payload::dto::MilestonePayloadDto, BlockDto};
 use serde::{Deserialize, Serialize};
 
-use super::merkle_proof::MerklePathDto;
+use super::merkle_proof::MerkleAuditPathDto;
 use crate::api::responses::impl_success_response;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -12,7 +12,8 @@ use crate::api::responses::impl_success_response;
 pub struct CreateProofResponse {
     pub milestone: MilestonePayloadDto,
     pub block: BlockDto,
-    pub proof: MerklePathDto,
+    #[serde(rename = "proof")]
+    pub audit_path: MerkleAuditPathDto,
 }
 
 impl_success_response!(CreateProofResponse);

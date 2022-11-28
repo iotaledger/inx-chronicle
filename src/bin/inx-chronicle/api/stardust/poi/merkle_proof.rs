@@ -140,14 +140,14 @@ fn find_index(block_ids: &[BlockId], block_id: &BlockId) -> Option<usize> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MerklePathDto {
+pub struct MerkleAuditPathDto {
     #[serde(rename = "l")]
     left: HashableDto,
     #[serde(rename = "r")]
     right: HashableDto,
 }
 
-impl From<MerkleAuditPath> for MerklePathDto {
+impl From<MerkleAuditPath> for MerkleAuditPathDto {
     fn from(value: MerkleAuditPath) -> Self {
         Self {
             left: value.left.into(),
@@ -156,10 +156,10 @@ impl From<MerkleAuditPath> for MerklePathDto {
     }
 }
 
-impl TryFrom<MerklePathDto> for MerkleAuditPath {
+impl TryFrom<MerkleAuditPathDto> for MerkleAuditPath {
     type Error = prefix_hex::Error;
 
-    fn try_from(proof: MerklePathDto) -> Result<Self, Self::Error> {
+    fn try_from(proof: MerkleAuditPathDto) -> Result<Self, Self::Error> {
         Ok(Self {
             left: Hashable::try_from(proof.left)?,
             right: Hashable::try_from(proof.right)?,
@@ -174,7 +174,7 @@ pub enum HashableDto {
         #[serde(rename = "h")]
         hash: String,
     },
-    Path(Box<MerklePathDto>),
+    Path(Box<MerkleAuditPathDto>),
     Value {
         #[serde(rename = "value")]
         block_id_hex: String,
@@ -239,7 +239,7 @@ mod tests {
 
             assert_eq!(
                 merkle_audit_path,
-                MerklePathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
+                MerkleAuditPathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
                 "proof dto roundtrip"
             );
             assert_eq!(

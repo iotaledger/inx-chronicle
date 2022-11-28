@@ -29,43 +29,56 @@ use crate::api::{
 
 pub fn routes() -> Router {
     Router::new()
-        .route("/create/:block_id", get(create_proof))
-        .route("/validate", post(validate_proof))
+        .route("/referenced-block/create/:block_id", get(create_block_referenced_proof))
+        .route("/referenced-block/validate", post(validate_block_referenced_proof))
+        .route("/applied-block/create/:block_id", get(create_block_applied_proof))
+        .route("/applied-block/validate", post(validate_block_applied_proof))
 }
 
-async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
+async fn create_block_referenced_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
     let block_collection = database.collection::<BlockCollection>();
 
-    // Ensure the corresponding block was referenced by a milestone.
+    // Check if the metadata for that block exists.
     let block_metadata = block_collection
         .get_block_metadata(&block_id)
         .await?
         .ok_or(MissingError::NoResults)?;
+
+    // Check whether the block was referenced by a milestone.
     let referenced_index = block_metadata.referenced_by_milestone_index;
     if referenced_index == 0 {
         return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
     }
 
-    // Fetch the corresponding milestone cone in "White Flag" order.
-    let block_ids = block_collection
-        .get_pastcone_in_white_flag_order(referenced_index)
+    // Fetch the block to return in the response.
+    let block = block_collection
+        .get_block(&block_id)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    // Fetch the referenced block ids in "White Flag" order, and make sure they contain the block.
+    let referenced_block_ids = block_collection
+        .get_referenced_cone_in_white_flag_order(referenced_index)
         .await?;
-    if block_ids.is_empty() {
+    if referenced_block_ids.is_empty() {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::NoMilestoneCone).into());
+    } else if !referenced_block_ids.contains(&block_id) {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
     }
 
-    // Create the inclusion proof to return in the response.
-    let merkle_audit_path = MerkleProof::create_audit_path(&block_ids, &block_id)
+    // Create the Merkle audit path for the given block against that ordered set of referenced block ids.
+    let merkle_audit_path = MerkleProof::create_audit_path(&referenced_block_ids, &block_id)
         .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
 
-    // Fetch the corresponding milestone to return in the response.
+    // Fetch the corresponding milestone itself.
     let milestone_collection = database.collection::<MilestoneCollection>();
     let milestone = milestone_collection
         .get_milestone_payload(referenced_index)
         .await?
         .ok_or(MissingError::NoResults)?;
 
+    // Ensure that the generated audit path is correct by comparing its hash with the one stored in the milestone.
     let calculated_merkle_root = merkle_audit_path.hash();
     let expected_merkle_root = milestone.essence.inclusion_merkle_root;
     if calculated_merkle_root.as_slice() != expected_merkle_root {
@@ -78,53 +91,43 @@ async fn create_proof(database: Extension<MongoDb>, Path(block_id): Path<String>
         .into());
     }
 
-    // Fetch the corresponding block to return in the response.
-    let block = block_collection
-        .get_block(&block_id)
-        .await?
-        .ok_or(MissingError::NoResults)?;
-
     Ok(CreateProofResponse {
         milestone: milestone.into(),
         block: block.into(),
-        proof: merkle_audit_path.into(),
+        audit_path: merkle_audit_path.into(),
     })
 }
 
-async fn validate_proof(
+async fn validate_block_referenced_proof(
     database: Extension<MongoDb>,
     Json(CreateProofResponse {
         milestone,
         block,
-        proof,
+        audit_path: merkle_path,
     }): Json<CreateProofResponse>,
 ) -> ApiResult<ValidateProofResponse> {
-    // Extract the block, milestone, and proof.
+    // Extract block, milestone, and audit path.
     let block = iota_types::block::Block::try_from_dto_unverified(&block)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonBlock))?;
+    let block_id = block.id().into();
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
-    let proof =
-        MerkleAuditPath::try_from(proof).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonProof))?;
-
-    let block_id = block.id().into();
-
-    // Fetch the corresponding milestone to return in the response.
     let milestone_index = milestone.essence().index();
+    let proof =
+        MerkleAuditPath::try_from(merkle_path).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonAuditPath))?;
 
-    // Fetch the node configuration.
+    // Fetch public keys to verify the milestone signatures.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
     let node_configuration = update_collection
         .get_node_configuration_for_ledger_index(milestone_index.into())
         .await?
         .ok_or(MissingError::NoResults)?
         .config;
-
-    // Validate the given milestone.
     let public_key_count = node_configuration.milestone_public_key_count as usize;
     let key_ranges = node_configuration.milestone_key_ranges;
     let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index.into())?;
 
+    // Validate the given milestone.
     if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
         Err(RequestError::PoI(poi::RequestError::InvalidMilestone(e)).into())
     } else {
@@ -133,6 +136,109 @@ async fn validate_proof(
         })
     }
 }
+
+async fn create_block_applied_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
+    let block_id = BlockId::from_str(&block_id)?;
+    let block_collection = database.collection::<BlockCollection>();
+
+    // Check if the metadata for that block exists.
+    let block_metadata = block_collection
+        .get_block_metadata(&block_id)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    // Check whether the block was referenced by a milestone, and whether it caused a ledger mutation.
+    let referenced_index = block_metadata.referenced_by_milestone_index;
+    if referenced_index == 0 {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
+    } else if block_metadata.inclusion_state != chronicle::types::ledger::LedgerInclusionState::Included {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
+    }
+
+    // Fetch the block to return in the response.
+    let block = block_collection
+        .get_block(&block_id)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    // Fetch the referenced and applied block ids in "White Flag" order, and make sure they contain the block.
+    let applied_block_ids = block_collection
+        .get_applied_cone_in_white_flag_order(referenced_index)
+        .await?;
+    if !applied_block_ids.contains(&block_id) {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
+    }
+    
+    // Create the Merkle audit path for the given block against that ordered set of referenced and applied block ids.
+    let merkle_audit_path = MerkleProof::create_audit_path(&applied_block_ids, &block_id)
+        .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
+
+    // Fetch the corresponding milestone itself.
+    let milestone_collection = database.collection::<MilestoneCollection>();
+    let milestone = milestone_collection
+        .get_milestone_payload(referenced_index)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    // Ensure that the generated audit path is correct by comparing its hash with the one stored in the milestone.
+    let calculated_merkle_root = merkle_audit_path.hash();
+    let expected_merkle_root = milestone.essence.applied_merkle_root;
+    if calculated_merkle_root.as_slice() != expected_merkle_root {
+        return Err(CorruptStateError::PoI(poi::CorruptStateError::CreateProof(
+            poi::CreateProofError::MerkleRootMismatch {
+                calculated_merkle_root: prefix_hex::encode(calculated_merkle_root.as_slice()),
+                expected_merkle_root: prefix_hex::encode(expected_merkle_root),
+            },
+        ))
+        .into());
+    }
+
+    Ok(CreateProofResponse {
+        milestone: milestone.into(),
+        block: block.into(),
+        audit_path: merkle_audit_path.into(),
+    })
+}
+
+async fn validate_block_applied_proof(
+    database: Extension<MongoDb>,
+    Json(CreateProofResponse {
+        milestone,
+        block,
+        audit_path,
+    }): Json<CreateProofResponse>,
+) -> ApiResult<ValidateProofResponse> {
+    // Extract block, milestone, and audit path.
+    let block = iota_types::block::Block::try_from_dto_unverified(&block)
+        .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonBlock))?;
+    let block_id = block.id().into();
+    let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
+        .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
+    let milestone_index = milestone.essence().index();
+    let audit_path =
+        MerkleAuditPath::try_from(audit_path).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonAuditPath))?;
+
+    // Fetch public keys to verify the milestone signatures.
+    let update_collection = database.collection::<ConfigurationUpdateCollection>();
+    let node_configuration = update_collection
+        .get_node_configuration_for_ledger_index(milestone_index.into())
+        .await?
+        .ok_or(MissingError::NoResults)?
+        .config;
+    let public_key_count = node_configuration.milestone_public_key_count as usize;
+    let key_ranges = node_configuration.milestone_key_ranges;
+    let applicable_public_keys = get_valid_public_keys_for_index(key_ranges, milestone_index.into())?;
+
+    // Validate the given milestone.
+    if let Err(e) = milestone.validate(&applicable_public_keys, public_key_count) {
+        Err(RequestError::PoI(poi::RequestError::InvalidMilestone(e)).into())
+    } else {
+        Ok(ValidateProofResponse {
+            valid: audit_path.contains_block_id(&block_id) && *audit_path.hash() == **milestone.essence().applied_merkle_root(),
+        })
+    }
+}
+
 
 // The returned public keys must be hex strings without the `0x` prefix for the milestone validation to work.
 #[allow(clippy::boxed_local)]
