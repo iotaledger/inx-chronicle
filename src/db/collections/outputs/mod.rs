@@ -383,10 +383,11 @@ mod analytics {
             tangle::MilestoneIndex,
         },
     };
-    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-    pub struct OutputAnalyticsResult {
-        pub count: u64,
-        pub total_value: String,
+
+    #[derive(Default, Deserialize)]
+    struct Sums {
+        count: u64,
+        value: d128,
     }
 
     impl OutputCollection {
@@ -424,12 +425,6 @@ mod analytics {
             &self,
             ledger_index: MilestoneIndex,
         ) -> Result<LedgerOutputAnalytics, Error> {
-            #[derive(Default, Deserialize)]
-            struct Sums {
-                count: u64,
-                value: d128,
-            }
-
             #[derive(Default, Deserialize)]
             #[serde(default)]
             struct Res {
@@ -992,14 +987,8 @@ mod analytics {
             &self,
             ledger_index: MilestoneIndex,
         ) -> Result<UnlockConditionAnalytics, Error> {
-            #[derive(Default, Deserialize)]
-            struct Res {
-                count: u64,
-                value: d128,
-            }
-
             let query = |kind: &'static str| async move {
-                Result::<Res, Error>::Ok(
+                Result::<Sums, Error>::Ok(
                     self.aggregate(
                         vec![
                             doc! { "$match": {
