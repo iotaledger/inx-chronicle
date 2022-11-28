@@ -271,11 +271,14 @@ impl ClArgs {
                     let abort_handle = tokio::task::spawn(async move {
                         crate::process::interrupt_or_terminate().await;
                         tracing::info!("received ctrl-c or terminate");
-                        shutdown_signal.send(()).unwrap();
+                        // Note: we need to ignore any potential send error, because there's a possible edge case
+                        // where CTRL-C arrives at the same time as all tasks are joined and all receivers dropped.
+                        let _ = shutdown_signal.send(());
                     });
 
                     // We wait for either the interrupt signal or the completion of filling the analytics.
                     while let Some(res) = join_set.join_next().await {
+                        // Panic: Acceptable risk
                         res.unwrap()?;
                     }
 
