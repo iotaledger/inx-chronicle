@@ -242,7 +242,9 @@ impl ClArgs {
                     };
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
                     let num_tasks = num_tasks.unwrap_or(1);
-                    let mut join_set = tokio::task::JoinSet::<eyre::Result<()>>::new();
+                    let mut tasks = tokio::task::JoinSet::<eyre::Result<()>>::new();
+                    // Deterministic task cancellation
+                    static CANCEL: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
                     // Inclusive end
                     let total_milestones = end_milestone - start_milestone + 1;
                     for i in 0..num_tasks {
@@ -255,54 +257,18 @@ impl ClArgs {
                             + ((i as u32) < (total_milestones % num_tasks as u32)) as u32;
                         // Account for inclusive end (again)
                         end_milestone = start_milestone + task_milestones - 1;
-                        join_set.spawn(async move {
-                            let mut prev_analytics = None;
-                            for index in start_milestone..=end_milestone {
-                                let index = index.into();
-                                if let Some(timestamp) = db
-                                    .collection::<chronicle::db::collections::MilestoneCollection>()
-                                    .get_milestone_timestamp(index)
-                                    .await?
-                                {
-                                    #[cfg(feature = "metrics")]
-                                    let start_time = std::time::Instant::now();
 
-                                    if let Some(prev_analytics) = prev_analytics.as_mut() {
-                                        db.update_all_analytics(index, prev_analytics).await?;
-                                        influx_db
-                                            .insert_all_analytics(timestamp, index, prev_analytics.clone())
-                                            .await?;
-                                    } else {
-                                        let analytics = db.get_all_analytics(index).await?;
-                                        prev_analytics = Some(analytics.clone());
-                                        influx_db.insert_all_analytics(timestamp, index, analytics).await?;
-                                    }
+                        tasks.spawn(fill_analytics(db, influx_db, start_milestone, end_milestone, &CANCEL));
 
-                                    #[cfg(feature = "metrics")]
-                                    {
-                                        let elapsed = start_time.elapsed();
-                                        influx_db
-                                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
-                                                time: chrono::Utc::now(),
-                                                milestone_index: index,
-                                                analytics_time: elapsed.as_millis() as u64,
-                                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                                            })
-                                            .await?;
-                                    }
-                                    tracing::info!("Finished analytics for milestone {}", index);
-                                } else {
-                                    tracing::info!("No milestone in database for index {}", index);
-                                }
-                            }
-                            Ok(())
-                        });
                         // Account for inclusive end
                         start_milestone = end_milestone + 1;
                     }
-                    while let Some(res) = join_set.join_next().await {
-                        // Panic: Acceptable risk
-                        res.unwrap()?;
+                    tokio::select! {
+                        _ = shutdown() => {
+                            CANCEL.store(true, std::sync::atomic::Ordering::Relaxed);
+                            join_all(&mut tasks).await?
+                        },
+                        res = join_all(&mut tasks) => res?,
                     }
                     return Ok(PostCommand::Exit);
                 }
@@ -329,6 +295,74 @@ impl ClArgs {
         }
         Ok(PostCommand::Start)
     }
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn shutdown() {
+    crate::process::interrupt_or_terminate().await;
+    tracing::info!("received ctrl-c or terminate");
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn join_all(tasks: &mut tokio::task::JoinSet<eyre::Result<()>>) -> eyre::Result<()> {
+    while let Some(res) = tasks.join_next().await {
+        // Panic: Acceptable risk
+        res.unwrap()?;
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn fill_analytics(
+    db: chronicle::db::MongoDb,
+    influx_db: chronicle::db::influxdb::InfluxDb,
+    start_milestone: u32,
+    end_milestone: u32,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> eyre::Result<()> {
+    let mut prev_analytics = None;
+    for index in start_milestone..=end_milestone {
+        let index = index.into();
+        if let Some(timestamp) = db
+            .collection::<chronicle::db::collections::MilestoneCollection>()
+            .get_milestone_timestamp(index)
+            .await?
+        {
+            #[cfg(feature = "metrics")]
+            let start_time = std::time::Instant::now();
+
+            if let Some(prev_analytics) = prev_analytics.as_mut() {
+                db.update_all_analytics(index, prev_analytics).await?;
+                influx_db
+                    .insert_all_analytics(timestamp, index, prev_analytics.clone())
+                    .await?;
+            } else {
+                let analytics = db.get_all_analytics(index).await?;
+                prev_analytics = Some(analytics.clone());
+                influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+            }
+
+            #[cfg(feature = "metrics")]
+            {
+                let elapsed = start_time.elapsed();
+                influx_db
+                    .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                        time: chrono::Utc::now(),
+                        milestone_index: index,
+                        analytics_time: elapsed.as_millis() as u64,
+                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                    })
+                    .await?;
+            }
+            tracing::info!("Finished analytics for milestone {}", index);
+        } else {
+            tracing::info!("No milestone in database for index {}", index);
+        }
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return Ok(());
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Subcommand)]
