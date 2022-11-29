@@ -305,14 +305,13 @@ impl ClArgs {
 async fn shutdown(shutdown_signal: tokio::sync::broadcast::Sender<()>) {
     crate::process::interrupt_or_terminate().await;
     tracing::info!("received ctrl-c or terminate");
-    // Note: we need to ignore any potential send error, because there's a possible edge case
-    // where CTRL-C arrives at the same time as all tasks are joined and all receivers dropped.
-    let _ = shutdown_signal.send(());
+    // Note: we need to ignore any potential send error because of an edge case where CTRL-C arrives
+    // right after all tasks have been finished and their shutdown signal receivers have been dropped already.
+    shutdown_signal.send(()).ok();
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
 async fn join_all_tasks(tasks: &mut tokio::task::JoinSet<eyre::Result<()>>) -> eyre::Result<()> {
-    // We wait for either the interrupt signal or the completion of filling the analytics.
     while let Some(res) = tasks.join_next().await {
         // Panic: Acceptable risk
         res.unwrap()?;
