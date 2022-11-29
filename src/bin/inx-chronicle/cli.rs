@@ -243,7 +243,7 @@ impl ClArgs {
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
                     let num_tasks = num_tasks.unwrap_or(1);
                     let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
-                    let mut join_set = tokio::task::JoinSet::<eyre::Result<()>>::new();
+                    let mut tasks = tokio::task::JoinSet::<eyre::Result<()>>::new();
                     // Inclusive end
                     let total_milestones = end_milestone - start_milestone + 1;
                     for i in 0..num_tasks {
@@ -258,7 +258,7 @@ impl ClArgs {
                         end_milestone = start_milestone + task_milestones - 1;
 
                         let mut handle = shutdown_signal.subscribe();
-                        join_set.spawn(async move {
+                        tasks.spawn(async move {
                             tokio::select! {
                                 res = fill_analytics(db, influx_db, start_milestone, end_milestone) => res?,
                                 _ = handle.recv() => {},
@@ -268,22 +268,10 @@ impl ClArgs {
                         // Account for inclusive end
                         start_milestone = end_milestone + 1;
                     }
-                    let abort_handle = tokio::task::spawn(async move {
-                        crate::process::interrupt_or_terminate().await;
-                        tracing::info!("received ctrl-c or terminate");
-                        // Note: we need to ignore any potential send error, because there's a possible edge case
-                        // where CTRL-C arrives at the same time as all tasks are joined and all receivers dropped.
-                        let _ = shutdown_signal.send(());
-                    });
 
-                    // We wait for either the interrupt signal or the completion of filling the analytics.
-                    while let Some(res) = join_set.join_next().await {
-                        // Panic: Acceptable risk
-                        res.unwrap()?;
-                    }
-
-                    if !abort_handle.is_finished() {
-                        abort_handle.abort()
+                    tokio::select! {
+                        _ = shutdown(shutdown_signal) => join_all_tasks(&mut tasks).await?,
+                        res = join_all_tasks(&mut tasks) => res?,
                     }
 
                     return Ok(PostCommand::Exit);
@@ -311,6 +299,25 @@ impl ClArgs {
         }
         Ok(PostCommand::Start)
     }
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn shutdown(shutdown_signal: tokio::sync::broadcast::Sender<()>) {
+    crate::process::interrupt_or_terminate().await;
+    tracing::info!("received ctrl-c or terminate");
+    // Note: we need to ignore any potential send error, because there's a possible edge case
+    // where CTRL-C arrives at the same time as all tasks are joined and all receivers dropped.
+    let _ = shutdown_signal.send(());
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn join_all_tasks(tasks: &mut tokio::task::JoinSet<eyre::Result<()>>) -> eyre::Result<()> {
+    // We wait for either the interrupt signal or the completion of filling the analytics.
+    while let Some(res) = tasks.join_next().await {
+        // Panic: Acceptable risk
+        res.unwrap()?;
+    }
+    Ok(())
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
