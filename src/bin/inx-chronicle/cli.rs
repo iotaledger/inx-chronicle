@@ -243,7 +243,7 @@ impl ClArgs {
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
                     let num_tasks = num_tasks.unwrap_or(1);
                     let mut tasks = tokio::task::JoinSet::<eyre::Result<()>>::new();
-                    // deterministic task cancellation
+                    // Deterministic task cancellation
                     static CANCEL: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
                     // Inclusive end
                     let total_milestones = end_milestone - start_milestone + 1;
@@ -263,7 +263,6 @@ impl ClArgs {
                         // Account for inclusive end
                         start_milestone = end_milestone + 1;
                     }
-
                     tokio::select! {
                         _ = shutdown() => {
                             CANCEL.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -271,7 +270,6 @@ impl ClArgs {
                         },
                         res = join_all(&mut tasks) => res?,
                     }
-
                     return Ok(PostCommand::Exit);
                 }
                 #[cfg(debug_assertions)]
@@ -361,7 +359,7 @@ async fn fill_analytics(
             tracing::info!("No milestone in database for index {}", index);
         }
         if cancel.load(std::sync::atomic::Ordering::Relaxed) {
-            break;
+            return Ok(());
         }
     }
     Ok(())
