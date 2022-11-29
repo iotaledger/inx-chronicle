@@ -242,8 +242,9 @@ impl ClArgs {
                     };
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
                     let num_tasks = num_tasks.unwrap_or(1);
-                    let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
                     let mut tasks = tokio::task::JoinSet::<eyre::Result<()>>::new();
+                    // deterministic task cancellation
+                    static CANCEL: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
                     // Inclusive end
                     let total_milestones = end_milestone - start_milestone + 1;
                     for i in 0..num_tasks {
@@ -257,21 +258,18 @@ impl ClArgs {
                         // Account for inclusive end (again)
                         end_milestone = start_milestone + task_milestones - 1;
 
-                        let mut handle = shutdown_signal.subscribe();
-                        tasks.spawn(async move {
-                            tokio::select! {
-                                res = fill_analytics(db, influx_db, start_milestone, end_milestone) => res?,
-                                _ = handle.recv() => {},
-                            }
-                            Ok(())
-                        });
+                        tasks.spawn(fill_analytics(db, influx_db, start_milestone, end_milestone, &CANCEL));
+
                         // Account for inclusive end
                         start_milestone = end_milestone + 1;
                     }
 
                     tokio::select! {
-                        _ = shutdown(shutdown_signal) => join_all_tasks(&mut tasks).await?,
-                        res = join_all_tasks(&mut tasks) => res?,
+                        _ = shutdown() => {
+                            CANCEL.store(true, std::sync::atomic::Ordering::Relaxed);
+                            join_all(&mut tasks).await?
+                        },
+                        res = join_all(&mut tasks) => res?,
                     }
 
                     return Ok(PostCommand::Exit);
@@ -302,16 +300,13 @@ impl ClArgs {
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
-async fn shutdown(shutdown_signal: tokio::sync::broadcast::Sender<()>) {
+async fn shutdown() {
     crate::process::interrupt_or_terminate().await;
     tracing::info!("received ctrl-c or terminate");
-    // Note: we need to ignore any potential send error because of an edge case where CTRL-C arrives
-    // right after all tasks have been finished and their shutdown signal receivers have been dropped already.
-    shutdown_signal.send(()).ok();
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
-async fn join_all_tasks(tasks: &mut tokio::task::JoinSet<eyre::Result<()>>) -> eyre::Result<()> {
+async fn join_all(tasks: &mut tokio::task::JoinSet<eyre::Result<()>>) -> eyre::Result<()> {
     while let Some(res) = tasks.join_next().await {
         // Panic: Acceptable risk
         res.unwrap()?;
@@ -325,6 +320,7 @@ async fn fill_analytics(
     influx_db: chronicle::db::influxdb::InfluxDb,
     start_milestone: u32,
     end_milestone: u32,
+    cancel: &std::sync::atomic::AtomicBool,
 ) -> eyre::Result<()> {
     let mut prev_analytics = None;
     for index in start_milestone..=end_milestone {
@@ -363,6 +359,9 @@ async fn fill_analytics(
             tracing::info!("Finished analytics for milestone {}", index);
         } else {
             tracing::info!("No milestone in database for index {}", index);
+        }
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            break;
         }
     }
     Ok(())
