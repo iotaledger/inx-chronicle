@@ -546,7 +546,7 @@ mod analytics {
                                     "$and": [
                                         { "output.alias_id": { "$exists": true } },
                                         { "output.alias_id": { "$ne": AliasId::implicit() } },
-                                    ] 
+                                    ]
                                 } },
                                 // Group by state indexes to find where it changed
                                 { "$group": {
