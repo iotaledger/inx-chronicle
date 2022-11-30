@@ -375,7 +375,7 @@ impl InxWorker {
             if influx_db.config().metrics_enabled {
                 let elapsed = start_time.elapsed();
                 influx_db
-                    .analytics()
+                    .metrics()
                     .insert(chronicle::db::collections::metrics::SyncMetrics {
                         time: chrono::Utc::now(),
                         milestone_index,
