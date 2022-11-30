@@ -30,7 +30,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "P291D6CCA1AE4887A"
       },
       "fieldConfig": {
         "defaults": {
@@ -80,7 +80,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "P291D6CCA1AE4887A"
           },
           "groupBy": [
             {
@@ -121,7 +121,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "P291D6CCA1AE4887A"
       },
       "fieldConfig": {
         "defaults": {
@@ -171,7 +171,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "P291D6CCA1AE4887A"
           },
           "groupBy": [
             {
@@ -206,7 +206,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "P291D6CCA1AE4887A"
       },
       "fieldConfig": {
         "defaults": {
@@ -257,7 +257,7 @@
           "alias": "Sync Milestone Index",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "P291D6CCA1AE4887A"
           },
           "groupBy": [
             {
@@ -292,7 +292,7 @@
           "alias": "Analytics Milestone Index",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "P291D6CCA1AE4887A"
           },
           "groupBy": [
             {
@@ -343,7 +343,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "P291D6CCA1AE4887A"
       },
       "fieldConfig": {
         "defaults": {
@@ -472,7 +472,7 @@
           "alias": "$col ($tag_chronicle_version)",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "P291D6CCA1AE4887A"
           },
           "groupBy": [
             {
@@ -544,7 +544,7 @@
           "alias": "$col ($tag_chronicle_version)",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "P291D6CCA1AE4887A"
           },
           "groupBy": [
             {
