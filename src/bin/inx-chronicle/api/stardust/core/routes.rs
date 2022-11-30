@@ -6,7 +6,7 @@ use std::str::FromStr;
 use axum::{
     extract::{Extension, Path},
     handler::Handler,
-    http::header::{HeaderMap, HeaderValue},
+    http::header::HeaderMap,
     routing::get,
 };
 use chronicle::{
@@ -43,21 +43,15 @@ use iota_types::{
         BlockDto,
     },
 };
-use lazy_static::lazy_static;
 use packable::PackableExt;
 
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
     error::{ApiError, CorruptStateError, MissingError, RequestError},
     router::Router,
-    routes::{is_healthy, not_implemented},
+    routes::{is_healthy, not_implemented, BYTE_CONTENT_HEADER},
     ApiResult,
 };
-
-lazy_static! {
-    pub(crate) static ref BYTE_CONTENT_HEADER: HeaderValue =
-        HeaderValue::from_str("application/vnd.iota.serializer-v1").unwrap();
-}
 
 pub fn routes() -> Router {
     Router::new()
@@ -199,16 +193,14 @@ async fn block(
 ) -> ApiResult<IotaRawResponse<BlockDto>> {
     let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
 
-    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
-        if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(IotaRawResponse::Raw(
-                database
-                    .collection::<BlockCollection>()
-                    .get_block_raw(&block_id)
-                    .await?
-                    .ok_or(MissingError::NoResults)?,
-            ));
-        }
+    if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
+        return Ok(IotaRawResponse::Raw(
+            database
+                .collection::<BlockCollection>()
+                .get_block_raw(&block_id)
+                .await?
+                .ok_or(MissingError::NoResults)?,
+        ));
     }
 
     let block = database
@@ -291,17 +283,15 @@ async fn output(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
-        if value.eq(&*BYTE_CONTENT_HEADER) {
-            let ctx = database
-                .collection::<ProtocolUpdateCollection>()
-                .get_protocol_parameters_for_ledger_index(metadata.booked.milestone_index)
-                .await?
-                .ok_or(MissingError::NoResults)?
-                .parameters;
+    if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
+        let ctx = database
+            .collection::<ProtocolUpdateCollection>()
+            .get_protocol_parameters_for_ledger_index(metadata.booked.milestone_index)
+            .await?
+            .ok_or(MissingError::NoResults)?
+            .parameters;
 
-            return Ok(IotaRawResponse::Raw(output.raw(ctx)?));
-        }
+        return Ok(IotaRawResponse::Raw(output.raw(ctx)?));
     }
 
     let metadata = create_output_metadata_response(metadata, ledger_index);
@@ -338,16 +328,14 @@ async fn transaction_included_block(
 ) -> ApiResult<IotaRawResponse<BlockDto>> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(RequestError::from)?;
 
-    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
-        if value.eq(&*BYTE_CONTENT_HEADER) {
-            return Ok(IotaRawResponse::Raw(
-                database
-                    .collection::<BlockCollection>()
-                    .get_block_raw_for_transaction(&transaction_id)
-                    .await?
-                    .ok_or(MissingError::NoResults)?,
-            ));
-        }
+    if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
+        return Ok(IotaRawResponse::Raw(
+            database
+                .collection::<BlockCollection>()
+                .get_block_raw_for_transaction(&transaction_id)
+                .await?
+                .ok_or(MissingError::NoResults)?,
+        ));
     }
 
     let block = database
@@ -424,7 +412,7 @@ async fn milestone(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
+    if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
         let protocol_params = database
             .collection::<ProtocolUpdateCollection>()
             .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
@@ -433,13 +421,10 @@ async fn milestone(
             .parameters
             .try_into()?;
 
-        if value.eq(&*BYTE_CONTENT_HEADER) {
-            let milestone_payload = iota_types::block::payload::MilestonePayload::try_from_with_context(
-                &protocol_params,
-                milestone_payload,
-            )?;
-            return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
-        }
+        let milestone_payload =
+            iota_types::block::payload::MilestonePayload::try_from_with_context(&protocol_params, milestone_payload)?;
+
+        return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
     }
 
     Ok(IotaRawResponse::Json(milestone_payload.into()))
@@ -456,22 +441,19 @@ async fn milestone_by_index(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    if let Some(value) = headers.get(axum::http::header::ACCEPT) {
-        if value.eq(&*BYTE_CONTENT_HEADER) {
-            let protocol_params = database
-                .collection::<ProtocolUpdateCollection>()
-                .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
-                .await?
-                .ok_or(MissingError::NoResults)?
-                .parameters
-                .try_into()?;
+    if matches!(headers.get(axum::http::header::ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
+        let protocol_params = database
+            .collection::<ProtocolUpdateCollection>()
+            .get_protocol_parameters_for_ledger_index(milestone_payload.essence.index)
+            .await?
+            .ok_or(MissingError::NoResults)?
+            .parameters
+            .try_into()?;
 
-            let milestone_payload = iota_types::block::payload::MilestonePayload::try_from_with_context(
-                &protocol_params,
-                milestone_payload,
-            )?;
-            return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
-        }
+        let milestone_payload =
+            iota_types::block::payload::MilestonePayload::try_from_with_context(&protocol_params, milestone_payload)?;
+
+        return Ok(IotaRawResponse::Raw(milestone_payload.pack_to_vec()));
     }
 
     Ok(IotaRawResponse::Json(milestone_payload.into()))

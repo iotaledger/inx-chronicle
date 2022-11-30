@@ -61,7 +61,6 @@ ed25519 = { version = "1.5", default-features = false, features = [ "alloc", "pk
 ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_backend" ], optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
-lazy_static = { version = "1.4", default-features = false, optional = true }
 packable = { version = "0.7", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
 regex = { version = "1.7", default-features = false, features = [ "std" ], optional = true }
@@ -114,7 +113,6 @@ api = [
     "dep:hex",
     "derive_more/from",
     "dep:hyper",
-    "dep:lazy_static",
     "dep:packable",
     "dep:rand",
     "dep:regex",

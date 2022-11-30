@@ -224,7 +224,7 @@ impl BlockCollection {
         let block_ids = self
             .aggregate::<BlockIdResult>(
                 vec![
-                    doc! { "$match": { 
+                    doc! { "$match": {
                         "metadata.referenced_by_milestone_index": index,
                         "metadata.inclusion_state": LedgerInclusionState::Included,
                     } },

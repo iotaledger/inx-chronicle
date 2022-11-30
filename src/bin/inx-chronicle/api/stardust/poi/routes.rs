@@ -5,6 +5,7 @@ use std::{collections::HashSet, str::FromStr};
 
 use axum::{
     extract::{Json, Path},
+    http::{header::ACCEPT, HeaderMap},
     routing::{get, post},
     Extension,
 };
@@ -24,6 +25,7 @@ use super::{
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
     router::Router,
+    routes::BYTE_CONTENT_HEADER,
     ApiResult,
 };
 
@@ -35,7 +37,11 @@ pub fn routes() -> Router {
         .route("/applied-block/validate", post(validate_block_applied_proof))
 }
 
-async fn create_block_referenced_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
+async fn create_block_referenced_proof(
+    database: Extension<MongoDb>,
+    Path(block_id): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
     let block_collection = database.collection::<BlockCollection>();
 
@@ -91,11 +97,15 @@ async fn create_block_referenced_proof(database: Extension<MongoDb>, Path(block_
         .into());
     }
 
-    Ok(CreateProofResponse {
-        milestone: milestone.into(),
-        block: block.into(),
-        audit_path: merkle_audit_path.into(),
-    })
+    if matches!(headers.get(ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
+        todo!("return proof in binary format");
+    } else {
+        Ok(CreateProofResponse {
+            milestone: milestone.into(),
+            block: block.into(),
+            audit_path: merkle_audit_path.into(),
+        })
+    }
 }
 
 async fn validate_block_referenced_proof(
@@ -113,8 +123,8 @@ async fn validate_block_referenced_proof(
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
     let milestone_index = milestone.essence().index();
-    let proof =
-        MerkleAuditPath::try_from(merkle_path).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonAuditPath))?;
+    let proof = MerkleAuditPath::try_from(merkle_path)
+        .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonAuditPath))?;
 
     // Fetch public keys to verify the milestone signatures.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
@@ -137,7 +147,11 @@ async fn validate_block_referenced_proof(
     }
 }
 
-async fn create_block_applied_proof(database: Extension<MongoDb>, Path(block_id): Path<String>) -> ApiResult<CreateProofResponse> {
+async fn create_block_applied_proof(
+    database: Extension<MongoDb>,
+    Path(block_id): Path<String>,
+    headers: HeaderMap,
+) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
     let block_collection = database.collection::<BlockCollection>();
 
@@ -168,7 +182,7 @@ async fn create_block_applied_proof(database: Extension<MongoDb>, Path(block_id)
     if !applied_block_ids.contains(&block_id) {
         return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
     }
-    
+
     // Create the Merkle audit path for the given block against that ordered set of referenced and applied block ids.
     let merkle_audit_path = MerkleProof::create_audit_path(&applied_block_ids, &block_id)
         .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
@@ -193,11 +207,15 @@ async fn create_block_applied_proof(database: Extension<MongoDb>, Path(block_id)
         .into());
     }
 
-    Ok(CreateProofResponse {
-        milestone: milestone.into(),
-        block: block.into(),
-        audit_path: merkle_audit_path.into(),
-    })
+    if matches!(headers.get(ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
+        todo!("return proof in binary format");
+    } else {
+        Ok(CreateProofResponse {
+            milestone: milestone.into(),
+            block: block.into(),
+            audit_path: merkle_audit_path.into(),
+        })
+    }
 }
 
 async fn validate_block_applied_proof(
@@ -215,8 +233,8 @@ async fn validate_block_applied_proof(
     let milestone = iota_types::block::payload::milestone::MilestonePayload::try_from_dto_unverified(&milestone)
         .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonMilestone))?;
     let milestone_index = milestone.essence().index();
-    let audit_path =
-        MerkleAuditPath::try_from(audit_path).map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonAuditPath))?;
+    let audit_path = MerkleAuditPath::try_from(audit_path)
+        .map_err(|_| RequestError::PoI(poi::RequestError::MalformedJsonAuditPath))?;
 
     // Fetch public keys to verify the milestone signatures.
     let update_collection = database.collection::<ConfigurationUpdateCollection>();
@@ -234,11 +252,11 @@ async fn validate_block_applied_proof(
         Err(RequestError::PoI(poi::RequestError::InvalidMilestone(e)).into())
     } else {
         Ok(ValidateProofResponse {
-            valid: audit_path.contains_block_id(&block_id) && *audit_path.hash() == **milestone.essence().applied_merkle_root(),
+            valid: audit_path.contains_block_id(&block_id)
+                && *audit_path.hash() == **milestone.essence().applied_merkle_root(),
         })
     }
 }
-
 
 // The returned public keys must be hex strings without the `0x` prefix for the milestone validation to work.
 #[allow(clippy::boxed_local)]

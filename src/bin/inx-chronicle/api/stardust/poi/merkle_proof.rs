@@ -217,7 +217,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_proof() {
+    fn test_compute_audit_path() {
         let block_ids = [
             "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649",
             "0x81855ad8681d0d86d1e91e00167939cb6694d2c422acd208a0072939487f6999",
@@ -240,15 +240,15 @@ mod tests {
             assert_eq!(
                 merkle_audit_path,
                 MerkleAuditPathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
-                "proof dto roundtrip"
+                "audit path dto roundtrip"
             );
             assert_eq!(
                 expected_merkle_root, calculated_merkle_root,
-                "proof hash doesn't equal the merkle root"
+                "audit path hash doesn't equal the merkle root"
             );
             assert!(
                 merkle_audit_path.contains_block_id(&block_ids[index]),
-                "proof does not contain that block id"
+                "audit path does not contain that block id"
             );
         }
     }

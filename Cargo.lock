@@ -314,7 +314,6 @@ dependencies = [
  "inx",
  "iota-crypto",
  "iota-types",
- "lazy_static",
  "mongodb",
  "opentelemetry",
  "opentelemetry-jaeger",
