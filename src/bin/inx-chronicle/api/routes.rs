@@ -3,11 +3,11 @@
 
 use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
-    handler::Handler,
+    extract::State,
     headers::{authorization::Bearer, Authorization},
-    middleware::from_extractor,
+    middleware::from_extractor_with_state,
     routing::{get, post},
-    Extension, Json, TypedHeader,
+    Json, TypedHeader,
 };
 use chronicle::{
     db::{collections::MilestoneCollection, MongoDb},
@@ -24,8 +24,8 @@ use super::{
     error::{ApiError, MissingError, UnimplementedError},
     extractors::ListRoutesQuery,
     responses::RoutesResponse,
-    router::{RouteNode, Router},
-    ApiResult, AuthError,
+    router::{Router, RouterState},
+    ApiResult, ApiWorker, AuthError,
 };
 
 const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
@@ -34,7 +34,7 @@ const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
 const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
-pub fn routes() -> Router {
+pub fn routes(api_data: ApiData) -> Router<ApiWorker> {
     #[allow(unused_mut)]
     let mut router = Router::new();
 
@@ -47,8 +47,11 @@ pub fn routes() -> Router {
         .route("/health", get(health))
         .route("/login", post(login))
         .route("/routes", get(list_routes))
-        .nest("/api", router.route_layer(from_extractor::<Auth>()))
-        .fallback(not_found.into_service())
+        .nest(
+            "/api",
+            router.route_layer(from_extractor_with_state::<Auth, _>(api_data)),
+        )
+        .fallback(not_found)
 }
 
 #[derive(Deserialize)]
@@ -56,10 +59,7 @@ struct LoginInfo {
     password: String,
 }
 
-async fn login(
-    Json(LoginInfo { password }): Json<LoginInfo>,
-    Extension(config): Extension<ApiData>,
-) -> ApiResult<String> {
+async fn login(State(config): State<ApiData>, Json(LoginInfo { password }): Json<LoginInfo>) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
         config.password_salt.as_bytes(),
@@ -96,8 +96,7 @@ fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
 
 async fn list_routes(
     ListRoutesQuery { depth }: ListRoutesQuery,
-    Extension(config): Extension<ApiData>,
-    Extension(root): Extension<RouteNode>,
+    State(state): State<RouterState<ApiWorker>>,
     bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> ApiResult<RoutesResponse> {
     let depth = depth.or(Some(3));
@@ -109,20 +108,20 @@ async fn list_routes(
                 .with_issuer(ApiData::ISSUER)
                 .with_audience(ApiData::AUDIENCE)
                 .validate_nbf(true),
-            config.secret_key.as_ref(),
+            state.inner.api_data.secret_key.as_ref(),
         )
         .map_err(AuthError::InvalidJwt)?;
 
-        root.list_routes(None, depth)
+        state.routes.list_routes(None, depth)
     } else {
         let public_routes = RegexSet::new(
             ALWAYS_AVAILABLE_ROUTES
                 .iter()
                 .copied()
-                .chain(config.public_routes.patterns().iter().map(String::as_str)),
+                .chain(state.inner.api_data.public_routes.patterns().iter().map(String::as_str)),
         )
         .unwrap(); // Panic: Safe as we know previous regex compiled and ALWAYS_AVAILABLE_ROUTES is const
-        root.list_routes(public_routes, depth)
+        state.routes.list_routes(public_routes, depth)
     };
     Ok(RoutesResponse { routes })
 }
@@ -147,7 +146,7 @@ pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
     Ok(true)
 }
 
-pub async fn health(database: Extension<MongoDb>) -> StatusCode {
+pub async fn health(database: State<MongoDb>) -> StatusCode {
     let handle_error = |ApiError { error, .. }| {
         tracing::error!("An error occured during health check: {error}");
         false
