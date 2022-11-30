@@ -69,8 +69,8 @@ fn compute_rent_structure(output: &iota_types::block::output::Output) -> RentStr
         output.rent_cost(
             &RentStructureBuilder::new()
                 .byte_cost(byte_cost)
-                .data_factor(data_factor)
-                .key_factor(key_factor)
+                .byte_factor_data(data_factor)
+                .byte_factor_key(key_factor)
                 .finish(),
         )
     };
@@ -153,9 +153,9 @@ mod test {
         for output in outputs {
             let rent = compute_rent_structure(&output);
             assert_eq!(
-                (rent.num_data_bytes * protocol_params.rent_structure().v_byte_factor_data as u64
-                    + rent.num_key_bytes * protocol_params.rent_structure().v_byte_factor_key as u64)
-                    * protocol_params.rent_structure().v_byte_cost as u64,
+                (rent.num_data_bytes * protocol_params.rent_structure().byte_factor_data() as u64
+                    + rent.num_key_bytes * protocol_params.rent_structure().byte_factor_key() as u64)
+                    * protocol_params.rent_structure().byte_cost() as u64,
                 output.rent_cost(protocol_params.rent_structure())
             );
         }
