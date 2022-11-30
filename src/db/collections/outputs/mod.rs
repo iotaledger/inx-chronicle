@@ -718,6 +718,20 @@ mod analytics {
             prev_analytics: &mut LedgerSizeAnalytics,
             ledger_index: MilestoneIndex,
         ) -> Result<(), Error> {
+
+            let sum = || doc! { "$group" : {
+                "_id": null,
+                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+            } };
+            
+            let convert_to_string = || doc! { "$project": {
+                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                "total_key_bytes": { "$toString": "$total_key_bytes" },
+                "total_data_bytes": { "$toString": "$total_data_bytes" },
+            } };
+
             let (created, consumed) = tokio::try_join!(
                 async {
                     Result::<_, Error>::Ok(self.aggregate::<LedgerSizeAnalytics>(
@@ -726,17 +740,8 @@ mod analytics {
                                 "metadata.booked.milestone_index": ledger_index,
                                 "metadata.spent_metadata.spent.milestone_index": { "$ne": ledger_index }
                             } },
-                            doc! { "$group" : {
-                                "_id": null,
-                                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
-                            } },
-                            doc! { "$project": {
-                                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
-                                "total_key_bytes": { "$toString": "$total_key_bytes" },
-                                "total_data_bytes": { "$toString": "$total_data_bytes" },
-                            } },
+                            sum(),
+                            convert_to_string(),
                         ],
                         None,
                     )
@@ -752,17 +757,8 @@ mod analytics {
                                 "metadata.booked.milestone_index": { "$ne": ledger_index },
                                 "metadata.spent_metadata.spent.milestone_index": ledger_index
                             } },
-                            doc! { "$group" : {
-                                "_id": null,
-                                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
-                            } },
-                            doc! { "$project": {
-                                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
-                                "total_key_bytes": { "$toString": "$total_key_bytes" },
-                                "total_data_bytes": { "$toString": "$total_data_bytes" },
-                            } },
+                            sum(),
+                            convert_to_string(),
                         ],
                         None,
                     )
