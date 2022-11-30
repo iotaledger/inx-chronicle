@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use influxdb::{InfluxDbWriteable, Timestamp};
+// Bad bad bad
+use super::{*};
 
-use super::*;
 use crate::{
     db::influxdb::{InfluxDb, InfluxDbMeasurement},
-    types::stardust::milestone::MilestoneTimestamp,
+    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
+use super::{Measurement, Analytics};
+
+#[deprecated]
 /// Defines data associated with a milestone that can be used by influx.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -37,7 +41,14 @@ impl InfluxDb {
             .await
     }
 
+    /// TODO: Rename
+    pub async fn insert_measurement(&self, measurement: Box<dyn Measurement>) -> Result<(), influxdb::Error> {
+        self.query(measurement.into_write_query()).await?;
+        Ok(())
+    }
+
     /// Insert all gathered analytics.
+    #[deprecated]
     pub async fn insert_all_analytics(
         &self,
         milestone_timestamp: MilestoneTimestamp,
@@ -45,7 +56,7 @@ impl InfluxDb {
         analytics: Analytics,
     ) -> Result<(), influxdb::Error> {
         tokio::try_join!(
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.address_activity),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.address_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.addresses),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
@@ -64,21 +75,6 @@ impl InfluxDb {
         )?;
         Ok(())
     }
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<AddressActivityAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("total_count", self.data.total_count)
-            .add_field("receiving_count", self.data.receiving_count)
-            .add_field("sending_count", self.data.sending_count)
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<AddressActivityAnalytics> {
-    const NAME: &'static str = "stardust_address_activity";
 }
 
 impl InfluxDbWriteable for AnalyticsSchema<AddressAnalytics> {

@@ -373,7 +373,7 @@ mod analytics {
     use crate::{
         db::{
             collections::analytics::{
-                AddressActivityAnalytics, AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
+                AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
                 LedgerSizeAnalytics, OutputActivityAnalytics, UnclaimedTokensAnalytics, UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
@@ -623,83 +623,6 @@ mod analytics {
             .try_next()
             .await?
             .unwrap_or_default())
-        }
-
-        /// Create aggregate statistics of all addresses.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_address_activity_analytics(
-            &self,
-            milestone_index: MilestoneIndex,
-        ) -> Result<AddressActivityAnalytics, Error> {
-            #[derive(Default, Deserialize)]
-            struct Res {
-                address_count: u64,
-            }
-
-            let (total, receiving, sending) = tokio::try_join!(
-                async {
-                    Result::<Res, Error>::Ok(
-                        self.aggregate(
-                            vec![
-                                doc! { "$match": {
-                                    "$or": [
-                                        { "metadata.booked.milestone_index": milestone_index },
-                                        { "metadata.spent_metadata.spent.milestone_index": milestone_index },
-                                    ],
-                                } },
-                                doc! { "$group" : { "_id": "$details.address" } },
-                                doc! { "$count": "address_count" },
-                            ],
-                            None,
-                        )
-                        .await?
-                        .try_next()
-                        .await?
-                        .unwrap_or_default(),
-                    )
-                },
-                async {
-                    Result::<Res, Error>::Ok(
-                        self.aggregate(
-                            vec![
-                                doc! { "$match": {
-                                    "metadata.booked.milestone_index": milestone_index
-                                } },
-                                doc! { "$group" : { "_id": "$details.address" }},
-                                doc! { "$count": "address_count" },
-                            ],
-                            None,
-                        )
-                        .await?
-                        .try_next()
-                        .await?
-                        .unwrap_or_default(),
-                    )
-                },
-                async {
-                    Result::<Res, Error>::Ok(
-                        self.aggregate(
-                            vec![
-                                doc! { "$match": {
-                                    "metadata.spent_metadata.spent.milestone_index": milestone_index
-                                } },
-                                doc! { "$group" : { "_id": "$details.address" }},
-                                doc! { "$count": "address_count" },
-                            ],
-                            None,
-                        )
-                        .await?
-                        .try_next()
-                        .await?
-                        .unwrap_or_default(),
-                    )
-                }
-            )?;
-            Ok(AddressActivityAnalytics {
-                total_count: total.address_count,
-                receiving_count: receiving.address_count,
-                sending_count: sending.address_count,
-            })
         }
 
         /// Get ledger address analytics.

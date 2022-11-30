@@ -4,22 +4,62 @@
 /// Schema implementation for InfluxDb.
 pub mod influx;
 
+mod address_activity;
+
+use std::fmt::Debug;
+
+use async_trait::async_trait;
 use decimal::d128;
 use futures::TryFutureExt;
+use influxdb::{InfluxDbWriteable, WriteQuery};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
+
+pub use address_activity::AddressActivityAnalytics;
 
 use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
 use crate::{
     db::MongoDb,
-    types::tangle::{MilestoneIndex, ProtocolParameters},
+    types::{
+        stardust::milestone::MilestoneTimestamp,
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
+
+#[derive(Debug)]
+pub struct PerMilestone<M> {
+    milestone_timestamp: MilestoneTimestamp,
+    milestone_index: MilestoneIndex,
+    measurement: M,
+}
+
+/// TODO: We will need this later.
+pub struct TimeInterval<M> {
+    milestone_timestamp: MilestoneTimestamp,
+    measurement: M,
+}
+
+pub trait Measurement: Debug + Send + Sync {
+    fn into_write_query(&self) -> influxdb::WriteQuery;
+}
+
+#[async_trait]
+pub trait Analytic: Debug + Send + Sync {
+    async fn get_measurement(
+        &mut self,
+        db: &MongoDb,
+        milestone_index: MilestoneIndex,
+        milestone_timestamp: MilestoneTimestamp,
+    ) -> Option<Result<Box<dyn Measurement>, Error>>;
+}
+
+
 
 /// Holds analytics about stardust data.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct Analytics {
-    pub address_activity: AddressActivityAnalytics,
+    // pub address_activity: AddressActivityAnalyticsResult,
     pub addresses: AddressAnalytics,
     pub base_token: BaseTokenActivityAnalytics,
     pub ledger_outputs: LedgerOutputAnalytics,
@@ -32,6 +72,24 @@ pub struct Analytics {
 }
 
 impl MongoDb {
+    /// Gets selected analytics for a given milestone index, fetching the data from collections.
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_analytics(
+        &self,
+        analytics: &mut Vec<Box<dyn Analytic>>,
+        milestone_index: MilestoneIndex,
+        milestone_timestamp: MilestoneTimestamp,
+    ) -> Result<Vec<Box<dyn Measurement>>, Error> {
+        let mut res = Vec::new();
+        for a in analytics {
+            if let Some(m) = a.get_measurement(self, milestone_index, milestone_timestamp).await {
+                res.push(m?);
+            }
+        }
+        Ok(res)
+    }
+
+    #[deprecated]
     /// Gets all analytics for a milestone index, fetching the data from the collections.
     #[tracing::instrument(skip(self), err, level = "trace")]
     pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
@@ -46,7 +104,7 @@ impl MongoDb {
             ledger_size,
             unclaimed_tokens,
             unlock_conditions,
-            address_activity,
+            //address_activity,
             base_token,
             block_activity,
             protocol_params,
@@ -57,7 +115,7 @@ impl MongoDb {
             output_collection.get_ledger_size_analytics(milestone_index),
             output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
-            output_collection.get_address_activity_analytics(milestone_index),
+            //output_collection.get_address_activity_analytics(milestone_index),
             output_collection.get_base_token_activity_analytics(milestone_index),
             block_collection.get_block_activity_analytics(milestone_index),
             protocol_param_collection
@@ -66,7 +124,7 @@ impl MongoDb {
         )?;
 
         Ok(Analytics {
-            address_activity,
+            // address_activity,
             addresses,
             base_token,
             ledger_outputs,
@@ -78,17 +136,6 @@ impl MongoDb {
             protocol_params,
         })
     }
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct AddressActivityAnalytics {
-    /// The number of addresses used in the time period.
-    pub total_count: u64,
-    /// The number of addresses that received tokens in the time period.
-    pub receiving_count: u64,
-    /// The number of addresses that sent tokens in the time period.
-    pub sending_count: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
