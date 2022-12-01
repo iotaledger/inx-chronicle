@@ -34,12 +34,14 @@ use iota_types::{
         dto::ReceiptDto,
         response::{
             self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
-            LatestMilestoneResponse, OutputMetadataResponse, OutputWithMetadataResponse, ProtocolResponse,
-            ReceiptsResponse, RentStructureResponse, StatusResponse, TreasuryResponse, UtxoChangesResponse,
+            LatestMilestoneResponse, OutputMetadataResponse, OutputWithMetadataResponse, ReceiptsResponse,
+            StatusResponse, TreasuryResponse, UtxoChangesResponse,
         },
     },
     block::{
+        output::dto::RentStructureDto,
         payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
+        protocol::dto::ProtocolParametersDto,
         BlockDto,
     },
 };
@@ -168,13 +170,13 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
             confirmed_milestone,
             pruning_index: oldest_milestone.milestone_index.0 - 1,
         },
-        protocol: ProtocolResponse {
-            version: protocol.version,
+        protocol: ProtocolParametersDto {
+            protocol_version: protocol.version,
             network_name: protocol.network_name,
             below_max_depth: protocol.below_max_depth,
             bech32_hrp: protocol.bech32_hrp,
             min_pow_score: protocol.min_pow_score,
-            rent_structure: RentStructureResponse {
+            rent_structure: RentStructureDto {
                 v_byte_cost: protocol.rent_structure.v_byte_cost,
                 v_byte_factor_data: protocol.rent_structure.v_byte_factor_data,
                 v_byte_factor_key: protocol.rent_structure.v_byte_factor_key,

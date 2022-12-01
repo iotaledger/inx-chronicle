@@ -28,12 +28,13 @@ impl InfluxDb {
     where
         AnalyticsSchema<A>: InfluxDbMeasurement,
     {
-        self.insert(AnalyticsSchema {
-            milestone_timestamp,
-            milestone_index,
-            data: analytics,
-        })
-        .await
+        self.analytics()
+            .insert(AnalyticsSchema {
+                milestone_timestamp,
+                milestone_index,
+                data: analytics,
+            })
+            .await
     }
 
     /// Insert all gathered analytics.

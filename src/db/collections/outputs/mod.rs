@@ -628,10 +628,12 @@ mod analytics {
                                 } },
                             ],
                             "alias_changed": [
-                                { "$match": { "$and": [
-                                    { "output.alias_id": { "$exists": true } },
-                                    { "output.alias_id": { "$ne": AliasId::implicit() } },
-                                  ] } },
+                                { "$match": {
+                                    "$and": [
+                                        { "output.alias_id": { "$exists": true } },
+                                        { "output.alias_id": { "$ne": AliasId::implicit() } },
+                                    ]
+                                } },
                                 // Group by state indexes to find where it changed
                                 { "$group": {
                                     "_id": { "alias_id": "$output.alias_id", "state_index": "$output.state_index" },

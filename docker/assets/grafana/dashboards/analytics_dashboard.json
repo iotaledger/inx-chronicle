@@ -41,7 +41,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -120,7 +120,7 @@
           "alias": "$col Payloads",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -225,7 +225,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -305,7 +305,7 @@
           "alias": "$col Transactions",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -386,7 +386,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "",
       "fieldConfig": {
@@ -467,7 +467,7 @@
           "alias": "$col Outputs",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -571,7 +571,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "",
       "fieldConfig": {
@@ -652,7 +652,7 @@
           "alias": "$col Outputs",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -793,7 +793,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -872,7 +872,7 @@
           "alias": "Number of addresses",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -916,7 +916,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "",
       "fieldConfig": {
@@ -995,7 +995,7 @@
           "alias": "Number of Addresses that $col",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -1063,7 +1063,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -1142,7 +1142,7 @@
           "alias": "Number of Tokens",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -1205,7 +1205,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "",
       "fieldConfig": {
@@ -1284,7 +1284,7 @@
           "alias": "$col",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -1388,7 +1388,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "",
       "fieldConfig": {
@@ -1467,7 +1467,7 @@
           "alias": "$col",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -1556,7 +1556,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 46
       },
       "id": 49,
       "panels": [],
@@ -1566,7 +1566,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -1625,7 +1625,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 47
       },
       "id": 51,
       "options": {
@@ -1645,7 +1645,7 @@
           "alias": "$col Unlock Conditions",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -1731,7 +1731,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -1790,7 +1790,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 47
       },
       "id": 61,
       "options": {
@@ -1810,7 +1810,7 @@
           "alias": "$col Unlock Conditions",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -1917,7 +1917,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 55
       },
       "id": 31,
       "panels": [],
@@ -1927,7 +1927,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "Tokens from the genesis snapshot that have not been claimed yet.",
       "fieldConfig": {
@@ -1987,7 +1987,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 56
       },
       "id": 33,
       "options": {
@@ -2007,7 +2007,7 @@
           "alias": "Unclaimed Tokens",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -2057,7 +2057,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "description": "",
       "fieldConfig": {
@@ -2118,7 +2118,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 47
+        "y": 56
       },
       "id": 36,
       "options": {
@@ -2138,7 +2138,7 @@
           "alias": "Claimed tokens",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -2185,7 +2185,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 55
+        "y": 64
       },
       "id": 29,
       "panels": [],
@@ -2195,7 +2195,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -2254,7 +2254,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 65
       },
       "id": 39,
       "options": {
@@ -2274,7 +2274,7 @@
           "alias": "$col Bytes",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
@@ -2342,7 +2342,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "P951FEA4DE68E13C5"
+        "uid": "PE5723DBC504634E6"
       },
       "fieldConfig": {
         "defaults": {
@@ -2401,7 +2401,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 56
+        "y": 65
       },
       "id": 41,
       "options": {
@@ -2421,7 +2421,7 @@
           "alias": "Storage Deposit",
           "datasource": {
             "type": "influxdb",
-            "uid": "P951FEA4DE68E13C5"
+            "uid": "PE5723DBC504634E6"
           },
           "groupBy": [
             {
