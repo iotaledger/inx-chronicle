@@ -391,38 +391,6 @@ mod analytics {
 
     impl OutputCollection {
 
-        /// Gathers byte cost and storage deposit analytics.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_ledger_size_analytics(
-            &self,
-            ledger_index: MilestoneIndex,
-        ) -> Result<LedgerSizeAnalytics, Error> {
-            Ok(self
-            .aggregate(
-                vec![
-                    doc! { "$match": {
-                        "metadata.booked.milestone_index": { "$lte": ledger_index },
-                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                    } },
-                    doc! { "$group" : {
-                        "_id": null,
-                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                        "total_storage_deposit_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
-                    } },
-                    doc! { "$project": {
-                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
-                        "total_key_bytes": { "$toString": "$total_key_bytes" },
-                        "total_data_bytes": { "$toString": "$total_data_bytes" },
-                    } },
-                ],
-                None,
-            )
-            .await?
-            .try_next()
-            .await?
-            .unwrap_or_default())
-        }
 
         /// Gets the number of claimed tokens.
         #[tracing::instrument(skip(self), err, level = "trace")]

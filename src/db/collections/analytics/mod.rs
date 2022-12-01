@@ -9,6 +9,7 @@ mod address_balance;
 mod base_token;
 mod ledger_outputs;
 mod output_activity;
+mod ledger_size;
 
 use std::fmt::Debug;
 
@@ -17,6 +18,7 @@ pub use address_balance::AddressAnalytics;
 pub use base_token::BaseTokenActivityAnalytics;
 pub use ledger_outputs::LedgerOutputAnalytics;
 pub use output_activity::OutputActivityAnalytics;
+pub use ledger_size::LedgerSizeAnalytics;
 
 use async_trait::async_trait;
 use decimal::d128;
@@ -78,7 +80,7 @@ pub struct Analytics {
     // pub base_token: BaseTokenActivityAnalytics,
     // pub ledger_outputs: LedgerOutputAnalytics,
     // pub output_activity: OutputActivityAnalytics,
-    pub ledger_size: LedgerSizeAnalytics,
+    // pub ledger_size: LedgerSizeAnalytics,
     pub unclaimed_tokens: UnclaimedTokensAnalytics,
     pub block_activity: BlockActivityAnalytics,
     pub unlock_conditions: UnlockConditionAnalytics,
@@ -115,7 +117,7 @@ impl MongoDb {
             // addresses,
             // ledger_outputs,
             // output_activity,
-            ledger_size,
+            // ledger_size,
             unclaimed_tokens,
             unlock_conditions,
             // address_activity,
@@ -126,7 +128,7 @@ impl MongoDb {
             // output_collection.get_address_analytics(milestone_index),
             // output_collection.get_ledger_output_analytics(milestone_index),
             // output_collection.get_output_activity_analytics(milestone_index),
-            output_collection.get_ledger_size_analytics(milestone_index),
+            // output_collection.get_ledger_size_analytics(milestone_index),
             output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
             // output_collection.get_address_activity_analytics(milestone_index),
@@ -143,7 +145,7 @@ impl MongoDb {
             // base_token,
             // ledger_outputs,
             // output_activity,
-            ledger_size,
+            // ledger_size,
             unclaimed_tokens,
             block_activity,
             unlock_conditions,
@@ -163,23 +165,7 @@ pub struct UnlockConditionAnalytics {
     pub storage_deposit_return_value: d128,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct LedgerSizeAnalytics {
-    pub total_storage_deposit_value: d128,
-    pub total_key_bytes: d128,
-    pub total_data_bytes: d128,
-}
 
-#[allow(missing_docs)]
-impl LedgerSizeAnalytics {
-    pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
-        let rent_structure = protocol_params.rent_structure;
-        d128::from(rent_structure.v_byte_cost)
-            * ((self.total_key_bytes * d128::from(rent_structure.v_byte_factor_key as u32))
-                + (self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32)))
-    }
-}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]

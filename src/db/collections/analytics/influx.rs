@@ -62,7 +62,7 @@ impl InfluxDb {
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.output_activity),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_size),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_size),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.block_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
@@ -76,34 +76,6 @@ impl InfluxDb {
         )?;
         Ok(())
     }
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<LedgerSizeAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field(
-                "total_storage_deposit_value",
-                self.data
-                    .total_storage_deposit_value
-                    .to_string()
-                    .parse::<u64>()
-                    .unwrap(),
-            )
-            .add_field(
-                "total_key_bytes",
-                self.data.total_key_bytes.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field(
-                "total_data_bytes",
-                self.data.total_data_bytes.to_string().parse::<u64>().unwrap(),
-            )
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<LedgerSizeAnalytics> {
-    const NAME: &'static str = "stardust_ledger_size";
 }
 
 impl InfluxDbWriteable for AnalyticsSchema<UnclaimedTokensAnalytics> {
