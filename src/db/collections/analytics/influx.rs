@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use influxdb::{InfluxDbWriteable, Timestamp};
-// Bad bad bad
-use super::{*};
 
+// Bad bad bad
+use super::*;
+use super::{Analytics, Measurement};
 use crate::{
     db::influxdb::{InfluxDb, InfluxDbMeasurement},
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
-use super::{Measurement, Analytics};
+// TODO abstraction that runs all selected analytics concurrently
 
 #[deprecated]
 /// Defines data associated with a milestone that can be used by influx.
@@ -43,7 +44,7 @@ impl InfluxDb {
 
     /// TODO: Rename
     pub async fn insert_measurement(&self, measurement: Box<dyn Measurement>) -> Result<(), influxdb::Error> {
-        self.query(measurement.into_write_query()).await?;
+        self.analytics().query(measurement.into_write_query()).await?;
         Ok(())
     }
 
@@ -57,9 +58,9 @@ impl InfluxDb {
     ) -> Result<(), influxdb::Error> {
         tokio::try_join!(
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.address_activity),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.addresses),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.addresses),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.base_token),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.output_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_size),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
@@ -75,63 +76,6 @@ impl InfluxDb {
         )?;
         Ok(())
     }
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<AddressAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("address_with_balance_count", self.data.address_with_balance_count)
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<AddressAnalytics> {
-    const NAME: &'static str = "stardust_addresses";
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<LedgerOutputAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("basic_count", self.data.basic_count)
-            .add_field("basic_value", self.data.basic_value.to_string().parse::<u64>().unwrap())
-            .add_field("alias_count", self.data.alias_count)
-            .add_field("alias_value", self.data.alias_value.to_string().parse::<u64>().unwrap())
-            .add_field("foundry_count", self.data.foundry_count)
-            .add_field(
-                "foundry_value",
-                self.data.foundry_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("nft_count", self.data.nft_count)
-            .add_field("nft_value", self.data.nft_value.to_string().parse::<u64>().unwrap())
-            .add_field("treasury_count", self.data.treasury_count)
-            .add_field(
-                "treasury_value",
-                self.data.treasury_value.to_string().parse::<u64>().unwrap(),
-            )
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<LedgerOutputAnalytics> {
-    const NAME: &'static str = "stardust_ledger_outputs";
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<BaseTokenActivityAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field(
-                "transferred_value",
-                self.data.transferred_value.to_string().parse::<u64>().unwrap(),
-            )
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<BaseTokenActivityAnalytics> {
-    const NAME: &'static str = "stardust_base_token_activity";
 }
 
 impl InfluxDbWriteable for AnalyticsSchema<LedgerSizeAnalytics> {

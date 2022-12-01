@@ -1,9 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-
-use chronicle::db::collections::analytics::{AddressActivityAnalytics, Analytic};
+use chronicle::db::collections::analytics::all_analytics;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
@@ -252,8 +250,7 @@ impl ClArgs {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
                         join_set.spawn(async move {
-                            let mut selected_analytics: Vec<Box<dyn Analytic>> =
-                                vec![Box::new(AddressActivityAnalytics)];
+                            let mut selected_analytics = all_analytics();
 
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();
@@ -264,17 +261,14 @@ impl ClArgs {
                                 {
                                     #[cfg(feature = "metrics")]
                                     let start_time = std::time::Instant::now();
-                                    //let analytics = db.get_all_analytics(milestone_index).await?;
+                                    // let analytics = db.get_all_analytics(milestone_index).await?;
 
                                     let measurements = db
                                         .get_analytics(&mut selected_analytics, milestone_index, milestone_timestamp)
                                         .await?;
 
                                     for m in measurements {
-                                        influx_db
-                                            .insert_measurement(m
-                                            )
-                                            .await?;
+                                        influx_db.insert_measurement(m).await?;
                                     }
 
                                     // influx_db
@@ -333,7 +327,7 @@ impl ClArgs {
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
-pub enum SelectAnalytics {
+pub enum AnalyticsChoice {
     AddressActivity,
     Addresses,
     BaseToken,
@@ -364,7 +358,7 @@ pub enum Subcommands {
         num_tasks: Option<usize>,
         /// Select a subset of analytics to compute.
         #[arg(long)]
-        analytics: Vec<SelectAnalytics>,
+        analytics: Vec<AnalyticsChoice>,
     },
     /// Clear the chronicle database.
     #[cfg(debug_assertions)]

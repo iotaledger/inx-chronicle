@@ -373,8 +373,8 @@ mod analytics {
     use crate::{
         db::{
             collections::analytics::{
-                AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
-                LedgerSizeAnalytics, OutputActivityAnalytics, UnclaimedTokensAnalytics, UnlockConditionAnalytics,
+                AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
+                OutputActivityAnalytics, UnclaimedTokensAnalytics, UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
         },
@@ -390,103 +390,6 @@ mod analytics {
     }
 
     impl OutputCollection {
-        /// Gathers output analytics.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_base_token_activity_analytics(
-            &self,
-            milestone_index: MilestoneIndex,
-        ) -> Result<BaseTokenActivityAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "metadata.booked.milestone_index": milestone_index,
-                        } },
-                        doc! { "$group" : {
-                            "_id": null,
-                            "transferred_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$project": {
-                            "transferred_value": { "$toString": "$transferred_value" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
-        }
-
-        /// Gathers ledger (unspent) output analytics.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_ledger_output_analytics(
-            &self,
-            ledger_index: MilestoneIndex,
-        ) -> Result<LedgerOutputAnalytics, Error> {
-            #[derive(Default, Deserialize)]
-            struct Sums {
-                count: u64,
-                value: d128,
-            }
-
-            #[derive(Default, Deserialize)]
-            #[serde(default)]
-            struct Res {
-                basic: Sums,
-                alias: Sums,
-                foundry: Sums,
-                nft: Sums,
-                treasury: Sums,
-            }
-
-            let res = self
-                .aggregate::<Res>(
-                    vec![
-                        doc! { "$match": {
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                        } },
-                        doc! { "$group" : {
-                            "_id": "$output.kind",
-                            "count": { "$sum": 1 },
-                            "value": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$group" : {
-                            "_id": null,
-                            "result": { "$addToSet": {
-                                "k": "$_id",
-                                "v": {
-                                    "count": "$count",
-                                    "value": { "$toString": "$value" },
-                                }
-                            } },
-                        } },
-                        doc! { "$replaceWith": {
-                            "$arrayToObject": "$result"
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default();
-
-            Ok(crate::db::collections::analytics::LedgerOutputAnalytics {
-                basic_count: res.basic.count,
-                basic_value: res.basic.value,
-                alias_count: res.alias.count,
-                alias_value: res.alias.value,
-                foundry_count: res.foundry.count,
-                foundry_value: res.foundry.value,
-                nft_count: res.nft.count,
-                nft_value: res.nft.value,
-                treasury_count: res.treasury.count,
-                treasury_value: res.treasury.value,
-            })
-        }
-
         /// Gathers analytics about outputs that were created/transferred/burned in the given milestone.
         #[tracing::instrument(skip(self), err, level = "trace")]
         pub async fn get_output_activity_analytics(
@@ -623,27 +526,6 @@ mod analytics {
             .try_next()
             .await?
             .unwrap_or_default())
-        }
-
-        /// Get ledger address analytics.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_address_analytics(&self, ledger_index: MilestoneIndex) -> Result<AddressAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "metadata.booked.milestone_index": { "$lte": ledger_index },
-                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                        } },
-                        doc! { "$group" : { "_id": "$details.address" } },
-                        doc! { "$count" : "address_with_balance_count" },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
         }
 
         /// Gets the number of claimed tokens.

@@ -9,8 +9,8 @@ use std::time::Duration;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
-            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            analytics::all_analytics, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
+            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -346,10 +346,15 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                let analytics = self.db.get_all_analytics(milestone_index).await?;
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
+                // TODO: Share this state across ledger updates
+                let measurements = self
+                    .db
+                    .get_analytics(&mut all_analytics(), milestone_index, milestone_timestamp)
                     .await?;
+
+                for m in measurements {
+                    influx_db.insert_measurement(m).await?;
+                }
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]

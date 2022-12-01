@@ -5,8 +5,16 @@
 pub mod influx;
 
 mod address_activity;
+mod address_balance;
+mod base_token;
+mod ledger_outputs;
 
 use std::fmt::Debug;
+
+pub use address_activity::AddressActivityAnalytics;
+pub use address_balance::AddressAnalytics;
+pub use base_token::BaseTokenActivityAnalytics;
+pub use ledger_outputs::LedgerOutputAnalytics;
 
 use async_trait::async_trait;
 use decimal::d128;
@@ -14,8 +22,6 @@ use futures::TryFutureExt;
 use influxdb::{InfluxDbWriteable, WriteQuery};
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
-
-pub use address_activity::AddressActivityAnalytics;
 
 use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
 use crate::{
@@ -34,6 +40,7 @@ pub struct PerMilestone<M> {
 }
 
 /// TODO: We will need this later.
+#[allow(unused)]
 pub struct TimeInterval<M> {
     milestone_timestamp: MilestoneTimestamp,
     measurement: M,
@@ -45,24 +52,29 @@ pub trait Measurement: Debug + Send + Sync {
 
 #[async_trait]
 pub trait Analytic: Debug + Send + Sync {
+
+    /// Note that we return an `Option` so that we don't always have to produce a metric for a given milestone. This is useful for values that don't change often, or if we want to aggregate over time intervals, for example. We also call this method on a mutable reference of `self` so that each analytic can decide if it wants to manage internal state.
     async fn get_measurement(
         &mut self,
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
     ) -> Option<Result<Box<dyn Measurement>, Error>>;
+
 }
 
-
+pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
+    vec![Box::new(AddressActivityAnalytics), Box::new(AddressAnalytics), Box::new(BaseTokenActivityAnalytics), Box::new(LedgerOutputAnalytics)]
+}
 
 /// Holds analytics about stardust data.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct Analytics {
     // pub address_activity: AddressActivityAnalyticsResult,
-    pub addresses: AddressAnalytics,
-    pub base_token: BaseTokenActivityAnalytics,
-    pub ledger_outputs: LedgerOutputAnalytics,
+    // pub addresses: AddressAnalytics,
+    // pub base_token: BaseTokenActivityAnalytics,
+    // pub ledger_outputs: LedgerOutputAnalytics,
     pub output_activity: OutputActivityAnalytics,
     pub ledger_size: LedgerSizeAnalytics,
     pub unclaimed_tokens: UnclaimedTokensAnalytics,
@@ -98,25 +110,25 @@ impl MongoDb {
         let protocol_param_collection = self.collection::<ProtocolUpdateCollection>();
 
         let (
-            addresses,
-            ledger_outputs,
+            // addresses,
+            // ledger_outputs,
             output_activity,
             ledger_size,
             unclaimed_tokens,
             unlock_conditions,
-            //address_activity,
-            base_token,
+            // address_activity,
+            // base_token,
             block_activity,
             protocol_params,
         ) = tokio::try_join!(
-            output_collection.get_address_analytics(milestone_index),
-            output_collection.get_ledger_output_analytics(milestone_index),
+            // output_collection.get_address_analytics(milestone_index),
+            // output_collection.get_ledger_output_analytics(milestone_index),
             output_collection.get_output_activity_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
             output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
-            //output_collection.get_address_activity_analytics(milestone_index),
-            output_collection.get_base_token_activity_analytics(milestone_index),
+            // output_collection.get_address_activity_analytics(milestone_index),
+            // output_collection.get_base_token_activity_analytics(milestone_index),
             block_collection.get_block_activity_analytics(milestone_index),
             protocol_param_collection
                 .get_protocol_parameters_for_milestone_index(milestone_index)
@@ -125,9 +137,9 @@ impl MongoDb {
 
         Ok(Analytics {
             // address_activity,
-            addresses,
-            base_token,
-            ledger_outputs,
+            // addresses,
+            // base_token,
+            // ledger_outputs,
             output_activity,
             ledger_size,
             unclaimed_tokens,
@@ -136,12 +148,6 @@ impl MongoDb {
             protocol_params,
         })
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct AddressAnalytics {
-    pub address_with_balance_count: u64,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -153,21 +159,6 @@ pub struct UnlockConditionAnalytics {
     pub expiration_value: d128,
     pub storage_deposit_return_count: u64,
     pub storage_deposit_return_value: d128,
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct LedgerOutputAnalytics {
-    pub basic_count: u64,
-    pub basic_value: d128,
-    pub alias_count: u64,
-    pub alias_value: d128,
-    pub foundry_count: u64,
-    pub foundry_value: d128,
-    pub nft_count: u64,
-    pub nft_value: d128,
-    pub treasury_count: u64,
-    pub treasury_value: d128,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -220,12 +211,6 @@ pub struct NftActivityAnalytics {
     pub created_count: u64,
     pub transferred_count: u64,
     pub destroyed_count: u64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct BaseTokenActivityAnalytics {
-    pub transferred_value: d128,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
