@@ -11,6 +11,7 @@ mod block_activity;
 mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
+mod protocol_parameters;
 mod unclaimed_tokens;
 mod unlock_condition;
 
@@ -20,15 +21,15 @@ pub use address_activity::AddressActivityAnalytics;
 pub use address_balance::AddressAnalytics;
 use async_trait::async_trait;
 pub use base_token::BaseTokenActivityAnalytics;
-use decimal::d128;
+pub use block_activity::BlockActivityAnalytics;
 use futures::TryFutureExt;
 pub use ledger_outputs::LedgerOutputAnalytics;
 pub use ledger_size::LedgerSizeAnalytics;
 use mongodb::{bson::doc, error::Error};
 pub use output_activity::OutputActivityAnalytics;
+pub use protocol_parameters::ProtocolParametersAnalytics;
 use serde::{Deserialize, Serialize};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
-pub use block_activity::BlockActivityAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
 use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
@@ -81,6 +82,9 @@ pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
         Box::new(LedgerOutputAnalytics),
         Box::new(LedgerSizeAnalytics),
         Box::new(UnclaimedTokenAnalytics),
+        Box::new(OutputActivityAnalytics),
+        Box::new(UnclaimedTokenAnalytics),
+        Box::new(UnlockConditionAnalytics),
     ]
 }
 
@@ -167,6 +171,7 @@ impl MongoDb {
     }
 }
 
+#[deprecated]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 #[serde(default)]

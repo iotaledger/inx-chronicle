@@ -389,9 +389,7 @@ mod analytics {
         pub total_value: String,
     }
 
-    impl OutputCollection {
-        
-    }
+    impl OutputCollection {}
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

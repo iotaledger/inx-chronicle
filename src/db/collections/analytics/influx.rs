@@ -66,32 +66,14 @@ impl InfluxDb {
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.block_activity),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
-            async {
-                if let Some(protocol_params) = analytics.protocol_params {
-                    self.insert_analytics(milestone_timestamp, milestone_index, protocol_params)
-                        .await?;
-                }
-                Ok(())
-            }
+            // async {
+            //     if let Some(protocol_params) = analytics.protocol_params {
+            //         self.insert_analytics(milestone_timestamp, milestone_index, protocol_params)
+            //             .await?;
+            //     }
+            //     Ok(())
+            // }
         )?;
         Ok(())
     }
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<ProtocolParameters> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("token_supply", self.data.token_supply)
-            .add_field("min_pow_score", self.data.min_pow_score)
-            .add_field("below_max_depth", self.data.below_max_depth)
-            .add_field("v_byte_cost", self.data.rent_structure.v_byte_cost)
-            .add_field("v_byte_factor_key", self.data.rent_structure.v_byte_factor_key)
-            .add_field("v_byte_factor_data", self.data.rent_structure.v_byte_factor_data)
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<ProtocolParameters> {
-    const NAME: &'static str = "stardust_protocol_params";
 }

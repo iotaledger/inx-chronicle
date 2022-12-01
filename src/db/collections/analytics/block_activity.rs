@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Analytic, Measurement, PerMilestone};
 use crate::{
-    db::{collections::{BlockCollection}, MongoDb, MongoDbCollectionExt},
+    db::{collections::BlockCollection, MongoDb, MongoDbCollectionExt},
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
@@ -66,10 +66,7 @@ impl BlockCollection {
     /// TODO: Merge with above
     /// Gathers past-cone payload activity statistics for a given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_block_activity_analytics(
-        &self,
-        index: MilestoneIndex,
-    ) -> Result<BlockActivityAnalyticsResult, Error> {
+    async fn get_block_activity_analytics(&self, index: MilestoneIndex) -> Result<BlockActivityAnalyticsResult, Error> {
         Ok(self
             .aggregate(
                 vec![
@@ -128,18 +125,21 @@ impl BlockCollection {
 impl Measurement for PerMilestone<BlockActivityAnalyticsResult> {
     fn into_write_query(&self) -> influxdb::WriteQuery {
         influxdb::Timestamp::from(self.milestone_timestamp)
-        .into_query("stardust_block_activity")
-        .add_field("milestone_index", self.milestone_index)
-        .add_field("transaction_count", self.measurement.payload.transaction_count)
-        .add_field(
-            "treasury_transaction_count",
-            self.measurement.payload.treasury_transaction_count,
-        )
-        .add_field("milestone_count", self.measurement.payload.milestone_count)
-        .add_field("tagged_data_count", self.measurement.payload.tagged_data_count)
-        .add_field("no_payload_count", self.measurement.payload.no_payload_count)
-        .add_field("confirmed_count", self.measurement.transaction.confirmed_count)
-        .add_field("conflicting_count", self.measurement.transaction.conflicting_count)
-        .add_field("no_transaction_count", self.measurement.transaction.no_transaction_count)
+            .into_query("stardust_block_activity")
+            .add_field("milestone_index", self.milestone_index)
+            .add_field("transaction_count", self.measurement.payload.transaction_count)
+            .add_field(
+                "treasury_transaction_count",
+                self.measurement.payload.treasury_transaction_count,
+            )
+            .add_field("milestone_count", self.measurement.payload.milestone_count)
+            .add_field("tagged_data_count", self.measurement.payload.tagged_data_count)
+            .add_field("no_payload_count", self.measurement.payload.no_payload_count)
+            .add_field("confirmed_count", self.measurement.transaction.confirmed_count)
+            .add_field("conflicting_count", self.measurement.transaction.conflicting_count)
+            .add_field(
+                "no_transaction_count",
+                self.measurement.transaction.no_transaction_count,
+            )
     }
 }

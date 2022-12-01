@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Analytic, Measurement, PerMilestone};
 use crate::{
-    db::{collections::{BlockCollection, OutputCollection}, MongoDb, MongoDbCollectionExt},
+    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
@@ -39,7 +39,7 @@ impl Analytic for UnlockConditionAnalytics {
     ) -> Option<Result<Box<dyn Measurement>, Error>> {
         let res = db
             .collection::<OutputCollection>()
-            .get_block_activity_analytics(milestone_index)
+            .get_unlock_condition_analytics(milestone_index)
             .await;
         Some(match res {
             Ok(measurement) => Ok(Box::new(PerMilestone {
@@ -114,26 +114,29 @@ impl OutputCollection {
 impl Measurement for PerMilestone<UnlockConditionAnalyticsResult> {
     fn into_write_query(&self) -> influxdb::WriteQuery {
         influxdb::Timestamp::from(self.milestone_timestamp)
-        .into_query("stardust_unlock_conditions")
-        .add_field("milestone_index", self.milestone_index)
-        .add_field("expiration_count", self.data.expiration_count)
-        .add_field(
-            "expiration_value",
-            self.data.expiration_value.to_string().parse::<u64>().unwrap(),
-        )
-        .add_field("timelock_count", self.data.timelock_count)
-        .add_field(
-            "timelock_value",
-            self.data.timelock_value.to_string().parse::<u64>().unwrap(),
-        )
-        .add_field("storage_deposit_return_count", self.data.storage_deposit_return_count)
-        .add_field(
-            "storage_deposit_return_value",
-            self.data
-                .storage_deposit_return_value
-                .to_string()
-                .parse::<u64>()
-                .unwrap(),
-        )
+            .into_query("stardust_unlock_conditions")
+            .add_field("milestone_index", self.milestone_index)
+            .add_field("expiration_count", self.measurement.expiration_count)
+            .add_field(
+                "expiration_value",
+                self.measurement.expiration_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field("timelock_count", self.measurement.timelock_count)
+            .add_field(
+                "timelock_value",
+                self.measurement.timelock_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field(
+                "storage_deposit_return_count",
+                self.measurement.storage_deposit_return_count,
+            )
+            .add_field(
+                "storage_deposit_return_value",
+                self.measurement
+                    .storage_deposit_return_value
+                    .to_string()
+                    .parse::<u64>()
+                    .unwrap(),
+            )
     }
 }
