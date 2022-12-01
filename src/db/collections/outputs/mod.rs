@@ -365,33 +365,6 @@ impl OutputCollection {
     }
 }
 
-#[cfg(feature = "analytics")]
-mod analytics {
-    use decimal::d128;
-
-    use super::*;
-    use crate::{
-        db::{
-            collections::analytics::{
-                AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-                OutputActivityAnalytics, UnclaimedTokenAnalytics, UnlockConditionAnalytics,
-            },
-            mongodb::MongoDbCollectionExt,
-        },
-        types::{
-            stardust::block::output::{AliasId, NftId},
-            tangle::MilestoneIndex,
-        },
-    };
-    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-    pub struct OutputAnalyticsResult {
-        pub count: u64,
-        pub total_value: String,
-    }
-
-    impl OutputCollection {}
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RichestAddresses {
     pub top: Vec<AddressStat>,

@@ -2,17 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use futures::{TryFutureExt, TryStreamExt};
 use influxdb::InfluxDbWriteable;
-use mongodb::{bson::doc, error::Error};
-use serde::{Deserialize, Serialize};
+use mongodb::error::Error;
 
 use super::{Analytic, Measurement, PerMilestone};
 use crate::{
-    db::{
-        collections::{BlockCollection, ProtocolUpdateCollection},
-        MongoDb, MongoDbCollectionExt,
-    },
+    db::{collections::ProtocolUpdateCollection, MongoDb},
     types::{
         stardust::milestone::MilestoneTimestamp,
         tangle::{MilestoneIndex, ProtocolParameters},

@@ -22,7 +22,6 @@ pub use address_balance::AddressAnalytics;
 use async_trait::async_trait;
 pub use base_token::BaseTokenActivityAnalytics;
 pub use block_activity::BlockActivityAnalytics;
-use futures::TryFutureExt;
 pub use ledger_outputs::LedgerOutputAnalytics;
 pub use ledger_size::LedgerSizeAnalytics;
 use mongodb::{bson::doc, error::Error};
@@ -32,13 +31,9 @@ use serde::{Deserialize, Serialize};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
-use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
 use crate::{
     db::MongoDb,
-    types::{
-        stardust::milestone::MilestoneTimestamp,
-        tangle::{MilestoneIndex, ProtocolParameters},
-    },
+    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
 #[derive(Debug)]
@@ -85,23 +80,8 @@ pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
         Box::new(OutputActivityAnalytics),
         Box::new(UnclaimedTokenAnalytics),
         Box::new(UnlockConditionAnalytics),
+        Box::new(ProtocolParametersAnalytics),
     ]
-}
-
-/// Holds analytics about stardust data.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct Analytics {
-    // pub address_activity: AddressActivityAnalyticsResult,
-    // pub addresses: AddressAnalytics,
-    // pub base_token: BaseTokenActivityAnalytics,
-    // pub ledger_outputs: LedgerOutputAnalytics,
-    // pub output_activity: OutputActivityAnalytics,
-    // pub ledger_size: LedgerSizeAnalytics,
-    // pub unclaimed_tokens: UnclaimedTokenAnalytics,
-    // pub block_activity: BlockActivityAnalytics,
-    // pub unlock_conditions: UnlockConditionAnalytics,
-    pub protocol_params: Option<ProtocolParameters>,
 }
 
 impl MongoDb {
@@ -122,63 +102,11 @@ impl MongoDb {
         Ok(res)
     }
 
-    #[deprecated]
     /// Gets all analytics for a milestone index, fetching the data from the collections.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
-        let output_collection = self.collection::<OutputCollection>();
-        let block_collection = self.collection::<BlockCollection>();
-        let protocol_param_collection = self.collection::<ProtocolUpdateCollection>();
-
-        let (
-            // addresses,
-            // ledger_outputs,
-            // output_activity,
-            // ledger_size,
-            // unclaimed_tokens,
-            // unlock_conditions,
-            // address_activity,
-            // base_token,
-            // block_activity,
-            protocol_params,
-        ) = tokio::try_join!(
-            // output_collection.get_address_analytics(milestone_index),
-            // output_collection.get_ledger_output_analytics(milestone_index),
-            // output_collection.get_output_activity_analytics(milestone_index),
-            // output_collection.get_ledger_size_analytics(milestone_index),
-            // output_collection.get_unclaimed_token_analytics(milestone_index),
-            // output_collection.get_unlock_condition_analytics(milestone_index),
-            // output_collection.get_address_activity_analytics(milestone_index),
-            // output_collection.get_base_token_activity_analytics(milestone_index),
-            // block_collection.get_block_activity_analytics(milestone_index),
-            protocol_param_collection
-                .get_protocol_parameters_for_milestone_index(milestone_index)
-                .and_then(|p| async move { Ok(p.map(|p| p.parameters)) }),
-        )?;
-
-        Ok(Analytics {
-            // address_activity,
-            // addresses,
-            // base_token,
-            // ledger_outputs,
-            // output_activity,
-            // ledger_size,
-            // unclaimed_tokens,
-            // block_activity,
-            // unlock_conditions,
-            protocol_params,
-        })
+    pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
+        todo!() //
     }
-}
-
-#[deprecated]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct FoundryActivityAnalytics {
-    pub created_count: u64,
-    pub transferred_count: u64,
-    pub destroyed_count: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

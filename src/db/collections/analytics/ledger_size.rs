@@ -12,10 +12,7 @@ use super::{Analytic, Measurement, PerMilestone};
 use crate::{
     db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
     types::{
-        stardust::{
-            block::output::{AliasId, NftId},
-            milestone::MilestoneTimestamp,
-        },
+        stardust::milestone::MilestoneTimestamp,
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
