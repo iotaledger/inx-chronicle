@@ -8,6 +8,7 @@ mod address_activity;
 mod address_balance;
 mod base_token;
 mod ledger_outputs;
+mod output_activity;
 
 use std::fmt::Debug;
 
@@ -15,6 +16,7 @@ pub use address_activity::AddressActivityAnalytics;
 pub use address_balance::AddressAnalytics;
 pub use base_token::BaseTokenActivityAnalytics;
 pub use ledger_outputs::LedgerOutputAnalytics;
+pub use output_activity::OutputActivityAnalytics;
 
 use async_trait::async_trait;
 use decimal::d128;
@@ -75,7 +77,7 @@ pub struct Analytics {
     // pub addresses: AddressAnalytics,
     // pub base_token: BaseTokenActivityAnalytics,
     // pub ledger_outputs: LedgerOutputAnalytics,
-    pub output_activity: OutputActivityAnalytics,
+    // pub output_activity: OutputActivityAnalytics,
     pub ledger_size: LedgerSizeAnalytics,
     pub unclaimed_tokens: UnclaimedTokensAnalytics,
     pub block_activity: BlockActivityAnalytics,
@@ -112,7 +114,7 @@ impl MongoDb {
         let (
             // addresses,
             // ledger_outputs,
-            output_activity,
+            // output_activity,
             ledger_size,
             unclaimed_tokens,
             unlock_conditions,
@@ -123,7 +125,7 @@ impl MongoDb {
         ) = tokio::try_join!(
             // output_collection.get_address_analytics(milestone_index),
             // output_collection.get_ledger_output_analytics(milestone_index),
-            output_collection.get_output_activity_analytics(milestone_index),
+            // output_collection.get_output_activity_analytics(milestone_index),
             output_collection.get_ledger_size_analytics(milestone_index),
             output_collection.get_unclaimed_token_analytics(milestone_index),
             output_collection.get_unlock_condition_analytics(milestone_index),
@@ -140,7 +142,7 @@ impl MongoDb {
             // addresses,
             // base_token,
             // ledger_outputs,
-            output_activity,
+            // output_activity,
             ledger_size,
             unclaimed_tokens,
             block_activity,
@@ -184,33 +186,6 @@ impl LedgerSizeAnalytics {
 pub struct UnclaimedTokensAnalytics {
     pub unclaimed_count: u64,
     pub unclaimed_value: d128,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct OutputActivityAnalytics {
-    pub alias: AliasActivityAnalytics,
-    pub nft: NftActivityAnalytics,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct AliasActivityAnalytics {
-    pub created_count: u64,
-    pub governor_changed_count: u64,
-    pub state_changed_count: u64,
-    pub destroyed_count: u64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct NftActivityAnalytics {
-    pub created_count: u64,
-    pub transferred_count: u64,
-    pub destroyed_count: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
