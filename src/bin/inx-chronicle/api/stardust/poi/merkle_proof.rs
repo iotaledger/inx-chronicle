@@ -78,8 +78,8 @@ impl MerkleProof {
     /// Recursively computes the "Merkle Audit Path" for a certain `BlockId` that is given by its index in a list of
     /// ordered and unique `BlockId`s.
     ///
-    /// For further details on Merkle trees, Merkle audit paths and Proof of Inclusion have a look at:
-    /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md) for more details.
+    /// For further details on the usage of Merkle trees and Proof of Inclusion in IOTA, have a look at:
+    /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md).
     fn compute_audit_path(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = data.len();
         debug_assert!(n > 1 && index < n, "n={n}, index={index}");
