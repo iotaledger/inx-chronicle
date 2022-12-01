@@ -5,7 +5,6 @@ use std::{collections::HashSet, str::FromStr};
 
 use axum::{
     extract::{Json, Path},
-    http::{header::ACCEPT, HeaderMap},
     routing::{get, post},
     Extension,
 };
@@ -25,7 +24,6 @@ use super::{
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
     router::Router,
-    routes::BYTE_CONTENT_HEADER,
     ApiResult,
 };
 
@@ -40,7 +38,6 @@ pub fn routes() -> Router {
 async fn create_block_referenced_proof(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
-    headers: HeaderMap,
 ) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
     let block_collection = database.collection::<BlockCollection>();
@@ -97,15 +94,11 @@ async fn create_block_referenced_proof(
         .into());
     }
 
-    if matches!(headers.get(ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
-        todo!("return proof in binary format");
-    } else {
-        Ok(CreateProofResponse {
-            milestone: milestone.into(),
-            block: block.into(),
-            audit_path: merkle_audit_path.into(),
-        })
-    }
+    Ok(CreateProofResponse {
+        milestone: milestone.into(),
+        block: block.into(),
+        audit_path: merkle_audit_path.into(),
+    })
 }
 
 async fn validate_block_referenced_proof(
@@ -150,7 +143,6 @@ async fn validate_block_referenced_proof(
 async fn create_block_applied_proof(
     database: Extension<MongoDb>,
     Path(block_id): Path<String>,
-    headers: HeaderMap,
 ) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
     let block_collection = database.collection::<BlockCollection>();
@@ -207,15 +199,11 @@ async fn create_block_applied_proof(
         .into());
     }
 
-    if matches!(headers.get(ACCEPT), Some(header) if header == BYTE_CONTENT_HEADER) {
-        todo!("return proof in binary format");
-    } else {
-        Ok(CreateProofResponse {
-            milestone: milestone.into(),
-            block: block.into(),
-            audit_path: merkle_audit_path.into(),
-        })
-    }
+    Ok(CreateProofResponse {
+        milestone: milestone.into(),
+        block: block.into(),
+        audit_path: merkle_audit_path.into(),
+    })
 }
 
 async fn validate_block_applied_proof(
