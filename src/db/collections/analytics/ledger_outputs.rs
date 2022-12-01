@@ -130,23 +130,32 @@ impl OutputCollection {
 impl Measurement for PerMilestone<LedgerOutputAnalyticsResult> {
     fn into_write_query(&self) -> influxdb::WriteQuery {
         influxdb::Timestamp::from(self.milestone_timestamp)
-        .into_query("stardust_ledger_outputs")
-        .add_field("milestone_index", self.milestone_index)
-        .add_field("basic_count", self.measurement.basic_count)
-        .add_field("basic_value", self.measurement.basic_value.to_string().parse::<u64>().unwrap())
-        .add_field("alias_count", self.measurement.alias_count)
-        .add_field("alias_value", self.measurement.alias_value.to_string().parse::<u64>().unwrap())
-        .add_field("foundry_count", self.measurement.foundry_count)
-        .add_field(
-            "foundry_value",
-            self.measurement.foundry_value.to_string().parse::<u64>().unwrap(),
-        )
-        .add_field("nft_count", self.measurement.nft_count)
-        .add_field("nft_value", self.measurement.nft_value.to_string().parse::<u64>().unwrap())
-        .add_field("treasury_count", self.measurement.treasury_count)
-        .add_field(
-            "treasury_value",
-            self.measurement.treasury_value.to_string().parse::<u64>().unwrap(),
-        )
+            .into_query("stardust_ledger_outputs")
+            .add_field("milestone_index", self.milestone_index)
+            .add_field("basic_count", self.measurement.basic_count)
+            .add_field(
+                "basic_value",
+                self.measurement.basic_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field("alias_count", self.measurement.alias_count)
+            .add_field(
+                "alias_value",
+                self.measurement.alias_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field("foundry_count", self.measurement.foundry_count)
+            .add_field(
+                "foundry_value",
+                self.measurement.foundry_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field("nft_count", self.measurement.nft_count)
+            .add_field(
+                "nft_value",
+                self.measurement.nft_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field("treasury_count", self.measurement.treasury_count)
+            .add_field(
+                "treasury_value",
+                self.measurement.treasury_value.to_string().parse::<u64>().unwrap(),
+            )
     }
 }

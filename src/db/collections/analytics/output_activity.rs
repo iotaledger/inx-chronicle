@@ -10,7 +10,13 @@ use serde::{Deserialize, Serialize};
 use super::{Analytic, Measurement, PerMilestone};
 use crate::{
     db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::{milestone::MilestoneTimestamp, block::output::{NftId, AliasId}}, tangle::MilestoneIndex},
+    types::{
+        stardust::{
+            block::output::{AliasId, NftId},
+            milestone::MilestoneTimestamp,
+        },
+        tangle::MilestoneIndex,
+    },
 };
 
 /// Computes the number of addresses that hold a balance.
@@ -176,14 +182,17 @@ impl OutputCollection {
 impl Measurement for PerMilestone<OutputActivityAnalyticsResult> {
     fn into_write_query(&self) -> influxdb::WriteQuery {
         influxdb::Timestamp::from(self.milestone_timestamp)
-        .into_query("stardust_output_activity")
-        .add_field("milestone_index", self.milestone_index)
-        .add_field("alias_created_count", self.measurement.alias.created_count)
-        .add_field("alias_state_changed_count", self.measurement.alias.state_changed_count)
-        .add_field("alias_governor_changed_count", self.measurement.alias.governor_changed_count)
-        .add_field("alias_destroyed_count", self.measurement.alias.destroyed_count)
-        .add_field("nft_created_count", self.measurement.nft.created_count)
-        .add_field("nft_transferred_count", self.measurement.nft.transferred_count)
-        .add_field("nft_destroyed_count", self.measurement.nft.destroyed_count)
+            .into_query("stardust_output_activity")
+            .add_field("milestone_index", self.milestone_index)
+            .add_field("alias_created_count", self.measurement.alias.created_count)
+            .add_field("alias_state_changed_count", self.measurement.alias.state_changed_count)
+            .add_field(
+                "alias_governor_changed_count",
+                self.measurement.alias.governor_changed_count,
+            )
+            .add_field("alias_destroyed_count", self.measurement.alias.destroyed_count)
+            .add_field("nft_created_count", self.measurement.nft.created_count)
+            .add_field("nft_transferred_count", self.measurement.nft.transferred_count)
+            .add_field("nft_destroyed_count", self.measurement.nft.destroyed_count)
     }
 }

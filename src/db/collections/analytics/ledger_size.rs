@@ -11,7 +11,13 @@ use serde::{Deserialize, Serialize};
 use super::{Analytic, Measurement, PerMilestone};
 use crate::{
     db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::{milestone::MilestoneTimestamp, block::output::{NftId, AliasId}}, tangle::{MilestoneIndex, ProtocolParameters}},
+    types::{
+        stardust::{
+            block::output::{AliasId, NftId},
+            milestone::MilestoneTimestamp,
+        },
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
 
 /// Computes the size of the ledger.
@@ -96,23 +102,23 @@ impl OutputCollection {
 impl Measurement for PerMilestone<LedgerSizeAnalyticsResult> {
     fn into_write_query(&self) -> influxdb::WriteQuery {
         influxdb::Timestamp::from(self.milestone_timestamp)
-        .into_query("stardust_ledger_size")
-        .add_field("milestone_index", self.milestone_index)
-        .add_field(
-            "total_storage_deposit_value",
-            self.measurement
-                .total_storage_deposit_value
-                .to_string()
-                .parse::<u64>()
-                .unwrap(),
-        )
-        .add_field(
-            "total_key_bytes",
-            self.measurement.total_key_bytes.to_string().parse::<u64>().unwrap(),
-        )
-        .add_field(
-            "total_data_bytes",
-            self.measurement.total_data_bytes.to_string().parse::<u64>().unwrap(),
-        )
+            .into_query("stardust_ledger_size")
+            .add_field("milestone_index", self.milestone_index)
+            .add_field(
+                "total_storage_deposit_value",
+                self.measurement
+                    .total_storage_deposit_value
+                    .to_string()
+                    .parse::<u64>()
+                    .unwrap(),
+            )
+            .add_field(
+                "total_key_bytes",
+                self.measurement.total_key_bytes.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field(
+                "total_data_bytes",
+                self.measurement.total_data_bytes.to_string().parse::<u64>().unwrap(),
+            )
     }
 }

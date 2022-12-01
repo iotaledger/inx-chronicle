@@ -14,17 +14,18 @@ use crate::{
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
-/// Computes the number of addresses that hold a balance.
+/// Computes the statistics about the token claiming process.
 #[derive(Debug)]
-pub struct BaseTokenActivityAnalytics;
+pub struct UnclaimedTokenAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-struct BaseTokenActivityAnalyticsResult {
-    transferred_value: d128,
+struct UnclaimedTokenAnalyticsResult {
+    unclaimed_count: u64,
+    unclaimed_value: d128,
 }
 
 #[async_trait]
-impl Analytic for BaseTokenActivityAnalytics {
+impl Analytic for UnclaimedTokenAnalytics {
     async fn get_measurement(
         &mut self,
         db: &MongoDb,
@@ -33,7 +34,7 @@ impl Analytic for BaseTokenActivityAnalytics {
     ) -> Option<Result<Box<dyn Measurement>, Error>> {
         let res = db
             .collection::<OutputCollection>()
-            .get_base_token_activity_analytics(milestone_index)
+            .get_unclaimed_token_analytics(milestone_index)
             .await;
         Some(match res {
             Ok(measurement) => Ok(Box::new(PerMilestone {
@@ -48,24 +49,27 @@ impl Analytic for BaseTokenActivityAnalytics {
 
 impl OutputCollection {
     /// TODO: Merge with above
-    /// Gathers output analytics.
+    /// Gets the number of claimed tokens.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_base_token_activity_analytics(
+    async fn get_unclaimed_token_analytics(
         &self,
-        milestone_index: MilestoneIndex,
-    ) -> Result<BaseTokenActivityAnalyticsResult, Error> {
+        ledger_index: MilestoneIndex,
+    ) -> Result<UnclaimedTokenAnalyticsResult, Error> {
         Ok(self
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "metadata.booked.milestone_index": milestone_index,
+                        "metadata.booked.milestone_index": { "$eq": 0 },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
-                    doc! { "$group" : {
+                    doc! { "$group": {
                         "_id": null,
-                        "transferred_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "unclaimed_count": { "$sum": 1 },
+                        "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
                     } },
                     doc! { "$project": {
-                        "transferred_value": { "$toString": "$transferred_value" },
+                        "unclaimed_count": 1,
+                        "unclaimed_value": { "$toString": "$unclaimed_value" },
                     } },
                 ],
                 None,
@@ -77,14 +81,15 @@ impl OutputCollection {
     }
 }
 
-impl Measurement for PerMilestone<BaseTokenActivityAnalyticsResult> {
+impl Measurement for PerMilestone<UnclaimedTokenAnalyticsResult> {
     fn into_write_query(&self) -> influxdb::WriteQuery {
         influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_base_token_activity")
+            .into_query("stardust_unclaimed_rewards")
             .add_field("milestone_index", self.milestone_index)
+            .add_field("unclaimed_count", self.measurement.unclaimed_count)
             .add_field(
-                "transferred_value",
-                self.measurement.transferred_value.to_string().parse::<u64>().unwrap(),
+                "unclaimed_value",
+                self.measurement.unclaimed_value.to_string().parse::<u64>().unwrap(),
             )
     }
 }

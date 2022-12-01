@@ -63,8 +63,8 @@ impl InfluxDb {
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_outputs),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.output_activity),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_size),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.block_activity),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.block_activity),
             self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
             async {
                 if let Some(protocol_params) = analytics.protocol_params {
@@ -76,46 +76,6 @@ impl InfluxDb {
         )?;
         Ok(())
     }
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<UnclaimedTokensAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("unclaimed_count", self.data.unclaimed_count)
-            .add_field(
-                "unclaimed_value",
-                self.data.unclaimed_value.to_string().parse::<u64>().unwrap(),
-            )
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<UnclaimedTokensAnalytics> {
-    const NAME: &'static str = "stardust_unclaimed_rewards";
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<BlockActivityAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("transaction_count", self.data.payload.transaction_count)
-            .add_field(
-                "treasury_transaction_count",
-                self.data.payload.treasury_transaction_count,
-            )
-            .add_field("milestone_count", self.data.payload.milestone_count)
-            .add_field("tagged_data_count", self.data.payload.tagged_data_count)
-            .add_field("no_payload_count", self.data.payload.no_payload_count)
-            .add_field("confirmed_count", self.data.transaction.confirmed_count)
-            .add_field("conflicting_count", self.data.transaction.conflicting_count)
-            .add_field("no_transaction_count", self.data.transaction.no_transaction_count)
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<BlockActivityAnalytics> {
-    const NAME: &'static str = "stardust_block_activity";
 }
 
 impl InfluxDbWriteable for AnalyticsSchema<ProtocolParameters> {

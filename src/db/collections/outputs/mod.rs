@@ -374,7 +374,7 @@ mod analytics {
         db::{
             collections::analytics::{
                 AddressAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-                OutputActivityAnalytics, UnclaimedTokensAnalytics, UnlockConditionAnalytics,
+                OutputActivityAnalytics, UnclaimedTokenAnalytics, UnlockConditionAnalytics,
             },
             mongodb::MongoDbCollectionExt,
         },
@@ -390,39 +390,6 @@ mod analytics {
     }
 
     impl OutputCollection {
-
-
-        /// Gets the number of claimed tokens.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_unclaimed_token_analytics(
-            &self,
-            ledger_index: MilestoneIndex,
-        ) -> Result<UnclaimedTokensAnalytics, Error> {
-            Ok(self
-                .aggregate(
-                    vec![
-                        doc! { "$match": {
-                            "metadata.booked.milestone_index": { "$eq": 0 },
-                            "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                        } },
-                        doc! { "$group": {
-                            "_id": null,
-                            "unclaimed_count": { "$sum": 1 },
-                            "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
-                        } },
-                        doc! { "$project": {
-                            "unclaimed_count": 1,
-                            "unclaimed_value": { "$toString": "$unclaimed_value" },
-                        } },
-                    ],
-                    None,
-                )
-                .await?
-                .try_next()
-                .await?
-                .unwrap_or_default())
-        }
-
         /// Gets analytics about unlock conditions.
         #[tracing::instrument(skip(self), err, level = "trace")]
         pub async fn get_unlock_condition_analytics(
