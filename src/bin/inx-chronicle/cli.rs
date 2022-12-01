@@ -346,6 +346,7 @@ async fn fill_analytics(
             {
                 let elapsed = start_time.elapsed();
                 influx_db
+                    .metrics()
                     .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
                         time: chrono::Utc::now(),
                         milestone_index: index,
