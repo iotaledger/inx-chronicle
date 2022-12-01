@@ -92,44 +92,25 @@ impl MerkleProof {
     fn compute_audit_path(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = data.len();
         debug_assert!(n > 1 && index < n);
-        match n {
-            0 | 1 => unreachable!("invalid input data"),
-            2 => {
-                let (left, right) = (data[0], data[1]);
-                if index == 0 {
-                    MerkleAuditPath {
-                        left: Hashable::Value(left),
-                        right: Hashable::Node(MerkleHasher::hash_leaf(right)),
-                    }
+        let mid = super::merkle_hasher::largest_power_of_two(n);
+        let (left, right) = data.split_at(mid);
+        if index < mid {
+            MerkleAuditPath {
+                left: if left.len() == 1 {
+                    Hashable::Value(left[0])
                 } else {
-                    MerkleAuditPath {
-                        left: Hashable::Node(MerkleHasher::hash_leaf(left)),
-                        right: Hashable::Value(right),
-                    }
-                }
+                    Hashable::Path(Box::new(Self::compute_audit_path(left, index)))
+                },
+                right: Hashable::Node(MerkleHasher::hash(right)),
             }
-            _ => {
-                let mid = super::merkle_hasher::largest_power_of_two(n);
-                let (left, right) = data.split_at(mid);
-                if index < mid {
-                    MerkleAuditPath {
-                        left: if left.len() == 1 {
-                            Hashable::Value(left[0])
-                        } else {
-                            Hashable::Path(Box::new(Self::compute_audit_path(left, index)))
-                        },
-                        right: Hashable::Node(MerkleHasher::hash(right)),
-                    }
+        } else {
+            MerkleAuditPath {
+                left: Hashable::Node(MerkleHasher::hash(left)),
+                right: if right.len() == 1 {
+                    Hashable::Value(right[0])
                 } else {
-                    MerkleAuditPath {
-                        left: Hashable::Node(MerkleHasher::hash(left)),
-                        right: if right.len() == 1 {
-                            Hashable::Value(right[0])
-                        } else {
-                            Hashable::Path(Box::new(Self::compute_audit_path(right, index - mid)))
-                        },
-                    }
-                }
+                    Hashable::Path(Box::new(Self::compute_audit_path(right, index - mid)))
+                },
             }
         }
     }
