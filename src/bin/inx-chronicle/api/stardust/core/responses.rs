@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::api::response as iota;
+use iota_types::{api::response as iota, block::protocol::dto::ProtocolParametersDto};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;
@@ -13,7 +13,7 @@ pub struct InfoResponse {
     pub name: String,
     pub version: String,
     pub status: iota::StatusResponse,
-    pub protocol: iota::ProtocolResponse,
+    pub protocol: ProtocolParametersDto,
     pub base_token: iota::BaseTokenResponse,
 }
 

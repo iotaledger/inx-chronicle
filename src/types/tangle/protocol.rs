@@ -17,9 +17,9 @@ pub struct RentStructure {
 impl From<&iota::output::RentStructure> for RentStructure {
     fn from(value: &iota::output::RentStructure) -> Self {
         Self {
-            v_byte_cost: value.v_byte_cost,
-            v_byte_factor_data: value.v_byte_factor_data,
-            v_byte_factor_key: value.v_byte_factor_key,
+            v_byte_cost: value.byte_cost(),
+            v_byte_factor_data: value.byte_factor_data(),
+            v_byte_factor_key: value.byte_factor_key(),
         }
     }
 }
@@ -28,8 +28,8 @@ impl From<RentStructure> for iota::output::RentStructure {
     fn from(value: RentStructure) -> Self {
         Self::build()
             .byte_cost(value.v_byte_cost)
-            .data_factor(value.v_byte_factor_data)
-            .key_factor(value.v_byte_factor_key)
+            .byte_factor_data(value.v_byte_factor_data)
+            .byte_factor_key(value.v_byte_factor_key)
             .finish()
     }
 }

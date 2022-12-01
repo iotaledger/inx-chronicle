@@ -70,23 +70,6 @@ impl MongoDbCollection for OutputCollection {
     async fn create_indexes(&self) -> Result<(), Error> {
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "details.address": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .unique(false)
-                        .name("address_index".to_string())
-                        .partial_filter_expression(doc! {
-                            "details.address": { "$exists": true },
-                        })
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
                 .keys(doc! { "metadata.block_id": 1 })
                 .options(
                     IndexOptions::builder()
@@ -531,7 +514,12 @@ mod analytics {
                                 } },
                             ],
                             "nft_changed": [
-                                { "$match": { "output.nft_id": { "$ne": NftId::implicit() } } },
+                                { "$match": { 
+                                    "$and": [
+                                        { "output.nft_id": { "$exists": true } },
+                                        { "output.nft_id": { "$ne": NftId::implicit() } },
+                                    ]
+                                } },
                                 { "$group": {
                                     "_id": "$output.nft_id",
                                     "transferred": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
@@ -554,7 +542,12 @@ mod analytics {
                                 } },
                             ],
                             "alias_changed": [
-                                { "$match": { "output.alias_id": { "$ne": AliasId::implicit() } } },
+                                { "$match": {
+                                    "$and": [
+                                        { "output.alias_id": { "$exists": true } },
+                                        { "output.alias_id": { "$ne": AliasId::implicit() } },
+                                    ]
+                                } },
                                 // Group by state indexes to find where it changed
                                 { "$group": {
                                     "_id": { "alias_id": "$output.alias_id", "state_index": "$output.state_index" },
@@ -616,7 +609,7 @@ mod analytics {
                         "_id": null,
                         "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
                         "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                        "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+                        "total_storage_deposit_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
                     } },
                     doc! { "$project": {
                         "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
@@ -649,7 +642,6 @@ mod analytics {
                         self.aggregate(
                             vec![
                                 doc! { "$match": {
-                                    "details.address": { "$exists": true },
                                     "$or": [
                                         { "metadata.booked.milestone_index": milestone_index },
                                         { "metadata.spent_metadata.spent.milestone_index": milestone_index },
@@ -671,7 +663,6 @@ mod analytics {
                         self.aggregate(
                             vec![
                                 doc! { "$match": {
-                                    "details.address": { "$exists": true },
                                     "metadata.booked.milestone_index": milestone_index
                                 } },
                                 doc! { "$group" : { "_id": "$details.address" }},
@@ -690,7 +681,6 @@ mod analytics {
                         self.aggregate(
                             vec![
                                 doc! { "$match": {
-                                    "details.address": { "$exists": true },
                                     "metadata.spent_metadata.spent.milestone_index": milestone_index
                                 } },
                                 doc! { "$group" : { "_id": "$details.address" }},
@@ -719,20 +709,11 @@ mod analytics {
                 .aggregate(
                     vec![
                         doc! { "$match": {
-                            "details.address": { "$exists": true },
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
                             "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                         } },
-                        doc! { "$group" : {
-                            "_id": "$details.address",
-                        }},
-                        doc! { "$group" : {
-                            "_id": null,
-                            "address_with_balance_count": { "$sum": 1 }
-                        }},
-                        doc! { "$project": {
-                            "address_with_balance_count": "$address_with_balance_count"
-                        } },
+                        doc! { "$group" : { "_id": "$details.address" } },
+                        doc! { "$count" : "address_with_balance_count" },
                     ],
                     None,
                 )
@@ -870,7 +851,6 @@ impl OutputCollection {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "details.address": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
@@ -900,7 +880,6 @@ impl OutputCollection {
             .aggregate(
                 vec![
                     doc! { "$match": {
-                        "details.address": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },

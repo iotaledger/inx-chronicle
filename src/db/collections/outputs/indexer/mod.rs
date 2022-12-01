@@ -378,10 +378,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.spent_metadata.spent.milestone_index": -1 })
+                .keys(
+                    doc! { "metadata.spent_metadata.spent.milestone_index": -1, "metadata.booked.milestone_index": 1,  "details.address": 1 },
+                )
                 .options(
                     IndexOptions::builder()
-                        .name("output_spent_milestone_index".to_string())
+                        .name("output_spent_milestone_index_comp".to_string())
                         .build(),
                 )
                 .build(),
