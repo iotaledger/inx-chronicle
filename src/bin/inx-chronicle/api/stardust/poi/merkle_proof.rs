@@ -78,39 +78,39 @@ impl MerkleProof {
     /// Recursively computes the "Merkle Audit Path" for a certain `BlockId` that is given by its index in a list of
     /// ordered and unique `BlockId`s.
     ///
-    /// Given `n` block ids, the algorithm deterministically selects a `mid` (largest power of two
-    /// less than `n`), at which it splits the data into a `left` and a `right` side ranging from `[0...mid)` and
-    /// `[mid..n)` repectively. Depending on which range `index` belongs to (i.e. the location of the `BlockId` in the
-    /// binary subtree), the function recursively calls itself on the associated slice and creates the Merkle tree
-    /// hash for the opposite side/subtree. It terminates if either of two things occur: (a) the given slice consists
-    /// only of 2 elements; in that case - depending on `index` - one is the `value` leaf and the other a hash of a
-    /// leaf; (b) after splitting `data` into two slices/subtrees (as described above), one side/subtree just
-    /// consists of the `value` leaf and the other of a hash of a Merkle sub tree not containing the `value` leaf.
-    ///
     /// For further details on Merkle trees, Merkle audit paths and Proof of Inclusion have a look at:
     /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md) for more details.
     fn compute_audit_path(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = data.len();
-        debug_assert!(n > 1 && index < n);
-        let mid = super::merkle_hasher::largest_power_of_two(n);
-        let (left, right) = data.split_at(mid);
-        if index < mid {
+        debug_assert!(n > 1 && index < n, "n={n}, index={index}");
+
+        // Select a `pivot` element to split `data` into two slices `left` and `right`.
+        let pivot = super::merkle_hasher::largest_power_of_two(n);
+        let (left, right) = data.split_at(pivot);
+
+        // Produces the Merkle hash of a sub tree not containing the `value`.
+        let h_tree = |s| Hashable::Node(MerkleHasher::hash(s));
+
+        // Produces the Merkle audit path for the given `value`.
+        let v_tree = |s: &[[u8; BlockId::LENGTH]], index| {
+            if s.len() == 1 {
+                Hashable::Value(s[0])
+            } else {
+                Hashable::Path(Box::new(Self::compute_audit_path(s, index)))
+            }
+        };
+
+        if index < pivot {
+            // `value` is contained in the left subtree, and the `right` subtree can be hashed together.
             MerkleAuditPath {
-                left: if left.len() == 1 {
-                    Hashable::Value(left[0])
-                } else {
-                    Hashable::Path(Box::new(Self::compute_audit_path(left, index)))
-                },
-                right: Hashable::Node(MerkleHasher::hash(right)),
+                left: v_tree(left, index),
+                right: h_tree(right),
             }
         } else {
+            // `value` is contained in the right subtree, and the `left` subtree can be hashed together.
             MerkleAuditPath {
-                left: Hashable::Node(MerkleHasher::hash(left)),
-                right: if right.len() == 1 {
-                    Hashable::Value(right[0])
-                } else {
-                    Hashable::Path(Box::new(Self::compute_audit_path(right, index - mid)))
-                },
+                left: h_tree(left),
+                right: v_tree(right, index - pivot),
             }
         }
     }
