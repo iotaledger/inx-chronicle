@@ -390,61 +390,7 @@ mod analytics {
     }
 
     impl OutputCollection {
-        /// Gets analytics about unlock conditions.
-        #[tracing::instrument(skip(self), err, level = "trace")]
-        pub async fn get_unlock_condition_analytics(
-            &self,
-            ledger_index: MilestoneIndex,
-        ) -> Result<UnlockConditionAnalytics, Error> {
-            #[derive(Default, Deserialize)]
-            struct Res {
-                count: u64,
-                value: d128,
-            }
-
-            let query = |kind: &'static str| async move {
-                Result::<Res, Error>::Ok(
-                    self.aggregate(
-                        vec![
-                            doc! { "$match": {
-                                format!("output.{kind}"): { "$exists": true },
-                                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                            } },
-                            doc! { "$group": {
-                                "_id": null,
-                                "count": { "$sum": 1 },
-                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "count": 1,
-                                "value": { "$toString": "$value" },
-                            } },
-                        ],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .unwrap_or_default(),
-                )
-            };
-
-            let (timelock, expiration, sdruc) = tokio::try_join!(
-                query("timelock_unlock_condition"),
-                query("expiration_unlock_condition"),
-                query("storage_deposit_return_unlock_condition"),
-            )?;
-
-            Ok(UnlockConditionAnalytics {
-                timelock_count: timelock.count,
-                timelock_value: timelock.value,
-                expiration_count: expiration.count,
-                expiration_value: expiration.value,
-                storage_deposit_return_count: sdruc.count,
-                storage_deposit_return_value: sdruc.value,
-            })
-        }
+        
     }
 }
 

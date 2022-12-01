@@ -65,7 +65,7 @@ impl InfluxDb {
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.ledger_size),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.unclaimed_tokens),
             // self.insert_analytics(milestone_timestamp, milestone_index, analytics.block_activity),
-            self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
+            // self.insert_analytics(milestone_timestamp, milestone_index, analytics.unlock_conditions),
             async {
                 if let Some(protocol_params) = analytics.protocol_params {
                     self.insert_analytics(milestone_timestamp, milestone_index, protocol_params)
@@ -94,35 +94,4 @@ impl InfluxDbWriteable for AnalyticsSchema<ProtocolParameters> {
 
 impl InfluxDbMeasurement for AnalyticsSchema<ProtocolParameters> {
     const NAME: &'static str = "stardust_protocol_params";
-}
-
-impl InfluxDbWriteable for AnalyticsSchema<UnlockConditionAnalytics> {
-    fn into_query<I: Into<String>>(self, name: I) -> influxdb::WriteQuery {
-        Timestamp::from(self.milestone_timestamp)
-            .into_query(name)
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("expiration_count", self.data.expiration_count)
-            .add_field(
-                "expiration_value",
-                self.data.expiration_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("timelock_count", self.data.timelock_count)
-            .add_field(
-                "timelock_value",
-                self.data.timelock_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("storage_deposit_return_count", self.data.storage_deposit_return_count)
-            .add_field(
-                "storage_deposit_return_value",
-                self.data
-                    .storage_deposit_return_value
-                    .to_string()
-                    .parse::<u64>()
-                    .unwrap(),
-            )
-    }
-}
-
-impl InfluxDbMeasurement for AnalyticsSchema<UnlockConditionAnalytics> {
-    const NAME: &'static str = "stardust_unlock_conditions";
 }

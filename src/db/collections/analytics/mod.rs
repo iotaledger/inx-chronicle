@@ -12,6 +12,7 @@ mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
 mod unclaimed_tokens;
+mod unlock_condition;
 
 use std::fmt::Debug;
 
@@ -28,6 +29,7 @@ pub use output_activity::OutputActivityAnalytics;
 use serde::{Deserialize, Serialize};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use block_activity::BlockActivityAnalytics;
+pub use unlock_condition::UnlockConditionAnalytics;
 
 use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
 use crate::{
@@ -94,7 +96,7 @@ pub struct Analytics {
     // pub ledger_size: LedgerSizeAnalytics,
     // pub unclaimed_tokens: UnclaimedTokenAnalytics,
     // pub block_activity: BlockActivityAnalytics,
-    pub unlock_conditions: UnlockConditionAnalytics,
+    // pub unlock_conditions: UnlockConditionAnalytics,
     pub protocol_params: Option<ProtocolParameters>,
 }
 
@@ -130,7 +132,7 @@ impl MongoDb {
             // output_activity,
             // ledger_size,
             // unclaimed_tokens,
-            unlock_conditions,
+            // unlock_conditions,
             // address_activity,
             // base_token,
             // block_activity,
@@ -141,7 +143,7 @@ impl MongoDb {
             // output_collection.get_output_activity_analytics(milestone_index),
             // output_collection.get_ledger_size_analytics(milestone_index),
             // output_collection.get_unclaimed_token_analytics(milestone_index),
-            output_collection.get_unlock_condition_analytics(milestone_index),
+            // output_collection.get_unlock_condition_analytics(milestone_index),
             // output_collection.get_address_activity_analytics(milestone_index),
             // output_collection.get_base_token_activity_analytics(milestone_index),
             // block_collection.get_block_activity_analytics(milestone_index),
@@ -159,22 +161,12 @@ impl MongoDb {
             // ledger_size,
             // unclaimed_tokens,
             // block_activity,
-            unlock_conditions,
+            // unlock_conditions,
             protocol_params,
         })
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct UnlockConditionAnalytics {
-    pub timelock_count: u64,
-    pub timelock_value: d128,
-    pub expiration_count: u64,
-    pub expiration_value: d128,
-    pub storage_deposit_return_count: u64,
-    pub storage_deposit_return_value: d128,
-}
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 #[serde(default)]
