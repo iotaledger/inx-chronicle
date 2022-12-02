@@ -48,6 +48,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct PerMilestone<M> {
     pub milestone_timestamp: MilestoneTimestamp,
     pub milestone_index: MilestoneIndex,
@@ -64,12 +65,14 @@ impl<M> PerMilestone<M> {
 
 /// TODO: We will need this later.
 #[allow(unused)]
+#[allow(missing_docs)]
 pub struct TimeInterval<M> {
     milestone_timestamp: MilestoneTimestamp,
     measurement: M,
 }
 
 #[async_trait]
+/// A common trait for all analytics.
 pub trait Analytic: Debug + Send + Sync {
     /// Note that we return an `Option` so that we don't always have to produce a metric for a given milestone. This is
     /// useful for values that don't change often, or if we want to aggregate over time intervals, for example. We also
@@ -83,6 +86,7 @@ pub trait Analytic: Debug + Send + Sync {
     ) -> Option<Result<Measurement, Error>>;
 }
 
+/// Returns a list of trait objects for all analytics.
 pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
     vec![
         Box::new(AddressActivityAnalytics),
@@ -115,12 +119,6 @@ impl MongoDb {
             }
         }
         Ok(res)
-    }
-
-    /// Gets all analytics for a milestone index, fetching the data from the collections.
-    #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<(), Error> {
-        todo!() //
     }
 }
 

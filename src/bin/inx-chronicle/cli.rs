@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::collections::analytics::all_analytics;
+use chronicle::db::collections::analytics::{LedgerSizeAnalytics, Analytic};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
@@ -250,7 +250,8 @@ impl ClArgs {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
                         join_set.spawn(async move {
-                            let mut selected_analytics = all_analytics();
+                            // TODO change to `all_analytics`
+                            let mut selected_analytics: Vec<Box<dyn Analytic>> = vec![Box::new(LedgerSizeAnalytics)];
 
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();
@@ -261,19 +262,17 @@ impl ClArgs {
                                 {
                                     #[cfg(feature = "metrics")]
                                     let start_time = std::time::Instant::now();
-                                    // let analytics = db.get_all_analytics(milestone_index).await?;
 
+                                    // TODO make concurrent
                                     let measurements = db
                                         .get_analytics(&mut selected_analytics, milestone_index, milestone_timestamp)
                                         .await?;
 
+                                    // TODO make concurrent
                                     for m in measurements {
                                         influx_db.insert_measurement(m).await?;
                                     }
 
-                                    // influx_db
-                                    //     .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                                    //     .await?;
                                     #[cfg(feature = "metrics")]
                                     {
                                         let elapsed = start_time.elapsed();
