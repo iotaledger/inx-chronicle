@@ -157,12 +157,12 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()>
             .with(EnvFilter::from_default_env())
             .with(tracing_subscriber::fmt::layer().with_span_events(FmtSpan::CLOSE))
     };
-    #[cfg(feature = "loki")]
-    let registry = {
-        let (layer, task) = tracing_loki::layer(config.loki.connect_url.parse()?, [].into(), [].into())?;
-        tokio::spawn(task);
-        registry.with(layer)
-    };
+    // #[cfg(feature = "loki")]
+    // let registry = {
+    //     let (layer, task) = tracing_loki::layer(config.loki.connect_url.parse()?, [].into(), [].into())?;
+    //     tokio::spawn(task);
+    //     registry.with(layer)
+    // };
 
     registry.init();
     Ok(())

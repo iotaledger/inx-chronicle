@@ -250,6 +250,7 @@ impl ClArgs {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
                         join_set.spawn(async move {
+                            // TODO pick analytics
                             // TODO change to `all_analytics`
                             let mut selected_analytics: Vec<Box<dyn Analytic>> = vec![Box::new(LedgerSizeAnalytics)];
 
