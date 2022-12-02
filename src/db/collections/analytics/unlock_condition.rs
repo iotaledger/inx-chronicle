@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -18,15 +17,15 @@ use crate::{
 #[derive(Debug)]
 pub struct UnlockConditionAnalytics;
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
-struct UnlockConditionAnalyticsResult {
-    timelock_count: u64,
-    timelock_value: d128,
-    expiration_count: u64,
-    expiration_value: d128,
-    storage_deposit_return_count: u64,
-    storage_deposit_return_value: d128,
+pub struct UnlockConditionAnalyticsResult {
+    pub timelock_count: u64,
+    pub timelock_value: d128,
+    pub expiration_count: u64,
+    pub expiration_value: d128,
+    pub storage_deposit_return_count: u64,
+    pub storage_deposit_return_value: d128,
 }
 
 #[async_trait]
@@ -36,16 +35,16 @@ impl Analytic for UnlockConditionAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_unlock_condition_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::UnlockConditionAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -108,35 +107,5 @@ impl OutputCollection {
             storage_deposit_return_count: sdruc.count,
             storage_deposit_return_value: sdruc.value,
         })
-    }
-}
-
-impl Measurement for PerMilestone<UnlockConditionAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_unlock_conditions")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("expiration_count", self.measurement.expiration_count)
-            .add_field(
-                "expiration_value",
-                self.measurement.expiration_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("timelock_count", self.measurement.timelock_count)
-            .add_field(
-                "timelock_value",
-                self.measurement.timelock_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field(
-                "storage_deposit_return_count",
-                self.measurement.storage_deposit_return_count,
-            )
-            .add_field(
-                "storage_deposit_return_value",
-                self.measurement
-                    .storage_deposit_return_value
-                    .to_string()
-                    .parse::<u64>()
-                    .unwrap(),
-            )
     }
 }

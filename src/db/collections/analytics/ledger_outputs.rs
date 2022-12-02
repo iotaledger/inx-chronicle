@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -19,17 +18,17 @@ use crate::{
 pub struct LedgerOutputAnalytics;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-struct LedgerOutputAnalyticsResult {
-    basic_count: u64,
-    basic_value: d128,
-    alias_count: u64,
-    alias_value: d128,
-    foundry_count: u64,
-    foundry_value: d128,
-    nft_count: u64,
-    nft_value: d128,
-    treasury_count: u64,
-    treasury_value: d128,
+pub struct LedgerOutputAnalyticsResult {
+    pub basic_count: u64,
+    pub basic_value: d128,
+    pub alias_count: u64,
+    pub alias_value: d128,
+    pub foundry_count: u64,
+    pub foundry_value: d128,
+    pub nft_count: u64,
+    pub nft_value: d128,
+    pub treasury_count: u64,
+    pub treasury_value: d128,
 }
 
 #[async_trait]
@@ -39,16 +38,16 @@ impl Analytic for LedgerOutputAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_ledger_output_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::LedgerOutputAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -124,38 +123,5 @@ impl OutputCollection {
             treasury_count: res.treasury.count,
             treasury_value: res.treasury.value,
         })
-    }
-}
-
-impl Measurement for PerMilestone<LedgerOutputAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_ledger_outputs")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("basic_count", self.measurement.basic_count)
-            .add_field(
-                "basic_value",
-                self.measurement.basic_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("alias_count", self.measurement.alias_count)
-            .add_field(
-                "alias_value",
-                self.measurement.alias_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("foundry_count", self.measurement.foundry_count)
-            .add_field(
-                "foundry_value",
-                self.measurement.foundry_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("nft_count", self.measurement.nft_count)
-            .add_field(
-                "nft_value",
-                self.measurement.nft_value.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field("treasury_count", self.measurement.treasury_count)
-            .add_field(
-                "treasury_value",
-                self.measurement.treasury_value.to_string().parse::<u64>().unwrap(),
-            )
     }
 }

@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -18,9 +17,9 @@ use crate::{
 #[derive(Debug)]
 pub struct BaseTokenActivityAnalytics;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-struct BaseTokenActivityAnalyticsResult {
-    transferred_value: d128,
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct BaseTokenActivityAnalyticsResult {
+    pub transferred_value: d128,
 }
 
 #[async_trait]
@@ -30,16 +29,16 @@ impl Analytic for BaseTokenActivityAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_base_token_activity_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::BaseTokenActivity(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -74,17 +73,5 @@ impl OutputCollection {
             .try_next()
             .await?
             .unwrap_or_default())
-    }
-}
-
-impl Measurement for PerMilestone<BaseTokenActivityAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_base_token_activity")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field(
-                "transferred_value",
-                self.measurement.transferred_value.to_string().parse::<u64>().unwrap(),
-            )
     }
 }

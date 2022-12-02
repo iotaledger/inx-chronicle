@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +17,11 @@ use crate::{
 #[derive(Debug)]
 pub struct UnclaimedTokenAnalytics;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-struct UnclaimedTokenAnalyticsResult {
-    unclaimed_count: u64,
-    unclaimed_value: d128,
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub struct UnclaimedTokenAnalyticsResult {
+    pub unclaimed_count: u64,
+    pub unclaimed_value: d128,
 }
 
 #[async_trait]
@@ -31,16 +31,16 @@ impl Analytic for UnclaimedTokenAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_unclaimed_token_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::UnclaimedTokenAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -78,18 +78,5 @@ impl OutputCollection {
             .try_next()
             .await?
             .unwrap_or_default())
-    }
-}
-
-impl Measurement for PerMilestone<UnclaimedTokenAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_unclaimed_rewards")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("unclaimed_count", self.measurement.unclaimed_count)
-            .add_field(
-                "unclaimed_value",
-                self.measurement.unclaimed_value.to_string().parse::<u64>().unwrap(),
-            )
     }
 }

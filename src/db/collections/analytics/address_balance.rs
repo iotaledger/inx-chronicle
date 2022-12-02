@@ -3,7 +3,6 @@
 
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -17,9 +16,9 @@ use crate::{
 #[derive(Debug)]
 pub struct AddressAnalytics;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-struct AddressAnalyticsResult {
-    address_with_balance_count: u64,
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AddressAnalyticsResult {
+    pub address_with_balance_count: u64,
 }
 
 #[async_trait]
@@ -29,16 +28,16 @@ impl Analytic for AddressAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_address_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::AddressAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -66,17 +65,5 @@ impl OutputCollection {
             .try_next()
             .await?
             .unwrap_or_default())
-    }
-}
-
-impl Measurement for PerMilestone<AddressAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_addresses")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field(
-                "address_with_balance_count",
-                self.measurement.address_with_balance_count,
-            )
     }
 }

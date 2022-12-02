@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -22,10 +21,10 @@ use crate::{
 pub struct LedgerSizeAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-struct LedgerSizeAnalyticsResult {
-    total_storage_deposit_value: d128,
-    total_key_bytes: d128,
-    total_data_bytes: d128,
+pub struct LedgerSizeAnalyticsResult {
+    pub total_storage_deposit_value: d128,
+    pub total_key_bytes: d128,
+    pub total_data_bytes: d128,
 }
 
 impl LedgerSizeAnalyticsResult {
@@ -44,16 +43,16 @@ impl Analytic for LedgerSizeAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_ledger_size_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::LedgerSizeAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -93,29 +92,5 @@ impl OutputCollection {
         .try_next()
         .await?
         .unwrap_or_default())
-    }
-}
-
-impl Measurement for PerMilestone<LedgerSizeAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_ledger_size")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field(
-                "total_storage_deposit_value",
-                self.measurement
-                    .total_storage_deposit_value
-                    .to_string()
-                    .parse::<u64>()
-                    .unwrap(),
-            )
-            .add_field(
-                "total_key_bytes",
-                self.measurement.total_key_bytes.to_string().parse::<u64>().unwrap(),
-            )
-            .add_field(
-                "total_data_bytes",
-                self.measurement.total_data_bytes.to_string().parse::<u64>().unwrap(),
-            )
     }
 }

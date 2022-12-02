@@ -22,6 +22,7 @@ pub use address_balance::AddressAnalytics;
 use async_trait::async_trait;
 pub use base_token::BaseTokenActivityAnalytics;
 pub use block_activity::BlockActivityAnalytics;
+use influxdb::{InfluxDbWriteable, WriteQuery};
 pub use ledger_outputs::LedgerOutputAnalytics;
 pub use ledger_size::LedgerSizeAnalytics;
 use mongodb::{bson::doc, error::Error};
@@ -31,16 +32,34 @@ use serde::{Deserialize, Serialize};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
+use self::{
+    address_activity::AddressActivityAnalyticsResult, address_balance::AddressAnalyticsResult,
+    base_token::BaseTokenActivityAnalyticsResult, block_activity::BlockActivityAnalyticsResult,
+    ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
+    output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
+    unlock_condition::UnlockConditionAnalyticsResult,
+};
 use crate::{
     db::MongoDb,
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    types::{
+        stardust::milestone::MilestoneTimestamp,
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PerMilestone<M> {
-    milestone_timestamp: MilestoneTimestamp,
-    milestone_index: MilestoneIndex,
-    measurement: M,
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub inner: M,
+}
+
+impl<M> PerMilestone<M> {
+    fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
+        influxdb::Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_field("milestone_index", self.milestone_index)
+    }
 }
 
 /// TODO: We will need this later.
@@ -48,10 +67,6 @@ pub struct PerMilestone<M> {
 pub struct TimeInterval<M> {
     milestone_timestamp: MilestoneTimestamp,
     measurement: M,
-}
-
-pub trait Measurement: Debug + Send + Sync {
-    fn into_write_query(&self) -> influxdb::WriteQuery;
 }
 
 #[async_trait]
@@ -65,7 +80,7 @@ pub trait Analytic: Debug + Send + Sync {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>>;
+    ) -> Option<Result<Measurement, Error>>;
 }
 
 pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
@@ -92,7 +107,7 @@ impl MongoDb {
         analytics: &mut Vec<Box<dyn Analytic>>,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Vec<Box<dyn Measurement>>, Error> {
+    ) -> Result<Vec<Measurement>, Error> {
         let mut res = Vec::new();
         for a in analytics {
             if let Some(m) = a.get_measurement(self, milestone_index, milestone_timestamp).await {
@@ -113,4 +128,18 @@ impl MongoDb {
 #[allow(missing_docs)]
 pub struct SyncAnalytics {
     pub sync_time: u64,
+}
+
+#[allow(missing_docs)]
+pub enum Measurement {
+    AddressActivityAnalytics(PerMilestone<AddressActivityAnalyticsResult>),
+    AddressAnalytics(PerMilestone<AddressAnalyticsResult>),
+    BaseTokenActivity(PerMilestone<BaseTokenActivityAnalyticsResult>),
+    BlockAnalytics(PerMilestone<BlockActivityAnalyticsResult>),
+    LedgerOutputAnalytics(PerMilestone<LedgerOutputAnalyticsResult>),
+    LedgerSizeAnalytics(PerMilestone<LedgerSizeAnalyticsResult>),
+    OutputActivityAnalytics(PerMilestone<OutputActivityAnalyticsResult>),
+    ProtocolParameters(PerMilestone<ProtocolParameters>),
+    UnclaimedTokenAnalytics(PerMilestone<UnclaimedTokenAnalyticsResult>),
+    UnlockConditionAnalytics(PerMilestone<UnlockConditionAnalyticsResult>),
 }

@@ -3,7 +3,6 @@
 
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -25,27 +24,27 @@ pub struct OutputActivityAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-struct AliasActivityAnalyticsResult {
-    created_count: u64,
-    governor_changed_count: u64,
-    state_changed_count: u64,
-    destroyed_count: u64,
+pub struct AliasActivityAnalyticsResult {
+    pub created_count: u64,
+    pub governor_changed_count: u64,
+    pub state_changed_count: u64,
+    pub destroyed_count: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 #[serde(default)]
-struct NftActivityAnalyticsResult {
-    created_count: u64,
-    transferred_count: u64,
-    destroyed_count: u64,
+pub struct NftActivityAnalyticsResult {
+    pub created_count: u64,
+    pub transferred_count: u64,
+    pub destroyed_count: u64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
-struct OutputActivityAnalyticsResult {
-    alias: AliasActivityAnalyticsResult,
-    nft: NftActivityAnalyticsResult,
+pub struct OutputActivityAnalyticsResult {
+    pub alias: AliasActivityAnalyticsResult,
+    pub nft: NftActivityAnalyticsResult,
 }
 
 #[async_trait]
@@ -55,16 +54,16 @@ impl Analytic for OutputActivityAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_output_activity_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::OutputActivityAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -176,23 +175,5 @@ impl OutputCollection {
             .try_next()
             .await?
             .unwrap_or_default())
-    }
-}
-
-impl Measurement for PerMilestone<OutputActivityAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_output_activity")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("alias_created_count", self.measurement.alias.created_count)
-            .add_field("alias_state_changed_count", self.measurement.alias.state_changed_count)
-            .add_field(
-                "alias_governor_changed_count",
-                self.measurement.alias.governor_changed_count,
-            )
-            .add_field("alias_destroyed_count", self.measurement.alias.destroyed_count)
-            .add_field("nft_created_count", self.measurement.nft.created_count)
-            .add_field("nft_transferred_count", self.measurement.nft.transferred_count)
-            .add_field("nft_destroyed_count", self.measurement.nft.destroyed_count)
     }
 }

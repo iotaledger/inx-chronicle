@@ -3,7 +3,6 @@
 
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -46,16 +45,16 @@ impl Analytic for BlockActivityAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<BlockCollection>()
             .get_block_activity_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::BlockAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -119,27 +118,5 @@ impl BlockCollection {
             .try_next()
             .await?
             .unwrap_or_default())
-    }
-}
-
-impl Measurement for PerMilestone<BlockActivityAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_block_activity")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("transaction_count", self.measurement.payload.transaction_count)
-            .add_field(
-                "treasury_transaction_count",
-                self.measurement.payload.treasury_transaction_count,
-            )
-            .add_field("milestone_count", self.measurement.payload.milestone_count)
-            .add_field("tagged_data_count", self.measurement.payload.tagged_data_count)
-            .add_field("no_payload_count", self.measurement.payload.no_payload_count)
-            .add_field("confirmed_count", self.measurement.transaction.confirmed_count)
-            .add_field("conflicting_count", self.measurement.transaction.conflicting_count)
-            .add_field(
-                "no_transaction_count",
-                self.measurement.transaction.no_transaction_count,
-            )
     }
 }

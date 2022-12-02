@@ -3,7 +3,6 @@
 
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use influxdb::InfluxDbWriteable;
 use mongodb::{bson::doc, error::Error};
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +17,10 @@ use crate::{
 pub struct AddressActivityAnalytics;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-struct AddressActivityAnalyticsResult {
-    total_count: u64,
-    receiving_count: u64,
-    sending_count: u64,
+pub struct AddressActivityAnalyticsResult {
+    pub total_count: u64,
+    pub receiving_count: u64,
+    pub sending_count: u64,
 }
 
 #[async_trait]
@@ -31,16 +30,16 @@ impl Analytic for AddressActivityAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Box<dyn Measurement>, Error>> {
+    ) -> Option<Result<Measurement, Error>> {
         let res = db
             .collection::<OutputCollection>()
             .get_address_activity_analytics(milestone_index)
             .await;
         Some(match res {
-            Ok(measurement) => Ok(Box::new(PerMilestone {
+            Ok(measurement) => Ok(Measurement::AddressActivityAnalytics(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
-                measurement,
+                inner: measurement,
             })),
             Err(err) => Err(err),
         })
@@ -124,16 +123,5 @@ impl OutputCollection {
             receiving_count: receiving.address_count,
             sending_count: sending.address_count,
         })
-    }
-}
-
-impl Measurement for PerMilestone<AddressActivityAnalyticsResult> {
-    fn into_write_query(&self) -> influxdb::WriteQuery {
-        influxdb::Timestamp::from(self.milestone_timestamp)
-            .into_query("stardust_address_activity")
-            .add_field("milestone_index", self.milestone_index)
-            .add_field("total_count", self.measurement.total_count)
-            .add_field("receiving_count", self.measurement.receiving_count)
-            .add_field("sending_count", self.measurement.sending_count)
     }
 }
