@@ -178,6 +178,7 @@ pub struct NftActivityAnalytics {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct BaseTokenActivityAnalytics {
+    pub booked_value: d128,
     pub transferred_value: d128,
 }
 

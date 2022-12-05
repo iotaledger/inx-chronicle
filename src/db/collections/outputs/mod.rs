@@ -399,14 +399,62 @@ mod analytics {
             Ok(self
                 .aggregate(
                     vec![
+                        // Look at all created and consumed outputs in this milestone.
                         doc! { "$match": {
-                            "metadata.booked.milestone_index": milestone_index,
+                            "$or": [
+                                { "metadata.booked.milestone_index": milestone_index },
+                                { "metadata.spent_metadata.spent.milestone_index": milestone_index },
+                            ]
                         } },
-                        doc! { "$group" : {
-                            "_id": null,
-                            "transferred_value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        // Add a new filed to distinguish easier between transaction inputs and outputs.
+                        // Note, that outputs can be created and consumed in the same milestone.
+                        doc! { "$set": {
+                            "kind": {
+                                "$cond": [
+                                    { "$eq": [ "$metadata.booked.milestone_index", milestone_index ] },
+                                    "tx_output",
+                                    "tx_input"
+                                ]
+                            }
                         } },
+                        // Reconstruct the inputs and outputs of a particular transaction.
                         doc! { "$project": {
+                                "_id": {
+                                    "$cond": [ { "$eq": [ "$kind", "tx_output" ] }, "$_id.transaction_id", "$metadata.spent_metadata.transaction_id" ]
+                                },
+                                "address": "$details.address",
+                                "amount": { "$toDecimal": "$output.amount" },
+                                "kind": "$kind"
+                            }
+                        },
+                        // Sum input amounts and subtract output amounts per transaction and per address. Amounts that were sent back
+                        // to an input address within the same transaction get subtracted.
+                        doc! {
+                            "$group": { 
+                                "_id": {
+                                    "tx_id": "$_id",
+                                    "address": "$address"
+                                },
+                                "booked_value": { "$sum": { 
+                                    "$cond": [ { "$eq": ["$kind", "tx_input"] }, "$amount", 0 ] } },
+                                "transferred_value": { "$sum": {
+                                    "$cond": [ { "$eq": [ "$kind", "tx_input" ] }, "$amount", { "$subtract": [ 0, "$amount" ] } ] 
+                                } }
+                            }
+                        },
+                        // Sum everything that's positive. Everything negative must be ignored.
+                        doc! {
+                            "$group": {
+                                "_id": null,
+                                "booked_value": { "$sum": "$booked_value"},
+                                "transferred_value": { "$sum": { 
+                                    "$cond": [ { "$gt": [ "$transferred_value", 0 ] },  "$transferred_value", 0 ]
+                                } }
+                            }
+                        },
+                        // Convert result to String.
+                        doc! { "$project": {
+                            "booked_value": { "$toString": "$booked_value" },
                             "transferred_value": { "$toString": "$transferred_value" },
                         } },
                     ],
