@@ -60,10 +60,9 @@ impl Analytic for LedgerSizeAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Gathers byte cost and storage deposit analytics.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_ledger_size_analytics(
+    pub async fn get_ledger_size_analytics(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<LedgerSizeAnalyticsResult, Error> {

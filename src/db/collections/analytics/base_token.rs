@@ -46,10 +46,9 @@ impl Analytic for BaseTokenActivityAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Gathers output analytics.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_base_token_activity_analytics(
+    pub async fn get_base_token_activity_analytics(
         &self,
         milestone_index: MilestoneIndex,
     ) -> Result<BaseTokenActivityAnalyticsResult, Error> {

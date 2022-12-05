@@ -71,10 +71,9 @@ impl Analytic for OutputActivityAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Gathers analytics about outputs that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_output_activity_analytics(
+    pub async fn get_output_activity_analytics(
         &self,
         index: MilestoneIndex,
     ) -> Result<OutputActivityAnalyticsResult, Error> {

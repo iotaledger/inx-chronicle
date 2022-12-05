@@ -55,10 +55,9 @@ impl Analytic for LedgerOutputAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Gathers ledger (unspent) output analytics.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_ledger_output_analytics(
+    pub async fn get_ledger_output_analytics(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<LedgerOutputAnalyticsResult, Error> {

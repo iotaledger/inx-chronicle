@@ -47,10 +47,9 @@ impl Analytic for AddressActivityAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Create aggregate statistics of all addresses.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_address_activity_analytics(
+    pub async fn get_address_activity_analytics(
         &self,
         milestone_index: MilestoneIndex,
     ) -> Result<AddressActivityAnalyticsResult, Error> {

@@ -45,10 +45,9 @@ impl Analytic for AddressAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Get ledger address analytics.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_address_analytics(&self, ledger_index: MilestoneIndex) -> Result<AddressAnalyticsResult, Error> {
+    pub async fn get_address_analytics(&self, ledger_index: MilestoneIndex) -> Result<AddressAnalyticsResult, Error> {
         Ok(self
             .aggregate(
                 vec![
