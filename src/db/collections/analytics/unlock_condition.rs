@@ -52,10 +52,9 @@ impl Analytic for UnlockConditionAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Gets analytics about unlock conditions.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_unlock_condition_analytics(
+    pub async fn get_unlock_condition_analytics(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<UnlockConditionAnalyticsResult, Error> {

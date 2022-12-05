@@ -48,10 +48,9 @@ impl Analytic for UnclaimedTokenAnalytics {
 }
 
 impl OutputCollection {
-    /// TODO: Merge with above
     /// Gets the number of claimed tokens.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    async fn get_unclaimed_token_analytics(
+    pub async fn get_unclaimed_token_analytics(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<UnclaimedTokenAnalyticsResult, Error> {
