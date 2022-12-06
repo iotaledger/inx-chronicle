@@ -84,7 +84,14 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         while let Some(ledger_update) = stream.try_next().await? {
-            self.handle_ledger_update(&mut inx, ledger_update, &mut stream).await?;
+            self.handle_ledger_update(
+                &mut inx,
+                ledger_update,
+                &mut stream,
+                #[cfg(feature = "analytics")]
+                &mut all_analytics(),
+            )
+            .await?;
         }
 
         tracing::debug!("INX stream closed unexpectedly.");
@@ -235,6 +242,7 @@ impl InxWorker {
         inx: &mut Inx,
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
+        #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
@@ -346,10 +354,10 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                // TODO: Share this state across ledger updates
+                
                 let measurements = self
                     .db
-                    .get_analytics(&mut all_analytics(), milestone_index, milestone_timestamp)
+                    .get_analytics(analytics, milestone_index, milestone_timestamp)
                     .await?;
 
                 for m in measurements {

@@ -252,14 +252,12 @@ impl ClArgs {
                         let influx_db = influx_db.clone();
                         let analytics_choice = analytics.clone();
                         join_set.spawn(async move {
-
                             let mut selected_analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
                                 let mut tmp: HashSet<AnalyticsChoice> = analytics_choice.iter().cloned().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
-                            
 
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();

@@ -15,7 +15,7 @@ mod protocol_parameters;
 mod unclaimed_tokens;
 mod unlock_condition;
 
-use std::fmt::Debug;
+use std::{fmt::Debug};
 
 pub use address_activity::AddressActivityAnalytics;
 pub use address_balance::AddressAnalytics;
@@ -29,6 +29,7 @@ use mongodb::{bson::doc, error::Error};
 pub use output_activity::OutputActivityAnalytics;
 pub use protocol_parameters::ProtocolParametersAnalytics;
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinSet;
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
@@ -112,13 +113,29 @@ impl MongoDb {
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
     ) -> Result<Vec<Measurement>, Error> {
-        let mut res = Vec::new();
-        for a in analytics {
-            if let Some(m) = a.get_measurement(self, milestone_index, milestone_timestamp).await {
-                res.push(m?);
-            }
+        let mut set = JoinSet::new();
+
+        for analytic in analytics.drain(..) {
+            let milestone_index = milestone_index.clone();
+            let milestone_timestamp = milestone_timestamp.clone();
+            let mongodb = self.clone();
+            set.spawn(async move {
+                let mut a = analytic;
+                (a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await, a)
+            });
         }
-        Ok(res)
+        
+        let mut results = Vec::new();
+        while let Some(res) = set.join_next().await {
+            // Panic: Acceptable risk
+            let (maybe_measurement, analytic) = res.unwrap();
+            if let Some(measurement) = maybe_measurement {
+                results.push(measurement?);
+            }
+            analytics.push(analytic);
+        }
+
+        Ok(results)
     }
 }
 

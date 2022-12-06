@@ -64,7 +64,10 @@ impl Analytic for BlockActivityAnalytics {
 impl BlockCollection {
     /// Gathers past-cone payload activity statistics for a given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_block_activity_analytics(&self, index: MilestoneIndex) -> Result<BlockActivityAnalyticsResult, Error> {
+    pub async fn get_block_activity_analytics(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<BlockActivityAnalyticsResult, Error> {
         Ok(self
             .aggregate(
                 vec![
