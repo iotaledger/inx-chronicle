@@ -354,7 +354,6 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                
                 let measurements = self
                     .db
                     .get_analytics(analytics, milestone_index, milestone_timestamp)

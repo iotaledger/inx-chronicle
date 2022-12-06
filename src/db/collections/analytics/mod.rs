@@ -15,7 +15,7 @@ mod protocol_parameters;
 mod unclaimed_tokens;
 mod unlock_condition;
 
-use std::{fmt::Debug};
+use std::fmt::Debug;
 
 pub use address_activity::AddressActivityAnalytics;
 pub use address_balance::AddressAnalytics;
@@ -121,10 +121,13 @@ impl MongoDb {
             let mongodb = self.clone();
             set.spawn(async move {
                 let mut a = analytic;
-                (a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await, a)
+                (
+                    a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await,
+                    a,
+                )
             });
         }
-        
+
         let mut results = Vec::new();
         while let Some(res) = set.join_next().await {
             // Panic: Acceptable risk
