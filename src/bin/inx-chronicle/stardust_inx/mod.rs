@@ -54,8 +54,6 @@ pub async fn gather_analytics(
     let mut set = JoinSet::new();
 
     for analytic in analytics.drain(..) {
-        let milestone_index = milestone_index.clone();
-        let milestone_timestamp = milestone_timestamp.clone();
         let mongodb = mongodb.clone();
         let influxdb = influxdb.clone();
         set.spawn(async move {

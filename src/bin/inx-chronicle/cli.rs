@@ -1,8 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
@@ -255,7 +253,7 @@ impl ClArgs {
                             let mut selected_analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
-                                let mut tmp: HashSet<AnalyticsChoice> = analytics_choice.iter().cloned().collect();
+                                let mut tmp: std::collections::HashSet<AnalyticsChoice> = analytics_choice.iter().cloned().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
 
@@ -344,6 +342,7 @@ pub enum AnalyticsChoice {
     ProtocolParameters,
 }
 
+#[cfg(all(feature = "analytics", feature = "stardust"))]
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
