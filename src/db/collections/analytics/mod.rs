@@ -29,7 +29,6 @@ use mongodb::{bson::doc, error::Error};
 pub use output_activity::OutputActivityAnalytics;
 pub use protocol_parameters::ProtocolParametersAnalytics;
 use serde::{Deserialize, Serialize};
-use tokio::task::JoinSet;
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
@@ -102,44 +101,6 @@ pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
         Box::new(UnlockConditionAnalytics),
         Box::new(ProtocolParametersAnalytics),
     ]
-}
-
-impl MongoDb {
-    /// Gets selected analytics for a given milestone index, fetching the data from collections.
-    #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_analytics(
-        &self,
-        analytics: &mut Vec<Box<dyn Analytic>>,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Vec<Measurement>, Error> {
-        let mut set = JoinSet::new();
-
-        for analytic in analytics.drain(..) {
-            let milestone_index = milestone_index.clone();
-            let milestone_timestamp = milestone_timestamp.clone();
-            let mongodb = self.clone();
-            set.spawn(async move {
-                let mut a = analytic;
-                (
-                    a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await,
-                    a,
-                )
-            });
-        }
-
-        let mut results = Vec::new();
-        while let Some(res) = set.join_next().await {
-            // Panic: Acceptable risk
-            let (maybe_measurement, analytic) = res.unwrap();
-            if let Some(measurement) = maybe_measurement {
-                results.push(measurement?);
-            }
-            analytics.push(analytic);
-        }
-
-        Ok(results)
-    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

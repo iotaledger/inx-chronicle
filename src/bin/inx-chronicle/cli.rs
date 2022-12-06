@@ -269,15 +269,14 @@ impl ClArgs {
                                     #[cfg(feature = "metrics")]
                                     let start_time = std::time::Instant::now();
 
-                                    // TODO make concurrent
-                                    let measurements = db
-                                        .get_analytics(&mut selected_analytics, milestone_index, milestone_timestamp)
-                                        .await?;
-
-                                    // TODO make concurrent
-                                    for m in measurements {
-                                        influx_db.insert_measurement(m).await?;
-                                    }
+                                    super::stardust_inx::gather_analytics(
+                                        &db,
+                                        &influx_db,
+                                        &mut selected_analytics,
+                                        milestone_index,
+                                        milestone_timestamp,
+                                    )
+                                    .await?;
 
                                     #[cfg(feature = "metrics")]
                                     {

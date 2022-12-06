@@ -9,15 +9,20 @@ use std::time::Duration;
 use chronicle::{
     db::{
         collections::{
-            analytics::all_analytics, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
-            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            analytics::{all_analytics, Analytic},
+            BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
+            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
+        influxdb::InfluxDb,
         MongoDb,
     },
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{Block, BlockId, Payload},
+        stardust::{
+            block::{Block, BlockId, Payload},
+            milestone::MilestoneTimestamp,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -36,6 +41,38 @@ pub struct InxWorker {
     #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
+}
+
+#[instrument(skip_all, err, level = "debug")]
+pub async fn gather_analytics(
+    mongodb: &MongoDb,
+    influxdb: &InfluxDb,
+    analytics: &mut Vec<Box<dyn Analytic>>,
+    milestone_index: MilestoneIndex,
+    milestone_timestamp: MilestoneTimestamp,
+) -> Result<(), InxWorkerError> {
+    let mut set = JoinSet::new();
+
+    for analytic in analytics.drain(..) {
+        let milestone_index = milestone_index.clone();
+        let milestone_timestamp = milestone_timestamp.clone();
+        let mongodb = mongodb.clone();
+        let influxdb = influxdb.clone();
+        set.spawn(async move {
+            let mut a: Box<dyn Analytic> = analytic;
+            if let Some(measurement) = a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await {
+                influxdb.insert_measurement(measurement?).await?;
+            }
+            Ok::<_, InxWorkerError>(a)
+        });
+    }
+
+    while let Some(res) = set.join_next().await {
+        // Panic: Acceptable risk
+        analytics.push(res.unwrap()?);
+    }
+
+    Ok(())
 }
 
 impl InxWorker {
@@ -354,14 +391,7 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                let measurements = self
-                    .db
-                    .get_analytics(analytics, milestone_index, milestone_timestamp)
-                    .await?;
-
-                for m in measurements {
-                    influx_db.insert_measurement(m).await?;
-                }
+                gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
