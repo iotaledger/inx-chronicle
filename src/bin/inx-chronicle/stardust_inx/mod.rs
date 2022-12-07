@@ -17,10 +17,7 @@ use chronicle::{
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::{
-            block::{Block, BlockId, Payload},
-            milestone::MilestoneTimestamp,
-        },
+        stardust::block::{Block, BlockId, Payload},
         tangle::MilestoneIndex,
     },
 };
@@ -48,7 +45,7 @@ pub async fn gather_analytics(
     influxdb: &chronicle::db::influxdb::InfluxDb,
     analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     milestone_index: MilestoneIndex,
-    milestone_timestamp: MilestoneTimestamp,
+    milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
 ) -> Result<(), InxWorkerError> {
     let mut set = JoinSet::new();
 
