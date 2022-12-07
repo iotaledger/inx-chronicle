@@ -1,15 +1,17 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{router::Router, ApiWorker};
+use axum::Router;
+
+use super::{ApiState, RegisteredRoutes};
 
 pub mod core;
 pub mod explorer;
 pub mod indexer;
 
-pub fn routes() -> Router<ApiWorker> {
+pub(crate) fn routes(routes: &mut RegisteredRoutes) -> Router<ApiState> {
     Router::new()
-        .nest("/explorer/v2", explorer::routes())
-        .nest("/core/v2", core::routes())
-        .nest("/indexer/v1", indexer::routes())
+        .nest(&routes.register("/explorer/v2"), explorer::routes())
+        .nest(&routes.register("/core/v2"), core::routes())
+        .nest(&routes.register("/indexer/v1"), indexer::routes())
 }

@@ -4,8 +4,9 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{FromRef, Path, State},
+    extract::{Path, State},
     routing::get,
+    Router,
 };
 use chronicle::{
     db::{
@@ -36,16 +37,10 @@ use super::{
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
     extractors::Pagination,
-    router::{Router, RouterState},
-    ApiData, ApiResult,
+    ApiResult, ApiState,
 };
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-    ApiData: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/balance/:address", get(balance))
         .route("/blocks/:block_id/children", get(block_children))

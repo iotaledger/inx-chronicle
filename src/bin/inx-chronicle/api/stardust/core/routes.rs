@@ -4,10 +4,11 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{FromRef, Path, State},
+    extract::{Path, State},
     handler::HandlerWithoutStateExt,
     http::header::{HeaderMap, HeaderValue},
     routing::get,
+    Router,
 };
 use chronicle::{
     db::{
@@ -51,9 +52,8 @@ use packable::PackableExt;
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
     error::{ApiError, CorruptStateError, MissingError, RequestError},
-    router::{Router, RouterState},
     routes::{is_healthy, not_implemented},
-    ApiResult,
+    ApiResult, ApiState,
 };
 
 lazy_static! {
@@ -61,11 +61,7 @@ lazy_static! {
         HeaderValue::from_str("application/vnd.iota.serializer-v1").unwrap();
 }
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/info", get(info))
         .route_service("/tips", not_implemented.into_service())

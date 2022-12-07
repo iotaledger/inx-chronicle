@@ -4,8 +4,9 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{FromRef, Path, State},
+    extract::{Path, State},
     routing::get,
+    Router,
 };
 use chronicle::{
     db::{
@@ -22,17 +23,11 @@ use mongodb::bson;
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
 use crate::api::{
     error::{MissingError, RequestError},
-    router::{Router, RouterState},
     stardust::indexer::extractors::IndexedOutputsCursor,
-    ApiData, ApiResult,
+    ApiResult, ApiState,
 };
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-    ApiData: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router<ApiState> {
     Router::new().nest(
         "/outputs",
         Router::new()

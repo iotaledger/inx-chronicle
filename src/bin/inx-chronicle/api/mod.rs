@@ -15,9 +15,9 @@ mod secret_key;
 mod responses;
 mod auth;
 mod config;
-mod router;
 mod routes;
 
+use axum::extract::FromRef;
 use chronicle::db::MongoDb;
 use futures::Future;
 use hyper::{Method, Server};
@@ -37,33 +37,59 @@ pub use self::{
 
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
+#[derive(Clone, Debug, Default)]
+pub struct RegisteredRoutes(Vec<String>);
+
+impl RegisteredRoutes {
+    pub fn register(&mut self, route: impl Into<String>) -> String {
+        let str = route.into();
+        self.0.push(str.clone());
+        str
+    }
+
+    pub fn list(&self) -> &[String] {
+        self.0.as_slice()
+    }
+}
+
+#[derive(Debug, Clone, FromRef)]
+pub struct ApiState {
+    db: MongoDb,
+    api_data: ApiData,
+    routes: RegisteredRoutes,
+}
+
 /// The Chronicle API actor
 #[derive(Debug, Clone)]
 pub struct ApiWorker {
-    db: MongoDb,
-    api_data: ApiData,
+    state: ApiState,
 }
 
 impl ApiWorker {
     /// Create a new Chronicle API actor from a mongo connection.
     pub fn new(db: &MongoDb, config: &ApiConfig) -> Result<Self, ConfigError> {
         Ok(Self {
-            db: db.clone(),
-            api_data: config.clone().try_into()?,
+            state: ApiState {
+                db: db.clone(),
+                api_data: config.clone().try_into()?,
+                routes: Default::default(),
+            },
         })
     }
 
     pub async fn run(&self, shutdown_handle: impl Future<Output = ()>) -> eyre::Result<()> {
-        info!("Starting API server on port `{}`", self.api_data.port);
+        info!("Starting API server on port `{}`", self.state.api_data.port);
 
-        let port = self.api_data.port;
-        let routes = routes(self.api_data.clone())
-            .with_state(self.clone())
+        let mut state = self.state.clone();
+
+        let port = self.state.api_data.port;
+        let routes = routes(&mut state)
+            .with_state(state)
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(
                 CorsLayer::new()
-                    .allow_origin(self.api_data.allow_origins.clone())
+                    .allow_origin(self.state.api_data.allow_origins.clone())
                     .allow_methods(vec![Method::GET, Method::OPTIONS])
                     .allow_headers(Any)
                     .allow_credentials(false),
