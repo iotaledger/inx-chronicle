@@ -425,7 +425,7 @@ mod analytics {
                             ] },
                             "address": "$details.address",
                             "amount": { "$toDecimal": "$output.amount" },
-                            "kind": "$kind",
+                            "kind": 1,
                         } },
                         // Sum input amounts and subtract output amounts per transaction and per address. 
                         // This way we make sure that amounts that were sent back to an input address 

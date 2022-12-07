@@ -128,6 +128,10 @@ impl InfluxDbWriteable for AnalyticsSchema<BaseTokenActivityAnalytics> {
             .into_query(name)
             .add_field("milestone_index", self.milestone_index)
             .add_field(
+                "booked_value",
+                self.data.booked_value.to_string().parse::<u64>().unwrap(),
+            )
+            .add_field(
                 "transferred_value",
                 self.data.transferred_value.to_string().parse::<u64>().unwrap(),
             )
