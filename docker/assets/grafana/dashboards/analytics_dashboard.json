@@ -43,6 +43,7 @@
         "type": "influxdb",
         "uid": "PE5723DBC504634E6"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -219,7 +220,7 @@
           "tags": []
         }
       ],
-      "title": "Blocks",
+      "title": "Blocks/${aggregation_interval}",
       "type": "timeseries"
     },
     {
@@ -227,6 +228,7 @@
         "type": "influxdb",
         "uid": "PE5723DBC504634E6"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -367,7 +369,7 @@
           "tags": []
         }
       ],
-      "title": "Transaction Payloads",
+      "title": "Transaction Payloads/$aggregation_interval",
       "type": "timeseries"
     },
     {
@@ -1186,7 +1188,7 @@
           "tags": []
         }
       ],
-      "title": "Tokens Transferred",
+      "title": "Tokens Transferred/$aggregation_interval",
       "type": "timeseries"
     },
     {
@@ -1249,7 +1251,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1382,7 +1385,7 @@
           "tags": []
         }
       ],
-      "title": "Alias Activity Counts",
+      "title": "Alias Activity Counts/$aggregation_interval",
       "type": "timeseries"
     },
     {
@@ -1432,7 +1435,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1547,7 +1551,7 @@
           "tags": []
         }
       ],
-      "title": "NFT Activity Counts",
+      "title": "NFT Activity Counts/$aggregation_interval",
       "type": "timeseries"
     },
     {
@@ -2551,6 +2555,6 @@
   "timezone": "",
   "title": "Analytics",
   "uid": "w6B8aUI4z",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
