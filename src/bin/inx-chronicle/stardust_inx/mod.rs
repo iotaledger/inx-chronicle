@@ -9,11 +9,9 @@ use std::time::Duration;
 use chronicle::{
     db::{
         collections::{
-            analytics::{all_analytics, Analytic},
             BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
             OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
-        influxdb::InfluxDb,
         MongoDb,
     },
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
@@ -44,10 +42,11 @@ pub struct InxWorker {
 }
 
 #[instrument(skip_all, err, level = "debug")]
+#[cfg(feature = "analytics")]
 pub async fn gather_analytics(
     mongodb: &MongoDb,
-    influxdb: &InfluxDb,
-    analytics: &mut Vec<Box<dyn Analytic>>,
+    influxdb: &chronicle::db::influxdb::InfluxDb,
+    analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     milestone_index: MilestoneIndex,
     milestone_timestamp: MilestoneTimestamp,
 ) -> Result<(), InxWorkerError> {
@@ -57,7 +56,7 @@ pub async fn gather_analytics(
         let mongodb = mongodb.clone();
         let influxdb = influxdb.clone();
         set.spawn(async move {
-            let mut a: Box<dyn Analytic> = analytic;
+            let mut a: Box<dyn chronicle::db::collections::analytics::Analytic> = analytic;
             if let Some(measurement) = a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await {
                 influxdb.insert_measurement(measurement?).await?;
             }
@@ -124,7 +123,7 @@ impl InxWorker {
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                &mut all_analytics(),
+                &mut chronicle::db::collections::analytics::all_analytics(),
             )
             .await?;
         }
