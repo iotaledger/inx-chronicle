@@ -253,7 +253,8 @@ impl ClArgs {
                             let mut selected_analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
-                                let mut tmp: std::collections::HashSet<AnalyticsChoice> = analytics_choice.iter().cloned().collect();
+                                let mut tmp: std::collections::HashSet<AnalyticsChoice> =
+                                    analytics_choice.iter().cloned().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
 
