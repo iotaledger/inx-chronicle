@@ -75,11 +75,6 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
-# Opentelemetry
-opentelemetry = { version = "0.18", default-features = false, features = [ "trace", "rt-tokio" ], optional = true }
-opentelemetry-jaeger = { version = "0.17", default-features = false, features = [ "rt-tokio" ], optional = true }
-tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
-
 # Loki
 tracing-loki = { version = "0.2", default-features = false, features = [ "compat-0-2-1", "native-tls" ], optional = true }
 
@@ -133,11 +128,6 @@ loki = [
 metrics = [
     "dep:influxdb",
     "dep:chrono",
-]
-opentelemetry = [
-    "dep:opentelemetry",
-    "dep:opentelemetry-jaeger",
-    "dep:tracing-opentelemetry",
 ]
 rand = [
     "iota-types?/rand",
