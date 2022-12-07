@@ -26,6 +26,8 @@ pub enum RequestError {
 pub enum CorruptStateError {
     #[error("No milestone cone in the database")]
     NoMilestoneCone,
+    #[error("Incomplete milestone cone in the database")]
+    IncompleteMilestoneCone,
     #[error("Creating proof failed: {0}")]
     CreateProof(#[from] CreateProofError),
     #[error("Error decoding public key")]

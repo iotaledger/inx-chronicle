@@ -12,6 +12,13 @@ pub type MerkleHash = Output<Blake2b256>;
 pub struct MerkleHasher;
 
 impl MerkleHasher {
+
+    // TEMP
+    pub fn hash_block_ids(data: &[chronicle::types::stardust::block::BlockId]) -> MerkleHash {
+        let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
+        Self::hash(&data[..])
+    }
+
     pub fn hash(data: &[impl AsRef<[u8]>]) -> MerkleHash {
         match data {
             [] => Self::hash_empty(),
@@ -66,10 +73,10 @@ mod tests {
     use super::*;
 
     impl MerkleHasher {
-        pub fn hash_block_ids(data: &[BlockId]) -> MerkleHash {
-            let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
-            Self::hash(&data[..])
-        }
+        // pub fn hash_block_ids(data: &[BlockId]) -> MerkleHash {
+        //     let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
+        //     Self::hash(&data[..])
+        // }
     }
 
     #[test]

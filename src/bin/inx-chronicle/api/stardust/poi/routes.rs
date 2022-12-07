@@ -41,6 +41,7 @@ async fn create_block_referenced_proof(
 ) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
     let block_collection = database.collection::<BlockCollection>();
+    let milestone_collection = database.collection::<MilestoneCollection>();
 
     // Check if the metadata for that block exists.
     let block_metadata = block_collection
@@ -60,6 +61,12 @@ async fn create_block_referenced_proof(
         .await?
         .ok_or(MissingError::NoResults)?;
 
+    // Fetch the referencing milestone payload.
+    let milestone_payload = milestone_collection
+        .get_milestone_payload(referenced_index)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
     // Fetch the referenced block ids in "White Flag" order, and make sure they contain the block.
     let referenced_block_ids = block_collection
         .get_referenced_cone_in_white_flag_order(referenced_index)
@@ -67,23 +74,87 @@ async fn create_block_referenced_proof(
     if referenced_block_ids.is_empty() {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::NoMilestoneCone).into());
     } else if !referenced_block_ids.contains(&block_id) {
-        return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
+        return Err(CorruptStateError::PoI(poi::CorruptStateError::IncompleteMilestoneCone).into());
     }
 
     // Create the Merkle audit path for the given block against that ordered set of referenced block ids.
     let merkle_audit_path = MerkleProof::create_audit_path(&referenced_block_ids, &block_id)
         .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
 
-    // Fetch the corresponding milestone itself.
+    // Ensure that the generated audit path is correct by comparing its hash with the one stored in the milestone.
+    let calculated_merkle_root = merkle_audit_path.hash();
+    let expected_merkle_root = milestone_payload.essence.inclusion_merkle_root;
+    if calculated_merkle_root.as_slice() != expected_merkle_root {
+        return Err(CorruptStateError::PoI(poi::CorruptStateError::CreateProof(
+            poi::CreateProofError::MerkleRootMismatch {
+                calculated_merkle_root: prefix_hex::encode(calculated_merkle_root.as_slice()),
+                expected_merkle_root: prefix_hex::encode(expected_merkle_root),
+            },
+        ))
+        .into());
+    }
+
+    Ok(CreateProofResponse {
+        milestone: milestone_payload.into(),
+        block: block.into(),
+        audit_path: merkle_audit_path.into(),
+    })
+}
+
+async fn create_block_applied_proof(
+    database: Extension<MongoDb>,
+    Path(block_id): Path<String>,
+) -> ApiResult<CreateProofResponse> {
+    let block_id = BlockId::from_str(&block_id)?;
+    let block_collection = database.collection::<BlockCollection>();
     let milestone_collection = database.collection::<MilestoneCollection>();
+
+    // Check if the metadata for that block exists.
+    let block_metadata = block_collection
+        .get_block_metadata(&block_id)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    // Check whether the block was referenced by a milestone, and whether it caused a ledger mutation.
+    let referenced_index = block_metadata.referenced_by_milestone_index;
+    if referenced_index == 0 {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
+    } else if block_metadata.inclusion_state != chronicle::types::ledger::LedgerInclusionState::Included {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
+    }
+
+    // Fetch the block to return in the response.
+    let block = block_collection
+        .get_block(&block_id)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+
+    // Fetch the referencing milestone.
     let milestone = milestone_collection
         .get_milestone_payload(referenced_index)
         .await?
         .ok_or(MissingError::NoResults)?;
 
+    // Fetch the referenced and applied block ids in "White Flag" order, and make sure they contain the block.
+    let applied_block_ids = block_collection
+        .get_applied_cone_in_white_flag_order(referenced_index)
+        .await?;
+    if !applied_block_ids.contains(&block_id) {
+        return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
+    }
+
+    // TEMP
+    let merkle_root = super::merkle_hasher::MerkleHasher::hash_block_ids(&applied_block_ids);
+    println!("calculated applied merkle root: {:?}", merkle_root);
+    println!("expected applied merkle root: {:?}", milestone.essence.applied_merkle_root);
+
+    // Create the Merkle audit path for the given block against that ordered set of referenced and applied block ids.
+    let merkle_audit_path = MerkleProof::create_audit_path(&applied_block_ids, &block_id)
+        .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
+
     // Ensure that the generated audit path is correct by comparing its hash with the one stored in the milestone.
     let calculated_merkle_root = merkle_audit_path.hash();
-    let expected_merkle_root = milestone.essence.inclusion_merkle_root;
+    let expected_merkle_root = milestone.essence.applied_merkle_root;
     if calculated_merkle_root.as_slice() != expected_merkle_root {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::CreateProof(
             poi::CreateProofError::MerkleRootMismatch {
@@ -138,72 +209,6 @@ async fn validate_block_referenced_proof(
             valid: proof.contains_block_id(&block_id) && *proof.hash() == **milestone.essence().inclusion_merkle_root(),
         })
     }
-}
-
-async fn create_block_applied_proof(
-    database: Extension<MongoDb>,
-    Path(block_id): Path<String>,
-) -> ApiResult<CreateProofResponse> {
-    let block_id = BlockId::from_str(&block_id)?;
-    let block_collection = database.collection::<BlockCollection>();
-
-    // Check if the metadata for that block exists.
-    let block_metadata = block_collection
-        .get_block_metadata(&block_id)
-        .await?
-        .ok_or(MissingError::NoResults)?;
-
-    // Check whether the block was referenced by a milestone, and whether it caused a ledger mutation.
-    let referenced_index = block_metadata.referenced_by_milestone_index;
-    if referenced_index == 0 {
-        return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
-    } else if block_metadata.inclusion_state != chronicle::types::ledger::LedgerInclusionState::Included {
-        return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
-    }
-
-    // Fetch the block to return in the response.
-    let block = block_collection
-        .get_block(&block_id)
-        .await?
-        .ok_or(MissingError::NoResults)?;
-
-    // Fetch the referenced and applied block ids in "White Flag" order, and make sure they contain the block.
-    let applied_block_ids = block_collection
-        .get_applied_cone_in_white_flag_order(referenced_index)
-        .await?;
-    if !applied_block_ids.contains(&block_id) {
-        return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
-    }
-
-    // Create the Merkle audit path for the given block against that ordered set of referenced and applied block ids.
-    let merkle_audit_path = MerkleProof::create_audit_path(&applied_block_ids, &block_id)
-        .map_err(|e| CorruptStateError::PoI(poi::CorruptStateError::CreateProof(e)))?;
-
-    // Fetch the corresponding milestone itself.
-    let milestone_collection = database.collection::<MilestoneCollection>();
-    let milestone = milestone_collection
-        .get_milestone_payload(referenced_index)
-        .await?
-        .ok_or(MissingError::NoResults)?;
-
-    // Ensure that the generated audit path is correct by comparing its hash with the one stored in the milestone.
-    let calculated_merkle_root = merkle_audit_path.hash();
-    let expected_merkle_root = milestone.essence.applied_merkle_root;
-    if calculated_merkle_root.as_slice() != expected_merkle_root {
-        return Err(CorruptStateError::PoI(poi::CorruptStateError::CreateProof(
-            poi::CreateProofError::MerkleRootMismatch {
-                calculated_merkle_root: prefix_hex::encode(calculated_merkle_root.as_slice()),
-                expected_merkle_root: prefix_hex::encode(expected_merkle_root),
-            },
-        ))
-        .into());
-    }
-
-    Ok(CreateProofResponse {
-        milestone: milestone.into(),
-        block: block.into(),
-        audit_path: merkle_audit_path.into(),
-    })
 }
 
 async fn validate_block_applied_proof(
