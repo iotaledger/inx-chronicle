@@ -399,16 +399,12 @@ mod analytics {
             Ok(self
                 .aggregate(
                     vec![
-                        // Restrict query to created and consumed outputs within the specified milestone.
                         doc! { "$match": {
                             "$or": [
                                 { "metadata.booked.milestone_index": milestone_index },
                                 { "metadata.spent_metadata.spent.milestone_index": milestone_index },
                             ]
                         } },
-                        // Add a field to make distinguishing between created and consumed outputs easier.
-                        // Note that outputs that are created and consumed in the same milestone fall into
-                        // the 'created' category.
                         doc! { "$set": { "kind": {
                             "$cond": [
                                 { "$eq": [ "$metadata.booked.milestone_index", milestone_index ] },
@@ -416,7 +412,7 @@ mod analytics {
                                 "consumed_output"
                             ]
                         } } },
-                        // Reassemble the inputs and outputs of a particular transaction.
+                        // Re-assemble the inputs and outputs per transaction.
                         doc! { "$project": {
                             "_id": { "$cond": [ 
                                     { "$eq": [ "$kind", "created_output" ] }, 
@@ -427,10 +423,9 @@ mod analytics {
                             "amount": { "$toDecimal": "$output.amount" },
                             "kind": 1,
                         } },
-                        // Sum input amounts and subtract output amounts per transaction and per address. 
-                        // This way we make sure that amounts that were sent back to an input address 
-                        // within the same transaction get subtracted and are not falsely counted as a
-                        // token transfer.
+                        // Note: we sum input amounts and subtract output amounts per transaction and per address. 
+                        // This way we make sure that amounts that were sent back to an input address within the 
+                        // same transaction get subtracted and are not falsely counted as a token transfer.
                         doc! {
                             "$group": { 
                                 "_id": {
@@ -444,8 +439,6 @@ mod analytics {
                                 } }
                             }
                         },
-                        // Sum all intermediate results. Note that for the `transferred_value` analytic 
-                        // either the input or the output side of the transaction is irrelevant. 
                         doc! {
                             "$group": {
                                 "_id": null,
