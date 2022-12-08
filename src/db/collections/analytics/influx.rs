@@ -5,6 +5,7 @@ use super::Measurement;
 use crate::db::influxdb::InfluxDb;
 
 impl InfluxDb {
+    /// Writes a [`Measurement`] to the InfluxDB database.
     pub async fn insert_measurement(&self, measurement: Measurement) -> Result<(), influxdb::Error> {
         self.analytics().query(influxdb::WriteQuery::from(measurement)).await?;
         Ok(())
