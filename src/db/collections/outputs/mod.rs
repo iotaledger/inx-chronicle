@@ -433,7 +433,7 @@ mod analytics {
                                     "address": "$address"
                                 },
                                 "booked_value": { "$sum": { 
-                                    "$cond": [ { "$eq": ["$kind", "consumed_output"] }, "$amount", 0 ] } },
+                                    "$cond": [ { "$eq": ["$kind", "created_output"] }, "$amount", 0 ] } },
                                 "transferred_value": { "$sum": {
                                     "$cond": [ { "$eq": [ "$kind", "consumed_output" ] }, "$amount", { "$subtract": [ 0, "$amount" ] } ] 
                                 } }
