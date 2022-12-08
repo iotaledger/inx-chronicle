@@ -70,7 +70,6 @@ impl OutputCollection {
                       "$cond": [ { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", milestone_index ] }, true, false ]
                     }
                 } },
-
                 doc! { "$facet": {
                     "booked_outputs": [ 
                       { "$redact": {
@@ -84,7 +83,7 @@ impl OutputCollection {
                           "tx": "$_id.transaction_id",
                           "address": "$details.address",
                           "amount": { "$toDecimal": "$output.amount" },
-                      } }, 
+                      } }
                   ],
                   "spent_outputs": [ 
                       { "$redact": {
