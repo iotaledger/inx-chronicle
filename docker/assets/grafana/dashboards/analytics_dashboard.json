@@ -227,7 +227,6 @@
         "type": "influxdb",
         "uid": "PE5723DBC504634E6"
       },
-      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1434,8 +1433,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
