@@ -62,52 +62,82 @@ impl OutputCollection {
                         { "metadata.spent_metadata.spent.milestone_index": milestone_index },
                     ]
                 } },
-                doc! { "$set": { "kind": {
-                    "$cond": [
-                        { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", milestone_index ] },
-                        "consumed_output",
-                        "created_output"
-                    ]
-                } } },
-                // Re-assemble the inputs and outputs per transaction.
-                doc! { "$project": {
-                    "_id": { "$cond": [ 
-                            { "$eq": [ "$kind", "created_output" ] }, 
-                            "$_id.transaction_id", 
-                            "$metadata.spent_metadata.transaction_id" 
-                    ] },
-                    "address": "$details.address",
-                    "amount": { "$toDecimal": "$output.amount" },
-                    "kind": 1,
+                doc! { "$set": {
+                    "new_booked_output": {
+                      "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", milestone_index ] }, true, false ]
+                    },
+                    "new_spent_output": {
+                      "$cond": [ { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", milestone_index ] }, true, false ]
+                    }
                 } },
-                // Note: we sum input amounts and subtract output amounts per transaction and per address. 
-                // This way we make sure that amounts that were sent back to an input address within the 
-                // same transaction get subtracted and are not falsely counted as a token transfer.
-                doc! {
-                    "$group": { 
-                        "_id": {
-                            "tx_id": "$_id",
-                            "address": "$address"
-                        },
-                        "booked_value": { "$sum": { 
-                            "$cond": [ { "$eq": ["$kind", "consumed_output"] }, "$amount", 0 ] } },
-                        "transferred_value": { "$sum": {
-                            "$cond": [ { "$eq": [ "$kind", "consumed_output" ] }, "$amount", { "$subtract": [ 0, "$amount" ] } ] 
-                        } }
-                    }
-                },
-                doc! {
-                    "$group": {
-                        "_id": null,
-                        "booked_value": { "$sum": "$booked_value"},
-                        "transferred_value": { "$sum": { 
-                            "$cond": [ { "$gt": [ "$transferred_value", 0 ] }, "$transferred_value", 0 ]
-                        } }
-                    }
-                },
+
+                doc! { "$facet": {
+                    "booked_outputs": [ 
+                      { "$redact": {
+                          "$cond": {
+                            "if": { "$eq": [ "$new_booked_output", true ] },
+                            "then": "$$KEEP",
+                            "else": "$$PRUNE"
+                      } } },
+                      { "$project": {
+                          "_id": 1,
+                          "tx": "$_id.transaction_id",
+                          "address": "$details.address",
+                          "amount": { "$toDecimal": "$output.amount" },
+                      } }, 
+                  ],
+                  "spent_outputs": [ 
+                      { "$redact": {
+                          "$cond": {
+                            "if": { "$eq": [ "$new_spent_output", true ] },
+                            "then": "$$KEEP",
+                            "else": "$$PRUNE"
+                      } } },
+                      { "$project": {
+                          "_id": 1,
+                          "tx": "$metadata.spent_metadata.transaction_id",
+                          "address": "$details.address",
+                          "amount": { "$toDecimal": "$output.amount" },
+                      } },
+                      { "$group": { 
+                          "_id": {
+                              "tx": "$tx",
+                              "address": "$address"
+                          },
+                          "amount": { "$sum": "$amount" },
+                      } }
+                    ],
+                } },
+                doc! { "$unwind": {
+                    "path": "$booked_outputs",
+                } },
                 doc! { "$project": {
-                    "booked_value": { "$toString": "$booked_value" },
-                    "transferred_value": { "$toString": "$transferred_value" },
+                    "booked_outputs": 1,
+                    "sent_back_addr": { "$first": {
+                        "$filter": {
+                        "input": "$spent_outputs",
+                        "as": "item",
+                        "cond": { "$and": [ 
+                            { "$eq": ["$$item._id.tx", "$booked_outputs.tx"] },
+                            { "$eq": ["$$item._id.address", "$booked_outputs.address"] },
+                        ] }
+                        }
+                    } }
+                } },
+                doc! { "$project": {
+                    "booked_amount": "$booked_outputs.amount",
+                    "spent_amount": { "$ifNull": ["$sent_back_addr.amount", 0] },
+                } },
+                doc! { "$group": {
+                    "_id": null,
+                    "booked_amount": { "$sum": "$booked_amount" },
+                    "transferred_amount": { "$sum": { 
+                        "$cond": [ { "$gt": [ "$booked_amount", "$spent_amount"] }, { "$subtract": ["$booked_amount", "$spent_amount"] }, 0   
+                    ] } }
+                } },
+                doc! { "$project": {
+                    "booked_value": { "$toString": "$booked_amount" },
+                    "transferred_value": { "$toString": "$transferred_amount" },
                 } },
             ],
             None,
