@@ -407,9 +407,9 @@ mod analytics {
                         } },
                         doc! { "$set": { "kind": {
                             "$cond": [
-                                { "$eq": [ "$metadata.booked.milestone_index", milestone_index ] },
-                                "created_output",
-                                "consumed_output"
+                                { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", milestone_index ] },
+                                "consumed_output",
+                                "created_output"
                             ]
                         } } },
                         // Re-assemble the inputs and outputs per transaction.
@@ -433,7 +433,7 @@ mod analytics {
                                     "address": "$address"
                                 },
                                 "booked_value": { "$sum": { 
-                                    "$cond": [ { "$eq": ["$kind", "created_output"] }, "$amount", 0 ] } },
+                                    "$cond": [ { "$eq": ["$kind", "consumed_output"] }, "$amount", 0 ] } },
                                 "transferred_value": { "$sum": {
                                     "$cond": [ { "$eq": [ "$kind", "consumed_output" ] }, "$amount", { "$subtract": [ 0, "$amount" ] } ] 
                                 } }
