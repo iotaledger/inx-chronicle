@@ -132,26 +132,6 @@ async fn main() -> eyre::Result<()> {
 fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()> {
     let registry = tracing_subscriber::registry();
 
-    #[cfg(feature = "opentelemetry")]
-    let registry = {
-        let tracer = opentelemetry_jaeger::new_agent_pipeline()
-            .with_service_name("Chronicle")
-            .install_batch(opentelemetry::runtime::Tokio)
-            .unwrap();
-
-        registry
-            .with(tracing_opentelemetry::layer().with_tracer(tracer))
-            // This filter should not exist, but if I remove it,
-            // it causes the buffer to overflow
-            .with(EnvFilter::from_default_env())
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .with_span_events(FmtSpan::CLOSE)
-                    // The filter should only be on the console logs
-                    //.with_filter(EnvFilter::from_default_env()),
-            )
-    };
-    #[cfg(not(feature = "opentelemetry"))]
     let registry = {
         registry
             .with(EnvFilter::from_default_env())

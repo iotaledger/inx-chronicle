@@ -19,6 +19,8 @@ pub enum InxWorkerError {
     InvalidMilestoneState,
     #[error("missing milestone id for milestone index `{0}`")]
     MissingMilestoneInfo(MilestoneIndex),
+    #[error("MongoDb error: {0}")]
+    MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: `{0}`, new network name: `{1}`")]
     NetworkChanged(String, String),
     #[error("node pruned required milestones between `{start}` and `{end}`")]
