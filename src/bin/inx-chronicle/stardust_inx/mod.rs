@@ -38,6 +38,37 @@ pub struct InxWorker {
     config: InxConfig,
 }
 
+#[instrument(skip_all, err, level = "debug")]
+#[cfg(feature = "analytics")]
+pub async fn gather_analytics(
+    mongodb: &MongoDb,
+    influxdb: &chronicle::db::influxdb::InfluxDb,
+    analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
+    milestone_index: MilestoneIndex,
+    milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
+) -> Result<(), InxWorkerError> {
+    let mut tasks = JoinSet::new();
+
+    for analytic in analytics.drain(..) {
+        let mongodb = mongodb.clone();
+        let influxdb = influxdb.clone();
+        tasks.spawn(async move {
+            let mut a: Box<dyn chronicle::db::collections::analytics::Analytic> = analytic;
+            if let Some(measurement) = a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await {
+                influxdb.insert_measurement(measurement?).await?;
+            }
+            Ok::<_, InxWorkerError>(a)
+        });
+    }
+
+    while let Some(res) = tasks.join_next().await {
+        // Panic: Acceptable risk
+        analytics.push(res.unwrap()?);
+    }
+
+    Ok(())
+}
+
 impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(
@@ -84,7 +115,14 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         while let Some(ledger_update) = stream.try_next().await? {
-            self.handle_ledger_update(&mut inx, ledger_update, &mut stream).await?;
+            self.handle_ledger_update(
+                &mut inx,
+                ledger_update,
+                &mut stream,
+                #[cfg(feature = "analytics")]
+                &mut chronicle::db::collections::analytics::all_analytics(),
+            )
+            .await?;
         }
 
         tracing::debug!("INX stream closed unexpectedly.");
@@ -235,6 +273,7 @@ impl InxWorker {
         inx: &mut Inx,
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
+        #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
@@ -346,10 +385,7 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                let analytics = self.db.get_all_analytics(milestone_index).await?;
-                influx_db
-                    .insert_all_analytics(milestone_timestamp, milestone_index, analytics)
-                    .await?;
+                gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
