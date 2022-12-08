@@ -47,12 +47,12 @@ pub async fn gather_analytics(
     milestone_index: MilestoneIndex,
     milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
 ) -> Result<(), InxWorkerError> {
-    let mut set = JoinSet::new();
+    let mut tasks = JoinSet::new();
 
     for analytic in analytics.drain(..) {
         let mongodb = mongodb.clone();
         let influxdb = influxdb.clone();
-        set.spawn(async move {
+        tasks.spawn(async move {
             let mut a: Box<dyn chronicle::db::collections::analytics::Analytic> = analytic;
             if let Some(measurement) = a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await {
                 influxdb.insert_measurement(measurement?).await?;
@@ -61,7 +61,7 @@ pub async fn gather_analytics(
         });
     }
 
-    while let Some(res) = set.join_next().await {
+    while let Some(res) = tasks.join_next().await {
         // Panic: Acceptable risk
         analytics.push(res.unwrap()?);
     }

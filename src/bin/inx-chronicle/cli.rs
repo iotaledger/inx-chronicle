@@ -254,7 +254,7 @@ impl ClArgs {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
                                 let mut tmp: std::collections::HashSet<AnalyticsChoice> =
-                                    analytics_choice.iter().cloned().collect();
+                                    analytics_choice.iter().copied().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
 

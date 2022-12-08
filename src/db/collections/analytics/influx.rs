@@ -4,10 +4,7 @@
 use super::Measurement;
 use crate::db::influxdb::InfluxDb;
 
-// TODO abstraction that runs all selected analytics concurrently
-
 impl InfluxDb {
-    /// TODO: Rename
     pub async fn insert_measurement(&self, measurement: Measurement) -> Result<(), influxdb::Error> {
         self.analytics().query(influxdb::WriteQuery::from(measurement)).await?;
         Ok(())

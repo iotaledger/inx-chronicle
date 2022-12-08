@@ -63,7 +63,7 @@ impl<M> PerMilestone<M> {
     }
 }
 
-/// TODO: We will need this later.
+/// Note: We will need this later, for example for daily active addresses.
 #[allow(unused)]
 #[allow(missing_docs)]
 pub struct TimeInterval<M> {
