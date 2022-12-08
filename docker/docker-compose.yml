@@ -164,19 +164,6 @@ services:
     environment:
       - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    profiles:
-      - metrics
-    container_name: jaeger
-    restart: unless-stopped
-    user: "65532"
-    ports:
-      - 6831:6831/udp # accept jaeger.thrift over compact thrift protocol
-      - 6832:6832/udp # accept jaeger.thrift over binary thrift protocol
-      - 5778:5778 # serve configs
-      - 16686:16686 # serve frontend
-
   loki:
     image: grafana/loki:latest
     profiles:
