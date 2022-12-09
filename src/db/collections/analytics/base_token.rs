@@ -72,39 +72,24 @@ impl OutputCollection {
                 } },
                 doc! { "$facet": {
                     "booked_outputs": [ 
-                      { "$redact": {
-                          "$cond": {
-                            "if": { "$eq": [ "$new_booked_output", true ] },
-                            "then": "$$KEEP",
-                            "else": "$$PRUNE"
-                      } } },
-                      { "$project": {
-                          "_id": 1,
-                          "tx": "$_id.transaction_id",
-                          "address": "$details.address",
-                          "amount": { "$toDecimal": "$output.amount" },
-                      } }
-                  ],
-                  "spent_outputs": [ 
-                      { "$redact": {
-                          "$cond": {
-                            "if": { "$eq": [ "$new_spent_output", true ] },
-                            "then": "$$KEEP",
-                            "else": "$$PRUNE"
-                      } } },
-                      { "$project": {
-                          "_id": 1,
-                          "tx": "$metadata.spent_metadata.transaction_id",
-                          "address": "$details.address",
-                          "amount": { "$toDecimal": "$output.amount" },
-                      } },
-                      { "$group": { 
-                          "_id": {
-                              "tx": "$tx",
-                              "address": "$address"
-                          },
-                          "amount": { "$sum": "$amount" },
-                      } }
+                        { "$match": { "new_booked_output": true } },
+                        { "$group": { 
+                            "_id": {
+                                "tx": "$_id.transaction_id",
+                                "address": "$details.address"
+                            },
+                            "amount": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } }
+                    ],
+                    "spent_outputs": [ 
+                        { "$match": { "new_spent_output": true } },
+                        { "$group": { 
+                            "_id": {
+                                "tx": "$metadata.spent_metadata.transaction_id",
+                                "address": "$details.address"
+                            },
+                            "amount": { "$sum": { "$toDecimal": "$output.amount" } },
+                        } }
                     ],
                 } },
                 doc! { "$unwind": {
@@ -117,8 +102,8 @@ impl OutputCollection {
                         "input": "$spent_outputs",
                         "as": "item",
                         "cond": { "$and": [ 
-                            { "$eq": ["$$item._id.tx", "$booked_outputs.tx"] },
-                            { "$eq": ["$$item._id.address", "$booked_outputs.address"] },
+                            { "$eq": ["$$item._id.tx", "$booked_outputs._id.tx"] },
+                            { "$eq": ["$$item._id.address", "$booked_outputs._id.address"] },
                         ] }
                         }
                     } }
