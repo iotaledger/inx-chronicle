@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use chronicle::db::collections::analytics::DailyActiveAddressesAnalytics;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
@@ -331,16 +332,18 @@ impl ClArgs {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
 pub enum AnalyticsChoice {
+    // Please keep the alphabetic order.
     AddressActivity,
     Addresses,
     BaseToken,
-    LedgerOutputs,
-    OutputActivity,
-    LedgerSize,
-    UnclaimedTokens,
     BlockActivity,
-    UnlockConditions,
+    DailyActiveAddresses,
+    LedgerOutputs,
+    LedgerSize,
+    OutputActivity,
     ProtocolParameters,
+    UnclaimedTokens,
+    UnlockConditions,
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
@@ -353,16 +356,18 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
         };
 
         match value {
+            // Please keep the alphabetic order.
             AnalyticsChoice::AddressActivity => Box::new(AddressActivityAnalytics),
             AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
             AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
+            AnalyticsChoice::DailyActiveAddresses => Box::new(DailyActiveAddressesAnalytics::default()),
+            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
+            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
+            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
         }
     }
 }

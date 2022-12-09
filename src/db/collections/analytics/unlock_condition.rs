@@ -4,10 +4,10 @@
 use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
-use mongodb::{bson::doc, error::Error};
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Measurement, PerMilestone};
+use super::{Analytic, Error, Measurement, PerMilestone};
 use crate::{
     db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
@@ -35,19 +35,17 @@ impl Analytic for UnlockConditionAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Measurement, Error>> {
-        let res = db
-            .collection::<OutputCollection>()
+    ) -> Result<Option<Measurement>, Error> {
+        db.collection::<OutputCollection>()
             .get_unlock_condition_analytics(milestone_index)
-            .await;
-        Some(match res {
-            Ok(measurement) => Ok(Measurement::UnlockConditionAnalytics(PerMilestone {
-                milestone_index,
-                milestone_timestamp,
-                inner: measurement,
-            })),
-            Err(err) => Err(err),
-        })
+            .await
+            .map(|measurement| {
+                Some(Measurement::UnlockConditionAnalytics(PerMilestone {
+                    milestone_index,
+                    milestone_timestamp,
+                    inner: measurement,
+                }))
+            })
     }
 }
 
