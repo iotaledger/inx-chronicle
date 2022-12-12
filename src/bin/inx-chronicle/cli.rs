@@ -76,6 +76,9 @@ pub struct MongoDbArgs {
     /// The MongoDB connection string.
     #[arg(long, env = "MONGODB_CONN_STR")]
     pub mongodb_conn_str: Option<String>,
+    /// The MongoDB database.
+    #[arg(long, env = "MONGODB_DATABASE")]
+    pub mongodb_database: Option<String>,
 }
 
 #[cfg(any(feature = "analytics", feature = "metrics"))]
@@ -115,6 +118,10 @@ impl ClArgs {
 
         if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
             config.mongodb.conn_str = conn_str.clone();
+        }
+
+        if let Some(db_name) = &self.mongodb.mongodb_database {
+            config.mongodb.database_name = db_name.clone();
         }
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -257,6 +264,8 @@ impl ClArgs {
                                     analytics_choice.iter().copied().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
+
+                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
 
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();

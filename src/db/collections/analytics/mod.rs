@@ -77,7 +77,7 @@ pub struct TimeInterval<M> {
 
 impl<M> TimeInterval<M> {
     fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
-        influxdb::Timestamp::Milliseconds(self.from.unix_timestamp() as u128).into_query(name)
+        influxdb::Timestamp::from(MilestoneTimestamp::from(self.from)).into_query(name)
     }
 }
 
