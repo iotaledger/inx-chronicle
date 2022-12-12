@@ -67,7 +67,7 @@ impl OutputCollection {
                 // Note that outputs that are booked _and_ spent in this milestone, appear in both groups.
                 doc! { "$facet": {
                     "booked_outputs": [ 
-                        { "$match": { "$metadata.booked.milestone_index": milestone_index } },
+                        { "$match": { "metadata.booked.milestone_index": milestone_index } },
                         { "$group": { 
                             "_id": {
                                 "tx": "$_id.transaction_id",
@@ -77,7 +77,7 @@ impl OutputCollection {
                         } }
                     ],
                     "spent_outputs": [ 
-                        { "$match": { "$metadata.spent_metadata.spent.milestone_index": milestone_index } },
+                        { "$match": { "metadata.spent_metadata.spent.milestone_index": milestone_index } },
                         { "$group": { 
                             "_id": {
                                 "tx": "$metadata.spent_metadata.transaction_id",
