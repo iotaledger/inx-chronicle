@@ -58,7 +58,7 @@ mod test {
         let milestone_timestamp = MilestoneTimestamp::from(date);
         assert_eq!(
             milestone_timestamp,
-            MilestoneTimestamp(1670454000),
+            MilestoneTimestamp(1670457600),
             "convert to `MilestoneTimestamp`"
         );
         assert_eq!(
