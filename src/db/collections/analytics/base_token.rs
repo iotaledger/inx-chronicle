@@ -63,20 +63,11 @@ impl OutputCollection {
                         { "metadata.spent_metadata.spent.milestone_index": milestone_index },
                     ]
                 } },
-                // Mark each output as either `booked`, `spent`, or `booked+spent`.
-                doc! { "$set": {
-                    "new_booked_output": {
-                      "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", milestone_index ] }, true, false ]
-                    },
-                    "new_spent_output": {
-                      "$cond": [ { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", milestone_index ] }, true, false ]
-                    }
-                } },
                 // Group booked/spent outputs by their booking/spending transaction id and their linked address.
                 // Note that outputs that are booked _and_ spent in this milestone, appear in both groups.
                 doc! { "$facet": {
                     "booked_outputs": [ 
-                        { "$match": { "new_booked_output": true } },
+                        { "$match": { "$metadata.booked.milestone_index": milestone_index } },
                         { "$group": { 
                             "_id": {
                                 "tx": "$_id.transaction_id",
@@ -86,7 +77,7 @@ impl OutputCollection {
                         } }
                     ],
                     "spent_outputs": [ 
-                        { "$match": { "new_spent_output": true } },
+                        { "$match": { "$metadata.spent_metadata.spent.milestone_index": milestone_index } },
                         { "$group": { 
                             "_id": {
                                 "tx": "$metadata.spent_metadata.transaction_id",
