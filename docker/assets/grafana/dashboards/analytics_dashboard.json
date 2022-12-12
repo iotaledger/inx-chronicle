@@ -1065,6 +1065,7 @@
         "type": "influxdb",
         "uid": "PE5723DBC504634E6"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1114,7 +1115,7 @@
               }
             ]
           },
-          "unit": "SMR"
+          "unit": "locale"
         },
         "overrides": []
       },
@@ -1139,54 +1140,7 @@
       },
       "targets": [
         {
-          "alias": "Number of Transferred Tokens",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "PE5723DBC504634E6"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$aggregation_interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "measurement": "stardust_base_token_activity",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "transferred_value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              },
-              {
-                "params": [
-                  " / 1000000"
-                ],
-                "type": "math"
-              }
-            ]
-          ],
-          "tags": []
-        },
-        {
-          "alias": "Number of Booked Tokens",
+          "alias": "Number of Booked SMR Tokens",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -1233,7 +1187,136 @@
           "tags": []
         }
       ],
-      "title": "Tokens Transferred/$aggregation_interval",
+      "title": "SMR Tokens Booked/$aggregation_interval",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "PE5723DBC504634E6"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "locale"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "id": 62,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "alias": "Number of Transferred SMR Tokens",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "PE5723DBC504634E6"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$aggregation_interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "stardust_base_token_activity",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "transferred_value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  " / 1000000"
+                ],
+                "type": "math"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "SMR Tokens Transferred/$aggregation_interval",
       "type": "timeseries"
     },
     {
