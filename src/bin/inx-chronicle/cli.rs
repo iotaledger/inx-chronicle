@@ -341,7 +341,6 @@ impl ClArgs {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
 pub enum AnalyticsChoice {
     // Please keep the alphabetic order.
-    AddressActivity,
     Addresses,
     BaseToken,
     BlockActivity,
@@ -358,14 +357,13 @@ pub enum AnalyticsChoice {
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
-            AddressActivityAnalytics, AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics,
+            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics,
             DailyActiveAddressesAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics,
             ProtocolParametersAnalytics, UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         };
 
         match value {
             // Please keep the alphabetic order.
-            AnalyticsChoice::AddressActivity => Box::new(AddressActivityAnalytics),
             AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
             AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
