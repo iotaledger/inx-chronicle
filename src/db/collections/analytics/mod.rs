@@ -4,7 +4,6 @@
 /// Schema implementation for InfluxDb.
 pub mod influx;
 
-mod address_activity;
 mod address_balance;
 mod base_token;
 mod block_activity;
@@ -18,7 +17,6 @@ mod unlock_condition;
 
 use std::fmt::Debug;
 
-pub use address_activity::AddressActivityAnalytics;
 pub use address_balance::AddressAnalytics;
 use async_trait::async_trait;
 pub use base_token::BaseTokenActivityAnalytics;
@@ -36,7 +34,7 @@ pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
 use self::{
-    address_activity::AddressActivityAnalyticsResult, address_balance::AddressAnalyticsResult,
+    address_balance::AddressAnalyticsResult,
     base_token::BaseTokenActivityAnalyticsResult, block_activity::BlockActivityAnalyticsResult,
     daily_active_addresses::DailyActiveAddressAnalyticsResult, ledger_outputs::LedgerOutputAnalyticsResult,
     ledger_size::LedgerSizeAnalyticsResult, output_activity::OutputActivityAnalyticsResult,
@@ -109,7 +107,6 @@ pub trait Analytic: Debug + Send + Sync {
 pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
     // Please keep the alphabetic order.
     vec![
-        Box::new(AddressActivityAnalytics),
         Box::new(AddressAnalytics),
         Box::new(BaseTokenActivityAnalytics),
         Box::new(BlockActivityAnalytics),
@@ -131,7 +128,6 @@ pub struct SyncAnalytics {
 
 #[allow(missing_docs)]
 pub enum Measurement {
-    AddressActivityAnalytics(PerMilestone<AddressActivityAnalyticsResult>),
     AddressAnalytics(PerMilestone<AddressAnalyticsResult>),
     BaseTokenActivityAnalytics(PerMilestone<BaseTokenActivityAnalyticsResult>),
     BlockAnalytics(PerMilestone<BlockActivityAnalyticsResult>),

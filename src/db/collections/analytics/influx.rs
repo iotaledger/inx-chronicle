@@ -15,11 +15,6 @@ impl InfluxDb {
 impl From<Measurement> for influxdb::WriteQuery {
     fn from(value: Measurement) -> Self {
         match value {
-            Measurement::AddressActivityAnalytics(m) => m
-                .prepare_query("stardust_address_activity")
-                .add_field("total_count", m.inner.total_count)
-                .add_field("receiving_count", m.inner.receiving_count)
-                .add_field("sending_count", m.inner.sending_count),
             Measurement::AddressAnalytics(m) => m
                 .prepare_query("stardust_addresses")
                 .add_field("address_with_balance_count", m.inner.address_with_balance_count),
