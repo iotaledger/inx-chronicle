@@ -357,9 +357,9 @@ pub enum AnalyticsChoice {
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
-            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics,
-            DailyActiveAddressesAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics,
-            ProtocolParametersAnalytics, UnclaimedTokenAnalytics, UnlockConditionAnalytics,
+            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
+            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
+            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         };
 
         match value {

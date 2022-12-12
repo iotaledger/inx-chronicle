@@ -34,11 +34,11 @@ pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
 use self::{
-    address_balance::AddressAnalyticsResult,
-    base_token::BaseTokenActivityAnalyticsResult, block_activity::BlockActivityAnalyticsResult,
-    daily_active_addresses::DailyActiveAddressAnalyticsResult, ledger_outputs::LedgerOutputAnalyticsResult,
-    ledger_size::LedgerSizeAnalyticsResult, output_activity::OutputActivityAnalyticsResult,
-    unclaimed_tokens::UnclaimedTokenAnalyticsResult, unlock_condition::UnlockConditionAnalyticsResult,
+    address_balance::AddressAnalyticsResult, base_token::BaseTokenActivityAnalyticsResult,
+    block_activity::BlockActivityAnalyticsResult, daily_active_addresses::DailyActiveAddressAnalyticsResult,
+    ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
+    output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
+    unlock_condition::UnlockConditionAnalyticsResult,
 };
 use crate::{
     db::MongoDb,
