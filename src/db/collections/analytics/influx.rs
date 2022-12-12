@@ -23,10 +23,13 @@ impl From<Measurement> for influxdb::WriteQuery {
             Measurement::AddressAnalytics(m) => m
                 .prepare_query("stardust_addresses")
                 .add_field("address_with_balance_count", m.inner.address_with_balance_count),
-            Measurement::BaseTokenActivity(m) => m.prepare_query("stardust_base_token_activity").add_field(
-                "transferred_value",
-                m.inner.transferred_value.to_string().parse::<u64>().unwrap(),
-            ),
+            Measurement::BaseTokenActivity(m) => m
+                .prepare_query("stardust_base_token_activity")
+                .add_field("booked_value", m.inner.booked_value.to_string().parse::<u64>().unwrap())
+                .add_field(
+                    "transferred_value",
+                    m.inner.transferred_value.to_string().parse::<u64>().unwrap(),
+                ),
             Measurement::BlockAnalytics(m) => m
                 .prepare_query("stardust_block_activity")
                 .add_field("transaction_count", m.inner.payload.transaction_count)
