@@ -344,16 +344,24 @@ impl OutputCollection {
         } else {
             Ok(Some(
                 self.aggregate(
-                    vec![doc! { "$facet": {
-                        "created_outputs": [
-                            { "$match": { "metadata.booked.milestone_index": index  } },
-                            { "$replaceWith": "$_id" },
-                        ],
-                        "consumed_outputs": [
-                            { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
-                            { "$replaceWith": "$_id" },
-                        ],
-                    } }],
+                    vec![
+                        doc! { "$match":
+                           { "$or": [
+                               { "metadata.booked.milestone_index": index  },
+                               { "metadata.spent_metadata.spent.milestone_index": index },
+                           ] }
+                        },
+                        doc! { "$facet": {
+                            "created_outputs": [
+                                { "$match": { "metadata.booked.milestone_index": index  } },
+                                { "$replaceWith": "$_id" },
+                            ],
+                            "consumed_outputs": [
+                                { "$match": { "metadata.spent_metadata.spent.milestone_index": index } },
+                                { "$replaceWith": "$_id" },
+                            ],
+                        } },
+                    ],
                     None,
                 )
                 .await?
