@@ -1139,7 +1139,7 @@
       },
       "targets": [
         {
-          "alias": "Number of Tokens",
+          "alias": "Number of Transferred Tokens",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -1168,6 +1168,53 @@
               {
                 "params": [
                   "transferred_value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  " / 1000000"
+                ],
+                "type": "math"
+              }
+            ]
+          ],
+          "tags": []
+        },
+        {
+          "alias": "Number of Booked Tokens",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "PE5723DBC504634E6"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$aggregation_interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "stardust_base_token_activity",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "booked_value"
                 ],
                 "type": "field"
               },
