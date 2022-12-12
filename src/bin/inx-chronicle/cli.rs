@@ -1,7 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::collections::analytics::DailyActiveAddressesAnalytics;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
@@ -351,8 +350,8 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
             AddressActivityAnalytics, AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics,
-            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
-            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
+            DailyActiveAddressesAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics,
+            ProtocolParametersAnalytics, UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         };
 
         match value {

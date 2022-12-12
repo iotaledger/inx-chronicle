@@ -1,13 +1,14 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::{db::collections::analytics, types::tangle::MilestoneIndex};
+use chronicle::types::tangle::MilestoneIndex;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum InxWorkerError {
+    #[cfg(feature = "analytics")]
     #[error("Analytics error: {0}")]
-    Analytics(#[from] analytics::Error),
+    Analytics(#[from] chronicle::db::collections::analytics::Error),
     #[error("failed to establish connection")]
     ConnectionError,
     #[cfg(any(feature = "analytics", feature = "metrics"))]
