@@ -11,7 +11,7 @@ use tower_http::cors::AllowOrigin;
 use super::{error::ConfigError, SecretKey};
 
 /// API configuration
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ApiConfig {
     pub enabled: bool,
@@ -25,24 +25,6 @@ pub struct ApiConfig {
     pub identity_path: Option<String>,
     pub max_page_size: usize,
     pub argon_config: ArgonConfig,
-}
-
-impl Default for ApiConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            port: 8042,
-            allow_origins: "*".to_string().into(),
-            password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
-            password_salt: "saltines".to_string(),
-            // 72 hours
-            jwt_expiration: Duration::from_secs(72 * 60 * 60),
-            public_routes: Default::default(),
-            identity_path: None,
-            max_page_size: 1000,
-            argon_config: Default::default(),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -127,6 +109,12 @@ impl TryFrom<SingleOrMultiple<String>> for AllowOrigin {
                 AllowOrigin::list(value.into_iter().map(|v| v.parse()).collect::<Result<Vec<_>, _>>()?)
             }
         })
+    }
+}
+
+impl<T: Default> Default for SingleOrMultiple<T> {
+    fn default() -> Self {
+        Self::Single(Default::default())
     }
 }
 

@@ -40,21 +40,11 @@ impl ChronicleConfig {
 }
 
 #[cfg(feature = "loki")]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LokiConfig {
     pub enabled: bool,
     pub connect_url: String,
-}
-
-#[cfg(feature = "loki")]
-impl Default for LokiConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            connect_url: "http://localhost:3100".to_owned(),
-        }
-    }
 }
 
 #[cfg(test)]

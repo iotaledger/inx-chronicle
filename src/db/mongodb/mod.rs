@@ -27,9 +27,6 @@ pub struct MongoDb {
 }
 
 impl MongoDb {
-    const DEFAULT_NAME: &'static str = "chronicle";
-    const DEFAULT_CONNECT_STR: &'static str = "mongodb://localhost:27017";
-
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
@@ -134,7 +131,7 @@ impl MongoDb {
 
 /// The [`MongoDb`] config.
 #[must_use]
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MongoDbConfig {
     /// The bind address of the database.
@@ -158,17 +155,5 @@ impl MongoDbConfig {
             HostInfo::DnsRecord(hostname) => hostname,
             _ => unreachable!(),
         })
-    }
-}
-
-impl Default for MongoDbConfig {
-    fn default() -> Self {
-        Self {
-            conn_str: MongoDb::DEFAULT_CONNECT_STR.to_string(),
-            username: None,
-            password: None,
-            database_name: MongoDb::DEFAULT_NAME.to_string(),
-            min_pool_size: None,
-        }
     }
 }

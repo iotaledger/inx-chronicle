@@ -7,7 +7,7 @@ use chronicle::types::tangle::MilestoneIndex;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for an INX connection.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InxConfig {
     pub enabled: bool,
@@ -20,16 +20,4 @@ pub struct InxConfig {
     pub connection_retry_count: usize,
     /// The milestone at which synchronization should begin.
     pub sync_start_milestone: MilestoneIndex,
-}
-
-impl Default for InxConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            connect_url: "http://localhost:9029".into(),
-            connection_retry_interval: Duration::from_secs(5),
-            connection_retry_count: 5,
-            sync_start_milestone: 1.into(),
-        }
-    }
 }

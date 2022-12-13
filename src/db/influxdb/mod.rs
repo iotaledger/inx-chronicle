@@ -103,7 +103,7 @@ impl InfluxDb {
 
 /// The influxdb [`Client`] config.
 #[must_use]
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InfluxDbConfig {
     /// The address of the InfluxDb instance.
@@ -120,18 +120,4 @@ pub struct InfluxDbConfig {
     pub metrics_enabled: bool,
     /// Whether to enable influx analytics writes.
     pub analytics_enabled: bool,
-}
-
-impl Default for InfluxDbConfig {
-    fn default() -> Self {
-        Self {
-            url: "http://localhost:8086".to_string(),
-            metrics_database_name: "chronicle_metrics".to_string(),
-            analytics_database_name: "chronicle_analytics".to_string(),
-            username: "root".to_string(),
-            password: "password".to_string(),
-            metrics_enabled: true,
-            analytics_enabled: true,
-        }
-    }
 }
