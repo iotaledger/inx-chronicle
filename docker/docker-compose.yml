@@ -33,13 +33,17 @@ services:
       - RUST_LOG=warn,inx_chronicle=debug
     tty: true
     command:
-      - "--config=config.toml"
-      - "--inx-url=http://hornet:9029"
       - "--mongodb-conn-str=mongodb://mongo:27017"
+      - "--mongodb-username=root"
+      - "--mongodb-password=root"
+      - "--inx-enabled=true"
+      - "--inx-url=http://hornet:9029"
+      - "--jwt-password=password"
+      - "--jwt-salt=saltines"
       - "--influxdb-url=http://influx:8086"
+      - "--influxdb-username=root"
+      - "--influxdb-password=password"
       - "--loki-url=http://loki:3100"
-    volumes:
-      - ../config.template.toml:/app/config.toml:ro
 
   influx:
     image: influxdb:1.8

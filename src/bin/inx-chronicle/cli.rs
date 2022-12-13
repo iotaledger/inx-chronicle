@@ -10,38 +10,90 @@ use crate::config::{ChronicleConfig, ConfigError};
 #[command(author, version, about, next_display_order = None)]
 pub struct ClArgs {
     /// The location of the configuration file.
-    #[arg(short, long, env = "CONFIG_PATH")]
+    #[arg(short, long)]
     pub config: Option<String>,
+    /// MongoDb arguments.
+    #[command(flatten, next_help_heading = "MongoDb")]
+    pub mongodb: MongoDbArgs,
+    /// INX arguments.
+    #[cfg(feature = "inx")]
+    #[command(flatten, next_help_heading = "INX")]
+    pub inx: InxArgs,
     /// Rest API arguments.
     #[cfg(feature = "api")]
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "API")]
     pub api: ApiArgs,
     /// InfluxDb arguments.
     #[cfg(any(feature = "analytics", feature = "metrics"))]
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "InfluxDb")]
     pub influxdb: InfluxDbArgs,
-    /// INX arguments.
-    #[cfg(feature = "inx")]
-    #[command(flatten)]
-    pub inx: InxArgs,
-    /// MongoDb arguments.
-    #[command(flatten)]
-    pub mongodb: MongoDbArgs,
     /// Loki arguments.
     #[cfg(feature = "loki")]
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Loki")]
     pub loki: LokiArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
 }
 
+#[derive(Args, Debug)]
+pub struct MongoDbArgs {
+    /// The MongoDb connection string.
+    #[arg(long, value_name = "CONN_STR", env = "MONGODB_CONN_STR", default_value = "mongodb://localhost:27017")]
+    pub mongodb_conn_str: Option<String>,
+    /// The MongoDb username. 
+    #[arg(long, value_name = "USERNAME", env = "MONGODB_USERNAME", default_value = "root")]
+    pub mongodb_username: Option<String>,
+    /// The MongoDb password. 
+    #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = "root")]
+    pub mongodb_password: Option<String>,
+    /// The main database name.
+    #[arg(long, value_name = "NAME", default_value = "chronicle")]
+    pub mongodb_database_name: Option<String>,
+    /// The MongoDb minimum pool size.
+    #[arg(long, value_name = "SIZE", default_value = "2")]
+    pub mongodb_min_pool_size: Option<usize>,
+}
+
+#[cfg(feature = "inx")]
+#[derive(Args, Debug)]
+pub struct InxArgs {
+    /// Toggles the INX synchronization workflow.
+    #[arg(long, default_value = "true")]
+    pub inx_enabled: Option<bool>,
+    /// The address of the node INX interface Chronicle tries to connect to - if enabled.
+    #[arg(long, default_value = "http://localhost:9029")]
+    pub inx_url: Option<String>,
+    /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
+    /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
+    #[arg(long, default_value = "0")]
+    pub inx_sync_start: Option<u32>,
+    /// Time to wait until a new connection attempt is made.
+    #[arg(long, default_value = "5s")]
+    pub inx_retry_interval: Option<String>,
+    /// Maximum number of tries to establish an INX connection.
+    #[arg(long, default_value = "30")]
+    pub inx_retry_count: Option<usize>,
+}
+
 #[cfg(feature = "api")]
 #[derive(Args, Debug)]
 pub struct ApiArgs {
     /// Toggle REST API.
-    #[arg(long, env = "REST_API_ENABLED")]
+    #[arg(long, default_value = "true")]
     pub api_enabled: Option<bool>,
+    /// API listening port.
+    #[arg(long, default_value = "8042")]
+    pub api_port: Option<u16>,
+    /// CORS setting.
+    #[arg(long, default_value = "0.0.0.0")]
+    pub api_allow_origins: Option<String>,
+    /// Public API routes.
+    #[arg(long = "public-route", value_name = "ROUTE", default_value = "api/core/v2/*")]
+    pub public_routes: Vec<String>,
+    /// Maximum nubmer of results returned by a single API call.
+    #[arg(long, default_value = "1000")]
+    pub max_page_size: Option<usize>,
     /// JWT arguments.
     #[command(flatten)]
     pub jwt: JwtArgs,
@@ -50,56 +102,53 @@ pub struct ApiArgs {
 #[derive(Args, Debug)]
 pub struct JwtArgs {
     /// The location of the identity file for JWT auth.
-    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
-    pub identity_path: Option<String>,
+    #[arg(long, env = "JWT_IDENTITY", default_value = None)]
+    pub jwt_identity: Option<String>,
     /// The password used for JWT authentication.
-    #[arg(long = "api-jwt-password")]
-    pub password: Option<String>,
-}
-
-#[cfg(feature = "inx")]
-#[derive(Args, Debug)]
-pub struct InxArgs {
-    /// Toggle INX write workflow.
-    #[arg(long, env = "INX_ENABLED")]
-    pub inx_enabled: Option<bool>,
-    /// The address of the INX interface provided by the node.
-    #[arg(long, env = "INX_URL")]
-    pub inx_url: Option<String>,
-    /// Milestone at which synchronization should begin. A value of `1` means syncing back until genesis (default).
-    #[arg(long = "inx-sync-start")]
-    pub sync_start: Option<u32>,
-}
-
-#[derive(Args, Debug)]
-pub struct MongoDbArgs {
-    /// The MongoDB connection string.
-    #[arg(long, env = "MONGODB_CONN_STR")]
-    pub mongodb_conn_str: Option<String>,
+    #[arg(long, env = "JWT_PASSWORD", default_value = "password")]
+    pub jwt_password: Option<String>,
+    // The salt used for JWT authentication.
+    #[arg(long, env = "JWT_SALT", default_value = "saltines")]
+    pub jwt_salt: Option<String>,
+    /// The setting for when the (JWT) token expires.
+    #[arg(long, default_value = "72h")]
+    pub jwt_expiration: Option<String>,
 }
 
 #[cfg(any(feature = "analytics", feature = "metrics"))]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
-    /// Toggle InfluxDb time-series metrics writes.
-    #[arg(long, env = "METRICS_ENABLED")]
-    pub metrics_enabled: Option<bool>,
-    /// Toggle InfluxDb time-series analytics writes.
-    #[arg(long, env = "ANALYTICS_ENABLED")]
-    pub analytics_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
-    #[arg(long, env = "INFLUXDB_URL")]
+    #[arg(long, default_value = "http://localhost:8086")]
     pub influxdb_url: Option<String>,
+    /// The InfluxDb username. 
+    #[arg(long, env = "INFLUXDB_USERNAME", default_value = "root")]
+    pub influxdb_username: Option<String>,
+    /// The InfluxDb password. 
+    #[arg(long, env = "INFLUXDB_PASSWORD", default_value = "password")]
+    pub influxdb_password: Option<String>,
+    /// Toggle InfluxDb time-series analytics writes.
+    #[arg(long, default_value = "true")]
+    pub analytics_enabled: Option<bool>,
+    /// Toggle InfluxDb time-series metrics writes.
+    #[arg(long, default_value = "true")]
+    pub metrics_enabled: Option<bool>,
+    /// The Analytics database name.
+    #[arg(long, default_value = "chronicle_analytics")]
+    pub analytics_database_name: Option<String>,
+    /// The Metrics database name.
+    #[arg(long, default_value = "chronicle_metrics")]
+    pub metrics_database_name: Option<String>,
 }
 
 #[cfg(feature = "loki")]
 #[derive(Args, Debug)]
 pub struct LokiArgs {
     /// Toggle Grafana Loki log writes.
-    #[arg(long, env = "LOKI_ENABLED")]
+    #[arg(long, default_value = "true")]
     pub loki_enabled: Option<bool>,
     /// The url pointing to a Grafana Loki instance.
-    #[arg(long, env = "LOKI_URL")]
+    #[arg(long, default_value = "http://localhost:3100")]
     pub loki_url: Option<String>,
 }
 
@@ -125,7 +174,7 @@ impl ClArgs {
             if let Some(enabled) = self.inx.inx_enabled {
                 config.inx.enabled = enabled;
             }
-            if let Some(sync_start) = self.inx.sync_start {
+            if let Some(sync_start) = self.inx.inx_sync_start {
                 config.inx.sync_start_milestone = sync_start.into();
             }
         }
@@ -153,7 +202,7 @@ impl ClArgs {
 
         #[cfg(feature = "api")]
         {
-            if let Some(password) = &self.api.jwt.password {
+            if let Some(password) = &self.api.jwt.jwt_password {
                 config.api.password_hash = hex::encode(
                     argon2::hash_raw(
                         password.as_bytes(),
@@ -164,12 +213,10 @@ impl ClArgs {
                     .expect("invalid JWT config"),
                 );
             }
-            if let Some(path) = &self.api.jwt.identity_path {
+            if let Some(path) = &self.api.jwt.jwt_identity {
                 config.api.identity_path.replace(path.clone());
             }
-            if let Some(enabled) = self.api.api_enabled {
-                config.api.enabled = enabled;
-            }
+            config.api.enabled = self.api.api_enabled.unwrap();
         }
 
         #[cfg(feature = "loki")]
