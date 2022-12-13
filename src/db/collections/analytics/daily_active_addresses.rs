@@ -75,17 +75,17 @@ impl OutputCollection {
         Ok(self
             .aggregate(
                 vec![
-                    doc! { "$match": doc! { "$or": [
-                        doc! { "$and": [
-                            doc! { "metadata.booked.milestone_timestamp": doc! { "$gte": from } },
-                            doc! { "metadata.booked.milestone_timestamp": doc! { "$lt": to } },
+                    doc! { "$match": { "$or": [
+                        { "$and": [
+                            { "metadata.booked.milestone_timestamp": { "$gte": from } },
+                            { "metadata.booked.milestone_timestamp": { "$lt": to } },
                         ] },
-                        doc! { "$and": [
-                            doc! { "metadata.spent_metadata.spent.milestone_timestamp": doc! { "$gte": from } },
-                            doc! { "metadata.spent_metadata.spent.milestone_timestamp": doc! { "$lt": to } }
+                        { "$and": [
+                            { "metadata.spent_metadata.spent.milestone_timestamp": { "$gte": from } },
+                            { "metadata.spent_metadata.spent.milestone_timestamp": { "$lt": to } }
                         ] },
                     ] } },
-                    doc! { "$group": doc! { "_id": doc! { "addr": "$details.address" } } },
+                    doc! { "$group": { "_id": { "addr": "$details.address" } } },
                     doc! { "$count": "count" },
                 ],
                 None,
