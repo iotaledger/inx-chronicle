@@ -2717,7 +2717,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": false,
+  "refresh": "5s",
   "schemaVersion": 37,
   "style": "dark",
   "tags": [],
@@ -2792,8 +2792,8 @@
     ]
   },
   "time": {
-    "from": "2022-10-09T21:18:30.907Z",
-    "to": "2022-10-15T01:43:47.270Z"
+    "from": "now-7d",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "",
