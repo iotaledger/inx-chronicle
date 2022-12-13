@@ -29,7 +29,7 @@ use mongodb::bson::doc;
 pub use output_activity::OutputActivityAnalytics;
 pub use protocol_parameters::ProtocolParametersAnalytics;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, Duration};
+use time::{Duration, OffsetDateTime};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
