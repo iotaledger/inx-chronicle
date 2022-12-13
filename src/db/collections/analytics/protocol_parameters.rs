@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use mongodb::error::Error;
 
-use super::{Analytic, Measurement, PerMilestone};
+use super::{Analytic, Error, Measurement, PerMilestone};
 use crate::{
     db::{collections::ProtocolUpdateCollection, MongoDb},
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
@@ -21,20 +20,20 @@ impl Analytic for ProtocolParametersAnalytics {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Measurement, Error>> {
+    ) -> Result<Option<Measurement>, Error> {
         let res = db
             .collection::<ProtocolUpdateCollection>()
             .get_protocol_parameters_for_milestone_index(milestone_index)
             .await;
 
         match res {
-            Ok(Some(p)) => Some(Ok(Measurement::ProtocolParameters(PerMilestone {
+            Ok(Some(p)) => Ok(Some(Measurement::ProtocolParameters(PerMilestone {
                 milestone_index,
                 milestone_timestamp,
                 inner: p.parameters,
             }))),
-            Ok(None) => None,
-            Err(err) => Some(Err(err)),
+            Ok(None) => Ok(None),
+            Err(err) => Err(err)?,
         }
     }
 }

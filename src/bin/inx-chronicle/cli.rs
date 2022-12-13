@@ -76,6 +76,9 @@ pub struct MongoDbArgs {
     /// The MongoDB connection string.
     #[arg(long, env = "MONGODB_CONN_STR")]
     pub mongodb_conn_str: Option<String>,
+    /// The MongoDB database.
+    #[arg(long, env = "MONGODB_DATABASE")]
+    pub mongodb_database: Option<String>,
 }
 
 #[cfg(any(feature = "analytics", feature = "metrics"))]
@@ -115,6 +118,10 @@ impl ClArgs {
 
         if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
             config.mongodb.conn_str = conn_str.clone();
+        }
+
+        if let Some(db_name) = &self.mongodb.mongodb_database {
+            config.mongodb.database_name = db_name.clone();
         }
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -258,6 +265,8 @@ impl ClArgs {
                                 tmp.drain().map(Into::into).collect()
                             };
 
+                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();
                                 if let Some(milestone_timestamp) = db
@@ -331,38 +340,40 @@ impl ClArgs {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
 pub enum AnalyticsChoice {
-    AddressActivity,
+    // Please keep the alphabetic order.
     Addresses,
     BaseToken,
-    LedgerOutputs,
-    OutputActivity,
-    LedgerSize,
-    UnclaimedTokens,
     BlockActivity,
-    UnlockConditions,
+    DailyActiveAddresses,
+    LedgerOutputs,
+    LedgerSize,
+    OutputActivity,
     ProtocolParameters,
+    UnclaimedTokens,
+    UnlockConditions,
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
-            AddressActivityAnalytics, AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics,
+            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
             LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
             UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         };
 
         match value {
-            AnalyticsChoice::AddressActivity => Box::new(AddressActivityAnalytics),
+            // Please keep the alphabetic order.
             AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
             AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
+            AnalyticsChoice::DailyActiveAddresses => Box::new(DailyActiveAddressesAnalytics::default()),
+            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
+            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
+            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
         }
     }
 }

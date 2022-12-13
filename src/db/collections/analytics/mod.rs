@@ -4,10 +4,10 @@
 /// Schema implementation for InfluxDb.
 pub mod influx;
 
-mod address_activity;
 mod address_balance;
 mod base_token;
 mod block_activity;
+mod daily_active_addresses;
 mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
@@ -17,24 +17,25 @@ mod unlock_condition;
 
 use std::fmt::Debug;
 
-pub use address_activity::AddressActivityAnalytics;
 pub use address_balance::AddressAnalytics;
 use async_trait::async_trait;
 pub use base_token::BaseTokenActivityAnalytics;
 pub use block_activity::BlockActivityAnalytics;
+pub use daily_active_addresses::DailyActiveAddressesAnalytics;
 use influxdb::{InfluxDbWriteable, WriteQuery};
 pub use ledger_outputs::LedgerOutputAnalytics;
 pub use ledger_size::LedgerSizeAnalytics;
-use mongodb::{bson::doc, error::Error};
+use mongodb::bson::doc;
 pub use output_activity::OutputActivityAnalytics;
 pub use protocol_parameters::ProtocolParametersAnalytics;
 use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
 use self::{
-    address_activity::AddressActivityAnalyticsResult, address_balance::AddressAnalyticsResult,
-    base_token::BaseTokenActivityAnalyticsResult, block_activity::BlockActivityAnalyticsResult,
+    address_balance::AddressAnalyticsResult, base_token::BaseTokenActivityAnalyticsResult,
+    block_activity::BlockActivityAnalyticsResult, daily_active_addresses::DailyActiveAddressAnalyticsResult,
     ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
     output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
     unlock_condition::UnlockConditionAnalyticsResult,
@@ -67,8 +68,26 @@ impl<M> PerMilestone<M> {
 #[allow(unused)]
 #[allow(missing_docs)]
 pub struct TimeInterval<M> {
-    milestone_timestamp: MilestoneTimestamp,
-    measurement: M,
+    from: OffsetDateTime,
+    to_exclusive: OffsetDateTime,
+    inner: M,
+}
+
+impl<M> TimeInterval<M> {
+    fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
+        // We subtract 1 nanosecond to get the inclusive end of the time interval.
+        let timestamp = self.to_exclusive - Duration::nanoseconds(1);
+        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(name)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[allow(missing_docs)]
+pub enum Error {
+    #[error(transparent)]
+    MongoDb(#[from] mongodb::error::Error),
+    #[error(transparent)]
+    Time(#[from] time::Error),
 }
 
 #[async_trait]
@@ -83,23 +102,23 @@ pub trait Analytic: Debug + Send + Sync {
         db: &MongoDb,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-    ) -> Option<Result<Measurement, Error>>;
+    ) -> Result<Option<Measurement>, Error>;
 }
 
 /// Returns a list of trait objects for all analytics.
 pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
+    // Please keep the alphabetic order.
     vec![
-        Box::new(AddressActivityAnalytics),
         Box::new(AddressAnalytics),
         Box::new(BaseTokenActivityAnalytics),
         Box::new(BlockActivityAnalytics),
+        Box::new(DailyActiveAddressesAnalytics::default()),
         Box::new(LedgerOutputAnalytics),
         Box::new(LedgerSizeAnalytics),
-        Box::new(UnclaimedTokenAnalytics),
         Box::new(OutputActivityAnalytics),
+        Box::new(ProtocolParametersAnalytics),
         Box::new(UnclaimedTokenAnalytics),
         Box::new(UnlockConditionAnalytics),
-        Box::new(ProtocolParametersAnalytics),
     ]
 }
 
@@ -111,10 +130,10 @@ pub struct SyncAnalytics {
 
 #[allow(missing_docs)]
 pub enum Measurement {
-    AddressActivityAnalytics(PerMilestone<AddressActivityAnalyticsResult>),
     AddressAnalytics(PerMilestone<AddressAnalyticsResult>),
-    BaseTokenActivity(PerMilestone<BaseTokenActivityAnalyticsResult>),
+    BaseTokenActivityAnalytics(PerMilestone<BaseTokenActivityAnalyticsResult>),
     BlockAnalytics(PerMilestone<BlockActivityAnalyticsResult>),
+    DailyActiveAddressAnalytics(TimeInterval<DailyActiveAddressAnalyticsResult>),
     LedgerOutputAnalytics(PerMilestone<LedgerOutputAnalyticsResult>),
     LedgerSizeAnalytics(PerMilestone<LedgerSizeAnalyticsResult>),
     OutputActivityAnalytics(PerMilestone<OutputActivityAnalyticsResult>),
