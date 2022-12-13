@@ -34,30 +34,26 @@ impl Analytic for DailyActiveAddressesAnalytics {
     ) -> Result<Option<Measurement>, Error> {
         let incoming_date = OffsetDateTime::try_from(milestone_timestamp)?.date();
 
-        if self.current_date.is_none() {
-            self.current_date = Some(incoming_date);
-        }
+        let current_date = self.current_date.get_or_insert(incoming_date);
 
-        if let Some(current_date) = self.current_date {
-            if current_date.next_day() == Some(incoming_date) {
-                let from = current_date.midnight().assume_utc();
-                let to_exclusive = incoming_date.midnight().assume_utc();
+        if current_date.next_day() == Some(incoming_date) {
+            let from = current_date.midnight().assume_utc();
+            let to_exclusive = incoming_date.midnight().assume_utc();
 
-                let res = db
-                    .collection::<OutputCollection>()
-                    .get_interval_address_activity_analytics(from.into(), to_exclusive.into())
-                    .await
-                    .map(|measurement| {
-                        Some(Measurement::DailyActiveAddressAnalytics(TimeInterval {
-                            from,
-                            to_exclusive,
-                            inner: measurement,
-                        }))
-                    });
+            let res = db
+                .collection::<OutputCollection>()
+                .get_interval_address_activity_analytics(from.into(), to_exclusive.into())
+                .await
+                .map(|measurement| {
+                    Some(Measurement::DailyActiveAddressAnalytics(TimeInterval {
+                        from,
+                        to_exclusive,
+                        inner: measurement,
+                    }))
+                });
 
-                self.current_date = Some(incoming_date);
-                return res;
-            }
+            *current_date = incoming_date;
+            return res;
         }
 
         Ok(None)
