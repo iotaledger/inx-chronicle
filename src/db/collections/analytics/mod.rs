@@ -29,7 +29,7 @@ use mongodb::bson::doc;
 pub use output_activity::OutputActivityAnalytics;
 pub use protocol_parameters::ProtocolParametersAnalytics;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+use time::{OffsetDateTime, Duration};
 pub use unclaimed_tokens::UnclaimedTokenAnalytics;
 pub use unlock_condition::UnlockConditionAnalytics;
 
@@ -75,7 +75,9 @@ pub struct TimeInterval<M> {
 
 impl<M> TimeInterval<M> {
     fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
-        influxdb::Timestamp::from(MilestoneTimestamp::from(self.from)).into_query(name)
+        // We subtract 1 nanosecond to get the inclusive end of the time interval.
+        let timestamp = self.to_exclusive.checked_sub(Duration::nanoseconds(1)).unwrap();
+        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(name)
     }
 }
 
