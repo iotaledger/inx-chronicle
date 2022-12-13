@@ -54,8 +54,11 @@ pub async fn gather_analytics(
         let influxdb = influxdb.clone();
         tasks.spawn(async move {
             let mut a: Box<dyn chronicle::db::collections::analytics::Analytic> = analytic;
-            if let Some(measurement) = a.get_measurement(&mongodb, milestone_index, milestone_timestamp).await {
-                influxdb.insert_measurement(measurement?).await?;
+            if let Some(measurement) = a
+                .get_measurement(&mongodb, milestone_index, milestone_timestamp)
+                .await?
+            {
+                influxdb.insert_measurement(measurement).await?;
             }
             Ok::<_, InxWorkerError>(a)
         });
