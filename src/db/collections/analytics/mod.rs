@@ -76,7 +76,7 @@ pub struct TimeInterval<M> {
 impl<M> TimeInterval<M> {
     fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
         // We subtract 1 nanosecond to get the inclusive end of the time interval.
-        let timestamp = self.to_exclusive.checked_sub(Duration::nanoseconds(1)).unwrap();
+        let timestamp = self.to_exclusive - Duration::nanoseconds(1);
         influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(name)
     }
 }
