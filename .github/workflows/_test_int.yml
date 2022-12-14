@@ -37,7 +37,7 @@ jobs:
         uses: supercharge/mongodb-github-action@1.8.0
         with:
           mongodb-version: ${{ inputs.mongodb }}
-          mongodb-replica-set: test-rs
+          #mongodb-replica-set: test-rs
           mongodb-username: root
           mongodb-password: root
 
