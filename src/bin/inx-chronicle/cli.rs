@@ -329,6 +329,8 @@ impl ClArgs {
                                 tmp.drain().map(Into::into).collect()
                             };
 
+                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();
                                 if let Some(milestone_timestamp) = db
@@ -402,38 +404,40 @@ impl ClArgs {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
 pub enum AnalyticsChoice {
-    AddressActivity,
+    // Please keep the alphabetic order.
     Addresses,
     BaseToken,
-    LedgerOutputs,
-    OutputActivity,
-    LedgerSize,
-    UnclaimedTokens,
     BlockActivity,
-    UnlockConditions,
+    DailyActiveAddresses,
+    LedgerOutputs,
+    LedgerSize,
+    OutputActivity,
     ProtocolParameters,
+    UnclaimedTokens,
+    UnlockConditions,
 }
 
 #[cfg(all(feature = "analytics", feature = "stardust"))]
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
-            AddressActivityAnalytics, AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics,
+            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
             LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
             UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         };
 
         match value {
-            AnalyticsChoice::AddressActivity => Box::new(AddressActivityAnalytics),
+            // Please keep the alphabetic order.
             AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
             AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
+            AnalyticsChoice::DailyActiveAddresses => Box::new(DailyActiveAddressesAnalytics::default()),
+            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
+            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
+            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
         }
     }
 }

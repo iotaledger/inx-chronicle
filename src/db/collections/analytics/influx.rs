@@ -15,18 +15,16 @@ impl InfluxDb {
 impl From<Measurement> for influxdb::WriteQuery {
     fn from(value: Measurement) -> Self {
         match value {
-            Measurement::AddressActivityAnalytics(m) => m
-                .prepare_query("stardust_address_activity")
-                .add_field("total_count", m.inner.total_count)
-                .add_field("receiving_count", m.inner.receiving_count)
-                .add_field("sending_count", m.inner.sending_count),
             Measurement::AddressAnalytics(m) => m
                 .prepare_query("stardust_addresses")
                 .add_field("address_with_balance_count", m.inner.address_with_balance_count),
-            Measurement::BaseTokenActivity(m) => m.prepare_query("stardust_base_token_activity").add_field(
-                "transferred_value",
-                m.inner.transferred_value.to_string().parse::<u64>().unwrap(),
-            ),
+            Measurement::BaseTokenActivityAnalytics(m) => m
+                .prepare_query("stardust_base_token_activity")
+                .add_field("booked_value", m.inner.booked_value.to_string().parse::<u64>().unwrap())
+                .add_field(
+                    "transferred_value",
+                    m.inner.transferred_value.to_string().parse::<u64>().unwrap(),
+                ),
             Measurement::BlockAnalytics(m) => m
                 .prepare_query("stardust_block_activity")
                 .add_field("transaction_count", m.inner.payload.transaction_count)
@@ -37,6 +35,9 @@ impl From<Measurement> for influxdb::WriteQuery {
                 .add_field("confirmed_count", m.inner.transaction.confirmed_count)
                 .add_field("conflicting_count", m.inner.transaction.conflicting_count)
                 .add_field("no_transaction_count", m.inner.transaction.no_transaction_count),
+            Measurement::DailyActiveAddressAnalytics(t) => t
+                .prepare_query("stardust_daily_active_addresses")
+                .add_field("count", t.inner.count),
             Measurement::LedgerOutputAnalytics(m) => m
                 .prepare_query("stardust_ledger_outputs")
                 .add_field("basic_count", m.inner.basic_count)

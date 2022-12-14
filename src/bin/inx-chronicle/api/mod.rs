@@ -18,10 +18,9 @@ mod config;
 mod router;
 mod routes;
 
-use axum::{Extension, Server};
 use chronicle::db::MongoDb;
 use futures::Future;
-use hyper::Method;
+use hyper::{Method, Server};
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{Any, CorsLayer},
@@ -39,7 +38,7 @@ pub use self::{
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
 /// The Chronicle API actor
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ApiWorker {
     db: MongoDb,
     api_data: ApiData,
@@ -58,9 +57,8 @@ impl ApiWorker {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;
-        let routes = routes()
-            .layer(Extension(self.db.clone()))
-            .layer(Extension(self.api_data.clone()))
+        let routes = routes(self.api_data.clone())
+            .with_state(self.clone())
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(

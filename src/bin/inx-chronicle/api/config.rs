@@ -125,7 +125,7 @@ impl<T: Clone> From<&Vec<T>> for SingleOrMultiple<T> {
         } else if value.len() == 1 {
             Self::Single(value[0].clone())
         } else {
-            Self::Multiple(value.iter().cloned().collect())
+            Self::Multiple(value.to_vec())
         }
     }
 }
