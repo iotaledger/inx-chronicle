@@ -32,16 +32,14 @@ impl MongoDb {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
-        client_options.min_pool_size = config.min_pool_size;
+        client_options.min_pool_size = Some(config.min_pool_size);
 
         if client_options.credential.is_none() {
-            if let (Some(username), Some(password)) = (&config.username, &config.password) {
-                let credential = Credential::builder()
-                    .username(username.clone())
-                    .password(password.clone())
-                    .build();
-                client_options.credential = Some(credential);
-            }
+            let credential = Credential::builder()
+                .username(config.username.clone())
+                .password(config.password.clone())
+                .build();
+            client_options.credential = Some(credential);
         }
 
         let client = Client::with_options(client_options)?;
@@ -137,13 +135,13 @@ pub struct MongoDbConfig {
     /// The bind address of the database.
     pub conn_str: String,
     /// The MongoDB username.
-    pub username: Option<String>,
+    pub username: String,
     /// The MongoDB password.
-    pub password: Option<String>,
+    pub password: String,
     /// The name of the database to connect to.
     pub database_name: String,
     /// The minimum amount of connections in the pool.
-    pub min_pool_size: Option<u32>,
+    pub min_pool_size: u32,
 }
 
 impl MongoDbConfig {

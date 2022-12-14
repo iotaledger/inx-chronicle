@@ -39,12 +39,17 @@ pub struct ClArgs {
 #[derive(Args, Debug)]
 pub struct MongoDbArgs {
     /// The MongoDb connection string.
-    #[arg(long, value_name = "CONN_STR", env = "MONGODB_CONN_STR", default_value = "mongodb://localhost:27017")]
+    #[arg(
+        long,
+        value_name = "CONN_STR",
+        env = "MONGODB_CONN_STR",
+        default_value = "mongodb://localhost:27017"
+    )]
     pub mongodb_conn_str: Option<String>,
-    /// The MongoDb username. 
+    /// The MongoDb username.
     #[arg(long, value_name = "USERNAME", env = "MONGODB_USERNAME", default_value = "root")]
     pub mongodb_username: Option<String>,
-    /// The MongoDb password. 
+    /// The MongoDb password.
     #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = "root")]
     pub mongodb_password: Option<String>,
     /// The main database name.
@@ -52,7 +57,7 @@ pub struct MongoDbArgs {
     pub mongodb_database_name: Option<String>,
     /// The MongoDb minimum pool size.
     #[arg(long, value_name = "SIZE", default_value = "2")]
-    pub mongodb_min_pool_size: Option<usize>,
+    pub mongodb_min_pool_size: Option<u32>,
 }
 
 #[cfg(feature = "inx")]
@@ -69,11 +74,15 @@ pub struct InxArgs {
     #[arg(long, default_value = "0")]
     pub inx_sync_start: Option<u32>,
     /// Time to wait until a new connection attempt is made.
-    #[arg(long, default_value = "5s")]
-    pub inx_retry_interval: Option<String>,
+    #[arg(long, value_parser = parse_duration, default_value = "5s")]
+    pub inx_retry_interval: Option<std::time::Duration>,
     /// Maximum number of tries to establish an INX connection.
     #[arg(long, default_value = "30")]
     pub inx_retry_count: Option<usize>,
+}
+
+fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
+    arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 #[cfg(feature = "api")]
@@ -86,8 +95,8 @@ pub struct ApiArgs {
     #[arg(long, default_value = "8042")]
     pub api_port: Option<u16>,
     /// CORS setting.
-    #[arg(long, default_value = "0.0.0.0")]
-    pub api_allow_origins: Option<String>,
+    #[arg(long = "allow-origin", value_name = "ORIGIN", default_value = "0.0.0.0")]
+    pub allow_origins: Vec<String>,
     /// Public API routes.
     #[arg(long = "public-route", value_name = "ROUTE", default_value = "api/core/v2/*")]
     pub public_routes: Vec<String>,
@@ -121,22 +130,26 @@ pub struct InfluxDbArgs {
     /// The url pointing to an InfluxDb instance.
     #[arg(long, default_value = "http://localhost:8086")]
     pub influxdb_url: Option<String>,
-    /// The InfluxDb username. 
+    /// The InfluxDb username.
     #[arg(long, env = "INFLUXDB_USERNAME", default_value = "root")]
     pub influxdb_username: Option<String>,
-    /// The InfluxDb password. 
+    /// The InfluxDb password.
     #[arg(long, env = "INFLUXDB_PASSWORD", default_value = "password")]
     pub influxdb_password: Option<String>,
     /// Toggle InfluxDb time-series analytics writes.
+    #[cfg(feature = "analytics")]
     #[arg(long, default_value = "true")]
     pub analytics_enabled: Option<bool>,
     /// Toggle InfluxDb time-series metrics writes.
+    #[cfg(feature = "metrics")]
     #[arg(long, default_value = "true")]
     pub metrics_enabled: Option<bool>,
     /// The Analytics database name.
+    #[cfg(feature = "analytics")]
     #[arg(long, default_value = "chronicle_analytics")]
     pub analytics_database_name: Option<String>,
     /// The Metrics database name.
+    #[cfg(feature = "metrics")]
     #[arg(long, default_value = "chronicle_metrics")]
     pub metrics_database_name: Option<String>,
 }
@@ -153,80 +166,82 @@ pub struct LokiArgs {
 }
 
 impl ClArgs {
-    /// Get a config file with CLI args applied.
+    /// Get a config from a file (specified via the `--config` option) or from provided CLI args combined
+    /// with defaults for those that are not provided. Note that a config file must be fully specified
+    /// as it cannot be overwritten with the CLI defaults. If you plan on using a `config.toml` use
+    /// Chronicle's `gen-config' tool to make sure of that.
     pub fn get_config(&self) -> Result<ChronicleConfig, ConfigError> {
-        let mut config = self
-            .config
-            .as_ref()
-            .map(ChronicleConfig::from_file)
-            .transpose()?
-            .unwrap_or_default();
-
-        if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
-            config.mongodb.conn_str = conn_str.clone();
+        if let Some(config_path) = &self.config {
+            return ChronicleConfig::from_file(config_path);
         }
 
+        let mut config = ChronicleConfig::default();
+
+        // MongoDb
+        // Note: all unwraps are fine because we defined defaults for all, so none of them can be None ;)
+        config.mongodb.conn_str = self.mongodb.mongodb_conn_str.as_ref().unwrap().clone();
+        config.mongodb.database_name = self.mongodb.mongodb_database_name.as_ref().unwrap().clone();
+        config.mongodb.username = self.mongodb.mongodb_username.as_ref().unwrap().clone();
+        config.mongodb.password = self.mongodb.mongodb_password.as_ref().unwrap().clone();
+        config.mongodb.min_pool_size = self.mongodb.mongodb_min_pool_size.unwrap();
+
+        // INX
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
-            if let Some(connect_url) = &self.inx.inx_url {
-                config.inx.connect_url = connect_url.clone();
-            }
-            if let Some(enabled) = self.inx.inx_enabled {
-                config.inx.enabled = enabled;
-            }
-            if let Some(sync_start) = self.inx.inx_sync_start {
-                config.inx.sync_start_milestone = sync_start.into();
-            }
+            config.inx.enabled = self.inx.inx_enabled.unwrap();
+            config.inx.connect_url = self.inx.inx_url.as_ref().unwrap().clone();
+            config.inx.connection_retry_interval = self.inx.inx_retry_interval.unwrap();
+            config.inx.connection_retry_count = self.inx.inx_retry_count.unwrap();
+            config.inx.sync_start_milestone = self.inx.inx_sync_start.unwrap().into();
         }
 
-        #[cfg(feature = "analytics")]
-        {
-            if let Some(enabled) = self.influxdb.analytics_enabled {
-                config.influxdb.analytics_enabled = enabled;
-            }
-        }
-
-        #[cfg(feature = "metrics")]
-        {
-            if let Some(enabled) = self.influxdb.metrics_enabled {
-                config.influxdb.metrics_enabled = enabled;
-            }
-        }
-
+        // InfluxDb
         #[cfg(any(feature = "analytics", feature = "metrics"))]
         {
-            if let Some(url) = &self.influxdb.influxdb_url {
-                config.influxdb.url = url.clone();
-            }
+            config.influxdb.url = self.influxdb.influxdb_url.as_ref().unwrap().clone();
+            config.influxdb.username = self.influxdb.influxdb_username.as_ref().unwrap().clone();
+            config.influxdb.password = self.influxdb.influxdb_password.as_ref().unwrap().clone();
+        }
+        #[cfg(feature = "analytics")]
+        {
+            config.influxdb.analytics_enabled = self.influxdb.analytics_enabled.unwrap();
+            config.influxdb.analytics_database_name = self.influxdb.analytics_database_name.as_ref().unwrap().clone();
+        }
+        #[cfg(feature = "metrics")]
+        {
+            config.influxdb.metrics_enabled = self.influxdb.metrics_enabled.unwrap();
+            config.influxdb.metrics_database_name = self.influxdb.metrics_database_name.as_ref().unwrap().clone();
         }
 
+        // API
         #[cfg(feature = "api")]
         {
-            if let Some(password) = &self.api.jwt.jwt_password {
-                config.api.password_hash = hex::encode(
-                    argon2::hash_raw(
-                        password.as_bytes(),
-                        config.api.password_salt.as_bytes(),
-                        &Into::into(&config.api.argon_config),
-                    )
-                    // TODO: Replace this once we switch to a better error lib
-                    .expect("invalid JWT config"),
-                );
-            }
-            if let Some(path) = &self.api.jwt.jwt_identity {
-                config.api.identity_path.replace(path.clone());
-            }
+            let password = self.api.jwt.jwt_password.as_ref().unwrap();
+            let salt = self.api.jwt.jwt_salt.as_ref().unwrap();
+
             config.api.enabled = self.api.api_enabled.unwrap();
+            config.api.port = self.api.api_port.unwrap();
+            config.api.allow_origins = (&self.api.allow_origins).into();
+            config.api.password_hash = hex::encode(
+                argon2::hash_raw(
+                    password.as_bytes(),
+                    salt.as_bytes(),
+                    &Into::into(&config.api.argon_config),
+                )
+                // TODO: Replace this once we switch to a better error lib
+                .expect("invalid JWT config"),
+            );
+            config.api.password_salt = salt.clone();
+            config.api.identity_path = self.api.jwt.jwt_identity.clone();
+            config.api.max_page_size = self.api.max_page_size.unwrap();
+            config.api.public_routes = self.api.public_routes.clone();
         }
 
+        // Loki
         #[cfg(feature = "loki")]
         {
-            if let Some(connect_url) = &self.loki.loki_url {
-                config.loki.connect_url = connect_url.clone();
-            }
-            if let Some(enabled) = self.loki.loki_enabled {
-                config.loki.enabled = enabled;
-            }
+            config.loki.connect_url = self.loki.loki_url.as_ref().unwrap().clone();
+            config.loki.enabled = *self.loki.loki_enabled.as_ref().unwrap();
         }
 
         Ok(config)
@@ -238,6 +253,15 @@ impl ClArgs {
     pub async fn process_subcommands(&self, config: &ChronicleConfig) -> eyre::Result<PostCommand> {
         if let Some(subcommand) = &self.subcommand {
             match subcommand {
+                Subcommands::CreateConfig { file_path } => {
+                    let toml_config = format!(
+                        "# This file was auto-generated. Re-run on breaking changes to Chronicle's configuration.\n\n{}",
+                        toml::to_string_pretty(config)?
+                    );
+                    std::fs::write(file_path.as_ref().unwrap(), toml_config)?;
+                    tracing::info!("Written generated config to: '{}'", file_path.as_ref().unwrap());
+                    return Ok(PostCommand::Exit);
+                }
                 #[cfg(feature = "api")]
                 Subcommands::GenerateJWT => {
                     use crate::api::ApiData;
@@ -416,6 +440,12 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
 
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
+    /// Generate a config from provided CLI parameters.
+    #[cfg(debug_assertions)]
+    CreateConfig {
+        #[arg(short, long, value_name = "PATH", default_value = "./config.toml")]
+        file_path: Option<String>,
+    },
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,

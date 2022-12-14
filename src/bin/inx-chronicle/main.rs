@@ -26,10 +26,6 @@ use self::cli::{ClArgs, PostCommand};
 async fn main() -> eyre::Result<()> {
     dotenvy::dotenv().ok();
 
-    std::panic::set_hook(Box::new(|p| {
-        error!("{}", p);
-    }));
-
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config()?;
 
@@ -130,6 +126,10 @@ async fn main() -> eyre::Result<()> {
 }
 
 fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()> {
+    std::panic::set_hook(Box::new(|p| {
+        error!("{}", p);
+    }));
+
     let registry = tracing_subscriber::registry();
 
     let registry = {

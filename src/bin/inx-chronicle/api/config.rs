@@ -118,6 +118,18 @@ impl<T: Default> Default for SingleOrMultiple<T> {
     }
 }
 
+impl<T: Clone> From<&Vec<T>> for SingleOrMultiple<T> {
+    fn from(value: &Vec<T>) -> Self {
+        if value.is_empty() {
+            unreachable!("Vec must have single or multiple elements")
+        } else if value.len() == 1 {
+            Self::Single(value[0].clone())
+        } else {
+            Self::Multiple(value.iter().cloned().collect())
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ArgonConfig {
