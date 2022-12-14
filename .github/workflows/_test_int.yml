@@ -17,9 +17,6 @@ jobs:
   test-int:
     name: "${{ inputs.os }}, ${{ inputs.rust }}"
     runs-on: ${{ inputs.os }}
-    env:
-      MONGO_INITDB_ROOT_USERNAME: "root"
-      MONGO_INITDB_ROOT_PASSWORD: "root"
     steps:
       - uses: actions/checkout@v2
 
@@ -41,6 +38,8 @@ jobs:
         with:
           mongodb-version: ${{ inputs.mongodb }}
           mongodb-replica-set: test-rs
+          mongodb-username: root
+          mongodb-password: root
 
       - name: Test DB
         uses: actions-rs/cargo@v1
