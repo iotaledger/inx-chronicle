@@ -170,7 +170,7 @@ impl ClArgs {
     /// Get a config from a file (specified via the `--config` option) or from provided CLI args combined
     /// with defaults for those that are not provided. Note that a config file must be fully specified
     /// as it cannot be overwritten with the CLI defaults. If you plan on using a `config.toml` use
-    /// Chronicle's `gen-config' tool to make sure of that.
+    /// Chronicle's `create-config' tool to make sure of that.
     pub fn get_config(&self) -> Result<ChronicleConfig, ConfigError> {
         if let Some(config_path) = &self.config {
             return ChronicleConfig::from_file(config_path);
@@ -242,7 +242,7 @@ impl ClArgs {
         #[cfg(feature = "loki")]
         {
             config.loki.connect_url = self.loki.loki_url.as_ref().unwrap().clone();
-            config.loki.enabled = *self.loki.loki_enabled.as_ref().unwrap();
+            config.loki.enabled = self.loki.loki_enabled.unwrap();
         }
 
         Ok(config)
