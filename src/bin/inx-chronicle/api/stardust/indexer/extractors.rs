@@ -457,14 +457,18 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiData::try_from(ApiConfig::default()).unwrap();
+        let config = ApiConfig {
+            max_page_size: 1000,
+            ..Default::default()
+        };
+        let data = ApiData::try_from(config).unwrap();
         let req = Request::builder()
             .method("GET")
             .uri("/outputs/basic?pageSize=9999999")
             .body(())
             .unwrap();
         assert_eq!(
-            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(req, &config)
+            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(req, &data)
                 .await
                 .unwrap(),
             IndexedOutputsPagination {

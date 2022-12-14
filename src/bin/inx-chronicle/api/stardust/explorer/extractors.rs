@@ -494,14 +494,18 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiData::try_from(ApiConfig::default()).unwrap();
+        let config = ApiConfig {
+            max_page_size: 1000,
+            ..Default::default()
+        };
+        let data = ApiData::try_from(config).unwrap();
         let req = Request::builder()
             .method("GET")
             .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
             .body(())
             .unwrap();
         assert_eq!(
-            LedgerUpdatesByAddressPagination::from_request(req, &config)
+            LedgerUpdatesByAddressPagination::from_request(req, &data)
                 .await
                 .unwrap(),
             LedgerUpdatesByAddressPagination {
@@ -517,7 +521,7 @@ mod test {
             .body(())
             .unwrap();
         assert_eq!(
-            LedgerUpdatesByMilestonePagination::from_request(req, &config)
+            LedgerUpdatesByMilestonePagination::from_request(req, &data)
                 .await
                 .unwrap(),
             LedgerUpdatesByMilestonePagination {

@@ -101,7 +101,7 @@ pub struct ApiArgs {
     /// Public API routes.
     #[arg(long = "public-route", value_name = "ROUTE", default_value = "api/core/v2/*")]
     pub public_routes: Vec<String>,
-    /// Maximum nubmer of results returned by a single API call.
+    /// Maximum number of results returned by a single API call.
     #[arg(long, default_value = "1000")]
     pub max_page_size: Option<usize>,
     /// JWT arguments.
@@ -256,7 +256,7 @@ impl ClArgs {
             match subcommand {
                 Subcommands::CreateConfig { file_path } => {
                     let toml_config = format!(
-                        "# This file was auto-generated. Re-run on breaking changes to Chronicle's configuration.\n\n{}",
+                        "# This file was auto-generated. You can change values but should not add or remove lines yourself.\n# Re-run on breaking changes to Chronicle's configuration.\n\n{}",
                         toml::to_string_pretty(config)?
                     );
                     std::fs::write(file_path.as_ref().unwrap(), toml_config)?;

@@ -16,21 +16,35 @@ pub enum TestDbError {
 
 #[allow(unused)]
 pub async fn setup_database(database_name: impl ToString) -> eyre::Result<MongoDb> {
-    let mut config = if let Ok(path) = std::env::var("CONFIG_PATH") {
+    dotenvy::dotenv().ok();
+
+    let get_mongodb_test_config = || -> MongoDbConfig {
+        MongoDbConfig {
+            conn_str: std::env::var("MONGODB_CONN_STR").unwrap_or_else(|_| "mongodb://localhost:27017".to_owned()),
+            database_name: database_name.to_string(),
+            username: std::env::var("MONGODB_USERNAME").unwrap_or_else(|_| "root".to_owned()),
+            password: std::env::var("MONGODB_PASSWORD").unwrap_or_else(|_| "root".to_owned()),
+            min_pool_size: 2,
+        }
+    };
+
+    let mut test_config = if let Ok(path) = std::env::var("CHRONICLE_TEST_CONFIG") {
         let val = std::fs::read_to_string(&path)
             .map_err(|e| TestDbError::FileRead(AsRef::<Path>::as_ref(&path).display().to_string(), e))
             .and_then(|contents| toml::from_str::<toml::Value>(&contents).map_err(TestDbError::TomlDeserialization))?;
+
         if let Some(mongodb) = val.get("mongodb").cloned() {
-            mongodb.try_into().map_err(TestDbError::TomlDeserialization)?
+            let mut config: MongoDbConfig = mongodb.try_into().map_err(TestDbError::TomlDeserialization)?;
+            config.database_name = database_name.to_string();
+            config
         } else {
-            MongoDbConfig::default()
+            get_mongodb_test_config()
         }
     } else {
-        MongoDbConfig::default()
+        get_mongodb_test_config()
     };
-    config.database_name = database_name.to_string();
 
-    let db = MongoDb::connect(&config).await?;
+    let db = MongoDb::connect(&test_config).await?;
     db.clear().await?;
     Ok(db)
 }
