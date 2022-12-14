@@ -81,6 +81,7 @@ pub struct InxArgs {
     pub inx_retry_count: Option<usize>,
 }
 
+#[cfg(feature = "inx")]
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
     arg.parse::<humantime::Duration>().map(Into::into)
 }
@@ -445,7 +446,6 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
     /// Generate a config from provided CLI parameters.
-    #[cfg(debug_assertions)]
     CreateConfig {
         #[arg(short, long, value_name = "PATH", default_value = "./config.toml")]
         file_path: Option<String>,
