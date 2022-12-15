@@ -190,8 +190,11 @@ impl BlockCollection {
             .map_ok(|BlockIdResult { block_id }| block_id))
     }
 
-    /// Get the past-cone of a milestone in "White Flag" order.
-    pub async fn get_referenced_cone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
+    /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
+    pub async fn get_referenced_blocks_in_white_flag_order(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<Vec<BlockId>, Error> {
         #[derive(Deserialize)]
         struct BlockIdResult {
             id: BlockId,
@@ -214,8 +217,8 @@ impl BlockCollection {
         Ok(block_ids)
     }
 
-    /// Get the past-cone of a milestone in "White Flag" order.
-    pub async fn get_applied_cone_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
+    /// Get the blocks that were applied by the specified milestone (in White-Flag order).
+    pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
         #[derive(Deserialize)]
         struct BlockIdResult {
             id: BlockId,

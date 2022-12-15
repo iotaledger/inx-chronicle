@@ -380,7 +380,7 @@ mod test_rand {
             .unwrap();
 
         let whiteflag_cone = block_collection
-            .get_referenced_cone_in_white_flag_order(1.into())
+            .get_referenced_blocks_in_white_flag_order(1.into())
             .await
             .unwrap();
 

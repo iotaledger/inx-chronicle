@@ -76,7 +76,7 @@ async fn create_proof_for_referenced_blocks(
 
     // Fetch the referenced block ids in "White Flag" order, and make sure they contain the block.
     let referenced_block_ids = block_collection
-        .get_referenced_cone_in_white_flag_order(referenced_index)
+        .get_referenced_blocks_in_white_flag_order(referenced_index)
         .await?;
     if referenced_block_ids.is_empty() {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::NoMilestoneCone).into());
@@ -183,7 +183,7 @@ async fn create_proof_for_applied_blocks(
 
     // Fetch the referenced and applied block ids in "White Flag" order, and make sure they contain the block.
     let applied_block_ids = block_collection
-        .get_applied_cone_in_white_flag_order(referenced_index)
+        .get_applied_blocks_in_white_flag_order(referenced_index)
         .await?;
     if !applied_block_ids.contains(&block_id) {
         return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
