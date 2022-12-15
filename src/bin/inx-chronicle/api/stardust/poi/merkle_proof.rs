@@ -77,25 +77,20 @@ impl MerkleProof {
         Ok(Self::create_audit_path_from_index(block_ids, index))
     }
 
-    fn create_audit_path_from_index(block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
-        let block_ids = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-        Self::compute_audit_path(&block_ids, index)
-    }
-
     // Recursive function that deterministically computes the Merkle Tree audit path for a certain `BlockId`
     // in a list of ordered and unique `BlockId`s. It is the responsibility of the caller to make sure those
     // invariants are upheld.
     //
     // For further details on the usage of Merkle trees and Proof of Inclusion in IOTA, have a look at:
     // [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md).
-    fn compute_audit_path(block_ids: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
+    fn create_audit_path_from_index(block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
         let n = block_ids.len();
         debug_assert!(n > 0 && index < n, "n={n}, index={index}");
 
-        // Handle the special case where the Merkle Tree consists solely of the "value".
+        // Handle the special case where the "value" makes up the whole Merkle Tree.
         if n == 1 {
             return MerkleAuditPath {
-                left: Hashable::Value(block_ids[0]),
+                left: Hashable::Value(block_ids[0].0),
                 right: None,
             };
         }
@@ -108,11 +103,11 @@ impl MerkleProof {
         let subtree_hash = |block_ids| Hashable::Node(MerkleHasher::hash(block_ids));
 
         // Produces the Merkle audit path for the given `value`.
-        let subtree_with_value = |block_ids: &[[u8; BlockId::LENGTH]], index| {
+        let subtree_with_value = |block_ids: &[BlockId], index| {
             if block_ids.len() == 1 {
-                Hashable::Value(block_ids[0])
+                Hashable::Value(block_ids[0].0)
             } else {
-                Hashable::Path(Box::new(Self::compute_audit_path(block_ids, index)))
+                Hashable::Path(Box::new(Self::create_audit_path_from_index(block_ids, index)))
             }
         };
 
