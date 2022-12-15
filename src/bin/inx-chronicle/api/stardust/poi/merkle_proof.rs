@@ -12,16 +12,22 @@ use super::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerkleAuditPath {
     left: Hashable,
-    right: Hashable,
+    right: Option<Hashable>,
 }
 
 impl MerkleAuditPath {
     pub fn hash(&self) -> MerkleHash {
-        MerkleHasher::hash_node(self.left.hash(), self.right.hash())
+        // Handle edge case where the Merkle Tree consists solely of the "value".
+        if self.left.is_value() && self.right.is_none() {
+            self.left.hash()
+        } else {
+            // We make sure that unwrapping is safe.
+            MerkleHasher::hash_node(self.left.hash(), self.right.as_ref().unwrap().hash())
+        }
     }
 
     pub fn contains_block_id(&self, block_id: &BlockId) -> bool {
-        self.left.contains_block_id(block_id) || self.right.contains_block_id(block_id)
+        self.left.contains_block_id(block_id) || self.right.as_ref().unwrap().contains_block_id(block_id)
     }
 }
 
@@ -48,17 +54,29 @@ impl Hashable {
             Hashable::Value(v) => v == &block_id.0,
         }
     }
+
+    fn is_value(&self) -> bool {
+        matches!(self, Hashable::Value(_))
+    }
 }
 
 pub struct MerkleProof;
 
 impl MerkleProof {
     pub fn create_audit_path(block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleAuditPath, CreateProofError> {
-        if block_ids.len() < 2 {
-            Err(CreateProofError::InsufficientBlockIds(block_ids.len()))
+        // Get index of the block id in the list of block ids.
+        let index = block_ids
+            .iter()
+            .position(|id| id == block_id)
+            .ok_or_else(|| CreateProofError::BlockNotIncluded(block_id.to_hex()))?;
+
+        // Handle edge case where the Merkle Tree consists solely of the "value".
+        if block_ids.len() == 1 {
+            Ok(MerkleAuditPath {
+                left: Hashable::Value(block_id.0),
+                right: None,
+            })
         } else {
-            let index =
-                find_index(block_ids, block_id).ok_or_else(|| CreateProofError::BlockNotIncluded(block_id.to_hex()))?;
             Ok(Self::create_audit_path_from_index(block_ids, index))
         }
     }
@@ -67,9 +85,9 @@ impl MerkleProof {
     // * `block_ids` is the list of past-cone block ids in "White Flag" order;
     // * `block_ids.len() >= 2` must be true, or this function panics;
     // * `index < block_ids.len()` must be true, or this function panics;
-    pub fn create_audit_path_from_index(block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
+    fn create_audit_path_from_index(block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
         let n = block_ids.len();
-        debug_assert!(index < n);
+        debug_assert!(n > 1 && index < n, "n={n}, index={index}");
 
         let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
         Self::compute_audit_path(&data, index)
@@ -80,19 +98,19 @@ impl MerkleProof {
     ///
     /// For further details on the usage of Merkle trees and Proof of Inclusion in IOTA, have a look at:
     /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md).
-    fn compute_audit_path(data: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
-        let n = data.len();
+    fn compute_audit_path(block_ids: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
+        let n = block_ids.len();
         debug_assert!(n > 1 && index < n, "n={n}, index={index}");
 
         // Select a `pivot` element to split `data` into two slices `left` and `right`.
         let pivot = super::merkle_hasher::largest_power_of_two(n);
-        let (left, right) = data.split_at(pivot);
+        let (left, right) = block_ids.split_at(pivot);
 
         // Produces the Merkle hash of a sub tree not containing the `value`.
-        let h_tree = |s| Hashable::Node(MerkleHasher::hash(s));
+        let subtree_hash = |block_ids| Hashable::Node(MerkleHasher::hash(block_ids));
 
         // Produces the Merkle audit path for the given `value`.
-        let v_tree = |s: &[[u8; BlockId::LENGTH]], index| {
+        let subtree_with_value = |s: &[[u8; BlockId::LENGTH]], index| {
             if s.len() == 1 {
                 Hashable::Value(s[0])
             } else {
@@ -103,36 +121,32 @@ impl MerkleProof {
         if index < pivot {
             // `value` is contained in the left subtree, and the `right` subtree can be hashed together.
             MerkleAuditPath {
-                left: v_tree(left, index),
-                right: h_tree(right),
+                left: subtree_with_value(left, index),
+                right: Some(subtree_hash(right)),
             }
         } else {
             // `value` is contained in the right subtree, and the `left` subtree can be hashed together.
             MerkleAuditPath {
-                left: h_tree(left),
-                right: v_tree(right, index - pivot),
+                left: subtree_hash(left),
+                right: Some(subtree_with_value(right, index - pivot)),
             }
         }
     }
-}
-
-fn find_index(block_ids: &[BlockId], block_id: &BlockId) -> Option<usize> {
-    block_ids.iter().position(|id| id == block_id)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MerkleAuditPathDto {
     #[serde(rename = "l")]
     left: HashableDto,
-    #[serde(rename = "r")]
-    right: HashableDto,
+    #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+    right: Option<HashableDto>,
 }
 
 impl From<MerkleAuditPath> for MerkleAuditPathDto {
     fn from(value: MerkleAuditPath) -> Self {
         Self {
             left: value.left.into(),
-            right: value.right.into(),
+            right: value.right.map(|v| v.into()),
         }
     }
 }
@@ -143,7 +157,7 @@ impl TryFrom<MerkleAuditPathDto> for MerkleAuditPath {
     fn try_from(proof: MerkleAuditPathDto) -> Result<Self, Self::Error> {
         Ok(Self {
             left: Hashable::try_from(proof.left)?,
-            right: Hashable::try_from(proof.right)?,
+            right: proof.right.map(Hashable::try_from).transpose()?,
         })
     }
 }
@@ -198,7 +212,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_audit_path() {
+    fn test_create_audit_path() {
         let block_ids = [
             "0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649",
             "0x81855ad8681d0d86d1e91e00167939cb6694d2c422acd208a0072939487f6999",
@@ -214,8 +228,8 @@ mod tests {
 
         let expected_merkle_root = MerkleHasher::hash_block_ids(&block_ids);
 
-        for index in 0..block_ids.len() {
-            let merkle_audit_path = MerkleProof::create_audit_path_from_index(&block_ids, index);
+        for (index, block_id) in block_ids.iter().enumerate() {
+            let merkle_audit_path = MerkleProof::create_audit_path(&block_ids, block_id).unwrap();
             let calculated_merkle_root = merkle_audit_path.hash();
 
             assert_eq!(
@@ -232,5 +246,28 @@ mod tests {
                 "audit path does not contain that block id"
             );
         }
+    }
+
+    #[test]
+    fn test_create_audit_path_for_single_block() {
+        let block_id = BlockId::from_str("0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649").unwrap();
+        let block_ids = vec![block_id];
+        let expected_merkle_root = MerkleHasher::hash_block_ids(&block_ids);
+        let merkle_audit_path = MerkleProof::create_audit_path(&block_ids, &block_id).unwrap();
+        let calculated_merkle_root = merkle_audit_path.hash();
+
+        assert_eq!(
+            merkle_audit_path,
+            MerkleAuditPathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
+            "audit path dto roundtrip"
+        );
+        assert_eq!(
+            expected_merkle_root, calculated_merkle_root,
+            "audit path hash doesn't equal the merkle root"
+        );
+        assert!(
+            merkle_audit_path.contains_block_id(&block_ids[0]),
+            "audit path does not contain that block id"
+        );
     }
 }

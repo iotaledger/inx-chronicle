@@ -39,8 +39,6 @@ pub enum CorruptStateError {
 pub enum CreateProofError {
     #[error("Block '{0}' is not included in the given ordered list of blocks")]
     BlockNotIncluded(String),
-    #[error("A proof cannot be created from {0} block ids")]
-    InsufficientBlockIds(usize),
     #[error(
         "The calculated merkle root '{calculated_merkle_root}' does not match the expected: '{expected_merkle_root}'"
     )]

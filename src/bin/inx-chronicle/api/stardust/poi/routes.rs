@@ -144,9 +144,9 @@ async fn create_block_applied_proof(
     }
 
     // TEMP
-    let merkle_root = super::merkle_hasher::MerkleHasher::hash_block_ids(&applied_block_ids);
-    println!("calculated applied merkle root: {:?}", merkle_root);
-    println!("expected applied merkle root: {:?}", milestone.essence.applied_merkle_root);
+    // let merkle_root = super::merkle_hasher::MerkleHasher::hash_block_ids(&applied_block_ids);
+    // println!("calculated applied merkle root: {:?}", merkle_root);
+    // println!("expected applied merkle root: {:?}", milestone.essence.applied_merkle_root);
 
     // Create the Merkle audit path for the given block against that ordered set of referenced and applied block ids.
     let merkle_audit_path = MerkleProof::create_audit_path(&applied_block_ids, &block_id)
