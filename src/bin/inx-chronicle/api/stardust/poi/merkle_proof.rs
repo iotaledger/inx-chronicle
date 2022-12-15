@@ -63,6 +63,10 @@ impl Hashable {
 pub struct MerkleProof;
 
 impl MerkleProof {
+    /// Creates the Merkle Tree audit path for a `block_id` contained in a list of `block_ids` sorted by their
+    /// White-Flag index.
+    ///
+    /// Returns an error if the given `block_id` is not actually part of the also given `block_ids` list.
     pub fn create_audit_path(block_ids: &[BlockId], block_id: &BlockId) -> Result<MerkleAuditPath, CreateProofError> {
         // Get index of the block id in the list of block ids.
         let index = block_ids
@@ -70,37 +74,31 @@ impl MerkleProof {
             .position(|id| id == block_id)
             .ok_or_else(|| CreateProofError::BlockNotIncluded(block_id.to_hex()))?;
 
-        // Handle edge case where the Merkle Tree consists solely of the "value".
-        if block_ids.len() == 1 {
-            Ok(MerkleAuditPath {
-                left: Hashable::Value(block_id.0),
-                right: None,
-            })
-        } else {
-            Ok(Self::create_audit_path_from_index(block_ids, index))
-        }
+        Ok(Self::create_audit_path_from_index(block_ids, index))
     }
 
-    // NOTE:
-    // * `block_ids` is the list of past-cone block ids in "White Flag" order;
-    // * `block_ids.len() >= 2` must be true, or this function panics;
-    // * `index < block_ids.len()` must be true, or this function panics;
     fn create_audit_path_from_index(block_ids: &[BlockId], index: usize) -> MerkleAuditPath {
-        let n = block_ids.len();
-        debug_assert!(n > 1 && index < n, "n={n}, index={index}");
-
-        let data = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
-        Self::compute_audit_path(&data, index)
+        let block_ids = block_ids.iter().map(|block_id| block_id.0).collect::<Vec<_>>();
+        Self::compute_audit_path(&block_ids, index)
     }
 
-    /// Recursively computes the "Merkle Audit Path" for a certain `BlockId` that is given by its index in a list of
-    /// ordered and unique `BlockId`s.
-    ///
-    /// For further details on the usage of Merkle trees and Proof of Inclusion in IOTA, have a look at:
-    /// [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md).
+    // Recursive function that deterministically computes the Merkle Tree audit path for a certain `BlockId`
+    // in a list of ordered and unique `BlockId`s. It is the responsibility of the caller to make sure those
+    // invariants are upheld.
+    //
+    // For further details on the usage of Merkle trees and Proof of Inclusion in IOTA, have a look at:
+    // [TIP-0004](https://github.com/iotaledger/tips/blob/main/tips/TIP-0004/tip-0004.md).
     fn compute_audit_path(block_ids: &[[u8; BlockId::LENGTH]], index: usize) -> MerkleAuditPath {
         let n = block_ids.len();
-        debug_assert!(n > 1 && index < n, "n={n}, index={index}");
+        debug_assert!(n > 0 && index < n, "n={n}, index={index}");
+
+        // Handle the special case where the Merkle Tree consists solely of the "value".
+        if n == 1 {
+            return MerkleAuditPath {
+                left: Hashable::Value(block_ids[0]),
+                right: None,
+            };
+        }
 
         // Select a `pivot` element to split `data` into two slices `left` and `right`.
         let pivot = super::merkle_hasher::largest_power_of_two(n);
@@ -110,11 +108,11 @@ impl MerkleProof {
         let subtree_hash = |block_ids| Hashable::Node(MerkleHasher::hash(block_ids));
 
         // Produces the Merkle audit path for the given `value`.
-        let subtree_with_value = |s: &[[u8; BlockId::LENGTH]], index| {
-            if s.len() == 1 {
-                Hashable::Value(s[0])
+        let subtree_with_value = |block_ids: &[[u8; BlockId::LENGTH]], index| {
+            if block_ids.len() == 1 {
+                Hashable::Value(block_ids[0])
             } else {
-                Hashable::Path(Box::new(Self::compute_audit_path(s, index)))
+                Hashable::Path(Box::new(Self::compute_audit_path(block_ids, index)))
             }
         };
 
@@ -229,20 +227,20 @@ mod tests {
         let expected_merkle_root = MerkleHasher::hash_block_ids(&block_ids);
 
         for (index, block_id) in block_ids.iter().enumerate() {
-            let merkle_audit_path = MerkleProof::create_audit_path(&block_ids, block_id).unwrap();
-            let calculated_merkle_root = merkle_audit_path.hash();
+            let audit_path = MerkleProof::create_audit_path(&block_ids, block_id).unwrap();
+            let audit_path_merkle_root = audit_path.hash();
 
             assert_eq!(
-                merkle_audit_path,
-                MerkleAuditPathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
+                audit_path,
+                MerkleAuditPathDto::from(audit_path.clone()).try_into().unwrap(),
                 "audit path dto roundtrip"
             );
             assert_eq!(
-                expected_merkle_root, calculated_merkle_root,
+                expected_merkle_root, audit_path_merkle_root,
                 "audit path hash doesn't equal the merkle root"
             );
             assert!(
-                merkle_audit_path.contains_block_id(&block_ids[index]),
+                audit_path.contains_block_id(&block_ids[index]),
                 "audit path does not contain that block id"
             );
         }
@@ -253,20 +251,20 @@ mod tests {
         let block_id = BlockId::from_str("0x52fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649").unwrap();
         let block_ids = vec![block_id];
         let expected_merkle_root = MerkleHasher::hash_block_ids(&block_ids);
-        let merkle_audit_path = MerkleProof::create_audit_path(&block_ids, &block_id).unwrap();
-        let calculated_merkle_root = merkle_audit_path.hash();
+        let audit_path = MerkleProof::create_audit_path(&block_ids, &block_id).unwrap();
+        let audit_path_merkle_root = audit_path.hash();
 
         assert_eq!(
-            merkle_audit_path,
-            MerkleAuditPathDto::from(merkle_audit_path.clone()).try_into().unwrap(),
+            audit_path,
+            MerkleAuditPathDto::from(audit_path.clone()).try_into().unwrap(),
             "audit path dto roundtrip"
         );
         assert_eq!(
-            expected_merkle_root, calculated_merkle_root,
+            expected_merkle_root, audit_path_merkle_root,
             "audit path hash doesn't equal the merkle root"
         );
         assert!(
-            merkle_audit_path.contains_block_id(&block_ids[0]),
+            audit_path.contains_block_id(&block_ids[0]),
             "audit path does not contain that block id"
         );
     }
