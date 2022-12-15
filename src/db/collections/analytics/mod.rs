@@ -4,227 +4,140 @@
 /// Schema implementation for InfluxDb.
 pub mod influx;
 
-use decimal::d128;
-use futures::TryFutureExt;
-use mongodb::{bson::doc, error::Error};
-use serde::{Deserialize, Serialize};
+mod address_balance;
+mod base_token;
+mod block_activity;
+mod daily_active_addresses;
+mod ledger_outputs;
+mod ledger_size;
+mod output_activity;
+mod protocol_parameters;
+mod unclaimed_tokens;
+mod unlock_condition;
 
-use super::{BlockCollection, OutputCollection, ProtocolUpdateCollection};
+use std::fmt::Debug;
+
+pub use address_balance::AddressAnalytics;
+use async_trait::async_trait;
+pub use base_token::BaseTokenActivityAnalytics;
+pub use block_activity::BlockActivityAnalytics;
+pub use daily_active_addresses::DailyActiveAddressesAnalytics;
+use influxdb::{InfluxDbWriteable, WriteQuery};
+pub use ledger_outputs::LedgerOutputAnalytics;
+pub use ledger_size::LedgerSizeAnalytics;
+use mongodb::bson::doc;
+pub use output_activity::OutputActivityAnalytics;
+pub use protocol_parameters::ProtocolParametersAnalytics;
+use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime};
+pub use unclaimed_tokens::UnclaimedTokenAnalytics;
+pub use unlock_condition::UnlockConditionAnalytics;
+
+use self::{
+    address_balance::AddressAnalyticsResult, base_token::BaseTokenActivityAnalyticsResult,
+    block_activity::BlockActivityAnalyticsResult, daily_active_addresses::DailyActiveAddressAnalyticsResult,
+    ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
+    output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
+    unlock_condition::UnlockConditionAnalyticsResult,
+};
 use crate::{
     db::MongoDb,
-    types::tangle::{MilestoneIndex, ProtocolParameters},
+    types::{
+        stardust::milestone::MilestoneTimestamp,
+        tangle::{MilestoneIndex, ProtocolParameters},
+    },
 };
 
-/// Holds analytics about stardust data.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 #[allow(missing_docs)]
-pub struct Analytics {
-    pub address_activity: AddressActivityAnalytics,
-    pub addresses: AddressAnalytics,
-    pub base_token: BaseTokenActivityAnalytics,
-    pub ledger_outputs: LedgerOutputAnalytics,
-    pub output_activity: OutputActivityAnalytics,
-    pub ledger_size: LedgerSizeAnalytics,
-    pub unclaimed_tokens: UnclaimedTokensAnalytics,
-    pub block_activity: BlockActivityAnalytics,
-    pub unlock_conditions: UnlockConditionAnalytics,
-    pub protocol_params: Option<ProtocolParameters>,
+pub struct PerMilestone<M> {
+    pub milestone_timestamp: MilestoneTimestamp,
+    pub milestone_index: MilestoneIndex,
+    pub inner: M,
 }
 
-impl MongoDb {
-    /// Gets all analytics for a milestone index, fetching the data from the collections.
-    #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_all_analytics(&self, milestone_index: MilestoneIndex) -> Result<Analytics, Error> {
-        let output_collection = self.collection::<OutputCollection>();
-        let block_collection = self.collection::<BlockCollection>();
-        let protocol_param_collection = self.collection::<ProtocolUpdateCollection>();
-
-        let (
-            addresses,
-            ledger_outputs,
-            output_activity,
-            ledger_size,
-            unclaimed_tokens,
-            unlock_conditions,
-            address_activity,
-            base_token,
-            block_activity,
-            protocol_params,
-        ) = tokio::try_join!(
-            output_collection.get_address_analytics(milestone_index),
-            output_collection.get_ledger_output_analytics(milestone_index),
-            output_collection.get_output_activity_analytics(milestone_index),
-            output_collection.get_ledger_size_analytics(milestone_index),
-            output_collection.get_unclaimed_token_analytics(milestone_index),
-            output_collection.get_unlock_condition_analytics(milestone_index),
-            output_collection.get_address_activity_analytics(milestone_index),
-            output_collection.get_base_token_activity_analytics(milestone_index),
-            block_collection.get_block_activity_analytics(milestone_index),
-            protocol_param_collection
-                .get_protocol_parameters_for_milestone_index(milestone_index)
-                .and_then(|p| async move { Ok(p.map(|p| p.parameters)) }),
-        )?;
-
-        Ok(Analytics {
-            address_activity,
-            addresses,
-            base_token,
-            ledger_outputs,
-            output_activity,
-            ledger_size,
-            unclaimed_tokens,
-            block_activity,
-            unlock_conditions,
-            protocol_params,
-        })
+impl<M> PerMilestone<M> {
+    fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
+        influxdb::Timestamp::from(self.milestone_timestamp)
+            .into_query(name)
+            .add_field("milestone_index", self.milestone_index)
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// Note: We will need this later, for example for daily active addresses.
+#[allow(unused)]
 #[allow(missing_docs)]
-pub struct AddressActivityAnalytics {
-    /// The number of addresses used in the time period.
-    pub total_count: u64,
-    /// The number of addresses that received tokens in the time period.
-    pub receiving_count: u64,
-    /// The number of addresses that sent tokens in the time period.
-    pub sending_count: u64,
+pub struct TimeInterval<M> {
+    from: OffsetDateTime,
+    to_exclusive: OffsetDateTime,
+    inner: M,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct AddressAnalytics {
-    pub address_with_balance_count: u64,
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct UnlockConditionAnalytics {
-    pub timelock_count: u64,
-    pub timelock_value: d128,
-    pub expiration_count: u64,
-    pub expiration_value: d128,
-    pub storage_deposit_return_count: u64,
-    pub storage_deposit_return_value: d128,
-}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct LedgerOutputAnalytics {
-    pub basic_count: u64,
-    pub basic_value: d128,
-    pub alias_count: u64,
-    pub alias_value: d128,
-    pub foundry_count: u64,
-    pub foundry_value: d128,
-    pub nft_count: u64,
-    pub nft_value: d128,
-    pub treasury_count: u64,
-    pub treasury_value: d128,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct LedgerSizeAnalytics {
-    pub total_storage_deposit_value: d128,
-    pub total_key_bytes: d128,
-    pub total_data_bytes: d128,
-}
-
-#[allow(missing_docs)]
-impl LedgerSizeAnalytics {
-    pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
-        let rent_structure = protocol_params.rent_structure;
-        d128::from(rent_structure.v_byte_cost)
-            * ((self.total_key_bytes * d128::from(rent_structure.v_byte_factor_key as u32))
-                + (self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32)))
+impl<M> TimeInterval<M> {
+    fn prepare_query(&self, name: impl Into<String>) -> WriteQuery {
+        // We subtract 1 nanosecond to get the inclusive end of the time interval.
+        let timestamp = self.to_exclusive - Duration::nanoseconds(1);
+        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(name)
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
-pub struct UnclaimedTokensAnalytics {
-    pub unclaimed_count: u64,
-    pub unclaimed_value: d128,
+pub enum Error {
+    #[error(transparent)]
+    MongoDb(#[from] mongodb::error::Error),
+    #[error(transparent)]
+    Time(#[from] time::Error),
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct OutputActivityAnalytics {
-    pub alias: AliasActivityAnalytics,
-    pub nft: NftActivityAnalytics,
+#[async_trait]
+/// A common trait for all analytics.
+pub trait Analytic: Debug + Send + Sync {
+    /// Note that we return an `Option` so that we don't always have to produce a metric for a given milestone. This is
+    /// useful for values that don't change often, or if we want to aggregate over time intervals, for example. We also
+    /// call this method on a mutable reference of `self` so that each analytic can decide if it wants to manage
+    /// internal state.
+    async fn get_measurement(
+        &mut self,
+        db: &MongoDb,
+        milestone_index: MilestoneIndex,
+        milestone_timestamp: MilestoneTimestamp,
+    ) -> Result<Option<Measurement>, Error>;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct AliasActivityAnalytics {
-    pub created_count: u64,
-    pub governor_changed_count: u64,
-    pub state_changed_count: u64,
-    pub destroyed_count: u64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct NftActivityAnalytics {
-    pub created_count: u64,
-    pub transferred_count: u64,
-    pub destroyed_count: u64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct BaseTokenActivityAnalytics {
-    pub transferred_value: d128,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-#[serde(default)]
-pub struct FoundryActivityAnalytics {
-    pub created_count: u64,
-    pub transferred_count: u64,
-    pub destroyed_count: u64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct BlockActivityAnalytics {
-    pub payload: PayloadActivityAnalytics,
-    pub transaction: TransactionActivityAnalytics,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct PayloadActivityAnalytics {
-    /// The number of blocks referenced by a milestone that contain a payload.
-    pub transaction_count: u32,
-    /// The number of blocks containing a treasury transaction payload.
-    pub treasury_transaction_count: u32,
-    /// The number of blocks containing a milestone payload.
-    pub milestone_count: u32,
-    /// The number of blocks containing a tagged data payload.
-    pub tagged_data_count: u32,
-    /// The number of blocks referenced by a milestone that contain no payload.
-    pub no_payload_count: u32,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(missing_docs)]
-pub struct TransactionActivityAnalytics {
-    /// The number of blocks containing a confirmed transaction.
-    pub confirmed_count: u32,
-    /// The number of blocks containing a conflicting transaction.
-    pub conflicting_count: u32,
-    /// The number of blocks containing no transaction.
-    pub no_transaction_count: u32,
+/// Returns a list of trait objects for all analytics.
+pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
+    // Please keep the alphabetic order.
+    vec![
+        Box::new(AddressAnalytics),
+        Box::new(BaseTokenActivityAnalytics),
+        Box::new(BlockActivityAnalytics),
+        Box::new(DailyActiveAddressesAnalytics::default()),
+        Box::new(LedgerOutputAnalytics),
+        Box::new(LedgerSizeAnalytics),
+        Box::new(OutputActivityAnalytics),
+        Box::new(ProtocolParametersAnalytics),
+        Box::new(UnclaimedTokenAnalytics),
+        Box::new(UnlockConditionAnalytics),
+    ]
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct SyncAnalytics {
     pub sync_time: u64,
+}
+
+#[allow(missing_docs)]
+pub enum Measurement {
+    AddressAnalytics(PerMilestone<AddressAnalyticsResult>),
+    BaseTokenActivityAnalytics(PerMilestone<BaseTokenActivityAnalyticsResult>),
+    BlockAnalytics(PerMilestone<BlockActivityAnalyticsResult>),
+    DailyActiveAddressAnalytics(TimeInterval<DailyActiveAddressAnalyticsResult>),
+    LedgerOutputAnalytics(PerMilestone<LedgerOutputAnalyticsResult>),
+    LedgerSizeAnalytics(PerMilestone<LedgerSizeAnalyticsResult>),
+    OutputActivityAnalytics(PerMilestone<OutputActivityAnalyticsResult>),
+    ProtocolParameters(PerMilestone<ProtocolParameters>),
+    UnclaimedTokenAnalytics(PerMilestone<UnclaimedTokenAnalyticsResult>),
+    UnlockConditionAnalytics(PerMilestone<UnlockConditionAnalyticsResult>),
 }

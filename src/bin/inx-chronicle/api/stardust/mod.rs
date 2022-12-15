@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::router::Router;
+use super::{router::Router, ApiWorker};
 
 pub mod core;
 pub mod explorer;
@@ -10,7 +10,7 @@ pub mod indexer;
 pub mod poi;
 
 #[allow(clippy::let_and_return)]
-pub fn routes() -> Router {
+pub fn routes() -> Router<ApiWorker> {
     #[allow(unused_mut)]
     let mut router = Router::new()
         .nest("/core/v2", core::routes())

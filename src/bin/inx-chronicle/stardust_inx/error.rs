@@ -6,6 +6,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum InxWorkerError {
+    #[cfg(feature = "analytics")]
+    #[error("Analytics error: {0}")]
+    Analytics(#[from] chronicle::db::collections::analytics::Error),
     #[error("failed to establish connection")]
     ConnectionError,
     #[cfg(any(feature = "analytics", feature = "metrics"))]
@@ -19,6 +22,8 @@ pub enum InxWorkerError {
     InvalidMilestoneState,
     #[error("missing milestone id for milestone index `{0}`")]
     MissingMilestoneInfo(MilestoneIndex),
+    #[error("MongoDb error: {0}")]
+    MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: `{0}`, new network name: `{1}`")]
     NetworkChanged(String, String),
     #[error("node pruned required milestones between `{start}` and `{end}`")]

@@ -56,7 +56,7 @@ influxdb = { version = "0.5", default-features = false, features = [ "use-serde"
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
-axum = { version = "0.5", default-features = false, features = [ "http1", "json", "query", "original-uri", "headers" ], optional = true }
+axum = { version = "0.6", default-features = false, features = [ "http1", "json", "query", "original-uri", "headers" ], optional = true }
 ed25519 = { version = "1.5", default-features = false, features = [ "alloc", "pkcs8", "pem" ], optional = true }
 ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_backend" ], optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
@@ -73,11 +73,6 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 # INX
 inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
-
-# Opentelemetry
-opentelemetry = { version = "0.18", default-features = false, features = [ "trace", "rt-tokio" ], optional = true }
-opentelemetry-jaeger = { version = "0.17", default-features = false, features = [ "rt-tokio" ], optional = true }
-tracing-opentelemetry = { version = "0.18", default-features = false, features = [ "tracing-log" ], optional = true }
 
 # Loki
 tracing-loki = { version = "0.2", default-features = false, features = [ "compat-0-2-1", "native-tls" ], optional = true }
@@ -139,11 +134,6 @@ metrics = [
 poi = [
     "api",
     "dep:iota-crypto",
-]
-opentelemetry = [
-    "dep:opentelemetry",
-    "dep:opentelemetry-jaeger",
-    "dep:tracing-opentelemetry",
 ]
 rand = [
     "iota-types?/rand",

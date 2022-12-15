@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
 
@@ -76,6 +76,9 @@ pub struct MongoDbArgs {
     /// The MongoDB connection string.
     #[arg(long, env = "MONGODB_CONN_STR")]
     pub mongodb_conn_str: Option<String>,
+    /// The MongoDB database.
+    #[arg(long, env = "MONGODB_DATABASE")]
+    pub mongodb_database: Option<String>,
 }
 
 #[cfg(any(feature = "analytics", feature = "metrics"))]
@@ -115,6 +118,10 @@ impl ClArgs {
 
         if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
             config.mongodb.conn_str = conn_str.clone();
+        }
+
+        if let Some(db_name) = &self.mongodb.mongodb_database {
+            config.mongodb.database_name = db_name.clone();
         }
 
         #[cfg(all(feature = "stardust", feature = "inx"))]
@@ -219,6 +226,7 @@ impl ClArgs {
                     start_milestone,
                     end_milestone,
                     num_tasks,
+                    analytics,
                 } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -241,23 +249,43 @@ impl ClArgs {
                             .unwrap_or_default()
                     };
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+
                     let num_tasks = num_tasks.unwrap_or(1);
                     let mut join_set = tokio::task::JoinSet::new();
                     for i in 0..num_tasks {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
+                        let analytics_choice = analytics.clone();
                         join_set.spawn(async move {
+                            let mut selected_analytics = if analytics_choice.is_empty() {
+                                chronicle::db::collections::analytics::all_analytics()
+                            } else {
+                                let mut tmp: std::collections::HashSet<AnalyticsChoice> =
+                                    analytics_choice.iter().copied().collect();
+                                tmp.drain().map(Into::into).collect()
+                            };
+
+                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
-                                let index = index.into();
-                                if let Some(timestamp) = db
+                                let milestone_index = index.into();
+                                if let Some(milestone_timestamp) = db
                                     .collection::<chronicle::db::collections::MilestoneCollection>()
-                                    .get_milestone_timestamp(index)
+                                    .get_milestone_timestamp(milestone_index)
                                     .await?
                                 {
                                     #[cfg(feature = "metrics")]
                                     let start_time = std::time::Instant::now();
-                                    let analytics = db.get_all_analytics(index).await?;
-                                    influx_db.insert_all_analytics(timestamp, index, analytics).await?;
+
+                                    super::stardust_inx::gather_analytics(
+                                        &db,
+                                        &influx_db,
+                                        &mut selected_analytics,
+                                        milestone_index,
+                                        milestone_timestamp,
+                                    )
+                                    .await?;
+
                                     #[cfg(feature = "metrics")]
                                     {
                                         let elapsed = start_time.elapsed();
@@ -265,15 +293,15 @@ impl ClArgs {
                                             .metrics()
                                             .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
                                                 time: chrono::Utc::now(),
-                                                milestone_index: index,
+                                                milestone_index,
                                                 analytics_time: elapsed.as_millis() as u64,
                                                 chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                                             })
                                             .await?;
                                     }
-                                    tracing::info!("Finished analytics for milestone {}", index);
+                                    tracing::info!("Finished analytics for milestone {}", milestone_index);
                                 } else {
-                                    tracing::info!("No milestone in database for index {}", index);
+                                    tracing::info!("No milestone in database for index {}", milestone_index);
                                 }
                             }
                             eyre::Result::<_>::Ok(())
@@ -310,6 +338,46 @@ impl ClArgs {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
+pub enum AnalyticsChoice {
+    // Please keep the alphabetic order.
+    Addresses,
+    BaseToken,
+    BlockActivity,
+    DailyActiveAddresses,
+    LedgerOutputs,
+    LedgerSize,
+    OutputActivity,
+    ProtocolParameters,
+    UnclaimedTokens,
+    UnlockConditions,
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
+    fn from(value: AnalyticsChoice) -> Self {
+        use chronicle::db::collections::analytics::{
+            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
+            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
+            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
+        };
+
+        match value {
+            // Please keep the alphabetic order.
+            AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
+            AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
+            AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
+            AnalyticsChoice::DailyActiveAddresses => Box::new(DailyActiveAddressesAnalytics::default()),
+            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
+            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
+            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
+            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
     /// Generate a JWT token using the available config.
@@ -326,6 +394,9 @@ pub enum Subcommands {
         /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
+        /// Select a subset of analytics to compute.
+        #[arg(long)]
+        analytics: Vec<AnalyticsChoice>,
     },
     /// Clear the chronicle database.
     #[cfg(debug_assertions)]

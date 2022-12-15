@@ -4,8 +4,8 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{Extension, Path},
-    handler::Handler,
+    extract::{FromRef, Path, State},
+    handler::HandlerWithoutStateExt,
     http::header::HeaderMap,
     routing::get,
 };
@@ -50,19 +50,23 @@ use packable::PackableExt;
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
     error::{ApiError, CorruptStateError, MissingError, RequestError},
-    router::Router,
+    router::{Router, RouterState},
     routes::{is_healthy, not_implemented, BYTE_CONTENT_HEADER},
     ApiResult,
 };
 
-pub fn routes() -> Router {
+pub fn routes<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    MongoDb: FromRef<RouterState<S>>,
+{
     Router::new()
         .route("/info", get(info))
-        .route("/tips", not_implemented.into_service())
+        .route_service("/tips", not_implemented.into_service())
         .nest(
             "/blocks",
             Router::new()
-                .route("/", not_implemented.into_service())
+                .route_service("/", not_implemented.into_service())
                 .route("/:block_id", get(block))
                 .route("/:block_id/metadata", get(block_metadata)),
         )
@@ -94,14 +98,14 @@ pub fn routes() -> Router {
         .nest(
             "/peers",
             Router::new()
-                .route("/", not_implemented.into_service())
-                .route("/:peer_id", not_implemented.into_service()),
+                .route_service("/", not_implemented.into_service())
+                .route_service("/:peer_id", not_implemented.into_service()),
         )
-        .route("/control/database/prune", not_implemented.into_service())
-        .route("/control/snapshot/create", not_implemented.into_service())
+        .route_service("/control/database/prune", not_implemented.into_service())
+        .route_service("/control/snapshot/create", not_implemented.into_service())
 }
 
-pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
+pub async fn info(database: State<MongoDb>) -> ApiResult<InfoResponse> {
     let protocol = database
         .collection::<ProtocolUpdateCollection>()
         .get_latest_protocol_parameters()
@@ -189,7 +193,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
 }
 
 async fn block(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(block_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<BlockDto>> {
@@ -215,7 +219,7 @@ async fn block(
 }
 
 async fn block_metadata(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(block_id_str): Path<String>,
 ) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
     let block_id = BlockId::from_str(&block_id_str).map_err(RequestError::from)?;
@@ -268,7 +272,7 @@ fn create_output_metadata_response(
 }
 
 async fn output(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(output_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<OutputWithMetadataResponse>> {
@@ -305,7 +309,7 @@ async fn output(
 }
 
 async fn output_metadata(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(output_id): Path<String>,
 ) -> ApiResult<IotaResponse<OutputMetadataResponse>> {
     let ledger_index = database
@@ -324,7 +328,7 @@ async fn output_metadata(
 }
 
 async fn transaction_included_block(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(transaction_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<BlockDto>> {
@@ -349,7 +353,7 @@ async fn transaction_included_block(
     Ok(IotaRawResponse::Json(block.into()))
 }
 
-async fn receipts(database: Extension<MongoDb>) -> ApiResult<IotaResponse<ReceiptsResponse>> {
+async fn receipts(database: State<MongoDb>) -> ApiResult<IotaResponse<ReceiptsResponse>> {
     let mut receipts_at = database.collection::<MilestoneCollection>().get_all_receipts().await?;
     let mut receipts = Vec::new();
     while let Some((receipt, at)) = receipts_at.try_next().await? {
@@ -366,7 +370,7 @@ async fn receipts(database: Extension<MongoDb>) -> ApiResult<IotaResponse<Receip
 }
 
 async fn receipts_migrated_at(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(index): Path<u32>,
 ) -> ApiResult<IotaResponse<ReceiptsResponse>> {
     let mut receipts_at = database
@@ -387,7 +391,7 @@ async fn receipts_migrated_at(
     Ok(iota::ReceiptsResponse { receipts }.into())
 }
 
-async fn treasury(database: Extension<MongoDb>) -> ApiResult<IotaResponse<TreasuryResponse>> {
+async fn treasury(database: State<MongoDb>) -> ApiResult<IotaResponse<TreasuryResponse>> {
     Ok(database
         .collection::<TreasuryCollection>()
         .get_latest_treasury()
@@ -403,7 +407,7 @@ async fn treasury(database: Extension<MongoDb>) -> ApiResult<IotaResponse<Treasu
 }
 
 async fn milestone(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(milestone_id): Path<String>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<MilestonePayloadDto>> {
@@ -433,7 +437,7 @@ async fn milestone(
 }
 
 async fn milestone_by_index(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(index): Path<MilestoneIndex>,
     headers: HeaderMap,
 ) -> ApiResult<IotaRawResponse<MilestonePayloadDto>> {
@@ -462,7 +466,7 @@ async fn milestone_by_index(
 }
 
 async fn utxo_changes(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(milestone_id): Path<String>,
 ) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
     let milestone_id = MilestoneId::from_str(&milestone_id).map_err(RequestError::from)?;
@@ -477,7 +481,7 @@ async fn utxo_changes(
 }
 
 async fn utxo_changes_by_index(
-    database: Extension<MongoDb>,
+    database: State<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
 ) -> ApiResult<IotaResponse<UtxoChangesResponse>> {
     collect_utxo_changes(&database, milestone_index).await.map(Into::into)
