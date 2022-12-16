@@ -14,14 +14,19 @@ macro_rules! to_str {
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
-#[command(author, version, about, next_display_order = None)]
+// #[command(author, version, about, next_display_order = None)]
+#[command(author, version, about)]
 pub struct ClArgs {
     /// The location of the configuration file.
-    #[arg(short, long)]
+    #[arg(short, long, value_name = "FILEPATH")]
     pub config: Option<String>,
     /// MongoDb arguments.
     #[command(flatten, next_help_heading = "MongoDb")]
     pub mongodb: MongoDbArgs,
+    /// InfluxDb arguments.
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
+    #[command(flatten, next_help_heading = "InfluxDb")]
+    pub influxdb: InfluxDbArgs,
     /// INX arguments.
     #[cfg(feature = "inx")]
     #[command(flatten, next_help_heading = "INX")]
@@ -30,10 +35,6 @@ pub struct ClArgs {
     #[cfg(feature = "api")]
     #[command(flatten, next_help_heading = "API")]
     pub api: ApiArgs,
-    /// InfluxDb arguments.
-    #[cfg(any(feature = "analytics", feature = "metrics"))]
-    #[command(flatten, next_help_heading = "InfluxDb")]
-    pub influxdb: InfluxDbArgs,
     /// Loki arguments.
     #[cfg(feature = "loki")]
     #[command(flatten, next_help_heading = "Loki")]
@@ -59,12 +60,45 @@ pub struct MongoDbArgs {
     /// The MongoDb password.
     #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = mongodb::DEFAULT_PASSWORD)]
     pub mongodb_password: Option<String>,
-    /// The main database name.
+    /// The MongoDb database name.
     #[arg(long, value_name = "NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
     pub mongodb_database_name: Option<String>,
     /// The MongoDb minimum pool size.
     #[arg(long, value_name = "SIZE", default_value = to_str!(mongodb::DEFAULT_MIN_POOL_SIZE))]
     pub mongodb_min_pool_size: Option<u32>,
+}
+
+#[cfg(any(feature = "analytics", feature = "metrics"))]
+use chronicle::db::influxdb::config as influxdb;
+
+#[cfg(any(feature = "analytics", feature = "metrics"))]
+#[derive(Args, Debug)]
+pub struct InfluxDbArgs {
+    /// The url pointing to an InfluxDb instance.
+    #[arg(long, value_name = "URL", default_value = influxdb::DEFAULT_CONN_URL)]
+    pub influxdb_conn_url: Option<String>,
+    /// The InfluxDb username.
+    #[arg(long, value_name = "USERNAME", env = "INFLUXDB_USERNAME", default_value = influxdb::DEFAULT_USERNAME)]
+    pub influxdb_username: Option<String>,
+    /// The InfluxDb password.
+    #[arg(long, value_name = "PASSWORD", env = "INFLUXDB_PASSWORD", default_value = influxdb::DEFAULT_PASSWORD)]
+    pub influxdb_password: Option<String>,
+    /// Toggle InfluxDb time-series analytics writes.
+    #[cfg(feature = "analytics")]
+    #[arg(long, value_name = "BOOL", default_value = to_str!(influxdb::DEFAULT_ANALYTICS_ENABLED))]
+    pub analytics_enabled: Option<bool>,
+    /// The Analytics database name.
+    #[cfg(feature = "analytics")]
+    #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_ANALYTICS_DATABASE_NAME)]
+    pub analytics_database_name: Option<String>,
+    /// Toggle InfluxDb time-series metrics writes.
+    #[cfg(feature = "metrics")]
+    #[arg(long, value_name = "BOOL", default_value = to_str!(influxdb::DEFAULT_METRICS_ENABLED))]
+    pub metrics_enabled: Option<bool>,
+    /// The Metrics database name.
+    #[cfg(feature = "metrics")]
+    #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_METRICS_DATABASE_NAME)]
+    pub metrics_database_name: Option<String>,
 }
 
 #[cfg(feature = "inx")]
@@ -74,20 +108,20 @@ use crate::stardust_inx::config as inx;
 #[derive(Args, Debug)]
 pub struct InxArgs {
     /// Toggles the INX synchronization workflow.
-    #[arg(long, default_value = to_str!(inx::DEFAULT_ENABLED))]
+    #[arg(long, value_name = "BOOL", default_value = to_str!(inx::DEFAULT_ENABLED))]
     pub inx_enabled: Option<bool>,
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
-    #[arg(long, default_value = inx::DEFAULT_CONNECT_URL)]
-    pub inx_url: Option<String>,
+    #[arg(long, value_name = "URL", default_value = inx::DEFAULT_CONN_URL)]
+    pub inx_conn_url: Option<String>,
     /// Time to wait until a new connection attempt is made.
-    #[arg(long, value_parser = parse_duration, default_value = inx::DEFAULT_RETRY_INTERVAL)]
+    #[arg(long, value_name = "DURATION", value_parser = parse_duration, default_value = inx::DEFAULT_RETRY_INTERVAL)]
     pub inx_retry_interval: Option<std::time::Duration>,
     /// Maximum number of tries to establish an INX connection.
-    #[arg(long, default_value = to_str!(inx::DEFAULT_RETRY_COUNT))]
+    #[arg(long, value_name = "COUNT", default_value = to_str!(inx::DEFAULT_RETRY_COUNT))]
     pub inx_retry_count: Option<usize>,
     /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
     /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
-    #[arg(long, default_value = to_str!(inx::DEFAULT_SYNC_START))]
+    #[arg(long, value_name = "START", default_value = to_str!(inx::DEFAULT_SYNC_START))]
     pub inx_sync_start: Option<u32>,
 }
 
@@ -98,19 +132,19 @@ use crate::api::config as api;
 #[derive(Args, Debug)]
 pub struct ApiArgs {
     /// Toggle REST API.
-    #[arg(long, default_value = to_str!(api::DEFAULT_ENABLED))]
+    #[arg(long, value_name = "BOOL", default_value = to_str!(api::DEFAULT_ENABLED))]
     pub api_enabled: Option<bool>,
     /// API listening port.
-    #[arg(long, default_value = to_str!(api::DEFAULT_PORT))]
+    #[arg(long, value_name = "PORT", default_value = to_str!(api::DEFAULT_PORT))]
     pub api_port: Option<u16>,
     /// CORS setting.
-    #[arg(long = "allow-origin", value_name = "ORIGIN", default_value = api::DEFAULT_ALLOW_ORIGINS)]
+    #[arg(long = "allow-origin", value_name = "IP", default_value = api::DEFAULT_ALLOW_ORIGINS)]
     pub allow_origins: Vec<String>,
     /// Public API routes.
     #[arg(long = "public-route", value_name = "ROUTE", default_value = api::DEFAULT_PUBLIC_ROUTES)]
     pub public_routes: Vec<String>,
     /// Maximum number of results returned by a single API call.
-    #[arg(long, default_value = to_str!(api::DEFAULT_MAX_PAGE_SIZE))]
+    #[arg(long, value_name = "SIZE", default_value = to_str!(api::DEFAULT_MAX_PAGE_SIZE))]
     pub max_page_size: Option<usize>,
     /// JWT arguments.
     #[command(flatten)]
@@ -121,58 +155,28 @@ pub struct ApiArgs {
 #[derive(Args, Debug)]
 pub struct JwtArgs {
     /// The location of the identity file for JWT auth.
-    #[arg(long, env = "JWT_IDENTITY", default_value = None)]
+    #[arg(long, value_name = "FILEPATH", env = "JWT_IDENTITY", default_value = None)]
     pub jwt_identity: Option<String>,
     /// The password used for JWT authentication.
-    #[arg(long, env = "JWT_PASSWORD", default_value = api::DEFAULT_JWT_PASSWORD)]
+    #[arg(long, value_name = "PASSWORD", env = "JWT_PASSWORD", default_value = api::DEFAULT_JWT_PASSWORD)]
     pub jwt_password: Option<String>,
-    // The salt used for JWT authentication.
-    #[arg(long, env = "JWT_SALT", default_value = api::DEFAULT_JWT_SALT)]
+    /// The salt used for JWT authentication.
+    #[arg(long, value_name = "SALT", env = "JWT_SALT", default_value = api::DEFAULT_JWT_SALT)]
     pub jwt_salt: Option<String>,
     /// The setting for when the (JWT) token expires.
-    #[arg(long, value_parser = parse_duration, default_value = api::DEFAULT_JWT_EXPIRATION)]
+    #[arg(long, value_name = "DURATION", value_parser = parse_duration, default_value = api::DEFAULT_JWT_EXPIRATION)]
     pub jwt_expiration: Option<std::time::Duration>,
-}
-
-#[cfg(any(feature = "analytics", feature = "metrics"))]
-#[derive(Args, Debug)]
-pub struct InfluxDbArgs {
-    /// The url pointing to an InfluxDb instance.
-    #[arg(long, default_value = "http://localhost:8086")]
-    pub influxdb_url: Option<String>,
-    /// The InfluxDb username.
-    #[arg(long, env = "INFLUXDB_USERNAME", default_value = "root")]
-    pub influxdb_username: Option<String>,
-    /// The InfluxDb password.
-    #[arg(long, env = "INFLUXDB_PASSWORD", default_value = "password")]
-    pub influxdb_password: Option<String>,
-    /// Toggle InfluxDb time-series analytics writes.
-    #[cfg(feature = "analytics")]
-    #[arg(long, default_value = "true")]
-    pub analytics_enabled: Option<bool>,
-    /// Toggle InfluxDb time-series metrics writes.
-    #[cfg(feature = "metrics")]
-    #[arg(long, default_value = "true")]
-    pub metrics_enabled: Option<bool>,
-    /// The Analytics database name.
-    #[cfg(feature = "analytics")]
-    #[arg(long, default_value = "chronicle_analytics")]
-    pub analytics_database_name: Option<String>,
-    /// The Metrics database name.
-    #[cfg(feature = "metrics")]
-    #[arg(long, default_value = "chronicle_metrics")]
-    pub metrics_database_name: Option<String>,
 }
 
 #[cfg(feature = "loki")]
 #[derive(Args, Debug)]
 pub struct LokiArgs {
     /// Toggle Grafana Loki log writes.
-    #[arg(long, default_value = "true")]
+    #[arg(long, value_name = "BOOL", default_value = to_str!(crate::config::DEFAULT_LOKI_ENABLED))]
     pub loki_enabled: Option<bool>,
     /// The url pointing to a Grafana Loki instance.
-    #[arg(long, default_value = "http://localhost:3100")]
-    pub loki_url: Option<String>,
+    #[arg(long, value_name = "URL", default_value = crate::config::DEFAULT_LOKI_CONN_URL)]
+    pub loki_conn_url: Option<String>,
 }
 
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
@@ -203,16 +207,16 @@ impl ClArgs {
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
             config.inx.enabled = self.inx.inx_enabled.unwrap();
-            config.inx.connect_url = self.inx.inx_url.as_ref().unwrap().clone();
-            config.inx.connection_retry_interval = self.inx.inx_retry_interval.unwrap();
-            config.inx.connection_retry_count = self.inx.inx_retry_count.unwrap();
+            config.inx.conn_url = self.inx.inx_conn_url.as_ref().unwrap().clone();
+            config.inx.conn_retry_interval = self.inx.inx_retry_interval.unwrap();
+            config.inx.conn_retry_count = self.inx.inx_retry_count.unwrap();
             config.inx.sync_start_milestone = self.inx.inx_sync_start.unwrap().into();
         }
 
         // InfluxDb
         #[cfg(any(feature = "analytics", feature = "metrics"))]
         {
-            config.influxdb.url = self.influxdb.influxdb_url.as_ref().unwrap().clone();
+            config.influxdb.conn_url = self.influxdb.influxdb_conn_url.as_ref().unwrap().clone();
             config.influxdb.username = self.influxdb.influxdb_username.as_ref().unwrap().clone();
             config.influxdb.password = self.influxdb.influxdb_password.as_ref().unwrap().clone();
         }
@@ -243,7 +247,7 @@ impl ClArgs {
         // Loki
         #[cfg(feature = "loki")]
         {
-            config.loki.connect_url = self.loki.loki_url.as_ref().unwrap().clone();
+            config.loki.conn_url = self.loki.loki_conn_url.as_ref().unwrap().clone();
             config.loki.enabled = self.loki.loki_enabled.unwrap();
         }
 

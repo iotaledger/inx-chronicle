@@ -88,22 +88,22 @@ impl InxWorker {
     }
 
     async fn connect(&self) -> Result<Inx> {
-        let url = url::Url::parse(&self.config.connect_url)?;
+        let url = url::Url::parse(&self.config.conn_url)?;
 
         if url.scheme() != "http" {
-            bail!(InxWorkerError::InvalidAddress(self.config.connect_url.clone()));
+            bail!(InxWorkerError::InvalidAddress(self.config.conn_url.clone()));
         }
 
-        for i in 0..self.config.connection_retry_count {
-            match Inx::connect(self.config.connect_url.clone()).await {
+        for i in 0..self.config.conn_retry_count {
+            match Inx::connect(self.config.conn_url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
                     warn!(
                         "INX connection failed. Retrying in {}s. {} retries remaining.",
-                        self.config.connection_retry_interval.as_secs(),
-                        self.config.connection_retry_count - i
+                        self.config.conn_retry_interval.as_secs(),
+                        self.config.conn_retry_count - i
                     );
-                    tokio::time::sleep(self.config.connection_retry_interval).await;
+                    tokio::time::sleep(self.config.conn_retry_interval).await;
                 }
             }
         }
@@ -135,7 +135,7 @@ impl InxWorker {
 
     #[instrument(skip_all, err, level = "trace")]
     async fn init(&mut self) -> Result<(MilestoneIndex, Inx)> {
-        info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
+        info!("Connecting to INX at bind address `{}`.", &self.config.conn_url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
 

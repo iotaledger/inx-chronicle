@@ -55,7 +55,7 @@ async fn main() -> eyre::Result<()> {
     if config.inx.enabled {
         #[cfg(any(feature = "analytics", feature = "metrics"))]
         let influx_db = if config.influxdb.analytics_enabled || config.influxdb.metrics_enabled {
-            info!("Connecting to influx database at address `{}`", config.influxdb.url);
+            info!("Connecting to influx database at address `{}`", config.influxdb.conn_url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             info!(
                 "Connected to influx databases `{}` and `{}`",
@@ -139,7 +139,7 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()>
     };
     #[cfg(feature = "loki")]
     let registry = {
-        let (layer, task) = tracing_loki::layer(config.loki.connect_url.parse()?, [].into(), [].into())?;
+        let (layer, task) = tracing_loki::layer(config.loki.conn_url.parse()?, [].into(), [].into())?;
         tokio::spawn(task);
         registry.with(layer)
     };

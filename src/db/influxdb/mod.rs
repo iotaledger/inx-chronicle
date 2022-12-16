@@ -1,14 +1,15 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod config;
 mod measurement;
 
 use std::ops::Deref;
 
 use influxdb::{Client, ReadQuery};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
-pub use self::measurement::InfluxDbMeasurement;
+pub use self::{config::InfluxDbConfig, measurement::InfluxDbMeasurement};
 
 /// A wrapper for an InfluxDb [`Client`].
 #[derive(Clone, Debug)]
@@ -48,28 +49,28 @@ impl Deref for InfluxClient {
 /// A wrapper for the influxdb [`Client`].
 #[derive(Clone, Debug)]
 pub struct InfluxDb {
-    #[cfg(feature = "metrics")]
-    metrics_client: InfluxClient,
     #[cfg(feature = "analytics")]
     analytics_client: InfluxClient,
+    #[cfg(feature = "metrics")]
+    metrics_client: InfluxClient,
     config: InfluxDbConfig,
 }
 
 impl InfluxDb {
     /// Create a new influx connection from config.
     pub async fn connect(config: &InfluxDbConfig) -> Result<Self, influxdb::Error> {
-        #[cfg(feature = "metrics")]
-        let metrics_client = {
+        #[cfg(feature = "analytics")]
+        let analytics_client = {
             let client = InfluxClient(
-                Client::new(&config.url, &config.metrics_database_name).with_auth(&config.username, &config.password),
+                Client::new(&config.conn_url, &config.analytics_database_name).with_auth(&config.username, &config.password),
             );
             client.ping().await?;
             client
         };
-        #[cfg(feature = "analytics")]
-        let analytics_client = {
+        #[cfg(feature = "metrics")]
+        let metrics_client = {
             let client = InfluxClient(
-                Client::new(&config.url, &config.analytics_database_name).with_auth(&config.username, &config.password),
+                Client::new(&config.conn_url, &config.metrics_database_name).with_auth(&config.username, &config.password),
             );
             client.ping().await?;
             client
@@ -83,41 +84,20 @@ impl InfluxDb {
         })
     }
 
-    /// Get the metrics client.
-    #[cfg(feature = "metrics")]
-    pub fn metrics(&self) -> &InfluxClient {
-        &self.metrics_client
-    }
-
     /// Get the analytics client.
     #[cfg(feature = "analytics")]
     pub fn analytics(&self) -> &InfluxClient {
         &self.analytics_client
     }
 
+    /// Get the metrics client.
+    #[cfg(feature = "metrics")]
+    pub fn metrics(&self) -> &InfluxClient {
+        &self.metrics_client
+    }
+
     /// Get the config used to create the connection.
     pub fn config(&self) -> &InfluxDbConfig {
         &self.config
     }
-}
-
-/// The influxdb [`Client`] config.
-#[must_use]
-#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct InfluxDbConfig {
-    /// The address of the InfluxDb instance.
-    pub url: String,
-    /// The InfluxDb username.
-    pub username: String,
-    /// The InfluxDb password.
-    pub password: String,
-    /// The name of the database to insert metrics.
-    pub metrics_database_name: String,
-    /// The name of the database to insert analytics.
-    pub analytics_database_name: String,
-    /// Whether to enable influx metrics writes.
-    pub metrics_enabled: bool,
-    /// Whether to enable influx analytics writes.
-    pub analytics_enabled: bool,
 }

@@ -7,6 +7,9 @@ use chronicle::db::MongoDbConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub const DEFAULT_LOKI_ENABLED: bool = true;
+pub const DEFAULT_LOKI_CONN_URL: &str = "http://localhost:3100";
+
 #[derive(Error, Debug)]
 pub enum ConfigError {
     #[error("failed to read config at '{0}': {1}")]
@@ -40,9 +43,18 @@ impl ChronicleConfig {
 }
 
 #[cfg(feature = "loki")]
-#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LokiConfig {
     pub enabled: bool,
-    pub connect_url: String,
+    pub conn_url: String,
+}
+
+impl Default for LokiConfig {
+    fn default() -> Self {
+        Self {
+            enabled: DEFAULT_LOKI_ENABLED,
+            conn_url: DEFAULT_LOKI_CONN_URL.to_string(),
+        }
+    }
 }
