@@ -1,21 +1,23 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! Holds the `MongoDb` type and its config.
+//! Holds the `MongoDb` type.
 
 mod collection;
+pub mod config;
 
 use std::collections::{HashMap, HashSet};
 
+use config::MongoDbConfig;
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, ConnectionString, Credential, HostInfo},
+    options::{ClientOptions, Credential},
     Client,
 };
-use serde::{Deserialize, Serialize};
 
-pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
+pub(crate) use self::collection::InsertIgnoreDuplicatesExt;
+pub use self::collection::{MongoDbCollection, MongoDbCollectionExt};
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 
@@ -124,34 +126,5 @@ impl MongoDb {
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
         self.db.name()
-    }
-}
-
-/// The [`MongoDb`] config.
-#[must_use]
-#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct MongoDbConfig {
-    /// The bind address of the database.
-    pub conn_str: String,
-    /// The MongoDB username.
-    pub username: String,
-    /// The MongoDB password.
-    pub password: String,
-    /// The name of the database to connect to.
-    pub database_name: String,
-    /// The minimum amount of connections in the pool.
-    pub min_pool_size: u32,
-}
-
-impl MongoDbConfig {
-    /// Get the hosts portion of the connection string.
-    pub fn hosts_str(&self) -> Result<String, Error> {
-        let hosts = ConnectionString::parse(&self.conn_str)?.host_info;
-        Ok(match hosts {
-            HostInfo::HostIdentifiers(hosts) => hosts.iter().map(ToString::to_string).collect::<Vec<_>>().join(","),
-            HostInfo::DnsRecord(hostname) => hostname,
-            _ => unreachable!(),
-        })
     }
 }

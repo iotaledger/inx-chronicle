@@ -10,21 +10,50 @@ use tower_http::cors::AllowOrigin;
 
 use super::{error::ConfigError, SecretKey};
 
+pub const DEFAULT_ENABLED: bool = true;
+pub const DEFAULT_PORT: u16 = 8042;
+pub const DEFAULT_ALLOW_ORIGINS: &str = "0.0.0.0";
+pub const DEFAULT_PUBLIC_ROUTES: &str = "api/core/v2/*";
+pub const DEFAULT_MAX_PAGE_SIZE: usize = 1000;
+pub const DEFAULT_JWT_PASSWORD: &str = "password";
+pub const DEFAULT_JWT_SALT: &str = "saltines";
+pub const DEFAULT_JWT_EXPIRATIOIN: &str = "72h";
+
 /// API configuration
-#[derive(Clone, Default, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ApiConfig {
     pub enabled: bool,
     pub port: u16,
     pub allow_origins: SingleOrMultiple<String>,
+    pub public_routes: Vec<String>,
+    pub max_page_size: usize,
+    pub identity_path: Option<String>,
     pub password_hash: String,
     pub password_salt: String,
     #[serde(with = "humantime_serde")]
     pub jwt_expiration: Duration,
-    pub public_routes: Vec<String>,
-    pub identity_path: Option<String>,
-    pub max_page_size: usize,
     pub argon_config: ArgonConfig,
+}
+
+impl Default for ApiConfig {
+    fn default() -> Self {
+        Self {
+            enabled: DEFAULT_ENABLED,
+            port: DEFAULT_PORT,
+            allow_origins: SingleOrMultiple::Single(DEFAULT_ALLOW_ORIGINS.to_string()),
+            public_routes: vec![DEFAULT_PUBLIC_ROUTES.to_string()],
+            max_page_size: DEFAULT_MAX_PAGE_SIZE,
+            identity_path: None,
+            password_hash: DEFAULT_JWT_PASSWORD.to_string(),
+            password_salt: DEFAULT_JWT_SALT.to_string(),
+            jwt_expiration: DEFAULT_JWT_EXPIRATIOIN
+                .parse::<humantime::Duration>()
+                .map(Into::into)
+                .unwrap(),
+            argon_config: ArgonConfig::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

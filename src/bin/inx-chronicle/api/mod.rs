@@ -14,7 +14,7 @@ mod secret_key;
 #[macro_use]
 mod responses;
 mod auth;
-mod config;
+pub mod config;
 mod router;
 mod routes;
 

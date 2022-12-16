@@ -145,12 +145,14 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
 }
 impl<T: MongoDbCollection> MongoDbCollectionExt for T {}
 
-pub struct InsertResult {
-    pub ignored: usize,
+pub(crate) struct InsertResult {
+    // FIXME: this field is never read.
+    #[allow(dead_code)]
+    pub(crate) ignored: usize,
 }
 
 #[async_trait]
-pub trait InsertIgnoreDuplicatesExt<T> {
+pub(crate) trait InsertIgnoreDuplicatesExt<T> {
     /// Inserts many records and ignores duplicate key errors.
     async fn insert_many_ignore_duplicates(
         &self,

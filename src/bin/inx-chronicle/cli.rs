@@ -1,9 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use chronicle::db::mongodb::config as mongodb;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::config::{ChronicleConfig, ConfigError};
+
+macro_rules! to_str {
+    ($arg:expr) => {
+        const_format::formatcp!("{}", $arg)
+    };
+}
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -43,42 +50,45 @@ pub struct MongoDbArgs {
         long,
         value_name = "CONN_STR",
         env = "MONGODB_CONN_STR",
-        default_value = "mongodb://localhost:27017"
+        default_value = mongodb::DEFAULT_CONN_STR,
     )]
     pub mongodb_conn_str: Option<String>,
     /// The MongoDb username.
-    #[arg(long, value_name = "USERNAME", env = "MONGODB_USERNAME", default_value = "root")]
+    #[arg(long, value_name = "USERNAME", env = "MONGODB_USERNAME", default_value = mongodb::DEFAULT_USERNAME)]
     pub mongodb_username: Option<String>,
     /// The MongoDb password.
-    #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = "root")]
+    #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = mongodb::DEFAULT_PASSWORD)]
     pub mongodb_password: Option<String>,
     /// The main database name.
-    #[arg(long, value_name = "NAME", default_value = "chronicle")]
+    #[arg(long, value_name = "NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
     pub mongodb_database_name: Option<String>,
     /// The MongoDb minimum pool size.
-    #[arg(long, value_name = "SIZE", default_value = "2")]
+    #[arg(long, value_name = "SIZE", default_value = to_str!(mongodb::DEFAULT_MIN_POOL_SIZE))]
     pub mongodb_min_pool_size: Option<u32>,
 }
+
+#[cfg(feature = "inx")]
+use crate::stardust_inx::config as inx;
 
 #[cfg(feature = "inx")]
 #[derive(Args, Debug)]
 pub struct InxArgs {
     /// Toggles the INX synchronization workflow.
-    #[arg(long, default_value = "true")]
+    #[arg(long, default_value = to_str!(inx::DEFAULT_ENABLED))]
     pub inx_enabled: Option<bool>,
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
-    #[arg(long, default_value = "http://localhost:9029")]
+    #[arg(long, default_value = inx::DEFAULT_CONNECT_URL)]
     pub inx_url: Option<String>,
-    /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
-    /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
-    #[arg(long, default_value = "0")]
-    pub inx_sync_start: Option<u32>,
     /// Time to wait until a new connection attempt is made.
-    #[arg(long, value_parser = parse_duration, default_value = "5s")]
+    #[arg(long, value_parser = parse_duration, default_value = inx::DEFAULT_RETRY_INTERVAL)]
     pub inx_retry_interval: Option<std::time::Duration>,
     /// Maximum number of tries to establish an INX connection.
-    #[arg(long, default_value = "30")]
+    #[arg(long, default_value = to_str!(inx::DEFAULT_RETRY_COUNT))]
     pub inx_retry_count: Option<usize>,
+    /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
+    /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
+    #[arg(long, default_value = to_str!(inx::DEFAULT_SYNC_START))]
+    pub inx_sync_start: Option<u32>,
 }
 
 #[cfg(feature = "inx")]
@@ -87,22 +97,25 @@ fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationE
 }
 
 #[cfg(feature = "api")]
+use crate::api::config as api;
+
+#[cfg(feature = "api")]
 #[derive(Args, Debug)]
 pub struct ApiArgs {
     /// Toggle REST API.
-    #[arg(long, default_value = "true")]
+    #[arg(long, default_value = to_str!(api::DEFAULT_ENABLED))]
     pub api_enabled: Option<bool>,
     /// API listening port.
-    #[arg(long, default_value = "8042")]
+    #[arg(long, default_value = to_str!(api::DEFAULT_PORT))]
     pub api_port: Option<u16>,
     /// CORS setting.
-    #[arg(long = "allow-origin", value_name = "ORIGIN", default_value = "0.0.0.0")]
+    #[arg(long = "allow-origin", value_name = "ORIGIN", default_value = api::DEFAULT_ALLOW_ORIGINS)]
     pub allow_origins: Vec<String>,
     /// Public API routes.
-    #[arg(long = "public-route", value_name = "ROUTE", default_value = "api/core/v2/*")]
+    #[arg(long = "public-route", value_name = "ROUTE", default_value = api::DEFAULT_PUBLIC_ROUTES)]
     pub public_routes: Vec<String>,
     /// Maximum number of results returned by a single API call.
-    #[arg(long, default_value = "1000")]
+    #[arg(long, default_value = to_str!(api::DEFAULT_MAX_PAGE_SIZE))]
     pub max_page_size: Option<usize>,
     /// JWT arguments.
     #[command(flatten)]
@@ -217,12 +230,11 @@ impl ClArgs {
         // API
         #[cfg(feature = "api")]
         {
-            let password = self.api.jwt.jwt_password.as_ref().unwrap();
-            let salt = self.api.jwt.jwt_salt.as_ref().unwrap();
-
             config.api.enabled = self.api.api_enabled.unwrap();
             config.api.port = self.api.api_port.unwrap();
             config.api.allow_origins = (&self.api.allow_origins).into();
+            let password = self.api.jwt.jwt_password.as_ref().unwrap();
+            let salt = self.api.jwt.jwt_salt.as_ref().unwrap();
             config.api.password_hash = hex::encode(
                 argon2::hash_raw(
                     password.as_bytes(),

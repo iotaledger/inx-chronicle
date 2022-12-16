@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod config;
+pub mod config;
 mod error;
 
 use std::time::Duration;
