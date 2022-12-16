@@ -20,7 +20,7 @@ pub const DEFAULT_DATABASE_NAME: &str = "chronicle";
 /// The default minimum amount of connections in the pool.
 pub const DEFAULT_MIN_POOL_SIZE: u32 = 2;
 
-/// The [`MongoDb`] config.
+/// The [`super::MongoDb`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

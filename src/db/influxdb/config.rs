@@ -20,7 +20,7 @@ pub const DEFAULT_METRICS_ENABLED: bool = true;
 /// The default name of the metrics database to connect to.
 pub const DEFAULT_METRICS_DATABASE_NAME: &str = "chronicle_metrics";
 
-/// The influxdb [`Client`] config.
+/// The influxdb [`influxdb::Client`] config.
 #[must_use]
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
