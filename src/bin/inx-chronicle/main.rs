@@ -55,7 +55,10 @@ async fn main() -> eyre::Result<()> {
     if config.inx.enabled {
         #[cfg(any(feature = "analytics", feature = "metrics"))]
         let influx_db = if config.influxdb.analytics_enabled || config.influxdb.metrics_enabled {
-            info!("Connecting to influx database at address `{}`", config.influxdb.conn_url);
+            info!(
+                "Connecting to influx database at address `{}`",
+                config.influxdb.conn_url
+            );
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             info!(
                 "Connected to influx databases `{}` and `{}`",
