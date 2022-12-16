@@ -14,7 +14,7 @@ use chronicle::{
 };
 use serde::Deserialize;
 
-use crate::api::{config::ApiData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
+use crate::api::{config::ApiConfigData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LedgerUpdatesByAddressPagination {
@@ -73,7 +73,7 @@ impl Display for LedgerUpdatesByAddressCursor {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for LedgerUpdatesByAddressPagination
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -81,7 +81,7 @@ where
         let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let sort = query
             .sort
@@ -155,7 +155,7 @@ impl Display for LedgerUpdatesByMilestoneCursor {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for LedgerUpdatesByMilestonePagination
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -163,7 +163,7 @@ where
         let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
@@ -227,7 +227,7 @@ impl Display for MilestonesCursor {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for MilestonesPagination
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -235,7 +235,7 @@ where
         let Query(query) = Query::<MilestonesPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         if matches!((query.start_timestamp, query.end_timestamp), (Some(start), Some(end)) if end < start) {
             return Err(ApiError::from(RequestError::BadTimeRange));
@@ -285,7 +285,7 @@ impl Default for RichestAddressesQuery {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for RichestAddressesQuery
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -293,7 +293,7 @@ where
         let Query(mut query) = Query::<RichestAddressesQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
         query.top = query.top.min(config.max_page_size);
         Ok(query)
     }
@@ -383,7 +383,7 @@ impl Display for BlocksByMilestoneCursor {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for BlocksByMilestoneIndexPagination
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -391,7 +391,7 @@ where
         let Query(query) = Query::<BlocksByMilestoneIndexPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let sort = query
             .sort
@@ -431,7 +431,7 @@ pub struct BlocksByMilestoneIdPaginationQuery {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for BlocksByMilestoneIdPagination
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -439,7 +439,7 @@ where
         let Query(query) = Query::<BlocksByMilestoneIdPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let sort = query
             .sort
@@ -498,7 +498,7 @@ mod test {
             max_page_size: 1000,
             ..Default::default()
         };
-        let data = ApiData::try_from(config).unwrap();
+        let data = ApiConfigData::try_from(config).unwrap();
         let req = Request::builder()
             .method("GET")
             .uri("/ledger/updates/by-address/0x00?pageSize=9999999")

@@ -20,7 +20,7 @@ use time::{Duration, OffsetDateTime};
 
 use super::{
     auth::Auth,
-    config::ApiData,
+    config::ApiConfigData,
     error::{ApiError, MissingError, UnimplementedError},
     extractors::ListRoutesQuery,
     responses::RoutesResponse,
@@ -34,7 +34,7 @@ const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
 const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
-pub fn routes(api_data: ApiData) -> Router<ApiWorker> {
+pub fn routes(api_data: ApiConfigData) -> Router<ApiWorker> {
     #[allow(unused_mut)]
     let mut router = Router::new();
 
@@ -59,17 +59,24 @@ struct LoginInfo {
     password: String,
 }
 
-async fn login(State(config): State<ApiData>, Json(LoginInfo { password }): Json<LoginInfo>) -> ApiResult<String> {
+async fn login(
+    State(config_data): State<ApiConfigData>,
+    Json(LoginInfo { password }): Json<LoginInfo>,
+) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
-        config.password_salt.as_bytes(),
-        &config.password_hash,
-        Into::into(&config.argon_config),
+        config_data.jwt_password_salt.as_bytes(),
+        &config_data.jwt_password_hash,
+        Into::into(&config_data.jwt_argon_config),
     )? {
         let jwt = JsonWebToken::new(
-            Claims::new(ApiData::ISSUER, uuid::Uuid::new_v4().to_string(), ApiData::AUDIENCE)?
-                .expires_after_duration(config.jwt_expiration)?,
-            config.secret_key.as_ref(),
+            Claims::new(
+                ApiConfigData::ISSUER,
+                uuid::Uuid::new_v4().to_string(),
+                ApiConfigData::AUDIENCE,
+            )?
+            .expires_after_duration(config_data.jwt_expiration)?,
+            config_data.jwt_secret_key.as_ref(),
         )?;
 
         Ok(format!("Bearer {}", jwt))
@@ -105,10 +112,10 @@ async fn list_routes(
 
         jwt.validate(
             Validation::default()
-                .with_issuer(ApiData::ISSUER)
-                .with_audience(ApiData::AUDIENCE)
+                .with_issuer(ApiConfigData::ISSUER)
+                .with_audience(ApiConfigData::AUDIENCE)
                 .validate_nbf(true),
-            state.inner.api_data.secret_key.as_ref(),
+            state.inner.api_data.jwt_secret_key.as_ref(),
         )
         .map_err(AuthError::InvalidJwt)?;
 

@@ -30,7 +30,7 @@ use tracing::info;
 
 use self::routes::routes;
 pub use self::{
-    config::{ApiConfig, ApiData},
+    config::{ApiConfig, ApiConfigData},
     error::{ApiError, ApiResult, AuthError, ConfigError},
     secret_key::SecretKey,
 };
@@ -41,7 +41,7 @@ pub const DEFAULT_PAGE_SIZE: usize = 100;
 #[derive(Debug, Clone)]
 pub struct ApiWorker {
     db: MongoDb,
-    api_data: ApiData,
+    api_data: ApiConfigData,
 }
 
 impl ApiWorker {

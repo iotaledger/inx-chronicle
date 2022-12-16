@@ -27,7 +27,7 @@ use hyper::{Body, Request};
 use regex::RegexSet;
 use tower::{Layer, Service};
 
-use super::{ApiData, ApiWorker};
+use super::{ApiConfigData, ApiWorker};
 
 #[derive(Clone, Debug, Default)]
 pub struct RouteNode {
@@ -95,7 +95,7 @@ impl FromRef<RouterState<ApiWorker>> for MongoDb {
     }
 }
 
-impl FromRef<RouterState<ApiWorker>> for ApiData {
+impl FromRef<RouterState<ApiWorker>> for ApiConfigData {
     fn from_ref(input: &RouterState<ApiWorker>) -> Self {
         input.inner.api_data.clone()
     }

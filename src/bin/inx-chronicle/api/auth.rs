@@ -9,14 +9,14 @@ use axum::{
     TypedHeader,
 };
 
-use super::{config::ApiData, error::RequestError, ApiError, AuthError};
+use super::{config::ApiConfigData, error::RequestError, ApiError, AuthError};
 
 pub struct Auth;
 
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for Auth
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -24,7 +24,7 @@ where
         // Unwrap: <OriginalUri as FromRequest>::Rejection = Infallable
         let OriginalUri(uri) = OriginalUri::from_request_parts(req, state).await.unwrap();
 
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         if config.public_routes.is_match(&uri.to_string()) {
             return Ok(Auth);
@@ -37,10 +37,10 @@ where
 
         jwt.validate(
             Validation::default()
-                .with_issuer(ApiData::ISSUER)
-                .with_audience(ApiData::AUDIENCE)
+                .with_issuer(ApiConfigData::ISSUER)
+                .with_audience(ApiConfigData::AUDIENCE)
                 .validate_nbf(true),
-            config.secret_key.as_ref(),
+            config.jwt_secret_key.as_ref(),
         )
         .map_err(AuthError::InvalidJwt)?;
 
