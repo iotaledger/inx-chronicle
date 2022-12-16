@@ -172,10 +172,10 @@ pub struct JwtArgs {
 #[derive(Args, Debug)]
 pub struct LokiArgs {
     /// Toggle Grafana Loki log writes.
-    #[arg(long, value_name = "BOOL", default_value = to_str!(crate::config::DEFAULT_LOKI_ENABLED))]
+    #[arg(long, value_name = "BOOL", default_value = to_str!(crate::config::loki::DEFAULT_LOKI_ENABLED))]
     pub loki_enabled: Option<bool>,
     /// The url pointing to a Grafana Loki instance.
-    #[arg(long, value_name = "URL", default_value = crate::config::DEFAULT_LOKI_CONN_URL)]
+    #[arg(long, value_name = "URL", default_value = crate::config::loki::DEFAULT_LOKI_CONN_URL)]
     pub loki_conn_url: Option<String>,
 }
 
