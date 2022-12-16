@@ -17,7 +17,7 @@ pub const DEFAULT_PUBLIC_ROUTES: &str = "api/core/v2/*";
 pub const DEFAULT_MAX_PAGE_SIZE: usize = 1000;
 pub const DEFAULT_JWT_PASSWORD: &str = "password";
 pub const DEFAULT_JWT_SALT: &str = "saltines";
-pub const DEFAULT_JWT_EXPIRATIOIN: &str = "72h";
+pub const DEFAULT_JWT_EXPIRATION: &str = "72h";
 
 /// API configuration
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -33,7 +33,6 @@ pub struct ApiConfig {
     pub password_salt: String,
     #[serde(with = "humantime_serde")]
     pub jwt_expiration: Duration,
-    pub argon_config: ArgonConfig,
 }
 
 impl Default for ApiConfig {
@@ -47,11 +46,10 @@ impl Default for ApiConfig {
             identity_path: None,
             password_hash: DEFAULT_JWT_PASSWORD.to_string(),
             password_salt: DEFAULT_JWT_SALT.to_string(),
-            jwt_expiration: DEFAULT_JWT_EXPIRATIOIN
+            jwt_expiration: DEFAULT_JWT_EXPIRATION
                 .parse::<humantime::Duration>()
-                .map(Into::into)
-                .unwrap(),
-            argon_config: ArgonConfig::default(),
+                .unwrap()
+                .into(),
         }
     }
 }
@@ -96,7 +94,7 @@ impl TryFrom<ApiConfig> for ApiData {
                 }
             },
             max_page_size: config.max_page_size,
-            argon_config: config.argon_config,
+            argon_config: ArgonConfig::default(),
         })
     }
 }
