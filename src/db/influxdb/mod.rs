@@ -62,8 +62,7 @@ impl InfluxDb {
         #[cfg(feature = "analytics")]
         let analytics_client = {
             let client = InfluxClient(
-                Client::new(&config.conn_url, &config.analytics_database_name)
-                    .with_auth(&config.username, &config.password),
+                Client::new(&config.url, &config.analytics_database_name).with_auth(&config.username, &config.password),
             );
             client.ping().await?;
             client
@@ -71,8 +70,7 @@ impl InfluxDb {
         #[cfg(feature = "metrics")]
         let metrics_client = {
             let client = InfluxClient(
-                Client::new(&config.conn_url, &config.metrics_database_name)
-                    .with_auth(&config.username, &config.password),
+                Client::new(&config.url, &config.metrics_database_name).with_auth(&config.username, &config.password),
             );
             client.ping().await?;
             client

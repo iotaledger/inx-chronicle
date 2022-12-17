@@ -88,14 +88,14 @@ impl InxWorker {
     }
 
     async fn connect(&self) -> Result<Inx> {
-        let url = url::Url::parse(&self.config.conn_url)?;
+        let url = url::Url::parse(&self.config.url)?;
 
         if url.scheme() != "http" {
-            bail!(InxWorkerError::InvalidAddress(self.config.conn_url.clone()));
+            bail!(InxWorkerError::InvalidAddress(self.config.url.clone()));
         }
 
         for i in 0..self.config.conn_retry_count {
-            match Inx::connect(self.config.conn_url.clone()).await {
+            match Inx::connect(self.config.url.clone()).await {
                 Ok(inx_client) => return Ok(inx_client),
                 Err(_) => {
                     warn!(
@@ -135,7 +135,7 @@ impl InxWorker {
 
     #[instrument(skip_all, err, level = "trace")]
     async fn init(&mut self) -> Result<(MilestoneIndex, Inx)> {
-        info!("Connecting to INX at bind address `{}`.", &self.config.conn_url);
+        info!("Connecting to INX at bind address `{}`.", &self.config.url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
 

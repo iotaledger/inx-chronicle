@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The default InfluxDb URL to connect to.
-pub const DEFAULT_CONN_URL: &str = "http://localhost:8086";
+pub const DEFAULT_URL: &str = "http://localhost:8086";
 /// The default InfluxDb username.
 pub const DEFAULT_USERNAME: &str = "root";
 /// The default InfluxDb password.
@@ -26,7 +26,7 @@ pub const DEFAULT_METRICS_DATABASE_NAME: &str = "chronicle_metrics";
 #[serde(default, deny_unknown_fields)]
 pub struct InfluxDbConfig {
     /// The address of the InfluxDb instance.
-    pub conn_url: String,
+    pub url: String,
     /// The InfluxDb username.
     pub username: String,
     /// The InfluxDb password.
@@ -44,7 +44,7 @@ pub struct InfluxDbConfig {
 impl Default for InfluxDbConfig {
     fn default() -> Self {
         Self {
-            conn_url: DEFAULT_CONN_URL.to_string(),
+            url: DEFAULT_URL.to_string(),
             username: DEFAULT_USERNAME.to_string(),
             password: DEFAULT_PASSWORD.to_string(),
             analytics_enabled: DEFAULT_ANALYTICS_ENABLED,

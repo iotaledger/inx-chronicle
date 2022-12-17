@@ -34,8 +34,8 @@ services:
     tty: true
     command:
       - "--mongodb-conn-str=mongodb://mongo:27017"
-      - "--inx-url=http://hornet:9029"
       - "--influxdb-url=http://influx:8086"
+      - "--inx-url=http://hornet:9029"
       - "--loki-url=http://loki:3100"
 
   influx:
