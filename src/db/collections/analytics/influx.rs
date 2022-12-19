@@ -111,6 +111,14 @@ impl From<Measurement> for influxdb::WriteQuery {
                     "storage_deposit_return_value",
                     m.inner.storage_deposit_return_value.to_string().parse::<u64>().unwrap(),
                 ),
+            Measurement::TokenDistributionAnalytics(t) => t
+                .prepare_query("stardust_token_distribution")
+                .add_field("index_0", t.inner.distribution[0].index)
+                .add_field("address_count_0", t.inner.distribution[0].address_count)
+                .add_field(
+                    "total_balance_0",
+                    t.inner.distribution[0].total_balance.parse::<u64>().unwrap(),
+                ),
         }
     }
 }

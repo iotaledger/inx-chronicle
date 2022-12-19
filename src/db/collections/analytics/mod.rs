@@ -12,6 +12,7 @@ mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
 mod protocol_parameters;
+mod token_distribution;
 mod unclaimed_tokens;
 mod unlock_condition;
 
@@ -37,9 +38,10 @@ use self::{
     address_balance::AddressAnalyticsResult, base_token::BaseTokenActivityAnalyticsResult,
     block_activity::BlockActivityAnalyticsResult, daily_active_addresses::DailyActiveAddressAnalyticsResult,
     ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
-    output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
-    unlock_condition::UnlockConditionAnalyticsResult,
+    output_activity::OutputActivityAnalyticsResult, token_distribution::TokenDistributionAnalytics,
+    unclaimed_tokens::UnclaimedTokenAnalyticsResult, unlock_condition::UnlockConditionAnalyticsResult,
 };
+use super::outputs::TokenDistribution;
 use crate::{
     db::MongoDb,
     types::{
@@ -64,10 +66,10 @@ impl<M> PerMilestone<M> {
     }
 }
 
-/// Note: We will need this later, for example for daily active addresses.
-#[allow(unused)]
 #[allow(missing_docs)]
 pub struct TimeInterval<M> {
+    // TODO: use it or remove it
+    #[allow(dead_code)]
     from: OffsetDateTime,
     to_exclusive: OffsetDateTime,
     inner: M,
@@ -119,6 +121,7 @@ pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
         Box::new(ProtocolParametersAnalytics),
         Box::new(UnclaimedTokenAnalytics),
         Box::new(UnlockConditionAnalytics),
+        Box::<TokenDistributionAnalytics>::default(),
     ]
 }
 
@@ -140,4 +143,5 @@ pub enum Measurement {
     ProtocolParameters(PerMilestone<ProtocolParameters>),
     UnclaimedTokenAnalytics(PerMilestone<UnclaimedTokenAnalyticsResult>),
     UnlockConditionAnalytics(PerMilestone<UnlockConditionAnalyticsResult>),
+    TokenDistributionAnalytics(TimeInterval<TokenDistribution>),
 }

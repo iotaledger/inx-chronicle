@@ -309,7 +309,7 @@ async fn richest_addresses_ledger_analytics(
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
-        .get_richest_addresses(ledger_index, top)
+        .get_richest_addresses_per_milestone(ledger_index, top)
         .await?;
 
     let hrp = database
@@ -340,7 +340,7 @@ async fn token_distribution_ledger_analytics(
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
     let res = database
         .collection::<OutputCollection>()
-        .get_token_distribution(ledger_index)
+        .get_token_distribution_per_milestone(ledger_index)
         .await?;
 
     Ok(TokenDistributionResponse {

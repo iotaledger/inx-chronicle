@@ -385,7 +385,7 @@ pub struct AddressStat {
     pub balance: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TokenDistribution {
     pub distribution: Vec<DistributionStat>,
 }
@@ -403,7 +403,7 @@ pub struct DistributionStat {
 
 impl OutputCollection {
     /// Create richest address statistics.
-    pub async fn get_richest_addresses(
+    pub async fn get_richest_addresses_per_milestone(
         &self,
         ledger_index: MilestoneIndex,
         top: usize,
@@ -435,8 +435,11 @@ impl OutputCollection {
         Ok(RichestAddresses { top })
     }
 
-    /// Create token distribution statistics.
-    pub async fn get_token_distribution(&self, ledger_index: MilestoneIndex) -> Result<TokenDistribution, Error> {
+    /// Create token distribution statistics per milestone.
+    pub async fn get_token_distribution_per_milestone(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<TokenDistribution, Error> {
         let distribution = self
             .aggregate(
                 vec![
