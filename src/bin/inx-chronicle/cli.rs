@@ -367,7 +367,7 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
             AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
             AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::DailyActiveAddresses => Box::new(DailyActiveAddressesAnalytics::default()),
+            AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
             AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
             AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
