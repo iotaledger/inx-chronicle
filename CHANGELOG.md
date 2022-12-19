@@ -1,3 +1,29 @@
+## [1.0.0-beta.28](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.27...v1.0.0-beta.28) (2022-12-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **analytics:** correctly count aliases and NFT activity (#943)
+* **influxdb:** divide analytics and metrics databases (#942)
+
+### Features
+
+* **analytics:** compute daily active addresses ([#968](https://github.com/iotaledger/inx-chronicle/issues/968)) ([04015f3](https://github.com/iotaledger/inx-chronicle/commit/04015f3b47f3de39bc65f7cc4e4f84576810642c))
+* **analytics:** enable analytics selection in `fill-analytics` ([#949](https://github.com/iotaledger/inx-chronicle/issues/949)) ([0a8c841](https://github.com/iotaledger/inx-chronicle/commit/0a8c841044e3604b5c1bb46b457f3fafa1bc743b))
+* **analytics:** separate base token activity analytic into `booked` and `transferred` counts ([#960](https://github.com/iotaledger/inx-chronicle/issues/960)) ([5a533bd](https://github.com/iotaledger/inx-chronicle/commit/5a533bdbe48dfbc3bacf7fa55b876de29e6780f8))
+* **api:** add proof-of-inclusion (PoI) endpoints ([#854](https://github.com/iotaledger/inx-chronicle/issues/854)) ([62545a2](https://github.com/iotaledger/inx-chronicle/commit/62545a2bc47482efe27c8cf8833793e39df9d163))
+* **api:** update axum to 0.6 ([#948](https://github.com/iotaledger/inx-chronicle/issues/948)) ([f77ccfa](https://github.com/iotaledger/inx-chronicle/commit/f77ccfa9d2c1a77539d19dc37ed0f4fb41e4b1e8))
+* **grafana:** add time interval to panel titles ([#964](https://github.com/iotaledger/inx-chronicle/issues/964)) ([865c042](https://github.com/iotaledger/inx-chronicle/commit/865c0421c03b865cad4627ea73df9778d7c66d2f))
+* **influxdb:** divide analytics and metrics databases ([#942](https://github.com/iotaledger/inx-chronicle/issues/942)) ([7e0c0da](https://github.com/iotaledger/inx-chronicle/commit/7e0c0da45adea75fe5235b1bf51220911984f891))
+
+
+### Bug Fixes
+
+* **analytics:** correctly count aliases and NFT activity ([#943](https://github.com/iotaledger/inx-chronicle/issues/943)) ([e5b5f0b](https://github.com/iotaledger/inx-chronicle/commit/e5b5f0b61c8bcc2c52dbed3037f26ba3ffdd5b89))
+* **clippy:** fix clippy box default warning ([#980](https://github.com/iotaledger/inx-chronicle/issues/980)) ([774d76b](https://github.com/iotaledger/inx-chronicle/commit/774d76b577245a5b630e3a62e501f4b2b21473d5))
+* **db:** use `$match` in `get_utxo_changes` ([#977](https://github.com/iotaledger/inx-chronicle/issues/977)) ([45bbdaf](https://github.com/iotaledger/inx-chronicle/commit/45bbdafa44b141da8968b4ba0cab6c4c98b83255))
+* **grafana:** use `mean` instead of `last` for times ([#934](https://github.com/iotaledger/inx-chronicle/issues/934)) ([242b353](https://github.com/iotaledger/inx-chronicle/commit/242b353768df6f68b4b02851f6251bafec392d7e))
+
 ## [1.0.0-beta.27](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.26...v1.0.0-beta.27) (2022-11-25)
 
 
