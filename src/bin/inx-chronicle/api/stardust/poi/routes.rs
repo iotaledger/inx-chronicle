@@ -23,14 +23,14 @@ use super::{
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
     router::{Router, RouterState},
-    ApiData, ApiResult,
+    ApiConfigData, ApiResult,
 };
 
 pub fn routes<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     MongoDb: FromRef<RouterState<S>>,
-    ApiData: FromRef<RouterState<S>>,
+    ApiConfigData: FromRef<RouterState<S>>,
 {
     Router::new()
         .route(
