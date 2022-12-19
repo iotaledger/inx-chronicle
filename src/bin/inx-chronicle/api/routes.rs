@@ -5,6 +5,7 @@ use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
     extract::State,
     headers::{authorization::Bearer, Authorization},
+    http::header::HeaderValue,
     middleware::from_extractor_with_state,
     routing::{get, post},
     Json, TypedHeader,
@@ -27,6 +28,8 @@ use super::{
     router::{Router, RouterState},
     ApiResult, ApiWorker, AuthError,
 };
+
+pub(crate) static BYTE_CONTENT_HEADER: HeaderValue = HeaderValue::from_static("application/vnd.iota.serializer-v1");
 
 const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 

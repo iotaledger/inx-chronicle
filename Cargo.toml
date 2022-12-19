@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.27"
+version = "1.0.0-beta.28"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -61,7 +61,6 @@ ed25519 = { version = "1.5", default-features = false, features = [ "alloc", "pk
 ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_backend" ], optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
-lazy_static = { version = "1.4", default-features = false, optional = true }
 packable = { version = "0.7", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, features = [ "std" ], optional = true }
 regex = { version = "1.7", default-features = false, features = [ "std" ], optional = true }
@@ -78,6 +77,9 @@ tonic = { version = "0.8", default-features = false, optional = true }
 # Loki
 tracing-loki = { version = "0.2", default-features = false, features = [ "compat-0-2-1", "native-tls" ], optional = true }
 
+# PoI
+iota-crypto = { version = "0.15", default-features = false, features = [ "blake2b" ], optional = true }
+
 # Stardust types
 iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api", "block", "std" ], optional = true }
 
@@ -92,6 +94,7 @@ default = [
     "inx",
     "loki",
     "metrics",
+    "poi",
     "stardust",
 ]
 analytics = [
@@ -105,7 +108,6 @@ api = [
     "dep:hex",
     "derive_more/from",
     "dep:hyper",
-    "dep:lazy_static",
     "dep:packable",
     "dep:rand",
     "dep:regex",
@@ -128,6 +130,10 @@ loki = [
 metrics = [
     "dep:influxdb",
     "dep:chrono",
+]
+poi = [
+    "api",
+    "dep:iota-crypto",
 ]
 rand = [
     "iota-types?/rand",

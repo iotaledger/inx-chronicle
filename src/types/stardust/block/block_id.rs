@@ -56,6 +56,12 @@ impl From<BlockId> for Bson {
     }
 }
 
+impl AsRef<[u8]> for BlockId {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 #[cfg(feature = "rand")]
 mod rand {
     use iota::rand::block::{rand_block_id, rand_block_ids};

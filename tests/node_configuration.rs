@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::{collections::ConfigurationUpdateCollection, MongoDbCollectionExt},
-        types::node::{BaseToken, NodeConfiguration},
+        types::node::{BaseToken, MilestoneKeyRange, NodeConfiguration},
     };
 
     use super::common::{setup_collection, setup_database, teardown};
@@ -27,6 +27,13 @@ mod test_rand {
         );
 
         let mut config = NodeConfiguration {
+            milestone_public_key_count: 3,
+            milestone_key_ranges: vec![MilestoneKeyRange {
+                public_key: "0xabcde".to_string(),
+                start: 0.into(),
+                end: 3.into(),
+            }]
+            .into_boxed_slice(),
             base_token: BaseToken {
                 name: "Shimmer".to_string(),
                 ticker_symbol: "SMR".to_string(),

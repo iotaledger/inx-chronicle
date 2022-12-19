@@ -6,10 +6,21 @@ use super::{router::Router, ApiWorker};
 pub mod core;
 pub mod explorer;
 pub mod indexer;
+#[cfg(feature = "poi")]
+pub mod poi;
 
+#[allow(clippy::let_and_return)]
 pub fn routes() -> Router<ApiWorker> {
-    Router::new()
-        .nest("/explorer/v2", explorer::routes())
+    #[allow(unused_mut)]
+    let mut router = Router::new()
         .nest("/core/v2", core::routes())
-        .nest("/indexer/v1", indexer::routes())
+        .nest("/explorer/v2", explorer::routes())
+        .nest("/indexer/v1", indexer::routes());
+
+    #[cfg(feature = "poi")]
+    {
+        router = router.nest("/poi/v1", poi::routes());
+    }
+
+    router
 }
