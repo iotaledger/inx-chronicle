@@ -74,18 +74,18 @@ pub struct InfluxDbArgs {
     /// The InfluxDb password.
     #[arg(long, value_name = "PASSWORD", env = "INFLUXDB_PASSWORD", default_value = influxdb::DEFAULT_PASSWORD)]
     pub influxdb_password: String,
-    /// Toggle InfluxDb time-series analytics writes.
+    /// Disable InfluxDb time-series analytics writes.
     #[cfg(feature = "analytics")]
-    #[arg(long, value_name = "BOOL", default_value_t = influxdb::DEFAULT_ANALYTICS_ENABLED)]
-    pub analytics_enabled: bool,
+    #[arg(long, value_name = "BOOL", default_value_t = !influxdb::DEFAULT_ANALYTICS_ENABLED)]
+    pub disable_analytics: bool,
     /// The Analytics database name.
     #[cfg(feature = "analytics")]
     #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_ANALYTICS_DATABASE_NAME)]
     pub analytics_database_name: String,
-    /// Toggle InfluxDb time-series metrics writes.
+    /// Disable InfluxDb time-series metrics writes.
     #[cfg(feature = "metrics")]
-    #[arg(long, value_name = "BOOL", default_value_t = influxdb::DEFAULT_METRICS_ENABLED)]
-    pub metrics_enabled: bool,
+    #[arg(long, value_name = "BOOL", default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
+    pub disable_metrics: bool,
     /// The Metrics database name.
     #[cfg(feature = "metrics")]
     #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_METRICS_DATABASE_NAME)]
@@ -98,9 +98,9 @@ use crate::stardust_inx::config as inx;
 #[cfg(feature = "inx")]
 #[derive(Args, Debug)]
 pub struct InxArgs {
-    /// Toggles the INX synchronization workflow.
-    #[arg(long, value_name = "BOOL", default_value_t = inx::DEFAULT_ENABLED)]
-    pub inx_enabled: bool,
+    /// Disable the INX synchronization workflow.
+    #[arg(long, value_name = "BOOL", default_value_t = !inx::DEFAULT_ENABLED)]
+    pub disable_inx: bool,
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
     #[arg(long, value_name = "URL", default_value = inx::DEFAULT_URL)]
     pub inx_url: String,
@@ -122,9 +122,9 @@ use crate::api::config as api;
 #[cfg(feature = "api")]
 #[derive(Args, Debug)]
 pub struct ApiArgs {
-    /// Toggle REST API.
-    #[arg(long, value_name = "BOOL", default_value_t = api::DEFAULT_ENABLED)]
-    pub api_enabled: bool,
+    /// Disable REST API.
+    #[arg(long, value_name = "BOOL", default_value_t = !api::DEFAULT_ENABLED)]
+    pub disable_api: bool,
     /// API listening port.
     #[arg(long, value_name = "PORT", default_value_t = api::DEFAULT_PORT)]
     pub api_port: u16,
@@ -162,9 +162,9 @@ pub struct JwtArgs {
 #[cfg(feature = "loki")]
 #[derive(Args, Debug)]
 pub struct LokiArgs {
-    /// Toggle Grafana Loki log writes.
-    #[arg(long, value_name = "BOOL", default_value_t = crate::config::loki::DEFAULT_LOKI_ENABLED)]
-    pub loki_enabled: bool,
+    /// Disable Grafana Loki log writes.
+    #[arg(long, value_name = "BOOL", default_value_t = !crate::config::loki::DEFAULT_LOKI_ENABLED)]
+    pub disable_loki: bool,
     /// The url pointing to a Grafana Loki instance.
     #[arg(long, value_name = "URL", default_value = crate::config::loki::DEFAULT_LOKI_URL)]
     pub loki_url: String,
@@ -193,7 +193,7 @@ impl ClArgs {
         // INX
         #[cfg(all(feature = "stardust", feature = "inx"))]
         {
-            config.inx.enabled = self.inx.inx_enabled;
+            config.inx.enabled = !self.inx.disable_inx;
             config.inx.url = self.inx.inx_url.clone();
             config.inx.conn_retry_interval = self.inx.inx_retry_interval;
             config.inx.conn_retry_count = self.inx.inx_retry_count;
@@ -209,19 +209,19 @@ impl ClArgs {
         }
         #[cfg(feature = "analytics")]
         {
-            config.influxdb.analytics_enabled = self.influxdb.analytics_enabled;
+            config.influxdb.analytics_enabled = !self.influxdb.disable_analytics;
             config.influxdb.analytics_database_name = self.influxdb.analytics_database_name.clone();
         }
         #[cfg(feature = "metrics")]
         {
-            config.influxdb.metrics_enabled = self.influxdb.metrics_enabled;
+            config.influxdb.metrics_enabled = !self.influxdb.disable_metrics;
             config.influxdb.metrics_database_name = self.influxdb.metrics_database_name.clone();
         }
 
         // API
         #[cfg(feature = "api")]
         {
-            config.api.enabled = self.api.api_enabled;
+            config.api.enabled = !self.api.disable_api;
             config.api.port = self.api.api_port;
             config.api.allow_origins = (&self.api.allow_origins).into();
             config.api.jwt_password = self.api.jwt.jwt_password.clone();
@@ -234,8 +234,8 @@ impl ClArgs {
         // Loki
         #[cfg(feature = "loki")]
         {
+            config.loki.enabled = !self.loki.disable_loki;
             config.loki.url = self.loki.loki_url.clone();
-            config.loki.enabled = self.loki.loki_enabled;
         }
 
         config
