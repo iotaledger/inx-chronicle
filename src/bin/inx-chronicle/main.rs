@@ -27,7 +27,7 @@ async fn main() -> eyre::Result<()> {
     dotenvy::dotenv().ok();
 
     let cl_args = ClArgs::parse();
-    let config = cl_args.get_config()?;
+    let config = cl_args.get_config();
 
     set_up_logging(&config)?;
 
