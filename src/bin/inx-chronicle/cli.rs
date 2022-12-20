@@ -299,7 +299,7 @@ impl ClArgs {
                                             })
                                             .await?;
                                     }
-                                    tracing::info!("Finished analytics for milestohttps://github.com/iotaledger/inx-chronicle/actions/runs/3731702819/jobs/6330227459ne {}", milestone_index);
+                                    tracing::info!("Finished analytics for milestone {}", milestone_index);
                                 } else {
                                     tracing::info!("No milestone in database for index {}", milestone_index);
                                 }
@@ -340,7 +340,7 @@ impl ClArgs {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
 pub enum AnalyticsChoice {
-    // Please keep the alphabetic orderhttps://github.com/iotaledger/inx-chronicle/actions/runs/3731702819/jobs/6330227459.
+    // Please keep the alphabetic order.
     Addresses,
     BaseToken,
     BlockActivity,
