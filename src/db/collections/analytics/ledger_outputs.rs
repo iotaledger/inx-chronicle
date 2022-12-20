@@ -17,7 +17,7 @@ use crate::{
 /// Computes the number of addresses that hold a balance.
 #[derive(Debug, Default)]
 pub struct LedgerOutputAnalytics {
-    prev: Option<LedgerOutputAnalyticsResult>,
+    prev: Option<(MilestoneIndex, LedgerOutputAnalyticsResult)>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, AddAssign, SubAssign)]
@@ -43,22 +43,24 @@ impl Analytic for LedgerOutputAnalytics {
         milestone_timestamp: MilestoneTimestamp,
     ) -> Result<Option<Measurement>, Error> {
         let res = if let Some(prev) = self.prev.as_mut() {
+            debug_assert!(milestone_index == prev.0 + 1);
             db.collection::<OutputCollection>()
-                .update_ledger_output_analytics(prev, milestone_index)
+                .update_ledger_output_analytics(&mut prev.1, milestone_index)
                 .await?;
-            prev
+            prev.1
         } else {
-            self.prev.insert(
+            self.prev.insert((
+                milestone_index,
                 db.collection::<OutputCollection>()
                     .get_ledger_output_analytics(milestone_index)
                     .await?,
-            )
+            )).1
         };
 
         Ok(Some(Measurement::LedgerOutputAnalytics(PerMilestone {
             milestone_index,
             milestone_timestamp,
-            inner: *res,
+            inner: res,
         })))
     }
 }
