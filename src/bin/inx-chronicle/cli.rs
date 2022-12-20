@@ -59,6 +59,18 @@ pub struct MongoDbArgs {
     pub mongodb_min_pool_size: u32,
 }
 
+impl From<&MongoDbArgs> for chronicle::db::MongoDbConfig {
+    fn from(value: &MongoDbArgs) -> Self {
+        Self {
+            conn_str: value.mongodb_conn_str.clone(),
+            username: value.mongodb_username.clone(),
+            password: value.mongodb_password.clone(),
+            database_name: value.mongodb_database_name.clone(),
+            min_pool_size: value.mongodb_min_pool_size,
+        }
+    }
+}
+
 #[cfg(any(feature = "analytics", feature = "metrics"))]
 use chronicle::db::influxdb::config as influxdb;
 
@@ -92,10 +104,29 @@ pub struct InfluxDbArgs {
     pub disable_metrics: bool,
 }
 
-#[cfg(feature = "inx")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
+impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
+    fn from(value: &InfluxDbArgs) -> Self {
+        Self {
+            url: value.influxdb_url.clone(),
+            username: value.influxdb_username.clone(),
+            password: value.influxdb_password.clone(),
+            #[cfg(feature = "analytics")]
+            analytics_enabled: !value.disable_analytics,
+            #[cfg(feature = "analytics")]
+            analytics_database_name: value.analytics_database_name.clone(),
+            #[cfg(feature = "metrics")]
+            metrics_enabled: !value.disable_metrics,
+            #[cfg(feature = "metrics")]
+            metrics_database_name: value.metrics_database_name.clone(),
+        }
+    }
+}
+
+#[cfg(all(feature = "stardust", feature = "inx"))]
 use crate::stardust_inx::config as inx;
 
-#[cfg(feature = "inx")]
+#[cfg(all(feature = "stardust", feature = "inx"))]
 #[derive(Args, Debug)]
 pub struct InxArgs {
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
@@ -114,6 +145,19 @@ pub struct InxArgs {
     /// Disable the INX synchronization workflow.
     #[arg(long, default_value_t = !inx::DEFAULT_ENABLED)]
     pub disable_inx: bool,
+}
+
+#[cfg(all(feature = "stardust", feature = "inx"))]
+impl From<&InxArgs> for inx::InxConfig {
+    fn from(value: &InxArgs) -> Self {
+        Self {
+            enabled: !value.disable_inx,
+            url: value.inx_url.clone(),
+            conn_retry_interval: value.inx_retry_interval,
+            conn_retry_count: value.inx_retry_count,
+            sync_start_milestone: value.inx_sync_start.into(),
+        }
+    }
 }
 
 #[cfg(feature = "api")]
@@ -140,6 +184,23 @@ pub struct ApiArgs {
     /// Disable REST API.
     #[arg(long, default_value_t = !api::DEFAULT_ENABLED)]
     pub disable_api: bool,
+}
+
+#[cfg(feature = "api")]
+impl From<&ApiArgs> for api::ApiConfig {
+    fn from(value: &ApiArgs) -> Self {
+        Self {
+            enabled: !value.disable_api,
+            port: value.api_port,
+            allow_origins: (&value.allow_origins).into(),
+            jwt_password: value.jwt.jwt_password.clone(),
+            jwt_salt: value.jwt.jwt_salt.clone(),
+            jwt_identity_file: value.jwt.jwt_identity.clone(),
+            jwt_expiration: value.jwt.jwt_expiration,
+            max_page_size: value.max_page_size,
+            public_routes: value.public_routes.clone(),
+        }
+    }
 }
 
 #[cfg(feature = "api")]
@@ -170,74 +231,35 @@ pub struct LokiArgs {
     pub disable_loki: bool,
 }
 
+#[cfg(feature = "loki")]
+impl From<&LokiArgs> for crate::config::loki::LokiConfig {
+    fn from(value: &LokiArgs) -> Self {
+        Self {
+            enabled: !value.disable_loki,
+            url: value.loki_url.clone(),
+        }
+    }
+}
+
+#[cfg(any(all(feature = "stardust", feature = "inx"), feature = "api"))]
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
     arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 impl ClArgs {
-    /// Get a config from a file (specified via the `--config` option) or from provided CLI args combined
-    /// with defaults for those that are not provided. Note that a config file must be fully specified
-    /// as it cannot be overwritten with the CLI defaults. If you plan on using a `config.toml` use
-    /// Chronicle's `create-config' tool to make sure of that.
+    /// Creates a [`ChronicleConfig`] from the given command-line arguments, environment variables, and defaults.
     pub fn get_config(&self) -> ChronicleConfig {
-        let mut config = ChronicleConfig::default();
-
-        // MongoDb
-        config.mongodb.conn_str = self.mongodb.mongodb_conn_str.clone();
-        config.mongodb.database_name = self.mongodb.mongodb_database_name.clone();
-        config.mongodb.username = self.mongodb.mongodb_username.clone();
-        config.mongodb.password = self.mongodb.mongodb_password.clone();
-        config.mongodb.min_pool_size = self.mongodb.mongodb_min_pool_size;
-
-        // INX
-        #[cfg(all(feature = "stardust", feature = "inx"))]
-        {
-            config.inx.enabled = !self.inx.disable_inx;
-            config.inx.url = self.inx.inx_url.clone();
-            config.inx.conn_retry_interval = self.inx.inx_retry_interval;
-            config.inx.conn_retry_count = self.inx.inx_retry_count;
-            config.inx.sync_start_milestone = self.inx.inx_sync_start.into();
+        ChronicleConfig {
+            mongodb: (&self.mongodb).into(),
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
+            influxdb: (&self.influxdb).into(),
+            #[cfg(all(feature = "stardust", feature = "inx"))]
+            inx: (&self.inx).into(),
+            #[cfg(feature = "api")]
+            api: (&self.api).into(),
+            #[cfg(feature = "loki")]
+            loki: (&self.loki).into(),
         }
-
-        // InfluxDb
-        #[cfg(any(feature = "analytics", feature = "metrics"))]
-        {
-            config.influxdb.url = self.influxdb.influxdb_url.clone();
-            config.influxdb.username = self.influxdb.influxdb_username.clone();
-            config.influxdb.password = self.influxdb.influxdb_password.clone();
-        }
-        #[cfg(feature = "analytics")]
-        {
-            config.influxdb.analytics_enabled = !self.influxdb.disable_analytics;
-            config.influxdb.analytics_database_name = self.influxdb.analytics_database_name.clone();
-        }
-        #[cfg(feature = "metrics")]
-        {
-            config.influxdb.metrics_enabled = !self.influxdb.disable_metrics;
-            config.influxdb.metrics_database_name = self.influxdb.metrics_database_name.clone();
-        }
-
-        // API
-        #[cfg(feature = "api")]
-        {
-            config.api.enabled = !self.api.disable_api;
-            config.api.port = self.api.api_port;
-            config.api.allow_origins = (&self.api.allow_origins).into();
-            config.api.jwt_password = self.api.jwt.jwt_password.clone();
-            config.api.jwt_salt = self.api.jwt.jwt_salt.clone();
-            config.api.jwt_identity_file = self.api.jwt.jwt_identity.clone();
-            config.api.max_page_size = self.api.max_page_size;
-            config.api.public_routes = self.api.public_routes.clone();
-        }
-
-        // Loki
-        #[cfg(feature = "loki")]
-        {
-            config.loki.enabled = !self.loki.disable_loki;
-            config.loki.url = self.loki.loki_url.clone();
-        }
-
-        config
     }
 
     /// Process subcommands and return whether the app should early exit.
