@@ -37,10 +37,12 @@ jobs:
         uses: supercharge/mongodb-github-action@1.8.0
         with:
           mongodb-version: ${{ inputs.mongodb }}
-          # FIXME: replica-set with authentication
-          #mongodb-replica-set: test-rs
           mongodb-username: root
           mongodb-password: root
+          # FIXME: Currently we cannot configure this action to use authentication together with replica sets as mentioned here: 
+          # https://github.com/supercharge/mongodb-github-action#with-authentication-mongodb---auth-flag
+          # Apparently, the solution is to write a script that sets up the user beforehand.
+          #mongodb-replica-set: test-rs
 
       - name: Test DB
         uses: actions-rs/cargo@v1
