@@ -74,22 +74,22 @@ pub struct InfluxDbArgs {
     /// The InfluxDb password.
     #[arg(long, value_name = "PASSWORD", env = "INFLUXDB_PASSWORD", default_value = influxdb::DEFAULT_PASSWORD)]
     pub influxdb_password: String,
-    /// Disable InfluxDb time-series analytics writes.
-    #[cfg(feature = "analytics")]
-    #[arg(long, value_name = "BOOL", default_value_t = !influxdb::DEFAULT_ANALYTICS_ENABLED)]
-    pub disable_analytics: bool,
     /// The Analytics database name.
     #[cfg(feature = "analytics")]
     #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_ANALYTICS_DATABASE_NAME)]
     pub analytics_database_name: String,
-    /// Disable InfluxDb time-series metrics writes.
-    #[cfg(feature = "metrics")]
-    #[arg(long, value_name = "BOOL", default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
-    pub disable_metrics: bool,
     /// The Metrics database name.
     #[cfg(feature = "metrics")]
     #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_METRICS_DATABASE_NAME)]
     pub metrics_database_name: String,
+    /// Disable InfluxDb time-series analytics writes.
+    #[cfg(feature = "analytics")]
+    #[arg(long, default_value_t = !influxdb::DEFAULT_ANALYTICS_ENABLED)]
+    pub disable_analytics: bool,
+    /// Disable InfluxDb time-series metrics writes.
+    #[cfg(feature = "metrics")]
+    #[arg(long, default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
+    pub disable_metrics: bool,
 }
 
 #[cfg(feature = "inx")]
@@ -98,9 +98,6 @@ use crate::stardust_inx::config as inx;
 #[cfg(feature = "inx")]
 #[derive(Args, Debug)]
 pub struct InxArgs {
-    /// Disable the INX synchronization workflow.
-    #[arg(long, value_name = "BOOL", default_value_t = !inx::DEFAULT_ENABLED)]
-    pub disable_inx: bool,
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
     #[arg(long, value_name = "URL", default_value = inx::DEFAULT_URL)]
     pub inx_url: String,
@@ -114,6 +111,9 @@ pub struct InxArgs {
     /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
     #[arg(long, value_name = "START", default_value_t = inx::DEFAULT_SYNC_START)]
     pub inx_sync_start: u32,
+    /// Disable the INX synchronization workflow.
+    #[arg(long, default_value_t = !inx::DEFAULT_ENABLED)]
+    pub disable_inx: bool,
 }
 
 #[cfg(feature = "api")]
@@ -122,9 +122,6 @@ use crate::api::config as api;
 #[cfg(feature = "api")]
 #[derive(Args, Debug)]
 pub struct ApiArgs {
-    /// Disable REST API.
-    #[arg(long, value_name = "BOOL", default_value_t = !api::DEFAULT_ENABLED)]
-    pub disable_api: bool,
     /// API listening port.
     #[arg(long, value_name = "PORT", default_value_t = api::DEFAULT_PORT)]
     pub api_port: u16,
@@ -140,6 +137,9 @@ pub struct ApiArgs {
     /// JWT arguments.
     #[command(flatten)]
     pub jwt: JwtArgs,
+    /// Disable REST API.
+    #[arg(long, default_value_t = !api::DEFAULT_ENABLED)]
+    pub disable_api: bool,
 }
 
 #[cfg(feature = "api")]
@@ -162,12 +162,12 @@ pub struct JwtArgs {
 #[cfg(feature = "loki")]
 #[derive(Args, Debug)]
 pub struct LokiArgs {
-    /// Disable Grafana Loki log writes.
-    #[arg(long, value_name = "BOOL", default_value_t = !crate::config::loki::DEFAULT_LOKI_ENABLED)]
-    pub disable_loki: bool,
     /// The url pointing to a Grafana Loki instance.
     #[arg(long, value_name = "URL", default_value = crate::config::loki::DEFAULT_LOKI_URL)]
     pub loki_url: String,
+    /// Disable Grafana Loki log writes.
+    #[arg(long, default_value_t = !crate::config::loki::DEFAULT_LOKI_ENABLED)]
+    pub disable_loki: bool,
 }
 
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {

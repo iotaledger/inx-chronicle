@@ -8,6 +8,8 @@ pub async fn setup_database(database_name: impl ToString) -> eyre::Result<MongoD
     dotenvy::dotenv().ok();
 
     let mut test_config = MongoDbConfig::default();
+    test_config.database_name = database_name.to_string();
+
     if let Ok(conn_str) = std::env::var("MONGODB_CONN_STR") {
         test_config.conn_str = conn_str;
     };
