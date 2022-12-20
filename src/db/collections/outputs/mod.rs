@@ -90,11 +90,11 @@ impl MongoDbCollection for OutputCollection {
 
 /// Precalculated info and other output details.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OutputDetails {
+struct OutputDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub address: Option<Address>,
-    pub is_trivial_unlock: bool,
-    pub rent_structure: RentStructureBytes,
+    address: Option<Address>,
+    is_trivial_unlock: bool,
+    rent_structure: RentStructureBytes,
 }
 
 impl From<&LedgerOutput> for OutputDocument {

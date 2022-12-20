@@ -146,9 +146,7 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
 impl<T: MongoDbCollection> MongoDbCollectionExt for T {}
 
 pub(crate) struct InsertResult {
-    // FIXME: this field is never read.
-    #[allow(dead_code)]
-    pub(crate) ignored: usize,
+    pub(crate) _ignored: usize,
 }
 
 #[async_trait]
@@ -170,13 +168,13 @@ impl<T: MongoDbCollectionExt + Send + Sync, D: Serialize + Send + Sync> InsertIg
     ) -> Result<InsertResult, Error> {
         use mongodb::error::ErrorKind;
         match self.insert_many(docs, options).await {
-            Ok(_) => Ok(InsertResult { ignored: 0 }),
+            Ok(_) => Ok(InsertResult { _ignored: 0 }),
             Err(e) => match &*e.kind {
                 ErrorKind::BulkWrite(b) => {
                     if let Some(write_errs) = &b.write_errors {
                         if write_errs.iter().all(|e| e.code == DUPLICATE_KEY_CODE) {
                             return Ok(InsertResult {
-                                ignored: write_errs.len(),
+                                _ignored: write_errs.len(),
                             });
                         }
                     }
