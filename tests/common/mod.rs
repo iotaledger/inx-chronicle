@@ -7,12 +7,15 @@ use chronicle::db::{MongoDb, MongoDbCollection, MongoDbConfig};
 pub async fn setup_database(database_name: impl ToString) -> eyre::Result<MongoDb> {
     dotenvy::dotenv().ok();
 
-    let test_config = MongoDbConfig {
-        conn_str: std::env::var("MONGODB_CONN_STR").unwrap_or_else(|_| "mongodb://localhost:27017".to_owned()),
-        database_name: database_name.to_string(),
-        username: std::env::var("MONGODB_USERNAME").unwrap_or_else(|_| "root".to_owned()),
-        password: std::env::var("MONGODB_PASSWORD").unwrap_or_else(|_| "root".to_owned()),
-        min_pool_size: 2,
+    let mut test_config = MongoDbConfig::default();
+    if let Ok(conn_str) = std::env::var("MONGODB_CONN_STR") {
+        test_config.conn_str = conn_str;
+    };
+    if let Ok(username) = std::env::var("MONGODB_USERNAME") {
+        test_config.username = username;
+    };
+    if let Ok(password) = std::env::var("MONGODB_PASSWORD") {
+        test_config.password = password;
     };
 
     let db = MongoDb::connect(&test_config).await?;

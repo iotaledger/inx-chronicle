@@ -183,7 +183,6 @@ impl ClArgs {
         let mut config = ChronicleConfig::default();
 
         // MongoDb
-        // Note: all unwraps are fine because we defined defaults for all, so none of them can be None ;)
         config.mongodb.conn_str = self.mongodb.mongodb_conn_str.clone();
         config.mongodb.database_name = self.mongodb.mongodb_database_name.clone();
         config.mongodb.username = self.mongodb.mongodb_username.clone();
