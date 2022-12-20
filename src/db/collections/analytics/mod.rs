@@ -113,7 +113,7 @@ pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
         Box::new(BaseTokenActivityAnalytics),
         Box::new(BlockActivityAnalytics),
         Box::<DailyActiveAddressesAnalytics>::default(),
-        Box::new(LedgerOutputAnalytics),
+        Box::<LedgerOutputAnalytics>::default(),
         Box::new(LedgerSizeAnalytics),
         Box::new(OutputActivityAnalytics),
         Box::new(ProtocolParametersAnalytics),

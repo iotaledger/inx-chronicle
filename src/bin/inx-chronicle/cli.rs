@@ -230,19 +230,19 @@ impl ClArgs {
                 } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
-                    let start_milestone = if let Some(index) = start_milestone {
-                        *index
+                    let mut start_milestone = if let Some(index) = start_milestone {
+                        **index
                     } else {
-                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                        *db.collection::<chronicle::db::collections::MilestoneCollection>()
                             .get_oldest_milestone()
                             .await?
                             .map(|ts| ts.milestone_index)
                             .unwrap_or_default()
                     };
-                    let end_milestone = if let Some(index) = end_milestone {
-                        *index
+                    let mut end_milestone = if let Some(index) = end_milestone {
+                        **index
                     } else {
-                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                        *db.collection::<chronicle::db::collections::MilestoneCollection>()
                             .get_newest_milestone()
                             .await?
                             .map(|ts| ts.milestone_index)
@@ -251,65 +251,41 @@ impl ClArgs {
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
 
                     let num_tasks = num_tasks.unwrap_or(1);
-                    let mut join_set = tokio::task::JoinSet::new();
+                    let mut tasks = tokio::task::JoinSet::<eyre::Result<()>>::new();
+                    // Deterministic task cancellation
+                    static CANCEL: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+                    // Inclusive end
+                    let total_milestones = end_milestone - start_milestone + 1;
                     for i in 0..num_tasks {
                         let db = db.clone();
                         let influx_db = influx_db.clone();
                         let analytics_choice = analytics.clone();
-                        join_set.spawn(async move {
-                            let mut selected_analytics = if analytics_choice.is_empty() {
-                                chronicle::db::collections::analytics::all_analytics()
-                            } else {
-                                let mut tmp: std::collections::HashSet<AnalyticsChoice> =
-                                    analytics_choice.iter().copied().collect();
-                                tmp.drain().map(Into::into).collect()
-                            };
+                        // Each task gets an even share of the milestones, but we must also
+                        // assign the remainders if the total number of milestones isn't evenly
+                        // divided.
+                        let task_milestones = (total_milestones / num_tasks as u32)
+                            + ((i as u32) < (total_milestones % num_tasks as u32)) as u32;
+                        // Account for inclusive end (again)
+                        end_milestone = start_milestone + task_milestones - 1;
 
-                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+                        tasks.spawn(fill_analytics(
+                            analytics_choice,
+                            db,
+                            influx_db,
+                            start_milestone,
+                            end_milestone,
+                            &CANCEL,
+                        ));
 
-                            for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
-                                let milestone_index = index.into();
-                                if let Some(milestone_timestamp) = db
-                                    .collection::<chronicle::db::collections::MilestoneCollection>()
-                                    .get_milestone_timestamp(milestone_index)
-                                    .await?
-                                {
-                                    #[cfg(feature = "metrics")]
-                                    let start_time = std::time::Instant::now();
-
-                                    super::stardust_inx::gather_analytics(
-                                        &db,
-                                        &influx_db,
-                                        &mut selected_analytics,
-                                        milestone_index,
-                                        milestone_timestamp,
-                                    )
-                                    .await?;
-
-                                    #[cfg(feature = "metrics")]
-                                    {
-                                        let elapsed = start_time.elapsed();
-                                        influx_db
-                                            .metrics()
-                                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
-                                                time: chrono::Utc::now(),
-                                                milestone_index,
-                                                analytics_time: elapsed.as_millis() as u64,
-                                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                                            })
-                                            .await?;
-                                    }
-                                    tracing::info!("Finished analytics for milestone {}", milestone_index);
-                                } else {
-                                    tracing::info!("No milestone in database for index {}", milestone_index);
-                                }
-                            }
-                            eyre::Result::<_>::Ok(())
-                        });
+                        // Account for inclusive end
+                        start_milestone = end_milestone + 1;
                     }
-                    while let Some(res) = join_set.join_next().await {
-                        // Panic: Acceptable risk
-                        res.unwrap()?;
+                    tokio::select! {
+                        _ = shutdown() => {
+                            CANCEL.store(true, std::sync::atomic::Ordering::Relaxed);
+                            join_all(&mut tasks).await?
+                        },
+                        res = join_all(&mut tasks) => res?,
                     }
                     return Ok(PostCommand::Exit);
                 }
@@ -336,6 +312,82 @@ impl ClArgs {
         }
         Ok(PostCommand::Start)
     }
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn shutdown() {
+    crate::process::interrupt_or_terminate().await;
+    tracing::info!("received ctrl-c or terminate");
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn join_all(tasks: &mut tokio::task::JoinSet<eyre::Result<()>>) -> eyre::Result<()> {
+    while let Some(res) = tasks.join_next().await {
+        // Panic: Acceptable risk
+        res.unwrap()?;
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "analytics", feature = "stardust"))]
+async fn fill_analytics(
+    analytics_choice: Vec<AnalyticsChoice>,
+    db: chronicle::db::MongoDb,
+    influx_db: chronicle::db::influxdb::InfluxDb,
+    start_milestone: u32,
+    end_milestone: u32,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> eyre::Result<()> {
+    let mut selected_analytics = if analytics_choice.is_empty() {
+        chronicle::db::collections::analytics::all_analytics()
+    } else {
+        let mut tmp: std::collections::HashSet<AnalyticsChoice> = analytics_choice.iter().copied().collect();
+        tmp.drain().map(Into::into).collect()
+    };
+
+    tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+
+    for index in start_milestone..=end_milestone {
+        let milestone_index = index.into();
+        if let Some(milestone_timestamp) = db
+            .collection::<chronicle::db::collections::MilestoneCollection>()
+            .get_milestone_timestamp(milestone_index)
+            .await?
+        {
+            #[cfg(feature = "metrics")]
+            let start_time = std::time::Instant::now();
+
+            super::stardust_inx::gather_analytics(
+                &db,
+                &influx_db,
+                &mut selected_analytics,
+                milestone_index,
+                milestone_timestamp,
+            )
+            .await?;
+
+            #[cfg(feature = "metrics")]
+            {
+                let elapsed = start_time.elapsed();
+                influx_db
+                    .metrics()
+                    .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                        time: chrono::Utc::now(),
+                        milestone_index,
+                        analytics_time: elapsed.as_millis() as u64,
+                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                    })
+                    .await?;
+            }
+            tracing::info!("Finished analytics for milestone {}", milestone_index);
+        } else {
+            tracing::info!("No milestone in database for index {}", milestone_index);
+        }
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return Ok(());
+        }
+    }
+    Ok(())
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
@@ -368,7 +420,7 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
             AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
             AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
+            AnalyticsChoice::LedgerOutputs => Box::<LedgerOutputAnalytics>::default(),
             AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
             AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),

@@ -3,6 +3,7 @@
 
 use async_trait::async_trait;
 use decimal::d128;
+use derive_more::{AddAssign, SubAssign};
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
@@ -14,10 +15,12 @@ use crate::{
 };
 
 /// Computes the number of addresses that hold a balance.
-#[derive(Debug)]
-pub struct LedgerOutputAnalytics;
+#[derive(Debug, Default)]
+pub struct LedgerOutputAnalytics {
+    prev: Option<LedgerOutputAnalyticsResult>,
+}
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, AddAssign, SubAssign)]
 pub struct LedgerOutputAnalyticsResult {
     pub basic_count: u64,
     pub basic_value: d128,
@@ -39,16 +42,57 @@ impl Analytic for LedgerOutputAnalytics {
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
     ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_ledger_output_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::LedgerOutputAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
+        let res = if let Some(prev) = self.prev.as_mut() {
+            db.collection::<OutputCollection>()
+                .update_ledger_output_analytics(prev, milestone_index)
+                .await?;
+            prev
+        } else {
+            self.prev.insert(
+                db.collection::<OutputCollection>()
+                    .get_ledger_output_analytics(milestone_index)
+                    .await?,
+            )
+        };
+
+        Ok(Some(Measurement::LedgerOutputAnalytics(PerMilestone {
+            milestone_index,
+            milestone_timestamp,
+            inner: *res,
+        })))
+    }
+}
+
+#[derive(Default, Deserialize)]
+struct Sums {
+    count: u64,
+    value: d128,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct LedgerOutputsRes {
+    basic: Sums,
+    alias: Sums,
+    foundry: Sums,
+    nft: Sums,
+    treasury: Sums,
+}
+
+impl From<LedgerOutputsRes> for LedgerOutputAnalyticsResult {
+    fn from(res: LedgerOutputsRes) -> Self {
+        Self {
+            basic_count: res.basic.count,
+            basic_value: res.basic.value,
+            alias_count: res.alias.count,
+            alias_value: res.alias.value,
+            foundry_count: res.foundry.count,
+            foundry_value: res.foundry.value,
+            nft_count: res.nft.count,
+            nft_value: res.nft.value,
+            treasury_count: res.treasury.count,
+            treasury_value: res.treasury.value,
+        }
     }
 }
 
@@ -59,24 +103,8 @@ impl OutputCollection {
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<LedgerOutputAnalyticsResult, Error> {
-        #[derive(Default, Deserialize)]
-        struct Sums {
-            count: u64,
-            value: d128,
-        }
-
-        #[derive(Default, Deserialize)]
-        #[serde(default)]
-        struct Res {
-            basic: Sums,
-            alias: Sums,
-            foundry: Sums,
-            nft: Sums,
-            treasury: Sums,
-        }
-
         let res = self
-            .aggregate::<Res>(
+            .aggregate::<LedgerOutputsRes>(
                 vec![
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
@@ -120,5 +148,91 @@ impl OutputCollection {
             treasury_count: res.treasury.count,
             treasury_value: res.treasury.value,
         })
+    }
+
+    /// Gathers ledger (unspent) output analytics and updates the analytics from the previous ledger index.
+    ///
+    /// NOTE: The `prev_analytics` must be from `ledger_index - 1` or the results are invalid.
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn update_ledger_output_analytics(
+        &self,
+        prev_analytics: &mut LedgerOutputAnalyticsResult,
+        ledger_index: MilestoneIndex,
+    ) -> Result<(), Error> {
+        let (created, consumed) = tokio::try_join!(
+            async {
+                Result::<_, Error>::Ok(
+                    self.aggregate::<LedgerOutputsRes>(
+                        vec![
+                            doc! { "$match": {
+                                "metadata.booked.milestone_index": ledger_index,
+                                "metadata.spent_metadata.spent.milestone_index": { "$ne": ledger_index }
+                            } },
+                            doc! { "$group" : {
+                                "_id": "$output.kind",
+                                "count": { "$sum": 1 },
+                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                            } },
+                            doc! { "$group" : {
+                                "_id": null,
+                                "result": { "$addToSet": {
+                                    "k": "$_id",
+                                    "v": {
+                                        "count": "$count",
+                                        "value": { "$toString": "$value" },
+                                    }
+                                } },
+                            } },
+                            doc! { "$replaceWith": {
+                                "$arrayToObject": "$result"
+                            } },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default(),
+                )
+            },
+            async {
+                Ok(self
+                    .aggregate::<LedgerOutputsRes>(
+                        vec![
+                            doc! { "$match": {
+                                "metadata.booked.milestone_index": { "$ne": ledger_index },
+                                "metadata.spent_metadata.spent.milestone_index": ledger_index
+                            } },
+                            doc! { "$group" : {
+                                "_id": "$output.kind",
+                                "count": { "$sum": 1 },
+                                "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                            } },
+                            doc! { "$group" : {
+                                "_id": null,
+                                "result": { "$addToSet": {
+                                    "k": "$_id",
+                                    "v": {
+                                        "count": "$count",
+                                        "value": { "$toString": "$value" },
+                                    }
+                                } },
+                            } },
+                            doc! { "$replaceWith": {
+                                "$arrayToObject": "$result"
+                            } },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default())
+            }
+        )?;
+        *prev_analytics += created.into();
+        *prev_analytics -= consumed.into();
+
+        Ok(())
     }
 }
