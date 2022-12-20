@@ -7,8 +7,10 @@ use chronicle::db::{MongoDb, MongoDbCollection, MongoDbConfig};
 pub async fn setup_database(database_name: impl ToString) -> eyre::Result<MongoDb> {
     dotenvy::dotenv().ok();
 
-    let mut test_config = MongoDbConfig::default();
-    test_config.database_name = database_name.to_string();
+    let mut test_config = MongoDbConfig {
+        database_name: database_name.to_string(),
+        ..Default::default()
+    };
 
     if let Ok(conn_str) = std::env::var("MONGODB_CONN_STR") {
         test_config.conn_str = conn_str;
