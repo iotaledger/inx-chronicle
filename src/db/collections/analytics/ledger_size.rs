@@ -3,6 +3,7 @@
 
 use async_trait::async_trait;
 use decimal::d128;
+use derive_more::{AddAssign, SubAssign};
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
@@ -17,10 +18,12 @@ use crate::{
 };
 
 /// Computes the size of the ledger.
-#[derive(Debug)]
-pub struct LedgerSizeAnalytics;
+#[derive(Debug, Default)]
+pub struct LedgerSizeAnalytics {
+    prev: Option<(MilestoneIndex, LedgerSizeAnalyticsResult)>,
+}
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, AddAssign, SubAssign)]
 pub struct LedgerSizeAnalyticsResult {
     pub total_storage_deposit_value: d128,
     pub total_key_bytes: d128,
@@ -44,16 +47,33 @@ impl Analytic for LedgerSizeAnalytics {
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
     ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_ledger_size_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::LedgerSizeAnalytics(PerMilestone {
+        let res = if let Some(prev) = self.prev.as_mut() {
+            debug_assert!(
+                milestone_index == prev.0 + 1,
+                "Expected {milestone_index} found {}",
+                prev.0 + 1
+            );
+            db.collection::<OutputCollection>()
+                .update_ledger_size_analytics(&mut prev.1, milestone_index)
+                .await?;
+            *prev.0 = milestone_index.into();
+            prev.1
+        } else {
+            self.prev
+                .insert((
                     milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
+                    db.collection::<OutputCollection>()
+                        .get_ledger_size_analytics(milestone_index)
+                        .await?,
+                ))
+                .1
+        };
+
+        Ok(Some(Measurement::LedgerSizeAnalytics(PerMilestone {
+            milestone_index,
+            milestone_timestamp,
+            inner: res,
+        })))
     }
 }
 
@@ -89,5 +109,74 @@ impl OutputCollection {
         .try_next()
         .await?
         .unwrap_or_default())
+    }
+
+    /// Gathers byte cost and storage deposit analytics and updates the analytics from the previous ledger index.
+    ///
+    /// NOTE: The `prev_analytics` must be from `ledger_index - 1` or the results are invalid.
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn update_ledger_size_analytics(
+        &self,
+        prev_analytics: &mut LedgerSizeAnalyticsResult,
+        ledger_index: MilestoneIndex,
+    ) -> Result<(), Error> {
+        let (created, consumed) = tokio::try_join!(
+            async {
+                Result::<_, Error>::Ok(self.aggregate::<LedgerSizeAnalyticsResult>(
+                        vec![
+                            doc! { "$match": {
+                                "metadata.booked.milestone_index": ledger_index,
+                                "metadata.spent_metadata.spent.milestone_index": { "$ne": ledger_index }
+                            } },
+                            doc! { "$group" : {
+                                "_id": null,
+                                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+                            } },
+                            doc! { "$project": {
+                                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                                "total_key_bytes": { "$toString": "$total_key_bytes" },
+                                "total_data_bytes": { "$toString": "$total_data_bytes" },
+                            } },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default())
+            },
+            async {
+                Ok(self.aggregate::<LedgerSizeAnalyticsResult>(
+                        vec![
+                            doc! { "$match": {
+                                "metadata.booked.milestone_index": { "$ne": ledger_index },
+                                "metadata.spent_metadata.spent.milestone_index": ledger_index
+                            } },
+                            doc! { "$group" : {
+                                "_id": null,
+                                "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                                "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                                "total_storage_deposit_value": { "$sum": { "$toDecimal": { "$ifNull": [ "$output.storage_deposit_return_unlock_condition.amount", 0 ] } } }
+                            } },
+                            doc! { "$project": {
+                                "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                                "total_key_bytes": { "$toString": "$total_key_bytes" },
+                                "total_data_bytes": { "$toString": "$total_data_bytes" },
+                            } },
+                        ],
+                        None,
+                    )
+                    .await?
+                    .try_next()
+                    .await?
+                    .unwrap_or_default())
+            }
+        )?;
+        *prev_analytics += created;
+        *prev_analytics -= consumed;
+
+        Ok(())
     }
 }

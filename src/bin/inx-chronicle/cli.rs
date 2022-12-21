@@ -421,11 +421,11 @@ impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::An
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
             AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
             AnalyticsChoice::LedgerOutputs => Box::<LedgerOutputAnalytics>::default(),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::LedgerSize => Box::<LedgerSizeAnalytics>::default(),
             AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
+            AnalyticsChoice::UnclaimedTokens => Box::<UnclaimedTokenAnalytics>::default(),
+            AnalyticsChoice::UnlockConditions => Box::<UnlockConditionAnalytics>::default(),
         }
     }
 }

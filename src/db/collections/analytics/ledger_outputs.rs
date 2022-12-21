@@ -43,19 +43,25 @@ impl Analytic for LedgerOutputAnalytics {
         milestone_timestamp: MilestoneTimestamp,
     ) -> Result<Option<Measurement>, Error> {
         let res = if let Some(prev) = self.prev.as_mut() {
-            debug_assert!(milestone_index == prev.0 + 1, "Expected {milestone_index} found {}", prev.0 + 1);
+            debug_assert!(
+                milestone_index == prev.0 + 1,
+                "Expected {milestone_index} found {}",
+                prev.0 + 1
+            );
             db.collection::<OutputCollection>()
                 .update_ledger_output_analytics(&mut prev.1, milestone_index)
                 .await?;
             *prev.0 = milestone_index.into();
             prev.1
         } else {
-            self.prev.insert((
-                milestone_index,
-                db.collection::<OutputCollection>()
-                    .get_ledger_output_analytics(milestone_index)
-                    .await?,
-            )).1
+            self.prev
+                .insert((
+                    milestone_index,
+                    db.collection::<OutputCollection>()
+                        .get_ledger_output_analytics(milestone_index)
+                        .await?,
+                ))
+                .1
         };
 
         Ok(Some(Measurement::LedgerOutputAnalytics(PerMilestone {
