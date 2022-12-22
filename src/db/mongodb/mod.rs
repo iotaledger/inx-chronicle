@@ -16,8 +16,7 @@ use mongodb::{
     Client,
 };
 
-pub(crate) use self::collection::InsertIgnoreDuplicatesExt;
-pub use self::collection::{MongoDbCollection, MongoDbCollectionExt};
+pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
 
 const DUPLICATE_KEY_CODE: i32 = 11000;
 
