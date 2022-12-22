@@ -16,10 +16,11 @@ use super::{
 /// An INX client connection.
 #[derive(Clone, Debug)]
 pub struct Inx {
-    inx: InxClient<inx::tonic::transport::Channel>,
+    pub(crate) inx: InxClient<inx::tonic::transport::Channel>,
 }
 
-fn unpack_proto_msg<Proto, T>(msg: Result<Proto, tonic::Status>) -> Result<T, InxError>
+// TODO: Remove duplicate
+pub(crate) fn unpack_proto_msg<Proto, T>(msg: Result<Proto, tonic::Status>) -> Result<T, InxError>
 where
     T: TryFrom<Proto, Error = InxError>,
 {

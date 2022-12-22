@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod indexer;
+mod ledger_updates;
 
 use std::borrow::Borrow;
 
