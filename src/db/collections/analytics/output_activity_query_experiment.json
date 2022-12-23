@@ -1,0 +1,244 @@
+[
+    {
+      // transactions in this milestone
+      $match: {
+        $or: [
+          { "metadata.booked.milestone_index": 17419 },
+          {
+            "metadata.spent_metadata.spent.milestone_index": 17419,
+          },
+        ],
+      },
+    },
+    {
+      // note that an output can be booked *and* spent
+      $facet: {
+        booked: [
+          {
+            $match: {
+              "output.kind": "nft",
+            },
+          },
+          {
+            $project: {
+              _id: {
+                $cond: [
+                  {
+                    $eq: [
+                      "$metadata.booked.milestone_index",
+                      17419,
+                    ],
+                  },
+                  "$_id.transaction_id",
+                  "$metadata.spent_metadata.transaction_id",
+                ],
+              },
+              output_id: "$_id",
+              asset_id: "$output.nft_id",
+            },
+          },
+        ],
+        spent: [
+          {
+            $match: {
+              "output.kind": "nft",
+            },
+          },
+          {
+            $project: {
+              _id: {
+                $cond: [
+                  {
+                    $eq: [
+                      "$metadata.spent_metadata.spent.milestone_index",
+                      17419,
+                    ],
+                  },
+                  "$metadata.spent_metadata.transaction_id",
+                  "$_id.transaction_id",
+                ],
+              },
+              output_id: "$_id",
+              asset_id: "$output.nft_id",
+            },
+          },
+        ],
+      },
+    },
+    {
+      // remove the duplicates, the onces that are booked *and* spent in the same milesone
+      $project:
+        // will appear twice
+        {
+          transactions: { $setUnion: ["$booked", "$spent"] },
+        },
+    },
+    {
+      // turn array into documents
+      $unwind: {
+        path: "$transactions",
+      },
+    },
+    {
+      // reconstruct transaction into inputs and outputs
+      $group: {
+        _id: "$transactions._id",
+        inputs: {
+          $push: {
+            $cond: [
+              {
+                $ne: [
+                  "$transactions.output_id.transaction_id",
+                  "$transactions._id",
+                ],
+              },
+              {
+                id: "$transactions.output_id",
+                asset_id: "$transactions.asset_id",
+              },
+              null,
+            ],
+          },
+        },
+        outputs: {
+          $push: {
+            $cond: [
+              {
+                $eq: [
+                  "$transactions.output_id.transaction_id",
+                  "$transactions._id",
+                ],
+              },
+              {
+                id: "$transactions.output_id",
+                asset_id: "$transactions.asset_id",
+              },
+              null,
+            ],
+          },
+        },
+        count: { $sum: 1 },
+      },
+    },
+    {
+      // filter out all `null`s form arrays
+      $project: {
+        _id: 1,
+        implicit_inputs: {
+          $filter: {
+            input: "$inputs",
+            as: "item",
+            cond: {
+              $and: [
+                { $ne: ["$$item", null] },
+                {
+                  $eq: [
+                    "$$item.asset_id",
+                    BinData(
+                      0,
+                      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    ),
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        explicit_inputs: {
+          $filter: {
+            input: "$inputs",
+            as: "item",
+            cond: {
+              $and: [
+                { $ne: ["$$item", null] },
+                {
+                  $ne: [
+                    "$$item.asset_id",
+                    BinData(
+                      0,
+                      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    ),
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        implicit_outputs: {
+          $filter: {
+            input: "$outputs",
+            as: "item",
+            cond: {
+              $and: [
+                { $ne: ["$$item", null] },
+                {
+                  $eq: [
+                    "$$item.asset_id",
+                    BinData(
+                      0,
+                      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    ),
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        explicit_outputs: {
+          $filter: {
+            input: "$outputs",
+            as: "item",
+            cond: {
+              $and: [
+                { $ne: ["$$item", null] },
+                {
+                  $ne: [
+                    "$$item.asset_id",
+                    BinData(
+                      0,
+                      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    ),
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+    // {
+    //   $project: /**
+    //  * specifications: The fields to
+    //  *   include or exclude.
+    //  */
+    // {
+    //   "is_found": { "$function": {
+    //       "body": "function(name) { return Array.sum([1, 2, 3]); }",
+    //       "args": [ "$name" ],
+    //       "lang": "js"
+    //    } }
+    // }
+    // },
+    {
+      // transferred is a bit hard with the implicit NFT_ID, because we'ld have to reconstruct the explicit NFT_ID
+      $group: {
+        _id: null,
+        created_count: {
+          $sum: { $size: "$implicit_outputs" },
+        },
+        transferred_explicit_count: {
+          $sum: { $size: "$explicit_outputs" },
+        },
+        destroyed_explicit_count: {
+          $sum: {
+            $size: {
+              $setDifference: [
+                "$explicit_inputs.asset_id",
+                "$explicit_outputs.asset_id",
+              ],
+            },
+          },
+        },
+      },
+    },
+  ]
