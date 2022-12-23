@@ -10,6 +10,7 @@ pub mod collections;
 /// Module containing InfluxDb types and traits.
 #[cfg(any(feature = "analytics", feature = "metrics"))]
 pub mod influxdb;
-mod mongodb;
+/// Module containing MongoDb types and traits.
+pub mod mongodb;
 
-pub use self::mongodb::{MongoDb, MongoDbCollection, MongoDbCollectionExt, MongoDbConfig};
+pub use self::mongodb::{config::MongoDbConfig, MongoDb, MongoDbCollection, MongoDbCollectionExt};

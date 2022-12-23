@@ -6,7 +6,7 @@ use axum::extract::{FromRef, FromRequestParts, Query};
 use serde::Deserialize;
 
 use super::{
-    config::ApiData,
+    config::ApiConfigData,
     error::{ApiError, RequestError},
     DEFAULT_PAGE_SIZE,
 };
@@ -30,7 +30,7 @@ impl Default for Pagination {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for Pagination
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -38,7 +38,7 @@ where
         let Query(mut pagination) = Query::<Pagination>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
@@ -117,14 +117,18 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiData::try_from(ApiConfig::default()).unwrap();
+        let config = ApiConfig {
+            max_page_size: 1000,
+            ..Default::default()
+        };
+        let data = ApiConfigData::try_from(config).unwrap();
         let req = Request::builder()
             .method("GET")
             .uri("/?pageSize=9999999")
             .body(())
             .unwrap();
         assert_eq!(
-            Pagination::from_request(req, &config).await.unwrap(),
+            Pagination::from_request(req, &data).await.unwrap(),
             Pagination {
                 page_size: 1000,
                 ..Default::default()

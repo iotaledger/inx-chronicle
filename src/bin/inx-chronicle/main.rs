@@ -26,12 +26,8 @@ use self::cli::{ClArgs, PostCommand};
 async fn main() -> eyre::Result<()> {
     dotenvy::dotenv().ok();
 
-    std::panic::set_hook(Box::new(|p| {
-        error!("{}", p);
-    }));
-
     let cl_args = ClArgs::parse();
-    let config = cl_args.get_config()?;
+    let config = cl_args.get_config();
 
     set_up_logging(&config)?;
 
@@ -58,14 +54,28 @@ async fn main() -> eyre::Result<()> {
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
         #[cfg(any(feature = "analytics", feature = "metrics"))]
-        let influx_db = if config.influxdb.analytics_enabled || config.influxdb.metrics_enabled {
-            info!("Connecting to influx database at address `{}`", config.influxdb.url);
+        #[allow(unused_mut)]
+        let mut influx_required = false;
+        #[cfg(feature = "analytics")]
+        {
+            influx_required |= config.influxdb.analytics_enabled;
+        }
+        #[cfg(feature = "metrics")]
+        {
+            influx_required |= config.influxdb.metrics_enabled;
+        }
+
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        let influx_db = if influx_required {
+            info!("Connecting to influx at `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+            #[cfg(feature = "analytics")]
             info!(
-                "Connected to influx databases `{}` and `{}`",
-                influx_db.analytics().database_name(),
-                influx_db.metrics().database_name()
+                "Connected to influx database `{}`",
+                influx_db.analytics().database_name()
             );
+            #[cfg(feature = "metrics")]
+            info!("Connected to influx database `{}`", influx_db.metrics().database_name());
             Some(influx_db)
         } else {
             None
@@ -130,6 +140,10 @@ async fn main() -> eyre::Result<()> {
 }
 
 fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()> {
+    std::panic::set_hook(Box::new(|p| {
+        error!("{}", p);
+    }));
+
     let registry = tracing_subscriber::registry();
 
     let registry = {
@@ -139,7 +153,7 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()>
     };
     #[cfg(feature = "loki")]
     let registry = {
-        let (layer, task) = tracing_loki::layer(config.loki.connect_url.parse()?, [].into(), [].into())?;
+        let (layer, task) = tracing_loki::layer(config.loki.url.parse()?, [].into(), [].into())?;
         tokio::spawn(task);
         registry.with(layer)
     };

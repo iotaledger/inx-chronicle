@@ -24,14 +24,14 @@ use crate::api::{
     error::{MissingError, RequestError},
     router::{Router, RouterState},
     stardust::indexer::extractors::IndexedOutputsCursor,
-    ApiData, ApiResult,
+    ApiConfigData, ApiResult,
 };
 
 pub fn routes<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     MongoDb: FromRef<RouterState<S>>,
-    ApiData: FromRef<RouterState<S>>,
+    ApiConfigData: FromRef<RouterState<S>>,
 {
     Router::new().nest(
         "/outputs",

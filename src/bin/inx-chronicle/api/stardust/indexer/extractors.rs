@@ -16,7 +16,7 @@ use mongodb::bson;
 use primitive_types::U256;
 use serde::Deserialize;
 
-use crate::api::{config::ApiData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
+use crate::api::{config::ApiConfigData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedOutputsPagination<Q>
@@ -94,7 +94,7 @@ pub struct BasicOutputsPaginationQuery {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<BasicOutputsQuery>
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -102,7 +102,7 @@ where
         let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -190,7 +190,7 @@ pub struct AliasOutputsPaginationQuery {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<AliasOutputsQuery>
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -198,7 +198,7 @@ where
         let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -275,7 +275,7 @@ pub struct FoundryOutputsPaginationQuery {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<FoundryOutputsQuery>
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -283,7 +283,7 @@ where
         let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -357,7 +357,7 @@ pub struct NftOutputsPaginationQuery {
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<NftOutputsQuery>
 where
-    ApiData: FromRef<S>,
+    ApiConfigData: FromRef<S>,
 {
     type Rejection = ApiError;
 
@@ -365,7 +365,7 @@ where
         let Query(query) = Query::<NftOutputsPaginationQuery>::from_request_parts(req, state)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let config = ApiConfigData::from_ref(state);
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -457,14 +457,18 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiData::try_from(ApiConfig::default()).unwrap();
+        let config = ApiConfig {
+            max_page_size: 1000,
+            ..Default::default()
+        };
+        let data = ApiConfigData::try_from(config).unwrap();
         let req = Request::builder()
             .method("GET")
             .uri("/outputs/basic?pageSize=9999999")
             .body(())
             .unwrap();
         assert_eq!(
-            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(req, &config)
+            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(req, &data)
                 .await
                 .unwrap(),
             IndexedOutputsPagination {
