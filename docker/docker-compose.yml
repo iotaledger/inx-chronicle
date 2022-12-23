@@ -8,8 +8,8 @@ services:
     volumes:
       - ./data/chronicle/mongodb:/data/db
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=root
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
     ports:
       - 27017:27017
 
@@ -29,15 +29,16 @@ services:
     ports:
       - "8042:8042/tcp" # REST API
       - "9100:9100/tcp" # Metrics
-    env_file: .env
     tty: true
     command:
       - "--mongodb-conn-str=mongodb://mongo:27017"
+      - "--mongodb-username=${MONGODB_USERNAME}"
+      - "--mongodb-password=${MONGODB_PASSWORD}"
       - "--influxdb-url=http://influx:8086"
+      - "--influxdb-username=${INFLUXDB_USERNAME}"
+      - "--influxdb-password=${INFLUXDB_PASSWORD}"
       - "--inx-url=http://hornet:9029"
       - "--loki-url=http://loki:3100"
-    volumes:
-      - ../.env:/app/.env:ro
 
   influx:
     image: influxdb:1.8
@@ -46,8 +47,8 @@ services:
       - ./data/chronicle/influxdb:/var/lib/influxdb
       - ./assets/influxdb/init.iql:/docker-entrypoint-initdb.d/influx_init.iql
     environment:
-      - INFLUXDB_ADMIN_USER=root
-      - INFLUXDB_ADMIN_PASSWORD=password
+      - INFLUXDB_ADMIN_USER=${INFLUXDB_USERNAME}
+      - INFLUXDB_ADMIN_PASSWORD=${INFLUXDB_PASSWORD}
       - INFLUXDB_HTTP_AUTH_ENABLED=true
       # The following variables are used to scale InfluxDB to larger amounts of data. It remains to be seen how this 
       # will affect performance in the long run.
