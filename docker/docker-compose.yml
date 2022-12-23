@@ -29,14 +29,15 @@ services:
     ports:
       - "8042:8042/tcp" # REST API
       - "9100:9100/tcp" # Metrics
-    environment:
-      - RUST_LOG=warn,inx_chronicle=debug
+    env_file: .env
     tty: true
     command:
       - "--mongodb-conn-str=mongodb://mongo:27017"
       - "--influxdb-url=http://influx:8086"
       - "--inx-url=http://hornet:9029"
       - "--loki-url=http://loki:3100"
+    volumes:
+      - ../.env:/app/.env:ro
 
   influx:
     image: influxdb:1.8
