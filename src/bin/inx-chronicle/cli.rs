@@ -113,20 +113,12 @@ impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
             password: value.influxdb_password.clone(),
             #[cfg(feature = "analytics")]
             analytics_enabled: !value.disable_analytics,
-            #[cfg(not(feature = "analytics"))]
-            analytics_enabled: false,
             #[cfg(feature = "analytics")]
             analytics_database_name: value.analytics_database_name.clone(),
-            #[cfg(not(feature = "analytics"))]
-            analytics_database_name: String::new(),
             #[cfg(feature = "metrics")]
             metrics_enabled: !value.disable_metrics,
-            #[cfg(not(feature = "metrics"))]
-            metrics_enabled: false,
             #[cfg(feature = "metrics")]
             metrics_database_name: value.metrics_database_name.clone(),
-            #[cfg(not(feature = "metrics"))]
-            metrics_database_name: String::new(),
         }
     }
 }

@@ -54,8 +54,20 @@ async fn main() -> eyre::Result<()> {
     #[cfg(all(feature = "inx", feature = "stardust"))]
     if config.inx.enabled {
         #[cfg(any(feature = "analytics", feature = "metrics"))]
+        #[allow(unused_mut)]
+        let mut influx_required = false;
+        #[cfg(feature = "analytics")]
+        {
+            influx_required |= config.influxdb.analytics_enabled;
+        }
+        #[cfg(feature = "metrics")]
+        {
+            influx_required |= config.influxdb.metrics_enabled;
+        }
+
+        #[cfg(any(feature = "analytics", feature = "metrics"))]
         #[allow(clippy::vec_init_then_push)]
-        let influx_db = if config.influxdb.analytics_enabled || config.influxdb.metrics_enabled {
+        let influx_db = if influx_required {
             info!("Connecting to influx database at address `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             let mut databases = vec![];
