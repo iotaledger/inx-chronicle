@@ -66,7 +66,6 @@ async fn main() -> eyre::Result<()> {
         }
 
         #[cfg(any(feature = "analytics", feature = "metrics"))]
-        #[allow(clippy::vec_init_then_push)]
         let influx_db = if influx_required {
             info!("Connecting to influx at `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;

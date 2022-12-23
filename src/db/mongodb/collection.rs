@@ -146,7 +146,7 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
 impl<T: MongoDbCollection> MongoDbCollectionExt for T {}
 
 pub struct InsertResult {
-    pub _ignored: usize,
+    _ignored: usize,
 }
 
 #[allow(missing_docs)]
