@@ -19,3 +19,16 @@ The changelog can be created using the following command (requires the [`convent
 ```sh
 conventional-changelog -p conventionalcommits -i CHANGELOG.md -s
 ```
+
+## Docker deployment configuration of credentials through environment variables
+
+Docker compose will automatically load credentials for different services from a `.env` file that must be located in the same directory as the `docker-compose.yml` file. You therefore must create such a file before you do a `docker compose up`. An example `.env` file could look like this:
+
+```ini
+MONGODB_USERNAME=root
+MONGODB_PASSWORD=root
+INFLUXDB_USERNAME=root
+INFLUXDB_PASSWORD=password
+JWT_PASSWORD=password
+JWT_SALT=saltines
+```

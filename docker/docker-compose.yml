@@ -38,6 +38,8 @@ services:
       - "--influxdb-username=${INFLUXDB_USERNAME}"
       - "--influxdb-password=${INFLUXDB_PASSWORD}"
       - "--inx-url=http://hornet:9029"
+      - "--jwt-password=${JWT_PASSWORD}"
+      - "--jwt-salt=${JWT_SALT}"
       - "--loki-url=http://loki:3100"
 
   influx:
