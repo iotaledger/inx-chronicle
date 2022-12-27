@@ -9,7 +9,7 @@ use tracing::instrument;
 use super::{OutputCollection, OutputDocument};
 use crate::{
     db::MongoDbCollectionExt,
-    inx::{LedgerUpdateMessage, MarkerMessage},
+    inx::{LedgerUpdateMarker, LedgerUpdateMessage, UnspentOutputMessage},
     types::{
         ledger::{LedgerOutput, LedgerSpent, SpentMetadata},
         tangle::MilestoneIndex,
@@ -76,7 +76,7 @@ impl OutputCollection {
         milestone_index: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<LedgerUpdateMessage, Error>>, Error> {
         let counts = self.get_consumed_created_counts(milestone_index).await?;
-        let marker = MarkerMessage {
+        let marker = LedgerUpdateMarker {
             milestone_index,
             consumed_count: counts.consumed_outputs,
             created_count: counts.created_outputs,
@@ -104,7 +104,7 @@ impl OutputCollection {
     pub async fn get_ledger_state(
         &self,
         milestone_index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
+    ) -> Result<impl Stream<Item = Result<UnspentOutputMessage, Error>>, Error> {
         let outputs = self
             .find(
                 doc! { "$match": {
@@ -114,12 +114,15 @@ impl OutputCollection {
                 None,
             )
             .await;
-        Ok(outputs?.map_ok(|output: OutputDocument| LedgerOutput {
-            output_id: output.output_id,
-            output: output.output,
-            block_id: output.metadata.block_id,
-            booked: output.metadata.booked,
-            rent_structure: output.details.rent_structure,
+        Ok(outputs?.map_ok(move |output: OutputDocument| UnspentOutputMessage {
+            ledger_index: milestone_index,
+            output: LedgerOutput {
+                output_id: output.output_id,
+                output: output.output,
+                block_id: output.metadata.block_id,
+                booked: output.metadata.booked,
+                rent_structure: output.details.rent_structure,
+            },
         }))
     }
 }

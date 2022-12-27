@@ -61,6 +61,14 @@ pub struct RentStructureBytes {
     pub num_data_bytes: u64,
 }
 
+// TODO: Write test case
+#[cfg(feature = "inx")]
+impl iota_types::block::output::Rent for RentStructureBytes {
+    fn weighted_bytes(&self, config: &iota_types::block::output::RentStructure) -> u64 {
+        config.byte_factor_data() as u64 * self.num_data_bytes + config.byte_factor_key() as u64 * self.num_key_bytes
+    }
+}
+
 #[cfg(feature = "inx")]
 fn compute_rent_structure(output: &iota_types::block::output::Output) -> RentStructureBytes {
     use iota_types::block::output::{Rent, RentStructureBuilder};

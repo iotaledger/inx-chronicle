@@ -14,7 +14,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
+    inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMarker, LedgerUpdateMessage},
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{Block, BlockId, Payload},
@@ -281,7 +281,7 @@ impl InxWorker {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
 
-        let MarkerMessage {
+        let LedgerUpdateMarker {
             milestone_index,
             consumed_count,
             created_count,
@@ -336,7 +336,7 @@ impl InxWorker {
             res.unwrap()?;
         }
 
-        let MarkerMessage {
+        let LedgerUpdateMarker {
             milestone_index,
             consumed_count,
             created_count,
