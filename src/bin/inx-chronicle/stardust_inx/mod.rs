@@ -117,13 +117,16 @@ impl InxWorker {
 
         debug!("Started listening to ledger updates via INX.");
 
+        #[cfg(feature = "analytics")]
+        let mut analytics = chronicle::db::collections::analytics::all_analytics();
+
         while let Some(ledger_update) = stream.try_next().await? {
             self.handle_ledger_update(
                 &mut inx,
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                &mut chronicle::db::collections::analytics::all_analytics(),
+                &mut analytics,
             )
             .await?;
         }
