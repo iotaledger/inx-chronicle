@@ -4,3 +4,4 @@
 //! A module that provides analytics for various aspects of the tangle.
 
 pub mod ledger;
+pub mod tangle;
