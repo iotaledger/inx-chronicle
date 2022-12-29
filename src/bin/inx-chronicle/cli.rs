@@ -26,10 +26,6 @@ pub struct ClArgs {
     #[cfg(feature = "api")]
     #[command(flatten, next_help_heading = "API")]
     pub api: ApiArgs,
-    /// Loki arguments.
-    #[cfg(feature = "loki")]
-    #[command(flatten, next_help_heading = "Loki")]
-    pub loki: LokiArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
@@ -220,27 +216,6 @@ pub struct JwtArgs {
     pub jwt_expiration: std::time::Duration,
 }
 
-#[cfg(feature = "loki")]
-#[derive(Args, Debug)]
-pub struct LokiArgs {
-    /// The url pointing to a Grafana Loki instance.
-    #[arg(long, value_name = "URL", default_value = crate::config::loki::DEFAULT_LOKI_URL)]
-    pub loki_url: String,
-    /// Disable Grafana Loki log writes.
-    #[arg(long, default_value_t = !crate::config::loki::DEFAULT_LOKI_ENABLED)]
-    pub disable_loki: bool,
-}
-
-#[cfg(feature = "loki")]
-impl From<&LokiArgs> for crate::config::loki::LokiConfig {
-    fn from(value: &LokiArgs) -> Self {
-        Self {
-            enabled: !value.disable_loki,
-            url: value.loki_url.clone(),
-        }
-    }
-}
-
 #[cfg(any(feature = "inx", feature = "api"))]
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
     arg.parse::<humantime::Duration>().map(Into::into)
@@ -257,8 +232,6 @@ impl ClArgs {
             inx: (&self.inx).into(),
             #[cfg(feature = "api")]
             api: (&self.api).into(),
-            #[cfg(feature = "loki")]
-            loki: (&self.loki).into(),
         }
     }
 
