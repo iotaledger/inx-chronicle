@@ -116,12 +116,6 @@ pub struct InxArgs {
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
     #[arg(long, value_name = "URL", default_value = inx::DEFAULT_URL)]
     pub inx_url: String,
-    /// Time to wait until a new connection attempt is made.
-    #[arg(long, value_name = "DURATION", value_parser = parse_duration, default_value = inx::DEFAULT_RETRY_INTERVAL)]
-    pub inx_retry_interval: std::time::Duration,
-    /// Maximum number of tries to establish an INX connection.
-    #[arg(long, value_name = "COUNT", default_value_t = inx::DEFAULT_RETRY_COUNT)]
-    pub inx_retry_count: usize,
     /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
     /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
     #[arg(long, value_name = "START", default_value_t = inx::DEFAULT_SYNC_START)]
@@ -137,8 +131,6 @@ impl From<&InxArgs> for inx::InxConfig {
         Self {
             enabled: !value.disable_inx,
             url: value.inx_url.clone(),
-            conn_retry_interval: value.inx_retry_interval,
-            conn_retry_count: value.inx_retry_count,
             sync_start_milestone: value.inx_sync_start.into(),
         }
     }

@@ -28,6 +28,11 @@ services:
       - "8042:8042/tcp" # REST API
       - "9100:9100/tcp" # Metrics
     tty: true
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
     command:
       - "--mongodb-conn-str=${MONGODB_CONN_STR}"
       - "--influxdb-url=http://influx:8086"
