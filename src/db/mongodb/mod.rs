@@ -12,7 +12,7 @@ use config::MongoDbConfig;
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, Credential},
+    options::ClientOptions,
     Client,
 };
 
@@ -33,15 +33,6 @@ impl MongoDb {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
-        client_options.min_pool_size = Some(config.min_pool_size);
-
-        if client_options.credential.is_none() {
-            let credential = Credential::builder()
-                .username(config.username.clone())
-                .password(config.password.clone())
-                .build();
-            client_options.credential = Some(credential);
-        }
 
         let client = Client::with_options(client_options)?;
 

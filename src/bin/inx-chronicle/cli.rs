@@ -41,28 +41,16 @@ pub struct MongoDbArgs {
         default_value = mongodb::DEFAULT_CONN_STR,
     )]
     pub mongodb_conn_str: String,
-    /// The MongoDb username.
-    #[arg(long, value_name = "USERNAME", env = "MONGODB_USERNAME", default_value = mongodb::DEFAULT_USERNAME)]
-    pub mongodb_username: String,
-    /// The MongoDb password.
-    #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = mongodb::DEFAULT_PASSWORD)]
-    pub mongodb_password: String,
     /// The MongoDb database name.
     #[arg(long, value_name = "NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
     pub mongodb_database_name: String,
-    /// The MongoDb minimum pool size.
-    #[arg(long, value_name = "SIZE", default_value_t = mongodb::DEFAULT_MIN_POOL_SIZE)]
-    pub mongodb_min_pool_size: u32,
 }
 
 impl From<&MongoDbArgs> for chronicle::db::MongoDbConfig {
     fn from(value: &MongoDbArgs) -> Self {
         Self {
             conn_str: value.mongodb_conn_str.clone(),
-            username: value.mongodb_username.clone(),
-            password: value.mongodb_password.clone(),
             database_name: value.mongodb_database_name.clone(),
-            min_pool_size: value.mongodb_min_pool_size,
         }
     }
 }
