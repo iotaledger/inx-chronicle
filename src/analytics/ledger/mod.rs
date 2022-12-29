@@ -6,9 +6,9 @@
 // TODO: Remove
 #![allow(missing_docs)]
 
-mod ledger_size;
+mod size;
 
-pub use self::ledger_size::{LedgerSizeAnalytics, LedgerSizeStatistic};
+pub use self::size::{LedgerSizeAnalytics, LedgerSizeStatistic};
 use crate::{
     inx::LedgerUpdateMarker,
     types::ledger::{LedgerOutput, LedgerSpent},
