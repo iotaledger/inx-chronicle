@@ -17,4 +17,3 @@ pub trait TangleAnalytics {
     fn handle_block(&mut self, block: &BlockWithMetadataMessage);
     fn flush(&mut self) -> Option<Self::Measurement>;
 }
-
