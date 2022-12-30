@@ -46,24 +46,6 @@ where
 
 #[derive(Copy, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
-pub struct ListRoutesQuery {
-    pub depth: Option<usize>,
-}
-
-#[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for ListRoutesQuery {
-    type Rejection = ApiError;
-
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<ListRoutesQuery>::from_request_parts(req, state)
-            .await
-            .map_err(RequestError::from)?;
-        Ok(query)
-    }
-}
-
-#[derive(Copy, Clone, Default, Deserialize)]
-#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct TimeRangeQuery {
     start_timestamp: Option<u32>,
     end_timestamp: Option<u32>,

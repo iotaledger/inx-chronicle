@@ -4,10 +4,11 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{FromRef, Path, State},
+    extract::{Path, State},
     handler::HandlerWithoutStateExt,
     http::header::HeaderMap,
     routing::get,
+    Router,
 };
 use chronicle::{
     db::{
@@ -50,16 +51,11 @@ use packable::PackableExt;
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
     error::{ApiError, CorruptStateError, MissingError, RequestError},
-    router::{Router, RouterState},
     routes::{is_healthy, not_implemented, BYTE_CONTENT_HEADER},
-    ApiResult,
+    ApiResult, ApiWorker,
 };
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router<ApiWorker> {
     Router::new()
         .route("/info", get(info))
         .route_service("/tips", not_implemented.into_service())

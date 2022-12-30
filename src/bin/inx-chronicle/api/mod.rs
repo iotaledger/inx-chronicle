@@ -15,9 +15,9 @@ mod secret_key;
 mod responses;
 mod auth;
 pub mod config;
-mod router;
 mod routes;
 
+use axum::extract::FromRef;
 use chronicle::db::MongoDb;
 use futures::Future;
 use hyper::{Method, Server};
@@ -38,7 +38,7 @@ pub use self::{
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
 /// The Chronicle API actor
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, FromRef)]
 pub struct ApiWorker {
     db: MongoDb,
     api_data: ApiConfigData,

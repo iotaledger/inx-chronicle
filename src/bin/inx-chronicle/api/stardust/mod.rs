@@ -1,7 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::{router::Router, ApiWorker};
+use axum::Router;
+
+use super::ApiWorker;
 
 pub mod core;
 pub mod explorer;

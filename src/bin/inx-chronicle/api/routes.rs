@@ -1,21 +1,19 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
+use auth_helper::jwt::{Claims, JsonWebToken};
 use axum::{
     extract::State,
-    headers::{authorization::Bearer, Authorization},
     http::header::HeaderValue,
     middleware::from_extractor_with_state,
     routing::{get, post},
-    Json, TypedHeader,
+    Json, Router,
 };
 use chronicle::{
     db::{collections::MilestoneCollection, MongoDb},
     types::stardust::milestone::MilestoneTimestamp,
 };
 use hyper::StatusCode;
-use regex::RegexSet;
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
 
@@ -23,9 +21,7 @@ use super::{
     auth::Auth,
     config::ApiConfigData,
     error::{ApiError, MissingError, UnimplementedError},
-    extractors::ListRoutesQuery,
     responses::RoutesResponse,
-    router::{Router, RouterState},
     ApiResult, ApiWorker, AuthError,
 };
 
@@ -104,35 +100,12 @@ fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
     OffsetDateTime::now_utc() <= timestamp + STALE_MILESTONE_DURATION
 }
 
-async fn list_routes(
-    ListRoutesQuery { depth }: ListRoutesQuery,
-    State(state): State<RouterState<ApiWorker>>,
-    bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
-) -> ApiResult<RoutesResponse> {
-    let depth = depth.or(Some(3));
-    let routes = if let Some(TypedHeader(Authorization(bearer))) = bearer_header {
-        let jwt = JsonWebToken(bearer.token().to_string());
-
-        jwt.validate(
-            Validation::default()
-                .with_issuer(ApiConfigData::ISSUER)
-                .with_audience(ApiConfigData::AUDIENCE)
-                .validate_nbf(true),
-            state.inner.api_data.jwt_secret_key.as_ref(),
-        )
-        .map_err(AuthError::InvalidJwt)?;
-
-        state.routes.list_routes(None, depth)
-    } else {
-        let public_routes = RegexSet::new(
-            ALWAYS_AVAILABLE_ROUTES
-                .iter()
-                .copied()
-                .chain(state.inner.api_data.public_routes.patterns().iter().map(String::as_str)),
-        )
-        .unwrap(); // Panic: Safe as we know previous regex compiled and ALWAYS_AVAILABLE_ROUTES is const
-        state.routes.list_routes(public_routes, depth)
-    };
+async fn list_routes(State(state): State<ApiConfigData>) -> ApiResult<RoutesResponse> {
+    let routes = ALWAYS_AVAILABLE_ROUTES
+        .iter()
+        .map(|&s| s.to_owned())
+        .chain(state.public_routes.patterns().iter().cloned())
+        .collect();
     Ok(RoutesResponse { routes })
 }
 

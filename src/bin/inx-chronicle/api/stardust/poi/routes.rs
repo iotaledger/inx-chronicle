@@ -4,8 +4,9 @@
 use std::{collections::HashSet, str::FromStr};
 
 use axum::{
-    extract::{FromRef, Json, Path, State},
+    extract::{Json, Path, State},
     routing::{get, post},
+    Router,
 };
 use chronicle::{
     db::{
@@ -22,16 +23,10 @@ use super::{
 };
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
-    router::{Router, RouterState},
-    ApiConfigData, ApiResult,
+    ApiResult, ApiWorker,
 };
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-    ApiConfigData: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router<ApiWorker> {
     Router::new()
         .route(
             "/referenced-block/create/:block_id",
