@@ -69,7 +69,6 @@ pub struct TimeRangeQuery {
     end_timestamp: Option<u32>,
 }
 
-#[cfg(feature = "stardust")]
 mod stardust {
     use chronicle::types::stardust::milestone::MilestoneTimestamp;
 
@@ -105,7 +104,6 @@ mod stardust {
     }
 }
 
-#[cfg(feature = "stardust")]
 pub use stardust::*;
 
 #[cfg(test)]

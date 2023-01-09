@@ -4,7 +4,6 @@
 //! Module that contains the database and associated models.
 
 /// Module containing the collections in the database.
-#[cfg(feature = "stardust")]
 pub mod collections;
 
 /// Module containing InfluxDb types and traits.

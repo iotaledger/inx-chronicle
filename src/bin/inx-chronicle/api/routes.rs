@@ -41,7 +41,6 @@ pub fn routes(api_data: ApiConfigData) -> Router<ApiWorker> {
     #[allow(unused_mut)]
     let mut router = Router::new();
 
-    #[cfg(feature = "stardust")]
     {
         router = router.merge(super::stardust::routes())
     }
@@ -137,7 +136,6 @@ async fn list_routes(
 }
 
 pub async fn is_healthy(database: &MongoDb) -> ApiResult<bool> {
-    #[cfg(feature = "stardust")]
     {
         let newest = match database
             .collection::<MilestoneCollection>()
