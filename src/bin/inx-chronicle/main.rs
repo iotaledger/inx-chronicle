@@ -3,6 +3,9 @@
 
 //! Module that holds the entry point of the Chronicle application.
 
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 /// Module containing the API.
 #[cfg(feature = "api")]
 mod api;

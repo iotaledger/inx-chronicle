@@ -32,6 +32,7 @@ eyre = { version = "0.6", default-features = false, features = [ "track-caller",
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
+jemallocator = { version = "0.5.0", features = ["stats", "profiling"] }
 mongodb = { version = "2.3", default-features = false, features = [ "tokio-runtime" ] }
 pin-project = { version = "1.0", default-features = false }
 prefix-hex = { version = "0.5.0", default-features = false, features = [ "primitive-types" ] }
@@ -88,60 +89,15 @@ iota-types = { version = "1.0.0-rc", default-features = false, features = [ "api
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
-default = [
-    "analytics",
-    "api",
-    "inx",
-    "loki",
-    "metrics",
-    "poi",
-    "stardust",
-]
-analytics = [
-    "dep:influxdb",
-]
-api = [
-    "dep:auth-helper",
-    "dep:axum",
-    "dep:ed25519",
-    "dep:ed25519-dalek",
-    "dep:hex",
-    "derive_more/from",
-    "dep:hyper",
-    "dep:packable",
-    "dep:rand",
-    "dep:regex",
-    "dep:rust-argon2",
-    "dep:serde_urlencoded",
-    "dep:tower",
-    "dep:tower-http",
-    "dep:zeroize",
-    "stardust",
-]
-inx = [ 
-    "dep:inx",
-    "dep:packable",
-    "dep:tonic",
-    "stardust",
-]
-loki = [
-    "dep:tracing-loki",
-]
-metrics = [
-    "dep:influxdb",
-    "dep:chrono",
-]
-poi = [
-    "api",
-    "dep:iota-crypto",
-]
-rand = [
-    "iota-types?/rand",
-]
-stardust = [
-    "dep:iota-types",
-    "dep:packable",
-]
+default = ["analytics", "api", "inx", "loki", "metrics", "poi", "stardust"]
+analytics = ["dep:influxdb"]
+api = ["dep:auth-helper", "dep:axum", "dep:ed25519", "dep:ed25519-dalek", "dep:hex", "derive_more/from", "dep:hyper", "dep:packable", "dep:rand", "dep:regex", "dep:rust-argon2", "dep:serde_urlencoded", "dep:tower", "dep:tower-http", "dep:zeroize", "stardust"]
+inx = ["dep:inx", "dep:packable", "dep:tonic", "stardust"]
+loki = ["dep:tracing-loki"]
+metrics = ["dep:influxdb", "dep:chrono"]
+poi = ["api", "dep:iota-crypto"]
+rand = ["iota-types?/rand"]
+stardust = ["dep:iota-types", "dep:packable"]
 
 [profile.production]
 inherits = "release"
