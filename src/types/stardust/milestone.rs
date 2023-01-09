@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use derive_more::{Add, Deref, DerefMut, Sub};
 use mongodb::bson::{doc, Bson};
 use serde::{Deserialize, Serialize};

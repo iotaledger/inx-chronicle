@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use std::{fmt, num::ParseIntError, ops, str::FromStr};
 
 use derive_more::{Add, Deref, DerefMut, Sub};

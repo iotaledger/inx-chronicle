@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 #![allow(missing_docs)]
 
 use iota_types::block as iota;

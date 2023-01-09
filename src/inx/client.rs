@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use futures::stream::{Stream, StreamExt};
 use inx::{client::InxClient, proto};
 

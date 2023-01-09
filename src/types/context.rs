@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! This module provides conversion methods between types while respecting the context that is the current
 //! [`ProtocolParameters`](iota_types::block::protocol::ProtocolParameters).
 

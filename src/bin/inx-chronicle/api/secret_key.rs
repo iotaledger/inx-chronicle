@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use ed25519::pkcs8::{DecodePrivateKey, KeypairBytes};
 use thiserror::Error;
 

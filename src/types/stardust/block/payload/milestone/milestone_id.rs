@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use std::str::FromStr;
 
 use iota_types::block::payload::milestone as iota;

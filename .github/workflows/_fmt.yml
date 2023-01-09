@@ -12,28 +12,18 @@ on:
 
 jobs:
   format:
-    name: '${{inputs.os}}, ${{inputs.rust}}'
+    name: "${{inputs.os}}, ${{inputs.rust}}"
     runs-on: ${{ inputs.os }}
     steps:
       - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: ${{ inputs.rust }}
-            override: true
-            components: rustfmt
+          profile: minimal
+          toolchain: ${{ inputs.rust }}
+          override: true
+          components: rustfmt
 
       - uses: actions-rs/cargo@v1
         with:
           command: ci-fmt
-      
-      - uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --force cargo-license-template
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: license-template
-          args: --template .license_template

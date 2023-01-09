@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use chronicle::db::mongodb::config as mongodb;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 

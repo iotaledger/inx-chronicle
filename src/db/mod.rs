@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! Module that contains the database and associated models.
 
 /// Module containing the collections in the database.

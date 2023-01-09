@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use crypto::hashes::{blake2b::Blake2b256, Digest, Output};
 
 const LEAF_HASH_PREFIX: u8 = 0;

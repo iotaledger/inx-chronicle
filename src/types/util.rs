@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! Module contain utility functions.
 
 /// A Serde helper module for converting values to [`String`].

@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! Holds the `InfluxDb` config and its defaults.
 
 use serde::{Deserialize, Serialize};

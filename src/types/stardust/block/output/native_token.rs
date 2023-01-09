@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use std::{borrow::Borrow, mem::size_of, str::FromStr};
 
 use iota_types::block::output as iota;

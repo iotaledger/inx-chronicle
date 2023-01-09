@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use thiserror::Error;
 
 /// The different errors that can happen with INX.

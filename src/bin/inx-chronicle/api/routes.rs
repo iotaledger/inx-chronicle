@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
     extract::State,

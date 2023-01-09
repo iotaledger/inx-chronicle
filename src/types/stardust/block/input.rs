@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! Module containing the [`Input`] type.
 
 use iota_types::block::input as iota;

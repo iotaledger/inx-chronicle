@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! Module containing types related to transactions.
 
 use std::{borrow::Borrow, str::FromStr};

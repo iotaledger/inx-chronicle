@@ -1,6 +1,3 @@
-// Copyright 2022 IOTA Stiftung
-// SPDX-License-Identifier: Apache-2.0
-
 //! Contains routes that can be used to access data stored by Chronicle
 //! as well as the health of the application and analytics.
 
