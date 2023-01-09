@@ -4,9 +4,9 @@
 use async_trait::async_trait;
 use auth_helper::jwt::{BuildValidation, JsonWebToken, Validation};
 use axum::{
-    extract::{FromRef, FromRequestParts, OriginalUri},
+    extract::{FromRequest, OriginalUri},
     headers::{authorization::Bearer, Authorization},
-    TypedHeader,
+    Extension, TypedHeader,
 };
 
 use super::{config::ApiConfigData, error::RequestError, ApiError, AuthError};
@@ -14,23 +14,20 @@ use super::{config::ApiConfigData, error::RequestError, ApiError, AuthError};
 pub struct Auth;
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for Auth
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for Auth {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
         // Unwrap: <OriginalUri as FromRequest>::Rejection = Infallable
-        let OriginalUri(uri) = OriginalUri::from_request_parts(req, state).await.unwrap();
+        let OriginalUri(uri) = OriginalUri::from_request(req).await.unwrap();
 
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         if config.public_routes.is_match(&uri.to_string()) {
             return Ok(Auth);
         }
 
-        let TypedHeader(Authorization(bearer)) = TypedHeader::<Authorization<Bearer>>::from_request_parts(req, state)
+        let TypedHeader(Authorization(bearer)) = TypedHeader::<Authorization<Bearer>>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         let jwt = JsonWebToken(bearer.token().to_string());
