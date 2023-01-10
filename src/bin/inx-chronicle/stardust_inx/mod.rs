@@ -49,6 +49,8 @@ pub async fn gather_analytics(
 ) -> Result<(), InxWorkerError> {
     let mut tasks = JoinSet::new();
 
+    let len_before = analytics.len();
+
     for analytic in analytics.drain(..) {
         let mongodb = mongodb.clone();
         let influxdb = influxdb.clone();
@@ -68,6 +70,12 @@ pub async fn gather_analytics(
         // Panic: Acceptable risk
         analytics.push(res.unwrap()?);
     }
+
+    debug_assert_eq!(
+        len_before,
+        analytics.len(),
+        "The number of analytics should never change."
+    );
 
     Ok(())
 }
@@ -117,13 +125,16 @@ impl InxWorker {
 
         debug!("Started listening to ledger updates via INX.");
 
+        #[cfg(feature = "analytics")]
+        let mut analytics = chronicle::db::collections::analytics::all_analytics();
+
         while let Some(ledger_update) = stream.try_next().await? {
             self.handle_ledger_update(
                 &mut inx,
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                &mut chronicle::db::collections::analytics::all_analytics(),
+                &mut analytics,
             )
             .await?;
         }
