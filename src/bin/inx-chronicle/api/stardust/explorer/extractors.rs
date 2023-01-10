@@ -4,7 +4,10 @@
 use std::{fmt::Display, str::FromStr};
 
 use async_trait::async_trait;
-use axum::extract::{FromRef, FromRequestParts, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use chronicle::{
     db::collections::SortOrder,
     types::{
@@ -71,17 +74,14 @@ impl Display for LedgerUpdatesByAddressCursor {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for LedgerUpdatesByAddressPagination
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for LedgerUpdatesByAddressPagination {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<LedgerUpdatesByAddressPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let sort = query
             .sort
@@ -153,17 +153,14 @@ impl Display for LedgerUpdatesByMilestoneCursor {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for LedgerUpdatesByMilestonePagination
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for LedgerUpdatesByMilestonePagination {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<LedgerUpdatesByMilestonePaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let (page_size, cursor) = if let Some(cursor) = query.cursor {
             let cursor: LedgerUpdatesByMilestoneCursor = cursor.parse()?;
@@ -225,17 +222,14 @@ impl Display for MilestonesCursor {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for MilestonesPagination
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for MilestonesPagination {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<MilestonesPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<MilestonesPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         if matches!((query.start_timestamp, query.end_timestamp), (Some(start), Some(end)) if end < start) {
             return Err(ApiError::from(RequestError::BadTimeRange));
@@ -283,17 +277,14 @@ impl Default for RichestAddressesQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for RichestAddressesQuery
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for RichestAddressesQuery {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(mut query) = Query::<RichestAddressesQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(mut query) = Query::<RichestAddressesQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
         query.top = query.top.min(config.max_page_size);
         Ok(query)
     }
@@ -306,11 +297,11 @@ pub struct LedgerIndex {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for LedgerIndex {
+impl<B: Send> FromRequest<B> for LedgerIndex {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<LedgerIndex>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<LedgerIndex>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         Ok(query)
@@ -325,11 +316,11 @@ pub struct MilestoneRange {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for MilestoneRange {
+impl<B: Send> FromRequest<B> for MilestoneRange {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(MilestoneRange { start_index, end_index }) = Query::<MilestoneRange>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(MilestoneRange { start_index, end_index }) = Query::<MilestoneRange>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         if matches!((start_index, end_index), (Some(start), Some(end)) if end < start) {
@@ -381,17 +372,14 @@ impl Display for BlocksByMilestoneCursor {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for BlocksByMilestoneIndexPagination
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for BlocksByMilestoneIndexPagination {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BlocksByMilestoneIndexPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksByMilestoneIndexPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let sort = query
             .sort
@@ -429,17 +417,14 @@ pub struct BlocksByMilestoneIdPaginationQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for BlocksByMilestoneIdPagination
-where
-    ApiConfigData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for BlocksByMilestoneIdPagination {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BlocksByMilestoneIdPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BlocksByMilestoneIdPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiConfigData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let sort = query
             .sort
@@ -464,7 +449,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::FromRequest, http::Request};
+    use axum::{extract::RequestParts, http::Request};
 
     use super::*;
     use crate::api::ApiConfig;
@@ -494,20 +479,16 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiConfig {
-            max_page_size: 1000,
-            ..Default::default()
-        };
-        let data = ApiConfigData::try_from(config).unwrap();
-        let req = Request::builder()
-            .method("GET")
-            .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
-            .body(())
-            .unwrap();
-        assert_eq!(
-            LedgerUpdatesByAddressPagination::from_request(req, &data)
-                .await
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/ledger/updates/by-address/0x00?pageSize=9999999")
+                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
+                .body(())
                 .unwrap(),
+        );
+        assert_eq!(
+            LedgerUpdatesByAddressPagination::from_request(&mut req).await.unwrap(),
             LedgerUpdatesByAddressPagination {
                 page_size: 1000,
                 sort: Default::default(),
@@ -515,13 +496,16 @@ mod test {
             }
         );
 
-        let req = Request::builder()
-            .method("GET")
-            .uri("/ledger/updates/by-milestone/0?pageSize=9999999")
-            .body(())
-            .unwrap();
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/ledger/updates/by-milestone/0?pageSize=9999999")
+                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
+                .body(())
+                .unwrap(),
+        );
         assert_eq!(
-            LedgerUpdatesByMilestonePagination::from_request(req, &data)
+            LedgerUpdatesByMilestonePagination::from_request(&mut req)
                 .await
                 .unwrap(),
             LedgerUpdatesByMilestonePagination {
