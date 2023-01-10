@@ -47,9 +47,13 @@ jobs:
         with:
           mongodb-version: "6.0"
           mongodb-replica-set: test-rs
+          mongodb-username: root
+          mongodb-password: root
 
       - name: Run test coverage
         run: bash .github/workflows/scripts/coverage.sh
+        env:
+          MONGODB_CONN_STR: mongodb://root:root@localhost:27017
 
       - uses: coverallsapp/github-action@v1.1.2
         with:
