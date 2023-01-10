@@ -3,10 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{
-    extract::{FromRef, Path, State},
-    routing::get,
-};
+use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         collections::{
@@ -36,16 +33,11 @@ use super::{
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
     extractors::Pagination,
-    router::{Router, RouterState},
-    ApiConfigData, ApiResult,
+    router::Router,
+    ApiResult,
 };
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-    ApiConfigData: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router {
     Router::new()
         .route("/balance/:address", get(balance))
         .route("/blocks/:block_id/children", get(block_children))
@@ -71,7 +63,7 @@ where
 }
 
 async fn ledger_updates_by_address(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     Path(address): Path<String>,
     LedgerUpdatesByAddressPagination {
         page_size,
@@ -115,7 +107,7 @@ async fn ledger_updates_by_address(
 }
 
 async fn ledger_updates_by_milestone(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
     LedgerUpdatesByMilestonePagination { page_size, cursor }: LedgerUpdatesByMilestonePagination,
 ) -> ApiResult<LedgerUpdatesByMilestoneResponse> {
@@ -159,7 +151,7 @@ async fn ledger_updates_by_milestone(
     })
 }
 
-async fn balance(database: State<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
+async fn balance(database: Extension<MongoDb>, Path(address): Path<String>) -> ApiResult<BalanceResponse> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
@@ -180,7 +172,7 @@ async fn balance(database: State<MongoDb>, Path(address): Path<String>) -> ApiRe
 }
 
 async fn block_children(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     Path(block_id): Path<String>,
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<BlockChildrenResponse> {
@@ -205,7 +197,7 @@ async fn block_children(
 }
 
 async fn milestones(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     MilestonesPagination {
         start_timestamp,
         end_timestamp,
@@ -240,7 +232,7 @@ async fn milestones(
 }
 
 async fn blocks_by_milestone_index(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     Path(milestone_index): Path<MilestoneIndex>,
     BlocksByMilestoneIndexPagination {
         sort,
@@ -274,7 +266,7 @@ async fn blocks_by_milestone_index(
 }
 
 async fn blocks_by_milestone_id(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     Path(milestone_id): Path<String>,
     BlocksByMilestoneIdPagination {
         sort,
@@ -303,7 +295,7 @@ async fn blocks_by_milestone_id(
 }
 
 async fn richest_addresses_ledger_analytics(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     RichestAddressesQuery { top, ledger_index }: RichestAddressesQuery,
 ) -> ApiResult<RichestAddressesResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
@@ -334,7 +326,7 @@ async fn richest_addresses_ledger_analytics(
 }
 
 async fn token_distribution_ledger_analytics(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     LedgerIndex { ledger_index }: LedgerIndex,
 ) -> ApiResult<TokenDistributionResponse> {
     let ledger_index = resolve_ledger_index(&database, ledger_index).await?;
