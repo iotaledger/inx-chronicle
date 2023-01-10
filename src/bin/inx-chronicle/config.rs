@@ -13,7 +13,7 @@ pub struct ChronicleConfig {
     pub influxdb: chronicle::db::influxdb::InfluxDbConfig,
     #[cfg(feature = "api")]
     pub api: crate::api::ApiConfig,
-    #[cfg(all(feature = "stardust", feature = "inx"))]
+    #[cfg(feature = "inx")]
     pub inx: super::stardust_inx::InxConfig,
     #[cfg(feature = "loki")]
     pub loki: loki::LokiConfig,

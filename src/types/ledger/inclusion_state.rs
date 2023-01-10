@@ -24,7 +24,6 @@ impl From<LedgerInclusionState> for Bson {
     }
 }
 
-#[cfg(feature = "stardust")]
 impl From<iota::LedgerInclusionStateDto> for LedgerInclusionState {
     fn from(value: iota::LedgerInclusionStateDto) -> Self {
         match value {
@@ -35,7 +34,6 @@ impl From<iota::LedgerInclusionStateDto> for LedgerInclusionState {
     }
 }
 
-#[cfg(feature = "stardust")]
 impl From<LedgerInclusionState> for iota::LedgerInclusionStateDto {
     fn from(value: LedgerInclusionState) -> Self {
         match value {
