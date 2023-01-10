@@ -246,6 +246,7 @@ impl OutputCollection {
                                 },
                                 "output_id": "$_id",
                                 "asset_id": "alias",
+                                "state_index": "$output.state_index",
                             } }
                         ],
                         "spent": [
@@ -260,6 +261,7 @@ impl OutputCollection {
                                 },
                                 "output_id": "$_id",
                                 "asset_id": "alias",
+                                "state_index": "$output.state_index",
                                 }
                             }
                         ]
@@ -267,15 +269,19 @@ impl OutputCollection {
                     // TODO: describe what's happening here.
                     doc! { "$project": { "transactions": { "$setUnion": [ "$booked", "$spent" ] } } },
                     doc! { "$unwind": { "path": "$transactions" } },
-                    // Reconstruct the transaction for the given asset.
+                    // Reconstruct the transaction per given asset.
                     doc! { "$group": {
-                        "_id": "$transactions._id",
+                        "_id": { 
+                            "tx_id": "$transactions._id",
+                            "asset_id": "$transactions.asset_id",
+                        },
                         "inputs": { "$push": {
                             "$cond": [
                                 { "$ne": [ "$transactions.output_id.transaction_id", "$transactions._id" ] },
                                 {
                                     "id": "$transactions.output_id",
-                                    "asset_id": "$transactions.asset_id"
+                                    "asset_id": "$transactions.asset_id",
+                                    "state_index": "$transactions.state_index",
                                 },
                                 null
                             ]
@@ -285,7 +291,8 @@ impl OutputCollection {
                                 { "$eq": [ "$transactions.output_id.transaction_id", "$transactions._id" ] },
                                 {
                                     "id": "$transactions.output_id",
-                                    "asset_id": "$transactions.asset_id"
+                                    "asset_id": "$transactions.asset_id",
+                                    "state_index": "$transactions.state_index",
                                 },
                                 null
                             ]
@@ -306,6 +313,13 @@ impl OutputCollection {
                             "cond": { "$ne": [ "$$item", null ] }
                         } }
                     } },
+                    // We add a field that indicates whether the state index changed.
+                    doc! { "$project": {
+                        "_id": 1,
+                        "inputs": 1,
+                        "outputs": 1,
+                        "state_changed": { "$cond": [ { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }, 1, 0 ] },
+                    } },
                     // Calculate the analytics.
                     doc! {
                         "$group": {
@@ -319,11 +333,11 @@ impl OutputCollection {
                                     }
                                 } }
                             },
-                            "governor_changed_count": {
-
+                            "state_changed_count": {
+                                "$sum": "$state_changed",
                             },
-                            "state_changed_count":  {
-
+                            "governor_changed_count": {
+                                "$sum": { "$subtract": [ 1, "$state_changed" ] },
                             },
                             "transferred_count": {
                                 "$sum": { "$size": {
