@@ -6,7 +6,6 @@
 
 mod extractors;
 
-#[cfg(feature = "stardust")]
 pub mod stardust;
 
 mod error;

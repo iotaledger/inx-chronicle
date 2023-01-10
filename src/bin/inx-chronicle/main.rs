@@ -9,13 +9,12 @@ mod api;
 mod cli;
 mod config;
 mod process;
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "inx")]
 mod stardust_inx;
 
 use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
-use config::ChronicleConfig;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -29,7 +28,7 @@ async fn main() -> eyre::Result<()> {
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config();
 
-    set_up_logging(&config)?;
+    set_up_logging()?;
 
     if cl_args.process_subcommands(&config).await? == PostCommand::Exit {
         return Ok(());
@@ -44,14 +43,13 @@ async fn main() -> eyre::Result<()> {
         ByteSize::b(db.size().await?)
     );
 
-    #[cfg(feature = "stardust")]
     build_indexes(&db).await?;
 
     let mut tasks: JoinSet<eyre::Result<()>> = JoinSet::new();
 
     let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
 
-    #[cfg(all(feature = "inx", feature = "stardust"))]
+    #[cfg(feature = "inx")]
     if config.inx.enabled {
         #[cfg(any(feature = "analytics", feature = "metrics"))]
         #[allow(unused_mut)]
@@ -139,7 +137,7 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()> {
+fn set_up_logging() -> eyre::Result<()> {
     std::panic::set_hook(Box::new(|p| {
         error!("{}", p);
     }));
@@ -151,18 +149,11 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()>
             .with(EnvFilter::from_default_env())
             .with(tracing_subscriber::fmt::layer().with_span_events(FmtSpan::CLOSE))
     };
-    #[cfg(feature = "loki")]
-    let registry = {
-        let (layer, task) = tracing_loki::layer(config.loki.url.parse()?, [].into(), [].into())?;
-        tokio::spawn(task);
-        registry.with(layer)
-    };
 
     registry.init();
     Ok(())
 }
 
-#[cfg(feature = "stardust")]
 async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     use chronicle::db::collections;
     let start_indexes = db.get_index_names().await?;
