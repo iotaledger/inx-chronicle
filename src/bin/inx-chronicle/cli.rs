@@ -196,7 +196,7 @@ pub struct JwtArgs {
     pub jwt_expiration: std::time::Duration,
 }
 
-#[cfg(any(feature = "inx", feature = "api"))]
+#[cfg(feature = "api")]
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
     arg.parse::<humantime::Duration>().map(Into::into)
 }
