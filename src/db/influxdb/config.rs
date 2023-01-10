@@ -3,8 +3,6 @@
 
 //! Holds the `InfluxDb` config and its defaults.
 
-use serde::{Deserialize, Serialize};
-
 /// The default InfluxDb URL to connect to.
 pub const DEFAULT_URL: &str = "http://localhost:8086";
 /// The default InfluxDb username.
@@ -26,8 +24,7 @@ pub const DEFAULT_METRICS_DATABASE_NAME: &str = "chronicle_metrics";
 
 /// The influxdb [`influxdb::Client`] config.
 #[must_use]
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct InfluxDbConfig {
     /// The address of the InfluxDb instance.
     pub url: String,
