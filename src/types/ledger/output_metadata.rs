@@ -96,7 +96,7 @@ mod inx {
         fn try_from(value: ::inx::proto::LedgerOutput) -> Result<Self, Self::Error> {
             let data = maybe_missing!(value.output).data;
             let bee_output = iota_types::block::output::Output::unpack_unverified(data)
-                .map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
+                .map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?;
 
             Ok(Self {
                 rent_structure: compute_rent_structure(&bee_output),
