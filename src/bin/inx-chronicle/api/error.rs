@@ -165,7 +165,7 @@ pub enum RequestError {
     BadPagingState,
     #[error("invalid time range")]
     BadTimeRange,
-    #[cfg(feature = "stardust")]
+
     #[error("invalid IOTA Stardust data: {0}")]
     IotaStardust(#[from] iota_types::block::Error),
     #[error("invalid bool value provided: {0}")]

@@ -123,10 +123,10 @@ impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
     }
 }
 
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "inx")]
 use crate::stardust_inx::config as inx;
 
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "inx")]
 #[derive(Args, Debug)]
 pub struct InxArgs {
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
@@ -147,7 +147,7 @@ pub struct InxArgs {
     pub disable_inx: bool,
 }
 
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "inx")]
 impl From<&InxArgs> for inx::InxConfig {
     fn from(value: &InxArgs) -> Self {
         Self {
@@ -241,7 +241,7 @@ impl From<&LokiArgs> for crate::config::loki::LokiConfig {
     }
 }
 
-#[cfg(any(all(feature = "stardust", feature = "inx"), feature = "api"))]
+#[cfg(any(feature = "inx", feature = "api"))]
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
     arg.parse::<humantime::Duration>().map(Into::into)
 }
@@ -253,7 +253,7 @@ impl ClArgs {
             mongodb: (&self.mongodb).into(),
             #[cfg(any(feature = "analytics", feature = "metrics"))]
             influxdb: (&self.influxdb).into(),
-            #[cfg(all(feature = "stardust", feature = "inx"))]
+            #[cfg(feature = "inx")]
             inx: (&self.inx).into(),
             #[cfg(feature = "api")]
             api: (&self.api).into(),
@@ -291,7 +291,7 @@ impl ClArgs {
                     );
                     return Ok(PostCommand::Exit);
                 }
-                #[cfg(all(feature = "analytics", feature = "stardust", feature = "inx"))]
+                #[cfg(all(feature = "analytics", feature = "inx"))]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
@@ -393,7 +393,7 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                 }
-                #[cfg(feature = "stardust")]
+
                 Subcommands::BuildIndexes => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -423,7 +423,7 @@ pub enum AnalyticsChoice {
     UnlockConditions,
 }
 
-#[cfg(all(feature = "analytics", feature = "stardust"))]
+#[cfg(feature = "analytics")]
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
@@ -453,7 +453,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    #[cfg(all(feature = "analytics", feature = "stardust"))]
+    #[cfg(feature = "analytics")]
     FillAnalytics {
         /// The inclusive starting milestone index.
         #[arg(short, long)]
@@ -476,7 +476,6 @@ pub enum Subcommands {
         run: bool,
     },
     /// Manually build indexes.
-    #[cfg(feature = "stardust")]
     BuildIndexes,
 }
 

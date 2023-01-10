@@ -9,7 +9,7 @@ mod api;
 mod cli;
 mod config;
 mod process;
-#[cfg(all(feature = "stardust", feature = "inx"))]
+#[cfg(feature = "inx")]
 mod stardust_inx;
 
 use bytesize::ByteSize;
@@ -44,14 +44,13 @@ async fn main() -> eyre::Result<()> {
         ByteSize::b(db.size().await?)
     );
 
-    #[cfg(feature = "stardust")]
     build_indexes(&db).await?;
 
     let mut tasks: JoinSet<eyre::Result<()>> = JoinSet::new();
 
     let (shutdown_signal, _) = tokio::sync::broadcast::channel::<()>(1);
 
-    #[cfg(all(feature = "inx", feature = "stardust"))]
+    #[cfg(feature = "inx")]
     if config.inx.enabled {
         #[cfg(any(feature = "analytics", feature = "metrics"))]
         #[allow(unused_mut)]
@@ -162,7 +161,6 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()>
     Ok(())
 }
 
-#[cfg(feature = "stardust")]
 async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     use chronicle::db::collections;
     let start_indexes = db.get_index_names().await?;
