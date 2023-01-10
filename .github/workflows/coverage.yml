@@ -5,6 +5,8 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/coverage.yml"
+      - ".github/workflows/scripts/coverage.sh"
       - "**.rs"
       - "**.toml"
   pull_request:
