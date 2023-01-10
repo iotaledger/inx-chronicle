@@ -2519,7 +2519,7 @@
       },
       "targets": [
         {
-          "alias": "$col Bytes",
+          "alias": "$col",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -2557,7 +2557,7 @@
               },
               {
                 "params": [
-                  "Key"
+                  "Key Bytes"
                 ],
                 "type": "alias"
               }
@@ -2575,7 +2575,25 @@
               },
               {
                 "params": [
-                  "Data"
+                  "Data Bytes"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "total_byte_cost"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              },
+              {
+                "params": [
+                  "Byte Cost"
                 ],
                 "type": "alias"
               }

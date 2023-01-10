@@ -69,6 +69,10 @@ impl From<Measurement> for influxdb::WriteQuery {
                 .add_field(
                     "total_data_bytes",
                     m.inner.total_data_bytes.to_string().parse::<u64>().unwrap(),
+                )
+                .add_field(
+                    "total_byte_cost",
+                    m.inner.total_byte_cost.to_string().parse::<u64>().unwrap(),
                 ),
             Measurement::OutputActivityAnalytics(m) => m
                 .prepare_query("stardust_output_activity")

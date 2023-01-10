@@ -9,10 +9,13 @@ use serde::{Deserialize, Serialize};
 
 use super::{Analytic, Error, Measurement, PerMilestone};
 use crate::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
+    db::{
+        collections::{OutputCollection, ProtocolUpdateCollection},
+        MongoDb, MongoDbCollection, MongoDbCollectionExt,
+    },
     types::{
         stardust::milestone::MilestoneTimestamp,
-        tangle::{MilestoneIndex, ProtocolParameters},
+        tangle::{MilestoneIndex, RentStructure},
     },
 };
 
@@ -25,15 +28,7 @@ pub struct LedgerSizeAnalyticsResult {
     pub total_storage_deposit_value: d128,
     pub total_key_bytes: d128,
     pub total_data_bytes: d128,
-}
-
-impl LedgerSizeAnalyticsResult {
-    pub fn total_byte_cost(&self, protocol_params: &ProtocolParameters) -> d128 {
-        let rent_structure = protocol_params.rent_structure;
-        d128::from(rent_structure.v_byte_cost)
-            * ((self.total_key_bytes * d128::from(rent_structure.v_byte_factor_key as u32))
-                + (self.total_data_bytes * d128::from(rent_structure.v_byte_factor_data as u32)))
-    }
+    pub total_byte_cost: d128,
 }
 
 #[async_trait]
@@ -64,30 +59,62 @@ impl OutputCollection {
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<LedgerSizeAnalyticsResult, Error> {
-        Ok(self
-        .aggregate(
-            vec![
-                doc! { "$match": {
-                    "metadata.booked.milestone_index": { "$lte": ledger_index },
-                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                } },
-                doc! { "$group" : {
-                    "_id": null,
-                    "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
-                    "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                    "total_storage_deposit_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
-                } },
-                doc! { "$project": {
-                    "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
-                    "total_key_bytes": { "$toString": "$total_key_bytes" },
-                    "total_data_bytes": { "$toString": "$total_data_bytes" },
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await?
-        .unwrap_or_default())
+        #[derive(Default, Deserialize)]
+        struct Result {
+            total_storage_deposit_value: d128,
+            total_key_bytes: d128,
+            total_data_bytes: d128,
+            rent_structure: Option<RentStructure>,
+        }
+
+        let res = self
+            .aggregate::<Result>(
+                vec![
+                    doc! { "$match": {
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                    } },
+                    doc! { "$group" : {
+                        "_id": null,
+                        "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+                        "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+                        "total_storage_deposit_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
+                    } },
+                    doc! { "$lookup": {
+                        "from": ProtocolUpdateCollection::NAME,
+                        "pipeline": [
+                            { "$match": { "_id": { "$lte": ledger_index } } },
+                            { "$limit": 1 },
+                            { "$replaceWith": "$parameters.rent_structure" }
+                        ],
+                        "as": "rent_structure",
+                    } },
+                    doc! { "$project": {
+                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
+                        "total_key_bytes": { "$toString": "$total_key_bytes" },
+                        "total_data_bytes": { "$toString": "$total_data_bytes" },
+                        "rent_structure": { "$first": "$rent_structure" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default();
+
+        Ok(LedgerSizeAnalyticsResult {
+            total_storage_deposit_value: res.total_storage_deposit_value,
+            total_key_bytes: res.total_key_bytes,
+            total_data_bytes: res.total_data_bytes,
+            total_byte_cost: res
+                .rent_structure
+                .map(|rs| {
+                    d128::from(rs.v_byte_cost)
+                        * ((res.total_key_bytes * d128::from(rs.v_byte_factor_key as u32))
+                            + (res.total_data_bytes * d128::from(rs.v_byte_factor_data as u32)))
+                })
+                .unwrap_or_default(),
+        })
     }
 }
