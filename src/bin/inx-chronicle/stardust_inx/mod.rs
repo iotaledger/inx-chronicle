@@ -71,7 +71,11 @@ pub async fn gather_analytics(
         analytics.push(res.unwrap()?);
     }
 
-    debug_assert_eq!(len_before, analytics.len(), "The number of analytics should never change.");
+    debug_assert_eq!(
+        len_before,
+        analytics.len(),
+        "The number of analytics should never change."
+    );
 
     Ok(())
 }
