@@ -75,9 +75,6 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 inx = { version = "1.0.0-beta", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
-# Loki
-tracing-loki = { version = "0.2", default-features = false, features = [ "compat-0-2-1", "native-tls" ], optional = true }
-
 # PoI
 iota-crypto = { version = "0.15", default-features = false, features = [ "blake2b" ], optional = true }
 
@@ -90,7 +87,6 @@ default = [
     "analytics",
     "api",
     "inx",
-    "loki",
     "metrics",
     "poi",
 ]
@@ -116,9 +112,6 @@ api = [
 inx = [ 
     "dep:inx",
     "dep:tonic",
-]
-loki = [
-    "dep:tracing-loki",
 ]
 metrics = [
     "dep:influxdb",

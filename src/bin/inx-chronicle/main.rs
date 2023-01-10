@@ -15,7 +15,6 @@ mod stardust_inx;
 use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
-use config::ChronicleConfig;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -29,7 +28,7 @@ async fn main() -> eyre::Result<()> {
     let cl_args = ClArgs::parse();
     let config = cl_args.get_config();
 
-    set_up_logging(&config)?;
+    set_up_logging()?;
 
     if cl_args.process_subcommands(&config).await? == PostCommand::Exit {
         return Ok(());
@@ -138,7 +137,7 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()> {
+fn set_up_logging() -> eyre::Result<()> {
     std::panic::set_hook(Box::new(|p| {
         error!("{}", p);
     }));
@@ -149,12 +148,6 @@ fn set_up_logging(#[allow(unused)] config: &ChronicleConfig) -> eyre::Result<()>
         registry
             .with(EnvFilter::from_default_env())
             .with(tracing_subscriber::fmt::layer().with_span_events(FmtSpan::CLOSE))
-    };
-    #[cfg(feature = "loki")]
-    let registry = {
-        let (layer, task) = tracing_loki::layer(config.loki.url.parse()?, [].into(), [].into())?;
-        tokio::spawn(task);
-        registry.with(layer)
     };
 
     registry.init();
