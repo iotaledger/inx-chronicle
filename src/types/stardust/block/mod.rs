@@ -49,14 +49,14 @@ impl TryFromWithContext<Block> for iota::Block {
     type Error = iota_types::block::Error;
 
     fn try_from_with_context(ctx: &ProtocolParameters, value: Block) -> Result<Self, Self::Error> {
-        let mut builder = iota::BlockBuilder::<u64>::new(iota::parent::Parents::new(
+        let mut builder = iota::BlockBuilder::new(iota::parent::Parents::new(
             value.parents.into_vec().into_iter().map(Into::into).collect::<Vec<_>>(),
         )?)
-        .with_nonce_provider(value.nonce);
+        .with_nonce(value.nonce);
         if let Some(payload) = value.payload {
             builder = builder.with_payload(payload.try_into_with_context(ctx)?)
         }
-        builder.finish(ctx.min_pow_score())
+        builder.finish()
     }
 }
 
