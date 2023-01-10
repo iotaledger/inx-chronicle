@@ -43,7 +43,7 @@ serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = [ "std" ] }
 thiserror = { version = "1.0", default-features = false }
 time = { version = "0.3", default-features = false, features = [ "std" ] }
-tokio = { version = "1.21", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
+tokio = { version = "1.23", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 toml = { version = "0.5", default-features = false }
 tracing = { version = "0.1", default-features = false, features = [ "std", "attributes", "release_max_level_debug" ] }
