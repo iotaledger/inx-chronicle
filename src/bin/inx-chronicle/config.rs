@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::db::MongoDbConfig;
-use serde::{Deserialize, Serialize};
 
 /// Configuration of Chronicle.
-#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[derive(Clone, Default, Debug)]
 pub struct ChronicleConfig {
     pub mongodb: MongoDbConfig,
     #[cfg(any(feature = "analytics", feature = "metrics"))]

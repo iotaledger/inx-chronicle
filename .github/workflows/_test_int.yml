@@ -45,6 +45,8 @@ jobs:
           #mongodb-replica-set: test-rs
 
       - name: Test DB
+        env:
+          MONGODB_CONN_STR: mongodb://root:root@localhost:27017
         uses: actions-rs/cargo@v1
         with:
           command: ci-test-int

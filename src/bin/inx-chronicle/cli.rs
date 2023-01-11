@@ -41,28 +41,16 @@ pub struct MongoDbArgs {
         default_value = mongodb::DEFAULT_CONN_STR,
     )]
     pub mongodb_conn_str: String,
-    /// The MongoDb username.
-    #[arg(long, value_name = "USERNAME", env = "MONGODB_USERNAME", default_value = mongodb::DEFAULT_USERNAME)]
-    pub mongodb_username: String,
-    /// The MongoDb password.
-    #[arg(long, value_name = "PASSWORD", env = "MONGODB_PASSWORD", default_value = mongodb::DEFAULT_PASSWORD)]
-    pub mongodb_password: String,
     /// The MongoDb database name.
     #[arg(long, value_name = "NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
     pub mongodb_database_name: String,
-    /// The MongoDb minimum pool size.
-    #[arg(long, value_name = "SIZE", default_value_t = mongodb::DEFAULT_MIN_POOL_SIZE)]
-    pub mongodb_min_pool_size: u32,
 }
 
 impl From<&MongoDbArgs> for chronicle::db::MongoDbConfig {
     fn from(value: &MongoDbArgs) -> Self {
         Self {
             conn_str: value.mongodb_conn_str.clone(),
-            username: value.mongodb_username.clone(),
-            password: value.mongodb_password.clone(),
             database_name: value.mongodb_database_name.clone(),
-            min_pool_size: value.mongodb_min_pool_size,
         }
     }
 }
@@ -128,12 +116,6 @@ pub struct InxArgs {
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
     #[arg(long, value_name = "URL", default_value = inx::DEFAULT_URL)]
     pub inx_url: String,
-    /// Time to wait until a new connection attempt is made.
-    #[arg(long, value_name = "DURATION", value_parser = parse_duration, default_value = inx::DEFAULT_RETRY_INTERVAL)]
-    pub inx_retry_interval: std::time::Duration,
-    /// Maximum number of tries to establish an INX connection.
-    #[arg(long, value_name = "COUNT", default_value_t = inx::DEFAULT_RETRY_COUNT)]
-    pub inx_retry_count: usize,
     /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
     /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
     #[arg(long, value_name = "START", default_value_t = inx::DEFAULT_SYNC_START)]
@@ -149,8 +131,6 @@ impl From<&InxArgs> for inx::InxConfig {
         Self {
             enabled: !value.disable_inx,
             url: value.inx_url.clone(),
-            conn_retry_interval: value.inx_retry_interval,
-            conn_retry_count: value.inx_retry_count,
             sync_start_milestone: value.inx_sync_start.into(),
         }
     }
@@ -216,7 +196,7 @@ pub struct JwtArgs {
     pub jwt_expiration: std::time::Duration,
 }
 
-#[cfg(any(feature = "inx", feature = "api"))]
+#[cfg(feature = "api")]
 fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
     arg.parse::<humantime::Duration>().map(Into::into)
 }

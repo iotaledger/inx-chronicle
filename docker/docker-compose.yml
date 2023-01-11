@@ -18,8 +18,6 @@ services:
     depends_on:
       influx:
         condition: service_started
-      mongo:
-        condition: service_started
       hornet:
         condition: service_healthy
     build:
@@ -30,10 +28,13 @@ services:
       - "8042:8042/tcp" # REST API
       - "9100:9100/tcp" # Metrics
     tty: true
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
     command:
-      - "--mongodb-conn-str=mongodb://mongo:27017"
-      - "--mongodb-username=${MONGODB_USERNAME}"
-      - "--mongodb-password=${MONGODB_PASSWORD}"
+      - "--mongodb-conn-str=${MONGODB_CONN_STR}"
       - "--influxdb-url=http://influx:8086"
       - "--influxdb-username=${INFLUXDB_USERNAME}"
       - "--influxdb-password=${INFLUXDB_PASSWORD}"

@@ -21,10 +21,10 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
-use eyre::{bail, eyre, Result};
+use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
-use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
+use tracing::{debug, info, instrument, trace, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
 
@@ -102,20 +102,7 @@ impl InxWorker {
             bail!(InxWorkerError::InvalidAddress(self.config.url.clone()));
         }
 
-        for i in 0..self.config.conn_retry_count {
-            match Inx::connect(self.config.url.clone()).await {
-                Ok(inx_client) => return Ok(inx_client),
-                Err(_) => {
-                    warn!(
-                        "INX connection failed. Retrying in {}s. {} retries remaining.",
-                        self.config.conn_retry_interval.as_secs(),
-                        self.config.conn_retry_count - i
-                    );
-                    tokio::time::sleep(self.config.conn_retry_interval).await;
-                }
-            }
-        }
-        Err(eyre!(InxWorkerError::ConnectionError))
+        Ok(Inx::connect(self.config.url.clone()).await?)
     }
 
     pub async fn run(&mut self) -> Result<()> {
