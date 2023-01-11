@@ -86,18 +86,20 @@ impl OutputCollection {
         Ok(self
             .aggregate(
                 vec![
-                    // Match outputs from transactions in this milestone.
+                    // Match all nft outputs in the given milestone.
                     doc! { "$match": {
-                        "$or": [
-                            { "metadata.booked.milestone_index": index },
-                            { "metadata.spent_metadata.spent.milestone_index": index },
-                    ] } },
-                    // Move all booked and all spent outputs into separate arrays.
-                    // They all get assigned the applied transaction id they appear in.
-                    // Booked *and* spent outputs land in both.
+                        "$and": [
+                            { "$or": [
+                                { "metadata.booked.milestone_index": index },
+                                { "metadata.spent_metadata.spent.milestone_index": index },
+                            ] },
+                            { "output.kind": "nft" },
+                        ]
+                    } },
+                    // Screen outputs for being booked and/or spent. An output that was booked and
+                    // spent will appear in both arrays, but with different ids.
                     doc! { "$facet": {
-                        "booked": [
-                            { "$match": { "output.kind": "nft" } },
+                        "booked_screening": [
                             { "$project": {
                                 "_id": {
                                     "$cond": [
@@ -110,9 +112,8 @@ impl OutputCollection {
                                 "asset_id": "$output.nft_id",
                             } }
                         ],
-                        "spent": [
-                            { "$match": { "output.kind": "nft" } },
-                            {"$project": {
+                        "spent_screening": [
+                            { "$project": {
                                 "_id": {
                                     "$cond": [
                                         { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", index ] },
@@ -126,35 +127,37 @@ impl OutputCollection {
                             }
                         ]
                     } },
-                    // TODO: describe what's happening here.
-                    doc! { "$project": { "transactions": { "$setUnion": [ "$booked", "$spent" ] } } },
-                    doc! { "$unwind": { "path": "$transactions" } },
-                    // Reconstruct the transaction for the given asset.
+                    // Merge both arrays from the previous facet operation. That will remove duplicates (outputs
+                    // where each screening produced the same result) and keep outputs that were booked and spent
+                    // within the same milestone. 
+                    doc! { "$project": { "nft_outputs": { "$setUnion": [ "$booked_screening", "$spent_screening" ] } } },
+                    doc! { "$unwind": { "path": "$nft_outputs" } },
+                    // Reconstruct the inputs and outputs for the given asset.
                     doc! { "$group": {
-                        "_id": "$transactions._id",
+                        "_id": "$nft_outputs._id",
                         "inputs": { "$push": {
                             "$cond": [
-                                { "$ne": [ "$transactions.output_id.transaction_id", "$transactions._id" ] },
+                                { "$ne": [ "$nft_outputs.output_id.transaction_id", "$nft_outputs._id" ] },
                                 {
-                                    "id": "$transactions.output_id",
-                                    "asset_id": "$transactions.asset_id"
+                                    "id": "$nft_outputs.output_id",
+                                    "asset_id": "$nft_outputs.asset_id"
                                 },
                                 null
                             ]
                         } },
                         "outputs": { "$push": {
                             "$cond": [
-                                { "$eq": [ "$transactions.output_id.transaction_id", "$transactions._id" ] },
+                                { "$eq": [ "$nft_outputs.output_id.transaction_id", "$nft_outputs._id" ] },
                                 {
-                                    "id": "$transactions.output_id",
-                                    "asset_id": "$transactions.asset_id"
+                                    "id": "$nft_outputs.output_id",
+                                    "asset_id": "$nft_outputs.asset_id"
                                 },
                                 null
                             ]
                         } },
                     } },
-                    // Filter out the `null`s so that each array only holds the right-kinded non-null outputs.
-                    // Note: probably not necessary, but makes it less likely to cause bugs.
+                    // Filter out the `null`s created in the previous stage.
+                    // Note: not really necessary, but may reduce risk of bugs.
                     doc! { "$project": {
                         "_id": 1,
                         "inputs": {  "$filter": {
@@ -168,7 +171,7 @@ impl OutputCollection {
                             "cond": { "$ne": [ "$$item", null ] }
                         } }
                     } },
-                    // Calculate the analytics.
+                    // Produce the relevant analytics.
                     doc! {
                         "$group": {
                             "_id": null,
@@ -224,18 +227,20 @@ impl OutputCollection {
         Ok(self
             .aggregate(
                 vec![
-                    // Match outputs from transactions in this milestone.
+                    // Match all alias outputs in the given milestone.
                     doc! { "$match": {
-                        "$or": [
-                            { "metadata.booked.milestone_index": index },
-                            { "metadata.spent_metadata.spent.milestone_index": index },
-                    ] } },
-                    // Move all booked and all spent outputs into separate arrays.
-                    // They all get assigned the applied transaction id they appear in.
-                    // Booked *and* spent outputs land in both.
+                        "$and": [
+                            { "$or": [
+                                { "metadata.booked.milestone_index": index },
+                                { "metadata.spent_metadata.spent.milestone_index": index },
+                            ] },
+                            { "output.kind": "alias" },
+                        ]
+                    } },
+                    // Screen outputs for being booked and/or spent. An output that was booked and
+                    // spent will appear in both arrays, but with different ids.
                     doc! { "$facet": {
-                        "booked": [
-                            { "$match": { "output.kind": "alias" } },
+                        "booked_screening": [
                             { "$project": {
                                 "_id": {
                                     "$cond": [
@@ -249,8 +254,7 @@ impl OutputCollection {
                                 "state_index": "$output.state_index",
                             } }
                         ],
-                        "spent": [
-                            { "$match": { "output.kind": "alias" } },
+                        "spent_screening": [
                             {"$project": {
                                 "_id": {
                                     "$cond": [
@@ -266,40 +270,42 @@ impl OutputCollection {
                             }
                         ]
                     } },
-                    // TODO: describe what's happening here.
-                    doc! { "$project": { "transactions": { "$setUnion": [ "$booked", "$spent" ] } } },
-                    doc! { "$unwind": { "path": "$transactions" } },
-                    // Reconstruct the transaction per given asset.
+                    // Merge both arrays from the previous facet operation. That will remove duplicates (outputs
+                    // where each screening produced the same result) and keep outputs that were booked and spent
+                    // within the same milestone. 
+                    doc! { "$project": { "alias_outputs": { "$setUnion": [ "$booked_screening", "$spent_screening" ] } } },
+                    doc! { "$unwind": { "path": "$alias_outputs" } },
+                    // Reconstruct the inputs and outputs for the given asset.
                     doc! { "$group": {
                         "_id": { 
-                            "tx_id": "$transactions._id",
-                            "asset_id": "$transactions.asset_id",
+                            "tx_id": "$alias_outputs._id",
+                            "asset_id": "$alias_outputs.asset_id",
                         },
                         "inputs": { "$push": {
                             "$cond": [
-                                { "$ne": [ "$transactions.output_id.transaction_id", "$transactions._id" ] },
+                                { "$ne": [ "$alias_outputs.output_id.transaction_id", "$alias_outputs._id" ] },
                                 {
-                                    "id": "$transactions.output_id",
-                                    "asset_id": "$transactions.asset_id",
-                                    "state_index": "$transactions.state_index",
+                                    "id": "$alias_outputs.output_id",
+                                    "asset_id": "$alias_outputs.asset_id",
+                                    "state_index": "$alias_outputs.state_index",
                                 },
                                 null
                             ]
                         } },
                         "outputs": { "$push": {
                             "$cond": [
-                                { "$eq": [ "$transactions.output_id.transaction_id", "$transactions._id" ] },
+                                { "$eq": [ "$alias_outputs.output_id.transaction_id", "$alias_outputs._id" ] },
                                 {
-                                    "id": "$transactions.output_id",
-                                    "asset_id": "$transactions.asset_id",
-                                    "state_index": "$transactions.state_index",
+                                    "id": "$alias_outputs.output_id",
+                                    "asset_id": "$alias_outputs.asset_id",
+                                    "state_index": "$alias_outputs.state_index",
                                 },
                                 null
                             ]
                         } },
                     } },
-                    // Filter out the `null`s so that each array only holds the right-kinded non-null outputs.
-                    // Note: probably not necessary, but makes it less likely to cause bugs.
+                    // Filter out the `null`s created in the previous stage.
+                    // Note: not really necessary, but may reduce risk of bugs.
                     doc! { "$project": {
                         "_id": 1,
                         "inputs": {  "$filter": {
@@ -313,14 +319,14 @@ impl OutputCollection {
                             "cond": { "$ne": [ "$$item", null ] }
                         } }
                     } },
-                    // We add a field that indicates whether the state index changed.
+                    // Add a flag that indicates whether the state index changed.
                     doc! { "$project": {
                         "_id": 1,
                         "inputs": 1,
                         "outputs": 1,
                         "state_changed": { "$cond": [ { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }, 1, 0 ] },
                     } },
-                    // Calculate the analytics.
+                    // Produce the relevant analytics.
                     doc! {
                         "$group": {
                             "_id": null,
@@ -333,20 +339,11 @@ impl OutputCollection {
                                     }
                                 } }
                             },
-                            "state_changed_count": {
-                                "$sum": "$state_changed",
-                            },
                             "governor_changed_count": {
                                 "$sum": { "$subtract": [ 1, "$state_changed" ] },
                             },
-                            "transferred_count": {
-                                "$sum": { "$size": {
-                                    "$filter": {
-                                        "input": "$outputs.asset_id",
-                                        "as": "item",
-                                        "cond": {  "$ne": [ "$$item", AliasId::implicit()  ] }
-                                    }
-                                } }
+                            "state_changed_count": {
+                                "$sum": "$state_changed",
                             },
                             "destroyed_count": {
                                 "$sum": {  "$size": { "$setDifference": [
