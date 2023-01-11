@@ -234,12 +234,15 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+        let analytics = output_collection
+            .get_alias_output_activity_analytics(2.into())
+            .await
+            .unwrap();
 
-        assert_eq!(analytics.alias.created_count, 1);
-        assert_eq!(analytics.alias.governor_changed_count, 1);
-        assert_eq!(analytics.alias.state_changed_count, 2);
-        assert_eq!(analytics.alias.destroyed_count, 0);
+        assert_eq!(analytics.created_count, 1);
+        assert_eq!(analytics.governor_changed_count, 1);
+        assert_eq!(analytics.state_changed_count, 2);
+        assert_eq!(analytics.destroyed_count, 0);
 
         // t -> s -> s
         let mut output = AliasOutput::rand(&protocol_params);
@@ -281,12 +284,15 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+        let analytics = output_collection
+            .get_alias_output_activity_analytics(2.into())
+            .await
+            .unwrap();
 
-        assert_eq!(analytics.alias.created_count, 1);
-        assert_eq!(analytics.alias.governor_changed_count, 2);
-        assert_eq!(analytics.alias.state_changed_count, 4);
-        assert_eq!(analytics.alias.destroyed_count, 0);
+        assert_eq!(analytics.created_count, 1);
+        assert_eq!(analytics.governor_changed_count, 2);
+        assert_eq!(analytics.state_changed_count, 4);
+        assert_eq!(analytics.destroyed_count, 0);
 
         // s -> t -> d
         let mut output = AliasOutput::rand(&protocol_params);
@@ -319,12 +325,15 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+        let analytics = output_collection
+            .get_alias_output_activity_analytics(2.into())
+            .await
+            .unwrap();
 
-        assert_eq!(analytics.alias.created_count, 1);
-        assert_eq!(analytics.alias.governor_changed_count, 3);
-        assert_eq!(analytics.alias.state_changed_count, 5);
-        assert_eq!(analytics.alias.destroyed_count, 1);
+        assert_eq!(analytics.created_count, 1);
+        assert_eq!(analytics.governor_changed_count, 3);
+        assert_eq!(analytics.state_changed_count, 5);
+        assert_eq!(analytics.destroyed_count, 1);
 
         // c -> s -> s -> d
         let mut output = AliasOutput::rand(&protocol_params);
@@ -342,12 +351,15 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+        let analytics = output_collection
+            .get_alias_output_activity_analytics(2.into())
+            .await
+            .unwrap();
 
-        assert_eq!(analytics.alias.created_count, 2);
-        assert_eq!(analytics.alias.governor_changed_count, 3);
-        assert_eq!(analytics.alias.state_changed_count, 7);
-        assert_eq!(analytics.alias.destroyed_count, 2);
+        assert_eq!(analytics.created_count, 2);
+        assert_eq!(analytics.governor_changed_count, 3);
+        assert_eq!(analytics.state_changed_count, 7);
+        assert_eq!(analytics.destroyed_count, 2);
 
         // c -> t -> t -> d
         let mut output = AliasOutput::rand(&protocol_params);
@@ -369,24 +381,33 @@ mod test_rand {
         let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+        let analytics = output_collection
+            .get_alias_output_activity_analytics(2.into())
+            .await
+            .unwrap();
 
-        assert_eq!(analytics.alias.created_count, 3);
-        assert_eq!(analytics.alias.governor_changed_count, 5);
-        assert_eq!(analytics.alias.state_changed_count, 7);
-        assert_eq!(analytics.alias.destroyed_count, 3);
+        assert_eq!(analytics.created_count, 3);
+        assert_eq!(analytics.governor_changed_count, 5);
+        assert_eq!(analytics.state_changed_count, 7);
+        assert_eq!(analytics.destroyed_count, 3);
 
         teardown(db).await;
     }
 
+    // Creates the following NFT scenario:
+    // c -> t -> t -> d -> d
     #[tokio::test]
-    async fn test_nft_outputs() {
-        let db = setup_database("test-nft-outputs").await.unwrap();
+    async fn test_nft_outputs_1() {
+        let db = setup_database("test-nft-outputs-1").await.unwrap();
         let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let protocol_params = iota_types::block::protocol::protocol_parameters();
 
-        let ledger_output = |output| LedgerOutput {
+        // Create the inputs and outputs of a transaction in the form of ledger updates.
+        let transaction_id = TransactionId::rand();
+
+        // Makes transaction inputs
+        let tx_input = |output| LedgerOutput {
             output_id: OutputId::rand(),
             rent_structure: RentStructureBytes {
                 num_key_bytes: 0,
@@ -399,10 +420,31 @@ mod test_rand {
                 milestone_timestamp: 12345.into(),
             },
         };
+
+        // Makes transaction outputs
+        let tx_output = |(index, output)| LedgerOutput {
+            output_id: OutputId {
+                transaction_id,
+                index: index as u16,
+            },
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::Nft(output),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: 2.into(),
+                milestone_timestamp: 12345.into(),
+            },
+        };
+
+        // Makes spent metadata.
         let ledger_spent = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
-                transaction_id: TransactionId::rand(),
+                // transaction_id: TransactionId::rand(),
+                transaction_id,
                 spent: MilestoneIndexTimestamp {
                     milestone_index: 2.into(),
                     milestone_timestamp: 12345.into(),
@@ -410,37 +452,111 @@ mod test_rand {
             },
         };
 
-        // c -> t -> t -> t
-        let output = NftOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.nft_id = NftId::implicit();
-        let created_outputs = vec![created_output, output.clone(), output.clone(), output.clone()]
+        let mut created_nft = NftOutput::rand(&protocol_params);
+        created_nft.nft_id = NftId::implicit();
+        let transferred_nft1 = NftOutput::rand(&protocol_params);
+        let transferred_nft2 = NftOutput::rand(&protocol_params);
+        let destroyed_nft1 = NftOutput::rand(&protocol_params);
+        let destroyed_nft2 = NftOutput::rand(&protocol_params);
+
+        // Create and insert transaction outputs.
+        let tx_outputs = vec![created_nft, transferred_nft1.clone(), transferred_nft2.clone()]
             .into_iter()
-            .map(ledger_output)
+            .enumerate()
+            .map(tx_output)
             .collect::<Vec<_>>();
+        output_collection.insert_unspent_outputs(&tx_outputs).await.unwrap();
+
+        // Create and insert transaction inputs.
+        let tx_inputs = vec![transferred_nft1, transferred_nft2, destroyed_nft1, destroyed_nft2]
+            .into_iter()
+            .map(tx_input)
+            .collect::<Vec<_>>();
+        output_collection.insert_unspent_outputs(&tx_inputs).await.unwrap();
+
+        let consumed_tx_inputs = tx_inputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection
-            .insert_unspent_outputs(&created_outputs)
+            .update_spent_outputs(&consumed_tx_inputs)
             .await
             .unwrap();
 
-        let consumed_outputs = created_outputs
-            .into_iter()
-            .take(3)
-            .map(ledger_spent)
-            .collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
+        let analytics = output_collection
+            .get_nft_output_activity_analytics(2.into())
+            .await
+            .unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
+        assert_eq!(analytics.created_count, 1);
+        assert_eq!(analytics.transferred_count, 2);
+        assert_eq!(analytics.destroyed_count, 2);
 
-        assert_eq!(analytics.nft.created_count, 1);
-        assert_eq!(analytics.nft.transferred_count, 3);
-        assert_eq!(analytics.nft.destroyed_count, 0);
+        teardown(db).await;
+    }
 
-        // t -> t -> t
-        let output = NftOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.nft_id = NftId::implicit();
-        let created_outputs = std::iter::once(created_output)
+    // Creates the following NFT scenario (only consider certain milestone):
+    // t -> t -> t
+    #[tokio::test]
+    async fn test_nft_outputs_2() {
+        let db = setup_database("test-nft-outputs-2").await.unwrap();
+        let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
+
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
+
+        // Create the inputs and outputs of a transaction in the form of ledger updates.
+        let transaction_id = TransactionId::rand();
+
+        // Makes transaction inputs
+        let tx_input = |output| LedgerOutput {
+            output_id: OutputId::rand(),
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::Nft(output),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: 2.into(),
+                milestone_timestamp: 12345.into(),
+            },
+        };
+
+        // Makes transaction outputs
+        let tx_output = |(index, output)| LedgerOutput {
+            output_id: OutputId {
+                transaction_id,
+                index: index as u16,
+            },
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::Nft(output),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: 2.into(),
+                milestone_timestamp: 12345.into(),
+            },
+        };
+
+        // Makes spent metadata.
+        let ledger_spent = |output| LedgerSpent {
+            output,
+            spent_metadata: SpentMetadata {
+                // transaction_id: TransactionId::rand(),
+                transaction_id,
+                spent: MilestoneIndexTimestamp {
+                    milestone_index: 2.into(),
+                    milestone_timestamp: 12345.into(),
+                },
+            },
+        };
+
+        let mut created_nft = NftOutput::rand(&protocol_params);
+        created_nft.nft_id = NftId::implicit();
+        let transferred_nft1 = NftOutput::rand(&protocol_params);
+        let transferred_nft2 = NftOutput::rand(&protocol_params);
+        let transferred_nft3 = NftOutput::rand(&protocol_params);
+
+        let tx_outputs = std::iter::once(created_nft)
             .map(|output| LedgerOutput {
                 output_id: OutputId::rand(),
                 rent_structure: RentStructureBytes {
@@ -455,104 +571,39 @@ mod test_rand {
                 },
             })
             .chain(
-                vec![output.clone(), output.clone(), output.clone()]
-                    .into_iter()
-                    .map(ledger_output),
+                vec![
+                    transferred_nft1.clone(),
+                    transferred_nft2.clone(),
+                    transferred_nft3.clone(),
+                ]
+                .into_iter()
+                .enumerate()
+                .map(tx_output),
             )
             .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
+        output_collection.insert_unspent_outputs(&tx_outputs).await.unwrap();
 
-        let consumed_outputs = created_outputs
+        // Create and insert transaction inputs.
+        let tx_inputs = vec![transferred_nft1, transferred_nft2, transferred_nft3]
             .into_iter()
-            .take(3)
-            .map(ledger_spent)
+            .map(tx_input)
             .collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
+        output_collection.insert_unspent_outputs(&tx_inputs).await.unwrap();
 
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
-
-        assert_eq!(analytics.nft.created_count, 1);
-        assert_eq!(analytics.nft.transferred_count, 6);
-        assert_eq!(analytics.nft.destroyed_count, 0);
-
-        // t -> t -> d
-        let output = NftOutput::rand(&protocol_params);
-        let created_outputs = std::iter::once(output.clone())
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
-                },
-                output: Output::Nft(output),
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 1234.into(),
-                },
-            })
-            .chain(vec![output.clone(), output.clone()].into_iter().map(ledger_output))
-            .collect::<Vec<_>>();
+        let consumed_tx_inputs = tx_inputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
         output_collection
-            .insert_unspent_outputs(&created_outputs)
+            .update_spent_outputs(&consumed_tx_inputs)
             .await
             .unwrap();
 
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
-
-        assert_eq!(analytics.nft.created_count, 1);
-        assert_eq!(analytics.nft.transferred_count, 8);
-        assert_eq!(analytics.nft.destroyed_count, 1);
-
-        // c -> t -> t -> d
-        let output = NftOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.nft_id = NftId::implicit();
-        let created_outputs = vec![created_output, output.clone(), output.clone()]
-            .into_iter()
-            .map(ledger_output)
-            .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
+        let analytics = output_collection
+            .get_nft_output_activity_analytics(2.into())
             .await
             .unwrap();
 
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
-
-        assert_eq!(analytics.nft.created_count, 2);
-        assert_eq!(analytics.nft.transferred_count, 10);
-        assert_eq!(analytics.nft.destroyed_count, 2);
-
-        // c -> t -> t -> d
-        let output = NftOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.nft_id = NftId::implicit();
-        let created_outputs = vec![created_output, output.clone(), output.clone()]
-            .into_iter()
-            .map(ledger_output)
-            .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
-
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection.get_output_activity_analytics(2.into()).await.unwrap();
-
-        assert_eq!(analytics.nft.created_count, 3);
-        assert_eq!(analytics.nft.transferred_count, 12);
-        assert_eq!(analytics.nft.destroyed_count, 3);
+        assert_eq!(analytics.created_count, 0);
+        assert_eq!(analytics.transferred_count, 3);
+        assert_eq!(analytics.destroyed_count, 0);
 
         teardown(db).await;
     }

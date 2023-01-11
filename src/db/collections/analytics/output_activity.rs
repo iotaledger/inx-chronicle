@@ -185,13 +185,18 @@ impl OutputCollection {
                                 } }
                             },
                             "transferred_count": {
-                                "$sum": { "$size": {
-                                    "$filter": {
+                                "$sum": {  "$size": { "$setIntersection": [
+                                    { "$filter": {
+                                        "input": "$inputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", NftId::implicit() ] }
+                                    } },
+                                    { "$filter": {
                                         "input": "$outputs.asset_id",
                                         "as": "item",
-                                        "cond": {  "$ne": [ "$$item", NftId::implicit() ] }
-                                    }
-                                } }
+                                        "cond": { "$ne": [ "$$item", NftId::implicit() ] }
+                                    } }
+                                ] } }
                             },
                             "destroyed_count": {
                                 "$sum": {  "$size": { "$setDifference": [
