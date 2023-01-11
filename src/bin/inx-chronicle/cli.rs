@@ -1,195 +1,218 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use chronicle::db::mongodb::config as mongodb;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::config::{ChronicleConfig, ConfigError};
+use crate::config::ChronicleConfig;
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
-#[command(author, version, about, next_display_order = None)]
+// #[command(author, version, about, next_display_order = None)]
+#[command(author, version, about)]
 pub struct ClArgs {
-    /// The location of the configuration file.
-    #[arg(short, long, env = "CONFIG_PATH")]
-    pub config: Option<String>,
-    /// Rest API arguments.
-    #[cfg(feature = "api")]
-    #[command(flatten)]
-    pub api: ApiArgs,
+    /// MongoDb arguments.
+    #[command(flatten, next_help_heading = "MongoDb")]
+    pub mongodb: MongoDbArgs,
     /// InfluxDb arguments.
     #[cfg(any(feature = "analytics", feature = "metrics"))]
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "InfluxDb")]
     pub influxdb: InfluxDbArgs,
     /// INX arguments.
     #[cfg(feature = "inx")]
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "INX")]
     pub inx: InxArgs,
-    /// MongoDb arguments.
-    #[command(flatten)]
-    pub mongodb: MongoDbArgs,
-    /// Loki arguments.
-    #[cfg(feature = "loki")]
-    #[command(flatten)]
-    pub loki: LokiArgs,
+    /// Rest API arguments.
+    #[cfg(feature = "api")]
+    #[command(flatten, next_help_heading = "API")]
+    pub api: ApiArgs,
     /// Subcommands.
     #[command(subcommand)]
     pub subcommand: Option<Subcommands>,
 }
 
-#[cfg(feature = "api")]
-#[derive(Args, Debug)]
-pub struct ApiArgs {
-    /// Toggle REST API.
-    #[arg(long, env = "REST_API_ENABLED")]
-    pub api_enabled: Option<bool>,
-    /// JWT arguments.
-    #[command(flatten)]
-    pub jwt: JwtArgs,
-}
-
-#[derive(Args, Debug)]
-pub struct JwtArgs {
-    /// The location of the identity file for JWT auth.
-    #[arg(long = "api-jwt-identity", env = "JWT_IDENTITY_PATH")]
-    pub identity_path: Option<String>,
-    /// The password used for JWT authentication.
-    #[arg(long = "api-jwt-password")]
-    pub password: Option<String>,
-}
-
-#[cfg(feature = "inx")]
-#[derive(Args, Debug)]
-pub struct InxArgs {
-    /// Toggle INX write workflow.
-    #[arg(long, env = "INX_ENABLED")]
-    pub inx_enabled: Option<bool>,
-    /// The address of the INX interface provided by the node.
-    #[arg(long, env = "INX_URL")]
-    pub inx_url: Option<String>,
-    /// Milestone at which synchronization should begin. A value of `1` means syncing back until genesis (default).
-    #[arg(long = "inx-sync-start")]
-    pub sync_start: Option<u32>,
-}
-
 #[derive(Args, Debug)]
 pub struct MongoDbArgs {
-    /// The MongoDB connection string.
-    #[arg(long, env = "MONGODB_CONN_STR")]
-    pub mongodb_conn_str: Option<String>,
-    /// The MongoDB database.
-    #[arg(long, env = "MONGODB_DATABASE")]
-    pub mongodb_database: Option<String>,
+    /// The MongoDb connection string.
+    #[arg(
+        long,
+        value_name = "CONN_STR",
+        env = "MONGODB_CONN_STR",
+        default_value = mongodb::DEFAULT_CONN_STR,
+    )]
+    pub mongodb_conn_str: String,
+    /// The MongoDb database name.
+    #[arg(long, value_name = "NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
+    pub mongodb_database_name: String,
 }
+
+impl From<&MongoDbArgs> for chronicle::db::MongoDbConfig {
+    fn from(value: &MongoDbArgs) -> Self {
+        Self {
+            conn_str: value.mongodb_conn_str.clone(),
+            database_name: value.mongodb_database_name.clone(),
+        }
+    }
+}
+
+#[cfg(any(feature = "analytics", feature = "metrics"))]
+use chronicle::db::influxdb::config as influxdb;
 
 #[cfg(any(feature = "analytics", feature = "metrics"))]
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
-    /// Toggle InfluxDb time-series metrics writes.
-    #[arg(long, env = "METRICS_ENABLED")]
-    pub metrics_enabled: Option<bool>,
-    /// Toggle InfluxDb time-series analytics writes.
-    #[arg(long, env = "ANALYTICS_ENABLED")]
-    pub analytics_enabled: Option<bool>,
     /// The url pointing to an InfluxDb instance.
-    #[arg(long, env = "INFLUXDB_URL")]
-    pub influxdb_url: Option<String>,
+    #[arg(long, value_name = "URL", default_value = influxdb::DEFAULT_URL)]
+    pub influxdb_url: String,
+    /// The InfluxDb username.
+    #[arg(long, value_name = "USERNAME", env = "INFLUXDB_USERNAME", default_value = influxdb::DEFAULT_USERNAME)]
+    pub influxdb_username: String,
+    /// The InfluxDb password.
+    #[arg(long, value_name = "PASSWORD", env = "INFLUXDB_PASSWORD", default_value = influxdb::DEFAULT_PASSWORD)]
+    pub influxdb_password: String,
+    /// The Analytics database name.
+    #[cfg(feature = "analytics")]
+    #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_ANALYTICS_DATABASE_NAME)]
+    pub analytics_database_name: String,
+    /// The Metrics database name.
+    #[cfg(feature = "metrics")]
+    #[arg(long, value_name = "NAME", default_value = influxdb::DEFAULT_METRICS_DATABASE_NAME)]
+    pub metrics_database_name: String,
+    /// Disable InfluxDb time-series analytics writes.
+    #[cfg(feature = "analytics")]
+    #[arg(long, default_value_t = !influxdb::DEFAULT_ANALYTICS_ENABLED)]
+    pub disable_analytics: bool,
+    /// Disable InfluxDb time-series metrics writes.
+    #[cfg(feature = "metrics")]
+    #[arg(long, default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
+    pub disable_metrics: bool,
 }
 
-#[cfg(feature = "loki")]
+#[cfg(any(feature = "analytics", feature = "metrics"))]
+impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
+    fn from(value: &InfluxDbArgs) -> Self {
+        Self {
+            url: value.influxdb_url.clone(),
+            username: value.influxdb_username.clone(),
+            password: value.influxdb_password.clone(),
+            #[cfg(feature = "analytics")]
+            analytics_enabled: !value.disable_analytics,
+            #[cfg(feature = "analytics")]
+            analytics_database_name: value.analytics_database_name.clone(),
+            #[cfg(feature = "metrics")]
+            metrics_enabled: !value.disable_metrics,
+            #[cfg(feature = "metrics")]
+            metrics_database_name: value.metrics_database_name.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "inx")]
+use crate::stardust_inx::config as inx;
+
+#[cfg(feature = "inx")]
 #[derive(Args, Debug)]
-pub struct LokiArgs {
-    /// Toggle Grafana Loki log writes.
-    #[arg(long, env = "LOKI_ENABLED")]
-    pub loki_enabled: Option<bool>,
-    /// The url pointing to a Grafana Loki instance.
-    #[arg(long, env = "LOKI_URL")]
-    pub loki_url: Option<String>,
+pub struct InxArgs {
+    /// The address of the node INX interface Chronicle tries to connect to - if enabled.
+    #[arg(long, value_name = "URL", default_value = inx::DEFAULT_URL)]
+    pub inx_url: String,
+    /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
+    /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
+    #[arg(long, value_name = "START", default_value_t = inx::DEFAULT_SYNC_START)]
+    pub inx_sync_start: u32,
+    /// Disable the INX synchronization workflow.
+    #[arg(long, default_value_t = !inx::DEFAULT_ENABLED)]
+    pub disable_inx: bool,
+}
+
+#[cfg(feature = "inx")]
+impl From<&InxArgs> for inx::InxConfig {
+    fn from(value: &InxArgs) -> Self {
+        Self {
+            enabled: !value.disable_inx,
+            url: value.inx_url.clone(),
+            sync_start_milestone: value.inx_sync_start.into(),
+        }
+    }
+}
+
+#[cfg(feature = "api")]
+use crate::api::config as api;
+
+#[cfg(feature = "api")]
+#[derive(Args, Debug)]
+pub struct ApiArgs {
+    /// API listening port.
+    #[arg(long, value_name = "PORT", default_value_t = api::DEFAULT_PORT)]
+    pub api_port: u16,
+    /// CORS setting.
+    #[arg(long = "allow-origin", value_name = "IP", default_value = api::DEFAULT_ALLOW_ORIGINS)]
+    pub allow_origins: Vec<String>,
+    /// Public API routes.
+    #[arg(long = "public-route", value_name = "ROUTE", default_value = api::DEFAULT_PUBLIC_ROUTES)]
+    pub public_routes: Vec<String>,
+    /// Maximum number of results returned by a single API call.
+    #[arg(long, value_name = "SIZE", default_value_t = api::DEFAULT_MAX_PAGE_SIZE)]
+    pub max_page_size: usize,
+    /// JWT arguments.
+    #[command(flatten)]
+    pub jwt: JwtArgs,
+    /// Disable REST API.
+    #[arg(long, default_value_t = !api::DEFAULT_ENABLED)]
+    pub disable_api: bool,
+}
+
+#[cfg(feature = "api")]
+impl From<&ApiArgs> for api::ApiConfig {
+    fn from(value: &ApiArgs) -> Self {
+        Self {
+            enabled: !value.disable_api,
+            port: value.api_port,
+            allow_origins: (&value.allow_origins).into(),
+            jwt_password: value.jwt.jwt_password.clone(),
+            jwt_salt: value.jwt.jwt_salt.clone(),
+            jwt_identity_file: value.jwt.jwt_identity.clone(),
+            jwt_expiration: value.jwt.jwt_expiration,
+            max_page_size: value.max_page_size,
+            public_routes: value.public_routes.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "api")]
+#[derive(Args, Debug)]
+pub struct JwtArgs {
+    /// The location of the identity file for JWT auth.
+    #[arg(long, value_name = "FILEPATH", env = "JWT_IDENTITY", default_value = None)]
+    pub jwt_identity: Option<String>,
+    /// The password used for JWT authentication.
+    #[arg(long, value_name = "PASSWORD", env = "JWT_PASSWORD", default_value = api::DEFAULT_JWT_PASSWORD)]
+    pub jwt_password: String,
+    /// The salt used for JWT authentication.
+    #[arg(long, value_name = "SALT", env = "JWT_SALT", default_value = api::DEFAULT_JWT_SALT)]
+    pub jwt_salt: String,
+    /// The setting for when the (JWT) token expires.
+    #[arg(long, value_name = "DURATION", value_parser = parse_duration, default_value = api::DEFAULT_JWT_EXPIRATION)]
+    pub jwt_expiration: std::time::Duration,
+}
+
+#[cfg(feature = "api")]
+fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationError> {
+    arg.parse::<humantime::Duration>().map(Into::into)
 }
 
 impl ClArgs {
-    /// Get a config file with CLI args applied.
-    pub fn get_config(&self) -> Result<ChronicleConfig, ConfigError> {
-        let mut config = self
-            .config
-            .as_ref()
-            .map(ChronicleConfig::from_file)
-            .transpose()?
-            .unwrap_or_default();
-
-        if let Some(conn_str) = &self.mongodb.mongodb_conn_str {
-            config.mongodb.conn_str = conn_str.clone();
+    /// Creates a [`ChronicleConfig`] from the given command-line arguments, environment variables, and defaults.
+    pub fn get_config(&self) -> ChronicleConfig {
+        ChronicleConfig {
+            mongodb: (&self.mongodb).into(),
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
+            influxdb: (&self.influxdb).into(),
+            #[cfg(feature = "inx")]
+            inx: (&self.inx).into(),
+            #[cfg(feature = "api")]
+            api: (&self.api).into(),
         }
-
-        if let Some(db_name) = &self.mongodb.mongodb_database {
-            config.mongodb.database_name = db_name.clone();
-        }
-
-        #[cfg(all(feature = "stardust", feature = "inx"))]
-        {
-            if let Some(connect_url) = &self.inx.inx_url {
-                config.inx.connect_url = connect_url.clone();
-            }
-            if let Some(enabled) = self.inx.inx_enabled {
-                config.inx.enabled = enabled;
-            }
-            if let Some(sync_start) = self.inx.sync_start {
-                config.inx.sync_start_milestone = sync_start.into();
-            }
-        }
-
-        #[cfg(feature = "analytics")]
-        {
-            if let Some(enabled) = self.influxdb.analytics_enabled {
-                config.influxdb.analytics_enabled = enabled;
-            }
-        }
-
-        #[cfg(feature = "metrics")]
-        {
-            if let Some(enabled) = self.influxdb.metrics_enabled {
-                config.influxdb.metrics_enabled = enabled;
-            }
-        }
-
-        #[cfg(any(feature = "analytics", feature = "metrics"))]
-        {
-            if let Some(url) = &self.influxdb.influxdb_url {
-                config.influxdb.url = url.clone();
-            }
-        }
-
-        #[cfg(feature = "api")]
-        {
-            if let Some(password) = &self.api.jwt.password {
-                config.api.password_hash = hex::encode(
-                    argon2::hash_raw(
-                        password.as_bytes(),
-                        config.api.password_salt.as_bytes(),
-                        &Into::into(&config.api.argon_config),
-                    )
-                    // TODO: Replace this once we switch to a better error lib
-                    .expect("invalid JWT config"),
-                );
-            }
-            if let Some(path) = &self.api.jwt.identity_path {
-                config.api.identity_path.replace(path.clone());
-            }
-            if let Some(enabled) = self.api.api_enabled {
-                config.api.enabled = enabled;
-            }
-        }
-
-        #[cfg(feature = "loki")]
-        {
-            if let Some(connect_url) = &self.loki.loki_url {
-                config.loki.connect_url = connect_url.clone();
-            }
-            if let Some(enabled) = self.loki.loki_enabled {
-                config.loki.enabled = enabled;
-            }
-        }
-
-        Ok(config)
     }
 
     /// Process subcommands and return whether the app should early exit.
@@ -200,18 +223,18 @@ impl ClArgs {
             match subcommand {
                 #[cfg(feature = "api")]
                 Subcommands::GenerateJWT => {
-                    use crate::api::ApiData;
-                    let api_data = ApiData::try_from(config.api.clone()).expect("invalid API config");
+                    use crate::api::ApiConfigData;
+                    let api_data = ApiConfigData::try_from(config.api.clone()).expect("invalid API config");
                     let claims = auth_helper::jwt::Claims::new(
-                        ApiData::ISSUER,
+                        ApiConfigData::ISSUER,
                         uuid::Uuid::new_v4().to_string(),
-                        ApiData::AUDIENCE,
+                        ApiConfigData::AUDIENCE,
                     )
                     .unwrap() // Panic: Cannot fail.
                     .expires_after_duration(api_data.jwt_expiration)
                     .map_err(crate::api::AuthError::InvalidJwt)?;
                     let exp_ts = time::OffsetDateTime::from_unix_timestamp(claims.exp.unwrap() as _).unwrap();
-                    let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.secret_key.as_ref())
+                    let jwt = auth_helper::jwt::JsonWebToken::new(claims, api_data.jwt_secret_key.as_ref())
                         .map_err(crate::api::AuthError::InvalidJwt)?;
                     tracing::info!("Bearer {}", jwt);
                     tracing::info!(
@@ -221,7 +244,7 @@ impl ClArgs {
                     );
                     return Ok(PostCommand::Exit);
                 }
-                #[cfg(all(feature = "analytics", feature = "stardust"))]
+                #[cfg(all(feature = "analytics", feature = "inx"))]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
@@ -323,7 +346,7 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                 }
-                #[cfg(feature = "stardust")]
+
                 Subcommands::BuildIndexes => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -353,7 +376,7 @@ pub enum AnalyticsChoice {
     UnlockConditions,
 }
 
-#[cfg(all(feature = "analytics", feature = "stardust"))]
+#[cfg(feature = "analytics")]
 impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
     fn from(value: AnalyticsChoice) -> Self {
         use chronicle::db::collections::analytics::{
@@ -383,7 +406,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    #[cfg(all(feature = "analytics", feature = "stardust"))]
+    #[cfg(feature = "analytics")]
     FillAnalytics {
         /// The inclusive starting milestone index.
         #[arg(short, long)]
@@ -406,7 +429,6 @@ pub enum Subcommands {
         run: bool,
     },
     /// Manually build indexes.
-    #[cfg(feature = "stardust")]
     BuildIndexes,
 }
 

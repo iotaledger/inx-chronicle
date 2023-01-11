@@ -1,19 +1,20 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-//! Holds the `MongoDb` type and its config.
+//! Holds the `MongoDb` type.
 
 mod collection;
+pub mod config;
 
 use std::collections::{HashMap, HashSet};
 
+use config::MongoDbConfig;
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::{ClientOptions, ConnectionString, Credential, HostInfo},
+    options::ClientOptions,
     Client,
 };
-use serde::{Deserialize, Serialize};
 
 pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
 
@@ -27,25 +28,11 @@ pub struct MongoDb {
 }
 
 impl MongoDb {
-    const DEFAULT_NAME: &'static str = "chronicle";
-    const DEFAULT_CONNECT_STR: &'static str = "mongodb://localhost:27017";
-
     /// Constructs a [`MongoDb`] by connecting to a MongoDB instance.
     pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
         client_options.app_name = Some("Chronicle".to_string());
-        client_options.min_pool_size = config.min_pool_size;
-
-        if client_options.credential.is_none() {
-            if let (Some(username), Some(password)) = (&config.username, &config.password) {
-                let credential = Credential::builder()
-                    .username(username.clone())
-                    .password(password.clone())
-                    .build();
-                client_options.credential = Some(credential);
-            }
-        }
 
         let client = Client::with_options(client_options)?;
 
@@ -129,46 +116,5 @@ impl MongoDb {
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
         self.db.name()
-    }
-}
-
-/// The [`MongoDb`] config.
-#[must_use]
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct MongoDbConfig {
-    /// The bind address of the database.
-    pub conn_str: String,
-    /// The MongoDB username.
-    pub username: Option<String>,
-    /// The MongoDB password.
-    pub password: Option<String>,
-    /// The name of the database to connect to.
-    pub database_name: String,
-    /// The minimum amount of connections in the pool.
-    pub min_pool_size: Option<u32>,
-}
-
-impl MongoDbConfig {
-    /// Get the hosts portion of the connection string.
-    pub fn hosts_str(&self) -> Result<String, Error> {
-        let hosts = ConnectionString::parse(&self.conn_str)?.host_info;
-        Ok(match hosts {
-            HostInfo::HostIdentifiers(hosts) => hosts.iter().map(ToString::to_string).collect::<Vec<_>>().join(","),
-            HostInfo::DnsRecord(hostname) => hostname,
-            _ => unreachable!(),
-        })
-    }
-}
-
-impl Default for MongoDbConfig {
-    fn default() -> Self {
-        Self {
-            conn_str: MongoDb::DEFAULT_CONNECT_STR.to_string(),
-            username: None,
-            password: None,
-            database_name: MongoDb::DEFAULT_NAME.to_string(),
-            min_pool_size: None,
-        }
     }
 }

@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-mod config;
+pub mod config;
 mod error;
 
 use std::time::Duration;
@@ -21,10 +21,10 @@ use chronicle::{
         tangle::MilestoneIndex,
     },
 };
-use eyre::{bail, eyre, Result};
+use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
-use tracing::{debug, info, instrument, trace, trace_span, warn, Instrument};
+use tracing::{debug, info, instrument, trace, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
 
@@ -49,6 +49,8 @@ pub async fn gather_analytics(
 ) -> Result<(), InxWorkerError> {
     let mut tasks = JoinSet::new();
 
+    let len_before = analytics.len();
+
     for analytic in analytics.drain(..) {
         let mongodb = mongodb.clone();
         let influxdb = influxdb.clone();
@@ -69,6 +71,12 @@ pub async fn gather_analytics(
         analytics.push(res.unwrap()?);
     }
 
+    debug_assert_eq!(
+        len_before,
+        analytics.len(),
+        "The number of analytics should never change."
+    );
+
     Ok(())
 }
 
@@ -88,26 +96,13 @@ impl InxWorker {
     }
 
     async fn connect(&self) -> Result<Inx> {
-        let url = url::Url::parse(&self.config.connect_url)?;
+        let url = url::Url::parse(&self.config.url)?;
 
         if url.scheme() != "http" {
-            bail!(InxWorkerError::InvalidAddress(self.config.connect_url.clone()));
+            bail!(InxWorkerError::InvalidAddress(self.config.url.clone()));
         }
 
-        for i in 0..self.config.connection_retry_count {
-            match Inx::connect(self.config.connect_url.clone()).await {
-                Ok(inx_client) => return Ok(inx_client),
-                Err(_) => {
-                    warn!(
-                        "INX connection failed. Retrying in {}s. {} retries remaining.",
-                        self.config.connection_retry_interval.as_secs(),
-                        self.config.connection_retry_count - i
-                    );
-                    tokio::time::sleep(self.config.connection_retry_interval).await;
-                }
-            }
-        }
-        Err(eyre!(InxWorkerError::ConnectionError))
+        Ok(Inx::connect(self.config.url.clone()).await?)
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -117,13 +112,16 @@ impl InxWorker {
 
         debug!("Started listening to ledger updates via INX.");
 
+        #[cfg(feature = "analytics")]
+        let mut analytics = chronicle::db::collections::analytics::all_analytics();
+
         while let Some(ledger_update) = stream.try_next().await? {
             self.handle_ledger_update(
                 &mut inx,
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                &mut chronicle::db::collections::analytics::all_analytics(),
+                &mut analytics,
             )
             .await?;
         }
@@ -135,7 +133,7 @@ impl InxWorker {
 
     #[instrument(skip_all, err, level = "trace")]
     async fn init(&mut self) -> Result<(MilestoneIndex, Inx)> {
-        info!("Connecting to INX at bind address `{}`.", &self.config.connect_url);
+        info!("Connecting to INX at bind address `{}`.", &self.config.url);
         let mut inx = self.connect().await?;
         info!("Connected to INX.");
 

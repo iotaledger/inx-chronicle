@@ -3,10 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{
-    extract::{FromRef, Path, State},
-    routing::get,
-};
+use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         collections::{
@@ -22,17 +19,12 @@ use mongodb::bson;
 use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsResponse};
 use crate::api::{
     error::{MissingError, RequestError},
-    router::{Router, RouterState},
+    router::Router,
     stardust::indexer::extractors::IndexedOutputsCursor,
-    ApiData, ApiResult,
+    ApiResult,
 };
 
-pub fn routes<S>() -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-    MongoDb: FromRef<RouterState<S>>,
-    ApiData: FromRef<RouterState<S>>,
-{
+pub fn routes() -> Router {
     Router::new().nest(
         "/outputs",
         Router::new()
@@ -58,7 +50,10 @@ where
     )
 }
 
-async fn indexed_output_by_id<ID>(database: State<MongoDb>, Path(id): Path<String>) -> ApiResult<IndexerOutputsResponse>
+async fn indexed_output_by_id<ID>(
+    database: Extension<MongoDb>,
+    Path(id): Path<String>,
+) -> ApiResult<IndexerOutputsResponse>
 where
     ID: Into<IndexedId> + FromStr,
     RequestError: From<ID::Err>,
@@ -82,7 +77,7 @@ where
 }
 
 async fn indexed_outputs<Q>(
-    database: State<MongoDb>,
+    database: Extension<MongoDb>,
     IndexedOutputsPagination {
         query,
         page_size,

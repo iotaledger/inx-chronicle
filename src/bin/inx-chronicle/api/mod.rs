@@ -6,7 +6,6 @@
 
 mod extractors;
 
-#[cfg(feature = "stardust")]
 pub mod stardust;
 
 mod error;
@@ -14,13 +13,14 @@ mod secret_key;
 #[macro_use]
 mod responses;
 mod auth;
-mod config;
+pub mod config;
 mod router;
 mod routes;
 
+use axum::{Extension, Server};
 use chronicle::db::MongoDb;
 use futures::Future;
-use hyper::{Method, Server};
+use hyper::Method;
 use tower_http::{
     catch_panic::CatchPanicLayer,
     cors::{Any, CorsLayer},
@@ -30,7 +30,7 @@ use tracing::info;
 
 use self::routes::routes;
 pub use self::{
-    config::{ApiConfig, ApiData},
+    config::{ApiConfig, ApiConfigData},
     error::{ApiError, ApiResult, AuthError, ConfigError},
     secret_key::SecretKey,
 };
@@ -38,10 +38,10 @@ pub use self::{
 pub const DEFAULT_PAGE_SIZE: usize = 100;
 
 /// The Chronicle API actor
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ApiWorker {
     db: MongoDb,
-    api_data: ApiData,
+    api_data: ApiConfigData,
 }
 
 impl ApiWorker {
@@ -57,8 +57,9 @@ impl ApiWorker {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;
-        let routes = routes(self.api_data.clone())
-            .with_state(self.clone())
+        let routes = routes()
+            .layer(Extension(self.db.clone()))
+            .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())
             .layer(TraceLayer::new_for_http())
             .layer(

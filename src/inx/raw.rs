@@ -26,14 +26,14 @@ impl<T: Packable> RawMessage<T> {
     /// [`ProtocolParameters`](iota_types::block::protocol::ProtocolParameters) to verify the bytes.
     pub fn inner(self, visitor: &T::UnpackVisitor) -> Result<T, InxError> {
         let unpacked =
-            T::unpack_verified(self.data, visitor).map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
+            T::unpack_verified(self.data, visitor).map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?;
         Ok(unpacked)
     }
 
     /// Unpack the raw data into a type `T` without performing syntactic or semantic validation. This is useful if the
     /// type is guaranteed to be well-formed, for example when it was transmitted via the INX interface.
     pub fn inner_unverified(self) -> Result<T, InxError> {
-        let unpacked = T::unpack_unverified(self.data).map_err(|e| InxError::InvalidRawBytes(format!("{:?}", e)))?;
+        let unpacked = T::unpack_unverified(self.data).map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?;
         Ok(unpacked)
     }
 }

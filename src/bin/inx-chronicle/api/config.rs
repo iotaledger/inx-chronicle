@@ -10,6 +10,15 @@ use tower_http::cors::AllowOrigin;
 
 use super::{error::ConfigError, SecretKey};
 
+pub const DEFAULT_ENABLED: bool = true;
+pub const DEFAULT_PORT: u16 = 8042;
+pub const DEFAULT_ALLOW_ORIGINS: &str = "0.0.0.0";
+pub const DEFAULT_PUBLIC_ROUTES: &str = "api/core/v2/*";
+pub const DEFAULT_MAX_PAGE_SIZE: usize = 1000;
+pub const DEFAULT_JWT_PASSWORD: &str = "password";
+pub const DEFAULT_JWT_SALT: &str = "saltines";
+pub const DEFAULT_JWT_EXPIRATION: &str = "72h";
+
 /// API configuration
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -17,64 +26,67 @@ pub struct ApiConfig {
     pub enabled: bool,
     pub port: u16,
     pub allow_origins: SingleOrMultiple<String>,
-    pub password_hash: String,
-    pub password_salt: String,
+    pub public_routes: Vec<String>,
+    pub max_page_size: usize,
+    pub jwt_password: String,
+    pub jwt_salt: String,
+    pub jwt_identity_file: Option<String>,
     #[serde(with = "humantime_serde")]
     pub jwt_expiration: Duration,
-    pub public_routes: Vec<String>,
-    pub identity_path: Option<String>,
-    pub max_page_size: usize,
-    pub argon_config: ArgonConfig,
 }
 
 impl Default for ApiConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
-            port: 8042,
-            allow_origins: "*".to_string().into(),
-            password_hash: "c42cf2be3a442a29d8cd827a27099b0c".to_string(),
-            password_salt: "saltines".to_string(),
-            // 72 hours
-            jwt_expiration: Duration::from_secs(72 * 60 * 60),
-            public_routes: Default::default(),
-            identity_path: None,
-            max_page_size: 1000,
-            argon_config: Default::default(),
+            enabled: DEFAULT_ENABLED,
+            port: DEFAULT_PORT,
+            allow_origins: SingleOrMultiple::Single(DEFAULT_ALLOW_ORIGINS.to_string()),
+            public_routes: vec![DEFAULT_PUBLIC_ROUTES.to_string()],
+            max_page_size: DEFAULT_MAX_PAGE_SIZE,
+            jwt_identity_file: None,
+            jwt_password: DEFAULT_JWT_PASSWORD.to_string(),
+            jwt_salt: DEFAULT_JWT_SALT.to_string(),
+            jwt_expiration: DEFAULT_JWT_EXPIRATION.parse::<humantime::Duration>().unwrap().into(),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ApiData {
+pub struct ApiConfigData {
     pub port: u16,
     pub allow_origins: AllowOrigin,
-    pub password_hash: Vec<u8>,
-    pub password_salt: String,
-    pub jwt_expiration: Duration,
     pub public_routes: RegexSet,
-    pub secret_key: SecretKey,
     pub max_page_size: usize,
-    pub argon_config: ArgonConfig,
+    pub jwt_password_hash: Vec<u8>,
+    pub jwt_password_salt: String,
+    pub jwt_secret_key: SecretKey,
+    pub jwt_expiration: Duration,
+    pub jwt_argon_config: JwtArgonConfig,
 }
 
-impl ApiData {
+impl ApiConfigData {
     pub const ISSUER: &'static str = "chronicle";
     pub const AUDIENCE: &'static str = "api";
 }
 
-impl TryFrom<ApiConfig> for ApiData {
+impl TryFrom<ApiConfig> for ApiConfigData {
     type Error = ConfigError;
 
     fn try_from(config: ApiConfig) -> Result<Self, Self::Error> {
         Ok(Self {
             port: config.port,
             allow_origins: AllowOrigin::try_from(config.allow_origins)?,
-            password_hash: hex::decode(config.password_hash)?,
-            password_salt: config.password_salt,
-            jwt_expiration: config.jwt_expiration,
             public_routes: RegexSet::new(config.public_routes.iter().map(route_to_regex).collect::<Vec<_>>())?,
-            secret_key: match &config.identity_path {
+            max_page_size: config.max_page_size,
+            jwt_password_hash: argon2::hash_raw(
+                config.jwt_password.as_bytes(),
+                config.jwt_salt.as_bytes(),
+                &Into::into(&JwtArgonConfig::default()),
+            )
+            // TODO: Replace this once we switch to a better error lib
+            .expect("invalid JWT config"),
+            jwt_password_salt: config.jwt_salt,
+            jwt_secret_key: match &config.jwt_identity_file {
                 Some(path) => SecretKey::from_file(path)?,
                 None => {
                     if let Ok(path) = std::env::var("IDENTITY_PATH") {
@@ -84,8 +96,8 @@ impl TryFrom<ApiConfig> for ApiData {
                     }
                 }
             },
-            max_page_size: config.max_page_size,
-            argon_config: config.argon_config,
+            jwt_expiration: config.jwt_expiration,
+            jwt_argon_config: JwtArgonConfig::default(),
         })
     }
 }
@@ -130,9 +142,27 @@ impl TryFrom<SingleOrMultiple<String>> for AllowOrigin {
     }
 }
 
+impl<T: Default> Default for SingleOrMultiple<T> {
+    fn default() -> Self {
+        Self::Single(Default::default())
+    }
+}
+
+impl<T: Clone> From<&Vec<T>> for SingleOrMultiple<T> {
+    fn from(value: &Vec<T>) -> Self {
+        if value.is_empty() {
+            unreachable!("Vec must have single or multiple elements")
+        } else if value.len() == 1 {
+            Self::Single(value[0].clone())
+        } else {
+            Self::Multiple(value.to_vec())
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
-pub struct ArgonConfig {
+pub struct JwtArgonConfig {
     /// The length of the resulting hash.
     hash_length: u32,
     /// The number of lanes in parallel.
@@ -149,7 +179,7 @@ pub struct ArgonConfig {
     version: argon2::Version,
 }
 
-impl Default for ArgonConfig {
+impl Default for JwtArgonConfig {
     fn default() -> Self {
         Self {
             hash_length: 32,
@@ -162,8 +192,8 @@ impl Default for ArgonConfig {
     }
 }
 
-impl<'a> From<&'a ArgonConfig> for argon2::Config<'a> {
-    fn from(val: &'a ArgonConfig) -> Self {
+impl<'a> From<&'a JwtArgonConfig> for argon2::Config<'a> {
+    fn from(val: &'a JwtArgonConfig) -> Self {
         Self {
             ad: &[],
             hash_length: val.hash_length,

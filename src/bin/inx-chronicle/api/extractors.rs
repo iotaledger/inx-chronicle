@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use axum::extract::{FromRef, FromRequestParts, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use serde::Deserialize;
 
 use super::{
-    config::ApiData,
+    config::ApiConfigData,
     error::{ApiError, RequestError},
     DEFAULT_PAGE_SIZE,
 };
@@ -28,17 +31,14 @@ impl Default for Pagination {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for Pagination
-where
-    ApiData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for Pagination {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(mut pagination) = Query::<Pagination>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(mut pagination) = Query::<Pagination>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
@@ -51,11 +51,11 @@ pub struct ListRoutesQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for ListRoutesQuery {
+impl<B: Send> FromRequest<B> for ListRoutesQuery {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<ListRoutesQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<ListRoutesQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
         Ok(query)
@@ -69,7 +69,6 @@ pub struct TimeRangeQuery {
     end_timestamp: Option<u32>,
 }
 
-#[cfg(feature = "stardust")]
 mod stardust {
     use chronicle::types::stardust::milestone::MilestoneTimestamp;
 
@@ -83,14 +82,14 @@ mod stardust {
     }
 
     #[async_trait]
-    impl<S: Send + Sync> FromRequestParts<S> for TimeRange {
+    impl<B: Send> FromRequest<B> for TimeRange {
         type Rejection = ApiError;
 
-        async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+        async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
             let Query(TimeRangeQuery {
                 start_timestamp,
                 end_timestamp,
-            }) = Query::<TimeRangeQuery>::from_request_parts(req, state)
+            }) = Query::<TimeRangeQuery>::from_request(req)
                 .await
                 .map_err(RequestError::from)?;
             if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
@@ -105,26 +104,30 @@ mod stardust {
     }
 }
 
-#[cfg(feature = "stardust")]
 pub use stardust::*;
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::FromRequest, http::Request};
+    use axum::{
+        extract::{FromRequest, RequestParts},
+        http::Request,
+    };
 
     use super::*;
     use crate::api::ApiConfig;
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiData::try_from(ApiConfig::default()).unwrap();
-        let req = Request::builder()
-            .method("GET")
-            .uri("/?pageSize=9999999")
-            .body(())
-            .unwrap();
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/?pageSize=9999999")
+                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
+                .body(())
+                .unwrap(),
+        );
         assert_eq!(
-            Pagination::from_request(req, &config).await.unwrap(),
+            Pagination::from_request(&mut req).await.unwrap(),
             Pagination {
                 page_size: 1000,
                 ..Default::default()

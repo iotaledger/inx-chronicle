@@ -4,7 +4,10 @@
 use std::{fmt::Display, str::FromStr};
 
 use async_trait::async_trait;
-use axum::extract::{FromRef, FromRequestParts, Query};
+use axum::{
+    extract::{FromRequest, Query},
+    Extension,
+};
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
     types::{
@@ -16,7 +19,7 @@ use mongodb::bson;
 use primitive_types::U256;
 use serde::Deserialize;
 
-use crate::api::{config::ApiData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
+use crate::api::{config::ApiConfigData, error::RequestError, ApiError, DEFAULT_PAGE_SIZE};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedOutputsPagination<Q>
@@ -92,17 +95,14 @@ pub struct BasicOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<BasicOutputsQuery>
-where
-    ApiData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<BasicOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -188,17 +188,14 @@ pub struct AliasOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<AliasOutputsQuery>
-where
-    ApiData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<AliasOutputsQuery> {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<AliasOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -273,17 +270,14 @@ pub struct FoundryOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<FoundryOutputsQuery>
-where
-    ApiData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<FoundryOutputsQuery> {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<FoundryOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -355,17 +349,14 @@ pub struct NftOutputsPaginationQuery {
 }
 
 #[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for IndexedOutputsPagination<NftOutputsQuery>
-where
-    ApiData: FromRef<S>,
-{
+impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
     type Rejection = ApiError;
 
-    async fn from_request_parts(req: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<NftOutputsPaginationQuery>::from_request_parts(req, state)
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<NftOutputsPaginationQuery>::from_request(req)
             .await
             .map_err(RequestError::from)?;
-        let config = ApiData::from_ref(state);
+        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
 
         let (cursor, page_size) = if let Some(cursor) = query.cursor {
             let cursor: IndexedOutputsCursor = cursor.parse()?;
@@ -439,7 +430,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use axum::{extract::FromRequest, http::Request};
+    use axum::{extract::RequestParts, http::Request};
 
     use super::*;
     use crate::api::ApiConfig;
@@ -457,14 +448,16 @@ mod test {
 
     #[tokio::test]
     async fn page_size_clamped() {
-        let config = ApiData::try_from(ApiConfig::default()).unwrap();
-        let req = Request::builder()
-            .method("GET")
-            .uri("/outputs/basic?pageSize=9999999")
-            .body(())
-            .unwrap();
+        let mut req = RequestParts::new(
+            Request::builder()
+                .method("GET")
+                .uri("/outputs/basic?pageSize=9999999")
+                .extension(ApiConfigData::try_from(ApiConfig::default()).unwrap())
+                .body(())
+                .unwrap(),
+        );
         assert_eq!(
-            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(req, &config)
+            IndexedOutputsPagination::<BasicOutputsQuery>::from_request(&mut req)
                 .await
                 .unwrap(),
             IndexedOutputsPagination {
