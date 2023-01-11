@@ -2684,7 +2684,7 @@
       },
       "targets": [
         {
-          "alias": "Storage Deposit",
+          "alias": "Byte Cost",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -2712,7 +2712,7 @@
             [
               {
                 "params": [
-                  "total_storage_deposit_value"
+                  "total_byte_cost"
                 ],
                 "type": "field"
               },
@@ -2731,7 +2731,7 @@
           "tags": []
         }
       ],
-      "title": "Storage Deposit",
+      "title": "Ledger Byte Cost",
       "type": "timeseries"
     }
   ],

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use decimal::d128;
 use futures::TryStreamExt;
+use iota_types::block::output::{Rent, RentStructureBuilder};
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
@@ -25,10 +25,10 @@ pub struct LedgerSizeAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LedgerSizeAnalyticsResult {
-    pub total_storage_deposit_value: d128,
-    pub total_key_bytes: d128,
-    pub total_data_bytes: d128,
-    pub total_byte_cost: d128,
+    pub total_storage_deposit_value: u64,
+    pub total_key_bytes: u64,
+    pub total_data_bytes: u64,
+    pub total_byte_cost: u64,
 }
 
 #[async_trait]
@@ -61,10 +61,22 @@ impl OutputCollection {
     ) -> Result<LedgerSizeAnalyticsResult, Error> {
         #[derive(Default, Deserialize)]
         struct Result {
-            total_storage_deposit_value: d128,
-            total_key_bytes: d128,
-            total_data_bytes: d128,
+            total_storage_deposit_value: String,
+            total_key_bytes: String,
+            total_data_bytes: String,
             rent_structure: Option<RentStructure>,
+        }
+
+        impl Rent for Result {
+            fn weighted_bytes(&self, config: &iota_types::block::output::RentStructure) -> u64 {
+                let (total_key_bytes, total_data_bytes) = (
+                    self.total_key_bytes.parse::<u64>().unwrap(),
+                    self.total_data_bytes.parse::<u64>().unwrap(),
+                );
+
+                (total_key_bytes * config.byte_factor_key() as u64)
+                    + (total_data_bytes * config.byte_factor_data() as u64)
+            }
         }
 
         let res = self
@@ -104,15 +116,19 @@ impl OutputCollection {
             .unwrap_or_default();
 
         Ok(LedgerSizeAnalyticsResult {
-            total_storage_deposit_value: res.total_storage_deposit_value,
-            total_key_bytes: res.total_key_bytes,
-            total_data_bytes: res.total_data_bytes,
+            total_storage_deposit_value: res.total_storage_deposit_value.parse().unwrap(),
+            total_key_bytes: res.total_key_bytes.parse().unwrap(),
+            total_data_bytes: res.total_data_bytes.parse().unwrap(),
             total_byte_cost: res
                 .rent_structure
                 .map(|rs| {
-                    d128::from(rs.v_byte_cost)
-                        * ((res.total_key_bytes * d128::from(rs.v_byte_factor_key as u32))
-                            + (res.total_data_bytes * d128::from(rs.v_byte_factor_data as u32)))
+                    res.rent_cost(
+                        &RentStructureBuilder::new()
+                            .byte_cost(rs.v_byte_cost)
+                            .byte_factor_data(rs.v_byte_factor_data)
+                            .byte_factor_key(rs.v_byte_factor_key)
+                            .finish(),
+                    )
                 })
                 .unwrap_or_default(),
         })
