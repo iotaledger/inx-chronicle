@@ -72,7 +72,7 @@ async fn create_proof_for_referenced_blocks(
 
     // Fetch the referenced block ids in "White Flag" order, and make sure they contain the block.
     let referenced_block_ids = block_collection
-        .get_referenced_block_ids_in_white_flag_order(referenced_index)
+        .get_referenced_blocks_in_white_flag_order(referenced_index)
         .await?;
     if referenced_block_ids.is_empty() {
         return Err(CorruptStateError::PoI(poi::CorruptStateError::NoMilestoneCone).into());
