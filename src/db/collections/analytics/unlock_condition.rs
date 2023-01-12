@@ -91,11 +91,6 @@ impl OutputCollection {
             )
         };
 
-        let (timelock, expiration) = tokio::try_join!(
-            query("timelock_unlock_condition"),
-            query("expiration_unlock_condition"),
-        )?;
-
         #[derive(Default, Deserialize)]
         struct ResSdruc {
             count: u64,
@@ -103,8 +98,9 @@ impl OutputCollection {
             inner: d128,
         }
 
-        let sdruc = 
-            self.aggregate::<ResSdruc>(
+        let sdruc_query = async move {
+            Result::<ResSdruc, Error>::Ok(
+            self.aggregate(
                 vec![
                     doc! { "$match": {
                         format!("output.storage_deposit_return_unlock_condition"): { "$exists": true },
@@ -128,7 +124,14 @@ impl OutputCollection {
             .await?
             .try_next()
             .await?
-            .unwrap_or_default();
+            .unwrap_or_default())
+        };
+
+        let (timelock, expiration, sdruc) = tokio::try_join!(
+            query("timelock_unlock_condition"),
+            query("expiration_unlock_condition"),
+            sdruc_query,
+        )?;
 
         Ok(UnlockConditionAnalyticsResult {
             timelock_count: timelock.count,
