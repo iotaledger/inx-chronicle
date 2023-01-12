@@ -335,15 +335,15 @@ impl OutputCollection {
                         "outputs": 1,
                         "state_changed": { "$cond": [ 
                             { "$and": [
-                            { "$gt": [ {"$size": "$inputs" }, 0 ] },
-                            { "$gt": [ {"$size": "$outputs" }, 0] },
-                            { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }
+                                { "$gt": [ {"$size": "$inputs" }, 0 ] },
+                                { "$gt": [ {"$size": "$outputs" }, 0] },
+                                { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }
                             ] }, 1, 0 ] },
                         "governor_address_changed": { "$cond": [ 
                             { "$and": [
-                            { "$gt": [ {"$size": "$inputs" }, 0 ] },
-                            { "$gt": [ {"$size": "$outputs" }, 0] },
-                            { "$ne": [ { "$first": "$inputs.governor_address" }, { "$first": "$outputs.governor_address" } ] },
+                                { "$gt": [ {"$size": "$inputs" }, 0 ] },
+                                { "$gt": [ {"$size": "$outputs" }, 0] },
+                                { "$ne": [ { "$first": "$inputs.governor_address" }, { "$first": "$outputs.governor_address" } ] },
                             ] }, 1, 0 ] },
                     } },
                     // Produce the relevant analytics.
