@@ -58,10 +58,9 @@ impl From<Measurement> for influxdb::WriteQuery {
                 ),
             Measurement::LedgerSizeAnalytics(m) => m
                 .prepare_query("stardust_ledger_size")
-                .add_field("total_storage_deposit_value", m.inner.total_storage_deposit_value)
                 .add_field("total_key_bytes", m.inner.total_key_bytes)
                 .add_field("total_data_bytes", m.inner.total_data_bytes)
-                .add_field("total_byte_cost", m.inner.total_byte_cost),
+                .add_field("total_storage_deposit_value", m.inner.total_storage_deposit_value),
             Measurement::OutputActivityAnalytics(m) => m
                 .prepare_query("stardust_output_activity")
                 .add_field("alias_created_count", m.inner.alias.created_count)

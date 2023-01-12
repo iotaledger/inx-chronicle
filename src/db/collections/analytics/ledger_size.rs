@@ -25,10 +25,9 @@ pub struct LedgerSizeAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LedgerSizeAnalyticsResult {
-    pub total_storage_deposit_value: u64,
     pub total_key_bytes: u64,
     pub total_data_bytes: u64,
-    pub total_byte_cost: u64,
+    pub total_storage_deposit_value: u64,
 }
 
 #[async_trait]
@@ -61,7 +60,6 @@ impl OutputCollection {
     ) -> Result<LedgerSizeAnalyticsResult, Error> {
         #[derive(Deserialize)]
         struct Res {
-            total_storage_deposit_value: String,
             total_key_bytes: String,
             total_data_bytes: String,
             rent_structure: RentStructure,
@@ -78,7 +76,6 @@ impl OutputCollection {
                         "_id": null,
                         "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
                         "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
-                        "total_storage_deposit_value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
                     } },
                     doc! { "$lookup": {
                         "from": ProtocolUpdateCollection::NAME,
@@ -91,7 +88,6 @@ impl OutputCollection {
                         "as": "rent_structure",
                     } },
                     doc! { "$project": {
-                        "total_storage_deposit_value": { "$toString": "$total_storage_deposit_value" },
                         "total_key_bytes": { "$toString": "$total_key_bytes" },
                         "total_data_bytes": { "$toString": "$total_data_bytes" },
                         "rent_structure": { "$first": "$rent_structure" },
@@ -111,10 +107,9 @@ impl OutputCollection {
                 };
 
                 LedgerSizeAnalyticsResult {
-                    total_storage_deposit_value: res.total_storage_deposit_value.parse().unwrap(),
                     total_key_bytes: rent_structure_bytes.num_key_bytes,
                     total_data_bytes: rent_structure_bytes.num_data_bytes,
-                    total_byte_cost: rent_structure_bytes.rent_cost(&res.rent_structure.into()),
+                    total_storage_deposit_value: rent_structure_bytes.rent_cost(&res.rent_structure.into()),
                 }
             })
             .unwrap_or_default())
