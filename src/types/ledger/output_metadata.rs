@@ -61,9 +61,8 @@ pub struct RentStructureBytes {
     pub num_data_bytes: u64,
 }
 
-#[cfg(feature = "inx")]
 impl RentStructureBytes {
-    pub(crate) fn compute(output: &iota_types::block::output::Output) -> Self {
+    pub fn compute(output: &iota_types::block::output::Output) -> Self {
         use iota_types::block::output::{Rent, RentStructureBuilder};
 
         let rent_cost = |byte_cost, data_factor, key_factor| {
@@ -82,7 +81,7 @@ impl RentStructureBytes {
         }
     }
 
-    pub(crate) fn rent_cost(&self, config: &iota_types::block::output::RentStructure) -> u64 {
+    pub fn rent_cost(&self, config: &iota_types::block::output::RentStructure) -> u64 {
         (self.num_data_bytes * config.byte_factor_data() as u64 + self.num_key_bytes * config.byte_factor_key() as u64)
             * config.byte_cost() as u64
     }

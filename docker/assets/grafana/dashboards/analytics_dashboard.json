@@ -2583,7 +2583,7 @@
             [
               {
                 "params": [
-                  "total_byte_cost"
+                  "total_storage_deposit_value"
                 ],
                 "type": "field"
               },
@@ -2593,7 +2593,7 @@
               },
               {
                 "params": [
-                  "Byte Cost"
+                  "Storage Deposit Value"
                 ],
                 "type": "alias"
               }
@@ -2712,7 +2712,7 @@
             [
               {
                 "params": [
-                  "total_byte_cost"
+                  "total_storage_deposit_value"
                 ],
                 "type": "field"
               },
@@ -2731,7 +2731,7 @@
           "tags": []
         }
       ],
-      "title": "Ledger Byte Cost",
+      "title": "Ledger Storage Deposit Value",
       "type": "timeseries"
     }
   ],
