@@ -2519,7 +2519,7 @@
       },
       "targets": [
         {
-          "alias": "$col",
+          "alias": "$col Bytes",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -2557,7 +2557,7 @@
               },
               {
                 "params": [
-                  "Key Bytes"
+                  "Key"
                 ],
                 "type": "alias"
               }
@@ -2575,25 +2575,7 @@
               },
               {
                 "params": [
-                  "Data Bytes"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "total_storage_deposit_value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "last"
-              },
-              {
-                "params": [
-                  "Storage Deposit Value"
+                  "Data"
                 ],
                 "type": "alias"
               }
@@ -2684,7 +2666,7 @@
       },
       "targets": [
         {
-          "alias": "Byte Cost",
+          "alias": "Storage Deposit",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -2731,7 +2713,7 @@
           "tags": []
         }
       ],
-      "title": "Ledger Storage Deposit Value",
+      "title": "Storage Deposit",
       "type": "timeseries"
     }
   ],
