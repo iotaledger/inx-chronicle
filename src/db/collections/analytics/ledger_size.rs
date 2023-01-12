@@ -85,6 +85,7 @@ impl OutputCollection {
                         "from": ProtocolUpdateCollection::NAME,
                         "pipeline": [
                             { "$match": { "_id": { "$lte": ledger_index } } },
+                            { "$sort": { "_id": -1 } },
                             { "$limit": 1 },
                             { "$replaceWith": "$parameters.rent_structure" }
                         ],
