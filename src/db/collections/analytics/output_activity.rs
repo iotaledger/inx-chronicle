@@ -255,8 +255,9 @@ impl OutputCollection {
                                     ]
                                 },
                                 "output_id": "$_id",
-                                "asset_id": "alias",
+                                "asset_id": "$output.alias_id",
                                 "state_index": "$output.state_index",
+                                "governor_address": "$output.governor_address_unlock_condition.address",
                             } }
                         ],
                         "spent_screening": [
@@ -269,8 +270,9 @@ impl OutputCollection {
                                     ]
                                 },
                                 "output_id": "$_id",
-                                "asset_id": "alias",
+                                "asset_id": "$output.alias_id",
                                 "state_index": "$output.state_index",
+                                "governor_address": "$output.governor_address_unlock_condition.address",
                                 }
                             }
                         ]
@@ -293,6 +295,7 @@ impl OutputCollection {
                                     "id": "$alias_outputs.output_id",
                                     "asset_id": "$alias_outputs.asset_id",
                                     "state_index": "$alias_outputs.state_index",
+                                    "governor_address": "$alias_outputs.governor_address",
                                 },
                                 null
                             ]
@@ -304,6 +307,7 @@ impl OutputCollection {
                                     "id": "$alias_outputs.output_id",
                                     "asset_id": "$alias_outputs.asset_id",
                                     "state_index": "$alias_outputs.state_index",
+                                    "governor_address": "$alias_outputs.governor_address",
                                 },
                                 null
                             ]
@@ -324,12 +328,23 @@ impl OutputCollection {
                             "cond": { "$ne": [ "$$item", null ] }
                         } }
                     } },
-                    // Add a flag that indicates whether the state index changed.
+                    // Add fields that indicate whether state index and/or govnernor address changed.
                     doc! { "$project": {
                         "_id": 1,
                         "inputs": 1,
                         "outputs": 1,
-                        "state_changed": { "$cond": [ { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }, 1, 0 ] },
+                        "state_changed": { "$cond": [ 
+                            { "$and": [
+                            { "$gt": [ {"$size": "$inputs" }, 0 ] },
+                            { "$gt": [ {"$size": "$outputs" }, 0] },
+                            { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }
+                            ] }, 1, 0 ] },
+                        "governor_address_changed": { "$cond": [ 
+                            { "$and": [
+                            { "$gt": [ {"$size": "$inputs" }, 0 ] },
+                            { "$gt": [ {"$size": "$outputs" }, 0] },
+                            { "$ne": [ { "$first": "$inputs.governor_address" }, { "$first": "$outputs.governor_address" } ] },
+                            ] }, 1, 0 ] },
                     } },
                     // Produce the relevant analytics.
                     doc! {
@@ -344,11 +359,11 @@ impl OutputCollection {
                                     }
                                 } }
                             },
-                            "governor_changed_count": {
-                                "$sum": { "$subtract": [ 1, "$state_changed" ] },
-                            },
                             "state_changed_count": {
                                 "$sum": "$state_changed",
+                            },
+                            "governor_changed_count": {
+                                "$sum": "$governor_address_changed",
                             },
                             "destroyed_count": {
                                 "$sum": {  "$size": { "$setDifference": [

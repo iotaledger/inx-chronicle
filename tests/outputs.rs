@@ -171,21 +171,17 @@ mod test_rand {
     }
 
     #[tokio::test]
-    async fn test_alias_outputs() {
+    async fn test_alias_outputs_1() {
         let db = setup_database("test-alias-outputs").await.unwrap();
         let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
         let protocol_params = iota_types::block::protocol::protocol_parameters();
 
-        let state_change = |output: &mut AliasOutput| {
-            output.state_index += 1;
-            output.clone()
-        };
-        let governor_change = |output: &mut AliasOutput| {
-            output.governor_address_unlock_condition.address = Address::rand_ed25519();
-            output.clone()
-        };
-        let ledger_output = |output| LedgerOutput {
+        // The id of the spending transaction.
+        let transaction_id = TransactionId::rand();
+
+        // Creates a transaction input from an Alias output.
+        let tx_input = |output| LedgerOutput {
             output_id: OutputId::rand(),
             rent_structure: RentStructureBytes {
                 num_key_bytes: 0,
@@ -198,10 +194,30 @@ mod test_rand {
                 milestone_timestamp: 12345.into(),
             },
         };
-        let ledger_spent = |output| LedgerSpent {
+
+        // Creates a transaction output from an Alias output.
+        let tx_output = |(index, output)| LedgerOutput {
+            output_id: OutputId {
+                transaction_id,
+                index: index as u16,
+            },
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::Alias(output),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: 2.into(),
+                milestone_timestamp: 12345.into(),
+            },
+        };
+
+        // Spends an Alias output in the given transaction.
+        let spend_output = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
-                transaction_id: TransactionId::rand(),
+                transaction_id,
                 spent: MilestoneIndexTimestamp {
                     milestone_index: 2.into(),
                     milestone_timestamp: 12345.into(),
@@ -209,30 +225,44 @@ mod test_rand {
             },
         };
 
-        // c -> t -> s -> s
-        let mut output = AliasOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.alias_id = AliasId::implicit();
-        let created_outputs = vec![
-            created_output,
-            governor_change(&mut output),
-            state_change(&mut output),
-            state_change(&mut output),
+        let mut created_alias = AliasOutput::rand(&protocol_params);
+        created_alias.alias_id = AliasId::implicit();
+        let unchanged_alias = AliasOutput::rand(&protocol_params);
+        let state_changing_alias = AliasOutput::rand(&protocol_params);
+        let mut state_changed_alias = state_changing_alias.clone();
+        state_changed_alias.state_index += 1;
+        let governor_changing_alias = AliasOutput::rand(&protocol_params);
+        let mut governor_changed_alias = governor_changing_alias.clone();
+        governor_changed_alias.governor_address_unlock_condition.address = Address::rand_ed25519();
+        let destroyed_alias = AliasOutput::rand(&protocol_params);
+
+        // Create and insert transaction outputs.
+        let tx_outputs = vec![
+            created_alias,
+            unchanged_alias.clone(),
+            state_changed_alias,
+            governor_changed_alias,
         ]
         .into_iter()
-        .map(ledger_output)
+        .enumerate()
+        .map(tx_output)
         .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
+        output_collection.insert_unspent_outputs(&tx_outputs).await.unwrap();
 
-        let consumed_outputs = created_outputs
-            .into_iter()
-            .take(3)
-            .map(ledger_spent)
-            .collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
+        // Create and insert transaction inputs.
+        let tx_inputs = vec![
+            unchanged_alias,
+            state_changing_alias,
+            governor_changing_alias,
+            destroyed_alias,
+        ]
+        .into_iter()
+        .map(tx_input)
+        .collect::<Vec<_>>();
+        output_collection.insert_unspent_outputs(&tx_inputs).await.unwrap();
+
+        let spent_tx_inputs = tx_inputs.into_iter().map(spend_output).collect::<Vec<_>>();
+        output_collection.update_spent_outputs(&spent_tx_inputs).await.unwrap();
 
         let analytics = output_collection
             .get_alias_output_activity_analytics(2.into())
@@ -241,161 +271,12 @@ mod test_rand {
 
         assert_eq!(analytics.created_count, 1);
         assert_eq!(analytics.governor_changed_count, 1);
-        assert_eq!(analytics.state_changed_count, 2);
-        assert_eq!(analytics.destroyed_count, 0);
-
-        // t -> s -> s
-        let mut output = AliasOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.alias_id = AliasId::implicit();
-        let created_outputs = std::iter::once(created_output)
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
-                },
-                output: Output::Alias(output),
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 1234.into(),
-                },
-            })
-            .chain(
-                vec![
-                    governor_change(&mut output),
-                    state_change(&mut output),
-                    state_change(&mut output),
-                ]
-                .into_iter()
-                .map(ledger_output),
-            )
-            .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
-
-        let consumed_outputs = created_outputs
-            .into_iter()
-            .take(3)
-            .map(ledger_spent)
-            .collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection
-            .get_alias_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.governor_changed_count, 2);
-        assert_eq!(analytics.state_changed_count, 4);
-        assert_eq!(analytics.destroyed_count, 0);
-
-        // s -> t -> d
-        let mut output = AliasOutput::rand(&protocol_params);
-        output.state_index += 1;
-        let created_outputs = std::iter::once(output.clone())
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
-                },
-                output: Output::Alias(output),
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 1234.into(),
-                },
-            })
-            .chain(
-                vec![state_change(&mut output), governor_change(&mut output)]
-                    .into_iter()
-                    .map(ledger_output),
-            )
-            .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
-
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection
-            .get_alias_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.governor_changed_count, 3);
-        assert_eq!(analytics.state_changed_count, 5);
+        assert_eq!(analytics.state_changed_count, 1);
         assert_eq!(analytics.destroyed_count, 1);
-
-        // c -> s -> s -> d
-        let mut output = AliasOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.alias_id = AliasId::implicit();
-        let created_outputs = vec![created_output, state_change(&mut output), state_change(&mut output)]
-            .into_iter()
-            .map(ledger_output)
-            .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
-
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection
-            .get_alias_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 2);
-        assert_eq!(analytics.governor_changed_count, 3);
-        assert_eq!(analytics.state_changed_count, 7);
-        assert_eq!(analytics.destroyed_count, 2);
-
-        // c -> t -> t -> d
-        let mut output = AliasOutput::rand(&protocol_params);
-        let mut created_output = output.clone();
-        created_output.alias_id = AliasId::implicit();
-        let created_outputs = vec![
-            created_output,
-            governor_change(&mut output),
-            governor_change(&mut output),
-        ]
-        .into_iter()
-        .map(ledger_output)
-        .collect::<Vec<_>>();
-        output_collection
-            .insert_unspent_outputs(&created_outputs)
-            .await
-            .unwrap();
-
-        let consumed_outputs = created_outputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection.update_spent_outputs(&consumed_outputs).await.unwrap();
-
-        let analytics = output_collection
-            .get_alias_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 3);
-        assert_eq!(analytics.governor_changed_count, 5);
-        assert_eq!(analytics.state_changed_count, 7);
-        assert_eq!(analytics.destroyed_count, 3);
 
         teardown(db).await;
     }
 
-    // Creates the following NFT scenario:
-    // c -> t -> t -> d -> d
     #[tokio::test]
     async fn test_nft_outputs_1() {
         let db = setup_database("test-nft-outputs-1").await.unwrap();
@@ -403,10 +284,10 @@ mod test_rand {
 
         let protocol_params = iota_types::block::protocol::protocol_parameters();
 
-        // Create the inputs and outputs of a transaction in the form of ledger updates.
+        // The id of the spending transaction.
         let transaction_id = TransactionId::rand();
 
-        // Makes transaction inputs
+        // Creates a transaction input from an NFT output.
         let tx_input = |output| LedgerOutput {
             output_id: OutputId::rand(),
             rent_structure: RentStructureBytes {
@@ -421,7 +302,7 @@ mod test_rand {
             },
         };
 
-        // Makes transaction outputs
+        // Creates a transaction output from an NFT output.
         let tx_output = |(index, output)| LedgerOutput {
             output_id: OutputId {
                 transaction_id,
@@ -439,8 +320,8 @@ mod test_rand {
             },
         };
 
-        // Makes spent metadata.
-        let ledger_spent = |output| LedgerSpent {
+        // Spends an NFT output in the given transaction.
+        let spend_output = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
                 transaction_id,
@@ -473,11 +354,8 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.insert_unspent_outputs(&tx_inputs).await.unwrap();
 
-        let consumed_tx_inputs = tx_inputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection
-            .update_spent_outputs(&consumed_tx_inputs)
-            .await
-            .unwrap();
+        let spent_tx_inputs = tx_inputs.into_iter().map(spend_output).collect::<Vec<_>>();
+        output_collection.update_spent_outputs(&spent_tx_inputs).await.unwrap();
 
         let analytics = output_collection
             .get_nft_output_activity_analytics(2.into())
@@ -491,8 +369,6 @@ mod test_rand {
         teardown(db).await;
     }
 
-    // Creates the following NFT scenario (only consider certain milestone):
-    // t -> t -> t
     #[tokio::test]
     async fn test_nft_outputs_2() {
         let db = setup_database("test-nft-outputs-2").await.unwrap();
@@ -537,7 +413,7 @@ mod test_rand {
         };
 
         // Makes spent metadata.
-        let ledger_spent = |output| LedgerSpent {
+        let spend_output = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
                 transaction_id,
@@ -588,11 +464,8 @@ mod test_rand {
             .collect::<Vec<_>>();
         output_collection.insert_unspent_outputs(&tx_inputs).await.unwrap();
 
-        let consumed_tx_inputs = tx_inputs.into_iter().map(ledger_spent).collect::<Vec<_>>();
-        output_collection
-            .update_spent_outputs(&consumed_tx_inputs)
-            .await
-            .unwrap();
+        let spent_tx_inputs = tx_inputs.into_iter().map(spend_output).collect::<Vec<_>>();
+        output_collection.update_spent_outputs(&spent_tx_inputs).await.unwrap();
 
         let analytics = output_collection
             .get_nft_output_activity_analytics(2.into())
