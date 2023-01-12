@@ -443,7 +443,6 @@ mod test_rand {
         let ledger_spent = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
-                // transaction_id: TransactionId::rand(),
                 transaction_id,
                 spent: MilestoneIndexTimestamp {
                     milestone_index: 2.into(),
@@ -541,7 +540,6 @@ mod test_rand {
         let ledger_spent = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
-                // transaction_id: TransactionId::rand(),
                 transaction_id,
                 spent: MilestoneIndexTimestamp {
                     milestone_index: 2.into(),
