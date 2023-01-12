@@ -91,41 +91,44 @@ impl OutputCollection {
             )
         };
 
-        #[derive(Default, Deserialize)]
-        struct InnerRes {
-            value: d128,
-        }
-
-        let (timelock, expiration, sdruc, sdruc_inner) = tokio::try_join!(
+        let (timelock, expiration) = tokio::try_join!(
             query("timelock_unlock_condition"),
             query("expiration_unlock_condition"),
-            query("storage_deposit_return_unlock_condition"),
-            async move {
-                Result::<InnerRes, Error>::Ok(
-                    self.aggregate(
-                        vec![
-                            doc! { "$match": {
-                                "output.storage_deposit_return_unlock_condition": { "$exists": true },
-                                "metadata.booked.milestone_index": { "$lte": ledger_index },
-                                "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
-                            } },
-                            doc! { "$group": {
-                                "_id": null,
-                                "value": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
-                            } },
-                            doc! { "$project": {
-                                "value": { "$toString": "$value" },
-                            } },
-                        ],
-                        None,
-                    )
-                    .await?
-                    .try_next()
-                    .await?
-                    .unwrap_or_default(),
-                )
-            }
         )?;
+
+        #[derive(Default, Deserialize)]
+        struct ResSdruc {
+            count: u64,
+            value: d128,
+            inner: d128,
+        }
+
+        let sdruc = 
+            self.aggregate::<ResSdruc>(
+                vec![
+                    doc! { "$match": {
+                        format!("output.storage_deposit_return_unlock_condition"): { "$exists": true },
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "inner": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
+                    } },
+                    doc! { "$project": {
+                        "count": 1,
+                        "value": { "$toString": "$value" },
+                        "inner": { "$toString": "$inner" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default();
 
         Ok(UnlockConditionAnalyticsResult {
             timelock_count: timelock.count,
@@ -134,7 +137,7 @@ impl OutputCollection {
             expiration_value: expiration.value,
             storage_deposit_return_count: sdruc.count,
             storage_deposit_return_value: sdruc.value,
-            storage_deposit_return_inner_value: sdruc_inner.value,
+            storage_deposit_return_inner_value: sdruc.inner,
         })
     }
 }

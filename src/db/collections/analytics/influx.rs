@@ -101,6 +101,10 @@ impl From<Measurement> for influxdb::WriteQuery {
                 .add_field(
                     "storage_deposit_return_value",
                     m.inner.storage_deposit_return_value.to_string().parse::<u64>().unwrap(),
+                )
+                .add_field(
+                    "storage_deposit_return_inner_value",
+                    m.inner.storage_deposit_return_inner_value.to_string().parse::<u64>().unwrap(),
                 ),
         }
     }
