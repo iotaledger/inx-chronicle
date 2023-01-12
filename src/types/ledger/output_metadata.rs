@@ -67,7 +67,7 @@ impl RentStructureBytes {
         use iota_types::block::output::{Rent, RentStructureBuilder};
 
         let rent_cost = |byte_cost, data_factor, key_factor| {
-            output.weighted_bytes(
+            output.rent_cost(
                 &RentStructureBuilder::new()
                     .byte_cost(byte_cost)
                     .byte_factor_data(data_factor)
@@ -81,13 +81,10 @@ impl RentStructureBytes {
             num_key_bytes: rent_cost(1, 0, 1),
         }
     }
-}
 
-#[cfg(feature = "inx")]
-impl iota_types::block::output::Rent for RentStructureBytes {
-    fn weighted_bytes(&self, config: &iota_types::block::output::RentStructure) -> u64 {
-        (self.num_key_bytes * config.byte_factor_key() as u64)
-            + (self.num_data_bytes * config.byte_factor_data() as u64)
+    pub(crate) fn rent_cost(&self, config: &iota_types::block::output::RentStructure) -> u64 {
+        (self.num_data_bytes * config.byte_factor_data() as u64 + self.num_key_bytes * config.byte_factor_key() as u64)
+            * config.byte_cost() as u64
     }
 }
 
