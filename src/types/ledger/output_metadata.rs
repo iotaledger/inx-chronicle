@@ -61,29 +61,34 @@ pub struct RentStructureBytes {
     pub num_data_bytes: u64,
 }
 
-#[cfg(feature = "inx")]
-fn compute_rent_structure(output: &iota_types::block::output::Output) -> RentStructureBytes {
-    use iota_types::block::output::{Rent, RentStructureBuilder};
+impl RentStructureBytes {
+    pub fn compute(output: &iota_types::block::output::Output) -> Self {
+        use iota_types::block::output::{Rent, RentStructureBuilder};
 
-    let rent_cost = |byte_cost, data_factor, key_factor| {
-        output.rent_cost(
-            &RentStructureBuilder::new()
-                .byte_cost(byte_cost)
-                .byte_factor_data(data_factor)
-                .byte_factor_key(key_factor)
-                .finish(),
-        )
-    };
+        let rent_cost = |byte_cost, data_factor, key_factor| {
+            output.rent_cost(
+                &RentStructureBuilder::new()
+                    .byte_cost(byte_cost)
+                    .byte_factor_data(data_factor)
+                    .byte_factor_key(key_factor)
+                    .finish(),
+            )
+        };
 
-    RentStructureBytes {
-        num_data_bytes: rent_cost(1, 1, 0),
-        num_key_bytes: rent_cost(1, 0, 1),
+        RentStructureBytes {
+            num_data_bytes: rent_cost(1, 1, 0),
+            num_key_bytes: rent_cost(1, 0, 1),
+        }
+    }
+
+    pub fn rent_cost(&self, config: &iota_types::block::output::RentStructure) -> u64 {
+        (self.num_data_bytes * config.byte_factor_data() as u64 + self.num_key_bytes * config.byte_factor_key() as u64)
+            * config.byte_cost() as u64
     }
 }
 
 #[cfg(feature = "inx")]
 mod inx {
-
     use packable::PackableExt;
 
     use super::*;
@@ -99,7 +104,7 @@ mod inx {
                 .map_err(|e| InxError::InvalidRawBytes(format!("{e:?}")))?;
 
             Ok(Self {
-                rent_structure: compute_rent_structure(&bee_output),
+                rent_structure: RentStructureBytes::compute(&bee_output),
                 output: Into::into(&bee_output),
                 output_id: maybe_missing!(value.output_id).try_into()?,
                 block_id: maybe_missing!(value.block_id).try_into()?,
@@ -139,7 +144,7 @@ mod test {
     fn test_compute_rent_structure() {
         use iota_types::block::{output::Rent, rand::output};
 
-        use super::compute_rent_structure;
+        use super::RentStructureBytes;
 
         let protocol_params = iota_types::block::protocol::protocol_parameters();
 
@@ -151,11 +156,9 @@ mod test {
         ];
 
         for output in outputs {
-            let rent = compute_rent_structure(&output);
+            let rent = RentStructureBytes::compute(&output);
             assert_eq!(
-                (rent.num_data_bytes * protocol_params.rent_structure().byte_factor_data() as u64
-                    + rent.num_key_bytes * protocol_params.rent_structure().byte_factor_key() as u64)
-                    * protocol_params.rent_structure().byte_cost() as u64,
+                rent.rent_cost(protocol_params.rent_structure()),
                 output.rent_cost(protocol_params.rent_structure())
             );
         }

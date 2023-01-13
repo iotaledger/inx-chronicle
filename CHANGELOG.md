@@ -1,3 +1,32 @@
+## [1.0.0-beta.29](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.28...v1.0.0-beta.29) (2023-01-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **config:** Remove ambiguity from CLI config (#1010)
+* remove `loki` (#1009)
+* **config:** re-design and clean-up configuration (#979)
+
+### Features
+
+* **config:** Remove ambiguity from CLI config ([#1010](https://github.com/iotaledger/inx-chronicle/issues/1010)) ([399457d](https://github.com/iotaledger/inx-chronicle/commit/399457d917ee823c18d3ceacde4b56b1d943072e))
+* **refactor:** add additional clippy lints ([#989](https://github.com/iotaledger/inx-chronicle/issues/989)) ([6ec481c](https://github.com/iotaledger/inx-chronicle/commit/6ec481cc2200c7e7990770c2f20ace336bc0b3e7))
+* remove `loki` ([#1009](https://github.com/iotaledger/inx-chronicle/issues/1009)) ([d9ec6ec](https://github.com/iotaledger/inx-chronicle/commit/d9ec6ecdda7bcb1e0ff35ca899ff27f8d566ae74))
+
+
+### Bug Fixes
+
+* **analytics:** add `total_byte_cost` to ledger size analytics ([#1028](https://github.com/iotaledger/inx-chronicle/issues/1028)) ([dcda7d6](https://github.com/iotaledger/inx-chronicle/commit/dcda7d6bb2681be0a2c48de546d9b88934cc8b38))
+* **analytics:** computation of daily active addresses ([#1005](https://github.com/iotaledger/inx-chronicle/issues/1005)) ([77e3537](https://github.com/iotaledger/inx-chronicle/commit/77e35378fb21e21f9447ec0eea11fe531ccbdf59))
+* **api:** revert axum upgrade ([#1021](https://github.com/iotaledger/inx-chronicle/issues/1021)) ([761a4f2](https://github.com/iotaledger/inx-chronicle/commit/761a4f22cee77ba429c6cf5e9f3ec05113fefa0b))
+* **ci:** fix coverage workflow ([#1027](https://github.com/iotaledger/inx-chronicle/issues/1027)) ([ab38091](https://github.com/iotaledger/inx-chronicle/commit/ab38091b8bc5262f370f1c89680eb258c4dbad21))
+* **db:** output activity analytics query ([#1029](https://github.com/iotaledger/inx-chronicle/issues/1029)) ([5c14d88](https://github.com/iotaledger/inx-chronicle/commit/5c14d88266e4daa18df86713f71ba044427cbef0))
+
+
+### Code Refactoring
+
+* **config:** re-design and clean-up configuration ([#979](https://github.com/iotaledger/inx-chronicle/issues/979)) ([af57aa3](https://github.com/iotaledger/inx-chronicle/commit/af57aa3609fae1501d9d4746b2545eb4d6312a0e))
+
 ## [1.0.0-beta.28](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.27...v1.0.0-beta.28) (2022-12-19)
 
 

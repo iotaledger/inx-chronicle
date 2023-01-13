@@ -1380,7 +1380,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 36
       },
       "id": 63,
       "options": {
@@ -1441,7 +1441,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 45
       },
       "id": 59,
       "panels": [],
@@ -1511,7 +1511,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 37
+        "y": 46
       },
       "id": 22,
       "options": {
@@ -1695,7 +1695,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 37
+        "y": 46
       },
       "id": 60,
       "options": {
@@ -1804,7 +1804,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 55
       },
       "id": 49,
       "panels": [],
@@ -1873,7 +1873,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 56
       },
       "id": 51,
       "options": {
@@ -2038,7 +2038,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 47
+        "y": 56
       },
       "id": 61,
       "options": {
@@ -2165,7 +2165,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 55
+        "y": 64
       },
       "id": 31,
       "panels": [],
@@ -2235,7 +2235,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 65
       },
       "id": 33,
       "options": {
@@ -2307,6 +2307,135 @@
         "type": "influxdb",
         "uid": "PE5723DBC504634E6"
       },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "stepBefore",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "SMR"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 65
+      },
+      "id": 64,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "alias": "Return Amount",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "PE5723DBC504634E6"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$aggregation_interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "measurement": "stardust_unlock_conditions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "storage_deposit_return_inner_value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "last"
+              },
+              {
+                "params": [
+                  " / 1000000"
+                ],
+                "type": "math"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Amount in Storage Deposit Return Unlock Condition",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "PE5723DBC504634E6"
+      },
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -2365,8 +2494,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 56
+        "x": 0,
+        "y": 73
       },
       "id": 36,
       "options": {
@@ -2433,7 +2562,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 64
+        "y": 81
       },
       "id": 29,
       "panels": [],
@@ -2502,7 +2631,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 65
+        "y": 82
       },
       "id": 39,
       "options": {
@@ -2649,7 +2778,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 65
+        "y": 82
       },
       "id": 41,
       "options": {
@@ -2704,7 +2833,7 @@
               },
               {
                 "params": [
-                  " * 100 / 1000000"
+                  " / 1000000"
                 ],
                 "type": "math"
               }
