@@ -282,7 +282,10 @@ impl BlockCollection {
     }
 
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
-    pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<IncludedBlockResult>, Error> {
+    pub async fn get_block_for_transaction(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<IncludedBlockResult>, Error> {
         self.aggregate(
             vec![
                 doc! { "$match": {
@@ -307,7 +310,7 @@ impl BlockCollection {
                     "$$REMOVE",
                     "$block.payload",
                 ] } } },
-                doc! { "$replaceWith": { 
+                doc! { "$replaceWith": {
                     "block_id": "$block_id",
                     "block": "$block",
                 } },
@@ -348,14 +351,17 @@ impl BlockCollection {
     }
 
     /// Finds the [`BlockMetadata`] that included a transaction by [`TransactionId`].
-    pub async fn get_block_metadata_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<IncludedBlockMetadataResult>, Error> {
+    pub async fn get_block_metadata_for_transaction(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<IncludedBlockMetadataResult>, Error> {
         self.aggregate(
             vec![
                 doc! { "$match": {
                     "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.transaction_id": transaction_id,
                 } },
-                doc! { "$replaceWith": { 
+                doc! { "$replaceWith": {
                     "block_id": "$block_id",
                     "metadata": "$metadata",
                 } },

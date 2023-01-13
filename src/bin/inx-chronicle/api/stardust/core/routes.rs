@@ -346,7 +346,8 @@ async fn included_block(
         .collection::<BlockCollection>()
         .get_block_for_transaction(&transaction_id)
         .await?
-        .ok_or(MissingError::NoResults)?.block;
+        .ok_or(MissingError::NoResults)?
+        .block;
 
     Ok(IotaRawResponse::Json(block.into()))
 }
@@ -357,17 +358,13 @@ async fn included_block_metadata(
 ) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
     let transaction_id = TransactionId::from_str(&transaction_id).map_err(RequestError::from)?;
 
-    let block_id = database
-        .collection::<BlockCollection>()
-        .get_block_for_transaction(&transaction_id)
-        .await?
-        .ok_or(MissingError::NoResults)?.block_id;
-
-    let metadata = database
+    let res = database
         .collection::<BlockCollection>()
         .get_block_metadata_for_transaction(&transaction_id)
         .await?
-        .ok_or(MissingError::NoResults)?.metadata;
+        .ok_or(MissingError::NoResults)?;
+    let block_id = res.block_id;
+    let metadata = res.metadata;
 
     Ok(BlockMetadataResponse {
         block_id: block_id.to_hex(),
