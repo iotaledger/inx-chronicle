@@ -46,10 +46,8 @@ impl MerkleHasher {
 }
 
 /// Returns the largest power of 2 less than a given number `n`.
-///
-/// __NOTE__: Panics for `n < 2`.
 pub(crate) fn largest_power_of_two(n: usize) -> usize {
-    debug_assert!(n > 1);
+    debug_assert!(n > 1, "invalid input");
     1 << (bit_length((n - 1) as u32) - 1)
 }
 
@@ -70,18 +68,6 @@ mod tests {
             let data = data.iter().map(|id| &id.0[..]).collect::<Vec<_>>();
             Self::hash(&data[..])
         }
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_largest_power_of_two_panics_for_0() {
-        let _ = largest_power_of_two(0);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_largest_power_of_two_panics_for_1() {
-        let _ = largest_power_of_two(1);
     }
 
     #[test]
