@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::doc,
     error::Error,
@@ -221,18 +221,22 @@ impl BlockCollection {
     pub async fn get_referenced_blocks_in_white_flag_order_stream(
         &self,
         index: MilestoneIndex,
-    ) -> Result<impl Stream<Item = Block>, Error> {
+    ) -> Result<impl Stream<Item = Result<(Block, BlockMetadata), Error>>, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            block: Block,
+            metadata: BlockMetadata,
+        }
         Ok(self
-            .aggregate::<Block>(
+            .aggregate::<Res>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
-                    doc! { "$replaceWith": "$block" },
                 ],
                 None,
             )
             .await?
-            .map(|res| res.unwrap()))
+            .map_ok(|Res { block, metadata }| (block, metadata)))
     }
 
     /// Get the blocks that were applied by the specified milestone (in White-Flag order).
