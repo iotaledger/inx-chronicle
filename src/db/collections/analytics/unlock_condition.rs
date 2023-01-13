@@ -26,6 +26,7 @@ pub struct UnlockConditionAnalyticsResult {
     pub expiration_value: d128,
     pub storage_deposit_return_count: u64,
     pub storage_deposit_return_value: d128,
+    pub storage_deposit_return_inner_value: d128,
 }
 
 #[async_trait]
@@ -90,10 +91,46 @@ impl OutputCollection {
             )
         };
 
+        #[derive(Default, Deserialize)]
+        struct ResSdruc {
+            count: u64,
+            value: d128,
+            inner: d128,
+        }
+
+        let sdruc_query = async move {
+            Result::<ResSdruc, Error>::Ok(
+            self.aggregate(
+                vec![
+                    doc! { "$match": {
+                        "output.storage_deposit_return_unlock_condition": { "$exists": true },
+                        "metadata.booked.milestone_index": { "$lte": ledger_index },
+                        "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "count": { "$sum": 1 },
+                        "value": { "$sum": { "$toDecimal": "$output.amount" } },
+                        "inner": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
+                    } },
+                    doc! { "$project": {
+                        "count": 1,
+                        "value": { "$toString": "$value" },
+                        "inner": { "$toString": "$inner" },
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
+        };
+
         let (timelock, expiration, sdruc) = tokio::try_join!(
             query("timelock_unlock_condition"),
             query("expiration_unlock_condition"),
-            query("storage_deposit_return_unlock_condition"),
+            sdruc_query,
         )?;
 
         Ok(UnlockConditionAnalyticsResult {
@@ -103,6 +140,7 @@ impl OutputCollection {
             expiration_value: expiration.value,
             storage_deposit_return_count: sdruc.count,
             storage_deposit_return_value: sdruc.value,
+            storage_deposit_return_inner_value: sdruc.inner,
         })
     }
 }
