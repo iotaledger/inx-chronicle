@@ -311,7 +311,7 @@ impl BlockCollection {
                     "$block.payload",
                 ] } } },
                 doc! { "$replaceWith": {
-                    "block_id": "$block_id",
+                    "block_id": "$_id",
                     "block": "$block",
                 } },
             ],
@@ -362,7 +362,7 @@ impl BlockCollection {
                     "block.payload.transaction_id": transaction_id,
                 } },
                 doc! { "$replaceWith": {
-                    "block_id": "$block_id",
+                    "block_id": "$_id",
                     "metadata": "$metadata",
                 } },
             ],
