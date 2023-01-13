@@ -103,7 +103,7 @@ impl OutputCollection {
             self.aggregate(
                 vec![
                     doc! { "$match": {
-                        format!("output.storage_deposit_return_unlock_condition"): { "$exists": true },
+                        "output.storage_deposit_return_unlock_condition": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
