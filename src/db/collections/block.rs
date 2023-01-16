@@ -93,6 +93,18 @@ impl MongoDbCollection for BlockCollection {
     }
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct IncludedBlockResult {
+    pub block_id: BlockId,
+    pub block: Block,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct IncludedBlockMetadataResult {
+    pub block_id: BlockId,
+    pub metadata: BlockMetadata,
+}
+
 /// Implements the queries for the core API.
 impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
@@ -270,7 +282,10 @@ impl BlockCollection {
     }
 
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
-    pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
+    pub async fn get_block_for_transaction(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<IncludedBlockResult>, Error> {
         self.aggregate(
             vec![
                 doc! { "$match": {
@@ -295,7 +310,10 @@ impl BlockCollection {
                     "$$REMOVE",
                     "$block.payload",
                 ] } } },
-                doc! { "$replaceWith": "$block" },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "block": "$block",
+                } },
             ],
             None,
         )
@@ -330,6 +348,29 @@ impl BlockCollection {
             .try_next()
             .await?
             .map(|RawResult { data }| data))
+    }
+
+    /// Finds the [`BlockMetadata`] that included a transaction by [`TransactionId`].
+    pub async fn get_block_metadata_for_transaction(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<IncludedBlockMetadataResult>, Error> {
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
+                    "block.payload.transaction_id": transaction_id,
+                } },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "metadata": "$metadata",
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
     }
 
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
