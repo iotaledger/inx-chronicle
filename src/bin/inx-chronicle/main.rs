@@ -64,7 +64,7 @@ async fn main() -> eyre::Result<()> {
         }
 
         #[cfg(any(feature = "analytics", feature = "metrics"))]
-        let influx_db = if influx_required {
+        let (influx_db, influx_db_config) = if influx_required {
             info!("Connecting to influx at `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
             #[cfg(feature = "analytics")]
@@ -74,15 +74,17 @@ async fn main() -> eyre::Result<()> {
             );
             #[cfg(feature = "metrics")]
             info!("Connected to influx database `{}`", influx_db.metrics().database_name());
-            Some(influx_db)
+            (Some(influx_db), Some(config.influxdb))
         } else {
-            None
+            (None, None)
         };
 
         let mut worker = stardust_inx::InxWorker::new(
             &db,
             #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db.as_ref(),
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
+            influx_db_config.as_ref(),
             &config.inx,
         );
         let mut handle = shutdown_signal.subscribe();

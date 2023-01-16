@@ -38,6 +38,9 @@ pub struct InfluxDbConfig {
     /// The name of the database to insert analytics.
     #[cfg(feature = "analytics")]
     pub analytics_database_name: String,
+    /// The selected analytics to compute.
+    #[cfg(feature = "analytics")]
+    pub selected_analytics: Vec<AnalyticsChoice>,
     /// Whether to enable influx metrics writes.
     #[cfg(feature = "metrics")]
     pub metrics_enabled: bool,
@@ -56,10 +59,52 @@ impl Default for InfluxDbConfig {
             analytics_enabled: DEFAULT_ANALYTICS_ENABLED,
             #[cfg(feature = "analytics")]
             analytics_database_name: DEFAULT_ANALYTICS_DATABASE_NAME.to_string(),
+            #[cfg(feature = "analytics")]
+            selected_analytics: Vec::new(),
             #[cfg(feature = "metrics")]
             metrics_enabled: DEFAULT_METRICS_ENABLED,
             #[cfg(feature = "metrics")]
             metrics_database_name: DEFAULT_METRICS_DATABASE_NAME.to_string(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
+pub enum AnalyticsChoice {
+    // Please keep the alphabetic order.
+    Addresses,
+    BaseToken,
+    BlockActivity,
+    DailyActiveAddresses,
+    LedgerOutputs,
+    LedgerSize,
+    OutputActivity,
+    ProtocolParameters,
+    UnclaimedTokens,
+    UnlockConditions,
+}
+
+#[cfg(feature = "analytics")]
+impl From<AnalyticsChoice> for Box<dyn crate::db::collections::analytics::Analytic> {
+    fn from(value: AnalyticsChoice) -> Self {
+        use crate::db::collections::analytics::{
+            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
+            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
+            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
+        };
+
+        match value {
+            // Please keep the alphabetic order.
+            AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
+            AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
+            AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
+            AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
+            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
+            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
+            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
+            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
         }
     }
 }

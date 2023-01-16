@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::db::mongodb::config as mongodb;
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 
 use crate::config::ChronicleConfig;
 
@@ -82,6 +82,10 @@ pub struct InfluxDbArgs {
     #[cfg(feature = "analytics")]
     #[arg(long, default_value_t = !influxdb::DEFAULT_ANALYTICS_ENABLED)]
     pub disable_analytics: bool,
+    /// Select a subset of analytics to compute. If unset, all analytics will be computed.
+    #[cfg(feature = "analytics")]
+    #[arg(long)]
+    selected_analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     /// Disable InfluxDb time-series metrics writes.
     #[cfg(feature = "metrics")]
     #[arg(long, default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
@@ -99,6 +103,8 @@ impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
             analytics_enabled: !value.disable_analytics,
             #[cfg(feature = "analytics")]
             analytics_database_name: value.analytics_database_name.clone(),
+            #[cfg(feature = "analytics")]
+            selected_analytics: value.selected_analytics.clone(),
             #[cfg(feature = "metrics")]
             metrics_enabled: !value.disable_metrics,
             #[cfg(feature = "metrics")]
@@ -283,7 +289,7 @@ impl ClArgs {
                             let mut selected_analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
-                                let mut tmp: std::collections::HashSet<AnalyticsChoice> =
+                                let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> =
                                     analytics_choice.iter().copied().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
@@ -361,46 +367,6 @@ impl ClArgs {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
-pub enum AnalyticsChoice {
-    // Please keep the alphabetic order.
-    Addresses,
-    BaseToken,
-    BlockActivity,
-    DailyActiveAddresses,
-    LedgerOutputs,
-    LedgerSize,
-    OutputActivity,
-    ProtocolParameters,
-    UnclaimedTokens,
-    UnlockConditions,
-}
-
-#[cfg(feature = "analytics")]
-impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
-    fn from(value: AnalyticsChoice) -> Self {
-        use chronicle::db::collections::analytics::{
-            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
-            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
-            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
-        };
-
-        match value {
-            // Please keep the alphabetic order.
-            AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
-            AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
-            AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
-            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
-        }
-    }
-}
-
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
     /// Generate a JWT token using the available config.
@@ -419,7 +385,7 @@ pub enum Subcommands {
         num_tasks: Option<usize>,
         /// Select a subset of analytics to compute.
         #[arg(long)]
-        analytics: Vec<AnalyticsChoice>,
+        analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     },
     /// Clear the chronicle database.
     #[cfg(debug_assertions)]
