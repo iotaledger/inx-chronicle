@@ -35,8 +35,6 @@ pub struct InxWorker {
     db: MongoDb,
     #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
-    #[cfg(any(feature = "analytics", feature = "metrics"))]
-    influx_db_config: Option<chronicle::db::influxdb::InfluxDbConfig>,
     config: InxConfig,
 }
 
@@ -87,17 +85,12 @@ impl InxWorker {
     pub fn new(
         db: &MongoDb,
         #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
-        #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db_config: Option<
-            &chronicle::db::influxdb::InfluxDbConfig,
-        >,
         inx_config: &InxConfig,
     ) -> Self {
         Self {
             db: db.clone(),
             #[cfg(any(feature = "analytics", feature = "metrics"))]
             influx_db: influx_db.cloned(),
-            #[cfg(any(feature = "analytics", feature = "metrics"))]
-            influx_db_config: influx_db_config.cloned(),
             config: inx_config.clone(),
         }
     }
@@ -120,23 +113,21 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         #[cfg(any(feature = "analytics", feature = "metrics"))]
-        let mut selected_analytics = if self.influx_db_config.as_ref().unwrap().selected_analytics.is_empty() {
-            chronicle::db::collections::analytics::all_analytics()
-        } else {
-            tracing::info!(
-                "Computing the following analytics: {:?}",
-                self.influx_db_config.as_ref().unwrap().selected_analytics
-            );
+        let mut selected_analytics = match self.influx_db.as_ref() {
+            None => Vec::new(),
+            Some(influx_db) if influx_db.config().selected_analytics.is_empty() => {
+                chronicle::db::collections::analytics::all_analytics()
+            }
+            Some(influx_db) => {
+                tracing::info!(
+                    "Computing the following analytics: {:?}",
+                    influx_db.config().selected_analytics
+                );
 
-            let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> = self
-                .influx_db_config
-                .as_ref()
-                .unwrap()
-                .selected_analytics
-                .iter()
-                .copied()
-                .collect();
-            tmp.drain().map(Into::into).collect()
+                let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> =
+                    influx_db.config().selected_analytics.iter().copied().collect();
+                tmp.drain().map(Into::into).collect()
+            }
         };
 
         while let Some(ledger_update) = stream.try_next().await? {
