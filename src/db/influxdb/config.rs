@@ -69,6 +69,7 @@ impl Default for InfluxDbConfig {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
 pub enum AnalyticsChoice {
     // Please keep the alphabetic order.

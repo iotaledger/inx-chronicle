@@ -84,7 +84,7 @@ pub struct InfluxDbArgs {
     pub disable_analytics: bool,
     /// Select a subset of analytics to compute. If unset, all analytics will be computed.
     #[cfg(feature = "analytics")]
-    #[arg(long)]
+    #[arg(long, value_name = "ANALYTICS")]
     selected_analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     /// Disable InfluxDb time-series metrics writes.
     #[cfg(feature = "metrics")]
@@ -289,8 +289,9 @@ impl ClArgs {
                             let mut selected_analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
-                                let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> =
-                                    analytics_choice.iter().copied().collect();
+                                let mut tmp: std::collections::HashSet<
+                                    chronicle::db::influxdb::config::AnalyticsChoice,
+                                > = analytics_choice.iter().copied().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
 
