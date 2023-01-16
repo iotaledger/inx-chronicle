@@ -112,7 +112,7 @@ impl InxWorker {
 
         debug!("Started listening to ledger updates via INX.");
 
-        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        #[cfg(feature = "analytics")]
         let mut selected_analytics = match self.influx_db.as_ref() {
             None => Vec::new(),
             Some(influx_db) if influx_db.config().selected_analytics.is_empty() => {
