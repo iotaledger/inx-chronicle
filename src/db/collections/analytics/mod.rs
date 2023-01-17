@@ -10,6 +10,7 @@ mod block_activity;
 mod daily_active_addresses;
 mod ledger_outputs;
 mod ledger_size;
+mod milestone_size;
 mod output_activity;
 mod protocol_parameters;
 mod unclaimed_tokens;
@@ -37,8 +38,8 @@ use self::{
     address_balance::AddressAnalyticsResult, base_token::BaseTokenActivityAnalyticsResult,
     block_activity::BlockActivityAnalyticsResult, daily_active_addresses::DailyActiveAddressAnalyticsResult,
     ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
-    output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
-    unlock_condition::UnlockConditionAnalyticsResult,
+    milestone_size::MilestoneSizeAnalyticsResult, output_activity::OutputActivityAnalyticsResult,
+    unclaimed_tokens::UnclaimedTokenAnalyticsResult, unlock_condition::UnlockConditionAnalyticsResult,
 };
 use crate::{
     db::MongoDb,
@@ -136,6 +137,7 @@ pub enum Measurement {
     DailyActiveAddressAnalytics(TimeInterval<DailyActiveAddressAnalyticsResult>),
     LedgerOutputAnalytics(PerMilestone<LedgerOutputAnalyticsResult>),
     LedgerSizeAnalytics(PerMilestone<LedgerSizeAnalyticsResult>),
+    MilestoneSizeAnalytics(PerMilestone<MilestoneSizeAnalyticsResult>),
     OutputActivityAnalytics(PerMilestone<OutputActivityAnalyticsResult>),
     ProtocolParameters(PerMilestone<ProtocolParameters>),
     UnclaimedTokenAnalytics(PerMilestone<UnclaimedTokenAnalyticsResult>),
