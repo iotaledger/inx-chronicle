@@ -85,7 +85,7 @@ pub struct InfluxDbArgs {
     /// Select a subset of analytics to compute. If unset, all analytics will be computed.
     #[cfg(feature = "analytics")]
     #[arg(long, value_name = "ANALYTICS")]
-    selected_analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
+    analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     /// Disable InfluxDb time-series metrics writes.
     #[cfg(feature = "metrics")]
     #[arg(long, default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
