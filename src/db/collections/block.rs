@@ -229,6 +229,30 @@ impl BlockCollection {
         Ok(block_ids)
     }
 
+    /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
+    pub async fn get_referenced_blocks_in_white_flag_order_stream(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<(BlockId, Block, Vec<u8>, BlockMetadata), Error>>, Error> {
+        Ok(self
+            .aggregate::<BlockDocument>(
+                vec![
+                    doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
+                    doc! { "$sort": { "metadata.white_flag_index": 1 } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(
+                |BlockDocument {
+                     block_id,
+                     block,
+                     raw,
+                     metadata,
+                 }| (block_id, block, raw, metadata),
+            ))
+    }
+
     /// Get the blocks that were applied by the specified milestone (in White-Flag order).
     pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
         #[derive(Deserialize)]
