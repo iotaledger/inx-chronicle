@@ -20,6 +20,7 @@ use chronicle::{
     },
     types::{
         context::TryFromWithContext,
+        ledger::BlockMetadata,
         stardust::block::{
             output::OutputId,
             payload::{milestone::MilestoneId, transaction::TransactionId},
@@ -81,7 +82,9 @@ pub fn routes() -> Router {
         .route("/treasury", get(treasury))
         .nest(
             "/transactions",
-            Router::new().route("/:transaction_id/included-block", get(transaction_included_block)),
+            Router::new()
+                .route("/:transaction_id/included-block", get(included_block))
+                .route("/:transaction_id/included-block/metadata", get(included_block_metadata)),
         )
         .nest(
             "/milestones",
@@ -214,6 +217,21 @@ async fn block(
     Ok(IotaRawResponse::Json(block.into()))
 }
 
+fn create_block_metadata_response(block_id: BlockId, metadata: BlockMetadata) -> iota::BlockMetadataResponse {
+    iota::BlockMetadataResponse {
+        block_id: block_id.to_hex(),
+        parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
+        is_solid: metadata.is_solid,
+        referenced_by_milestone_index: Some(*metadata.referenced_by_milestone_index),
+        milestone_index: Some(*metadata.milestone_index),
+        ledger_inclusion_state: Some(metadata.inclusion_state.into()),
+        conflict_reason: Some(metadata.conflict_reason as u8),
+        should_promote: Some(metadata.should_promote),
+        should_reattach: Some(metadata.should_reattach),
+        white_flag_index: Some(metadata.white_flag_index),
+    }
+}
+
 async fn block_metadata(
     database: Extension<MongoDb>,
     Path(block_id_str): Path<String>,
@@ -225,19 +243,7 @@ async fn block_metadata(
         .await?
         .ok_or(MissingError::NoResults)?;
 
-    Ok(BlockMetadataResponse {
-        block_id: block_id_str,
-        parents: metadata.parents.iter().map(BlockId::to_hex).collect(),
-        is_solid: metadata.is_solid,
-        referenced_by_milestone_index: Some(*metadata.referenced_by_milestone_index),
-        milestone_index: Some(*metadata.milestone_index),
-        ledger_inclusion_state: Some(metadata.inclusion_state.into()),
-        conflict_reason: Some(metadata.conflict_reason as u8),
-        should_promote: Some(metadata.should_promote),
-        should_reattach: Some(metadata.should_reattach),
-        white_flag_index: Some(metadata.white_flag_index),
-    }
-    .into())
+    Ok(create_block_metadata_response(block_id, metadata).into())
 }
 
 fn create_output_metadata_response(
@@ -323,7 +329,7 @@ async fn output_metadata(
     Ok(create_output_metadata_response(metadata, ledger_index).into())
 }
 
-async fn transaction_included_block(
+async fn included_block(
     database: Extension<MongoDb>,
     Path(transaction_id): Path<String>,
     headers: HeaderMap,
@@ -344,9 +350,27 @@ async fn transaction_included_block(
         .collection::<BlockCollection>()
         .get_block_for_transaction(&transaction_id)
         .await?
-        .ok_or(MissingError::NoResults)?;
+        .ok_or(MissingError::NoResults)?
+        .block;
 
     Ok(IotaRawResponse::Json(block.into()))
+}
+
+async fn included_block_metadata(
+    database: Extension<MongoDb>,
+    Path(transaction_id): Path<String>,
+) -> ApiResult<IotaResponse<BlockMetadataResponse>> {
+    let transaction_id = TransactionId::from_str(&transaction_id).map_err(RequestError::from)?;
+
+    let res = database
+        .collection::<BlockCollection>()
+        .get_block_metadata_for_transaction(&transaction_id)
+        .await?
+        .ok_or(MissingError::NoResults)?;
+    let block_id = res.block_id;
+    let metadata = res.metadata;
+
+    Ok(create_block_metadata_response(block_id, metadata).into())
 }
 
 async fn receipts(database: Extension<MongoDb>) -> ApiResult<IotaResponse<ReceiptsResponse>> {

@@ -9,7 +9,10 @@ use std::ops::Deref;
 use influxdb::{Client, ReadQuery};
 use serde::de::DeserializeOwned;
 
-pub use self::{config::InfluxDbConfig, measurement::InfluxDbMeasurement};
+pub use self::{
+    config::{AnalyticsChoice, InfluxDbConfig},
+    measurement::InfluxDbMeasurement,
+};
 
 /// A wrapper for an InfluxDb [`Client`].
 #[derive(Clone, Debug)]

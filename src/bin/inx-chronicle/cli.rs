@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::db::mongodb::config as mongodb;
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand};
 
 use crate::config::ChronicleConfig;
 
@@ -82,6 +82,10 @@ pub struct InfluxDbArgs {
     #[cfg(feature = "analytics")]
     #[arg(long, default_value_t = !influxdb::DEFAULT_ANALYTICS_ENABLED)]
     pub disable_analytics: bool,
+    /// Select a subset of analytics to compute. If unset, all analytics will be computed.
+    #[cfg(feature = "analytics")]
+    #[arg(long, value_name = "ANALYTICS")]
+    analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     /// Disable InfluxDb time-series metrics writes.
     #[cfg(feature = "metrics")]
     #[arg(long, default_value_t = !influxdb::DEFAULT_METRICS_ENABLED)]
@@ -99,6 +103,8 @@ impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
             analytics_enabled: !value.disable_analytics,
             #[cfg(feature = "analytics")]
             analytics_database_name: value.analytics_database_name.clone(),
+            #[cfg(feature = "analytics")]
+            analytics: value.analytics.clone(),
             #[cfg(feature = "metrics")]
             metrics_enabled: !value.disable_metrics,
             #[cfg(feature = "metrics")]
@@ -280,15 +286,16 @@ impl ClArgs {
                         let influx_db = influx_db.clone();
                         let analytics_choice = analytics.clone();
                         join_set.spawn(async move {
-                            let mut selected_analytics = if analytics_choice.is_empty() {
+                            let mut analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
-                                let mut tmp: std::collections::HashSet<AnalyticsChoice> =
-                                    analytics_choice.iter().copied().collect();
+                                let mut tmp: std::collections::HashSet<
+                                    chronicle::db::influxdb::config::AnalyticsChoice,
+                                > = analytics_choice.iter().copied().collect();
                                 tmp.drain().map(Into::into).collect()
                             };
 
-                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+                            tracing::info!("Computing the following analytics: {:?}", analytics);
 
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();
@@ -303,7 +310,7 @@ impl ClArgs {
                                     super::stardust_inx::gather_analytics(
                                         &db,
                                         &influx_db,
-                                        &mut selected_analytics,
+                                        &mut analytics,
                                         milestone_index,
                                         milestone_timestamp,
                                     )
@@ -361,46 +368,6 @@ impl ClArgs {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ValueEnum)]
-pub enum AnalyticsChoice {
-    // Please keep the alphabetic order.
-    Addresses,
-    BaseToken,
-    BlockActivity,
-    DailyActiveAddresses,
-    LedgerOutputs,
-    LedgerSize,
-    OutputActivity,
-    ProtocolParameters,
-    UnclaimedTokens,
-    UnlockConditions,
-}
-
-#[cfg(feature = "analytics")]
-impl From<AnalyticsChoice> for Box<dyn chronicle::db::collections::analytics::Analytic> {
-    fn from(value: AnalyticsChoice) -> Self {
-        use chronicle::db::collections::analytics::{
-            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
-            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
-            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
-        };
-
-        match value {
-            // Please keep the alphabetic order.
-            AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
-            AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
-            AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
-            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
-        }
-    }
-}
-
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
     /// Generate a JWT token using the available config.
@@ -419,7 +386,7 @@ pub enum Subcommands {
         num_tasks: Option<usize>,
         /// Select a subset of analytics to compute.
         #[arg(long)]
-        analytics: Vec<AnalyticsChoice>,
+        analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     },
     /// Clear the chronicle database.
     #[cfg(debug_assertions)]
