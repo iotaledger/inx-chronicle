@@ -1,3 +1,11 @@
+## [1.0.0-beta.30](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.29...v1.0.0-beta.30) (2023-01-17)
+
+
+### Features
+
+* **analytics:** selective analytics for INX connections ([#1035](https://github.com/iotaledger/inx-chronicle/issues/1035)) ([b76c425](https://github.com/iotaledger/inx-chronicle/commit/b76c425b4dccb839ac793bfd21635f72979fdb52))
+* **api:** add block metadata route for included transactions ([#1033](https://github.com/iotaledger/inx-chronicle/issues/1033)) ([b02ad42](https://github.com/iotaledger/inx-chronicle/commit/b02ad42408a8cae6ea40bbcf26b2273badc267cd))
+
 ## [1.0.0-beta.29](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.28...v1.0.0-beta.29) (2023-01-13)
 
 
