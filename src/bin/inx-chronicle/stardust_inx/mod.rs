@@ -113,19 +113,16 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         #[cfg(feature = "analytics")]
-        let mut selected_analytics = match self.influx_db.as_ref() {
+        let mut analytics = match self.influx_db.as_ref() {
             None => Vec::new(),
-            Some(influx_db) if influx_db.config().selected_analytics.is_empty() => {
+            Some(influx_db) if influx_db.config().analytics.is_empty() => {
                 chronicle::db::collections::analytics::all_analytics()
             }
             Some(influx_db) => {
-                tracing::info!(
-                    "Computing the following analytics: {:?}",
-                    influx_db.config().selected_analytics
-                );
+                tracing::info!("Computing the following analytics: {:?}", influx_db.config().analytics);
 
                 let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> =
-                    influx_db.config().selected_analytics.iter().copied().collect();
+                    influx_db.config().analytics.iter().copied().collect();
                 tmp.drain().map(Into::into).collect()
             }
         };
@@ -136,7 +133,7 @@ impl InxWorker {
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                &mut selected_analytics,
+                &mut analytics,
             )
             .await?;
         }
@@ -289,9 +286,7 @@ impl InxWorker {
         inx: &mut Inx,
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
-        #[cfg(feature = "analytics")] selected_analytics: &mut Vec<
-            Box<dyn chronicle::db::collections::analytics::Analytic>,
-        >,
+        #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
@@ -403,14 +398,7 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(influx_db) = &self.influx_db {
             if influx_db.config().analytics_enabled {
-                gather_analytics(
-                    &self.db,
-                    influx_db,
-                    selected_analytics,
-                    milestone_index,
-                    milestone_timestamp,
-                )
-                .await?;
+                gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]

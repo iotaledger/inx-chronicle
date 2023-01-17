@@ -104,7 +104,7 @@ impl From<&InfluxDbArgs> for chronicle::db::influxdb::InfluxDbConfig {
             #[cfg(feature = "analytics")]
             analytics_database_name: value.analytics_database_name.clone(),
             #[cfg(feature = "analytics")]
-            selected_analytics: value.selected_analytics.clone(),
+            analytics: value.analytics.clone(),
             #[cfg(feature = "metrics")]
             metrics_enabled: !value.disable_metrics,
             #[cfg(feature = "metrics")]
@@ -286,7 +286,7 @@ impl ClArgs {
                         let influx_db = influx_db.clone();
                         let analytics_choice = analytics.clone();
                         join_set.spawn(async move {
-                            let mut selected_analytics = if analytics_choice.is_empty() {
+                            let mut analytics = if analytics_choice.is_empty() {
                                 chronicle::db::collections::analytics::all_analytics()
                             } else {
                                 let mut tmp: std::collections::HashSet<
@@ -295,7 +295,7 @@ impl ClArgs {
                                 tmp.drain().map(Into::into).collect()
                             };
 
-                            tracing::info!("Computing the following analytics: {:?}", selected_analytics);
+                            tracing::info!("Computing the following analytics: {:?}", analytics);
 
                             for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
                                 let milestone_index = index.into();
@@ -310,7 +310,7 @@ impl ClArgs {
                                     super::stardust_inx::gather_analytics(
                                         &db,
                                         &influx_db,
-                                        &mut selected_analytics,
+                                        &mut analytics,
                                         milestone_index,
                                         milestone_timestamp,
                                     )

@@ -40,7 +40,7 @@ pub struct InfluxDbConfig {
     pub analytics_database_name: String,
     /// The selected analytics to compute.
     #[cfg(feature = "analytics")]
-    pub selected_analytics: Vec<AnalyticsChoice>,
+    pub analytics: Vec<AnalyticsChoice>,
     /// Whether to enable influx metrics writes.
     #[cfg(feature = "metrics")]
     pub metrics_enabled: bool,
@@ -60,7 +60,7 @@ impl Default for InfluxDbConfig {
             #[cfg(feature = "analytics")]
             analytics_database_name: DEFAULT_ANALYTICS_DATABASE_NAME.to_string(),
             #[cfg(feature = "analytics")]
-            selected_analytics: Vec::new(),
+            analytics: Vec::new(),
             #[cfg(feature = "metrics")]
             metrics_enabled: DEFAULT_METRICS_ENABLED,
             #[cfg(feature = "metrics")]
