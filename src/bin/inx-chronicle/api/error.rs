@@ -222,7 +222,7 @@ impl IntoResponse for ErrorBody {
                 .unwrap(),
             Err(e) => {
                 error!("Unable to serialize error body: {}", e);
-                Result::<(), _>::Err(format!("Unable to serialize error body: {}", e)).into_response()
+                Result::<(), _>::Err(format!("Unable to serialize error body: {e}")).into_response()
             }
         }
     }
