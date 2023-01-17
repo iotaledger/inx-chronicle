@@ -113,7 +113,19 @@ impl InxWorker {
         debug!("Started listening to ledger updates via INX.");
 
         #[cfg(feature = "analytics")]
-        let mut analytics = chronicle::db::collections::analytics::all_analytics();
+        let mut analytics = match self.influx_db.as_ref() {
+            None => Vec::new(),
+            Some(influx_db) if influx_db.config().analytics.is_empty() => {
+                chronicle::db::collections::analytics::all_analytics()
+            }
+            Some(influx_db) => {
+                tracing::info!("Computing the following analytics: {:?}", influx_db.config().analytics);
+
+                let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> =
+                    influx_db.config().analytics.iter().copied().collect();
+                tmp.drain().map(Into::into).collect()
+            }
+        };
 
         while let Some(ledger_update) = stream.try_next().await? {
             self.handle_ledger_update(
