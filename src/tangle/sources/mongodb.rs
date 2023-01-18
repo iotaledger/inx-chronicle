@@ -24,7 +24,7 @@ impl InputSource for MongoDb {
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         // Need to have an owned value to hold in the iterator
         let db = self.clone();
-        Ok(Box::pin(futures::stream::iter(*range.start..*range.end).then(
+        Ok(Box::pin(futures::stream::iter(range).then(
             move |index| {
                 let db = db.clone();
                 async move {
