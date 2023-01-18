@@ -9,11 +9,11 @@ use crate::{
         collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
         MongoDb,
     },
-    tangle::{cone_stream::BlockWithMetadataInputs, ledger_updates::LedgerUpdateStore, milestone_stream::MilestoneAndProtocolParameters},
+    tangle::{cone_stream::BlockWithMetadataInputs, ledger_updates::LedgerUpdateStore},
     types::tangle::MilestoneIndex,
 };
 
-use super::InputSource;
+use super::{InputSource, MilestoneAndProtocolParameters};
 
 #[async_trait]
 impl InputSource for MongoDb {
@@ -72,7 +72,7 @@ impl InputSource for MongoDb {
         ))
     }
 
-    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+    async fn ledger_updates(&self, _index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
         todo!()
     }
 }

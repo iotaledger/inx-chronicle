@@ -5,11 +5,10 @@
 
 mod cone_stream;
 mod milestone_stream;
-mod input_source;
 mod ledger_updates;
 mod sources;
 
-use self::{cone_stream::ConeStream, sources::InputSource};
+use self::{cone_stream::ConeStream, sources::InputSource, milestone_stream::MilestoneStream};
 use crate::types::tangle::MilestoneIndex;
 
 /// Provides access to the tangle.
@@ -18,10 +17,8 @@ pub struct Tangle<I: InputSource> {
 }
 
 impl<'a, I: InputSource> Tangle<I> {
-    pub async fn milestone_stream(/* MilestoneRange */) {}
-
-    /// TODO: This function should probably be exposed on a `Milestone` object
-    pub async fn cone_stream(index: MilestoneIndex) -> Result<ConeStream<'a, I>, I::Error> {
+    /// Returns a stream of milestones for a given range.
+    pub async fn milestone_stream(/* MilestoneRange */) -> Result<MilestoneStream<'a, I>, I::Error> {
         todo!();
     }
 }

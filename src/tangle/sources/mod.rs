@@ -8,8 +8,16 @@ mod mongodb;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 
-use super::{cone_stream::BlockWithMetadataInputs, ledger_updates::LedgerUpdateStore, milestone_stream::MilestoneAndProtocolParameters};
-use crate::types::tangle::MilestoneIndex;
+use super::{cone_stream::BlockWithMetadataInputs, ledger_updates::LedgerUpdateStore};
+use crate::types::{tangle::{MilestoneIndex, ProtocolParameters}, stardust::block::payload::{MilestoneId, MilestonePayload}, ledger::MilestoneIndexTimestamp};
+
+#[allow(missing_docs)]
+pub struct MilestoneAndProtocolParameters {
+    pub milestone_id: MilestoneId,
+    pub at: MilestoneIndexTimestamp,
+    pub payload: MilestonePayload,
+    pub protocol_params: ProtocolParameters,
+}
 
 /// Defines a type as a source for milestone and cone stream data.
 #[async_trait]
