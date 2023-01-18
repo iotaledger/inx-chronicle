@@ -1,13 +1,19 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{pin::Pin, task::{Context, Poll}};
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use futures::{stream::BoxStream, Stream};
 
-use crate::types::{stardust::block::payload::{MilestoneId, MilestonePayload}, ledger::MilestoneIndexTimestamp, tangle::ProtocolParameters};
-
-use super::{sources::InputSource, cone_stream::ConeStream};
+use super::{cone_stream::ConeStream, sources::InputSource};
+use crate::types::{
+    ledger::MilestoneIndexTimestamp,
+    stardust::block::payload::{MilestoneId, MilestonePayload},
+    tangle::ProtocolParameters,
+};
 
 pub struct Milestone<'a, I: InputSource> {
     input_source: &'a I,
@@ -18,7 +24,7 @@ pub struct Milestone<'a, I: InputSource> {
 }
 
 impl<'a, I: InputSource> Milestone<'a, I> {
-   /// Returns the blocks of a milestone in white-flag order.
+    /// Returns the blocks of a milestone in white-flag order.
     pub fn cone_stream() -> Result<ConeStream<'a, I>, I::Error> {
         todo!();
     }

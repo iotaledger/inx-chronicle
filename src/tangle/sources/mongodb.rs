@@ -4,6 +4,7 @@
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
+use super::{InputSource, MilestoneAndProtocolParameters, MilestoneRange};
 use crate::{
     db::{
         collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
@@ -13,44 +14,40 @@ use crate::{
     types::tangle::MilestoneIndex,
 };
 
-use super::{InputSource, MilestoneAndProtocolParameters};
-
 #[async_trait]
 impl InputSource for MongoDb {
     type Error = mongodb::error::Error;
 
     async fn milestone_stream(
         &self,
-        range: std::ops::Range<MilestoneIndex>,
+        range: MilestoneRange,
     ) -> Result<BoxStream<Result<MilestoneAndProtocolParameters, Self::Error>>, Self::Error> {
         // Need to have an owned value to hold in the iterator
         let db = self.clone();
-        Ok(Box::pin(futures::stream::iter(*range.start..*range.end).then(
-            move |index| {
-                let db = db.clone();
-                async move {
-                    let (milestone_id, at, payload) = db
-                        .collection::<MilestoneCollection>()
-                        .get_milestone(index.into())
-                        .await?
-                        // TODO: what do we do with this?
-                        .unwrap();
-                    let protocol_params = db
-                        .collection::<ProtocolUpdateCollection>()
-                        .get_protocol_parameters_for_ledger_index(index.into())
-                        .await?
-                        // TODO: what do we do with this?
-                        .unwrap()
-                        .parameters;
-                    Ok(MilestoneAndProtocolParameters {
-                        milestone_id,
-                        at,
-                        payload,
-                        protocol_params,
-                    })
-                }
-            },
-        )))
+        Ok(Box::pin(futures::stream::iter(range).then(move |index| {
+            let db = db.clone();
+            async move {
+                let (milestone_id, at, payload) = db
+                    .collection::<MilestoneCollection>()
+                    .get_milestone(index.into())
+                    .await?
+                    // TODO: what do we do with this?
+                    .unwrap();
+                let protocol_params = db
+                    .collection::<ProtocolUpdateCollection>()
+                    .get_protocol_parameters_for_ledger_index(index.into())
+                    .await?
+                    // TODO: what do we do with this?
+                    .unwrap()
+                    .parameters;
+                Ok(MilestoneAndProtocolParameters {
+                    milestone_id,
+                    at,
+                    payload,
+                    protocol_params,
+                })
+            }
+        })))
     }
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
