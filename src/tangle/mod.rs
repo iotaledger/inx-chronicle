@@ -4,21 +4,23 @@
 //! Defines types that allow for unified data processing.
 
 mod cone_stream;
-mod milestone_stream;
 mod ledger_updates;
+mod milestone_stream;
 mod sources;
 
-use self::{cone_stream::ConeStream, sources::InputSource, milestone_stream::MilestoneStream};
-use crate::types::tangle::MilestoneIndex;
+use self::{
+    milestone_stream::MilestoneStream,
+    sources::{InputSource, MilestoneRange},
+};
 
 /// Provides access to the tangle.
 pub struct Tangle<I: InputSource> {
     source: I,
 }
 
-impl<'a, I: InputSource> Tangle<I> {
+impl<'a, I: 'a + InputSource> Tangle<I> {
     /// Returns a stream of milestones for a given range.
-    pub async fn milestone_stream(/* MilestoneRange */) -> Result<MilestoneStream<'a, I>, I::Error> {
-        todo!();
+    pub async fn milestone_stream(&self, range: impl Into<MilestoneRange>) -> Result<MilestoneStream<'a, I>, I::Error> {
+        todo!()
     }
 }
