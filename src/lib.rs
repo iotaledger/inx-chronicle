@@ -7,8 +7,8 @@
 
 //! The basic types and MongoDb queries for Chronicle.
 
-pub mod data;
 pub mod db;
 #[cfg(feature = "inx")]
 pub mod inx;
+pub mod tangle;
 pub mod types;
