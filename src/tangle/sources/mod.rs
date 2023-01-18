@@ -8,19 +8,30 @@ mod mongodb;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 
-use super::{cone_stream::BlockWithMetadataInputs, ledger_updates::LedgerUpdateStore, milestone_range::MilestoneRange};
+use super::{ledger_updates::LedgerUpdateStore, milestone_range::MilestoneRange};
 use crate::types::{
-    ledger::MilestoneIndexTimestamp,
-    stardust::block::payload::{MilestoneId, MilestonePayload},
+    ledger::{BlockMetadata, MilestoneIndexTimestamp},
+    stardust::block::{
+        payload::{MilestoneId, MilestonePayload},
+        Block, BlockId,
+    },
     tangle::{MilestoneIndex, ProtocolParameters},
 };
 
 #[allow(missing_docs)]
-pub struct MilestoneAndProtocolParameters {
+pub struct MilestoneMessage {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
     pub payload: MilestonePayload,
     pub protocol_params: ProtocolParameters,
+}
+
+#[allow(missing_docs)]
+pub struct BlockMessage {
+    pub block_id: BlockId,
+    pub block: Block,
+    pub raw: Vec<u8>,
+    pub metadata: BlockMetadata,
 }
 
 /// Defines a type as a source for milestone and cone stream data.
@@ -33,14 +44,14 @@ pub trait InputSource {
     async fn milestone_stream(
         &self,
         range: MilestoneRange,
-    ) -> Result<BoxStream<Result<MilestoneAndProtocolParameters, Self::Error>>, Self::Error>;
+    ) -> Result<BoxStream<Result<MilestoneMessage, Self::Error>>, Self::Error>;
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
     // TODO: This should not require enriching the inputs already
     async fn cone_stream(
         &self,
         index: MilestoneIndex,
-    ) -> Result<BoxStream<Result<BlockWithMetadataInputs, Self::Error>>, Self::Error>;
+    ) -> Result<BoxStream<Result<BlockMessage, Self::Error>>, Self::Error>;
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
 }
