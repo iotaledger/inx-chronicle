@@ -79,6 +79,7 @@ pub enum AnalyticsChoice {
     DailyActiveAddresses,
     LedgerOutputs,
     LedgerSize,
+    MilestoneSize,
     OutputActivity,
     ProtocolParameters,
     UnclaimedTokens,
@@ -90,8 +91,8 @@ impl From<AnalyticsChoice> for Box<dyn crate::db::collections::analytics::Analyt
     fn from(value: AnalyticsChoice) -> Self {
         use crate::db::collections::analytics::{
             AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
-            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
-            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
+            LedgerOutputAnalytics, LedgerSizeAnalytics, MilestoneSizeAnalytics, OutputActivityAnalytics,
+            ProtocolParametersAnalytics, UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         };
 
         match value {
@@ -102,6 +103,7 @@ impl From<AnalyticsChoice> for Box<dyn crate::db::collections::analytics::Analyt
             AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
             AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::MilestoneSize => Box::new(MilestoneSizeAnalytics),
             AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),

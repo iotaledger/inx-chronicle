@@ -26,6 +26,7 @@ pub use daily_active_addresses::DailyActiveAddressesAnalytics;
 use influxdb::{InfluxDbWriteable, WriteQuery};
 pub use ledger_outputs::LedgerOutputAnalytics;
 pub use ledger_size::LedgerSizeAnalytics;
+pub use milestone_size::MilestoneSizeAnalytics;
 use mongodb::bson::doc;
 pub use output_activity::OutputActivityAnalytics;
 pub use protocol_parameters::ProtocolParametersAnalytics;

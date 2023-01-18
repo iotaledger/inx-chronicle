@@ -12,9 +12,9 @@ use crate::{
     types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
 };
 
-/// TODO
+/// Computes the byte size of a milestone.
 #[derive(Debug)]
-pub(crate) struct MilestoneSizeAnalytics;
+pub struct MilestoneSizeAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
