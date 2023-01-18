@@ -1,0 +1,78 @@
+// Copyright 2023 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+use async_trait::async_trait;
+use futures::{stream::BoxStream, StreamExt, TryStreamExt};
+
+use crate::{
+    db::{
+        collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
+        MongoDb,
+    },
+    tangle::{cone_stream::BlockWithMetadataInputs, ledger_updates::LedgerUpdateStore, milestone_stream::MilestoneAndProtocolParameters},
+    types::tangle::MilestoneIndex,
+};
+
+use super::InputSource;
+
+#[async_trait]
+impl InputSource for MongoDb {
+    type Error = mongodb::error::Error;
+
+    async fn milestone_stream(
+        &self,
+        range: std::ops::Range<MilestoneIndex>,
+    ) -> Result<BoxStream<Result<MilestoneAndProtocolParameters, Self::Error>>, Self::Error> {
+        // Need to have an owned value to hold in the iterator
+        let db = self.clone();
+        Ok(Box::pin(futures::stream::iter(*range.start..*range.end).then(
+            move |index| {
+                let db = db.clone();
+                async move {
+                    let (milestone_id, at, payload) = db
+                        .collection::<MilestoneCollection>()
+                        .get_milestone(index.into())
+                        .await?
+                        // TODO: what do we do with this?
+                        .unwrap();
+                    let protocol_params = db
+                        .collection::<ProtocolUpdateCollection>()
+                        .get_protocol_parameters_for_ledger_index(index.into())
+                        .await?
+                        // TODO: what do we do with this?
+                        .unwrap()
+                        .parameters;
+                    Ok(MilestoneAndProtocolParameters {
+                        milestone_id,
+                        at,
+                        payload,
+                        protocol_params,
+                    })
+                }
+            },
+        )))
+    }
+
+    /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
+    async fn cone_stream(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<BoxStream<Result<BlockWithMetadataInputs, Self::Error>>, Self::Error> {
+        Ok(Box::pin(
+            self.collection::<BlockCollection>()
+                .get_referenced_blocks_in_white_flag_order_stream(index)
+                .await?
+                .map_ok(|(block_id, block, raw, metadata)| BlockWithMetadataInputs {
+                    block_id,
+                    block,
+                    raw,
+                    metadata,
+                    inputs: None,
+                }),
+        ))
+    }
+
+    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+        todo!()
+    }
+}
