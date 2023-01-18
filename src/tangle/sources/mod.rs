@@ -18,16 +18,16 @@ use crate::types::{
     tangle::{MilestoneIndex, ProtocolParameters},
 };
 
-#[allow(missing_docs)]
-pub struct MilestoneMessage {
+/// Logical grouping of data that belongs to a milestone.
+pub struct MilestoneData {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
     pub payload: MilestonePayload,
     pub protocol_params: ProtocolParameters,
 }
 
-#[allow(missing_docs)]
-pub struct BlockMessage {
+/// Logical grouping of data that belongs to a block.
+pub struct BlockData {
     pub block_id: BlockId,
     pub block: Block,
     pub raw: Vec<u8>,
@@ -44,14 +44,13 @@ pub trait InputSource {
     async fn milestone_stream(
         &self,
         range: MilestoneRange,
-    ) -> Result<BoxStream<Result<MilestoneMessage, Self::Error>>, Self::Error>;
+    ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error>;
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
-    // TODO: This should not require enriching the inputs already
     async fn cone_stream(
         &self,
         index: MilestoneIndex,
-    ) -> Result<BoxStream<Result<BlockMessage, Self::Error>>, Self::Error>;
+    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
 }

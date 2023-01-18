@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
-use super::{BlockMessage, InputSource, MilestoneMessage, MilestoneRange};
+use super::{BlockData, InputSource, MilestoneData, MilestoneRange};
 use crate::{
     db::{
         collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
@@ -21,7 +21,7 @@ impl InputSource for MongoDb {
     async fn milestone_stream(
         &self,
         range: MilestoneRange,
-    ) -> Result<BoxStream<Result<MilestoneMessage, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         // Need to have an owned value to hold in the iterator
         let db = self.clone();
         Ok(Box::pin(futures::stream::iter(*range.start..*range.end).then(
@@ -41,7 +41,7 @@ impl InputSource for MongoDb {
                         // TODO: what do we do with this?
                         .unwrap()
                         .parameters;
-                    Ok(MilestoneMessage {
+                    Ok(MilestoneData {
                         milestone_id,
                         at,
                         payload,
@@ -56,12 +56,12 @@ impl InputSource for MongoDb {
     async fn cone_stream(
         &self,
         index: MilestoneIndex,
-    ) -> Result<BoxStream<Result<BlockMessage, Self::Error>>, Self::Error> {
+    ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
         Ok(Box::pin(
             self.collection::<BlockCollection>()
                 .get_referenced_blocks_in_white_flag_order_stream(index)
                 .await?
-                .map_ok(|(block_id, block, raw, metadata)| BlockMessage {
+                .map_ok(|(block_id, block, raw, metadata)| BlockData {
                     block_id,
                     block,
                     raw,
