@@ -24,32 +24,30 @@ impl InputSource for MongoDb {
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         // Need to have an owned value to hold in the iterator
         let db = self.clone();
-        Ok(Box::pin(futures::stream::iter(range).then(
-            move |index| {
-                let db = db.clone();
-                async move {
-                    let (milestone_id, at, payload) = db
-                        .collection::<MilestoneCollection>()
-                        .get_milestone(index.into())
-                        .await?
-                        // TODO: what do we do with this?
-                        .unwrap();
-                    let protocol_params = db
-                        .collection::<ProtocolUpdateCollection>()
-                        .get_protocol_parameters_for_ledger_index(index.into())
-                        .await?
-                        // TODO: what do we do with this?
-                        .unwrap()
-                        .parameters;
-                    Ok(MilestoneData {
-                        milestone_id,
-                        at,
-                        payload,
-                        protocol_params,
-                    })
-                }
-            },
-        )))
+        Ok(Box::pin(futures::stream::iter(range).then(move |index| {
+            let db = db.clone();
+            async move {
+                let (milestone_id, at, payload) = db
+                    .collection::<MilestoneCollection>()
+                    .get_milestone(index.into())
+                    .await?
+                    // TODO: what do we do with this?
+                    .unwrap();
+                let protocol_params = db
+                    .collection::<ProtocolUpdateCollection>()
+                    .get_protocol_parameters_for_ledger_index(index.into())
+                    .await?
+                    // TODO: what do we do with this?
+                    .unwrap()
+                    .parameters;
+                Ok(MilestoneData {
+                    milestone_id,
+                    at,
+                    payload,
+                    protocol_params,
+                })
+            }
+        })))
     }
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
