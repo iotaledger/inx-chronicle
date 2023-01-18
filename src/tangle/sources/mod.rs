@@ -3,6 +3,7 @@
 
 #[cfg(feature = "inx")]
 mod inx;
+mod memory;
 mod mongodb;
 
 use async_trait::async_trait;
@@ -19,6 +20,7 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[derive(Clone)]
 pub struct MilestoneData {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
@@ -27,6 +29,7 @@ pub struct MilestoneData {
 }
 
 /// Logical grouping of data that belongs to a block.
+#[derive(Clone)]
 pub struct BlockData {
     pub block_id: BlockId,
     pub block: Block,

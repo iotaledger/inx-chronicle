@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::types::tangle::MilestoneIndex;
+use crate::{inx::MilestoneRangeRequest, types::tangle::MilestoneIndex};
 
 #[derive(Copy, Clone, Debug)]
 pub struct MilestoneRange {
@@ -23,9 +23,15 @@ where
         let end = match value.end_bound() {
             Bound::Included(&idx) => idx,
             Bound::Excluded(&idx) => idx - 1,
-            Bound::Unbounded => u32::MAX.into(),
+            Bound::Unbounded => 0.into(),
         };
         MilestoneRange { start, end }
+    }
+}
+
+impl From<MilestoneRange> for MilestoneRangeRequest {
+    fn from(value: MilestoneRange) -> Self {
+        (value.start.0..=value.end.0).into()
     }
 }
 
