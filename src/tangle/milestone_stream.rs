@@ -16,7 +16,7 @@ use crate::types::{
 };
 
 pub struct Milestone<'a, I: InputSource> {
-    input_source: &'a I,
+    pub(super) source: &'a I,
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
     pub payload: MilestonePayload,
@@ -25,13 +25,16 @@ pub struct Milestone<'a, I: InputSource> {
 
 impl<'a, I: InputSource> Milestone<'a, I> {
     /// Returns the blocks of a milestone in white-flag order.
-    pub fn cone_stream() -> Result<ConeStream<'a, I>, I::Error> {
-        todo!();
+    pub async fn cone_stream(&self) -> Result<ConeStream<'a, I>, I::Error> {
+        Ok(ConeStream {
+            inner: self.source.cone_stream(self.at.milestone_index).await?,
+            store: self.source.ledger_updates(self.at.milestone_index),
+        })
     }
 }
 
 pub struct MilestoneStream<'a, I: InputSource> {
-    inner: BoxStream<'a, Result<Milestone<'a, I>, I::Error>>,
+    pub(super) inner: BoxStream<'a, Result<Milestone<'a, I>, I::Error>>,
 }
 
 impl<'a, I: InputSource> Stream for MilestoneStream<'a, I> {

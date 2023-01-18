@@ -68,7 +68,7 @@ impl InputSource for MongoDb {
         ))
     }
 
-    async fn ledger_updates(&self, _index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+    fn ledger_updates(&self, _index: MilestoneIndex) -> LedgerUpdateStore {
         todo!()
     }
 }
