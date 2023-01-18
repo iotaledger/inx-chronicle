@@ -5,13 +5,11 @@
 
 mod cone_stream;
 mod ledger_updates;
+mod milestone_range;
 mod milestone_stream;
 mod sources;
 
-use self::{
-    milestone_stream::MilestoneStream,
-    sources::{InputSource, MilestoneRange},
-};
+use self::{milestone_range::MilestoneRange, milestone_stream::MilestoneStream, sources::InputSource};
 
 /// Provides access to the tangle.
 pub struct Tangle<I: InputSource> {
