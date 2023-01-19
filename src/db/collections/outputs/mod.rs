@@ -277,7 +277,7 @@ impl OutputCollection {
         .await
     }
 
-    /// Stream all [`Output`]s that were unspent at a given ledger index.
+    /// Stream all [`LedgerOutput`]s that were unspent at a given ledger index.
     pub async fn get_unspent_output_stream(
         &self,
         ledger_index: MilestoneIndex,
