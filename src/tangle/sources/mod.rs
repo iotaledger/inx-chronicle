@@ -5,10 +5,12 @@
 mod inx;
 mod mongodb;
 
+use std::ops::RangeBounds;
+
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 
-use super::{ledger_updates::LedgerUpdateStore, milestone_range::MilestoneRange};
+use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
     ledger::{BlockMetadata, MilestoneIndexTimestamp},
     stardust::block::{
@@ -19,6 +21,7 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[derive(Clone, Debug)]
 pub struct MilestoneData {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
@@ -27,6 +30,7 @@ pub struct MilestoneData {
 }
 
 /// Logical grouping of data that belongs to a block.
+#[derive(Clone, Debug)]
 pub struct BlockData {
     pub block_id: BlockId,
     pub block: Block,
@@ -36,14 +40,17 @@ pub struct BlockData {
 
 /// Defines a type as a source for milestone and cone stream data.
 #[async_trait]
-pub trait InputSource {
+pub trait InputSource
+where
+    Self: Send,
+{
     /// The error type for this input source.
     type Error: 'static + std::error::Error + std::fmt::Debug;
 
     /// Retrieves a stream of milestones and their protocol parameters given a range of indexes.
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error>;
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
@@ -52,5 +59,6 @@ pub trait InputSource {
         index: MilestoneIndex,
     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
 
+    /// Retrieves the updates to the ledger for a given milestone.
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
 }

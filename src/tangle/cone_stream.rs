@@ -9,7 +9,7 @@ use std::{
 use futures::{stream::BoxStream, Stream};
 use pin_project::pin_project;
 
-use super::{ledger_updates::LedgerUpdateStore, InputSource};
+use super::{ledger_updates::LedgerUpdateStore, sources::BlockData, InputSource};
 use crate::types::{
     ledger::BlockMetadata,
     stardust::block::{payload::TransactionEssence, Block, BlockId, Input, Output, Payload},
@@ -21,14 +21,14 @@ pub struct BlockWithMetadataInputs {
     pub block: Block,
     pub raw: Vec<u8>,
     pub metadata: BlockMetadata,
-    pub inputs: Option<Vec<Output>>,
+    pub inputs: Vec<Output>,
 }
 
 #[pin_project]
 pub struct ConeStream<'a, I: InputSource> {
-    store: &'a LedgerUpdateStore,
+    pub(super) store: LedgerUpdateStore,
     #[pin]
-    inner: BoxStream<'a, Result<BlockWithMetadataInputs, I::Error>>,
+    pub(super) inner: BoxStream<'a, Result<BlockData, I::Error>>,
 }
 
 impl<'a, I: InputSource> Stream for ConeStream<'a, I> {
@@ -36,25 +36,26 @@ impl<'a, I: InputSource> Stream for ConeStream<'a, I> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
-        Pin::new(&mut this.inner).poll_next(cx).map_ok(|mut b| {
+        let mut input_vec = Vec::new();
+        Pin::new(&mut this.inner).poll_next(cx).map_ok(|b| {
             // Enrich transaction payloads
-            if let Some(payload) = b.block.payload.as_ref() {
-                match payload {
-                    Payload::Transaction(txn) => {
-                        let TransactionEssence::Regular { inputs, .. } = &txn.essence;
-                        let mut input_vec = Vec::new();
-                        for output_id in inputs.iter().filter_map(|input| match input {
-                            Input::Utxo(output_id) => Some(*output_id),
-                            _ => None,
-                        }) {
-                            input_vec.push(this.store.get_output(&output_id).unwrap().clone());
-                        }
-                        b.inputs = Some(input_vec);
-                    }
-                    _ => (),
+            if let Some(Payload::Transaction(txn)) = b.block.payload.as_ref() {
+                let TransactionEssence::Regular { inputs, .. } = &txn.essence;
+
+                for output_id in inputs.iter().filter_map(|input| match input {
+                    Input::Utxo(output_id) => Some(*output_id),
+                    _ => None,
+                }) {
+                    input_vec.push(this.store.get_output(&output_id).unwrap().clone());
                 }
             }
-            b
+            BlockWithMetadataInputs {
+                block_id: b.block_id,
+                block: b.block,
+                raw: b.raw,
+                metadata: b.metadata,
+                inputs: input_vec,
+            }
         })
     }
 }
