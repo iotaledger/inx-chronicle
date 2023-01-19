@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
-use super::{BlockData, InputSource, MilestoneData, MilestoneRange};
+use super::{BlockData, InputSource, MilestoneData, MilestoneRange, UnspentOutputData};
 use crate::{
     db::{
         collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
@@ -68,7 +68,11 @@ impl InputSource for MongoDb {
         ))
     }
 
-    fn ledger_updates(&self, _index: MilestoneIndex) -> LedgerUpdateStore {
+    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error> {
+        todo!()
+    }
+
+    async fn ledger_updates(&self, _index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
         todo!()
     }
 }
