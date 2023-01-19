@@ -4,14 +4,11 @@
 use std::ops::RangeBounds;
 
 use async_trait::async_trait;
-use futures::{stream::BoxStream, StreamExt, TryStreamExt};
+use futures::{stream::BoxStream, TryStreamExt};
 
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
-    db::{
-        collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
-        MongoDb,
-    },
+    db::{collections::BlockCollection, MongoDb},
     tangle::ledger_updates::LedgerUpdateStore,
     types::tangle::MilestoneIndex,
 };
@@ -22,7 +19,7 @@ impl InputSource for MongoDb {
 
     async fn milestone_stream(
         &self,
-        range: impl RangeBounds<MilestoneIndex> + Send,
+        _range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         todo!()
     }

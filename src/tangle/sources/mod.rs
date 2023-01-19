@@ -3,7 +3,6 @@
 
 #[cfg(feature = "inx")]
 mod inx;
-pub(crate) mod memory;
 mod mongodb;
 
 use std::ops::RangeBounds;
@@ -13,7 +12,7 @@ use futures::stream::BoxStream;
 
 use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
-    ledger::{BlockMetadata, LedgerOutput, MilestoneIndexTimestamp},
+    ledger::{BlockMetadata, MilestoneIndexTimestamp},
     stardust::block::{
         payload::{MilestoneId, MilestonePayload},
         Block, BlockId,
