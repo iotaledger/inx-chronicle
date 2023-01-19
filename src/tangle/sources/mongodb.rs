@@ -4,12 +4,12 @@
 use std::{collections::HashMap, ops::RangeBounds};
 
 use async_trait::async_trait;
-use futures::{stream::BoxStream, StreamExt, TryStreamExt};
+use futures::{stream::BoxStream, TryStreamExt};
 
-use super::{BlockData, InputSource, MilestoneData, UnspentOutputData};
+use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     db::{
-        collections::{BlockCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection},
+        collections::{BlockCollection, OutputCollection},
         MongoDb,
     },
     tangle::ledger_updates::LedgerUpdateStore,
@@ -22,7 +22,7 @@ impl InputSource for MongoDb {
 
     async fn milestone_stream(
         &self,
-        range: impl RangeBounds<MilestoneIndex> + Send,
+        _range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         todo!()
     }
@@ -41,24 +41,6 @@ impl InputSource for MongoDb {
                     block,
                     raw,
                     metadata,
-                }),
-        ))
-    }
-
-    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error> {
-        // TODO: unwrap
-        let ledger_index = self
-            .collection::<MilestoneCollection>()
-            .get_ledger_index()
-            .await?
-            .unwrap();
-        Ok(Box::pin(
-            self.collection::<OutputCollection>()
-                .get_unspent_outputs(ledger_index)
-                .await?
-                .map_ok(move |res| UnspentOutputData {
-                    ledger_index,
-                    output: res,
                 }),
         ))
     }

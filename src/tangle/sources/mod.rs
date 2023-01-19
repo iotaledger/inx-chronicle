@@ -12,7 +12,7 @@ use futures::stream::BoxStream;
 
 use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
-    ledger::{BlockMetadata, LedgerOutput, MilestoneIndexTimestamp},
+    ledger::{BlockMetadata, MilestoneIndexTimestamp},
     stardust::block::{
         payload::{MilestoneId, MilestonePayload},
         Block, BlockId,
@@ -21,6 +21,7 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[derive(Clone, Debug)]
 pub struct MilestoneData {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
@@ -29,19 +30,12 @@ pub struct MilestoneData {
 }
 
 /// Logical grouping of data that belongs to a block.
+#[derive(Clone, Debug)]
 pub struct BlockData {
     pub block_id: BlockId,
     pub block: Block,
     pub raw: Vec<u8>,
     pub metadata: BlockMetadata,
-}
-
-/// Output returned from reading unspent outputs.
-pub struct UnspentOutputData {
-    /// The ledger index for which this [`LedgerOutput`] was unspent.
-    pub ledger_index: MilestoneIndex,
-    /// The output with corresponding metadata.
-    pub output: LedgerOutput,
 }
 
 /// Defines a type as a source for milestone and cone stream data.
@@ -64,9 +58,6 @@ where
         &self,
         index: MilestoneIndex,
     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
-
-    /// Retrieves the current unspent ledger outputs.
-    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error>;
 
     /// Retrieves the updates to the ledger for a given milestone.
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
