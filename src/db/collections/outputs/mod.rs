@@ -277,34 +277,31 @@ impl OutputCollection {
         .await
     }
 
-    /// Get all ledger updates (consumed [`Output`]s) in the given milestone.
-    pub async fn get_ledger_updates(
-        &self,
-        ledger_index: MilestoneIndex,
-    ) -> Result<Vec<OutputWithMetadataResult>, Error> {
-        let inputs = self
-            .aggregate(
+    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
+    pub async fn get_ledger_updates(&self, ledger_index: MilestoneIndex) -> Result<Vec<(OutputId, Output)>, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            output_id: OutputId,
+            output: Output,
+        }
+
+        Ok(self
+            .aggregate::<Res>(
                 vec![
                     doc! { "$match": {
                         "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
                     } },
                     doc! { "$project": {
+                        "output_id": "$_id",
                         "output": "$output",
-                        "metadata": {
-                            "output_id": "$_id",
-                            "block_id": "$metadata.block_id",
-                            "booked": "$metadata.booked",
-                            "spent_metadata": "$metadata.spent_metadata",
-                        },
                     } },
                 ],
                 None,
             )
             .await?
+            .map_ok(|s| (s.output_id, s.output))
             .try_collect()
-            .await?;
-
-        Ok(inputs)
+            .await?)
     }
 
     /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].

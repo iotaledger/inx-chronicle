@@ -76,7 +76,6 @@ impl InputSource for MongoDb {
             .get_ledger_updates(index)
             .await?
             .into_iter()
-            .map(|update| (update.metadata.output_id, update.output))
             .collect::<HashMap<_, _>>();
         Ok(LedgerUpdateStore { outputs })
     }
