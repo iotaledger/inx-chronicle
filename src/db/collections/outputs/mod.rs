@@ -5,7 +5,7 @@ mod indexer;
 
 use std::borrow::Borrow;
 
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, to_bson, to_document},
     error::Error,
@@ -275,6 +275,55 @@ impl OutputCollection {
         .await?
         .try_next()
         .await
+    }
+
+    // pub async fn get_unspent_outputs(&self, ledger_index: MilestoneIndex) -> Result<Vec<OutputId, Output)>, Error> {
+    //     #[derive(Deserialize)]
+    //     struct Res {
+    //         output_id: OutputId,
+    //         output: Output,
+    //     }
+
+    //     Ok(self
+    //         .aggregate::<Res>(
+    //             vec![
+    //                 doc! { "$match": {
+    //                     "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //                 } },
+    //                 doc! { "$project": {
+    //                     "output_id": "$_id",
+    //                     "output": "$output",
+    //                     "block_id": "$metadata.block_id",
+    //                     "booked": "$metadata.booked.milestone_index",
+    //                     "spent_metadata": "$metadata.spent_metadata",
+    //                 } },
+    //             ],
+    //             None,
+    //         )
+    //         .await?
+    //         .map_ok(|s| (s.output_id, s.output))
+    //         .try_collect()
+    //         .await?)
+    // }
+
+    /// Get all unspent [`Output`]s for a given ledger index.
+    pub async fn get_unspent_outputs(&self, ledger_index: MilestoneIndex) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
+        Ok(self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                } },
+                doc! { "$project": {
+                    "output_id": "$_id",
+                    "block_id": "$metadata.block_id",
+                    "booked": "$metadata.booked",
+                    "output": "$output",
+                    "rent_structure": "$details.rent_structure",
+                } },
+            ],
+            None,
+        )
+        .await?)
     }
 
     /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.

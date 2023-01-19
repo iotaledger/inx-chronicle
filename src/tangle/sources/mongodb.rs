@@ -46,7 +46,21 @@ impl InputSource for MongoDb {
     }
 
     async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error> {
-        todo!()
+        // TODO: unwrap
+        let ledger_index = self
+            .collection::<MilestoneCollection>()
+            .get_ledger_index()
+            .await?
+            .unwrap();
+        Ok(Box::pin(
+            self.collection::<OutputCollection>()
+                .get_unspent_outputs(ledger_index)
+                .await?
+                .map_ok(move |res| UnspentOutputData {
+                    ledger_index,
+                    output: res,
+                }),
+        ))
     }
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
