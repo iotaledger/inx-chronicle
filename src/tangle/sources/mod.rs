@@ -56,7 +56,7 @@ where
     /// Retrieves a stream of milestones and their protocol parameters given a range of indexes.
     async fn milestone_stream(
         &self,
-        range: impl RangeBounds<MilestoneIndex>,
+        range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error>;
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
