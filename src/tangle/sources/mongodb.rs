@@ -1,15 +1,14 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
-use futures::{stream::BoxStream, StreamExt, TryStreamExt};
+use std::ops::RangeBounds;
 
-use super::{BlockData, InputSource, MilestoneData, MilestoneRange};
+use async_trait::async_trait;
+use futures::{stream::BoxStream, TryStreamExt};
+
+use super::{BlockData, InputSource, MilestoneData};
 use crate::{
-    db::{
-        collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
-        MongoDb,
-    },
+    db::{collections::BlockCollection, MongoDb},
     tangle::ledger_updates::LedgerUpdateStore,
     types::tangle::MilestoneIndex,
 };
@@ -20,34 +19,9 @@ impl InputSource for MongoDb {
 
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        _range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
-        // Need to have an owned value to hold in the iterator
-        let db = self.clone();
-        Ok(Box::pin(futures::stream::iter(range).then(move |index| {
-            let db = db.clone();
-            async move {
-                let (milestone_id, at, payload) = db
-                    .collection::<MilestoneCollection>()
-                    .get_milestone(index.into())
-                    .await?
-                    // TODO: what do we do with this?
-                    .unwrap();
-                let protocol_params = db
-                    .collection::<ProtocolUpdateCollection>()
-                    .get_protocol_parameters_for_ledger_index(index.into())
-                    .await?
-                    // TODO: what do we do with this?
-                    .unwrap()
-                    .parameters;
-                Ok(MilestoneData {
-                    milestone_id,
-                    at,
-                    payload,
-                    protocol_params,
-                })
-            }
-        })))
+        todo!()
     }
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.

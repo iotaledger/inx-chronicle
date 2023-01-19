@@ -19,6 +19,6 @@ impl LedgerUpdateStore {
     ///
     /// Note: Only outputs that were touched in the current milestone (either as inputs or outputs) are present.
     pub fn get_output(&self, output_id: &OutputId) -> Option<&Output> {
-        self.outputs.get(&output_id)
+        self.outputs.get(output_id)
     }
 }
