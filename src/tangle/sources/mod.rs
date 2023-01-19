@@ -3,6 +3,7 @@
 
 #[cfg(feature = "inx")]
 mod inx;
+mod memory;
 mod mongodb;
 
 use std::ops::RangeBounds;
@@ -21,6 +22,7 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[derive(Clone, Debug)]
 pub struct MilestoneData {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
@@ -29,6 +31,7 @@ pub struct MilestoneData {
 }
 
 /// Logical grouping of data that belongs to a block.
+#[derive(Clone, Debug)]
 pub struct BlockData {
     pub block_id: BlockId,
     pub block: Block,
@@ -37,6 +40,7 @@ pub struct BlockData {
 }
 
 /// Output returned from reading unspent outputs.
+#[derive(Clone, Debug)]
 pub struct UnspentOutputData {
     /// The ledger index for which this [`LedgerOutput`] was unspent.
     pub ledger_index: MilestoneIndex,
