@@ -5,17 +5,18 @@
 
 mod cone_stream;
 mod ledger_updates;
-mod milestone_range;
 mod milestone_stream;
 mod sources;
+
+use std::ops::RangeBounds;
 
 use futures::{StreamExt, TryStreamExt};
 
 use self::{
-    milestone_range::MilestoneRange,
     milestone_stream::{Milestone, MilestoneStream},
     sources::InputSource,
 };
+use crate::types::tangle::MilestoneIndex;
 
 /// Provides access to the tangle.
 pub struct Tangle<'a, I: InputSource> {
@@ -24,8 +25,11 @@ pub struct Tangle<'a, I: InputSource> {
 
 impl<'a, I: 'a + InputSource + Sync> Tangle<'a, I> {
     /// Returns a stream of milestones for a given range.
-    pub async fn milestone_stream(&self, range: impl Into<MilestoneRange>) -> Result<MilestoneStream<'a, I>, I::Error> {
-        let stream = self.source.milestone_stream(range.into()).await?;
+    pub async fn milestone_stream(
+        &self,
+        range: impl RangeBounds<MilestoneIndex>,
+    ) -> Result<MilestoneStream<'a, I>, I::Error> {
+        let stream = self.source.milestone_stream(range).await?;
         Ok(MilestoneStream {
             inner: stream
                 .map_ok(|data| Milestone {

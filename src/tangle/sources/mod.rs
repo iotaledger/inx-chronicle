@@ -5,10 +5,12 @@
 mod inx;
 mod mongodb;
 
+use std::ops::RangeBounds;
+
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 
-use super::{ledger_updates::LedgerUpdateStore, milestone_range::MilestoneRange};
+use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
     ledger::{BlockMetadata, LedgerOutput, MilestoneIndexTimestamp},
     stardust::block::{
@@ -54,7 +56,7 @@ where
     /// Retrieves a stream of milestones and their protocol parameters given a range of indexes.
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        range: impl RangeBounds<MilestoneIndex>,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error>;
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.

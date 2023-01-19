@@ -1,10 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::ops::RangeBounds;
+
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
-use super::{BlockData, InputSource, MilestoneData, MilestoneRange, UnspentOutputData};
+use super::{BlockData, InputSource, MilestoneData, UnspentOutputData};
 use crate::{
     db::{
         collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
@@ -20,7 +22,7 @@ impl InputSource for MongoDb {
 
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        range: impl RangeBounds<MilestoneIndex>,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         // Need to have an owned value to hold in the iterator
         let db = self.clone();
