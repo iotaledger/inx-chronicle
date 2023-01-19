@@ -1,12 +1,12 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeBounds};
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
-use super::{BlockData, InputSource, MilestoneData, MilestoneRange};
+use super::{BlockData, InputSource, MilestoneData, UnspentOutputData};
 use crate::{
     db::{
         collections::{BlockCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection},
@@ -22,34 +22,9 @@ impl InputSource for MongoDb {
 
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
-        // Need to have an owned value to hold in the iterator
-        let db = self.clone();
-        Ok(Box::pin(futures::stream::iter(range).then(move |index| {
-            let db = db.clone();
-            async move {
-                let (milestone_id, at, payload) = db
-                    .collection::<MilestoneCollection>()
-                    .get_milestone(index.into())
-                    .await?
-                    // TODO: what do we do with this?
-                    .unwrap();
-                let protocol_params = db
-                    .collection::<ProtocolUpdateCollection>()
-                    .get_protocol_parameters_for_ledger_index(index.into())
-                    .await?
-                    // TODO: what do we do with this?
-                    .unwrap()
-                    .parameters;
-                Ok(MilestoneData {
-                    milestone_id,
-                    at,
-                    payload,
-                    protocol_params,
-                })
-            }
-        })))
+        todo!()
     }
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
@@ -68,6 +43,10 @@ impl InputSource for MongoDb {
                     metadata,
                 }),
         ))
+    }
+
+    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error> {
+        todo!()
     }
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {

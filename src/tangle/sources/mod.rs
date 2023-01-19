@@ -5,12 +5,14 @@
 mod inx;
 mod mongodb;
 
+use std::ops::RangeBounds;
+
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 
-use super::{ledger_updates::LedgerUpdateStore, milestone_range::MilestoneRange};
+use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
-    ledger::{BlockMetadata, MilestoneIndexTimestamp},
+    ledger::{BlockMetadata, LedgerOutput, MilestoneIndexTimestamp},
     stardust::block::{
         payload::{MilestoneId, MilestonePayload},
         Block, BlockId,
@@ -34,6 +36,14 @@ pub struct BlockData {
     pub metadata: BlockMetadata,
 }
 
+/// Output returned from reading unspent outputs.
+pub struct UnspentOutputData {
+    /// The ledger index for which this [`LedgerOutput`] was unspent.
+    pub ledger_index: MilestoneIndex,
+    /// The output with corresponding metadata.
+    pub output: LedgerOutput,
+}
+
 /// Defines a type as a source for milestone and cone stream data.
 #[async_trait]
 pub trait InputSource
@@ -46,7 +56,7 @@ where
     /// Retrieves a stream of milestones and their protocol parameters given a range of indexes.
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error>;
 
     /// Retrieves a stream of blocks and their metadata in white-flag order given a milestone index.
@@ -55,5 +65,9 @@ where
         index: MilestoneIndex,
     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
 
+    /// Retrieves the current unspent ledger outputs.
+    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error>;
+
+    /// Retrieves the updates to the ledger for a given milestone.
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
 }
