@@ -39,19 +39,14 @@ impl<'a, I: InputSource> Stream for ConeStream<'a, I> {
         let mut input_vec = Vec::new();
         Pin::new(&mut this.inner).poll_next(cx).map_ok(|b| {
             // Enrich transaction payloads
-            if let Some(payload) = b.block.payload.as_ref() {
-                match payload {
-                    Payload::Transaction(txn) => {
-                        let TransactionEssence::Regular { inputs, .. } = &txn.essence;
+            if let Some(Payload::Transaction(txn)) = b.block.payload.as_ref() {
+                let TransactionEssence::Regular { inputs, .. } = &txn.essence;
 
-                        for output_id in inputs.iter().filter_map(|input| match input {
-                            Input::Utxo(output_id) => Some(*output_id),
-                            _ => None,
-                        }) {
-                            input_vec.push(this.store.get_output(&output_id).unwrap().clone());
-                        }
-                    }
-                    _ => (),
+                for output_id in inputs.iter().filter_map(|input| match input {
+                    Input::Utxo(output_id) => Some(*output_id),
+                    _ => None,
+                }) {
+                    input_vec.push(this.store.get_output(&output_id).unwrap().clone());
                 }
             }
             BlockWithMetadataInputs {

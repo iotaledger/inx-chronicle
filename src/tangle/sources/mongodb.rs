@@ -29,13 +29,13 @@ impl InputSource for MongoDb {
             async move {
                 let (milestone_id, at, payload) = db
                     .collection::<MilestoneCollection>()
-                    .get_milestone(index.into())
+                    .get_milestone(index)
                     .await?
                     // TODO: what do we do with this?
                     .unwrap();
                 let protocol_params = db
                     .collection::<ProtocolUpdateCollection>()
-                    .get_protocol_parameters_for_ledger_index(index.into())
+                    .get_protocol_parameters_for_ledger_index(index)
                     .await?
                     // TODO: what do we do with this?
                     .unwrap()

@@ -26,11 +26,10 @@ impl<'a, I: 'a + InputSource + Sync> Tangle<'a, I> {
     /// Returns a stream of milestones for a given range.
     pub async fn milestone_stream(&self, range: impl Into<MilestoneRange>) -> Result<MilestoneStream<'a, I>, I::Error> {
         let stream = self.source.milestone_stream(range.into()).await?;
-        let source: &'a I = &self.source;
         Ok(MilestoneStream {
             inner: stream
                 .map_ok(|data| Milestone {
-                    source,
+                    source: self.source,
                     milestone_id: data.milestone_id,
                     at: data.at,
                     payload: data.payload,
