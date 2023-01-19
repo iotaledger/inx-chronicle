@@ -1,13 +1,15 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
 use super::{BlockData, InputSource, MilestoneData, MilestoneRange};
 use crate::{
     db::{
-        collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
+        collections::{BlockCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection},
         MongoDb,
     },
     tangle::ledger_updates::LedgerUpdateStore,
@@ -68,7 +70,13 @@ impl InputSource for MongoDb {
         ))
     }
 
-    fn ledger_updates(&self, _index: MilestoneIndex) -> LedgerUpdateStore {
-        todo!()
+    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+        let outputs = self
+            .collection::<OutputCollection>()
+            .get_ledger_updates(index)
+            .await?
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+        Ok(LedgerUpdateStore { outputs })
     }
 }

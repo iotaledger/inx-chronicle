@@ -55,5 +55,5 @@ where
         index: MilestoneIndex,
     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
 
-    fn ledger_updates(&self, index: MilestoneIndex) -> LedgerUpdateStore;
+    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
 }

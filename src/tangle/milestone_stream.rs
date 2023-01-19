@@ -28,7 +28,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     pub async fn cone_stream(&self) -> Result<ConeStream<'a, I>, I::Error> {
         Ok(ConeStream {
             inner: self.source.cone_stream(self.at.milestone_index).await?,
-            store: self.source.ledger_updates(self.at.milestone_index),
+            store: self.source.ledger_updates(self.at.milestone_index).await?,
         })
     }
 }

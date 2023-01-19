@@ -10,7 +10,7 @@ use crate::types::stardust::block::{output::OutputId, Output};
 /// Note: For now we store all of these in memory. At some point we might need to retrieve them from an async
 /// datasource.
 pub struct LedgerUpdateStore {
-    outputs: HashMap<OutputId, Output>,
+    pub(crate) outputs: HashMap<OutputId, Output>,
 }
 
 impl LedgerUpdateStore {
