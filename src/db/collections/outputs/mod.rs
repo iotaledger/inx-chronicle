@@ -277,8 +277,8 @@ impl OutputCollection {
         .await
     }
 
-    /// Get all unspent [`Output`]s for a given ledger index.
-    pub async fn get_unspent_outputs(
+    /// Stream all [`Output`]s that were unspent at a given ledger index.
+    pub async fn get_unspent_output_stream(
         &self,
         ledger_index: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
