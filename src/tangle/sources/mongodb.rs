@@ -6,7 +6,7 @@ use std::ops::RangeBounds;
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
-use super::{BlockData, InputSource, MilestoneData, UnspentOutputData};
+use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     db::{
         collections::{BlockCollection, MilestoneCollection, ProtocolUpdateCollection},
@@ -43,10 +43,6 @@ impl InputSource for MongoDb {
                     metadata,
                 }),
         ))
-    }
-
-    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error> {
-        todo!()
     }
 
     async fn ledger_updates(&self, _index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {

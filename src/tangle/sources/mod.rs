@@ -3,7 +3,7 @@
 
 #[cfg(feature = "inx")]
 mod inx;
-mod memory;
+pub(crate) mod memory;
 mod mongodb;
 
 use std::ops::RangeBounds;
@@ -39,15 +39,6 @@ pub struct BlockData {
     pub metadata: BlockMetadata,
 }
 
-/// Output returned from reading unspent outputs.
-#[derive(Clone, Debug)]
-pub struct UnspentOutputData {
-    /// The ledger index for which this [`LedgerOutput`] was unspent.
-    pub ledger_index: MilestoneIndex,
-    /// The output with corresponding metadata.
-    pub output: LedgerOutput,
-}
-
 /// Defines a type as a source for milestone and cone stream data.
 #[async_trait]
 pub trait InputSource
@@ -68,9 +59,6 @@ where
         &self,
         index: MilestoneIndex,
     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error>;
-
-    /// Retrieves the current unspent ledger outputs.
-    async fn unspent_outputs(&self) -> Result<BoxStream<Result<UnspentOutputData, Self::Error>>, Self::Error>;
 
     /// Retrieves the updates to the ledger for a given milestone.
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error>;
