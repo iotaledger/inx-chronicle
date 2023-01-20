@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, ops::RangeBounds};
+use std::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, TryStreamExt};
@@ -46,12 +46,7 @@ impl InputSource for MongoDb {
     }
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
-        let outputs = self
-            .collection::<OutputCollection>()
-            .get_ledger_updates(index)
-            .await?
-            .into_iter()
-            .collect::<HashMap<_, _>>();
+        let outputs = self.collection::<OutputCollection>().get_ledger_updates(index).await?;
         Ok(LedgerUpdateStore { outputs })
     }
 }

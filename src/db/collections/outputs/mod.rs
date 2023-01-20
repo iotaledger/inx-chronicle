@@ -3,7 +3,7 @@
 
 mod indexer;
 
-use std::borrow::Borrow;
+use std::{borrow::Borrow, collections::HashMap};
 
 use futures::{Stream, TryStreamExt};
 use mongodb::{
@@ -301,7 +301,7 @@ impl OutputCollection {
     }
 
     /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
-    pub async fn get_ledger_updates(&self, ledger_index: MilestoneIndex) -> Result<Vec<(OutputId, Output)>, Error> {
+    pub async fn get_ledger_updates(&self, ledger_index: MilestoneIndex) -> Result<HashMap<OutputId, Output>, Error> {
         #[derive(Deserialize)]
         struct Res {
             output_id: OutputId,
