@@ -3,7 +3,7 @@
 
 mod indexer;
 
-use std::{borrow::Borrow, collections::HashMap};
+use std::borrow::Borrow;
 
 use futures::{Stream, TryStreamExt};
 use mongodb::{
@@ -301,29 +301,30 @@ impl OutputCollection {
     }
 
     /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
-    pub async fn get_ledger_updates(&self, ledger_index: MilestoneIndex) -> Result<HashMap<OutputId, Output>, Error> {
+    pub async fn get_ledger_update_stream(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<(OutputId, Output), Error>>, Error> {
         #[derive(Deserialize)]
         struct Res {
             output_id: OutputId,
             output: Output,
         }
-
-        self.aggregate::<Res>(
-            vec![
-                doc! { "$match": {
-                    "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
-                } },
-                doc! { "$project": {
-                    "output_id": "$_id",
-                    "output": "$output",
-                } },
-            ],
-            None,
-        )
-        .await?
-        .map_ok(|s| (s.output_id, s.output))
-        .try_collect()
-        .await
+        Ok(self
+            .aggregate::<Res>(
+                vec![
+                    doc! { "$match": {
+                        "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "output": "$output",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|res| (res.output_id, res.output)))
     }
 
     /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
