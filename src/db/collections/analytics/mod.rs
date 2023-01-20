@@ -36,15 +36,19 @@ pub use unlock_condition::UnlockConditionAnalytics;
 use self::{
     address_balance::AddressAnalyticsResult, base_token::BaseTokenActivityAnalyticsResult,
     block_activity::BlockActivityAnalyticsResult, daily_active_addresses::DailyActiveAddressAnalyticsResult,
-    ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeAnalyticsResult,
+    ledger_outputs::LedgerOutputAnalyticsResult, ledger_size::LedgerSizeStatistic,
     output_activity::OutputActivityAnalyticsResult, unclaimed_tokens::UnclaimedTokenAnalyticsResult,
     unlock_condition::UnlockConditionAnalyticsResult,
 };
 use crate::{
     db::MongoDb,
     types::{
-        stardust::milestone::MilestoneTimestamp,
-        tangle::{MilestoneIndex, ProtocolParameters},
+        ledger::{BlockMetadata},
+        stardust::{
+            block::{Block, Output},
+            milestone::MilestoneTimestamp,
+        },
+        tangle::{MilestoneIndex, ProtocolParameters}, 
     },
 };
 
@@ -114,7 +118,7 @@ pub fn all_analytics() -> Vec<Box<dyn Analytic>> {
         Box::new(BlockActivityAnalytics),
         Box::<DailyActiveAddressesAnalytics>::default(),
         Box::new(LedgerOutputAnalytics),
-        Box::new(LedgerSizeAnalytics),
+        Box::<LedgerSizeAnalytics>::default(),
         Box::new(OutputActivityAnalytics),
         Box::new(ProtocolParametersAnalytics),
         Box::new(UnclaimedTokenAnalytics),
@@ -135,9 +139,16 @@ pub enum Measurement {
     BlockAnalytics(PerMilestone<BlockActivityAnalyticsResult>),
     DailyActiveAddressAnalytics(TimeInterval<DailyActiveAddressAnalyticsResult>),
     LedgerOutputAnalytics(PerMilestone<LedgerOutputAnalyticsResult>),
-    LedgerSizeAnalytics(PerMilestone<LedgerSizeAnalyticsResult>),
+    LedgerSizeAnalytics(PerMilestone<LedgerSizeStatistic>),
     OutputActivityAnalytics(PerMilestone<OutputActivityAnalyticsResult>),
     ProtocolParameters(PerMilestone<ProtocolParameters>),
     UnclaimedTokenAnalytics(PerMilestone<UnclaimedTokenAnalyticsResult>),
     UnlockConditionAnalytics(PerMilestone<UnlockConditionAnalyticsResult>),
+}
+
+pub trait BlockAnalytics {
+    type Measurement;
+    fn begin_milestone(&mut self, index: MilestoneIndex);
+    fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata, inputs: &Option<Vec<Output>>);
+    fn end_milestone(&mut self, index: MilestoneIndex);
 }

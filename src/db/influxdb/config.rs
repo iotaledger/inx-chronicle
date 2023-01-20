@@ -101,7 +101,7 @@ impl From<AnalyticsChoice> for Box<dyn crate::db::collections::analytics::Analyt
             AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
             AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
+            AnalyticsChoice::LedgerSize => Box::<LedgerSizeAnalytics>::default(),
             AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
             AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
