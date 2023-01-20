@@ -1,15 +1,15 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeBounds};
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
-    inx::{Inx, InxError, MarkerMessage},
-    tangle::{ledger_updates::LedgerUpdateStore, milestone_range::MilestoneRange},
+    inx::{Inx, InxError, MarkerMessage, MilestoneRangeRequest},
+    tangle::ledger_updates::LedgerUpdateStore,
     types::{
         ledger::{LedgerSpent, MilestoneIndexTimestamp},
         tangle::MilestoneIndex,
@@ -22,11 +22,11 @@ impl InputSource for Inx {
 
     async fn milestone_stream(
         &self,
-        range: MilestoneRange,
+        range: impl RangeBounds<MilestoneIndex> + Send,
     ) -> Result<BoxStream<Result<MilestoneData, Self::Error>>, Self::Error> {
         let mut inx = self.clone();
         Ok(Box::pin(
-            inx.listen_to_confirmed_milestones(range.into())
+            inx.listen_to_confirmed_milestones(MilestoneRangeRequest::from_range(range))
                 .await?
                 .and_then(|msg| async move {
                     let payload = if let iota_types::block::payload::Payload::Milestone(payload) =
