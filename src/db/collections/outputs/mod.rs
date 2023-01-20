@@ -5,7 +5,7 @@ mod indexer;
 
 use std::borrow::Borrow;
 
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, to_bson, to_document},
     error::Error,
@@ -275,6 +275,56 @@ impl OutputCollection {
         .await?
         .try_next()
         .await
+    }
+
+    /// Stream all [`LedgerOutput`]s that were unspent at a given ledger index.
+    pub async fn get_unspent_output_stream(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                } },
+                doc! { "$project": {
+                    "output_id": "$_id",
+                    "block_id": "$metadata.block_id",
+                    "booked": "$metadata.booked",
+                    "output": "$output",
+                    "rent_structure": "$details.rent_structure",
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+
+    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
+    pub async fn get_ledger_update_stream(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<(OutputId, Output), Error>>, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            output_id: OutputId,
+            output: Output,
+        }
+        Ok(self
+            .aggregate::<Res>(
+                vec![
+                    doc! { "$match": {
+                        "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "output": "$output",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|res| (res.output_id, res.output)))
     }
 
     /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
