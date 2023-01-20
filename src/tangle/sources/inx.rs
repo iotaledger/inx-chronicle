@@ -10,10 +10,7 @@ use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     inx::{Inx, InxError, MarkerMessage, MilestoneRangeRequest},
     tangle::ledger_updates::LedgerUpdateStore,
-    types::{
-        ledger::{LedgerSpent, MilestoneIndexTimestamp},
-        tangle::MilestoneIndex,
-    },
+    types::{ledger::MilestoneIndexTimestamp, tangle::MilestoneIndex},
 };
 
 #[async_trait]
@@ -79,7 +76,7 @@ impl InputSource for Inx {
             .take(consumed_count)
             .map_ok(|update| {
                 // Unwrap: Safe based on our knowledge of the stream layout
-                let consumed = LedgerSpent::from(update.consumed().unwrap());
+                let consumed = update.consumed().unwrap();
                 (consumed.output.output_id, consumed.output.output)
             })
             .try_collect::<HashMap<_, _>>()
