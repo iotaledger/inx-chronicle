@@ -3,6 +3,7 @@
 
 #[cfg(feature = "inx")]
 mod inx;
+mod memory;
 mod mongodb;
 
 use std::ops::RangeBounds;
