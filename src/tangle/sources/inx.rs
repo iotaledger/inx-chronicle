@@ -34,8 +34,7 @@ impl InputSource for Inx {
                     {
                         payload.into()
                     } else {
-                        // The raw data is guaranteed to contain a milestone payload.
-                        unreachable!();
+                        unreachable!("Raw milestone data has to contain a milestone payload");
                     };
                     Ok(MilestoneData {
                         // TODO: What do we do here, enhance the error type?
