@@ -78,7 +78,7 @@ async fn login(
             config.jwt_secret_key.as_ref(),
         )?;
 
-        Ok(format!("Bearer {}", jwt))
+        Ok(format!("Bearer {jwt}"))
     } else {
         Err(ApiError::from(AuthError::IncorrectPassword))
     }
