@@ -197,13 +197,13 @@ impl MilestoneCollection {
     }
 
     /// Inserts the information of a milestone into the database.
-    #[instrument(skip(self, milestone_id, milestone_timestamp, payload), err, level = "trace")]
+    #[instrument(skip(self, milestone_id, milestone_timestamp, milestone), err, level = "trace")]
     pub async fn insert_milestone(
         &self,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
-        payload: MilestonePayload,
+        milestone: MilestonePayload,
     ) -> Result<(), Error> {
         let milestone_document = MilestoneDocument {
             at: MilestoneIndexTimestamp {
@@ -211,7 +211,7 @@ impl MilestoneCollection {
                 milestone_timestamp,
             },
             milestone_id,
-            payload,
+            payload: milestone,
         };
 
         self.insert_one(milestone_document, None).await?;

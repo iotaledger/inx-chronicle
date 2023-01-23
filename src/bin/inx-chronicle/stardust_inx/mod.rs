@@ -15,15 +15,15 @@ use chronicle::{
         MongoDb,
     },
     inx::{
-        BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage,
+        BlockWithMetadataMessage, Inx, InxError,
         MilestoneAndProtocolParametersMessage, MilestoneInfoMessage, MilestoneMessage, RawProtocolParametersMessage,
     },
     types::{
         ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{
+        stardust::{block::{
             payload::{MilestoneId, MilestonePayload},
             Block, BlockId, Payload,
-        },
+        }, milestone::MilestoneTimestamp},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
@@ -159,10 +159,11 @@ impl InxWorker {
                     unreachable!();
                 };
 
+            let milestone_ts: MilestoneTimestamp = milestone_timestamp.into();
             let milestone_id = milestone_id.ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
             let protocol_parameters = iota_types::block::protocol::ProtocolParameters::from(params.inner_unverified()?).into();
 
-            self.handle_confirmed_milestone(&mut inx, milestone, milestone_id, milestone_index, protocol_parameters, &mut analytics)
+            self.handle_confirmed_milestone(&mut inx, milestone, milestone_id, milestone_index, milestone_ts, protocol_parameters, &mut analytics)
                 .await?;
         }
 
@@ -315,11 +316,65 @@ impl InxWorker {
         milestone: MilestonePayload,
         milestone_id: MilestoneId,
         milestone_index: MilestoneIndex,
+        milestone_timestamp: MilestoneTimestamp,
         protocol_parameters: ProtocolParameters,
         #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
+        #[cfg(feature = "metrics")]
+        let start_time = std::time::Instant::now();
+
         self.handle_cone_stream(inx, milestone_index).await?;
+        self.handle_protocol_params(inx, milestone_index, protocol_parameters).await?;
         self.handle_node_configuration(inx, milestone_index).await?;
+
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        let analytics_start_time = std::time::Instant::now();
+        #[cfg(feature = "analytics")]
+        if let Some(influx_db) = &self.influx_db {
+            if influx_db.config().analytics_enabled {
+                gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
+            }
+        }
+        #[cfg(all(feature = "analytics", feature = "metrics"))]
+        {
+            if let Some(influx_db) = &self.influx_db {
+                if influx_db.config().analytics_enabled {
+                    let analytics_elapsed = analytics_start_time.elapsed();
+                    influx_db
+                        .metrics()
+                        .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                            time: chrono::Utc::now(),
+                            milestone_index,
+                            analytics_time: analytics_elapsed.as_millis() as u64,
+                            chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                        })
+                        .await?;
+                }
+            }
+        }
+
+        #[cfg(feature = "metrics")]
+        if let Some(influx_db) = &self.influx_db {
+            if influx_db.config().metrics_enabled {
+                let elapsed = start_time.elapsed();
+                influx_db
+                    .metrics()
+                    .insert(chronicle::db::collections::metrics::SyncMetrics {
+                        time: chrono::Utc::now(),
+                        milestone_index,
+                        milestone_time: elapsed.as_millis() as u64,
+                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                    })
+                    .await?;
+            }
+        }
+
+        // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
+        self.db
+            .collection::<MilestoneCollection>()
+            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, milestone)
+            .await?;
+
         Ok(())
     }
 
@@ -488,16 +543,10 @@ impl InxWorker {
     // }
 
     #[instrument(skip_all, level = "trace")]
-    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
-        let parameters = inx
-            .read_protocol_parameters(milestone_index.0.into())
-            .await?
-            .params
-            .inner(&())?;
-
+    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex, parameters: ProtocolParameters) -> Result<()> {
         self.db
             .collection::<ProtocolUpdateCollection>()
-            .update_latest_protocol_parameters(milestone_index, parameters.into())
+            .update_latest_protocol_parameters(milestone_index, parameters)
             .await?;
 
         Ok(())
