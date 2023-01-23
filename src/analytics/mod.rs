@@ -25,3 +25,5 @@ pub trait TransactionAnalytics {
     fn handle_transaction(&mut self, inputs: &[Output], outputs: &[Output]);
     fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement>;
 }
+
+// pub fn analytics(milestones: impl Stream<Item=Milestone>)
