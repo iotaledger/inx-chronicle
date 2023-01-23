@@ -18,7 +18,7 @@ pub struct ApplicationStateDocument {
     pub starting_index: MilestoneIndex,
 }
 
-/// A collection to store [`NodeConfiguration`]s.
+/// A collection to store singleton Application State.
 pub struct ApplicationStateCollection {
     collection: mongodb::Collection<ApplicationStateDocument>,
 }
