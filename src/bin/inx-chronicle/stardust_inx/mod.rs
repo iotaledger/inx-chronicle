@@ -9,8 +9,8 @@ use std::time::Duration;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
-            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            ApplicationStateCollection, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
+            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -108,6 +108,14 @@ impl InxWorker {
     pub async fn run(&mut self) -> Result<()> {
         let (start_index, mut inx) = self.init().await?;
 
+        #[cfg(feature = "analytics")]
+        let state = self
+            .db
+            .collection::<ApplicationStateCollection>()
+            .get_application_state()
+            .await?
+            .ok_or(InxWorkerError::MissingAppState)?;
+
         let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
 
         debug!("Started listening to ledger updates via INX.");
@@ -132,6 +140,8 @@ impl InxWorker {
                 &mut inx,
                 ledger_update,
                 &mut stream,
+                #[cfg(feature = "analytics")]
+                state.starting_index,
                 #[cfg(feature = "analytics")]
                 &mut analytics,
             )
@@ -235,6 +245,19 @@ impl InxWorker {
                     .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
+
+            if self
+                .db
+                .collection::<ApplicationStateCollection>()
+                .get_application_state()
+                .await?
+                .is_none()
+            {
+                self.db
+                    .collection::<ApplicationStateCollection>()
+                    .set_starting_index(start_index)
+                    .await?;
+            }
         } else {
             self.db.clear().await?;
             info!("Reading unspent outputs.");
@@ -275,6 +298,19 @@ impl InxWorker {
                 .collection::<ProtocolUpdateCollection>()
                 .insert_protocol_parameters(start_index, protocol_parameters.into())
                 .await?;
+
+            // Get the latest milestone again after reading unspent outputs
+            let starting_index = inx
+                .read_node_status()
+                .await?
+                .confirmed_milestone
+                .milestone_info
+                .milestone_index;
+
+            self.db
+                .collection::<ApplicationStateCollection>()
+                .set_starting_index(starting_index)
+                .await?;
         }
 
         Ok((start_index, inx))
@@ -286,6 +322,7 @@ impl InxWorker {
         inx: &mut Inx,
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
+        #[cfg(feature = "analytics")] synced_index: MilestoneIndex,
         #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
@@ -396,9 +433,11 @@ impl InxWorker {
         #[cfg(all(feature = "analytics", feature = "metrics"))]
         let analytics_start_time = std::time::Instant::now();
         #[cfg(feature = "analytics")]
-        if let Some(influx_db) = &self.influx_db {
-            if influx_db.config().analytics_enabled {
-                gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
+        if milestone_index >= synced_index {
+            if let Some(influx_db) = &self.influx_db {
+                if influx_db.config().analytics_enabled {
+                    gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
+                }
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
