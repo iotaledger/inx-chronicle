@@ -58,7 +58,7 @@ influxdb = { version = "0.5", default-features = false, features = [ "use-serde"
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
 axum = { version = "0.5", default-features = false, features = [ "http1", "json", "query", "original-uri", "headers" ], optional = true }
-ed25519 = { version = "2.0", default-features = false, features = [ "alloc", "pkcs8", "pem" ], optional = true }
+ed25519 = { version = "2.1", default-features = false, features = [ "alloc", "pkcs8", "pem" ], optional = true }
 ed25519-dalek = { version = "1.0", default-features = false, features = [ "u64_backend" ], optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
 hyper = { version = "0.14", default-features = false, features = [ "server", "tcp", "stream" ], optional = true }
