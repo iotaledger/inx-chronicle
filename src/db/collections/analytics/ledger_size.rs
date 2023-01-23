@@ -9,12 +9,13 @@ use super::{Analytic, BlockAnalytics, Error, Measurement, PerMilestone};
 use crate::{
     db::MongoDb,
     types::{
+        context::TryFromWithContext,
         ledger::{BlockMetadata, RentStructureBytes},
         stardust::{
             block::{payload::TransactionEssence, Block, Output, Payload},
             milestone::MilestoneTimestamp,
         },
-        tangle::{MilestoneIndex, ProtocolParameters}, context::TryFromWithContext,
+        tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 

@@ -19,7 +19,7 @@ pub use self::{
     client::Inx,
     error::InxError,
     ledger::{LedgerUpdateMessage, MarkerMessage, UnspentOutputMessage},
-    milestone::MilestoneAndProtocolParametersMessage,
+    milestone::{MilestoneAndProtocolParametersMessage, MilestoneInfoMessage, MilestoneMessage},
     node::{NodeConfigurationMessage, NodeStatusMessage},
     protocol::RawProtocolParametersMessage,
     raw::RawMessage,

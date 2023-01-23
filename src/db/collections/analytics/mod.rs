@@ -43,12 +43,12 @@ use self::{
 use crate::{
     db::MongoDb,
     types::{
-        ledger::{BlockMetadata},
+        ledger::BlockMetadata,
         stardust::{
             block::{Block, Output},
             milestone::MilestoneTimestamp,
         },
-        tangle::{MilestoneIndex, ProtocolParameters}, 
+        tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 
