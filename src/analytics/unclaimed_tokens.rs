@@ -4,16 +4,19 @@
 use super::TransactionAnalytics;
 use crate::types::{
     ledger::{LedgerOutput, LedgerSpent},
-    stardust::block::{BlockId, Output},
     tangle::MilestoneIndex,
 };
 
+/// Information about the claiming process.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct UnclaimedTokens {
+    /// The number of outputs that are still unclaimed.
     pub unclaimed_count: usize,
+    /// The remaining number of unclaimed tokens.
     pub unclaimed_value: usize,
 }
 
+/// Computes information about the claiming process.
 pub struct UnclaimedTokensAnalytics {
     measurement: UnclaimedTokens,
 }
