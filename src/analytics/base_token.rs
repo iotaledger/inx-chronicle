@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use super::TransactionAnalytics;
 use crate::types::{
     ledger::{LedgerOutput, LedgerSpent},
-    stardust::block::{Address, Output},
+    stardust::block::{Address},
     tangle::MilestoneIndex,
 };
 
