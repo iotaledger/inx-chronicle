@@ -9,7 +9,7 @@ use crate::types::{
 };
 
 #[derive(Clone, Debug, Default)]
-pub struct BlockActivityMeasurement {
+pub struct BlockActivity {
     milestone_count: usize,
     no_payload_count: usize,
     tagged_data_count: usize,
@@ -18,14 +18,14 @@ pub struct BlockActivityMeasurement {
 }
 
 pub struct BlockActivityAnalytics {
-    measurement: BlockActivityMeasurement,
+    measurement: BlockActivity,
 }
 
 impl BlockAnalytics for BlockActivityAnalytics {
-    type Measurement = BlockActivityMeasurement;
+    type Measurement = BlockActivity;
 
     fn begin_milestone(&mut self, index: crate::types::tangle::MilestoneIndex) {
-        self.measurement = BlockActivityMeasurement::default();
+        self.measurement = BlockActivity::default();
     }
 
     fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata, inputs: &Option<Vec<Output>>) {
