@@ -23,8 +23,9 @@ pub struct BlockActivityAnalytics {
 
 impl BlockAnalytics for BlockActivityAnalytics {
     type Measurement = BlockActivityMeasurement;
+    type Context = ();
 
-    fn begin_milestone(&mut self, index: crate::types::tangle::MilestoneIndex) {
+    fn begin_milestone(&mut self, _: Self::Context) {
         self.measurement = BlockActivityMeasurement::default();
     }
 

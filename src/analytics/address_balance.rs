@@ -15,8 +15,9 @@ struct AddressBalanceAnalytics {
 
 impl TransactionAnalytics for AddressBalanceAnalytics {
     type Measurement = AddressCount;
+    type Context = ();
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: Self::Context) {}
 
     fn handle_transaction(&mut self, inputs: &[Output], outputs: &[Output]) {
         for input in inputs {
