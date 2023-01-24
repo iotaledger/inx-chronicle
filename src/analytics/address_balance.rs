@@ -7,8 +7,9 @@ use futures::{Stream, StreamExt};
 
 use super::TransactionAnalytics;
 use crate::types::{
+    ledger::LedgerOutput,
     stardust::block::{Address, Output},
-    tangle::MilestoneIndex, ledger::LedgerOutput,
+    tangle::MilestoneIndex,
 };
 
 pub struct AddressCount(usize);
@@ -18,14 +19,14 @@ struct AddressBalanceAnalytics {
 }
 
 impl AddressBalanceAnalytics {
-    async fn init(unspent_outputs: impl Iterator<Item=&LedgerOutput>) -> Self {
+    async fn init(unspent_outputs: impl Iterator<Item = &LedgerOutput>) -> Self {
         let mut addresses = HashSet::new();
         for output in unspent_outputs {
             if let Some(a) = output.output.owning_address() {
                 addresses.insert(a.clone());
             }
         }
-        Self {addresses}
+        Self { addresses }
     }
 }
 

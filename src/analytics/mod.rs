@@ -8,6 +8,7 @@ use crate::types::{
 };
 
 pub mod address_balance;
+pub mod base_token;
 pub mod block_activity;
 
 #[allow(missing_docs)]
