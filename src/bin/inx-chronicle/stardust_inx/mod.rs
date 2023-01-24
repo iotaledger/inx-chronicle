@@ -273,9 +273,26 @@ impl InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
+            let mut starting_index = None;
+
             let mut count = 0;
             let mut tasks = unspent_output_stream
-                .inspect(|_| count += 1)
+                .inspect_ok(|_| count += 1)
+                .map(|msg| {
+                    let msg = msg?;
+                    let ledger_index = &msg.ledger_index;
+                    if let Some(index) = starting_index.as_ref() {
+                        if index != ledger_index {
+                            bail!(InxWorkerError::InvalidUnspentOutputIndex {
+                                found: *ledger_index,
+                                expected: *index,
+                            })
+                        }
+                    } else {
+                        starting_index = Some(*ledger_index);
+                    }
+                    Ok(msg)
+                })
                 .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
@@ -295,6 +312,23 @@ impl InxWorker {
 
             info!("Inserted {} unspent outputs.", count);
 
+            let starting_index = starting_index.unwrap_or_default();
+
+            info!("Setting starting index to {}", starting_index);
+
+            // Get the timestamp for the starting index
+            let milestone_timestamp = inx
+                .read_milestone(starting_index.into())
+                .await?
+                .milestone_info
+                .milestone_timestamp;
+            let starting_index = starting_index.with_timestamp(milestone_timestamp.into());
+
+            self.db
+                .collection::<ApplicationStateCollection>()
+                .set_starting_index(starting_index)
+                .await?;
+
             info!(
                 "Linking database `{}` to network `{}`.",
                 self.db.name(),
@@ -304,17 +338,6 @@ impl InxWorker {
             self.db
                 .collection::<ProtocolUpdateCollection>()
                 .insert_protocol_parameters(start_index, protocol_parameters.into())
-                .await?;
-
-            // Get the latest milestone again after reading unspent outputs
-            let starting_milestone = inx.read_node_status().await?.confirmed_milestone.milestone_info;
-            let starting_index = starting_milestone
-                .milestone_index
-                .with_timestamp(starting_milestone.milestone_timestamp.into());
-
-            self.db
-                .collection::<ApplicationStateCollection>()
-                .set_starting_index(starting_index)
                 .await?;
         }
 

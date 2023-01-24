@@ -18,6 +18,11 @@ pub enum InxWorkerError {
     InvalidAddress(String),
     #[error("wrong number of ledger updates: `{received}` but expected `{expected}`")]
     InvalidLedgerUpdateCount { received: usize, expected: usize },
+    #[error("invalid unspent output stream: found ledger index {found}, expected {expected}")]
+    InvalidUnspentOutputIndex {
+        found: MilestoneIndex,
+        expected: MilestoneIndex,
+    },
     #[error("invalid milestone state")]
     InvalidMilestoneState,
     #[error("missing milestone id for milestone index `{0}`")]
