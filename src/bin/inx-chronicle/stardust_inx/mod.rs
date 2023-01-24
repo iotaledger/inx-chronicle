@@ -141,7 +141,7 @@ impl InxWorker {
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                state.starting_index,
+                state.starting_index.milestone_index,
                 #[cfg(feature = "analytics")]
                 &mut analytics,
             )
@@ -246,6 +246,7 @@ impl InxWorker {
                     .await?;
             }
 
+            // TODO: This is for migration purposes only. Remove it in the next version release.
             if self
                 .db
                 .collection::<ApplicationStateCollection>()
@@ -253,9 +254,15 @@ impl InxWorker {
                 .await?
                 .is_none()
             {
+                let start_timestamp = inx
+                    .read_milestone(start_index.0.into())
+                    .await?
+                    .milestone_info
+                    .milestone_timestamp
+                    .into();
                 self.db
                     .collection::<ApplicationStateCollection>()
-                    .set_starting_index(start_index)
+                    .set_starting_index(start_index.with_timestamp(start_timestamp))
                     .await?;
             }
         } else {
@@ -300,12 +307,10 @@ impl InxWorker {
                 .await?;
 
             // Get the latest milestone again after reading unspent outputs
-            let starting_index = inx
-                .read_node_status()
-                .await?
-                .confirmed_milestone
-                .milestone_info
-                .milestone_index;
+            let starting_milestone = inx.read_node_status().await?.confirmed_milestone.milestone_info;
+            let starting_index = starting_milestone
+                .milestone_index
+                .with_timestamp(starting_milestone.milestone_timestamp.into());
 
             self.db
                 .collection::<ApplicationStateCollection>()

@@ -9,13 +9,13 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::tangle::MilestoneIndex,
+    types::ledger::MilestoneIndexTimestamp,
 };
 
 /// The MongoDb document representation of singleton Application State.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
-    pub starting_index: MilestoneIndex,
+    pub starting_index: MilestoneIndexTimestamp,
 }
 
 /// A collection to store singleton Application State.
@@ -43,7 +43,7 @@ impl ApplicationStateCollection {
     }
 
     /// Set the starting milestone index in the singleton application state.
-    pub async fn set_starting_index(&self, starting_index: MilestoneIndex) -> Result<(), Error> {
+    pub async fn set_starting_index(&self, starting_index: MilestoneIndexTimestamp) -> Result<(), Error> {
         self.update_one(
             doc! {},
             doc! {

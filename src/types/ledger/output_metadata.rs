@@ -23,6 +23,13 @@ pub struct MilestoneIndexTimestamp {
     pub milestone_timestamp: MilestoneTimestamp,
 }
 
+impl From<MilestoneIndexTimestamp> for mongodb::bson::Bson {
+    fn from(value: MilestoneIndexTimestamp) -> Self {
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&value).unwrap()
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SpentMetadata {
     pub transaction_id: TransactionId,
