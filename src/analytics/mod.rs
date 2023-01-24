@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::types::{
-    ledger::BlockMetadata,
+    ledger::{BlockMetadata, LedgerOutput, LedgerSpent},
     stardust::block::{Block, Output},
     tangle::MilestoneIndex,
 };
@@ -10,6 +10,7 @@ use crate::types::{
 pub mod address_balance;
 pub mod base_token;
 pub mod block_activity;
+pub mod unclaimed_tokens;
 
 #[allow(missing_docs)]
 pub trait BlockAnalytics {
@@ -23,7 +24,7 @@ pub trait BlockAnalytics {
 pub trait TransactionAnalytics {
     type Measurement;
     fn begin_milestone(&mut self, index: MilestoneIndex);
-    fn handle_transaction(&mut self, inputs: &[Output], outputs: &[Output]);
+    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]);
     fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement>;
 }
 

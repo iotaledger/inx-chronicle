@@ -1,0 +1,52 @@
+// Copyright 2023 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+use super::TransactionAnalytics;
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent},
+    stardust::block::{BlockId, Output},
+    tangle::MilestoneIndex,
+};
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct UnclaimedTokens {
+    pub unclaimed_count: usize,
+    pub unclaimed_value: usize,
+}
+
+pub struct UnclaimedTokensAnalytics {
+    measurement: UnclaimedTokens,
+}
+
+impl UnclaimedTokensAnalytics {
+    /// Initialize the analytics be reading the current ledger state.
+    pub async fn init(unspent_outputs: impl Iterator<Item = &LedgerOutput>) -> Self {
+        let mut measurement = UnclaimedTokens::default();
+        for output in unspent_outputs {
+            if output.booked.milestone_index == MilestoneIndex(0) {
+                measurement.unclaimed_count += 1;
+                measurement.unclaimed_value += output.output.amount().0 as usize;
+            }
+        }
+        Self { measurement }
+    }
+}
+
+impl TransactionAnalytics for UnclaimedTokensAnalytics {
+    type Measurement = UnclaimedTokens;
+
+    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+
+    fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput]) {
+        for input in inputs {
+            if input.output.booked.milestone_index == MilestoneIndex(0) {
+                self.measurement.unclaimed_count -= 1;
+                self.measurement.unclaimed_value -= input.output.output.amount().0 as usize;
+            }
+        }
+    }
+
+    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+        Some(self.measurement.clone())
+    }
+}

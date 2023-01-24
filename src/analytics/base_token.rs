@@ -4,7 +4,11 @@
 use std::collections::HashMap;
 
 use super::TransactionAnalytics;
-use crate::types::{stardust::block::{Output, Address}, tangle::MilestoneIndex};
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent},
+    stardust::block::{Address, Output},
+    tangle::MilestoneIndex,
+};
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
 #[derive(Clone, Debug, Default)]
@@ -17,7 +21,6 @@ pub struct BaseTokenActivity {
 
 struct BaseTokenActivityAnalytics {
     measurement: BaseTokenActivity,
-
 }
 
 impl TransactionAnalytics for BaseTokenActivityAnalytics {
@@ -27,18 +30,18 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
         self.measurement = BaseTokenActivity::default();
     }
 
-    fn handle_transaction(&mut self, inputs: &[Output], outputs: &[Output]) {
+    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         let mut outflows: HashMap<&Address, usize> = HashMap::new();
         for input in inputs {
-            if let Some(address) = input.owning_address() {
-                self.measurement.transferred_value += input.amount().0 as usize;
-                *outflows.entry(address).or_default() += input.amount().0 as usize;
+            if let Some(address) = input.output.output.owning_address() {
+                self.measurement.transferred_value += input.output.output.amount().0 as usize;
+                *outflows.entry(address).or_default() += input.output.output.amount().0 as usize;
             }
         }
         for output in outputs {
-            if let Some(address) = output.owning_address() {
+            if let Some(address) = output.output.owning_address() {
                 if let Some(entry) = outflows.get_mut(address) {
-                    *entry -= output.amount().0 as usize;
+                    *entry -= output.output.amount().0 as usize;
                 }
             }
         }
