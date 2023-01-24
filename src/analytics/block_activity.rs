@@ -8,6 +8,7 @@ use crate::types::{
     tangle::MilestoneIndex,
 };
 
+/// The type of payloads that occured within a single milestone.
 #[derive(Clone, Debug, Default)]
 pub struct BlockActivity {
     milestone_count: usize,
@@ -17,6 +18,7 @@ pub struct BlockActivity {
     treasury_transaction_count: usize,
 }
 
+/// Computes the block-level activity that happened in a milestone.
 pub struct BlockActivityAnalytics {
     measurement: BlockActivity,
 }
@@ -24,11 +26,11 @@ pub struct BlockActivityAnalytics {
 impl BlockAnalytics for BlockActivityAnalytics {
     type Measurement = BlockActivity;
 
-    fn begin_milestone(&mut self, index: crate::types::tangle::MilestoneIndex) {
+    fn begin_milestone(&mut self, _: MilestoneIndex) {
         self.measurement = BlockActivity::default();
     }
 
-    fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata, inputs: &Option<Vec<Output>>) {
+    fn handle_block(&mut self, block: &Block, _: &BlockMetadata, _: &Option<Vec<Output>>) {
         match block.payload {
             Some(Payload::Milestone(_)) => self.measurement.milestone_count += 1,
             Some(Payload::TaggedData(_)) => self.measurement.tagged_data_count += 1,
@@ -38,7 +40,7 @@ impl BlockAnalytics for BlockActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
         Some(self.measurement.clone())
     }
 }

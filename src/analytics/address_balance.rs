@@ -3,23 +3,24 @@
 
 use std::collections::HashSet;
 
-use futures::{Stream, StreamExt};
-
 use super::TransactionAnalytics;
 use crate::types::{
-    ledger::LedgerOutput,
-    stardust::block::{Address, Output},
+    ledger::{LedgerOutput, LedgerSpent},
+    stardust::block::Address,
     tangle::MilestoneIndex,
 };
 
+/// The number of addresses.
 pub struct AddressCount(usize);
 
-struct AddressBalanceAnalytics {
+/// Computes the number of addresses the currently hold a balance.
+pub struct AddressBalanceAnalytics {
     addresses: HashSet<Address>,
 }
 
 impl AddressBalanceAnalytics {
-    async fn init(unspent_outputs: impl Iterator<Item = &LedgerOutput>) -> Self {
+    /// Initialize the analytics be reading the current ledger state.
+    pub async fn init(unspent_outputs: impl Iterator<Item = &LedgerOutput>) -> Self {
         let mut addresses = HashSet::new();
         for output in unspent_outputs {
             if let Some(a) = output.output.owning_address() {
@@ -35,15 +36,15 @@ impl TransactionAnalytics for AddressBalanceAnalytics {
 
     fn begin_milestone(&mut self, _: MilestoneIndex) {}
 
-    fn handle_transaction(&mut self, inputs: &[Output], outputs: &[Output]) {
+    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         for input in inputs {
-            if let Some(a) = input.owning_address() {
+            if let Some(a) = input.output.output.owning_address() {
                 self.addresses.remove(a);
             }
         }
 
         for output in outputs {
-            if let Some(a) = output.owning_address() {
+            if let Some(a) = output.output.owning_address() {
                 self.addresses.insert(a.clone());
             }
         }
