@@ -3,7 +3,7 @@
 
 use super::TransactionAnalytics;
 use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
     tangle::MilestoneIndex,
 };
 
@@ -38,7 +38,7 @@ impl UnclaimedTokensAnalytics {
 impl TransactionAnalytics for UnclaimedTokensAnalytics {
     type Measurement = UnclaimedTokens;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput]) {
         for input in inputs {
@@ -49,7 +49,7 @@ impl TransactionAnalytics for UnclaimedTokensAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
-        Some(self.measurement.clone())
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(self.measurement)
     }
 }
