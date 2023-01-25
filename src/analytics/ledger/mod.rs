@@ -10,11 +10,13 @@ use crate::types::{
 
 mod address_balance;
 mod base_token;
+mod outputs;
 mod unclaimed_tokens;
 
 pub use self::{
     address_balance::{AddressBalanceAnalytics, AddressCount},
-    base_token::{BaseTokenActivityAnalytics},
+    base_token::BaseTokenActivityAnalytics,
+    outputs::{CountValue, OutputState, OutputStatistics},
     unclaimed_tokens::{UnclaimedTokens, UnclaimedTokensAnalytics},
 };
 
