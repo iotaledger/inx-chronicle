@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use super::TransactionAnalytics;
 use crate::types::{
     ledger::{LedgerOutput, LedgerSpent},
-    stardust::block::{Address},
+    stardust::block::Address,
     tangle::MilestoneIndex,
 };
 
@@ -19,7 +19,8 @@ pub struct BaseTokenActivity {
     pub transferred_value: usize,
 }
 
-struct BaseTokenActivityAnalytics {
+/// Computes information about the usage of the underlying base.
+pub struct BaseTokenActivityAnalytics {
     measurement: BaseTokenActivity,
 }
 
