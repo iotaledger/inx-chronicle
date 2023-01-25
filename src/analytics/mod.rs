@@ -14,8 +14,7 @@ pub mod ledger_size;
 #[allow(missing_docs)]
 pub trait BlockAnalytics {
     type Measurement;
-    type Context;
-    fn begin_milestone(&mut self, ctx: Self::Context);
+    fn begin_milestone(&mut self, index: MilestoneIndex);
     fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata, inputs: &Option<Vec<Output>>);
     fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement>;
 }
@@ -23,8 +22,7 @@ pub trait BlockAnalytics {
 #[allow(missing_docs)]
 pub trait TransactionAnalytics {
     type Measurement;
-    type Context;
-    fn begin_milestone(&mut self, ctx: Self::Context);
+    fn begin_milestone(&mut self, index: MilestoneIndex);
     fn handle_transaction(&mut self, inputs: &[Output], outputs: &[Output]);
     fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement>;
 }

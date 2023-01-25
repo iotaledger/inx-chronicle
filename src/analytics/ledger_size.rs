@@ -15,11 +15,12 @@ trait LedgerSize {
 
 impl LedgerSize for Output {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement {
-        let config = iota_types::block::protocol::ProtocolParameters::try_from(protocol_params.clone()).unwrap();
-        let output = iota_types::block::output::Output::try_from_with_context(&config, self.clone()).unwrap();
+        // What do we do if this fails?
+        let protocol_params = iota_types::block::protocol::ProtocolParameters::try_from(protocol_params.clone()).unwrap();
+        let output = iota_types::block::output::Output::try_from_with_context(&protocol_params, self.clone()).unwrap();
         let rent_bytes = RentStructureBytes::compute(&output);
         LedgerSizeMeasurement {
-            total_storage_deposit_value: iota_types::block::output::Rent::rent_cost(&output, config.rent_structure()),
+            total_storage_deposit_value: iota_types::block::output::Rent::rent_cost(&output, protocol_params.rent_structure()),
             total_key_bytes: rent_bytes.num_key_bytes,
             total_data_bytes: rent_bytes.num_data_bytes,
         }
@@ -41,11 +42,8 @@ pub struct LedgerSizeAnalytics {
 
 impl BlockAnalytics for LedgerSizeAnalytics {
     type Measurement = LedgerSizeMeasurement;
-    type Context = ProtocolParameters;
 
-    fn begin_milestone(&mut self, ctx: Self::Context) {
-        self.protocol_params = Some(ctx);
-    }
+    fn begin_milestone(&mut self, _: MilestoneIndex) {}
 
     fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata, inputs: &Option<Vec<Output>>) {
         if block_metadata.inclusion_state == LedgerInclusionState::Included {
