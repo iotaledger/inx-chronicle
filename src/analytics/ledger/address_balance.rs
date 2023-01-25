@@ -20,7 +20,7 @@ pub struct AddressBalanceAnalytics {
 
 impl AddressBalanceAnalytics {
     /// Initialize the analytics be reading the current ledger state.
-    pub async fn init(unspent_outputs: impl Iterator<Item = &LedgerOutput>) -> Self {
+    pub fn init<'a>(unspent_outputs: impl Iterator<Item = &'a LedgerOutput>) -> Self {
         let mut addresses = HashSet::new();
         for output in unspent_outputs {
             if let Some(a) = output.output.owning_address() {
