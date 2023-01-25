@@ -11,6 +11,7 @@ use crate::types::{
 mod address_balance;
 mod base_token;
 mod ledger_size;
+mod output_activity;
 mod unclaimed_tokens;
 
 pub use self::{
