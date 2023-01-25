@@ -3,7 +3,7 @@
 
 use crate::types::{
     ledger::{BlockMetadata, LedgerOutput, LedgerSpent},
-    stardust::block::{Block, Output},
+    stardust::block::{Block},
     tangle::MilestoneIndex,
 };
 
@@ -16,7 +16,7 @@ pub mod unclaimed_tokens;
 pub trait BlockAnalytics {
     type Measurement;
     fn begin_milestone(&mut self, index: MilestoneIndex);
-    fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata, inputs: &Option<Vec<Output>>);
+    fn handle_block(&mut self, block: &Block, block_metadata: &BlockMetadata);
     fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement>;
 }
 

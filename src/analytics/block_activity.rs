@@ -4,7 +4,7 @@
 use super::BlockAnalytics;
 use crate::types::{
     ledger::BlockMetadata,
-    stardust::block::{Block, Output, Payload},
+    stardust::block::{Block, Payload},
     tangle::MilestoneIndex,
 };
 
@@ -30,7 +30,7 @@ impl BlockAnalytics for BlockActivityAnalytics {
         self.measurement = BlockActivity::default();
     }
 
-    fn handle_block(&mut self, block: &Block, _: &BlockMetadata, _: &Option<Vec<Output>>) {
+    fn handle_block(&mut self, block: &Block, _: &BlockMetadata,) {
         match block.payload {
             Some(Payload::Milestone(_)) => self.measurement.milestone_count += 1,
             Some(Payload::TaggedData(_)) => self.measurement.tagged_data_count += 1,
