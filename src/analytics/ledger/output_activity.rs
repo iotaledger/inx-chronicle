@@ -8,7 +8,7 @@ use derive_more::{AddAssign, SubAssign};
 use super::TransactionAnalytics;
 use crate::types::{
     ledger::{LedgerOutput, LedgerSpent},
-    tangle::MilestoneIndex,
+    tangle::MilestoneIndex, stardust::block::Output,
 };
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
@@ -33,12 +33,24 @@ impl TransactionAnalytics for NftActivityAnalytics {
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         let inputs = inputs
             .iter()
-            .map(|ledger_spent| ledger_spent.output.output_id)
+            .filter_map(|ledger_spent| {
+                if matches!(ledger_spent.output.output, Output::Nft(_)) {
+                    Some(ledger_spent.output.output_id)
+                } else {
+                    None
+                }
+            })
             .collect::<HashSet<_>>();
 
         let outputs = outputs
             .iter()
-            .map(|ledger_output| ledger_output.output_id)
+            .filter_map(|ledger_output| {
+                if matches!(ledger_output.output, Output::Nft(_)) {
+                    Some(ledger_output.output_id)
+                } else {
+                    None
+                }
+            })
             .collect::<HashSet<_>>();
 
         self.measurement.created_count += outputs.difference(&inputs).count() as u64;
@@ -71,12 +83,24 @@ impl TransactionAnalytics for AliasActivityAnalytics {
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         let inputs = inputs
             .iter()
-            .map(|ledger_spent| ledger_spent.output.output_id)
+            .filter_map(|ledger_spent| {
+                if matches!(ledger_spent.output.output, Output::Alias(_)) {
+                    Some(ledger_spent.output.output_id)
+                } else {
+                    None
+                }
+            })
             .collect::<HashSet<_>>();
 
         let outputs = outputs
             .iter()
-            .map(|ledger_output| ledger_output.output_id)
+            .filter_map(|ledger_output| {
+                if matches!(ledger_output.output, Output::Alias(_)) {
+                    Some(ledger_output.output_id)
+                } else {
+                    None
+                }
+            })
             .collect::<HashSet<_>>();
 
         self.measurement.created_count += outputs.difference(&inputs).count() as u64;
