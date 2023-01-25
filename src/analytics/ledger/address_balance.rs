@@ -3,15 +3,11 @@
 
 use std::collections::HashSet;
 
-use super::TransactionAnalytics;
+use super::{AddressCount, TransactionAnalytics};
 use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
     stardust::block::Address,
-    tangle::MilestoneIndex,
 };
-
-/// The number of addresses.
-pub struct AddressCount(usize);
 
 /// Computes the number of addresses the currently hold a balance.
 pub struct AddressBalanceAnalytics {
@@ -24,7 +20,7 @@ impl AddressBalanceAnalytics {
         let mut addresses = HashSet::new();
         for output in unspent_outputs {
             if let Some(a) = output.output.owning_address() {
-                addresses.insert(a.clone());
+                addresses.insert(*a);
             }
         }
         Self { addresses }
@@ -34,7 +30,7 @@ impl AddressBalanceAnalytics {
 impl TransactionAnalytics for AddressBalanceAnalytics {
     type Measurement = AddressCount;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         for input in inputs {
@@ -45,12 +41,12 @@ impl TransactionAnalytics for AddressBalanceAnalytics {
 
         for output in outputs {
             if let Some(a) = output.output.owning_address() {
-                self.addresses.insert(a.clone());
+                self.addresses.insert(*a);
             }
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(AddressCount(self.addresses.len()))
     }
 }

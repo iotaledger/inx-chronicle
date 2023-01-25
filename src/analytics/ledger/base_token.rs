@@ -5,9 +5,8 @@ use std::collections::HashMap;
 
 use super::TransactionAnalytics;
 use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
     stardust::block::Address,
-    tangle::MilestoneIndex,
 };
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
@@ -27,7 +26,7 @@ pub struct BaseTokenActivityAnalytics {
 impl TransactionAnalytics for BaseTokenActivityAnalytics {
     type Measurement = BaseTokenActivity;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         self.measurement = BaseTokenActivity::default();
     }
 
@@ -49,7 +48,7 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
         self.measurement.booked_value = outflows.values().sum();
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(self.measurement.clone())
     }
 }

@@ -5,9 +5,11 @@
 
 use std::ops::{AddAssign, SubAssign};
 
-use crate::types::{ledger::{LedgerOutput, LedgerSpent}, stardust::block::Output, tangle::MilestoneIndex};
-
 use super::TransactionAnalytics;
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    stardust::block::Output,
+};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct CountValue {
@@ -64,10 +66,9 @@ impl OutputState {
 impl TransactionAnalytics for OutputState {
     type Measurement = OutputStatistics;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        
         for input in inputs {
             match input.output.output {
                 Output::Alias(_) => self.measurement.alias -= input,
@@ -89,7 +90,7 @@ impl TransactionAnalytics for OutputState {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
-        Some(self.measurement.clone())
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(self.measurement)
     }
 }
