@@ -206,10 +206,7 @@ impl LedgerUpdateCollection {
             )
             .await?
             .map_ok(|doc| LedgerUpdateByAddressRecord {
-                at: MilestoneIndexTimestamp {
-                    milestone_index: doc._id.milestone_index,
-                    milestone_timestamp: doc.milestone_timestamp,
-                },
+                at: doc._id.milestone_index.with_timestamp(doc.milestone_timestamp),
                 output_id: doc._id.output_id,
                 is_spent: doc._id.is_spent,
             }))
