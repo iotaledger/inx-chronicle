@@ -46,7 +46,7 @@ pub async fn gather_analytics(
     analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     milestone_index: MilestoneIndex,
     milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
-) -> Result<(), InxWorkerError> {
+) -> eyre::Result<()> {
     let mut tasks = JoinSet::new();
 
     let len_before = analytics.len();
@@ -67,8 +67,7 @@ pub async fn gather_analytics(
     }
 
     while let Some(res) = tasks.join_next().await {
-        // Panic: Acceptable risk
-        analytics.push(res.unwrap()?);
+        analytics.push(res??);
     }
 
     debug_assert_eq!(
@@ -306,8 +305,7 @@ impl InxWorker {
                 .await?;
 
             while let Some(res) = tasks.join_next().await {
-                // Panic: Acceptable risk
-                res.unwrap()?;
+                res??;
             }
 
             info!("Inserted {} unspent outputs.", count);
@@ -319,18 +317,17 @@ impl InxWorker {
                 .read_milestone(starting_index.into())
                 .await?
                 .milestone_info
-                .milestone_timestamp;
+                .milestone_timestamp
+                .into();
 
             info!(
                 "Setting starting index to {} with timestamp {}",
                 starting_index,
-                time::OffsetDateTime::from_unix_timestamp(milestone_timestamp as _)
-                    .unwrap()
-                    .format(&time::format_description::well_known::Rfc3339)
-                    .unwrap()
+                time::OffsetDateTime::try_from(milestone_timestamp)?
+                    .format(&time::format_description::well_known::Rfc3339)?
             );
 
-            let starting_index = starting_index.with_timestamp(milestone_timestamp.into());
+            let starting_index = starting_index.with_timestamp(milestone_timestamp);
 
             self.db
                 .collection::<ApplicationStateCollection>()
@@ -415,8 +412,7 @@ impl InxWorker {
             .await?;
 
         while let Some(res) = tasks.join_next().await {
-            // Panic: Acceptable risk
-            res.unwrap()?;
+            res??;
         }
 
         let MarkerMessage {
@@ -596,8 +592,7 @@ impl InxWorker {
             .await?;
 
         while let Some(res) = tasks.join_next().await {
-            // Panic: Acceptable risk
-            res.unwrap()?;
+            res??;
         }
 
         Ok(())
