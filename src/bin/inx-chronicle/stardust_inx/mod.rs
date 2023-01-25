@@ -314,14 +314,22 @@ impl InxWorker {
 
             let starting_index = starting_index.unwrap_or_default();
 
-            info!("Setting starting index to {}", starting_index);
-
             // Get the timestamp for the starting index
             let milestone_timestamp = inx
                 .read_milestone(starting_index.into())
                 .await?
                 .milestone_info
                 .milestone_timestamp;
+
+            info!(
+                "Setting starting index to {} with timestamp {}",
+                starting_index,
+                time::OffsetDateTime::from_unix_timestamp(milestone_timestamp as _)
+                    .unwrap()
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap()
+            );
+
             let starting_index = starting_index.with_timestamp(milestone_timestamp.into());
 
             self.db
