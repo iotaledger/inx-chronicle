@@ -3,11 +3,10 @@
 
 //! Statistics about the tangle.
 
+pub use self::block_activity::BlockActivityAnalytics;
 use crate::types::{ledger::BlockMetadata, stardust::block::Block, tangle::MilestoneIndex};
 
 mod block_activity;
-
-pub use self::block_activity::{BlockActivity, BlockActivityAnalytics};
 
 #[allow(missing_docs)]
 pub trait BlockAnalytics {

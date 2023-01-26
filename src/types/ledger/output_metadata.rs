@@ -47,6 +47,10 @@ pub struct LedgerOutput {
 }
 
 impl LedgerOutput {
+    pub fn output_id(&self) -> OutputId {
+        self.output_id
+    }
+
     pub fn amount(&self) -> OutputAmount {
         self.output.amount()
     }
@@ -63,6 +67,10 @@ pub struct LedgerSpent {
 }
 
 impl LedgerSpent {
+    pub fn output_id(&self) -> OutputId {
+        self.output.output_id
+    }
+
     pub fn amount(&self) -> OutputAmount {
         self.output.amount()
     }

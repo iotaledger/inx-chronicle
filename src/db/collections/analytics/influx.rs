@@ -15,17 +15,17 @@ impl InfluxDb {
 impl From<Measurement> for influxdb::WriteQuery {
     fn from(value: Measurement) -> Self {
         match value {
-            Measurement::AddressAnalytics(m) => m
+            Measurement::AddressActivity(m) => m
                 .prepare_query("stardust_addresses")
                 .add_field("address_with_balance_count", m.inner.address_with_balance_count),
-            Measurement::BaseTokenActivityAnalytics(m) => m
+            Measurement::BaseTokenActivity(m) => m
                 .prepare_query("stardust_base_token_activity")
                 .add_field("booked_value", m.inner.booked_value.to_string().parse::<u64>().unwrap())
                 .add_field(
                     "transferred_value",
                     m.inner.transferred_value.to_string().parse::<u64>().unwrap(),
                 ),
-            Measurement::BlockAnalytics(m) => m
+            Measurement::BlockActivity(m) => m
                 .prepare_query("stardust_block_activity")
                 .add_field("transaction_count", m.inner.payload.transaction_count)
                 .add_field("treasury_transaction_count", m.inner.payload.treasury_transaction_count)
@@ -35,10 +35,10 @@ impl From<Measurement> for influxdb::WriteQuery {
                 .add_field("confirmed_count", m.inner.transaction.confirmed_count)
                 .add_field("conflicting_count", m.inner.transaction.conflicting_count)
                 .add_field("no_transaction_count", m.inner.transaction.no_transaction_count),
-            Measurement::DailyActiveAddressAnalytics(t) => t
+            Measurement::DailyActiveAddresses(t) => t
                 .prepare_query("stardust_daily_active_addresses")
                 .add_field("count", t.inner.count),
-            Measurement::LedgerOutputAnalytics(m) => m
+            Measurement::LedgerOutputs(m) => m
                 .prepare_query("stardust_ledger_outputs")
                 .add_field("basic_count", m.inner.basic_count)
                 .add_field("basic_value", m.inner.basic_value.to_string().parse::<u64>().unwrap())
@@ -56,12 +56,12 @@ impl From<Measurement> for influxdb::WriteQuery {
                     "treasury_value",
                     m.inner.treasury_value.to_string().parse::<u64>().unwrap(),
                 ),
-            Measurement::LedgerSizeAnalytics(m) => m
+            Measurement::LedgerSize(m) => m
                 .prepare_query("stardust_ledger_size")
                 .add_field("total_key_bytes", m.inner.total_key_bytes)
                 .add_field("total_data_bytes", m.inner.total_data_bytes)
                 .add_field("total_storage_deposit_value", m.inner.total_storage_deposit_value),
-            Measurement::OutputActivityAnalytics(m) => m
+            Measurement::OutputActivity(m) => m
                 .prepare_query("stardust_output_activity")
                 .add_field("alias_created_count", m.inner.alias.created_count)
                 .add_field("alias_state_changed_count", m.inner.alias.state_changed_count)
@@ -78,14 +78,14 @@ impl From<Measurement> for influxdb::WriteQuery {
                 .add_field("v_byte_cost", m.inner.rent_structure.v_byte_cost)
                 .add_field("v_byte_factor_key", m.inner.rent_structure.v_byte_factor_key)
                 .add_field("v_byte_factor_data", m.inner.rent_structure.v_byte_factor_data),
-            Measurement::UnclaimedTokenAnalytics(m) => m
+            Measurement::UnclaimedTokens(m) => m
                 .prepare_query("stardust_unclaimed_rewards")
                 .add_field("unclaimed_count", m.inner.unclaimed_count)
                 .add_field(
                     "unclaimed_value",
                     m.inner.unclaimed_value.to_string().parse::<u64>().unwrap(),
                 ),
-            Measurement::UnlockConditionAnalytics(m) => m
+            Measurement::UnlockConditions(m) => m
                 .prepare_query("stardust_unlock_conditions")
                 .add_field("expiration_count", m.inner.expiration_count)
                 .add_field(

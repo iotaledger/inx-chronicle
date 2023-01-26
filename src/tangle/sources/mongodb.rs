@@ -8,10 +8,7 @@ use futures::{stream::BoxStream, TryStreamExt};
 
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
-    db::{
-        collections::{BlockCollection, OutputCollection},
-        MongoDb,
-    },
+    db::{collections::BlockCollection, MongoDb},
     tangle::ledger_updates::LedgerUpdateStore,
     types::tangle::MilestoneIndex,
 };
@@ -45,13 +42,7 @@ impl InputSource for MongoDb {
         ))
     }
 
-    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
-        let outputs = self
-            .collection::<OutputCollection>()
-            .get_ledger_update_stream(index)
-            .await?
-            .try_collect()
-            .await?;
-        Ok(LedgerUpdateStore { outputs })
+    async fn ledger_updates(&self, _index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+        todo!()
     }
 }

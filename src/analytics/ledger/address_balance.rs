@@ -3,10 +3,13 @@
 
 use std::collections::HashMap;
 
-use super::{AddressCount, TransactionAnalytics};
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::{output::OutputAmount, Address},
+use super::TransactionAnalytics;
+use crate::{
+    db::collections::analytics::AddressAnalyticsResult,
+    types::{
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        stardust::block::{output::OutputAmount, Address},
+    },
 };
 
 /// Computes the number of addresses the currently hold a balance.
@@ -16,19 +19,22 @@ pub struct AddressBalanceAnalytics {
 
 impl AddressBalanceAnalytics {
     /// Initialize the analytics be reading the current ledger state.
-    pub fn init<'a>(unspent_outputs: impl Iterator<Item = &'a LedgerOutput>) -> Self {
-        let mut addresses: HashMap<Address, OutputAmount> = HashMap::new();
-        for output in unspent_outputs {
-            if let Some(&a) = output.owning_address() {
-                *addresses.entry(a).or_default() += output.amount();
-            }
+    pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+        Self {
+            addresses: unspent_outputs
+                .into_iter()
+                .fold(Default::default(), |mut addresses, output| {
+                    if let Some(&a) = output.owning_address() {
+                        *addresses.entry(a).or_default() += output.amount();
+                    }
+                    addresses
+                }),
         }
-        Self { addresses }
     }
 }
 
 impl TransactionAnalytics for AddressBalanceAnalytics {
-    type Measurement = AddressCount;
+    type Measurement = AddressAnalyticsResult;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
@@ -54,6 +60,8 @@ impl TransactionAnalytics for AddressBalanceAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(AddressCount(self.addresses.len()))
+        Some(AddressAnalyticsResult {
+            address_with_balance_count: self.addresses.len() as _,
+        })
     }
 }

@@ -1,26 +1,18 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Error, Measurement, PerMilestone};
+use super::Error;
 use crate::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
+    db::{collections::OutputCollection, MongoDbCollectionExt},
     types::{
-        stardust::{
-            block::output::{AliasId, NftId},
-            milestone::MilestoneTimestamp,
-        },
+        stardust::block::output::{AliasId, NftId},
         tangle::MilestoneIndex,
     },
 };
-
-/// Computes the number of addresses that hold a balance.
-#[derive(Debug)]
-pub struct OutputActivityAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -41,39 +33,11 @@ pub struct NftActivityAnalyticsResult {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 #[serde(default)]
 pub struct OutputActivityAnalyticsResult {
     pub alias: AliasActivityAnalyticsResult,
     pub nft: NftActivityAnalyticsResult,
-}
-
-#[async_trait]
-impl Analytic for OutputActivityAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        let nft_activity = db
-            .collection::<OutputCollection>()
-            .get_nft_output_activity_analytics(milestone_index)
-            .await;
-
-        let alias_activity = db
-            .collection::<OutputCollection>()
-            .get_alias_output_activity_analytics(milestone_index)
-            .await;
-
-        Ok(Some(Measurement::OutputActivityAnalytics(PerMilestone {
-            milestone_index,
-            milestone_timestamp,
-            inner: OutputActivityAnalyticsResult {
-                nft: nft_activity?,
-                alias: alias_activity?,
-            },
-        })))
-    }
 }
 
 impl OutputCollection {

@@ -1,55 +1,30 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Error, Measurement, PerMilestone};
+use super::Error;
 use crate::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    db::{collections::OutputCollection, MongoDbCollectionExt},
+    types::tangle::MilestoneIndex,
 };
 
-/// Computes the number of addresses that hold a balance.
-#[derive(Debug)]
-pub struct LedgerOutputAnalytics;
-
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct LedgerOutputAnalyticsResult {
     pub basic_count: u64,
-    pub basic_value: d128,
+    pub basic_value: u64,
     pub alias_count: u64,
-    pub alias_value: d128,
+    pub alias_value: u64,
     pub foundry_count: u64,
-    pub foundry_value: d128,
+    pub foundry_value: u64,
     pub nft_count: u64,
-    pub nft_value: d128,
+    pub nft_value: u64,
     pub treasury_count: u64,
-    pub treasury_value: d128,
-}
-
-#[async_trait]
-impl Analytic for LedgerOutputAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_ledger_output_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::LedgerOutputAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
-    }
+    pub treasury_value: u64,
 }
 
 impl OutputCollection {
@@ -110,15 +85,15 @@ impl OutputCollection {
 
         Ok(LedgerOutputAnalyticsResult {
             basic_count: res.basic.count,
-            basic_value: res.basic.value,
+            basic_value: res.basic.value.to_string().parse().unwrap(),
             alias_count: res.alias.count,
-            alias_value: res.alias.value,
+            alias_value: res.alias.value.to_string().parse().unwrap(),
             foundry_count: res.foundry.count,
-            foundry_value: res.foundry.value,
+            foundry_value: res.foundry.value.to_string().parse().unwrap(),
             nft_count: res.nft.count,
-            nft_value: res.nft.value,
+            nft_value: res.nft.value.to_string().parse().unwrap(),
             treasury_count: res.treasury.count,
-            treasury_value: res.treasury.value,
+            treasury_value: res.treasury.value.to_string().parse().unwrap(),
         })
     }
 }

@@ -77,6 +77,12 @@ impl OutputId {
     }
 }
 
+impl From<(TransactionId, OutputIndex)> for OutputId {
+    fn from((transaction_id, index): (TransactionId, OutputIndex)) -> Self {
+        Self { transaction_id, index }
+    }
+}
+
 impl From<iota::OutputId> for OutputId {
     fn from(value: iota::OutputId) -> Self {
         Self {

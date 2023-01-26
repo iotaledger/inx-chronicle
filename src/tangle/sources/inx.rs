@@ -25,24 +25,29 @@ impl InputSource for Inx {
         Ok(Box::pin(
             inx.listen_to_confirmed_milestones(MilestoneRangeRequest::from_range(range))
                 .await?
-                .and_then(|msg| async move {
-                    let payload = if let iota_types::block::payload::Payload::Milestone(payload) =
-                        msg.milestone.milestone.inner_unverified()?
-                    {
-                        payload.into()
-                    } else {
-                        unreachable!("Raw milestone data has to contain a milestone payload");
-                    };
-                    Ok(MilestoneData {
-                        // TODO: What do we do here, enhance the error type?
-                        milestone_id: msg.milestone.milestone_info.milestone_id.unwrap(),
-                        at: MilestoneIndexTimestamp {
-                            milestone_index: msg.milestone.milestone_info.milestone_index,
-                            milestone_timestamp: msg.milestone.milestone_info.milestone_timestamp.into(),
-                        },
-                        payload,
-                        protocol_params: msg.current_protocol_parameters.params.inner_unverified()?.into(),
-                    })
+                .and_then(move |msg| {
+                    let mut inx = inx.clone();
+                    async move {
+                        let node_config = inx.read_node_configuration().await?.into();
+                        let payload = if let iota_types::block::payload::Payload::Milestone(payload) =
+                            msg.milestone.milestone.inner_unverified()?
+                        {
+                            payload.into()
+                        } else {
+                            unreachable!("Raw milestone data has to contain a milestone payload");
+                        };
+                        Ok(MilestoneData {
+                            // TODO: What do we do here, enhance the error type?
+                            milestone_id: msg.milestone.milestone_info.milestone_id.unwrap(),
+                            at: MilestoneIndexTimestamp {
+                                milestone_index: msg.milestone.milestone_info.milestone_index,
+                                milestone_timestamp: msg.milestone.milestone_info.milestone_timestamp.into(),
+                            },
+                            payload,
+                            protocol_params: msg.current_protocol_parameters.params.inner_unverified()?.into(),
+                            node_config,
+                        })
+                    }
                 }),
         ))
     }
@@ -69,18 +74,29 @@ impl InputSource for Inx {
         let mut stream = inx.listen_to_ledger_updates((index.0..=index.0).into()).await?;
         let MarkerMessage {
             consumed_count,
+            created_count,
             ..
             // TODO: What do we do here?
         } = stream.try_next().await?.unwrap().begin().unwrap();
-        let outputs = stream
+        let consumed = stream
+            .by_ref()
             .take(consumed_count)
             .map_ok(|update| {
                 // Unwrap: Safe based on our knowledge of the stream layout
-                let consumed = update.consumed().unwrap();
-                (consumed.output.output_id, consumed.output.output)
+                update.consumed().unwrap()
             })
+            .map_ok(|update| (update.output_id(), update))
             .try_collect::<HashMap<_, _>>()
             .await?;
-        Ok(LedgerUpdateStore { outputs })
+        let created = stream
+            .take(created_count)
+            .map_ok(|update| {
+                // Unwrap: Safe based on our knowledge of the stream layout
+                update.created().unwrap()
+            })
+            .map_ok(|update| (update.output_id(), update))
+            .try_collect::<HashMap<_, _>>()
+            .await?;
+        Ok(LedgerUpdateStore { consumed, created })
     }
 }

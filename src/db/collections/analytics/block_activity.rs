@@ -1,22 +1,18 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Error, Measurement, PerMilestone};
+use super::Error;
 use crate::{
-    db::{collections::BlockCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    db::{collections::BlockCollection, MongoDbCollectionExt},
+    types::tangle::MilestoneIndex,
 };
 
-/// Computes the statistics about the token claiming process.
-#[derive(Debug)]
-pub struct BlockActivityAnalytics;
-
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct PayloadActivityAnalyticsResult {
     pub transaction_count: u32,
     pub treasury_transaction_count: u32,
@@ -26,6 +22,7 @@ pub struct PayloadActivityAnalyticsResult {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct TransactionActivityAnalyticsResult {
     pub confirmed_count: u32,
     pub conflicting_count: u32,
@@ -33,30 +30,10 @@ pub struct TransactionActivityAnalyticsResult {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct BlockActivityAnalyticsResult {
     pub payload: PayloadActivityAnalyticsResult,
     pub transaction: TransactionActivityAnalyticsResult,
-}
-
-#[async_trait]
-impl Analytic for BlockActivityAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        db.collection::<BlockCollection>()
-            .get_block_activity_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::BlockAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
-    }
 }
 
 impl BlockCollection {

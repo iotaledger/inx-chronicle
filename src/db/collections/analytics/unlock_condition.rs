@@ -1,53 +1,27 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Error, Measurement, PerMilestone};
+use super::Error;
 use crate::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    db::{collections::OutputCollection, MongoDbCollectionExt},
+    types::tangle::MilestoneIndex,
 };
-
-/// Computes the statistics about the token claiming process.
-#[derive(Debug)]
-pub struct UnlockConditionAnalytics;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub struct UnlockConditionAnalyticsResult {
     pub timelock_count: u64,
-    pub timelock_value: d128,
+    pub timelock_value: u64,
     pub expiration_count: u64,
-    pub expiration_value: d128,
+    pub expiration_value: u64,
     pub storage_deposit_return_count: u64,
-    pub storage_deposit_return_value: d128,
-    pub storage_deposit_return_inner_value: d128,
-}
-
-#[async_trait]
-impl Analytic for UnlockConditionAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_unlock_condition_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::UnlockConditionAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
-    }
+    pub storage_deposit_return_value: u64,
+    pub storage_deposit_return_inner_value: u64,
 }
 
 impl OutputCollection {
@@ -135,12 +109,12 @@ impl OutputCollection {
 
         Ok(UnlockConditionAnalyticsResult {
             timelock_count: timelock.count,
-            timelock_value: timelock.value,
+            timelock_value: timelock.value.to_string().parse().unwrap(),
             expiration_count: expiration.count,
-            expiration_value: expiration.value,
+            expiration_value: expiration.value.to_string().parse().unwrap(),
             storage_deposit_return_count: sdruc.count,
-            storage_deposit_return_value: sdruc.value,
-            storage_deposit_return_inner_value: sdruc.inner,
+            storage_deposit_return_value: sdruc.value.to_string().parse().unwrap(),
+            storage_deposit_return_inner_value: sdruc.inner.to_string().parse().unwrap(),
         })
     }
 }

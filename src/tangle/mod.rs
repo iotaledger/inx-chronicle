@@ -3,7 +3,6 @@
 
 //! Defines types that allow for unified data processing.
 
-mod cone_stream;
 mod ledger_updates;
 mod milestone_stream;
 mod sources;
@@ -12,15 +11,37 @@ use std::ops::RangeBounds;
 
 use futures::{StreamExt, TryStreamExt};
 
-use self::{
+pub use self::{
+    ledger_updates::LedgerUpdateStore,
     milestone_stream::{Milestone, MilestoneStream},
-    sources::InputSource,
+    sources::{BlockData, InputSource},
 };
-use crate::types::tangle::MilestoneIndex;
+use crate::{db::MongoDb, inx::Inx, types::tangle::MilestoneIndex};
 
 /// Provides access to the tangle.
 pub struct Tangle<'a, I: InputSource> {
     source: &'a I,
+}
+
+impl<'a, I: InputSource> Clone for Tangle<'a, I> {
+    fn clone(&self) -> Self {
+        Self { source: &*self.source }
+    }
+}
+impl<'a, I: InputSource> Copy for Tangle<'a, I> {}
+
+impl<'a> Tangle<'a, MongoDb> {
+    /// Create a tangle from a [`MongoDb`] input source.
+    pub fn from_mongodb(mongodb: &'a MongoDb) -> Self {
+        Self { source: mongodb }
+    }
+}
+
+impl<'a> Tangle<'a, Inx> {
+    /// Create a tangle from an [`Inx`] input source.
+    pub fn from_inx(inx: &'a Inx) -> Self {
+        Self { source: inx }
+    }
 }
 
 impl<'a, I: 'a + InputSource + Sync> Tangle<'a, I> {
@@ -38,6 +59,7 @@ impl<'a, I: 'a + InputSource + Sync> Tangle<'a, I> {
                     at: data.at,
                     payload: data.payload,
                     protocol_params: data.protocol_params,
+                    node_config: data.node_config,
                 })
                 .boxed(),
         })

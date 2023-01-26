@@ -1,54 +1,28 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Error, Measurement, PerMilestone};
+use super::Error;
 use crate::{
     db::{
         collections::{OutputCollection, ProtocolUpdateCollection},
-        MongoDb, MongoDbCollection, MongoDbCollectionExt,
+        MongoDbCollection, MongoDbCollectionExt,
     },
     types::{
         ledger::RentStructureBytes,
-        stardust::milestone::MilestoneTimestamp,
         tangle::{MilestoneIndex, RentStructure},
     },
 };
 
-/// Computes the size of the ledger.
-#[derive(Debug)]
-pub struct LedgerSizeAnalytics;
-
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct LedgerSizeAnalyticsResult {
     pub total_key_bytes: u64,
     pub total_data_bytes: u64,
     pub total_storage_deposit_value: u64,
-}
-
-#[async_trait]
-impl Analytic for LedgerSizeAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_ledger_size_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::LedgerSizeAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
-    }
 }
 
 impl OutputCollection {

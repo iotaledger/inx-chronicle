@@ -1,47 +1,22 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use decimal::d128;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use super::{Analytic, Error, Measurement, PerMilestone};
+use super::Error;
 use crate::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    db::{collections::OutputCollection, MongoDbCollectionExt},
+    types::tangle::MilestoneIndex,
 };
 
-/// Computes the number of addresses that hold a balance.
-#[derive(Debug)]
-pub struct BaseTokenActivityAnalytics;
-
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct BaseTokenActivityAnalyticsResult {
-    pub booked_value: d128,
-    pub transferred_value: d128,
-}
-
-#[async_trait]
-impl Analytic for BaseTokenActivityAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        milestone_index: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_base_token_activity_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::BaseTokenActivityAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
-    }
+    pub booked_value: usize,
+    pub transferred_value: usize,
 }
 
 impl OutputCollection {
@@ -51,8 +26,22 @@ impl OutputCollection {
         &self,
         milestone_index: MilestoneIndex,
     ) -> Result<BaseTokenActivityAnalyticsResult, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            booked_value: d128,
+            transferred_value: d128,
+        }
+
+        impl From<Res> for BaseTokenActivityAnalyticsResult {
+            fn from(value: Res) -> Self {
+                Self {
+                    booked_value: value.booked_value.to_string().parse().unwrap(),
+                    transferred_value: value.transferred_value.to_string().parse().unwrap(),
+                }
+            }
+        }
         Ok(self
-        .aggregate(
+        .aggregate::<Res>(
             vec![
                 // Only consider outputs that were touched in transactions applied by this milestone.
                 doc! { "$match": {
@@ -139,6 +128,7 @@ impl OutputCollection {
         .await?
         .try_next()
         .await?
+        .map(Into::into)
         .unwrap_or_default())
     }
 }

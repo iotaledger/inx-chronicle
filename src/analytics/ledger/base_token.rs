@@ -4,30 +4,28 @@
 use std::collections::HashMap;
 
 use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::Address,
+use crate::{
+    db::collections::analytics::BaseTokenActivityAnalyticsResult,
+    types::{
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        stardust::block::Address,
+    },
 };
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
 #[derive(Clone, Debug, Default)]
-pub struct BaseTokenActivity {
+pub struct BaseTokenActivityAnalytics {
     /// Represents the amount of tokens transfered. Tokens that are send back to an address are not counted.
     pub booked_value: usize,
     /// Represents the total amount of tokens transfered, independent of wether tokens were sent back to same address.
     pub transferred_value: usize,
 }
 
-/// Computes information about the usage of the underlying base.
-pub struct BaseTokenActivityAnalytics {
-    measurement: BaseTokenActivity,
-}
-
 impl TransactionAnalytics for BaseTokenActivityAnalytics {
-    type Measurement = BaseTokenActivity;
+    type Measurement = BaseTokenActivityAnalyticsResult;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
-        self.measurement = BaseTokenActivity::default();
+        *self = Default::default();
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
@@ -39,7 +37,7 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
             }
         }
 
-        self.measurement.booked_value = tmp_balances.values().sum();
+        self.booked_value = tmp_balances.values().sum();
 
         for input in inputs {
             if let Some(address) = input.owning_address() {
@@ -47,10 +45,13 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
             }
         }
 
-        self.measurement.transferred_value = tmp_balances.values().sum();
+        self.transferred_value = tmp_balances.values().sum();
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(self.measurement.clone())
+        Some(BaseTokenActivityAnalyticsResult {
+            booked_value: self.booked_value,
+            transferred_value: self.transferred_value,
+        })
     }
 }

@@ -1,63 +1,20 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
-use time::{Date, OffsetDateTime};
 
-use super::{Analytic, Error, Measurement, TimeInterval};
+use super::Error;
 use crate::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    db::{collections::OutputCollection, MongoDbCollectionExt},
+    types::stardust::milestone::MilestoneTimestamp,
 };
 
-/// Computes the activity of addresses within a milestone.
-#[derive(Debug, Default)]
-pub struct DailyActiveAddressesAnalytics {
-    current_date: Option<Date>,
-}
-
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct DailyActiveAddressAnalyticsResult {
     pub count: u64,
-}
-
-#[async_trait]
-impl Analytic for DailyActiveAddressesAnalytics {
-    async fn get_measurement(
-        &mut self,
-        db: &MongoDb,
-        _: MilestoneIndex,
-        milestone_timestamp: MilestoneTimestamp,
-    ) -> Result<Option<Measurement>, Error> {
-        let incoming_date = OffsetDateTime::try_from(milestone_timestamp)?.date();
-
-        let current_date = self.current_date.get_or_insert(incoming_date);
-
-        if current_date.next_day() == Some(incoming_date) {
-            let from = current_date.midnight().assume_utc();
-            let to_exclusive = incoming_date.midnight().assume_utc();
-
-            let res = db
-                .collection::<OutputCollection>()
-                .get_interval_address_activity_analytics(from.into(), to_exclusive.into())
-                .await
-                .map(|measurement| {
-                    Some(Measurement::DailyActiveAddressAnalytics(TimeInterval {
-                        from,
-                        to_exclusive,
-                        inner: measurement,
-                    }))
-                });
-
-            *current_date = incoming_date;
-            return res;
-        }
-
-        Ok(None)
-    }
 }
 
 impl OutputCollection {

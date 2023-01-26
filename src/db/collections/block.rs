@@ -18,6 +18,7 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
+    tangle::BlockData,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
@@ -37,6 +38,35 @@ pub struct BlockDocument {
     raw: Vec<u8>,
     /// The block's metadata.
     metadata: BlockMetadata,
+}
+
+impl From<BlockData> for BlockDocument {
+    fn from(
+        BlockData {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }: BlockData,
+    ) -> Self {
+        Self {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }
+    }
+}
+
+impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
+    fn from((block_id, block, raw, metadata): (BlockId, Block, Vec<u8>, BlockMetadata)) -> Self {
+        Self {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }
+    }
 }
 
 /// The stardust blocks collection.
@@ -282,19 +312,13 @@ impl BlockCollection {
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), Error>
+    pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = (BlockId, Block, Vec<u8>, BlockMetadata)>,
+        I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
+        BlockDocument: From<B>,
     {
-        let blocks_with_metadata = blocks_with_metadata
-            .into_iter()
-            .map(|(block_id, block, raw, metadata)| BlockDocument {
-                block_id,
-                block,
-                raw,
-                metadata,
-            });
+        let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
 
         self.insert_many_ignore_duplicates(
             blocks_with_metadata,
