@@ -19,6 +19,11 @@ pub struct MilestoneSizeAnalytics;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MilestoneSizeAnalyticsResult {
+    // pub total_bytes: u64,
+    pub total_transaction_payload_bytes: u64,
+    pub total_tagged_data_payload_bytes: u64,
+    pub total_milestone_payload_bytes: u64,
+    pub total_treasury_transaction_payload_bytes: u64,
     pub total_milestone_bytes: u64,
 }
 
@@ -50,18 +55,30 @@ impl BlockCollection {
         &self,
         index: MilestoneIndex,
     ) -> Result<MilestoneSizeAnalyticsResult, Error> {
-        #[derive(Deserialize)]
-        struct MilestoneSizeResult {
-            total_milestone_bytes: u64,
-        }
+        // #[derive(Deserialize)]
+        // struct MilestoneSizeResult {
+        //     total_transaction_payload_bytes: u64,
+        //     total_tagged_data_payload_bytes: u64,
+        //     total_milestone_payload_bytes: u64,
+        //     total_treasury_transaction_payload_bytes: u64,
+        //     total_milestone_bytes: u64,
+        // }
 
         let res = self
-            .aggregate::<MilestoneSizeResult>(
+            .aggregate::<MilestoneSizeAnalyticsResult>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$group" : {
+                        "_id": "$block.payload.kind",
+                        "num_bytes": { "$sum": { "$size": "$raw" } },
+                    } },
+                    doc! { "$group" : {
                         "_id": null,
-                        "total_milestone_bytes": { "$sum": { "$size": "$raw" } },
+                        "total_transaction_payload_bytes": { "$sum": { "$cond": [ { "$eq": [ "$_id", "transaction" ] }, "$num_bytes", 0] } },
+                        "total_tagged_data_payload_bytes": { "$sum": { "$cond": [ { "$eq": [ "$_id", "tagged_data" ] }, "$num_bytes", 0] } },
+                        "total_milestone_payload_bytes": { "$sum": { "$cond": [ { "$eq": [ "$_id", "milestone" ] }, "$num_bytes", 0] } },
+                        "total_treasury_transaction_payload_bytes": { "$sum": { "$cond": [ { "$eq": [ "$_id", "treasury_transaction" ] }, "$num_bytes", 0] } },
+                        "total_milestone_bytes": { "$sum": "$num_bytes" },
                     } },
                 ],
                 None,
@@ -71,9 +88,9 @@ impl BlockCollection {
             .await?;
 
         Ok(res
-            .map(|res| MilestoneSizeAnalyticsResult {
-                total_milestone_bytes: res.total_milestone_bytes,
-            })
+            // .map(|res| MilestoneSizeAnalyticsResult {
+            //     total_milestone_bytes: res.total_milestone_bytes,
+            // })
             .unwrap_or_default())
     }
 }

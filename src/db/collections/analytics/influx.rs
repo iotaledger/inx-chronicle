@@ -63,6 +63,10 @@ impl From<Measurement> for influxdb::WriteQuery {
                 .add_field("total_storage_deposit_value", m.inner.total_storage_deposit_value),
             Measurement::MilestoneSizeAnalytics(m) => m
                 .prepare_query("stardust_milestone_size")
+                .add_field("total_transaction_payload_bytes", m.inner.total_transaction_payload_bytes)
+                .add_field("total_tagged_data_payload_bytes", m.inner.total_tagged_data_payload_bytes)
+                .add_field("total_treasury_transaction_payload_bytes", m.inner.total_treasury_transaction_payload_bytes)
+                .add_field("total_milestone_payload_bytes", m.inner.total_milestone_payload_bytes)
                 .add_field("total_milestone_bytes", m.inner.total_milestone_bytes),
             Measurement::OutputActivityAnalytics(m) => m
                 .prepare_query("stardust_output_activity")
