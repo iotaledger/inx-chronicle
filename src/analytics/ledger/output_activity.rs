@@ -41,7 +41,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
                 if let Output::Nft(nft_output) = &ledger_spent.output.output {
                     if nft_output.nft_id == NftId::implicit() {
                         // Convert implicit ids to explicit ids to make all nfts comparable
-                        // TODO: handle unwrap
+                        // Unwrap: acceptable risk
                         let output_id: iota_types::block::output::OutputId =
                             ledger_spent.output.output_id.try_into().unwrap();
                         let nft_id: NftId = iota_types::block::output::NftId::null()
@@ -63,7 +63,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
                 if let Output::Nft(nft_output) = &ledger_output.output {
                     if nft_output.nft_id == NftId::implicit() {
                         // Convert implicit ids to explicit ids to make all nfts comparable
-                        // TODO: handle unwrap
+                        // Unwrap: acceptable risk
                         let output_id: iota_types::block::output::OutputId =
                             ledger_output.output_id.try_into().unwrap();
                         let nft_id: NftId = iota_types::block::output::NftId::null()
@@ -133,7 +133,7 @@ impl TransactionAnalytics for AliasActivityAnalytics {
                 if let Output::Alias(alias_output) = &ledger_spent.output.output {
                     let alias_id = if alias_output.alias_id == AliasId::implicit() {
                         // Convert implicit ids to explicit ids to make all aliases comparable
-                        // TODO: handle unwrap
+                        // Unwrap: acceptable risk
                         let output_id: iota_types::block::output::OutputId =
                             ledger_spent.output.output_id.try_into().unwrap();
                         iota_types::block::output::AliasId::null()
@@ -159,7 +159,7 @@ impl TransactionAnalytics for AliasActivityAnalytics {
                 if let Output::Alias(alias_output) = &ledger_output.output {
                     let alias_id = if alias_output.alias_id == AliasId::implicit() {
                         // Convert implicit ids to explicit ids to make all aliases comparable
-                        // TODO: handle unwrap
+                        // Unwrap: acceptable risk
                         let output_id: iota_types::block::output::OutputId =
                             ledger_output.output_id.try_into().unwrap();
                         iota_types::block::output::AliasId::null()
@@ -184,11 +184,13 @@ impl TransactionAnalytics for AliasActivityAnalytics {
         self.measurement.destroyed_count += alias_inputs.difference(&alias_outputs).count() as u64;
 
         for alias_data in alias_outputs.intersection(&alias_inputs) {
+            // Unwraps: cannot fail because we iterate the intersection so they must exist
             let input_state_index = alias_inputs.get(&alias_data).unwrap().state_index;
             let output_state_index = alias_outputs.get(&alias_data).unwrap().state_index;
             if output_state_index > input_state_index {
                 self.measurement.state_changed_count += 1;
             }
+            // Unwraps: cannot fail because we iterate the intersection so they must exist
             let input_governor_address = alias_inputs.get(&alias_data).unwrap().governor_address;
             let output_governor_address = alias_outputs.get(&alias_data).unwrap().governor_address;
             if output_governor_address != input_governor_address {
