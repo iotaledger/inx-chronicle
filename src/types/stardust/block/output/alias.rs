@@ -13,7 +13,7 @@ use super::{
     feature::Feature,
     native_token::NativeToken,
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
-    OutputAmount,
+    OutputAmount, OutputId,
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 
@@ -51,6 +51,15 @@ impl From<AliasId> for iota::AliasId {
 impl From<AliasId> for iota::dto::AliasIdDto {
     fn from(value: AliasId) -> Self {
         Into::into(&iota::AliasId::from(value))
+    }
+}
+
+impl TryFrom<OutputId> for AliasId {
+    type Error = iota_types::block::Error;
+
+    fn try_from(value: OutputId) -> Result<Self, Self::Error> {
+        let output_id: iota::OutputId = value.try_into()?;
+        Ok(iota::AliasId::null().or_from_output_id(&output_id).into())
     }
 }
 
