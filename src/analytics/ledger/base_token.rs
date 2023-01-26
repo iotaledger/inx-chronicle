@@ -31,21 +31,23 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let mut outflows: HashMap<&Address, usize> = HashMap::new();
-        for input in inputs {
-            if let Some(address) = input.owning_address() {
-                self.measurement.transferred_value += input.amount().0 as usize;
-                *outflows.entry(address).or_default() += input.amount().0 as usize;
-            }
-        }
+        let mut tmp_balances: HashMap<&Address, usize> = HashMap::new();
+
         for output in outputs {
             if let Some(address) = output.owning_address() {
-                if let Some(entry) = outflows.get_mut(address) {
-                    *entry -= output.amount().0 as usize;
-                }
+                *tmp_balances.entry(address).or_default() += output.amount().0 as usize;
             }
         }
-        self.measurement.booked_value = outflows.values().sum();
+
+        self.measurement.booked_value = tmp_balances.values().sum();
+
+        for input in inputs {
+            if let Some(address) = input.owning_address() {
+                *tmp_balances.entry(address).or_default() -= input.amount().0 as usize;
+            }
+        }
+
+        self.measurement.transferred_value = tmp_balances.values().sum();
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
