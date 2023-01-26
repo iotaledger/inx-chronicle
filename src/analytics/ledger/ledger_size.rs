@@ -32,6 +32,7 @@ impl LedgerSize for Output {
     }
 }
 
+/// Ledger size statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
 pub struct LedgerSizeMeasurement {
     pub total_key_bytes: u64,
@@ -39,14 +40,14 @@ pub struct LedgerSizeMeasurement {
     pub total_storage_deposit_value: u64,
 }
 
+/// Measures the ledger size depending on current protocol parameters.
 pub struct LedgerSizeAnalytics {
     protocol_params: ProtocolParameters,
     measurement: LedgerSizeMeasurement,
 }
 
 impl LedgerSizeAnalytics {
-    // FIXME: temporarily allowed
-    #[allow(dead_code)]
+    /// Set the protocol parameters for this analytic.
     pub fn with_protocol_parameters(protocol_params: ProtocolParameters) -> Self {
         Self {
             protocol_params,

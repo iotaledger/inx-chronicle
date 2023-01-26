@@ -14,6 +14,7 @@ use crate::types::{
     },
 };
 
+/// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
 pub struct NftActivityMeasurement {
     pub created_count: u64,
@@ -21,6 +22,7 @@ pub struct NftActivityMeasurement {
     pub destroyed_count: u64,
 }
 
+/// Measures the ledger Nft activity.
 #[derive(Debug)]
 pub struct NftActivityAnalytics {
     measurement: NftActivityMeasurement,
@@ -40,8 +42,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
                 if let Output::Nft(nft_output) = &ledger_spent.output.output {
                     if nft_output.nft_id == NftId::implicit() {
                         // Convert implicit ids to explicit ids to make all nfts comparable
-                        // Unwrap: acceptable risk
-                        Some(NftId::try_from(ledger_spent.output.output_id).unwrap())
+                        Some(NftId::from(ledger_spent.output.output_id))
                     } else {
                         Some(nft_output.nft_id)
                     }
@@ -57,8 +58,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
                 if let Output::Nft(nft_output) = &ledger_output.output {
                     if nft_output.nft_id == NftId::implicit() {
                         // Convert implicit ids to explicit ids to make all nfts comparable
-                        // Unwrap: acceptable risk
-                        Some(NftId::try_from(ledger_output.output_id).unwrap())
+                        Some(NftId::from(ledger_output.output_id))
                     } else {
                         Some(nft_output.nft_id)
                     }
@@ -78,6 +78,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
     }
 }
 
+/// Alias activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
 pub struct AliasActivityMeasurement {
     pub created_count: u64,
@@ -86,6 +87,7 @@ pub struct AliasActivityMeasurement {
     pub destroyed_count: u64,
 }
 
+/// Measures the ledger Alias activity.
 pub struct AliasActivityAnalytics {
     measurement: AliasActivityMeasurement,
 }
@@ -122,8 +124,7 @@ impl TransactionAnalytics for AliasActivityAnalytics {
                 if let Output::Alias(alias_output) = &ledger_spent.output.output {
                     let alias_id = if alias_output.alias_id == AliasId::implicit() {
                         // Convert implicit ids to explicit ids to make all aliases comparable
-                        // Unwrap: acceptable risk
-                        AliasId::try_from(ledger_spent.output.output_id).unwrap()
+                        AliasId::from(ledger_spent.output.output_id)
                     } else {
                         alias_output.alias_id
                     };
@@ -144,8 +145,7 @@ impl TransactionAnalytics for AliasActivityAnalytics {
                 if let Output::Alias(alias_output) = &ledger_output.output {
                     let alias_id = if alias_output.alias_id == AliasId::implicit() {
                         // Convert implicit ids to explicit ids to make all aliases comparable
-                        // Unwrap: acceptable risk
-                        AliasId::try_from(ledger_output.output_id).unwrap()
+                        AliasId::from(ledger_output.output_id)
                     } else {
                         alias_output.alias_id
                     };

@@ -17,6 +17,8 @@ pub use self::{
     active_addresses::ActiveAddresses,
     address_balance::AddressBalanceAnalytics,
     base_token::BaseTokenActivityAnalytics,
+    ledger_size::LedgerSizeAnalytics,
+    output_activity::{AliasActivityAnalytics, NftActivityAnalytics},
     outputs::{CountValue, OutputState, OutputStatistics},
     unclaimed_tokens::{UnclaimedTokens, UnclaimedTokensAnalytics},
 };
