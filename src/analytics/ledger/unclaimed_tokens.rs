@@ -3,7 +3,7 @@
 
 use super::TransactionAnalytics;
 use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
     tangle::MilestoneIndex,
 };
 
@@ -28,7 +28,7 @@ impl UnclaimedTokensAnalytics {
         for output in unspent_outputs {
             if output.booked.milestone_index == MilestoneIndex(0) {
                 measurement.unclaimed_count += 1;
-                measurement.unclaimed_value += output.output.amount().0 as usize;
+                measurement.unclaimed_value += output.amount().0 as usize;
             }
         }
         Self { measurement }
@@ -38,18 +38,18 @@ impl UnclaimedTokensAnalytics {
 impl TransactionAnalytics for UnclaimedTokensAnalytics {
     type Measurement = UnclaimedTokens;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput]) {
         for input in inputs {
             if input.output.booked.milestone_index == MilestoneIndex(0) {
                 self.measurement.unclaimed_count -= 1;
-                self.measurement.unclaimed_value -= input.output.output.amount().0 as usize;
+                self.measurement.unclaimed_value -= input.amount().0 as usize;
             }
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
-        Some(self.measurement.clone())
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(self.measurement)
     }
 }

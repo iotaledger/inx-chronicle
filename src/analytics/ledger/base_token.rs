@@ -5,9 +5,8 @@ use std::collections::HashMap;
 
 use super::TransactionAnalytics;
 use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
     stardust::block::Address,
-    tangle::MilestoneIndex,
 };
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
@@ -27,29 +26,31 @@ pub struct BaseTokenActivityAnalytics {
 impl TransactionAnalytics for BaseTokenActivityAnalytics {
     type Measurement = BaseTokenActivity;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         self.measurement = BaseTokenActivity::default();
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let mut outflows: HashMap<&Address, usize> = HashMap::new();
-        for input in inputs {
-            if let Some(address) = input.output.output.owning_address() {
-                self.measurement.transferred_value += input.output.output.amount().0 as usize;
-                *outflows.entry(address).or_default() += input.output.output.amount().0 as usize;
-            }
-        }
+        let mut tmp_balances: HashMap<&Address, usize> = HashMap::new();
+
         for output in outputs {
-            if let Some(address) = output.output.owning_address() {
-                if let Some(entry) = outflows.get_mut(address) {
-                    *entry -= output.output.amount().0 as usize;
-                }
+            if let Some(address) = output.owning_address() {
+                *tmp_balances.entry(address).or_default() += output.amount().0 as usize;
             }
         }
-        self.measurement.booked_value = outflows.values().sum();
+
+        self.measurement.booked_value = tmp_balances.values().sum();
+
+        for input in inputs {
+            if let Some(address) = input.owning_address() {
+                *tmp_balances.entry(address).or_default() -= input.amount().0 as usize;
+            }
+        }
+
+        self.measurement.transferred_value = tmp_balances.values().sum();
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(self.measurement.clone())
     }
 }

@@ -7,12 +7,11 @@ use derive_more::{AddAssign, SubAssign};
 
 use super::TransactionAnalytics;
 use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
     stardust::block::{
         output::{AliasId, NftId},
         Address, Output,
     },
-    tangle::MilestoneIndex,
 };
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
@@ -30,7 +29,7 @@ pub struct NftActivityAnalytics {
 impl TransactionAnalytics for NftActivityAnalytics {
     type Measurement = NftActivityMeasurement;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         self.measurement = NftActivityMeasurement::default();
     }
 
@@ -84,7 +83,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
         self.measurement.destroyed_count += nft_inputs.difference(&nft_outputs).count() as u64;
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(self.measurement)
     }
 }
@@ -124,7 +123,7 @@ impl std::hash::Hash for AliasData {
 impl TransactionAnalytics for AliasActivityAnalytics {
     type Measurement = AliasActivityMeasurement;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         let alias_inputs = inputs
@@ -199,7 +198,7 @@ impl TransactionAnalytics for AliasActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(self.measurement)
     }
 }

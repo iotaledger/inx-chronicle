@@ -6,9 +6,9 @@ use derive_more::{AddAssign, SubAssign};
 use super::TransactionAnalytics;
 use crate::types::{
     context::TryFromWithContext,
-    ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes},
     stardust::block::Output,
-    tangle::{MilestoneIndex, ProtocolParameters},
+    tangle::ProtocolParameters,
 };
 trait LedgerSize {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement;
@@ -58,7 +58,7 @@ impl LedgerSizeAnalytics {
 impl TransactionAnalytics for LedgerSizeAnalytics {
     type Measurement = LedgerSizeMeasurement;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {}
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         for output in outputs {
@@ -69,7 +69,7 @@ impl TransactionAnalytics for LedgerSizeAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(self.measurement)
     }
 }
