@@ -8,7 +8,11 @@ use derive_more::{AddAssign, SubAssign};
 use super::TransactionAnalytics;
 use crate::types::{
     ledger::{LedgerOutput, LedgerSpent},
-    tangle::MilestoneIndex, stardust::block::Output,
+    stardust::block::{
+        output::{AliasId, NftId},
+        Output,
+    },
+    tangle::MilestoneIndex,
 };
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
@@ -34,8 +38,18 @@ impl TransactionAnalytics for NftActivityAnalytics {
         let inputs = inputs
             .iter()
             .filter_map(|ledger_spent| {
-                if matches!(ledger_spent.output.output, Output::Nft(_)) {
-                    Some(ledger_spent.output.output_id)
+                if let Output::Nft(nft_output) = &ledger_spent.output.output {
+                    if nft_output.nft_id == NftId::implicit() {
+                        // TODO: handle unwrap
+                        let output_id: iota_types::block::output::OutputId =
+                            ledger_spent.output.output_id.try_into().unwrap();
+                        let nft_id: NftId = iota_types::block::output::NftId::null()
+                            .or_from_output_id(&output_id)
+                            .into();
+                        Some(nft_id)
+                    } else {
+                        Some(nft_output.nft_id)
+                    }
                 } else {
                     None
                 }
@@ -45,8 +59,18 @@ impl TransactionAnalytics for NftActivityAnalytics {
         let outputs = outputs
             .iter()
             .filter_map(|ledger_output| {
-                if matches!(ledger_output.output, Output::Nft(_)) {
-                    Some(ledger_output.output_id)
+                if let Output::Nft(nft_output) = &ledger_output.output {
+                    if nft_output.nft_id == NftId::implicit() {
+                        // TODO: handle unwrap
+                        let output_id: iota_types::block::output::OutputId =
+                            ledger_output.output_id.try_into().unwrap();
+                        let nft_id: NftId = iota_types::block::output::NftId::null()
+                            .or_from_output_id(&output_id)
+                            .into();
+                        Some(nft_id)
+                    } else {
+                        Some(nft_output.nft_id)
+                    }
                 } else {
                     None
                 }
@@ -84,8 +108,21 @@ impl TransactionAnalytics for AliasActivityAnalytics {
         let inputs = inputs
             .iter()
             .filter_map(|ledger_spent| {
-                if matches!(ledger_spent.output.output, Output::Alias(_)) {
-                    Some(ledger_spent.output.output_id)
+                if let Output::Alias(alias_output) = &ledger_spent.output.output {
+                    if alias_output.alias_id == AliasId::implicit() {
+                        // TODO: handle unwrap
+                        let output_id: iota_types::block::output::OutputId =
+                            ledger_spent.output.output_id.try_into().unwrap();
+                        let alias_id: AliasId = iota_types::block::output::AliasId::null()
+                            .or_from_output_id(&output_id)
+                            .into();
+                        Some(alias_id)
+                    } else {
+                        Some(alias_output.alias_id)
+                    }
+                    // TODO
+                    // alias_output.governor_address_unlock_condition.address
+                    // alias_output.state_index
                 } else {
                     None
                 }
@@ -95,8 +132,21 @@ impl TransactionAnalytics for AliasActivityAnalytics {
         let outputs = outputs
             .iter()
             .filter_map(|ledger_output| {
-                if matches!(ledger_output.output, Output::Alias(_)) {
-                    Some(ledger_output.output_id)
+                if let Output::Alias(alias_output) = &ledger_output.output {
+                    if alias_output.alias_id == AliasId::implicit() {
+                        // TODO: handle unwrap
+                        let output_id: iota_types::block::output::OutputId =
+                            ledger_output.output_id.try_into().unwrap();
+                        let alias_id: AliasId = iota_types::block::output::AliasId::null()
+                            .or_from_output_id(&output_id)
+                            .into();
+                        Some(alias_id)
+                    } else {
+                        Some(alias_output.alias_id)
+                    }
+                    // TODO
+                    // alias_output.governor_address_unlock_condition.address
+                    // alias_output.state_index
                 } else {
                     None
                 }
