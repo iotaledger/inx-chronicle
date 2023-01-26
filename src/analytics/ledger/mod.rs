@@ -3,9 +3,7 @@
 
 //! Statistics about the ledger.
 
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-};
+use crate::types::ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp};
 
 mod active_addresses;
 mod address_balance;
@@ -25,7 +23,7 @@ pub use self::{
 pub trait TransactionAnalytics {
     type Measurement;
     fn begin_milestone(&mut self, at: MilestoneIndexTimestamp);
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]);
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]);
     fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement>;
 }
 

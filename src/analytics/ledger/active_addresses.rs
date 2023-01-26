@@ -11,7 +11,7 @@ use crate::types::{
     stardust::block::Address,
 };
 
-/// Computes the number of addresses the currently hold a balance.
+/// Computes the number of addresses that were active during a given time interval.
 pub struct ActiveAddresses {
     start_time: OffsetDateTime,
     interval: Duration,
@@ -31,7 +31,7 @@ impl ActiveAddresses {
             .filter_map(|output| {
                 let booked = OffsetDateTime::try_from(output.booked.milestone_timestamp).unwrap();
                 if (start_time <= booked) && (booked < start_time + interval) {
-                    output.output.owning_address().cloned()
+                    output.owning_address().cloned()
                 } else {
                     None
                 }
@@ -61,13 +61,13 @@ impl TransactionAnalytics for ActiveAddresses {
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         for input in inputs {
-            if let Some(a) = input.output.output.owning_address() {
+            if let Some(a) = input.owning_address() {
                 self.addresses.insert(*a);
             }
         }
 
         for output in outputs {
-            if let Some(a) = output.output.owning_address() {
+            if let Some(a) = output.owning_address() {
                 self.addresses.insert(*a);
             }
         }

@@ -42,7 +42,19 @@ use crate::types::{
 };
 
 /// The amount of tokens associated with an output.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    derive_more::AddAssign,
+    derive_more::SubAssign,
+)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
 
 /// The index of an output within a transaction.
