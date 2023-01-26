@@ -10,7 +10,7 @@ use crate::types::{
     ledger::{LedgerOutput, LedgerSpent},
     stardust::block::{
         output::{AliasId, NftId},
-        Output,
+        Address, Output,
     },
     tangle::MilestoneIndex,
 };
@@ -35,11 +35,12 @@ impl TransactionAnalytics for NftActivityAnalytics {
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let inputs = inputs
+        let nft_inputs = inputs
             .iter()
             .filter_map(|ledger_spent| {
                 if let Output::Nft(nft_output) = &ledger_spent.output.output {
                     if nft_output.nft_id == NftId::implicit() {
+                        // Convert implicit ids to explicit ids to make all nfts comparable
                         // TODO: handle unwrap
                         let output_id: iota_types::block::output::OutputId =
                             ledger_spent.output.output_id.try_into().unwrap();
@@ -56,11 +57,12 @@ impl TransactionAnalytics for NftActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        let outputs = outputs
+        let nft_outputs = outputs
             .iter()
             .filter_map(|ledger_output| {
                 if let Output::Nft(nft_output) = &ledger_output.output {
                     if nft_output.nft_id == NftId::implicit() {
+                        // Convert implicit ids to explicit ids to make all nfts comparable
                         // TODO: handle unwrap
                         let output_id: iota_types::block::output::OutputId =
                             ledger_output.output_id.try_into().unwrap();
@@ -77,9 +79,9 @@ impl TransactionAnalytics for NftActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        self.measurement.created_count += outputs.difference(&inputs).count() as u64;
-        self.measurement.transferred_count += outputs.intersection(&inputs).count() as u64;
-        self.measurement.destroyed_count += inputs.difference(&outputs).count() as u64;
+        self.measurement.created_count += nft_outputs.difference(&nft_inputs).count() as u64;
+        self.measurement.transferred_count += nft_outputs.intersection(&nft_inputs).count() as u64;
+        self.measurement.destroyed_count += nft_inputs.difference(&nft_outputs).count() as u64;
     }
 
     fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
@@ -99,62 +101,100 @@ pub struct AliasActivityAnalytics {
     measurement: AliasActivityMeasurement,
 }
 
+struct AliasData {
+    alias_id: AliasId,
+    governor_address: Address,
+    state_index: u32,
+}
+
+impl std::cmp::PartialEq for AliasData {
+    fn eq(&self, other: &Self) -> bool {
+        self.alias_id == other.alias_id
+    }
+}
+
+impl std::cmp::Eq for AliasData {}
+
+impl std::hash::Hash for AliasData {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.alias_id.hash(state);
+    }
+}
+
 impl TransactionAnalytics for AliasActivityAnalytics {
     type Measurement = AliasActivityMeasurement;
 
     fn begin_milestone(&mut self, _: MilestoneIndex) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let inputs = inputs
+        let alias_inputs = inputs
             .iter()
             .filter_map(|ledger_spent| {
                 if let Output::Alias(alias_output) = &ledger_spent.output.output {
-                    if alias_output.alias_id == AliasId::implicit() {
+                    let alias_id = if alias_output.alias_id == AliasId::implicit() {
+                        // Convert implicit ids to explicit ids to make all aliases comparable
                         // TODO: handle unwrap
                         let output_id: iota_types::block::output::OutputId =
                             ledger_spent.output.output_id.try_into().unwrap();
-                        let alias_id: AliasId = iota_types::block::output::AliasId::null()
+                        iota_types::block::output::AliasId::null()
                             .or_from_output_id(&output_id)
-                            .into();
-                        Some(alias_id)
+                            .into()
                     } else {
-                        Some(alias_output.alias_id)
-                    }
-                    // TODO
-                    // alias_output.governor_address_unlock_condition.address
-                    // alias_output.state_index
+                        alias_output.alias_id
+                    };
+                    Some(AliasData {
+                        alias_id,
+                        governor_address: alias_output.governor_address_unlock_condition.address,
+                        state_index: alias_output.state_index,
+                    })
                 } else {
                     None
                 }
             })
             .collect::<HashSet<_>>();
 
-        let outputs = outputs
+        let alias_outputs = outputs
             .iter()
             .filter_map(|ledger_output| {
                 if let Output::Alias(alias_output) = &ledger_output.output {
-                    if alias_output.alias_id == AliasId::implicit() {
+                    let alias_id = if alias_output.alias_id == AliasId::implicit() {
+                        // Convert implicit ids to explicit ids to make all aliases comparable
                         // TODO: handle unwrap
                         let output_id: iota_types::block::output::OutputId =
                             ledger_output.output_id.try_into().unwrap();
-                        let alias_id: AliasId = iota_types::block::output::AliasId::null()
+                        iota_types::block::output::AliasId::null()
                             .or_from_output_id(&output_id)
-                            .into();
-                        Some(alias_id)
+                            .into()
                     } else {
-                        Some(alias_output.alias_id)
-                    }
-                    // TODO
-                    // alias_output.governor_address_unlock_condition.address
-                    // alias_output.state_index
+                        alias_output.alias_id
+                    };
+
+                    Some(AliasData {
+                        alias_id,
+                        governor_address: alias_output.governor_address_unlock_condition.address,
+                        state_index: alias_output.state_index,
+                    })
                 } else {
                     None
                 }
             })
             .collect::<HashSet<_>>();
 
-        self.measurement.created_count += outputs.difference(&inputs).count() as u64;
-        self.measurement.destroyed_count += inputs.difference(&outputs).count() as u64;
+        self.measurement.created_count += alias_outputs.difference(&alias_inputs).count() as u64;
+        self.measurement.destroyed_count += alias_inputs.difference(&alias_outputs).count() as u64;
+
+        for alias_data in alias_outputs.intersection(&alias_inputs) {
+            let input_state_index = alias_inputs.get(&alias_data).unwrap().state_index;
+            let output_state_index = alias_outputs.get(&alias_data).unwrap().state_index;
+            if output_state_index > input_state_index {
+                self.measurement.state_changed_count += 1;
+            }
+            let input_governor_address = alias_inputs.get(&alias_data).unwrap().governor_address;
+            let output_governor_address = alias_outputs.get(&alias_data).unwrap().governor_address;
+            if output_governor_address != input_governor_address {
+                self.measurement.governor_changed_count += 1;
+            }
+        }
     }
 
     fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
