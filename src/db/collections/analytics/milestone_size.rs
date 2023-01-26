@@ -19,7 +19,6 @@ pub struct MilestoneSizeAnalytics;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MilestoneSizeAnalyticsResult {
-    // pub total_bytes: u64,
     pub total_transaction_payload_bytes: u64,
     pub total_tagged_data_payload_bytes: u64,
     pub total_milestone_payload_bytes: u64,
@@ -55,16 +54,7 @@ impl BlockCollection {
         &self,
         index: MilestoneIndex,
     ) -> Result<MilestoneSizeAnalyticsResult, Error> {
-        // #[derive(Deserialize)]
-        // struct MilestoneSizeResult {
-        //     total_transaction_payload_bytes: u64,
-        //     total_tagged_data_payload_bytes: u64,
-        //     total_milestone_payload_bytes: u64,
-        //     total_treasury_transaction_payload_bytes: u64,
-        //     total_milestone_bytes: u64,
-        // }
-
-        let res = self
+        Ok(self
             .aggregate::<MilestoneSizeAnalyticsResult>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
@@ -85,12 +75,6 @@ impl BlockCollection {
             )
             .await?
             .try_next()
-            .await?;
-
-        Ok(res
-            // .map(|res| MilestoneSizeAnalyticsResult {
-            //     total_milestone_bytes: res.total_milestone_bytes,
-            // })
-            .unwrap_or_default())
+            .await?.unwrap_or_default())
     }
 }
