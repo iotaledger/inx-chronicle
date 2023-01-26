@@ -33,15 +33,15 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
         let mut outflows: HashMap<&Address, usize> = HashMap::new();
         for input in inputs {
-            if let Some(address) = input.output.output.owning_address() {
-                self.measurement.transferred_value += input.output.output.amount().0 as usize;
-                *outflows.entry(address).or_default() += input.output.output.amount().0 as usize;
+            if let Some(address) = input.owning_address() {
+                self.measurement.transferred_value += input.amount().0 as usize;
+                *outflows.entry(address).or_default() += input.amount().0 as usize;
             }
         }
         for output in outputs {
-            if let Some(address) = output.output.owning_address() {
+            if let Some(address) = output.owning_address() {
                 if let Some(entry) = outflows.get_mut(address) {
-                    *entry -= output.output.amount().0 as usize;
+                    *entry -= output.amount().0 as usize;
                 }
             }
         }

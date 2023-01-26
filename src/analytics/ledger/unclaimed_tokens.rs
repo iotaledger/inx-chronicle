@@ -28,7 +28,7 @@ impl UnclaimedTokensAnalytics {
         for output in unspent_outputs {
             if output.booked.milestone_index == MilestoneIndex(0) {
                 measurement.unclaimed_count += 1;
-                measurement.unclaimed_value += output.output.amount().0 as usize;
+                measurement.unclaimed_value += output.amount().0 as usize;
             }
         }
         Self { measurement }
@@ -44,7 +44,7 @@ impl TransactionAnalytics for UnclaimedTokensAnalytics {
         for input in inputs {
             if input.output.booked.milestone_index == MilestoneIndex(0) {
                 self.measurement.unclaimed_count -= 1;
-                self.measurement.unclaimed_value -= input.output.output.amount().0 as usize;
+                self.measurement.unclaimed_value -= input.amount().0 as usize;
             }
         }
     }
