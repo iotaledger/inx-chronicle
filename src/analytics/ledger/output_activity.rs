@@ -165,15 +165,14 @@ impl TransactionAnalytics for AliasActivityAnalytics {
         self.measurement.destroyed_count += alias_inputs.difference(&alias_outputs).count() as u64;
 
         for alias_data in alias_outputs.intersection(&alias_inputs) {
-            // Unwraps: cannot fail because we iterate the intersection so they must exist
-            let input_state_index = alias_inputs.get(&alias_data).unwrap().state_index;
-            let output_state_index = alias_outputs.get(&alias_data).unwrap().state_index;
-            if output_state_index > input_state_index {
+            // Unwraps: cannot fail because we iterate the intersection so those elements must exist
+            let input_state_index = alias_inputs.get(alias_data).unwrap().state_index;
+            let output_state_index = alias_outputs.get(alias_data).unwrap().state_index;
+            if output_state_index != input_state_index {
                 self.measurement.state_changed_count += 1;
             }
-            // Unwraps: cannot fail because we iterate the intersection so they must exist
-            let input_governor_address = alias_inputs.get(&alias_data).unwrap().governor_address;
-            let output_governor_address = alias_outputs.get(&alias_data).unwrap().governor_address;
+            let input_governor_address = alias_inputs.get(alias_data).unwrap().governor_address;
+            let output_governor_address = alias_outputs.get(alias_data).unwrap().governor_address;
             if output_governor_address != input_governor_address {
                 self.measurement.governor_changed_count += 1;
             }
