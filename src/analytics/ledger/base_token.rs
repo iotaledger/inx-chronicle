@@ -31,7 +31,8 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        // The idea behind the following code is that we keep track of the deltas that are applied to each account that is represented by an address.
+        // The idea behind the following code is that we keep track of the deltas that are applied to each account that
+        // is represented by an address.
         let mut balance_deltas: HashMap<&Address, usize> = HashMap::new();
 
         // We first gather all tokens that have been moved to an individual address.
