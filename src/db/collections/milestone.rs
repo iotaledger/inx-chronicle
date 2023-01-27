@@ -247,34 +247,31 @@ impl MilestoneCollection {
         .await
     }
 
+    async fn get_milestone_by_order(&self, order: i32) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        self.aggregate(
+            [
+                doc! { "$sort": doc! { "at.milestone_index": order } },
+                doc! { "$limit": 1 },
+                doc! { "$project": doc! {
+                    "milestone_index": "$at.milestone_index",
+                    "milestone_timestamp": "$at.milestone_timestamp"
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
+    }
+
     /// Find the newest milestone.
     pub async fn get_newest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.find_one(
-            doc! {},
-            FindOneOptions::builder()
-                .sort(doc! { "at.milestone_index": BY_NEWEST })
-                .projection(doc! {
-                    "milestone_index": "$at.milestone_index",
-                    "milestone_timestamp": "$at.milestone_timestamp",
-                })
-                .build(),
-        )
-        .await
+        self.get_milestone_by_order(BY_NEWEST).await
     }
 
     /// Find the oldest milestone.
     pub async fn get_oldest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.find_one(
-            doc! {},
-            FindOneOptions::builder()
-                .sort(doc! { "at.milestone_index": BY_OLDEST })
-                .projection(doc! {
-                    "milestone_index": "$at.milestone_index",
-                    "milestone_timestamp": "$at.milestone_timestamp",
-                })
-                .build(),
-        )
-        .await
+        self.get_milestone_by_order(BY_OLDEST).await
     }
 
     /// Gets the current ledger index.
