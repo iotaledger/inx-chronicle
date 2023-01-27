@@ -80,13 +80,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 Analytic::LedgerOutputs(stat) => stat.begin_milestone(self.at),
                 Analytic::LedgerSize => todo!(),
                 Analytic::OutputActivity => todo!(),
-                Analytic::ProtocolParameters(params) => {
-                    if params != &self.protocol_params {
-                        *params = self.protocol_params.clone();
-                        // TODO: either signal that we should write this at the end or do it now
-                        // TODO: re-init all of the analytics, what is this going to take? Can we even do it here?
-                    }
-                }
+                Analytic::ProtocolParameters(_) => (),
                 Analytic::UnclaimedTokens(stat) => stat.begin_milestone(self.at),
                 Analytic::UnlockConditions => todo!(),
             }
@@ -193,8 +187,16 @@ impl<'a, I: InputSource> Milestone<'a, I> {
             }),
             Analytic::LedgerSize => todo!(),
             Analytic::OutputActivity => todo!(),
-            Analytic::ProtocolParameters(_params) => {
-                todo!();
+            Analytic::ProtocolParameters(params) => {
+                if params != &self.protocol_params {
+                    *params = self.protocol_params.clone();
+                    Some(Measurement::ProtocolParameters(PerMilestone {
+                        at: self.at,
+                        inner: params.clone(),
+                    }))
+                } else {
+                    None
+                }
             }
             Analytic::UnclaimedTokens(stat) => stat.end_milestone(self.at).map(|measurement| {
                 Measurement::UnclaimedTokens(PerMilestone {
