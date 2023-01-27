@@ -46,18 +46,17 @@ pub struct LedgerOutputAnalytics {
 impl LedgerOutputAnalytics {
     /// Initialize the analytics be reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
-        unspent_outputs
-            .into_iter()
-            .fold(Self::default(), |mut measurement, output| {
-                match output.output {
-                    Output::Alias(_) => measurement.alias += output,
-                    Output::Basic(_) => measurement.basic += output,
-                    Output::Nft(_) => measurement.nft += output,
-                    Output::Foundry(_) => measurement.foundry += output,
-                    Output::Treasury(_) => measurement.treasury += output,
-                }
-                measurement
-            })
+        let mut measurement = Self::default();
+        for output in unspent_outputs {
+            match output.output {
+                Output::Alias(_) => measurement.alias += output,
+                Output::Basic(_) => measurement.basic += output,
+                Output::Nft(_) => measurement.nft += output,
+                Output::Foundry(_) => measurement.foundry += output,
+                Output::Treasury(_) => measurement.treasury += output,
+            }
+        }
+        measurement
     }
 }
 

@@ -22,15 +22,14 @@ pub struct UnclaimedTokenAnalytics {
 impl UnclaimedTokenAnalytics {
     /// Initialize the analytics be reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
-        unspent_outputs
-            .into_iter()
-            .fold(Self::default(), |mut measurement, output| {
-                if output.booked.milestone_index == MilestoneIndex(0) {
-                    measurement.unclaimed_count += 1;
-                    measurement.unclaimed_value += output.amount().0 as usize;
-                }
-                measurement
-            })
+        let mut measurement = Self::default();
+        for output in unspent_outputs {
+            if output.booked.milestone_index == MilestoneIndex(0) {
+                measurement.unclaimed_count += 1;
+                measurement.unclaimed_value += output.amount().0 as usize;
+            }
+        }
+        measurement
     }
 }
 
