@@ -22,28 +22,22 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct MilestoneData {
-    /// The [`MilestoneId`] of the milestone.
     pub milestone_id: MilestoneId,
-    /// The [`MilestoneIndexTimestamp`] of the milestone.
     pub at: MilestoneIndexTimestamp,
-    /// The [`MilestonePayload`] of the milestone.
     pub payload: MilestonePayload,
-    /// The [`ProtocolParameters`] at the time when the milestone was issued.
     pub protocol_params: ProtocolParameters,
 }
 
 /// Logical grouping of data that belongs to a block.
+#[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct BlockData {
-    /// The [`BlockId`] of the block.
     pub block_id: BlockId,
-    /// The [`Block`] itself.
     pub block: Block,
-    /// The raw bytes of the block.
     pub raw: Vec<u8>,
-    /// The [`BlockMetadata`] associated with the block.
     pub metadata: BlockMetadata,
 }
 
