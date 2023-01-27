@@ -30,7 +30,7 @@ impl BlockAnalytics for MilestoneSizeAnalytics {
         self.measurement = MilestoneSizeMeasurement::default();
     }
 
-    fn handle_block(&mut self, block: &Block, raw_block: Vec<u8>, _: &BlockMetadata) {
+    fn handle_block(&mut self, block: &Block, raw_block: &[u8], _: &BlockMetadata) {
         self.measurement.total_milestone_bytes += raw_block.len() as u64;
         match block.payload {
             Some(Payload::Milestone(_)) => self.measurement.total_milestone_payload_bytes += raw_block.len() as u64,
