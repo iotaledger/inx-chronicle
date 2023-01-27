@@ -4,6 +4,7 @@
 //! Various analytics that give insight into the usage of the tangle.
 
 use futures::TryStreamExt;
+use thiserror::Error;
 
 use self::{
     ledger::{
@@ -21,7 +22,7 @@ use crate::{
     types::{
         ledger::BlockMetadata,
         stardust::block::{payload::TransactionEssence, Block, Input, Payload},
-        tangle::ProtocolParameters,
+        tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
 
@@ -42,6 +43,16 @@ pub enum Analytic {
     UnlockConditions,
 }
 
+#[allow(missing_docs)]
+#[derive(Debug, Error)]
+pub enum AnalyticsError {
+    #[error("missing output ({output_id}) in milestone {milestone_index}")]
+    MissingLedgerOutput {
+        output_id: String,
+        milestone_index: MilestoneIndex,
+    },
+}
+
 impl<'a, I: InputSource> Milestone<'a, I> {
     /// Update a list of analytics with this milestone
     pub async fn update_analytics(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
@@ -51,7 +62,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         self.begin_milestone(analytics);
 
         while let Some(BlockData { block, metadata, .. }) = cone_stream.try_next().await? {
-            self.handle_block(analytics, &block, &metadata, &ledger_updates)
+            self.handle_block(analytics, &block, &metadata, &ledger_updates)?;
         }
 
         self.end_milestone(analytics, influxdb).await?;
@@ -88,24 +99,40 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         block: &Block,
         block_metadata: &BlockMetadata,
         ledger_updates: &LedgerUpdateStore,
-    ) {
+    ) -> eyre::Result<()> {
         match &block.payload {
             Some(Payload::Transaction(payload)) => {
                 let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
                 let consumed = inputs
                     .iter()
                     .filter_map(|input| match input {
-                        Input::Utxo(output_id) => ledger_updates.get_consumed(output_id),
+                        Input::Utxo(output_id) => Some(output_id),
                         _ => None,
                     })
-                    .cloned()
-                    .collect::<Vec<_>>();
+                    .map(|output_id| {
+                        Ok(ledger_updates
+                            .get_consumed(output_id)
+                            .ok_or(AnalyticsError::MissingLedgerOutput {
+                                output_id: output_id.to_hex(),
+                                milestone_index: block_metadata.referenced_by_milestone_index,
+                            })?
+                            .clone())
+                    })
+                    .collect::<eyre::Result<Vec<_>>>()?;
                 let created = outputs
                     .iter()
                     .enumerate()
-                    .filter_map(|(index, _)| ledger_updates.get_created(&(payload.transaction_id, index as _).into()))
-                    .cloned()
-                    .collect::<Vec<_>>();
+                    .map(|(index, _)| {
+                        let output_id = (payload.transaction_id, index as _).into();
+                        Ok(ledger_updates
+                            .get_created(&output_id)
+                            .ok_or(AnalyticsError::MissingLedgerOutput {
+                                output_id: output_id.to_hex(),
+                                milestone_index: block_metadata.referenced_by_milestone_index,
+                            })?
+                            .clone())
+                    })
+                    .collect::<eyre::Result<Vec<_>>>()?;
                 for analytic in analytics.iter_mut() {
                     match analytic {
                         Analytic::AddressBalance(stat) => stat.handle_transaction(&consumed, &created),
@@ -128,6 +155,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 _ => (),
             }
         }
+        Ok(())
     }
 
     async fn end_milestone(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
