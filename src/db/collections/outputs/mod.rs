@@ -28,7 +28,7 @@ use crate::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
         },
         stardust::block::{
-            output::{Output, OutputId},
+            output::{AliasId, NftId, Output, OutputId},
             Address, BlockId,
         },
         tangle::MilestoneIndex,
@@ -95,6 +95,8 @@ struct OutputDetails {
     address: Option<Address>,
     is_trivial_unlock: bool,
     rent_structure: RentStructureBytes,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    indexed_id: Option<IndexedId>,
 }
 
 impl From<&LedgerOutput> for OutputDocument {
@@ -114,6 +116,26 @@ impl From<&LedgerOutput> for OutputDocument {
                 address,
                 is_trivial_unlock,
                 rent_structure: rec.rent_structure,
+                indexed_id: match &rec.output {
+                    Output::Alias(output) => Some(
+                        if output.alias_id == AliasId::implicit() {
+                            AliasId::from(rec.output_id)
+                        } else {
+                            output.alias_id
+                        }
+                        .into(),
+                    ),
+                    Output::Nft(output) => Some(
+                        if output.nft_id == NftId::implicit() {
+                            NftId::from(rec.output_id)
+                        } else {
+                            output.nft_id
+                        }
+                        .into(),
+                    ),
+                    Output::Foundry(output) => Some(output.foundry_id.into()),
+                    _ => None,
+                },
             },
         }
     }
