@@ -8,7 +8,7 @@ use crate::types::{
     tangle::MilestoneIndex,
 };
 
-/// The type of payloads that occured within a single milestone.
+/// Milestone size statistics.
 #[derive(Clone, Debug, Default)]
 pub struct MilestoneSizeMeasurement {
     total_milestone_payload_bytes: u64,
@@ -18,7 +18,7 @@ pub struct MilestoneSizeMeasurement {
     total_milestone_bytes: u64,
 }
 
-/// Computes the block-level activity that happened in a milestone.
+/// Computes the total and per-payload byte sizes for a given milestone.
 pub struct MilestoneSizeAnalytics {
     measurement: MilestoneSizeMeasurement,
 }
