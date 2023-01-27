@@ -16,9 +16,9 @@ trait LedgerSize {
 
 impl LedgerSize for Output {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement {
-        // What do we do if this fails?
+        // Unwrap: acceptable risk
         let protocol_params =
-            iota_types::block::protocol::ProtocolParameters::try_from(protocol_params.clone()).unwrap();
+            iota_types::block::protocol::ProtocolParameters::try_from(protocol_params.clone()).expect("protocol parameters conversion error");
         let output = iota_types::block::output::Output::try_from_with_context(&protocol_params, self.clone()).unwrap();
         let rent_bytes = RentStructureBytes::compute(&output);
         LedgerSizeMeasurement {
