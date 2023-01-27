@@ -247,7 +247,7 @@ impl MilestoneCollection {
         .await
     }
 
-    async fn get_milestone_by_order(&self, order: i32) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+    async fn get_first_milestone_sorted(&self, order: i32) -> Result<Option<MilestoneIndexTimestamp>, Error> {
         self.aggregate(
             [
                 doc! { "$sort": doc! { "at.milestone_index": order } },
@@ -266,12 +266,12 @@ impl MilestoneCollection {
 
     /// Find the newest milestone.
     pub async fn get_newest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.get_milestone_by_order(BY_NEWEST).await
+        self.get_first_milestone_sorted(BY_NEWEST).await
     }
 
     /// Find the oldest milestone.
     pub async fn get_oldest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.get_milestone_by_order(BY_OLDEST).await
+        self.get_first_milestone_sorted(BY_OLDEST).await
     }
 
     /// Gets the current ledger index.
