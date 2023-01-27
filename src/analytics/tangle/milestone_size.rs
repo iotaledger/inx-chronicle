@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::BlockAnalytics;
-use crate::types::{
-    ledger::BlockMetadata,
-    stardust::block::{Block, Payload},
-    tangle::MilestoneIndex,
+use crate::{
+    tangle::BlockData,
+    types::{stardust::block::Payload, tangle::MilestoneIndex},
 };
 
 /// Milestone size statistics.
@@ -30,14 +29,14 @@ impl BlockAnalytics for MilestoneSizeAnalytics {
         self.measurement = MilestoneSizeMeasurement::default();
     }
 
-    fn handle_block(&mut self, block: &Block, raw_block: &[u8], _: &BlockMetadata) {
-        self.measurement.total_milestone_bytes += raw_block.len();
-        match block.payload {
-            Some(Payload::Milestone(_)) => self.measurement.total_milestone_payload_bytes += raw_block.len(),
-            Some(Payload::TaggedData(_)) => self.measurement.total_tagged_data_payload_bytes += raw_block.len(),
-            Some(Payload::Transaction(_)) => self.measurement.total_transaction_payload_bytes += raw_block.len(),
+    fn handle_block(&mut self, block: &BlockData) {
+        self.measurement.total_milestone_bytes += block.raw.len();
+        match block.block.payload {
+            Some(Payload::Milestone(_)) => self.measurement.total_milestone_payload_bytes += block.raw.len(),
+            Some(Payload::TaggedData(_)) => self.measurement.total_tagged_data_payload_bytes += block.raw.len(),
+            Some(Payload::Transaction(_)) => self.measurement.total_transaction_payload_bytes += block.raw.len(),
             Some(Payload::TreasuryTransaction(_)) => {
-                self.measurement.total_treasury_transaction_payload_bytes += raw_block.len();
+                self.measurement.total_treasury_transaction_payload_bytes += block.raw.len();
             }
             _ => {}
         }

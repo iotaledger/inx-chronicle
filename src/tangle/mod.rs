@@ -12,6 +12,7 @@ use std::ops::RangeBounds;
 
 use futures::{StreamExt, TryStreamExt};
 
+pub use self::sources::{BlockData, MilestoneData};
 use self::{
     milestone_stream::{Milestone, MilestoneStream},
     sources::InputSource,
