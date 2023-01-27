@@ -111,7 +111,7 @@ impl MilestoneCollection {
         milestone_id: &MilestoneId,
     ) -> Result<Option<MilestonePayload>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "_id": milestone_id } },
                 doc! { "$replaceWith": "$payload" },
             ],
@@ -125,7 +125,7 @@ impl MilestoneCollection {
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "at.milestone_index": index } },
                 doc! { "$replaceWith": "$payload" },
             ],
@@ -321,8 +321,7 @@ impl MilestoneCollection {
         }
 
         Ok(self
-            .aggregate(
-                vec![
+            .aggregate([
                     doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$and": [ { "$exists": true }, { "$eq": migrated_at } ] },
@@ -363,7 +362,7 @@ impl MilestoneCollection {
         };
 
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "$nor": [
                         { "at.milestone_timestamp": { "$lt": start_timestamp } },
