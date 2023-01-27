@@ -54,7 +54,7 @@ impl OutputCollection {
     ) -> Result<UnclaimedTokenAnalyticsResult, Error> {
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$eq": 0 },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
