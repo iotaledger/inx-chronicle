@@ -25,7 +25,7 @@ use crate::{
     db::{collections::SortOrder, mongodb::MongoDbCollectionExt},
     types::{
         ledger::OutputMetadata,
-        stardust::block::output::{AliasId, FoundryId, NftId, OutputId},
+        stardust::block::output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -43,13 +43,24 @@ pub struct OutputsResult {
     pub outputs: Vec<OutputResult>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, From)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, From)]
 #[serde(untagged)]
 #[allow(missing_docs)]
 pub enum IndexedId {
     Alias(AliasId),
     Foundry(FoundryId),
     Nft(NftId),
+}
+
+impl IndexedId {
+    /// Get the indexed ID kind.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            IndexedId::Alias(_) => AliasOutput::KIND,
+            IndexedId::Foundry(_) => FoundryOutput::KIND,
+            IndexedId::Nft(_) => NftOutput::KIND,
+        }
+    }
 }
 
 impl From<IndexedId> for Bson {
@@ -80,6 +91,7 @@ impl OutputCollection {
             .aggregate(
                 [
                     doc! { "$match": {
+                        "output.kind": id.kind(),
                         "output.details.indexed_id": id,
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
