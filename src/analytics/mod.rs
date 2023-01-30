@@ -20,8 +20,7 @@ use crate::{
     },
     tangle::{BlockData, InputSource, LedgerUpdateStore, Milestone},
     types::{
-        ledger::BlockMetadata,
-        stardust::block::{payload::TransactionEssence, Block, Input, Payload},
+        stardust::block::{payload::TransactionEssence, Input, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
 };
@@ -61,8 +60,8 @@ impl<'a, I: InputSource> Milestone<'a, I> {
 
         self.begin_milestone(analytics);
 
-        while let Some(BlockData { block, metadata, .. }) = cone_stream.try_next().await? {
-            self.handle_block(analytics, &block, &metadata, &ledger_updates)?;
+        while let Some(block_data) = cone_stream.try_next().await? {
+            self.handle_block(analytics, &block_data, &ledger_updates)?;
         }
 
         self.end_milestone(analytics, influxdb).await?;
@@ -90,11 +89,10 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     fn handle_block(
         &self,
         analytics: &mut [Analytic],
-        block: &Block,
-        block_metadata: &BlockMetadata,
+        block_data: &BlockData,
         ledger_updates: &LedgerUpdateStore,
     ) -> eyre::Result<()> {
-        match &block.payload {
+        match &block_data.block.payload {
             Some(Payload::Transaction(payload)) => {
                 let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
                 let consumed = inputs
@@ -108,7 +106,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                             .get_consumed(output_id)
                             .ok_or(AnalyticsError::MissingLedgerOutput {
                                 output_id: output_id.to_hex(),
-                                milestone_index: block_metadata.referenced_by_milestone_index,
+                                milestone_index: block_data.metadata.referenced_by_milestone_index,
                             })?
                             .clone())
                     })
@@ -122,7 +120,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                             .get_created(&output_id)
                             .ok_or(AnalyticsError::MissingLedgerOutput {
                                 output_id: output_id.to_hex(),
-                                milestone_index: block_metadata.referenced_by_milestone_index,
+                                milestone_index: block_data.metadata.referenced_by_milestone_index,
                             })?
                             .clone())
                     })
@@ -145,7 +143,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         }
         for analytic in analytics.iter_mut() {
             match analytic {
-                Analytic::BlockActivity(stat) => stat.handle_block(block, block_metadata),
+                Analytic::BlockActivity(stat) => stat.handle_block(block_data),
                 _ => (),
             }
         }

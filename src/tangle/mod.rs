@@ -13,11 +13,8 @@ use futures::{StreamExt, TryStreamExt};
 
 pub use self::{
     ledger_updates::LedgerUpdateStore,
-    sources::{BlockData, MilestoneData},
-};
-use self::{
     milestone_stream::{Milestone, MilestoneStream},
-    sources::InputSource,
+    sources::{BlockData, InputSource, MilestoneData},
 };
 use crate::{db::MongoDb, inx::Inx, types::tangle::MilestoneIndex};
 

@@ -7,11 +7,7 @@ use crate::{
         BlockActivityAnalyticsResult, PayloadActivityAnalyticsResult, TransactionActivityAnalyticsResult,
     },
     tangle::BlockData,
-    types::{
-        ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{Block, Payload},
-        tangle::MilestoneIndex,
-    },
+    types::{ledger::LedgerInclusionState, stardust::block::Payload, tangle::MilestoneIndex},
 };
 
 /// The type of payloads that occured within a single milestone.
