@@ -10,6 +10,7 @@ mod block_activity;
 mod daily_active_addresses;
 mod ledger_outputs;
 mod ledger_size;
+mod milestone_size;
 mod output_activity;
 mod unclaimed_tokens;
 mod unlock_condition;
@@ -30,6 +31,7 @@ pub use self::{
     daily_active_addresses::DailyActiveAddressAnalyticsResult,
     ledger_outputs::LedgerOutputAnalyticsResult,
     ledger_size::LedgerSizeAnalyticsResult,
+    milestone_size::MilestoneSizeAnalyticsResult,
     output_activity::OutputActivityAnalyticsResult,
     unclaimed_tokens::UnclaimedTokenAnalyticsResult,
     unlock_condition::UnlockConditionAnalyticsResult,
@@ -93,6 +95,7 @@ pub enum Measurement {
     DailyActiveAddresses(TimeInterval<DailyActiveAddressAnalyticsResult>),
     LedgerOutputs(PerMilestone<LedgerOutputAnalyticsResult>),
     LedgerSize(PerMilestone<LedgerSizeAnalyticsResult>),
+    MilestoneSize(PerMilestone<MilestoneSizeAnalyticsResult>),
     OutputActivity(PerMilestone<OutputActivityAnalyticsResult>),
     ProtocolParameters(PerMilestone<ProtocolParameters>),
     UnclaimedTokens(PerMilestone<UnclaimedTokenAnalyticsResult>),

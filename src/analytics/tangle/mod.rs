@@ -3,13 +3,11 @@
 
 //! Statistics about the tangle.
 
-pub use self::block_activity::BlockActivityAnalytics;
+pub use self::{block_activity::BlockActivityAnalytics, milestone_size::MilestoneSizeAnalytics};
 use crate::{tangle::BlockData, types::tangle::MilestoneIndex};
 
 mod block_activity;
 mod milestone_size;
-
-pub use self::milestone_size::{MilestoneSizeAnalytics, MilestoneSizeMeasurement};
 
 #[allow(missing_docs)]
 pub trait BlockAnalytics {

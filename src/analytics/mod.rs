@@ -11,7 +11,7 @@ use self::{
         AddressActivity, AddressBalanceAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
         TransactionAnalytics, UnclaimedTokenAnalytics,
     },
-    tangle::{BlockActivityAnalytics, BlockAnalytics},
+    tangle::{BlockActivityAnalytics, BlockAnalytics, MilestoneSizeAnalytics},
 };
 use crate::{
     db::{
@@ -36,6 +36,7 @@ pub enum Analytic {
     DailyActiveAddresses(AddressActivity),
     LedgerOutputs(LedgerOutputAnalytics),
     LedgerSize,
+    MilestoneSize(MilestoneSizeAnalytics),
     OutputActivity,
     ProtocolParameters(ProtocolParameters),
     UnclaimedTokens(UnclaimedTokenAnalytics),
@@ -78,6 +79,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 Analytic::DailyActiveAddresses(stat) => stat.begin_milestone(self.at),
                 Analytic::LedgerOutputs(stat) => stat.begin_milestone(self.at),
                 Analytic::LedgerSize => todo!(),
+                Analytic::MilestoneSize(stat) => stat.begin_milestone(self.at.milestone_index),
                 Analytic::OutputActivity => todo!(),
                 Analytic::ProtocolParameters(_) => (),
                 Analytic::UnclaimedTokens(stat) => stat.begin_milestone(self.at),
@@ -144,6 +146,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         for analytic in analytics.iter_mut() {
             match analytic {
                 Analytic::BlockActivity(stat) => stat.handle_block(block_data),
+                Analytic::MilestoneSize(stat) => stat.handle_block(block_data),
                 _ => (),
             }
         }
@@ -184,6 +187,12 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 })
             }),
             Analytic::LedgerSize => todo!(),
+            Analytic::MilestoneSize(stat) => stat.end_milestone(self.at.milestone_index).map(|measurement| {
+                Measurement::MilestoneSize(PerMilestone {
+                    at: self.at,
+                    inner: measurement,
+                })
+            }),
             Analytic::OutputActivity => todo!(),
             Analytic::ProtocolParameters(params) => {
                 if params != &self.protocol_params {
