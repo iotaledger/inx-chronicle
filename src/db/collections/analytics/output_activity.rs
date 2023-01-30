@@ -84,8 +84,7 @@ impl OutputCollection {
         index: MilestoneIndex,
     ) -> Result<NftActivityAnalyticsResult, Error> {
         Ok(self
-            .aggregate(
-                vec![
+            .aggregate([
                     // Match all nft outputs in the given milestone.
                     doc! { "$match": {
                         "$and": [
@@ -230,8 +229,7 @@ impl OutputCollection {
         index: MilestoneIndex,
     ) -> Result<AliasActivityAnalyticsResult, Error> {
         Ok(self
-            .aggregate(
-                vec![
+            .aggregate([
                     // Match all alias outputs in the given milestone.
                     doc! { "$match": {
                         "$and": [

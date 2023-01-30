@@ -78,7 +78,7 @@ impl OutputCollection {
         let id = id.into();
         let mut res = self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
                         "output.details.indexed_id": id,
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
@@ -149,7 +149,7 @@ impl OutputCollection {
         } };
         let outputs = self
             .aggregate(
-                vec![
+                [
                     match_doc,
                     doc! { "$sort": sort },
                     doc! { "$limit": page_size as i64 },
