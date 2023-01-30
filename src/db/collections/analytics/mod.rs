@@ -32,7 +32,7 @@ pub use self::{
     ledger_outputs::LedgerOutputAnalyticsResult,
     ledger_size::LedgerSizeAnalyticsResult,
     milestone_size::MilestoneSizeAnalyticsResult,
-    output_activity::OutputActivityAnalyticsResult,
+    output_activity::{AliasActivityAnalyticsResult, NftActivityAnalyticsResult, OutputActivityAnalyticsResult},
     unclaimed_tokens::UnclaimedTokenAnalyticsResult,
     unlock_condition::UnlockConditionAnalyticsResult,
 };

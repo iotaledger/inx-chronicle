@@ -6,33 +6,30 @@ use std::collections::HashSet;
 use derive_more::{AddAssign, SubAssign};
 
 use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::{
-        output::{AliasId, NftId},
-        Address, Output,
+use crate::{
+    db::collections::analytics::{AliasActivityAnalyticsResult, NftActivityAnalyticsResult},
+    types::{
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        stardust::block::{
+            output::{AliasId, NftId},
+            Address, Output,
+        },
     },
 };
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct NftActivityMeasurement {
-    pub created_count: u64,
-    pub transferred_count: u64,
-    pub destroyed_count: u64,
-}
-
-/// Measures the ledger Nft activity.
-#[derive(Debug)]
 pub struct NftActivityAnalytics {
-    measurement: NftActivityMeasurement,
+    created_count: u64,
+    transferred_count: u64,
+    destroyed_count: u64,
 }
 
 impl TransactionAnalytics for NftActivityAnalytics {
-    type Measurement = NftActivityMeasurement;
+    type Measurement = NftActivityAnalyticsResult;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
-        self.measurement = NftActivityMeasurement::default();
+        *self = Self::default();
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
@@ -68,28 +65,27 @@ impl TransactionAnalytics for NftActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        self.measurement.created_count += nft_outputs.difference(&nft_inputs).count() as u64;
-        self.measurement.transferred_count += nft_outputs.intersection(&nft_inputs).count() as u64;
-        self.measurement.destroyed_count += nft_inputs.difference(&nft_outputs).count() as u64;
+        self.created_count += nft_outputs.difference(&nft_inputs).count() as u64;
+        self.transferred_count += nft_outputs.intersection(&nft_inputs).count() as u64;
+        self.destroyed_count += nft_inputs.difference(&nft_outputs).count() as u64;
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(self.measurement)
+        Some(NftActivityAnalyticsResult {
+            created_count: self.created_count,
+            transferred_count: self.transferred_count,
+            destroyed_count: self.destroyed_count,
+        })
     }
 }
 
 /// Alias activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct AliasActivityMeasurement {
-    pub created_count: u64,
-    pub governor_changed_count: u64,
-    pub state_changed_count: u64,
-    pub destroyed_count: u64,
-}
-
-/// Measures the ledger Alias activity.
 pub struct AliasActivityAnalytics {
-    measurement: AliasActivityMeasurement,
+    created_count: u64,
+    governor_changed_count: u64,
+    state_changed_count: u64,
+    destroyed_count: u64,
 }
 
 struct AliasData {
@@ -113,7 +109,7 @@ impl std::hash::Hash for AliasData {
 }
 
 impl TransactionAnalytics for AliasActivityAnalytics {
-    type Measurement = AliasActivityMeasurement;
+    type Measurement = AliasActivityAnalyticsResult;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
@@ -161,25 +157,30 @@ impl TransactionAnalytics for AliasActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        self.measurement.created_count += alias_outputs.difference(&alias_inputs).count() as u64;
-        self.measurement.destroyed_count += alias_inputs.difference(&alias_outputs).count() as u64;
+        self.created_count += alias_outputs.difference(&alias_inputs).count() as u64;
+        self.destroyed_count += alias_inputs.difference(&alias_outputs).count() as u64;
 
         for alias_data in alias_outputs.intersection(&alias_inputs) {
             // Unwraps: cannot fail because we iterate the intersection so those elements must exist
             let input_state_index = alias_inputs.get(alias_data).unwrap().state_index;
             let output_state_index = alias_outputs.get(alias_data).unwrap().state_index;
             if output_state_index != input_state_index {
-                self.measurement.state_changed_count += 1;
+                self.state_changed_count += 1;
             }
             let input_governor_address = alias_inputs.get(alias_data).unwrap().governor_address;
             let output_governor_address = alias_outputs.get(alias_data).unwrap().governor_address;
             if output_governor_address != input_governor_address {
-                self.measurement.governor_changed_count += 1;
+                self.governor_changed_count += 1;
             }
         }
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(self.measurement)
+        Some(AliasActivityAnalyticsResult {
+            created_count: self.created_count,
+            governor_changed_count: self.governor_changed_count,
+            state_changed_count: self.state_changed_count,
+            destroyed_count: self.destroyed_count,
+        })
     }
 }

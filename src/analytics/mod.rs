@@ -8,14 +8,15 @@ use thiserror::Error;
 
 use self::{
     ledger::{
-        AddressActivity, AddressBalanceAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
-        TransactionAnalytics, UnclaimedTokenAnalytics,
+        AddressActivity, AddressBalanceAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
+        LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics, TransactionAnalytics,
+        UnclaimedTokenAnalytics,
     },
     tangle::{BlockActivityAnalytics, BlockAnalytics, MilestoneSizeAnalytics},
 };
 use crate::{
     db::{
-        collections::analytics::{Measurement, PerMilestone, TimeInterval},
+        collections::analytics::{Measurement, OutputActivityAnalyticsResult, PerMilestone, TimeInterval},
         influxdb::InfluxDb,
     },
     tangle::{BlockData, InputSource, LedgerUpdateStore, Milestone},
@@ -35,9 +36,12 @@ pub enum Analytic {
     BlockActivity(BlockActivityAnalytics),
     DailyActiveAddresses(AddressActivity),
     LedgerOutputs(LedgerOutputAnalytics),
-    LedgerSize,
+    LedgerSize(LedgerSizeAnalytics),
     MilestoneSize(MilestoneSizeAnalytics),
-    OutputActivity,
+    OutputActivity {
+        nft: NftActivityAnalytics,
+        alias: AliasActivityAnalytics,
+    },
     ProtocolParameters(ProtocolParameters),
     UnclaimedTokens(UnclaimedTokenAnalytics),
     UnlockConditions,
@@ -78,9 +82,12 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 Analytic::BlockActivity(stat) => stat.begin_milestone(self.at.milestone_index),
                 Analytic::DailyActiveAddresses(stat) => stat.begin_milestone(self.at),
                 Analytic::LedgerOutputs(stat) => stat.begin_milestone(self.at),
-                Analytic::LedgerSize => todo!(),
+                Analytic::LedgerSize(stat) => stat.begin_milestone(self.at),
                 Analytic::MilestoneSize(stat) => stat.begin_milestone(self.at.milestone_index),
-                Analytic::OutputActivity => todo!(),
+                Analytic::OutputActivity { nft, alias } => {
+                    nft.begin_milestone(self.at);
+                    alias.begin_milestone(self.at);
+                }
                 Analytic::ProtocolParameters(_) => (),
                 Analytic::UnclaimedTokens(stat) => stat.begin_milestone(self.at),
                 Analytic::UnlockConditions => todo!(),
@@ -133,8 +140,11 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                         Analytic::BaseTokenActivity(stat) => stat.handle_transaction(&consumed, &created),
                         Analytic::DailyActiveAddresses(stat) => stat.handle_transaction(&consumed, &created),
                         Analytic::LedgerOutputs(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::LedgerSize => todo!(),
-                        Analytic::OutputActivity => todo!(),
+                        Analytic::LedgerSize(stat) => stat.handle_transaction(&consumed, &created),
+                        Analytic::OutputActivity { nft, alias } => {
+                            nft.handle_transaction(&consumed, &created);
+                            alias.handle_transaction(&consumed, &created);
+                        }
                         Analytic::UnclaimedTokens(stat) => stat.handle_transaction(&consumed, &created),
                         Analytic::UnlockConditions => todo!(),
                         _ => (),
@@ -186,14 +196,33 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                     inner: measurement,
                 })
             }),
-            Analytic::LedgerSize => todo!(),
+            Analytic::LedgerSize(stat) => stat.end_milestone(self.at).map(|measurement| {
+                Measurement::LedgerSize(PerMilestone {
+                    at: self.at,
+                    inner: measurement,
+                })
+            }),
             Analytic::MilestoneSize(stat) => stat.end_milestone(self.at.milestone_index).map(|measurement| {
                 Measurement::MilestoneSize(PerMilestone {
                     at: self.at,
                     inner: measurement,
                 })
             }),
-            Analytic::OutputActivity => todo!(),
+            Analytic::OutputActivity { nft, alias } => {
+                let nft = nft.end_milestone(self.at);
+                let alias = alias.end_milestone(self.at);
+                if nft.is_some() || alias.is_some() {
+                    Some(Measurement::OutputActivity(PerMilestone {
+                        at: self.at,
+                        inner: OutputActivityAnalyticsResult {
+                            alias: alias.unwrap_or_default(),
+                            nft: nft.unwrap_or_default(),
+                        },
+                    }))
+                } else {
+                    None
+                }
+            }
             Analytic::ProtocolParameters(params) => {
                 if params != &self.protocol_params {
                     *params = self.protocol_params.clone();
