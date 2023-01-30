@@ -2,43 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::{
-    db::{
-        collections::OutputCollection, mongodb::config as mongocfg, MongoDb, MongoDbCollection, MongoDbCollectionExt,
-        MongoDbConfig,
-    },
+    db::{collections::OutputCollection, MongoDb, MongoDbCollection, MongoDbCollectionExt},
     types::stardust::block::output::{AliasId, NftId, OutputId},
 };
-use clap::Parser;
 use futures::TryStreamExt;
 use mongodb::{bson::doc, options::IndexOptions, IndexModel};
 use serde::Deserialize;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about)]
-pub struct MongoDbArgs {
-    /// The MongoDb connection string.
-    #[arg(
-        long,
-        value_name = "CONN_STR",
-        env = "MONGODB_CONN_STR",
-        default_value = mongocfg::DEFAULT_CONN_STR,
-    )]
-    pub mongodb_conn_str: String,
-    /// The MongoDb database name.
-    #[arg(long, value_name = "NAME", default_value = mongocfg::DEFAULT_DATABASE_NAME)]
-    pub mongodb_database_name: String,
-}
+pub const PREV_VERSION: &str = "1.0.0-beta.30";
 
-#[tokio::main]
-async fn main() -> eyre::Result<()> {
-    let args = MongoDbArgs::parse();
-    let config = MongoDbConfig {
-        conn_str: args.mongodb_conn_str,
-        database_name: args.mongodb_database_name,
-    };
-
-    let db = MongoDb::connect(&config).await?;
-
+pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
     let collection = db.collection::<OutputCollection>();
 
     #[derive(Deserialize)]
@@ -46,6 +19,7 @@ async fn main() -> eyre::Result<()> {
         output_id: OutputId,
     }
 
+    // Convert the outputs with implicit IDs
     let outputs = collection
         .aggregate::<Res>(
             [
@@ -75,6 +49,45 @@ async fn main() -> eyre::Result<()> {
             )
             .await?;
     }
+
+    // Get the outputs that don't have implicit IDs
+    collection
+        .update_many(
+            doc! { "$match": {
+                "output.kind": "alias",
+                "output.alias_id": { "$ne": AliasId::implicit() },
+            } },
+            doc! { "$set": {
+                "details.indexed_id": "$output.alias_id",
+            } },
+            None,
+        )
+        .await?;
+
+    collection
+        .update_many(
+            doc! { "$match": {
+                "output.kind": "nft",
+                "output.nft_id": { "$ne": NftId::implicit() },
+            } },
+            doc! { "$set": {
+                "details.indexed_id": "$output.nft_id",
+            } },
+            None,
+        )
+        .await?;
+
+    collection
+        .update_many(
+            doc! { "$match": {
+                "output.kind": "foundry",
+            } },
+            doc! { "$set": {
+                "details.indexed_id": "$output.foundry_id",
+            } },
+            None,
+        )
+        .await?;
 
     collection
         .collection()

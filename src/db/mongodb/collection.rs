@@ -125,6 +125,16 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
         self.collection().update_one(doc, update, options).await
     }
 
+    /// Calls [`mongodb::Collection::update_many()`].
+    async fn update_many(
+        &self,
+        doc: Document,
+        update: impl Into<UpdateModifications> + Send + Sync,
+        options: impl Into<Option<UpdateOptions>> + Send + Sync,
+    ) -> Result<UpdateResult, Error> {
+        self.collection().update_many(doc, update, options).await
+    }
+
     /// Calls [`mongodb::Collection::replace_one()`] and coerces the document type.
     async fn replace_one<T: Serialize + Send + Sync>(
         &self,
