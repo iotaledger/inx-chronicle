@@ -52,8 +52,7 @@ impl OutputCollection {
         milestone_index: MilestoneIndex,
     ) -> Result<BaseTokenActivityAnalyticsResult, Error> {
         Ok(self
-        .aggregate(
-            vec![
+        .aggregate([
                 // Only consider outputs that were touched in transactions applied by this milestone.
                 doc! { "$match": {
                     "$or": [

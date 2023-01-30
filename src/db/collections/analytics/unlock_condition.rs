@@ -66,7 +66,7 @@ impl OutputCollection {
         let query = |kind: &'static str| async move {
             Result::<Res, Error>::Ok(
                 self.aggregate(
-                    vec![
+                    [
                         doc! { "$match": {
                             format!("output.{kind}"): { "$exists": true },
                             "metadata.booked.milestone_index": { "$lte": ledger_index },
@@ -100,8 +100,7 @@ impl OutputCollection {
 
         let sdruc_query = async move {
             Result::<ResSdruc, Error>::Ok(
-            self.aggregate(
-                vec![
+            self.aggregate([
                     doc! { "$match": {
                         "output.storage_deposit_return_unlock_condition": { "$exists": true },
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
