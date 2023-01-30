@@ -10,7 +10,10 @@ use thiserror::Error;
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     db::{
-        collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection, ProtocolUpdateCollection},
+        collections::{
+            BlockCollection, ConfigurationUpdateCollection, MilestoneCollection, OutputCollection,
+            ProtocolUpdateCollection,
+        },
         MongoDb,
     },
     tangle::ledger_updates::LedgerUpdateStore,
@@ -97,7 +100,22 @@ impl InputSource for MongoDb {
         ))
     }
 
-    async fn ledger_updates(&self, _index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
-        todo!()
+    async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
+        Ok(LedgerUpdateStore {
+            created: self
+                .collection::<OutputCollection>()
+                .get_created_outputs(index)
+                .await?
+                .map_ok(|o| (o.output_id(), o))
+                .try_collect()
+                .await?,
+            consumed: self
+                .collection::<OutputCollection>()
+                .get_consumed_outputs(index)
+                .await?
+                .map_ok(|o| (o.output_id(), o))
+                .try_collect()
+                .await?,
+        })
     }
 }
