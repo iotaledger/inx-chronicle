@@ -29,23 +29,28 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
     }
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let mut tmp_balances: HashMap<&Address, usize> = HashMap::new();
+        // The idea behind the following code is that we keep track of the deltas that are applied to each account that
+        // is represented by an address.
+        let mut balance_deltas: HashMap<&Address, usize> = HashMap::new();
 
+        // We first gather all tokens that have been moved to an individual address.
         for output in outputs {
             if let Some(address) = output.owning_address() {
-                *tmp_balances.entry(address).or_default() += output.amount().0 as usize;
+                *balance_deltas.entry(address).or_default() += output.amount().0 as usize;
             }
         }
 
-        self.booked_value = tmp_balances.values().sum();
+        self.booked_value = balance_deltas.values().sum();
 
+        // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for input in inputs {
             if let Some(address) = input.owning_address() {
-                *tmp_balances.entry(address).or_default() -= input.amount().0 as usize;
+                *balance_deltas.entry(address).or_default() -= input.amount().0 as usize;
             }
         }
 
-        self.transferred_value = tmp_balances.values().sum();
+        // The number of transferred tokens is then the sum of all deltas.
+        self.transferred_value = balance_deltas.values().sum();
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {

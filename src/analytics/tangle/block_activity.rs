@@ -6,6 +6,7 @@ use crate::{
     db::collections::analytics::{
         BlockActivityAnalyticsResult, PayloadActivityAnalyticsResult, TransactionActivityAnalyticsResult,
     },
+    tangle::BlockData,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{Block, Payload},
@@ -33,7 +34,7 @@ impl BlockAnalytics for BlockActivityAnalytics {
         *self = Default::default();
     }
 
-    fn handle_block(&mut self, block: &Block, metadata: &BlockMetadata) {
+    fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData) {
         match block.payload {
             Some(Payload::Milestone(_)) => self.milestone_count += 1,
             Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,

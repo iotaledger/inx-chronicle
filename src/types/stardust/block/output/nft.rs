@@ -13,7 +13,7 @@ use super::{
     unlock_condition::{
         AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
     },
-    Feature, NativeToken, OutputAmount,
+    Feature, NativeToken, OutputAmount, OutputId,
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 
@@ -39,6 +39,12 @@ impl NftId {
 impl From<iota::NftId> for NftId {
     fn from(value: iota::NftId) -> Self {
         Self(*value)
+    }
+}
+
+impl From<OutputId> for NftId {
+    fn from(value: OutputId) -> Self {
+        Self(value.hash())
     }
 }
 

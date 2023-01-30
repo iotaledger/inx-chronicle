@@ -23,6 +23,7 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct MilestoneData {
     pub milestone_id: MilestoneId,

@@ -9,6 +9,8 @@ mod active_addresses;
 mod address_balance;
 mod base_token;
 mod ledger_outputs;
+mod ledger_size;
+mod output_activity;
 mod unclaimed_tokens;
 
 pub use self::{
@@ -16,6 +18,8 @@ pub use self::{
     address_balance::AddressBalanceAnalytics,
     base_token::BaseTokenActivityAnalytics,
     ledger_outputs::{CountValue, LedgerOutputAnalytics},
+    ledger_size::LedgerSizeAnalytics,
+    output_activity::{AliasActivityAnalytics, NftActivityAnalytics},
     unclaimed_tokens::UnclaimedTokenAnalytics,
 };
 
