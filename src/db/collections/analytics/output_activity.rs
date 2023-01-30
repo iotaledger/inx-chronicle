@@ -15,6 +15,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 #[serde(default)]
 pub struct AliasActivityAnalyticsResult {
     pub created_count: u64,

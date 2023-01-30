@@ -410,7 +410,8 @@ impl InxWorker {
             if influx_db.config().analytics_enabled {
                 use chronicle::analytics::{
                     ledger::{
-                        AddressActivity, AddressBalanceAnalytics, LedgerOutputAnalytics, UnclaimedTokenAnalytics,
+                        AddressActivity, AddressBalanceAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
+                        UnclaimedTokenAnalytics,
                     },
                     Analytic,
                 };
@@ -444,9 +445,17 @@ impl InxWorker {
                             AnalyticsChoice::LedgerOutputs => {
                                 Analytic::LedgerOutputs(LedgerOutputAnalytics::init(&ledger_state))
                             }
-                            AnalyticsChoice::LedgerSize => todo!(),
-                            AnalyticsChoice::OutputActivity => todo!(),
-                            AnalyticsChoice::ProtocolParameters => todo!(),
+                            AnalyticsChoice::LedgerSize => Analytic::LedgerSize(LedgerSizeAnalytics::init(
+                                milestone.protocol_params.clone(),
+                                &ledger_state,
+                            )),
+                            AnalyticsChoice::OutputActivity => Analytic::OutputActivity {
+                                nft: Default::default(),
+                                alias: Default::default(),
+                            },
+                            AnalyticsChoice::ProtocolParameters => {
+                                Analytic::ProtocolParameters(milestone.protocol_params.clone())
+                            }
                             AnalyticsChoice::UnclaimedTokens => {
                                 Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(&ledger_state))
                             }
