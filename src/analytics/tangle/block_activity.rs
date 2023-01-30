@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::BlockAnalytics;
-use crate::types::{
-    ledger::BlockMetadata,
-    stardust::block::{Block, Payload},
-    tangle::MilestoneIndex,
+use crate::{
+    tangle::BlockData,
+    types::{stardust::block::Payload, tangle::MilestoneIndex},
 };
 
 /// The type of payloads that occured within a single milestone.
@@ -30,8 +29,8 @@ impl BlockAnalytics for BlockActivityAnalytics {
         self.measurement = BlockActivity::default();
     }
 
-    fn handle_block(&mut self, block: &Block, _: &[u8], _: &BlockMetadata) {
-        match block.payload {
+    fn handle_block(&mut self, block: &BlockData) {
+        match block.block.payload {
             Some(Payload::Milestone(_)) => self.measurement.milestone_count += 1,
             Some(Payload::TaggedData(_)) => self.measurement.tagged_data_count += 1,
             Some(Payload::Transaction(_)) => self.measurement.transaction_count += 1,
