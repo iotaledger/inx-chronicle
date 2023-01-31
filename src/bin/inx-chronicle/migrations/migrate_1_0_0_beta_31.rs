@@ -53,10 +53,10 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
     // Get the outputs that don't have implicit IDs
     collection
         .update_many(
-            doc! { "$match": {
+            doc! {
                 "output.kind": "alias",
                 "output.alias_id": { "$ne": AliasId::implicit() },
-            } },
+            },
             doc! { "$set": {
                 "details.indexed_id": "$output.alias_id",
             } },
@@ -66,10 +66,10 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
 
     collection
         .update_many(
-            doc! { "$match": {
+            doc! {
                 "output.kind": "nft",
                 "output.nft_id": { "$ne": NftId::implicit() },
-            } },
+            },
             doc! { "$set": {
                 "details.indexed_id": "$output.nft_id",
             } },
@@ -79,9 +79,7 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
 
     collection
         .update_many(
-            doc! { "$match": {
-                "output.kind": "foundry",
-            } },
+            doc! { "output.kind": "foundry" },
             doc! { "$set": {
                 "details.indexed_id": "$output.foundry_id",
             } },
