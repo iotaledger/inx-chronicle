@@ -43,7 +43,7 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
         let id = AliasId::from(output_id);
         collection
             .update_one(
-                doc! { "$_id": output_id },
+                doc! { "_id": output_id },
                 doc! { "$set": { "details.indexed_id": id } },
                 None,
             )
