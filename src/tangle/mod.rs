@@ -16,7 +16,7 @@ pub use self::{
     milestone_stream::{Milestone, MilestoneStream},
     sources::{BlockData, InputSource, MilestoneData},
 };
-use crate::{db::MongoDb, inx::Inx, types::tangle::MilestoneIndex};
+use crate::{db::MongoDb, types::tangle::MilestoneIndex};
 
 /// Provides access to the tangle.
 pub struct Tangle<'a, I: InputSource> {
@@ -25,7 +25,7 @@ pub struct Tangle<'a, I: InputSource> {
 
 impl<'a, I: InputSource> Clone for Tangle<'a, I> {
     fn clone(&self) -> Self {
-        Self { source: &*self.source }
+        Self { source: self.source }
     }
 }
 impl<'a, I: InputSource> Copy for Tangle<'a, I> {}
@@ -37,9 +37,10 @@ impl<'a> Tangle<'a, MongoDb> {
     }
 }
 
-impl<'a> Tangle<'a, Inx> {
+#[cfg(feature = "inx")]
+impl<'a> Tangle<'a, crate::inx::Inx> {
     /// Create a tangle from an [`Inx`] input source.
-    pub fn from_inx(inx: &'a Inx) -> Self {
+    pub fn from_inx(inx: &'a crate::inx::Inx) -> Self {
         Self { source: inx }
     }
 }

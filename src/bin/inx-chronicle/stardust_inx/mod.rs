@@ -12,7 +12,6 @@ use chronicle::{
             BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
             OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
-        influxdb::AnalyticsChoice,
         MongoDb,
     },
     inx::{Inx, InxError},
@@ -83,7 +82,8 @@ impl InxWorker {
             }
         });
 
-        let mut state: Option<AnalyticsState> = None;
+        #[cfg(feature = "analytics")]
+        let mut state: Option<crate::cli::analytics::AnalyticsState> = None;
 
         while let Some(milestone) = stream.try_next().await? {
             self.handle_ledger_update(
@@ -242,8 +242,10 @@ impl InxWorker {
     async fn handle_ledger_update<'a>(
         &mut self,
         milestone: Milestone<'a, Inx>,
-        #[cfg(feature = "analytics")] analytics_choices: &Option<std::collections::HashSet<AnalyticsChoice>>,
-        #[cfg(feature = "analytics")] state: &mut Option<AnalyticsState>,
+        #[cfg(feature = "analytics")] analytics_choices: &Option<
+            std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>,
+        >,
+        #[cfg(feature = "analytics")] state: &mut Option<crate::cli::analytics::AnalyticsState>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
@@ -403,17 +405,19 @@ impl InxWorker {
     async fn update_analytics<'a>(
         &self,
         milestone: &Milestone<'a, Inx>,
-        analytics_choices: &Option<std::collections::HashSet<AnalyticsChoice>>,
-        state: &mut Option<AnalyticsState>,
+        analytics_choices: &Option<std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>>,
+        state: &mut Option<crate::cli::analytics::AnalyticsState>,
     ) -> Result<()> {
-        use chronicle::analytics::ledger::UnlockConditionAnalytics;
+        use chronicle::db::influxdb::AnalyticsChoice;
+
+        use crate::cli::analytics::AnalyticsState;
 
         if let (Some(influx_db), Some(analytics_choices)) = (&self.influx_db, analytics_choices) {
             if influx_db.config().analytics_enabled {
                 use chronicle::analytics::{
                     ledger::{
                         AddressActivity, AddressBalanceAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-                        UnclaimedTokenAnalytics,
+                        UnclaimedTokenAnalytics, UnlockConditionAnalytics,
                     },
                     Analytic,
                 };
@@ -515,10 +519,4 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
         }
     }
     .and(Ok(()))
-}
-
-#[cfg(feature = "analytics")]
-pub struct AnalyticsState {
-    pub analytics: Vec<chronicle::analytics::Analytic>,
-    pub prev_protocol_params: chronicle::types::tangle::ProtocolParameters,
 }
