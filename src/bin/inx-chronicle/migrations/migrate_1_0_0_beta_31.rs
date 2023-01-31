@@ -57,9 +57,9 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 "output.kind": "alias",
                 "output.alias_id": { "$ne": AliasId::implicit() },
             } },
-            doc! { "$set": {
+            vec![doc! { "$set": {
                 "details.indexed_id": "$output.alias_id",
-            } },
+            } }],
             None,
         )
         .await?;
@@ -70,9 +70,9 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 "output.kind": "nft",
                 "output.nft_id": { "$ne": NftId::implicit() },
             } },
-            doc! { "$set": {
+            vec![doc! { "$set": {
                 "details.indexed_id": "$output.nft_id",
-            } },
+            } }],
             None,
         )
         .await?;
@@ -82,9 +82,9 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
             doc! { "$match": {
                 "output.kind": "foundry",
             } },
-            doc! { "$set": {
+            vec![doc! { "$set": {
                 "details.indexed_id": "$output.foundry_id",
-            } },
+            } }],
             None,
         )
         .await?;
