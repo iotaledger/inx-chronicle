@@ -61,9 +61,7 @@ impl UnlockConditionAnalytics {
 impl TransactionAnalytics for UnlockConditionAnalytics {
     type Measurement = UnlockConditionAnalyticsResult;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
-        todo!()
-    }
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         for input in consumed {

@@ -5,7 +5,7 @@ use chronicle::{
     analytics::{
         ledger::{
             AddressActivity, AddressBalanceAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-            UnclaimedTokenAnalytics,
+            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
         },
         Analytic,
     },
@@ -357,7 +357,9 @@ impl ClArgs {
                                             AnalyticsChoice::UnclaimedTokens => {
                                                 Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(&ledger_state))
                                             }
-                                            AnalyticsChoice::UnlockConditions => todo!(),
+                                            AnalyticsChoice::UnlockConditions => {
+                                                Analytic::UnlockConditions(UnlockConditionAnalytics::init(&ledger_state))
+                                            }
                                         })
                                         .collect::<Vec<_>>();
                                     state = Some(crate::stardust_inx::AnalyticsState{analytics, prev_protocol_params: milestone.protocol_params.clone()});

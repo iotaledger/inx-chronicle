@@ -406,6 +406,8 @@ impl InxWorker {
         analytics_choices: &Option<std::collections::HashSet<AnalyticsChoice>>,
         state: &mut Option<AnalyticsState>,
     ) -> Result<()> {
+        use chronicle::analytics::ledger::UnlockConditionAnalytics;
+
         if let (Some(influx_db), Some(analytics_choices)) = (&self.influx_db, analytics_choices) {
             if influx_db.config().analytics_enabled {
                 use chronicle::analytics::{
@@ -459,7 +461,9 @@ impl InxWorker {
                             AnalyticsChoice::UnclaimedTokens => {
                                 Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(&ledger_state))
                             }
-                            AnalyticsChoice::UnlockConditions => todo!(),
+                            AnalyticsChoice::UnlockConditions => {
+                                Analytic::UnlockConditions(UnlockConditionAnalytics::init(&ledger_state))
+                            }
                         })
                         .collect::<Vec<_>>();
                     *state = Some(AnalyticsState {

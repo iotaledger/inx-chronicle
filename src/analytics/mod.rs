@@ -10,7 +10,7 @@ use self::{
     ledger::{
         AddressActivity, AddressBalanceAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
         LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics, TransactionAnalytics,
-        UnclaimedTokenAnalytics,
+        UnclaimedTokenAnalytics, UnlockConditionAnalytics,
     },
     tangle::{BlockActivityAnalytics, BlockAnalytics, MilestoneSizeAnalytics},
 };
@@ -44,7 +44,7 @@ pub enum Analytic {
     },
     ProtocolParameters(ProtocolParameters),
     UnclaimedTokens(UnclaimedTokenAnalytics),
-    UnlockConditions,
+    UnlockConditions(UnlockConditionAnalytics),
 }
 
 #[allow(missing_docs)]
@@ -90,7 +90,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 }
                 Analytic::ProtocolParameters(_) => (),
                 Analytic::UnclaimedTokens(stat) => stat.begin_milestone(self.at),
-                Analytic::UnlockConditions => todo!(),
+                Analytic::UnlockConditions(stat) => stat.begin_milestone(self.at),
             }
         }
     }
@@ -146,7 +146,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                             alias.handle_transaction(&consumed, &created);
                         }
                         Analytic::UnclaimedTokens(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::UnlockConditions => todo!(),
+                        Analytic::UnlockConditions(stat) => stat.handle_transaction(&consumed, &created),
                         _ => (),
                     }
                 }
@@ -240,7 +240,12 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                     inner: measurement,
                 })
             }),
-            Analytic::UnlockConditions => todo!(),
+            Analytic::UnlockConditions(stat) => stat.end_milestone(self.at).map(|measurement| {
+                Measurement::UnlockConditions(PerMilestone {
+                    at: self.at,
+                    inner: measurement,
+                })
+            }),
         }) {
             influxdb.insert_measurement(measurement).await?;
         }
