@@ -18,7 +18,7 @@ pub struct AddressBalanceAnalytics {
 }
 
 impl AddressBalanceAnalytics {
-    /// Initialize the analytics be reading the current ledger state.
+    /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut balances = HashMap::new();
         for output in unspent_outputs {
