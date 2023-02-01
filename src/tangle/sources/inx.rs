@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, ops::RangeBounds};
+use std::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
@@ -78,6 +78,7 @@ impl InputSource for Inx {
             ..
             // TODO: What do we do here?
         } = stream.try_next().await?.unwrap().begin().unwrap();
+
         let consumed = stream
             .by_ref()
             .take(consumed_count)
@@ -85,18 +86,18 @@ impl InputSource for Inx {
                 // Unwrap: Safe based on our knowledge of the stream layout
                 update.consumed().unwrap()
             })
-            .map_ok(|update| (update.output_id(), update))
-            .try_collect::<HashMap<_, _>>()
+            .try_collect()
             .await?;
+
         let created = stream
             .take(created_count)
             .map_ok(|update| {
                 // Unwrap: Safe based on our knowledge of the stream layout
                 update.created().unwrap()
             })
-            .map_ok(|update| (update.output_id(), update))
-            .try_collect::<HashMap<_, _>>()
+            .try_collect()
             .await?;
-        Ok(LedgerUpdateStore { consumed, created })
+
+        Ok(LedgerUpdateStore::init(consumed, created))
     }
 }
