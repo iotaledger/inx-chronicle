@@ -138,57 +138,54 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         block_data: &BlockData,
         ledger_updates: &LedgerUpdateStore,
     ) -> eyre::Result<()> {
-        match &block_data.block.payload {
-            Some(Payload::Transaction(payload)) => {
-                let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
-                let consumed = inputs
-                    .iter()
-                    .filter_map(|input| match input {
-                        Input::Utxo(output_id) => Some(output_id),
-                        _ => None,
-                    })
-                    .map(|output_id| {
-                        Ok(ledger_updates
-                            .get_consumed(output_id)
-                            .ok_or(AnalyticsError::MissingLedgerOutput {
-                                output_id: output_id.to_hex(),
-                                milestone_index: block_data.metadata.referenced_by_milestone_index,
-                            })?
-                            .clone())
-                    })
-                    .collect::<eyre::Result<Vec<_>>>()?;
-                let created = outputs
-                    .iter()
-                    .enumerate()
-                    .map(|(index, _)| {
-                        let output_id = (payload.transaction_id, index as _).into();
-                        Ok(ledger_updates
-                            .get_created(&output_id)
-                            .ok_or(AnalyticsError::MissingLedgerOutput {
-                                output_id: output_id.to_hex(),
-                                milestone_index: block_data.metadata.referenced_by_milestone_index,
-                            })?
-                            .clone())
-                    })
-                    .collect::<eyre::Result<Vec<_>>>()?;
-                for analytic in analytics.iter_mut() {
-                    match analytic {
-                        Analytic::AddressBalance(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::BaseTokenActivity(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::DailyActiveAddresses(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::LedgerOutputs(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::LedgerSize(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::OutputActivity { nft, alias } => {
-                            nft.handle_transaction(&consumed, &created);
-                            alias.handle_transaction(&consumed, &created);
-                        }
-                        Analytic::UnclaimedTokens(stat) => stat.handle_transaction(&consumed, &created),
-                        Analytic::UnlockConditions(stat) => stat.handle_transaction(&consumed, &created),
-                        _ => (),
+        if let Some(Payload::Transaction(payload)) = &block_data.block.payload {
+            let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
+            let consumed = inputs
+                .iter()
+                .filter_map(|input| match input {
+                    Input::Utxo(output_id) => Some(output_id),
+                    _ => None,
+                })
+                .map(|output_id| {
+                    Ok(ledger_updates
+                        .get_consumed(output_id)
+                        .ok_or(AnalyticsError::MissingLedgerOutput {
+                            output_id: output_id.to_hex(),
+                            milestone_index: block_data.metadata.referenced_by_milestone_index,
+                        })?
+                        .clone())
+                })
+                .collect::<eyre::Result<Vec<_>>>()?;
+            let created = outputs
+                .iter()
+                .enumerate()
+                .map(|(index, _)| {
+                    let output_id = (payload.transaction_id, index as _).into();
+                    Ok(ledger_updates
+                        .get_created(&output_id)
+                        .ok_or(AnalyticsError::MissingLedgerOutput {
+                            output_id: output_id.to_hex(),
+                            milestone_index: block_data.metadata.referenced_by_milestone_index,
+                        })?
+                        .clone())
+                })
+                .collect::<eyre::Result<Vec<_>>>()?;
+            for analytic in analytics.iter_mut() {
+                match analytic {
+                    Analytic::AddressBalance(stat) => stat.handle_transaction(&consumed, &created),
+                    Analytic::BaseTokenActivity(stat) => stat.handle_transaction(&consumed, &created),
+                    Analytic::DailyActiveAddresses(stat) => stat.handle_transaction(&consumed, &created),
+                    Analytic::LedgerOutputs(stat) => stat.handle_transaction(&consumed, &created),
+                    Analytic::LedgerSize(stat) => stat.handle_transaction(&consumed, &created),
+                    Analytic::OutputActivity { nft, alias } => {
+                        nft.handle_transaction(&consumed, &created);
+                        alias.handle_transaction(&consumed, &created);
                     }
+                    Analytic::UnclaimedTokens(stat) => stat.handle_transaction(&consumed, &created),
+                    Analytic::UnlockConditions(stat) => stat.handle_transaction(&consumed, &created),
+                    _ => (),
                 }
             }
-            _ => (),
         }
         for analytic in analytics.iter_mut() {
             match analytic {
