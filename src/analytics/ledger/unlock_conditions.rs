@@ -19,41 +19,45 @@ pub struct UnlockConditionAnalytics {
     pub storage_deposit_return_inner_value: u64,
 }
 
+fn add_unspent_outputs<'a>(measurement: &mut UnlockConditionAnalytics, unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) {
+    for output in unspent_outputs {
+        match &output.output {
+            Output::Alias(_) => {}
+            Output::Basic(basic) => {
+                if basic.timelock_unlock_condition.is_some() {
+                    measurement.timelock += output;
+                }
+                if basic.expiration_unlock_condition.is_some() {
+                    measurement.expiration += output;
+                }
+                if let Some(storage) = basic.storage_deposit_return_unlock_condition {
+                    measurement.storage_deposit_return += output;
+                    measurement.storage_deposit_return_inner_value += storage.amount.0;
+                }
+            }
+            Output::Nft(nft) => {
+                if nft.timelock_unlock_condition.is_some() {
+                    measurement.timelock += output;
+                }
+                if nft.expiration_unlock_condition.is_some() {
+                    measurement.expiration += output;
+                }
+                if let Some(storage) = nft.storage_deposit_return_unlock_condition {
+                    measurement.storage_deposit_return += output;
+                    measurement.storage_deposit_return_inner_value += storage.amount.0;
+                }
+            }
+            Output::Foundry(_) => {}
+            Output::Treasury(_) => {}
+        }
+    }
+}
+
 impl UnlockConditionAnalytics {
     /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
-        for output in unspent_outputs {
-            match &output.output {
-                Output::Alias(_) => {}
-                Output::Basic(basic) => {
-                    if basic.timelock_unlock_condition.is_some() {
-                        measurement.timelock += output;
-                    }
-                    if basic.expiration_unlock_condition.is_some() {
-                        measurement.expiration += output;
-                    }
-                    if let Some(storage) = basic.storage_deposit_return_unlock_condition {
-                        measurement.storage_deposit_return += output;
-                        measurement.storage_deposit_return_inner_value += storage.amount.0;
-                    }
-                }
-                Output::Nft(nft) => {
-                    if nft.timelock_unlock_condition.is_some() {
-                        measurement.timelock += output;
-                    }
-                    if nft.expiration_unlock_condition.is_some() {
-                        measurement.expiration += output;
-                    }
-                    if let Some(storage) = nft.storage_deposit_return_unlock_condition {
-                        measurement.storage_deposit_return += output;
-                        measurement.storage_deposit_return_inner_value += storage.amount.0;
-                    }
-                }
-                Output::Foundry(_) => {}
-                Output::Treasury(_) => {}
-            }
-        }
+        add_unspent_outputs(&mut measurement, unspent_outputs);
         measurement
     }
 }
@@ -94,35 +98,7 @@ impl TransactionAnalytics for UnlockConditionAnalytics {
             }
         }
 
-        for output in created {
-            match &output.output {
-                Output::Basic(basic) => {
-                    if basic.timelock_unlock_condition.is_some() {
-                        self.timelock += output;
-                    }
-                    if basic.expiration_unlock_condition.is_some() {
-                        self.expiration += output;
-                    }
-                    if let Some(storage) = basic.storage_deposit_return_unlock_condition {
-                        self.storage_deposit_return += output;
-                        self.storage_deposit_return_inner_value += storage.amount.0;
-                    }
-                }
-                Output::Nft(nft) => {
-                    if nft.timelock_unlock_condition.is_some() {
-                        self.timelock += output;
-                    }
-                    if nft.expiration_unlock_condition.is_some() {
-                        self.expiration += output;
-                    }
-                    if let Some(storage) = nft.storage_deposit_return_unlock_condition {
-                        self.storage_deposit_return += output;
-                        self.storage_deposit_return_inner_value += storage.amount.0;
-                    }
-                }
-                _ => {}
-            }
-        }
+        add_unspent_outputs(self, created);
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
