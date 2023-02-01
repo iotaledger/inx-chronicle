@@ -5,6 +5,8 @@
 
 use std::ops::{AddAssign, SubAssign};
 
+use derive_more::{AddAssign, SubAssign};
+
 use super::TransactionAnalytics;
 use crate::{
     db::collections::analytics::LedgerOutputAnalyticsResult,
@@ -14,23 +16,23 @@ use crate::{
     },
 };
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 pub struct CountValue {
     pub count: usize,
-    pub value: usize,
+    pub value: u64,
 }
 
 impl AddAssign<&LedgerOutput> for CountValue {
     fn add_assign(&mut self, rhs: &LedgerOutput) {
         self.count += 1;
-        self.value += rhs.output.amount().0 as usize;
+        self.value += rhs.output.amount().0;
     }
 }
 
 impl SubAssign<&LedgerSpent> for CountValue {
     fn sub_assign(&mut self, rhs: &LedgerSpent) {
         self.count -= 1;
-        self.value -= rhs.output.output.amount().0 as usize;
+        self.value -= rhs.output.output.amount().0;
     }
 }
 
@@ -44,7 +46,7 @@ pub struct LedgerOutputAnalytics {
 }
 
 impl LedgerOutputAnalytics {
-    /// Initialize the analytics be reading the current ledger state.
+    /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
@@ -65,8 +67,8 @@ impl TransactionAnalytics for LedgerOutputAnalytics {
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        for input in inputs {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        for input in consumed {
             match input.output.output {
                 Output::Alias(_) => self.alias -= input,
                 Output::Basic(_) => self.basic -= input,
@@ -76,7 +78,7 @@ impl TransactionAnalytics for LedgerOutputAnalytics {
             }
         }
 
-        for output in outputs {
+        for output in created {
             match output.output {
                 Output::Alias(_) => self.alias += output,
                 Output::Basic(_) => self.basic += output,
@@ -90,15 +92,15 @@ impl TransactionAnalytics for LedgerOutputAnalytics {
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(LedgerOutputAnalyticsResult {
             basic_count: self.basic.count as _,
-            basic_value: self.basic.value as _,
+            basic_value: self.basic.value,
             alias_count: self.alias.count as _,
-            alias_value: self.alias.value as _,
+            alias_value: self.alias.value,
             foundry_count: self.foundry.count as _,
-            foundry_value: self.foundry.value as _,
+            foundry_value: self.foundry.value,
             nft_count: self.nft.count as _,
-            nft_value: self.nft.value as _,
+            nft_value: self.nft.value,
             treasury_count: self.treasury.count as _,
-            treasury_value: self.treasury.value as _,
+            treasury_value: self.treasury.value,
         })
     }
 }

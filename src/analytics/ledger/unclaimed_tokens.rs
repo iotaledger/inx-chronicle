@@ -20,7 +20,7 @@ pub struct UnclaimedTokenAnalytics {
 }
 
 impl UnclaimedTokenAnalytics {
-    /// Initialize the analytics be reading the current ledger state.
+    /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
