@@ -8,6 +8,7 @@
 mod api;
 mod cli;
 mod config;
+mod migrations;
 mod process;
 #[cfg(feature = "inx")]
 mod stardust_inx;
