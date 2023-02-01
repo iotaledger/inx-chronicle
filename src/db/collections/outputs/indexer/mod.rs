@@ -92,7 +92,7 @@ impl OutputCollection {
                 [
                     doc! { "$match": {
                         "output.kind": id.kind(),
-                        "output.details.indexed_id": id,
+                        "details.indexed_id": id,
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
@@ -191,12 +191,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.details.indexed_id": 1 })
+                .keys(doc! { "details.indexed_id": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_indexed_id_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.details.indexed_id": { "$exists": true },
+                            "details.indexed_id": { "$exists": true },
                         })
                         .build(),
                 )

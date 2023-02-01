@@ -102,12 +102,12 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
     collection
         .create_index(
             IndexModel::builder()
-                .keys(doc! { "output.details.indexed_id": 1 })
+                .keys(doc! { "details.indexed_id": 1 })
                 .options(
                     IndexOptions::builder()
                         .name("output_indexed_id_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.details.indexed_id": { "$exists": true },
+                            "details.indexed_id": { "$exists": true },
                         })
                         .build(),
                 )
