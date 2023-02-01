@@ -64,14 +64,14 @@ impl TransactionAnalytics for AddressActivity {
         }
     }
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        for input in inputs {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        for input in consumed {
             if let Some(a) = input.owning_address() {
                 self.addresses.insert(*a);
             }
         }
 
-        for output in outputs {
+        for output in created {
             if let Some(a) = output.owning_address() {
                 self.addresses.insert(*a);
             }

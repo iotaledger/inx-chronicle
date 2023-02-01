@@ -28,13 +28,13 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
         *self = Default::default();
     }
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
         let mut balance_deltas: HashMap<&Address, usize> = HashMap::new();
 
         // We first gather all tokens that have been moved to an individual address.
-        for output in outputs {
+        for output in created {
             if let Some(address) = output.owning_address() {
                 *balance_deltas.entry(address).or_default() += output.amount().0 as usize;
             }
@@ -43,7 +43,7 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
         self.booked_value = balance_deltas.values().sum();
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
-        for input in inputs {
+        for input in consumed {
             if let Some(address) = input.owning_address() {
                 *balance_deltas.entry(address).or_default() -= input.amount().0 as usize;
             }

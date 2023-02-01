@@ -32,7 +32,10 @@ pub use self::{
     ledger_outputs::LedgerOutputAnalyticsResult,
     ledger_size::LedgerSizeAnalyticsResult,
     milestone_size::MilestoneSizeAnalyticsResult,
-    output_activity::{AliasActivityAnalyticsResult, NftActivityAnalyticsResult, OutputActivityAnalyticsResult},
+    output_activity::{
+        AliasActivityAnalyticsResult, FoundryActivityAnalyticsResult, NftActivityAnalyticsResult,
+        OutputActivityAnalyticsResult,
+    },
     unclaimed_tokens::UnclaimedTokenAnalyticsResult,
     unlock_condition::UnlockConditionAnalyticsResult,
 };

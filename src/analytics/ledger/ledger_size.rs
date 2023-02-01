@@ -71,11 +71,11 @@ impl TransactionAnalytics for LedgerSizeAnalytics {
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        for output in outputs {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        for output in created {
             self.measurement += output.output.ledger_size(&self.protocol_params);
         }
-        for input in inputs.iter().map(|ledger_spent| &ledger_spent.output) {
+        for input in consumed.iter().map(|ledger_spent| &ledger_spent.output) {
             self.measurement -= input.output.ledger_size(&self.protocol_params);
         }
     }
