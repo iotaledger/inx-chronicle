@@ -31,7 +31,7 @@ pub(crate) trait PrepareQuery: Send + Sync {
 
 impl<T: PrepareQuery + ?Sized> PrepareQuery for Box<T> {
     fn prepare_query(&self) -> WriteQuery {
-        (&**self).prepare_query()
+        (**self).prepare_query()
     }
 }
 

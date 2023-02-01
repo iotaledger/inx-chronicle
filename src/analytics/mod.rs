@@ -102,8 +102,8 @@ impl Analytic {
     ) -> Self {
         Self(match choice {
             AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
-            AnalyticsChoice::BaseTokenActivity => Box::new(BaseTokenActivityMeasurement::default()) as _,
-            AnalyticsChoice::BlockActivity => Box::new(BlockActivityMeasurement::default()) as _,
+            AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
+            AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
             AnalyticsChoice::DailyActiveAddresses => Box::new(AddressActivityAnalytics::init(
                 OffsetDateTime::now_utc().date().midnight().assume_utc(),
                 time::Duration::days(1),
@@ -113,9 +113,9 @@ impl Analytic {
             AnalyticsChoice::LedgerSize => {
                 Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
             }
-            AnalyticsChoice::MilestoneSize => Box::new(MilestoneSizeMeasurement::default()) as _,
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityMeasurement::default()) as _,
-            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParamsMeasurement::default()) as _,
+            AnalyticsChoice::MilestoneSize => Box::<MilestoneSizeMeasurement>::default() as _,
+            AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
+            AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsMeasurement>::default() as _,
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
         })
