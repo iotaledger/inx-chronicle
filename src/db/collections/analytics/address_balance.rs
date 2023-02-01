@@ -48,7 +48,7 @@ impl OutputCollection {
     pub async fn get_address_analytics(&self, ledger_index: MilestoneIndex) -> Result<AddressAnalyticsResult, Error> {
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }

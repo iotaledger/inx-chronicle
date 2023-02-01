@@ -9,8 +9,8 @@ use std::time::Duration;
 use chronicle::{
     db::{
         collections::{
-            BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection, MilestoneCollection,
-            OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            ApplicationStateCollection, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
+            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -46,7 +46,7 @@ pub async fn gather_analytics(
     analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     milestone_index: MilestoneIndex,
     milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
-) -> Result<(), InxWorkerError> {
+) -> eyre::Result<()> {
     let mut tasks = JoinSet::new();
 
     let len_before = analytics.len();
@@ -67,8 +67,7 @@ pub async fn gather_analytics(
     }
 
     while let Some(res) = tasks.join_next().await {
-        // Panic: Acceptable risk
-        analytics.push(res.unwrap()?);
+        analytics.push(res??);
     }
 
     debug_assert_eq!(
@@ -108,6 +107,14 @@ impl InxWorker {
     pub async fn run(&mut self) -> Result<()> {
         let (start_index, mut inx) = self.init().await?;
 
+        #[cfg(feature = "analytics")]
+        let state = self
+            .db
+            .collection::<ApplicationStateCollection>()
+            .get_application_state()
+            .await?
+            .ok_or(InxWorkerError::MissingAppState)?;
+
         let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
 
         debug!("Started listening to ledger updates via INX.");
@@ -132,6 +139,8 @@ impl InxWorker {
                 &mut inx,
                 ledger_update,
                 &mut stream,
+                #[cfg(feature = "analytics")]
+                state.starting_index.milestone_index,
                 #[cfg(feature = "analytics")]
                 &mut analytics,
             )
@@ -235,6 +244,26 @@ impl InxWorker {
                     .insert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
+
+            // TODO: This is for migration purposes only. Remove it in the next version release.
+            if self
+                .db
+                .collection::<ApplicationStateCollection>()
+                .get_application_state()
+                .await?
+                .is_none()
+            {
+                let start_timestamp = inx
+                    .read_milestone(start_index.0.into())
+                    .await?
+                    .milestone_info
+                    .milestone_timestamp
+                    .into();
+                self.db
+                    .collection::<ApplicationStateCollection>()
+                    .set_starting_index(start_index.with_timestamp(start_timestamp))
+                    .await?;
+            }
         } else {
             self.db.clear().await?;
             info!("Reading unspent outputs.");
@@ -243,9 +272,26 @@ impl InxWorker {
                 .instrument(trace_span!("inx_read_unspent_outputs"))
                 .await?;
 
+            let mut starting_index = None;
+
             let mut count = 0;
             let mut tasks = unspent_output_stream
-                .inspect(|_| count += 1)
+                .inspect_ok(|_| count += 1)
+                .map(|msg| {
+                    let msg = msg?;
+                    let ledger_index = &msg.ledger_index;
+                    if let Some(index) = starting_index.as_ref() {
+                        if index != ledger_index {
+                            bail!(InxWorkerError::InvalidUnspentOutputIndex {
+                                found: *ledger_index,
+                                expected: *index,
+                            })
+                        }
+                    } else {
+                        starting_index = Some(*ledger_index);
+                    }
+                    Ok(msg)
+                })
                 .map(|res| Ok(res?.output))
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
@@ -259,11 +305,34 @@ impl InxWorker {
                 .await?;
 
             while let Some(res) = tasks.join_next().await {
-                // Panic: Acceptable risk
-                res.unwrap()?;
+                res??;
             }
 
             info!("Inserted {} unspent outputs.", count);
+
+            let starting_index = starting_index.unwrap_or_default();
+
+            // Get the timestamp for the starting index
+            let milestone_timestamp = inx
+                .read_milestone(starting_index.into())
+                .await?
+                .milestone_info
+                .milestone_timestamp
+                .into();
+
+            info!(
+                "Setting starting index to {} with timestamp {}",
+                starting_index,
+                time::OffsetDateTime::try_from(milestone_timestamp)?
+                    .format(&time::format_description::well_known::Rfc3339)?
+            );
+
+            let starting_index = starting_index.with_timestamp(milestone_timestamp);
+
+            self.db
+                .collection::<ApplicationStateCollection>()
+                .set_starting_index(starting_index)
+                .await?;
 
             info!(
                 "Linking database `{}` to network `{}`.",
@@ -286,6 +355,7 @@ impl InxWorker {
         inx: &mut Inx,
         start_marker: LedgerUpdateMessage,
         stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
+        #[cfg(feature = "analytics")] synced_index: MilestoneIndex,
         #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
@@ -342,8 +412,7 @@ impl InxWorker {
             .await?;
 
         while let Some(res) = tasks.join_next().await {
-            // Panic: Acceptable risk
-            res.unwrap()?;
+            res??;
         }
 
         let MarkerMessage {
@@ -396,9 +465,11 @@ impl InxWorker {
         #[cfg(all(feature = "analytics", feature = "metrics"))]
         let analytics_start_time = std::time::Instant::now();
         #[cfg(feature = "analytics")]
-        if let Some(influx_db) = &self.influx_db {
-            if influx_db.config().analytics_enabled {
-                gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
+        if milestone_index >= synced_index {
+            if let Some(influx_db) = &self.influx_db {
+                if influx_db.config().analytics_enabled {
+                    gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
+                }
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
@@ -521,8 +592,7 @@ impl InxWorker {
             .await?;
 
         while let Some(res) = tasks.join_next().await {
-            // Panic: Acceptable risk
-            res.unwrap()?;
+            res??;
         }
 
         Ok(())

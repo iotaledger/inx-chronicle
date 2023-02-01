@@ -338,8 +338,7 @@ impl ClArgs {
                         });
                     }
                     while let Some(res) = join_set.join_next().await {
-                        // Panic: Acceptable risk
-                        res.unwrap()?;
+                        res??;
                     }
                     return Ok(PostCommand::Exit);
                 }

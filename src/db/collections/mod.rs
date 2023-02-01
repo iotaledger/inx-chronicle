@@ -4,6 +4,7 @@
 /// Module containing the time-series analytics model.
 #[cfg(feature = "analytics")]
 pub mod analytics;
+mod application_state;
 /// Module containing the Block document model.
 mod block;
 /// Module containing the node configuration collection.
@@ -27,6 +28,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub use self::{
+    application_state::ApplicationStateCollection,
     block::BlockCollection,
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},

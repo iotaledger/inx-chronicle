@@ -70,7 +70,7 @@ impl OutputCollection {
     ) -> Result<DailyActiveAddressAnalyticsResult, Error> {
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": { "$or": [
                         { "$and": [
                             { "metadata.booked.milestone_timestamp": { "$gte": from } },

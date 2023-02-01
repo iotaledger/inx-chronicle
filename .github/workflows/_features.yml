@@ -1,0 +1,31 @@
+name: Check Features
+
+on:
+  workflow_call:
+    inputs: {}
+
+jobs:
+  check-all-features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --force cargo-hack
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: ci-check-features
