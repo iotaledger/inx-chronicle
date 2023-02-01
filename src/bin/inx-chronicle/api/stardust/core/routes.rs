@@ -35,12 +35,12 @@ use iota_types::{
         dto::ReceiptDto,
         response::{
             self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
-            LatestMilestoneResponse, OutputWithMetadataResponse, ReceiptsResponse,
-            StatusResponse, TreasuryResponse, UtxoChangesResponse,
+            LatestMilestoneResponse, OutputWithMetadataResponse, ReceiptsResponse, StatusResponse, TreasuryResponse,
+            UtxoChangesResponse,
         },
     },
     block::{
-        output::dto::{RentStructureDto, OutputMetadataDto},
+        output::dto::{OutputMetadataDto, RentStructureDto},
         payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
         protocol::dto::ProtocolParametersDto,
         BlockDto,
@@ -246,10 +246,7 @@ async fn block_metadata(
     Ok(create_block_metadata_response(block_id, metadata).into())
 }
 
-fn create_output_metadata_response(
-    metadata: OutputMetadataResult,
-    ledger_index: MilestoneIndex,
-) -> OutputMetadataDto {
+fn create_output_metadata_response(metadata: OutputMetadataResult, ledger_index: MilestoneIndex) -> OutputMetadataDto {
     OutputMetadataDto {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.output_id.transaction_id.to_hex(),
