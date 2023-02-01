@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use std::ops::RangeBounds;
+use std::{ops::RangeBounds};
 
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
@@ -101,21 +101,20 @@ impl InputSource for MongoDb {
     }
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
-        Ok(LedgerUpdateStore {
-            created: self
-                .collection::<OutputCollection>()
-                .get_created_outputs(index)
-                .await?
-                .map_ok(|o| (o.output_id(), o))
-                .try_collect()
-                .await?,
-            consumed: self
-                .collection::<OutputCollection>()
-                .get_consumed_outputs(index)
-                .await?
-                .map_ok(|o| (o.output_id(), o))
-                .try_collect()
-                .await?,
-        })
+        let consumed = self
+            .collection::<OutputCollection>()
+            .get_consumed_outputs(index)
+            .await?
+            .try_collect()
+            .await?;
+
+        let created = self
+            .collection::<OutputCollection>()
+            .get_created_outputs(index)
+            .await?
+            .try_collect()
+            .await?;
+
+        Ok(LedgerUpdateStore::init(consumed, created))
     }
 }

@@ -16,12 +16,6 @@ pub enum InxWorkerError {
     InfluxDb(#[from] influxdb::Error),
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
-    #[error("wrong number of ledger updates: `{received}` but expected `{expected}`")]
-    InvalidLedgerUpdateCount { received: usize, expected: usize },
-    #[error("invalid milestone state")]
-    InvalidMilestoneState,
-    #[error("missing milestone id for milestone index `{0}`")]
-    MissingMilestoneInfo(MilestoneIndex),
     #[error("MongoDb error: {0}")]
     MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: `{0}`, new network name: `{1}`")]
