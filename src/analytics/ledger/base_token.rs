@@ -18,11 +18,11 @@ pub(crate) struct BaseTokenActivityMeasurement {
 impl Analytics for BaseTokenActivityMeasurement {
     type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Default::default();
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
         let mut balance_deltas: HashMap<&Address, u64> = HashMap::new();
@@ -47,7 +47,10 @@ impl Analytics for BaseTokenActivityMeasurement {
         self.transferred_value = balance_deltas.values().sum();
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(PerMilestone { at, inner: *self })
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

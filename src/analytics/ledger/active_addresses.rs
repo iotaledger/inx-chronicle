@@ -52,10 +52,10 @@ impl AddressActivityAnalytics {
 impl Analytics for AddressActivityAnalytics {
     type Measurement = TimeInterval<AddressActivityMeasurement>;
 
-    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
+    fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext) {
         let end = self.start_time + self.interval;
         // Panic: The milestone timestamp is guaranteed to be valid.
-        if OffsetDateTime::try_from(at.milestone_timestamp).unwrap() > end {
+        if OffsetDateTime::try_from(ctx.at().milestone_timestamp).unwrap() > end {
             self.measurement = Some(AddressActivityMeasurement {
                 count: self.addresses.len(),
             });
@@ -64,7 +64,7 @@ impl Analytics for AddressActivityAnalytics {
         }
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in consumed {
             if let Some(a) = input.owning_address() {
                 self.addresses.insert(*a);
@@ -78,7 +78,7 @@ impl Analytics for AddressActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
         self.measurement.take().map(|m| TimeInterval {
             from: self.start_time,
             to_exclusive: self.start_time + self.interval,

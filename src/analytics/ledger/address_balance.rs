@@ -31,9 +31,9 @@ impl AddressBalancesAnalytics {
 impl Analytics for AddressBalancesAnalytics {
     type Measurement = PerMilestone<AddressBalanceMeasurement>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in consumed {
             if let Some(a) = input.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
@@ -54,9 +54,9 @@ impl Analytics for AddressBalancesAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
         Some(PerMilestone {
-            at,
+            at: *ctx.at(),
             inner: AddressBalanceMeasurement {
                 address_with_balance_count: self.balances.len(),
             },

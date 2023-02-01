@@ -16,11 +16,11 @@ pub(crate) struct MilestoneSizeMeasurement {
 impl Analytics for MilestoneSizeMeasurement {
     type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Self::default();
     }
 
-    fn handle_block(&mut self, BlockData { block, raw, .. }: &BlockData) {
+    fn handle_block(&mut self, BlockData { block, raw, .. }: &BlockData, _ctx: &dyn AnalyticsContext) {
         self.total_milestone_bytes += raw.len();
         match block.payload {
             Some(Payload::Milestone(_)) => self.total_milestone_payload_bytes += raw.len(),
@@ -33,7 +33,10 @@ impl Analytics for MilestoneSizeMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(PerMilestone { at, inner: *self })
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

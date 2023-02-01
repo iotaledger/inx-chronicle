@@ -20,18 +20,21 @@ pub(crate) struct OutputActivityMeasurement {
 impl Analytics for OutputActivityMeasurement {
     type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Self::default();
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         self.nft.handle_transaction(consumed, created);
         self.alias.handle_transaction(consumed, created);
         self.foundry.handle_transaction(consumed, created);
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(PerMilestone { at, inner: *self })
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }
 

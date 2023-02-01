@@ -20,12 +20,11 @@ pub(crate) use self::{
 use crate::{
     analytics::{
         influx::{PerMilestone, TimeInterval},
-        Analytics,
+        Analytics, AnalyticsContext,
     },
     types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        ledger::{LedgerOutput, LedgerSpent},
         stardust::block::Output,
-        tangle::ProtocolParameters,
     },
 };
 

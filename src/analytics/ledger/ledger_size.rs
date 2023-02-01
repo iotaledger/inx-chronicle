@@ -60,9 +60,9 @@ impl LedgerSizeAnalytics {
 impl Analytics for LedgerSizeAnalytics {
     type Measurement = PerMilestone<LedgerSizeMeasurement>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in created {
             self.measurement += output.output.ledger_size(&self.protocol_params);
         }
@@ -71,9 +71,9 @@ impl Analytics for LedgerSizeAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
         Some(PerMilestone {
-            at,
+            at: *ctx.at(),
             inner: self.measurement,
         })
     }

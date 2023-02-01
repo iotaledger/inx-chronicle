@@ -13,8 +13,7 @@ use self::{
         AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
         LedgerSizeAnalytics, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
-    protocol_params::ProtocolParamsMeasurement,
-    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
+    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
 };
 use crate::{
     db::influxdb::{AnalyticsChoice, InfluxDb},
@@ -28,44 +27,66 @@ use crate::{
 
 pub mod influx;
 pub mod ledger;
-mod protocol_params;
 pub mod tangle;
+
+/// Provides an API to access basic information used for analytics
+pub(crate) trait AnalyticsContext {
+    fn protocol_params(&self) -> &ProtocolParameters;
+
+    fn at(&self) -> &MilestoneIndexTimestamp;
+}
+
+impl<'a, I: InputSource> AnalyticsContext for Milestone<'a, I> {
+    fn protocol_params(&self) -> &ProtocolParameters {
+        &self.protocol_params
+    }
+
+    fn at(&self) -> &MilestoneIndexTimestamp {
+        &self.at
+    }
+}
 
 #[allow(missing_docs)]
 pub(crate) trait Analytics {
     type Measurement: PrepareQuery;
-    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters);
-    fn handle_transaction(&mut self, _consumed: &[LedgerSpent], _created: &[LedgerOutput]) {}
-    fn handle_block(&mut self, _block_data: &BlockData) {}
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement>;
+    fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext);
+    fn handle_transaction(
+        &mut self,
+        _consumed: &[LedgerSpent],
+        _created: &[LedgerOutput],
+        _ctx: &dyn AnalyticsContext,
+    ) {
+    }
+    fn handle_block(&mut self, _block_data: &BlockData, _ctx: &dyn AnalyticsContext) {}
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement>;
 }
 
 // This trait allows using the above implementation dynamically
 trait DynAnalytics: Send {
-    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters);
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]);
-    fn handle_block(&mut self, block_data: &BlockData);
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Box<dyn PrepareQuery>>;
+    fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext);
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
+    fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext);
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Box<dyn PrepareQuery>>;
 }
 
 impl<T: Analytics + Send> DynAnalytics for T
 where
     T::Measurement: 'static,
 {
-    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters) {
-        Analytics::begin_milestone(self, at, params)
+    fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext) {
+        Analytics::begin_milestone(self, ctx)
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
-        Analytics::handle_transaction(self, consumed, created)
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext) {
+        Analytics::handle_transaction(self, consumed, created, ctx)
     }
 
-    fn handle_block(&mut self, block_data: &BlockData) {
-        Analytics::handle_block(self, block_data)
+    fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
+        Analytics::handle_block(self, block_data, ctx)
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Box<dyn PrepareQuery>> {
-        Analytics::end_milestone(self, at).map(|r| Box::new(r) as _)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Box<dyn PrepareQuery>> {
+        Analytics::end_milestone(self, ctx).map(|r| Box::new(r) as _)
     }
 }
 
@@ -129,7 +150,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
 
     fn begin_milestone(&self, analytics: &mut [Analytic]) {
         for analytic in analytics {
-            analytic.0.begin_milestone(self.at, &self.protocol_params)
+            analytic.0.begin_milestone(self)
         }
     }
 
@@ -169,11 +190,11 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 })
                 .collect::<eyre::Result<Vec<_>>>()?;
             for analytic in analytics.iter_mut() {
-                analytic.0.handle_transaction(&consumed, &created);
+                analytic.0.handle_transaction(&consumed, &created, self);
             }
         }
         for analytic in analytics.iter_mut() {
-            analytic.0.handle_block(block_data);
+            analytic.0.handle_block(block_data, self);
         }
         Ok(())
     }
@@ -181,7 +202,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     async fn end_milestone(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
         for measurement in analytics
             .iter_mut()
-            .filter_map(|analytic| analytic.0.end_milestone(self.at))
+            .filter_map(|analytic| analytic.0.end_milestone(self))
         {
             influxdb.insert_measurement(measurement).await?;
         }

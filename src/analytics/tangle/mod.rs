@@ -3,12 +3,16 @@
 
 //! Statistics about the tangle.
 
-pub(crate) use self::{block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement};
+pub(crate) use self::{
+    block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement,
+    protocol_params::ProtocolParamsMeasurement,
+};
 use crate::{
-    analytics::{influx::PerMilestone, Analytics},
+    analytics::{influx::PerMilestone, Analytics, AnalyticsContext},
     tangle::BlockData,
-    types::{ledger::MilestoneIndexTimestamp, stardust::block::Payload, tangle::ProtocolParameters},
+    types::{stardust::block::Payload, tangle::ProtocolParameters},
 };
 
 mod block_activity;
 mod milestone_size;
+mod protocol_params;

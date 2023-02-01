@@ -29,9 +29,9 @@ impl UnclaimedTokenMeasurement {
 impl Analytics for UnclaimedTokenMeasurement {
     type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in inputs {
             if input.output.booked.milestone_index == 0 {
                 self.unclaimed_count -= 1;
@@ -40,7 +40,10 @@ impl Analytics for UnclaimedTokenMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(PerMilestone { at, inner: *self })
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

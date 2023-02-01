@@ -20,11 +20,11 @@ pub(crate) struct BlockActivityMeasurement {
 impl Analytics for BlockActivityMeasurement {
     type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Default::default();
     }
 
-    fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData) {
+    fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData, _ctx: &dyn AnalyticsContext) {
         match block.payload {
             Some(Payload::Milestone(_)) => self.milestone_count += 1,
             Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
@@ -39,7 +39,10 @@ impl Analytics for BlockActivityMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(PerMilestone { at, inner: *self })
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }
