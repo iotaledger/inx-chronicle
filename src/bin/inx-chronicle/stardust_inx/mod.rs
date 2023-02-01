@@ -252,34 +252,15 @@ impl InxWorker {
 
         let mut tasks = JoinSet::new();
 
-        // TODO: Either cache this result or figure out another way to avoid doing this again when we compute analytics
-        let ledger_updates = milestone.ledger_updates().await?;
-
-        // TODO: It is really unfortunate that we have to do this, we should find a better way
-        let mut created = ledger_updates.created.values().cloned().collect::<Vec<_>>().into_iter();
-
-        loop {
-            let batch = created.by_ref().take(INSERT_BATCH_SIZE).collect::<Vec<_>>();
-            if batch.is_empty() {
-                break;
-            }
+        for batch in milestone.ledger_updates().created_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
+            let batch = batch.to_vec();
             tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
         }
 
-        let mut consumed = ledger_updates
-            .consumed
-            .values()
-            .cloned()
-            .collect::<Vec<_>>()
-            .into_iter();
-
-        loop {
-            let batch = consumed.by_ref().take(INSERT_BATCH_SIZE).collect::<Vec<_>>();
-            if batch.is_empty() {
-                break;
-            }
+        for batch in milestone.ledger_updates().consumed_outputs().chunks(INSERT_BATCH_SIZE) {
             let db = self.db.clone();
+            let batch = batch.to_vec();
             tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
         }
 
@@ -289,8 +270,8 @@ impl InxWorker {
 
         // Record the result as part of the current span.
         tracing::Span::current().record("milestone_index", milestone.at.milestone_index.0);
-        tracing::Span::current().record("created", ledger_updates.created.len());
-        tracing::Span::current().record("consumed", ledger_updates.consumed.len());
+        tracing::Span::current().record("created", milestone.ledger_updates().created_outputs().len());
+        tracing::Span::current().record("consumed", milestone.ledger_updates().consumed_outputs().len());
 
         self.handle_cone_stream(&milestone).await?;
         self.db

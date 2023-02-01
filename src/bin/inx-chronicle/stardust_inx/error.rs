@@ -16,10 +16,13 @@ pub enum InxWorkerError {
     InfluxDb(#[from] influxdb::Error),
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
+    #[allow(unused)]
     #[error("wrong number of ledger updates: `{received}` but expected `{expected}`")]
     InvalidLedgerUpdateCount { received: usize, expected: usize },
+    #[allow(unused)]
     #[error("invalid milestone state")]
     InvalidMilestoneState,
+    #[allow(unused)]
     #[error("missing milestone id for milestone index `{0}`")]
     MissingMilestoneInfo(MilestoneIndex),
     #[error("MongoDb error: {0}")]

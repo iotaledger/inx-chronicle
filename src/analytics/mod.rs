@@ -20,7 +20,7 @@ use crate::{
         collections::analytics::{Measurement, PerMilestone, TimeInterval},
         influxdb::{AnalyticsChoice, InfluxDb},
     },
-    tangle::{BlockData, InputSource, LedgerUpdateStore, Milestone},
+    tangle::{BlockData, InputSource, Milestone},
     types::{
         ledger::LedgerOutput,
         stardust::block::{payload::TransactionEssence, Input, Payload},
@@ -92,12 +92,11 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     /// Update a list of analytics with this milestone
     pub async fn update_analytics(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
         let mut cone_stream = self.cone_stream().await?;
-        let ledger_updates = self.ledger_updates().await?;
 
         self.begin_milestone(analytics);
 
         while let Some(block_data) = cone_stream.try_next().await? {
-            self.handle_block(analytics, &block_data, &ledger_updates)?;
+            self.handle_block(analytics, &block_data)?;
         }
 
         self.end_milestone(analytics, influxdb).await?;
@@ -123,12 +122,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         }
     }
 
-    fn handle_block(
-        &self,
-        analytics: &mut [Analytic],
-        block_data: &BlockData,
-        ledger_updates: &LedgerUpdateStore,
-    ) -> eyre::Result<()> {
+    fn handle_block(&self, analytics: &mut [Analytic], block_data: &BlockData) -> eyre::Result<()> {
         if let Some(Payload::Transaction(payload)) = &block_data.block.payload {
             let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
             let consumed = inputs
@@ -138,7 +132,8 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                     _ => None,
                 })
                 .map(|output_id| {
-                    Ok(ledger_updates
+                    Ok(self
+                        .ledger_updates()
                         .get_consumed(output_id)
                         .ok_or(AnalyticsError::MissingLedgerOutput {
                             output_id: output_id.to_hex(),
@@ -152,7 +147,8 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 .enumerate()
                 .map(|(index, _)| {
                     let output_id = (payload.transaction_id, index as _).into();
-                    Ok(ledger_updates
+                    Ok(self
+                        .ledger_updates()
                         .get_created(&output_id)
                         .ok_or(AnalyticsError::MissingLedgerOutput {
                             output_id: output_id.to_hex(),

@@ -54,13 +54,20 @@ impl<'a, I: 'a + InputSource + Sync> Tangle<'a, I> {
         let stream = self.source.milestone_stream(range).await?;
         Ok(MilestoneStream {
             inner: stream
-                .map_ok(|data| Milestone {
-                    source: self.source,
-                    milestone_id: data.milestone_id,
-                    at: data.at,
-                    payload: data.payload,
-                    protocol_params: data.protocol_params,
-                    node_config: data.node_config,
+                .and_then(|data| {
+                    #[allow(clippy::borrow_deref_ref)]
+                    let source = &*self.source;
+                    async move {
+                        Ok(Milestone {
+                            ledger_updates: source.ledger_updates(data.at.milestone_index).await?,
+                            source,
+                            milestone_id: data.milestone_id,
+                            at: data.at,
+                            payload: data.payload,
+                            protocol_params: data.protocol_params,
+                            node_config: data.node_config,
+                        })
+                    }
                 })
                 .boxed(),
         })
