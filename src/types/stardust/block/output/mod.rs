@@ -15,6 +15,7 @@ pub mod treasury;
 
 use std::{borrow::Borrow, str::FromStr};
 
+use crypto::hashes::{blake2b::Blake2b256, Digest};
 use iota_types::block::output as iota;
 use mongodb::bson::{doc, Bson};
 use packable::PackableExt;
@@ -42,7 +43,19 @@ use crate::types::{
 };
 
 /// The amount of tokens associated with an output.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    derive_more::AddAssign,
+    derive_more::SubAssign,
+)]
 pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
 
 /// The index of an output within a transaction.
@@ -62,6 +75,16 @@ impl OutputId {
     /// Converts the [`OutputId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
         prefix_hex::encode([self.transaction_id.0.as_ref(), &self.index.to_le_bytes()].concat())
+    }
+
+    /// Hash the [`OutputId`] with BLAKE2b-256.
+    #[inline(always)]
+    pub fn hash(&self) -> [u8; 32] {
+        Blake2b256::digest(self.as_bytes()).into()
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        [self.transaction_id.0.as_ref(), &self.index.to_le_bytes()].concat()
     }
 }
 
