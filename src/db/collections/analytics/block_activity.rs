@@ -68,7 +68,7 @@ impl BlockCollection {
     ) -> Result<BlockActivityAnalyticsResult, Error> {
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$group": {
                         "_id": null,

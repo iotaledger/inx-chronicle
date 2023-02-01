@@ -211,7 +211,7 @@ impl OutputCollection {
     /// Get an [`Output`] by [`OutputId`].
     pub async fn get_output(&self, output_id: &OutputId) -> Result<Option<Output>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "_id": output_id } },
                 doc! { "$replaceWith": "$output" },
             ],
@@ -229,7 +229,7 @@ impl OutputCollection {
         ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputWithMetadataResult>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "_id": output_id,
                     "metadata.booked.milestone_index": { "$lte": ledger_index }
@@ -258,7 +258,7 @@ impl OutputCollection {
         ledger_index: MilestoneIndex,
     ) -> Result<Option<OutputMetadataResult>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "_id": &output_id,
                     "metadata.booked.milestone_index": { "$lte": ledger_index }
@@ -333,7 +333,7 @@ impl OutputCollection {
         output_id: &OutputId,
     ) -> Result<Option<SpentMetadata>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "_id": &output_id,
                     "metadata.spent_metadata": { "$ne": null }
@@ -354,8 +354,7 @@ impl OutputCollection {
         ledger_index: MilestoneIndex,
     ) -> Result<Option<BalanceResult>, Error> {
         self
-            .aggregate(
-                vec![
+            .aggregate([
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
                         "details.address": &address,
@@ -394,7 +393,7 @@ impl OutputCollection {
         } else {
             Ok(Some(
                 self.aggregate(
-                    vec![
+                    [
                         doc! { "$match":
                            { "$or": [
                                { "metadata.booked.milestone_index": index  },
@@ -460,7 +459,7 @@ impl OutputCollection {
     ) -> Result<RichestAddresses, Error> {
         let top = self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
@@ -489,7 +488,7 @@ impl OutputCollection {
     pub async fn get_token_distribution(&self, ledger_index: MilestoneIndex) -> Result<TokenDistribution, Error> {
         let distribution = self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
