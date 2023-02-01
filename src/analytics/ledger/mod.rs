@@ -20,7 +20,7 @@ pub(crate) use self::{
     base_token::BaseTokenActivityAnalytics,
     ledger_outputs::{CountValue, LedgerOutputAnalytics},
     ledger_size::LedgerSizeAnalytics,
-    output_activity::{AliasActivityAnalytics, NftActivityAnalytics},
+    output_activity::OutputActivityAnalytics,
     unclaimed_tokens::UnclaimedTokenAnalytics,
     unlock_conditions::UnlockConditionAnalytics,
 };

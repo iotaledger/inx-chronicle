@@ -7,7 +7,10 @@ use derive_more::{AddAssign, SubAssign};
 
 use super::TransactionAnalytics;
 use crate::{
-    db::collections::analytics::{AliasActivityAnalyticsResult, NftActivityAnalyticsResult},
+    db::collections::analytics::{
+        AliasActivityAnalyticsResult, FoundryActivityAnalyticsResult, NftActivityAnalyticsResult,
+        OutputActivityAnalyticsResult,
+    },
     types::{
         ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{
@@ -19,10 +22,40 @@ use crate::{
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct NftActivityAnalytics {
-    created_count: u64,
-    transferred_count: u64,
-    destroyed_count: u64,
+pub struct OutputActivityAnalytics {
+    nft: NftActivityAnalytics,
+    alias: AliasActivityAnalytics,
+    foundry: FoundryActivityAnalytics,
+}
+
+impl TransactionAnalytics for OutputActivityAnalytics {
+    type Measurement = OutputActivityAnalyticsResult;
+
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
+        *self = Self::default();
+    }
+
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        self.nft.handle_transaction(consumed, created);
+        self.alias.handle_transaction(consumed, created);
+        self.foundry.handle_transaction(consumed, created);
+    }
+
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(OutputActivityAnalyticsResult {
+            nft: self.nft.end_milestone(at).unwrap_or_default(),
+            alias: self.alias.end_milestone(at).unwrap_or_default(),
+            foundry: self.foundry.end_milestone(at).unwrap_or_default(),
+        })
+    }
+}
+
+/// Nft activity statistics.
+#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+struct NftActivityAnalytics {
+    created_count: usize,
+    transferred_count: usize,
+    destroyed_count: usize,
 }
 
 impl TransactionAnalytics for NftActivityAnalytics {
@@ -32,8 +65,8 @@ impl TransactionAnalytics for NftActivityAnalytics {
         *self = Self::default();
     }
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let nft_inputs = inputs
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let nft_inputs = consumed
             .iter()
             .filter_map(|ledger_spent| {
                 if let Output::Nft(nft_output) = &ledger_spent.output.output {
@@ -49,7 +82,7 @@ impl TransactionAnalytics for NftActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        let nft_outputs = outputs
+        let nft_outputs = created
             .iter()
             .filter_map(|ledger_output| {
                 if let Output::Nft(nft_output) = &ledger_output.output {
@@ -65,27 +98,27 @@ impl TransactionAnalytics for NftActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        self.created_count += nft_outputs.difference(&nft_inputs).count() as u64;
-        self.transferred_count += nft_outputs.intersection(&nft_inputs).count() as u64;
-        self.destroyed_count += nft_inputs.difference(&nft_outputs).count() as u64;
+        self.created_count += nft_outputs.difference(&nft_inputs).count();
+        self.transferred_count += nft_outputs.intersection(&nft_inputs).count();
+        self.destroyed_count += nft_inputs.difference(&nft_outputs).count();
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(NftActivityAnalyticsResult {
-            created_count: self.created_count,
-            transferred_count: self.transferred_count,
-            destroyed_count: self.destroyed_count,
+            created_count: self.created_count as u64,
+            transferred_count: self.transferred_count as u64,
+            destroyed_count: self.destroyed_count as u64,
         })
     }
 }
 
 /// Alias activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct AliasActivityAnalytics {
-    created_count: u64,
-    governor_changed_count: u64,
-    state_changed_count: u64,
-    destroyed_count: u64,
+struct AliasActivityAnalytics {
+    created_count: usize,
+    governor_changed_count: usize,
+    state_changed_count: usize,
+    destroyed_count: usize,
 }
 
 struct AliasData {
@@ -113,8 +146,8 @@ impl TransactionAnalytics for AliasActivityAnalytics {
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        let alias_inputs = inputs
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let alias_inputs = consumed
             .iter()
             .filter_map(|ledger_spent| {
                 if let Output::Alias(alias_output) = &ledger_spent.output.output {
@@ -135,7 +168,7 @@ impl TransactionAnalytics for AliasActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        let alias_outputs = outputs
+        let alias_outputs = created
             .iter()
             .filter_map(|ledger_output| {
                 if let Output::Alias(alias_output) = &ledger_output.output {
@@ -157,8 +190,8 @@ impl TransactionAnalytics for AliasActivityAnalytics {
             })
             .collect::<HashSet<_>>();
 
-        self.created_count += alias_outputs.difference(&alias_inputs).count() as u64;
-        self.destroyed_count += alias_inputs.difference(&alias_outputs).count() as u64;
+        self.created_count += alias_outputs.difference(&alias_inputs).count();
+        self.destroyed_count += alias_inputs.difference(&alias_outputs).count();
 
         for alias_data in alias_outputs.intersection(&alias_inputs) {
             // Unwraps: cannot fail because we iterate the intersection so those elements must exist
@@ -177,10 +210,62 @@ impl TransactionAnalytics for AliasActivityAnalytics {
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
         Some(AliasActivityAnalyticsResult {
-            created_count: self.created_count,
-            governor_changed_count: self.governor_changed_count,
-            state_changed_count: self.state_changed_count,
-            destroyed_count: self.destroyed_count,
+            created_count: self.created_count as u64,
+            governor_changed_count: self.governor_changed_count as u64,
+            state_changed_count: self.state_changed_count as u64,
+            destroyed_count: self.destroyed_count as u64,
+        })
+    }
+}
+
+/// Nft activity statistics.
+#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+struct FoundryActivityAnalytics {
+    created_count: usize,
+    transferred_count: usize,
+    destroyed_count: usize,
+}
+
+impl TransactionAnalytics for FoundryActivityAnalytics {
+    type Measurement = FoundryActivityAnalyticsResult;
+
+    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
+        *self = Self::default();
+    }
+
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        let foundry_inputs = consumed
+            .iter()
+            .filter_map(|ledger_spent| {
+                if let Output::Foundry(foundry_output) = &ledger_spent.output.output {
+                    Some(foundry_output.foundry_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+
+        let foundry_outputs = created
+            .iter()
+            .filter_map(|ledger_output| {
+                if let Output::Foundry(foundry_output) = &ledger_output.output {
+                    Some(foundry_output.foundry_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
+
+        self.created_count += foundry_outputs.difference(&foundry_inputs).count();
+        self.transferred_count += foundry_outputs.intersection(&foundry_inputs).count();
+        self.destroyed_count += foundry_inputs.difference(&foundry_outputs).count();
+    }
+
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(FoundryActivityAnalyticsResult {
+            created_count: self.created_count as u64,
+            transferred_count: self.transferred_count as u64,
+            destroyed_count: self.destroyed_count as u64,
         })
     }
 }

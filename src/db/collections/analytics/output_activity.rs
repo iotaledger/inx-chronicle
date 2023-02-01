@@ -36,9 +36,19 @@ pub struct NftActivityAnalyticsResult {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 #[serde(default)]
+pub struct FoundryActivityAnalyticsResult {
+    pub created_count: u64,
+    pub transferred_count: u64,
+    pub destroyed_count: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(missing_docs)]
+#[serde(default)]
 pub struct OutputActivityAnalyticsResult {
     pub alias: AliasActivityAnalyticsResult,
     pub nft: NftActivityAnalyticsResult,
+    pub foundry: FoundryActivityAnalyticsResult,
 }
 
 impl OutputCollection {

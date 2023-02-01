@@ -9,15 +9,15 @@ use time::OffsetDateTime;
 
 use self::{
     ledger::{
-        AddressActivity, AddressBalanceAnalytics, AliasActivityAnalytics, BaseTokenActivityAnalytics,
-        LedgerOutputAnalytics, LedgerSizeAnalytics, NftActivityAnalytics, TransactionAnalytics,
-        UnclaimedTokenAnalytics, UnlockConditionAnalytics,
+        AddressActivity, AddressBalanceAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
+        LedgerSizeAnalytics, OutputActivityAnalytics, TransactionAnalytics, UnclaimedTokenAnalytics,
+        UnlockConditionAnalytics,
     },
     tangle::{BlockActivityAnalytics, BlockAnalytics, MilestoneSizeAnalytics},
 };
 use crate::{
     db::{
-        collections::analytics::{Measurement, OutputActivityAnalyticsResult, PerMilestone, TimeInterval},
+        collections::analytics::{Measurement, PerMilestone, TimeInterval},
         influxdb::{AnalyticsChoice, InfluxDb},
     },
     tangle::{BlockData, InputSource, Milestone},
@@ -40,10 +40,7 @@ pub enum Analytic {
     LedgerOutputs(LedgerOutputAnalytics),
     LedgerSize(LedgerSizeAnalytics),
     MilestoneSize(MilestoneSizeAnalytics),
-    OutputActivity {
-        nft: NftActivityAnalytics,
-        alias: AliasActivityAnalytics,
-    },
+    OutputActivity(OutputActivityAnalytics),
     ProtocolParameters(ProtocolParameters),
     UnclaimedTokens(UnclaimedTokenAnalytics),
     UnlockConditions(UnlockConditionAnalytics),
@@ -69,10 +66,7 @@ impl Analytic {
             AnalyticsChoice::LedgerSize => {
                 Analytic::LedgerSize(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs))
             }
-            AnalyticsChoice::OutputActivity => Analytic::OutputActivity {
-                nft: Default::default(),
-                alias: Default::default(),
-            },
+            AnalyticsChoice::OutputActivity => Analytic::OutputActivity(Default::default()),
             AnalyticsChoice::ProtocolParameters => Analytic::ProtocolParameters(protocol_params.clone()),
             AnalyticsChoice::UnclaimedTokens => {
                 Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(unspent_outputs))
@@ -120,10 +114,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 Analytic::LedgerOutputs(stat) => stat.begin_milestone(self.at),
                 Analytic::LedgerSize(stat) => stat.begin_milestone(self.at),
                 Analytic::MilestoneSize(stat) => stat.begin_milestone(self.at.milestone_index),
-                Analytic::OutputActivity { nft, alias } => {
-                    nft.begin_milestone(self.at);
-                    alias.begin_milestone(self.at);
-                }
+                Analytic::OutputActivity(stat) => stat.begin_milestone(self.at),
                 Analytic::ProtocolParameters(_) => (),
                 Analytic::UnclaimedTokens(stat) => stat.begin_milestone(self.at),
                 Analytic::UnlockConditions(stat) => stat.begin_milestone(self.at),
@@ -173,10 +164,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                     Analytic::DailyActiveAddresses(stat) => stat.handle_transaction(&consumed, &created),
                     Analytic::LedgerOutputs(stat) => stat.handle_transaction(&consumed, &created),
                     Analytic::LedgerSize(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::OutputActivity { nft, alias } => {
-                        nft.handle_transaction(&consumed, &created);
-                        alias.handle_transaction(&consumed, &created);
-                    }
+                    Analytic::OutputActivity(stat) => stat.handle_transaction(&consumed, &created),
                     Analytic::UnclaimedTokens(stat) => stat.handle_transaction(&consumed, &created),
                     Analytic::UnlockConditions(stat) => stat.handle_transaction(&consumed, &created),
                     _ => (),
@@ -238,21 +226,12 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                     inner: measurement,
                 })
             }),
-            Analytic::OutputActivity { nft, alias } => {
-                let nft = nft.end_milestone(self.at);
-                let alias = alias.end_milestone(self.at);
-                if nft.is_some() || alias.is_some() {
-                    Some(Measurement::OutputActivity(PerMilestone {
-                        at: self.at,
-                        inner: OutputActivityAnalyticsResult {
-                            alias: alias.unwrap_or_default(),
-                            nft: nft.unwrap_or_default(),
-                        },
-                    }))
-                } else {
-                    None
-                }
-            }
+            Analytic::OutputActivity(stat) => stat.end_milestone(self.at).map(|measurement| {
+                Measurement::OutputActivity(PerMilestone {
+                    at: self.at,
+                    inner: measurement,
+                })
+            }),
             Analytic::ProtocolParameters(params) => {
                 if params != &self.protocol_params {
                     *params = self.protocol_params.clone();
