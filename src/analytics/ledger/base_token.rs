@@ -25,26 +25,30 @@ impl Analytics for BaseTokenActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
-        let mut balance_deltas: HashMap<&Address, TokenAmount> = HashMap::new();
+        let mut balance_deltas: HashMap<&Address, i128> = HashMap::new();
 
         // We first gather all tokens that have been moved to an individual address.
         for output in created {
             if let Some(address) = output.owning_address() {
-                *balance_deltas.entry(address).or_default() += output.amount();
+                *balance_deltas.entry(address).or_default() += output.amount().0 as i128;
             }
         }
 
-        self.booked_amount = balance_deltas.values().copied().sum();
+        self.booked_amount = TokenAmount(balance_deltas.values().copied().sum::<i128>() as u64);
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for input in consumed {
             if let Some(address) = input.owning_address() {
-                *balance_deltas.entry(address).or_default() -= input.amount();
+                *balance_deltas.entry(address).or_default() -= input.amount().0 as i128;
             }
         }
 
         // The number of transferred tokens is then the sum of all deltas.
-        self.transferred_amount = balance_deltas.values().copied().sum();
+        self.transferred_amount = balance_deltas
+            .values()
+            .copied()
+            .map(|d| if d <= 0 { TokenAmount(0) } else { TokenAmount(d as u64) })
+            .sum();
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
