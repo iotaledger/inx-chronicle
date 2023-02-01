@@ -32,7 +32,7 @@ eyre = { version = "0.6", default-features = false, features = [ "track-caller",
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
-iota-types = { git = "https://github.com/thibault-martinez/iota.rs.git", branch = "remove-inx-feature",  version = "1.0.0-rc.4", default-features = false, features = [ "api", "block", "std" ] }
+iota-types = { git = "https://github.com/iotaledger/iota.rs.git", version = "1.0.0-rc.4", default-features = false, features = [ "api", "block", "std" ] }
 mongodb = { version = "2.3", default-features = false, features = [ "tokio-runtime" ] }
 packable = { version = "0.7", default-features = false }
 pin-project = { version = "1.0", default-features = false }
@@ -78,7 +78,7 @@ tonic = { version = "0.8", default-features = false, optional = true }
 iota-crypto = { version = "0.15", default-features = false, features = [ "blake2b" ], optional = true }
 
 [dev-dependencies]
-iota-types = { git = "https://github.com/thibault-martinez/iota.rs.git", branch = "remove-inx-feature", version = "1.0.0-rc.4", default-features = false, features = [ "api", "block", "std", "rand" ] }
+iota-types = { git = "https://github.com/iotaledger/iota.rs.git", version = "1.0.0-rc.4", default-features = false, features = [ "api", "block", "std", "rand" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]

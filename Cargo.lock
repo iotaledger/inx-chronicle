@@ -1320,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "iota-pow"
 version = "1.0.0-rc.2"
-source = "git+https://github.com/thibault-martinez/iota.rs.git?branch=remove-inx-feature#e99848d4269bf86a820faf4ebdb63ddb7e899953"
+source = "git+https://github.com/iotaledger/iota.rs.git#00b5df3f01a49e51a166b37bda8d22ae79a750d8"
 dependencies = [
  "instant",
  "iota-crypto",
@@ -1331,7 +1331,7 @@ dependencies = [
 [[package]]
 name = "iota-types"
 version = "1.0.0-rc.4"
-source = "git+https://github.com/thibault-martinez/iota.rs.git?branch=remove-inx-feature#e99848d4269bf86a820faf4ebdb63ddb7e899953"
+source = "git+https://github.com/iotaledger/iota.rs.git#00b5df3f01a49e51a166b37bda8d22ae79a750d8"
 dependencies = [
  "bech32",
  "bitflags",
