@@ -318,9 +318,9 @@ checksum = "c3ac9f8b63eca6fd385229b3675f6cc0dc5c8a5c8a54a59d4f52ffd670d87b0c"
 
 [[package]]
 name = "bytemuck"
-version = "1.12.3"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaa3a8d9a1ca92e282c96a32d6511b695d7d994d1d102ba85d279f9b2756947f"
+checksum = "c041d3eab048880cb0b86b256447da3f18859a163c3b8d8893f4e6368abe6393"
 
 [[package]]
 name = "byteorder"
@@ -971,6 +971,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
  "ahash 0.8.2",
+ "serde",
 ]
 
 [[package]]
@@ -1319,8 +1320,7 @@ dependencies = [
 [[package]]
 name = "iota-pow"
 version = "1.0.0-rc.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f49910d74ef88979bf7bd373b6e46fa7ac850389fed62b444a47380e027e570"
+source = "git+https://github.com/thibault-martinez/iota.rs.git?branch=remove-inx-feature#e99848d4269bf86a820faf4ebdb63ddb7e899953"
 dependencies = [
  "instant",
  "iota-crypto",
@@ -1331,8 +1331,7 @@ dependencies = [
 [[package]]
 name = "iota-types"
 version = "1.0.0-rc.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0a9b56dca23cabbce1f39f1b7e5cd7a01048141a29d47cd592c1ca64418f65d"
+source = "git+https://github.com/thibault-martinez/iota.rs.git?branch=remove-inx-feature#e99848d4269bf86a820faf4ebdb63ddb7e899953"
 dependencies = [
  "bech32",
  "bitflags",

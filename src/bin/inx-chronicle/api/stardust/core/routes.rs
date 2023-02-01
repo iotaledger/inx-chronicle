@@ -35,12 +35,12 @@ use iota_types::{
         dto::ReceiptDto,
         response::{
             self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
-            LatestMilestoneResponse, OutputMetadataResponse, OutputWithMetadataResponse, ReceiptsResponse,
+            LatestMilestoneResponse, OutputWithMetadataResponse, ReceiptsResponse,
             StatusResponse, TreasuryResponse, UtxoChangesResponse,
         },
     },
     block::{
-        output::dto::RentStructureDto,
+        output::dto::{RentStructureDto, OutputMetadataDto},
         payload::{dto::MilestonePayloadDto, milestone::option::dto::MilestoneOptionDto},
         protocol::dto::ProtocolParametersDto,
         BlockDto,
@@ -249,8 +249,8 @@ async fn block_metadata(
 fn create_output_metadata_response(
     metadata: OutputMetadataResult,
     ledger_index: MilestoneIndex,
-) -> iota::OutputMetadataResponse {
-    iota::OutputMetadataResponse {
+) -> OutputMetadataDto {
+    OutputMetadataDto {
         block_id: metadata.block_id.to_hex(),
         transaction_id: metadata.output_id.transaction_id.to_hex(),
         output_index: metadata.output_id.index,
@@ -313,7 +313,7 @@ async fn output(
 async fn output_metadata(
     database: Extension<MongoDb>,
     Path(output_id): Path<String>,
-) -> ApiResult<IotaResponse<OutputMetadataResponse>> {
+) -> ApiResult<IotaResponse<OutputMetadataDto>> {
     let ledger_index = database
         .collection::<MilestoneCollection>()
         .get_ledger_index()
