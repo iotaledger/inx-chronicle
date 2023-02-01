@@ -1,29 +1,26 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::BlockAnalytics;
-use crate::{
-    tangle::BlockData,
-    types::{ledger::LedgerInclusionState, stardust::block::Payload, tangle::MilestoneIndex},
-};
+use super::*;
+use crate::types::ledger::LedgerInclusionState;
 
 /// The type of payloads that occured within a single milestone.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct BlockActivityMeasurement {
-    pub milestone_count: usize,
-    pub no_payload_count: usize,
-    pub tagged_data_count: usize,
-    pub transaction_count: usize,
-    pub treasury_transaction_count: usize,
-    pub confirmed_count: usize,
-    pub conflicting_count: usize,
-    pub no_transaction_count: usize,
+pub(crate) struct BlockActivityMeasurement {
+    pub(crate) milestone_count: usize,
+    pub(crate) no_payload_count: usize,
+    pub(crate) tagged_data_count: usize,
+    pub(crate) transaction_count: usize,
+    pub(crate) treasury_transaction_count: usize,
+    pub(crate) confirmed_count: usize,
+    pub(crate) conflicting_count: usize,
+    pub(crate) no_transaction_count: usize,
 }
 
-impl BlockAnalytics for BlockActivityMeasurement {
-    type Measurement = Self;
+impl Analytics for BlockActivityMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
+    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
         *self = Default::default();
     }
 
@@ -42,7 +39,7 @@ impl BlockAnalytics for BlockActivityMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self> {
-        Some(*self)
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(PerMilestone { at, inner: *self })
     }
 }

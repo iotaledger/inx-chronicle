@@ -1,26 +1,22 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::BlockAnalytics;
-use crate::{
-    tangle::BlockData,
-    types::{stardust::block::Payload, tangle::MilestoneIndex},
-};
+use super::*;
 
 /// Milestone size statistics.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct MilestoneSizeMeasurement {
-    pub total_milestone_payload_bytes: usize,
-    pub total_tagged_data_payload_bytes: usize,
-    pub total_transaction_payload_bytes: usize,
-    pub total_treasury_transaction_payload_bytes: usize,
-    pub total_milestone_bytes: usize,
+pub(crate) struct MilestoneSizeMeasurement {
+    pub(crate) total_milestone_payload_bytes: usize,
+    pub(crate) total_tagged_data_payload_bytes: usize,
+    pub(crate) total_transaction_payload_bytes: usize,
+    pub(crate) total_treasury_transaction_payload_bytes: usize,
+    pub(crate) total_milestone_bytes: usize,
 }
 
-impl BlockAnalytics for MilestoneSizeMeasurement {
-    type Measurement = Self;
+impl Analytics for MilestoneSizeMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
+    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
         *self = Self::default();
     }
 
@@ -37,7 +33,7 @@ impl BlockAnalytics for MilestoneSizeMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self> {
-        Some(*self)
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(PerMilestone { at, inner: *self })
     }
 }

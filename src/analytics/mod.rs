@@ -8,19 +8,19 @@ use thiserror::Error;
 use time::OffsetDateTime;
 
 use self::{
-    influx::{Measurement, PerMilestone, TimeInterval},
+    influx::PrepareQuery,
     ledger::{
         AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeAnalytics, OutputActivityMeasurement, TransactionAnalytics, UnclaimedTokenMeasurement,
-        UnlockConditionMeasurement,
+        LedgerSizeAnalytics, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, BlockAnalytics, MilestoneSizeMeasurement},
+    protocol_params::ProtocolParamsMeasurement,
+    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
 };
 use crate::{
     db::influxdb::{AnalyticsChoice, InfluxDb},
     tangle::{BlockData, InputSource, Milestone},
     types::{
-        ledger::LedgerOutput,
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::block::{payload::TransactionEssence, Input, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
@@ -28,22 +28,49 @@ use crate::{
 
 pub mod influx;
 pub mod ledger;
+mod protocol_params;
 pub mod tangle;
 
 #[allow(missing_docs)]
-pub enum Analytic {
-    AddressBalance(AddressBalancesAnalytics),
-    BaseTokenActivity(BaseTokenActivityMeasurement),
-    BlockActivity(BlockActivityMeasurement),
-    DailyActiveAddresses(AddressActivityAnalytics),
-    LedgerOutputs(LedgerOutputMeasurement),
-    LedgerSize(LedgerSizeAnalytics),
-    MilestoneSize(MilestoneSizeMeasurement),
-    OutputActivity(OutputActivityMeasurement),
-    ProtocolParameters(ProtocolParameters),
-    UnclaimedTokens(UnclaimedTokenMeasurement),
-    UnlockConditions(UnlockConditionMeasurement),
+pub(crate) trait Analytics {
+    type Measurement: PrepareQuery;
+    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters);
+    fn handle_transaction(&mut self, _consumed: &[LedgerSpent], _created: &[LedgerOutput]) {}
+    fn handle_block(&mut self, _block_data: &BlockData) {}
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement>;
 }
+
+// This trait allows using the above implementation dynamically
+trait DynAnalytics: Send {
+    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters);
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]);
+    fn handle_block(&mut self, block_data: &BlockData);
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Box<dyn PrepareQuery>>;
+}
+
+impl<T: Analytics + Send> DynAnalytics for T
+where
+    T::Measurement: 'static,
+{
+    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters) {
+        Analytics::begin_milestone(self, at, params)
+    }
+
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        Analytics::handle_transaction(self, consumed, created)
+    }
+
+    fn handle_block(&mut self, block_data: &BlockData) {
+        Analytics::handle_block(self, block_data)
+    }
+
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Box<dyn PrepareQuery>> {
+        Analytics::end_milestone(self, at).map(|r| Box::new(r) as _)
+    }
+}
+
+#[allow(missing_docs)]
+pub struct Analytic(Box<dyn DynAnalytics>);
 
 impl Analytic {
     /// Init an analytic from a choice and ledger state.
@@ -52,30 +79,43 @@ impl Analytic {
         protocol_params: &ProtocolParameters,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
-        match choice {
-            AnalyticsChoice::AddressBalance => {
-                Analytic::AddressBalance(AddressBalancesAnalytics::init(unspent_outputs))
-            }
-            AnalyticsChoice::BaseTokenActivity => Analytic::BaseTokenActivity(Default::default()),
-            AnalyticsChoice::BlockActivity => Analytic::BlockActivity(Default::default()),
-            AnalyticsChoice::DailyActiveAddresses => Analytic::DailyActiveAddresses(AddressActivityAnalytics::init(
+        Self(match choice {
+            AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
+            AnalyticsChoice::BaseTokenActivity => Box::new(BaseTokenActivityMeasurement::default()) as _,
+            AnalyticsChoice::BlockActivity => Box::new(BlockActivityMeasurement::default()) as _,
+            AnalyticsChoice::DailyActiveAddresses => Box::new(AddressActivityAnalytics::init(
                 OffsetDateTime::now_utc().date().midnight().assume_utc(),
                 time::Duration::days(1),
                 unspent_outputs,
-            )),
-            AnalyticsChoice::LedgerOutputs => Analytic::LedgerOutputs(LedgerOutputMeasurement::init(unspent_outputs)),
+            )) as _,
+            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => {
-                Analytic::LedgerSize(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs))
+                Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
             }
-            AnalyticsChoice::OutputActivity => Analytic::OutputActivity(Default::default()),
-            AnalyticsChoice::ProtocolParameters => Analytic::ProtocolParameters(protocol_params.clone()),
-            AnalyticsChoice::UnclaimedTokens => {
-                Analytic::UnclaimedTokens(UnclaimedTokenMeasurement::init(unspent_outputs))
-            }
-            AnalyticsChoice::UnlockConditions => {
-                Analytic::UnlockConditions(UnlockConditionMeasurement::init(unspent_outputs))
-            }
-        }
+            AnalyticsChoice::MilestoneSize => Box::new(MilestoneSizeMeasurement::default()) as _,
+            AnalyticsChoice::OutputActivity => Box::new(OutputActivityMeasurement::default()) as _,
+            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParamsMeasurement::default()) as _,
+            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
+            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
+        })
+    }
+}
+
+impl DynAnalytics for Analytic {
+    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters) {
+        self.0.begin_milestone(at, params)
+    }
+
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+        self.0.handle_transaction(consumed, created)
+    }
+
+    fn handle_block(&mut self, block_data: &BlockData) {
+        self.0.handle_block(block_data)
+    }
+
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Box<dyn PrepareQuery>> {
+        self.0.end_milestone(at)
     }
 }
 
@@ -107,19 +147,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
 
     fn begin_milestone(&self, analytics: &mut [Analytic]) {
         for analytic in analytics {
-            match analytic {
-                Analytic::AddressBalance(stat) => stat.begin_milestone(self.at),
-                Analytic::BaseTokenActivity(stat) => stat.begin_milestone(self.at),
-                Analytic::BlockActivity(stat) => stat.begin_milestone(self.at.milestone_index),
-                Analytic::DailyActiveAddresses(stat) => stat.begin_milestone(self.at),
-                Analytic::LedgerOutputs(stat) => stat.begin_milestone(self.at),
-                Analytic::LedgerSize(stat) => stat.begin_milestone(self.at),
-                Analytic::MilestoneSize(stat) => stat.begin_milestone(self.at.milestone_index),
-                Analytic::OutputActivity(stat) => stat.begin_milestone(self.at),
-                Analytic::ProtocolParameters(_) => (),
-                Analytic::UnclaimedTokens(stat) => stat.begin_milestone(self.at),
-                Analytic::UnlockConditions(stat) => stat.begin_milestone(self.at),
-            }
+            analytic.begin_milestone(self.at, &self.protocol_params)
         }
     }
 
@@ -159,104 +187,20 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 })
                 .collect::<eyre::Result<Vec<_>>>()?;
             for analytic in analytics.iter_mut() {
-                match analytic {
-                    Analytic::AddressBalance(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::BaseTokenActivity(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::DailyActiveAddresses(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::LedgerOutputs(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::LedgerSize(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::OutputActivity(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::UnclaimedTokens(stat) => stat.handle_transaction(&consumed, &created),
-                    Analytic::UnlockConditions(stat) => stat.handle_transaction(&consumed, &created),
-                    _ => (),
-                }
+                analytic.handle_transaction(&consumed, &created);
             }
         }
         for analytic in analytics.iter_mut() {
-            match analytic {
-                Analytic::BlockActivity(stat) => stat.handle_block(block_data),
-                Analytic::MilestoneSize(stat) => stat.handle_block(block_data),
-                _ => (),
-            }
+            analytic.handle_block(block_data);
         }
         Ok(())
     }
 
     async fn end_milestone(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
-        for measurement in analytics.iter_mut().filter_map(|analytic| match analytic {
-            Analytic::AddressBalance(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::AddressBalance(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::BaseTokenActivity(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::BaseTokenActivity(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::BlockActivity(stat) => stat.end_milestone(self.at.milestone_index).map(|measurement| {
-                Measurement::BlockActivity(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::DailyActiveAddresses(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::DailyActiveAddresses(TimeInterval {
-                    from: stat.start_time,
-                    to_exclusive: stat.start_time + stat.interval,
-                    inner: measurement,
-                })
-            }),
-            Analytic::LedgerOutputs(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::LedgerOutputs(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::LedgerSize(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::LedgerSize(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::MilestoneSize(stat) => stat.end_milestone(self.at.milestone_index).map(|measurement| {
-                Measurement::MilestoneSize(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::OutputActivity(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::OutputActivity(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::ProtocolParameters(params) => {
-                if params != &self.protocol_params {
-                    *params = self.protocol_params.clone();
-                    Some(Measurement::ProtocolParameters(PerMilestone {
-                        at: self.at,
-                        inner: params.clone(),
-                    }))
-                } else {
-                    None
-                }
-            }
-            Analytic::UnclaimedTokens(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::UnclaimedTokens(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-            Analytic::UnlockConditions(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::UnlockConditions(PerMilestone {
-                    at: self.at,
-                    inner: measurement,
-                })
-            }),
-        }) {
+        for measurement in analytics
+            .iter_mut()
+            .filter_map(|analytic| analytic.end_milestone(self.at))
+        {
             influxdb.insert_measurement(measurement).await?;
         }
         Ok(())

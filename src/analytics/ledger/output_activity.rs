@@ -3,29 +3,24 @@
 
 use std::collections::HashSet;
 
-use derive_more::{AddAssign, SubAssign};
-
-use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::{
-        output::{AliasId, NftId},
-        Address, Output,
-    },
+use super::*;
+use crate::types::stardust::block::{
+    output::{AliasId, NftId},
+    Address,
 };
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct OutputActivityMeasurement {
-    pub nft: NftActivityMeasurement,
-    pub alias: AliasActivityMeasurement,
-    pub foundry: FoundryActivityMeasurement,
+pub(crate) struct OutputActivityMeasurement {
+    pub(crate) nft: NftActivityMeasurement,
+    pub(crate) alias: AliasActivityMeasurement,
+    pub(crate) foundry: FoundryActivityMeasurement,
 }
 
-impl TransactionAnalytics for OutputActivityMeasurement {
-    type Measurement = Self;
+impl Analytics for OutputActivityMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
+    fn begin_milestone(&mut self, _at: MilestoneIndexTimestamp, _params: &ProtocolParameters) {
         *self = Self::default();
     }
 
@@ -35,26 +30,20 @@ impl TransactionAnalytics for OutputActivityMeasurement {
         self.foundry.handle_transaction(consumed, created);
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
+    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(PerMilestone { at, inner: *self })
     }
 }
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct NftActivityMeasurement {
-    pub created_count: usize,
-    pub transferred_count: usize,
-    pub destroyed_count: usize,
+pub(crate) struct NftActivityMeasurement {
+    pub(crate) created_count: usize,
+    pub(crate) transferred_count: usize,
+    pub(crate) destroyed_count: usize,
 }
 
-impl TransactionAnalytics for NftActivityMeasurement {
-    type Measurement = Self;
-
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
-        *self = Self::default();
-    }
-
+impl NftActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let nft_inputs = consumed
             .iter()
@@ -92,19 +81,15 @@ impl TransactionAnalytics for NftActivityMeasurement {
         self.transferred_count += nft_outputs.intersection(&nft_inputs).count();
         self.destroyed_count += nft_inputs.difference(&nft_outputs).count();
     }
-
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
-    }
 }
 
 /// Alias activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct AliasActivityMeasurement {
-    pub created_count: usize,
-    pub governor_changed_count: usize,
-    pub state_changed_count: usize,
-    pub destroyed_count: usize,
+pub(crate) struct AliasActivityMeasurement {
+    pub(crate) created_count: usize,
+    pub(crate) governor_changed_count: usize,
+    pub(crate) state_changed_count: usize,
+    pub(crate) destroyed_count: usize,
 }
 
 struct AliasData {
@@ -127,11 +112,7 @@ impl std::hash::Hash for AliasData {
     }
 }
 
-impl TransactionAnalytics for AliasActivityMeasurement {
-    type Measurement = Self;
-
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
-
+impl AliasActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let alias_inputs = consumed
             .iter()
@@ -193,27 +174,17 @@ impl TransactionAnalytics for AliasActivityMeasurement {
             }
         }
     }
-
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
-    }
 }
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct FoundryActivityMeasurement {
-    pub created_count: usize,
-    pub transferred_count: usize,
-    pub destroyed_count: usize,
+pub(crate) struct FoundryActivityMeasurement {
+    pub(crate) created_count: usize,
+    pub(crate) transferred_count: usize,
+    pub(crate) destroyed_count: usize,
 }
 
-impl TransactionAnalytics for FoundryActivityMeasurement {
-    type Measurement = Self;
-
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
-        *self = Self::default();
-    }
-
+impl FoundryActivityMeasurement {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         let foundry_inputs = consumed
             .iter()
@@ -240,9 +211,5 @@ impl TransactionAnalytics for FoundryActivityMeasurement {
         self.created_count += foundry_outputs.difference(&foundry_inputs).count();
         self.transferred_count += foundry_outputs.intersection(&foundry_inputs).count();
         self.destroyed_count += foundry_inputs.difference(&foundry_outputs).count();
-    }
-
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
     }
 }
