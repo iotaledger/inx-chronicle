@@ -27,6 +27,7 @@ pub struct Milestone<'a, I: InputSource> {
     pub payload: MilestonePayload,
     pub protocol_params: ProtocolParameters,
     pub node_config: NodeConfiguration,
+    pub ledger_updates: LedgerUpdateStore,
 }
 
 impl<'a, I: InputSource> Milestone<'a, I> {
@@ -36,8 +37,8 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     }
 
     /// Returns the ledger update store.
-    pub async fn ledger_updates(&self) -> Result<LedgerUpdateStore, I::Error> {
-        self.source.ledger_updates(self.at.milestone_index).await
+    pub fn ledger_updates(&self) -> &LedgerUpdateStore {
+        &self.ledger_updates
     }
 }
 
