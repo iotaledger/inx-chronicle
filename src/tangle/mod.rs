@@ -39,7 +39,7 @@ impl<'a> Tangle<'a, MongoDb> {
 
 #[cfg(feature = "inx")]
 impl<'a> Tangle<'a, crate::inx::Inx> {
-    /// Create a tangle from an [`Inx`] input source.
+    /// Create a tangle from an [`Inx`](crate::inx::Inx) input source.
     pub fn from_inx(inx: &'a crate::inx::Inx) -> Self {
         Self { source: inx }
     }

@@ -408,21 +408,8 @@ impl InxWorker {
         analytics_choices: &Option<std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>>,
         state: &mut Option<crate::cli::analytics::AnalyticsState>,
     ) -> Result<()> {
-        use chronicle::db::influxdb::AnalyticsChoice;
-
-        use crate::cli::analytics::AnalyticsState;
-
         if let (Some(influx_db), Some(analytics_choices)) = (&self.influx_db, analytics_choices) {
             if influx_db.config().analytics_enabled {
-                use chronicle::analytics::{
-                    ledger::{
-                        AddressActivity, AddressBalanceAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-                        UnclaimedTokenAnalytics,
-                    },
-                    Analytic,
-                };
-                use time::OffsetDateTime;
-
                 // Check if the protocol params changed (or we just started)
                 if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
                     let ledger_state = self
@@ -435,40 +422,11 @@ impl InxWorker {
 
                     let analytics = analytics_choices
                         .iter()
-                        .map(|choice| match choice {
-                            AnalyticsChoice::AddressBalance => {
-                                Analytic::AddressBalance(AddressBalanceAnalytics::init(&ledger_state))
-                            }
-                            AnalyticsChoice::BaseTokenActivity => Analytic::BaseTokenActivity(Default::default()),
-                            AnalyticsChoice::BlockActivity => Analytic::BlockActivity(Default::default()),
-                            AnalyticsChoice::DailyActiveAddresses => {
-                                Analytic::DailyActiveAddresses(AddressActivity::init(
-                                    OffsetDateTime::now_utc().date().midnight().assume_utc(),
-                                    time::Duration::days(1),
-                                    &ledger_state,
-                                ))
-                            }
-                            AnalyticsChoice::LedgerOutputs => {
-                                Analytic::LedgerOutputs(LedgerOutputAnalytics::init(&ledger_state))
-                            }
-                            AnalyticsChoice::LedgerSize => Analytic::LedgerSize(LedgerSizeAnalytics::init(
-                                milestone.protocol_params.clone(),
-                                &ledger_state,
-                            )),
-                            AnalyticsChoice::OutputActivity => Analytic::OutputActivity {
-                                nft: Default::default(),
-                                alias: Default::default(),
-                            },
-                            AnalyticsChoice::ProtocolParameters => {
-                                Analytic::ProtocolParameters(milestone.protocol_params.clone())
-                            }
-                            AnalyticsChoice::UnclaimedTokens => {
-                                Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(&ledger_state))
-                            }
-                            AnalyticsChoice::UnlockConditions => todo!(),
+                        .map(|choice| {
+                            chronicle::analytics::Analytic::init(choice, &milestone.protocol_params, &ledger_state)
                         })
                         .collect::<Vec<_>>();
-                    *state = Some(AnalyticsState {
+                    *state = Some(crate::cli::analytics::AnalyticsState {
                         analytics,
                         prev_protocol_params: milestone.protocol_params.clone(),
                     });

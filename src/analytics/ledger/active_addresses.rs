@@ -25,7 +25,7 @@ pub struct AddressActivity {
 }
 
 impl AddressActivity {
-    /// Initialize the analytics be reading the current ledger state.
+    /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(
         start_time: OffsetDateTime,
         interval: Duration,
