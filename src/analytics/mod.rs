@@ -101,24 +101,6 @@ impl Analytic {
     }
 }
 
-impl DynAnalytics for Analytic {
-    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp, params: &ProtocolParameters) {
-        self.0.begin_milestone(at, params)
-    }
-
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
-        self.0.handle_transaction(consumed, created)
-    }
-
-    fn handle_block(&mut self, block_data: &BlockData) {
-        self.0.handle_block(block_data)
-    }
-
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Box<dyn PrepareQuery>> {
-        self.0.end_milestone(at)
-    }
-}
-
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AnalyticsError {
@@ -147,7 +129,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
 
     fn begin_milestone(&self, analytics: &mut [Analytic]) {
         for analytic in analytics {
-            analytic.begin_milestone(self.at, &self.protocol_params)
+            analytic.0.begin_milestone(self.at, &self.protocol_params)
         }
     }
 
@@ -187,11 +169,11 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                 })
                 .collect::<eyre::Result<Vec<_>>>()?;
             for analytic in analytics.iter_mut() {
-                analytic.handle_transaction(&consumed, &created);
+                analytic.0.handle_transaction(&consumed, &created);
             }
         }
         for analytic in analytics.iter_mut() {
-            analytic.handle_block(block_data);
+            analytic.0.handle_block(block_data);
         }
         Ok(())
     }
@@ -199,7 +181,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     async fn end_milestone(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
         for measurement in analytics
             .iter_mut()
-            .filter_map(|analytic| analytic.end_milestone(self.at))
+            .filter_map(|analytic| analytic.0.end_milestone(self.at))
         {
             influxdb.insert_measurement(measurement).await?;
         }
