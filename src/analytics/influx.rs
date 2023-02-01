@@ -37,190 +37,178 @@ impl<T: PrepareQuery + ?Sized> PrepareQuery for Box<T> {
 
 impl<M: Send + Sync> PrepareQuery for PerMilestone<M>
 where
-    Self: Measurement,
+    M: Measurement,
 {
     fn prepare_query(&self) -> WriteQuery {
         influxdb::Timestamp::from(self.at.milestone_timestamp)
-            .into_query(Self::NAME)
+            .into_query(M::NAME)
             .add_field("milestone_index", self.at.milestone_index)
     }
 }
 
 impl<M: Send + Sync> PrepareQuery for TimeInterval<M>
 where
-    Self: Measurement,
+    M: Measurement,
 {
     fn prepare_query(&self) -> WriteQuery {
         // We subtract 1 nanosecond to get the inclusive end of the time interval.
         let timestamp = self.to_exclusive - Duration::nanoseconds(1);
-        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(Self::NAME)
+        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(M::NAME)
     }
 }
 
-impl Measurement for PerMilestone<AddressBalanceMeasurement> {
+impl Measurement for AddressBalanceMeasurement {
     const NAME: &'static str = "stardust_address_balances";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query.add_field(
-            "address_with_balance_count",
-            self.inner.address_with_balance_count as u64,
-        )
+        query.add_field("address_with_balance_count", self.address_with_balance_count as u64)
     }
 }
 
-impl Measurement for PerMilestone<BaseTokenActivityMeasurement> {
+impl Measurement for BaseTokenActivityMeasurement {
     const NAME: &'static str = "stardust_base_token_activity";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("booked_value", self.inner.booked_value)
-            .add_field("transferred_value", self.inner.transferred_value)
+            .add_field("booked_value", self.booked_value)
+            .add_field("transferred_value", self.transferred_value)
     }
 }
 
-impl Measurement for PerMilestone<BlockActivityMeasurement> {
+impl Measurement for BlockActivityMeasurement {
     const NAME: &'static str = "stardust_block_activity";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("transaction_count", self.inner.transaction_count as u64)
-            .add_field(
-                "treasury_transaction_count",
-                self.inner.treasury_transaction_count as u64,
-            )
-            .add_field("milestone_count", self.inner.milestone_count as u64)
-            .add_field("tagged_data_count", self.inner.tagged_data_count as u64)
-            .add_field("no_payload_count", self.inner.no_payload_count as u64)
-            .add_field("confirmed_count", self.inner.confirmed_count as u64)
-            .add_field("conflicting_count", self.inner.conflicting_count as u64)
-            .add_field("no_transaction_count", self.inner.no_transaction_count as u64)
+            .add_field("transaction_count", self.transaction_count as u64)
+            .add_field("treasury_transaction_count", self.treasury_transaction_count as u64)
+            .add_field("milestone_count", self.milestone_count as u64)
+            .add_field("tagged_data_count", self.tagged_data_count as u64)
+            .add_field("no_payload_count", self.no_payload_count as u64)
+            .add_field("confirmed_count", self.confirmed_count as u64)
+            .add_field("conflicting_count", self.conflicting_count as u64)
+            .add_field("no_transaction_count", self.no_transaction_count as u64)
     }
 }
 
-impl Measurement for TimeInterval<AddressActivityMeasurement> {
+impl Measurement for AddressActivityMeasurement {
     const NAME: &'static str = "stardust_daily_active_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query.add_field("count", self.inner.count as u64)
+        query.add_field("count", self.count as u64)
     }
 }
 
-impl Measurement for PerMilestone<LedgerOutputMeasurement> {
+impl Measurement for LedgerOutputMeasurement {
     const NAME: &'static str = "stardust_ledger_output";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("basic_count", self.inner.basic.count as u64)
-            .add_field("basic_value", self.inner.basic.value)
-            .add_field("alias_count", self.inner.alias.count as u64)
-            .add_field("alias_value", self.inner.alias.value)
-            .add_field("foundry_count", self.inner.foundry.count as u64)
-            .add_field("foundry_value", self.inner.foundry.value)
-            .add_field("nft_count", self.inner.nft.count as u64)
-            .add_field("nft_value", self.inner.nft.value)
-            .add_field("treasury_count", self.inner.treasury.count as u64)
-            .add_field("treasury_value", self.inner.treasury.value)
+            .add_field("basic_count", self.basic.count as u64)
+            .add_field("basic_value", self.basic.value)
+            .add_field("alias_count", self.alias.count as u64)
+            .add_field("alias_value", self.alias.value)
+            .add_field("foundry_count", self.foundry.count as u64)
+            .add_field("foundry_value", self.foundry.value)
+            .add_field("nft_count", self.nft.count as u64)
+            .add_field("nft_value", self.nft.value)
+            .add_field("treasury_count", self.treasury.count as u64)
+            .add_field("treasury_value", self.treasury.value)
     }
 }
 
-impl Measurement for PerMilestone<LedgerSizeMeasurement> {
+impl Measurement for LedgerSizeMeasurement {
     const NAME: &'static str = "stardust_ledger_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("total_key_bytes", self.inner.total_key_bytes)
-            .add_field("total_data_bytes", self.inner.total_data_bytes)
-            .add_field("total_storage_deposit_value", self.inner.total_storage_deposit_value)
+            .add_field("total_key_bytes", self.total_key_bytes)
+            .add_field("total_data_bytes", self.total_data_bytes)
+            .add_field("total_storage_deposit_value", self.total_storage_deposit_value)
     }
 }
 
-impl Measurement for PerMilestone<MilestoneSizeMeasurement> {
+impl Measurement for MilestoneSizeMeasurement {
     const NAME: &'static str = "stardust_milestone_size";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field(
                 "total_milestone_payload_bytes",
-                self.inner.total_milestone_payload_bytes as u64,
+                self.total_milestone_payload_bytes as u64,
             )
             .add_field(
                 "total_tagged_data_payload_bytes",
-                self.inner.total_tagged_data_payload_bytes as u64,
+                self.total_tagged_data_payload_bytes as u64,
             )
             .add_field(
                 "total_transaction_payload_bytes",
-                self.inner.total_transaction_payload_bytes as u64,
+                self.total_transaction_payload_bytes as u64,
             )
             .add_field(
                 "total_treasury_transaction_payload_bytes",
-                self.inner.total_treasury_transaction_payload_bytes as u64,
+                self.total_treasury_transaction_payload_bytes as u64,
             )
-            .add_field("total_milestone_bytes", self.inner.total_milestone_bytes as u64)
+            .add_field("total_milestone_bytes", self.total_milestone_bytes as u64)
     }
 }
 
-impl Measurement for PerMilestone<OutputActivityMeasurement> {
+impl Measurement for OutputActivityMeasurement {
     const NAME: &'static str = "stardust_output_activity";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("alias_created_count", self.inner.alias.created_count as u64)
-            .add_field("alias_state_changed_count", self.inner.alias.state_changed_count as u64)
-            .add_field(
-                "alias_governor_changed_count",
-                self.inner.alias.governor_changed_count as u64,
-            )
-            .add_field("alias_destroyed_count", self.inner.alias.destroyed_count as u64)
-            .add_field("nft_created_count", self.inner.nft.created_count as u64)
-            .add_field("nft_transferred_count", self.inner.nft.transferred_count as u64)
-            .add_field("nft_destroyed_count", self.inner.nft.destroyed_count as u64)
-            .add_field("foundry_created_count", self.inner.foundry.created_count as u64)
-            .add_field("foundry_transferred_count", self.inner.foundry.transferred_count as u64)
-            .add_field("foundry_destroyed_count", self.inner.foundry.destroyed_count as u64)
+            .add_field("alias_created_count", self.alias.created_count as u64)
+            .add_field("alias_state_changed_count", self.alias.state_changed_count as u64)
+            .add_field("alias_governor_changed_count", self.alias.governor_changed_count as u64)
+            .add_field("alias_destroyed_count", self.alias.destroyed_count as u64)
+            .add_field("nft_created_count", self.nft.created_count as u64)
+            .add_field("nft_transferred_count", self.nft.transferred_count as u64)
+            .add_field("nft_destroyed_count", self.nft.destroyed_count as u64)
+            .add_field("foundry_created_count", self.foundry.created_count as u64)
+            .add_field("foundry_transferred_count", self.foundry.transferred_count as u64)
+            .add_field("foundry_destroyed_count", self.foundry.destroyed_count as u64)
     }
 }
 
-impl Measurement for PerMilestone<ProtocolParameters> {
+impl Measurement for ProtocolParameters {
     const NAME: &'static str = "stardust_protocol_params";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("token_supply", self.inner.token_supply)
-            .add_field("min_pow_score", self.inner.min_pow_score)
-            .add_field("below_max_depth", self.inner.below_max_depth)
-            .add_field("v_byte_cost", self.inner.rent_structure.v_byte_cost)
-            .add_field("v_byte_factor_key", self.inner.rent_structure.v_byte_factor_key)
-            .add_field("v_byte_factor_data", self.inner.rent_structure.v_byte_factor_data)
+            .add_field("token_supply", self.token_supply)
+            .add_field("min_pow_score", self.min_pow_score)
+            .add_field("below_max_depth", self.below_max_depth)
+            .add_field("v_byte_cost", self.rent_structure.v_byte_cost)
+            .add_field("v_byte_factor_key", self.rent_structure.v_byte_factor_key)
+            .add_field("v_byte_factor_data", self.rent_structure.v_byte_factor_data)
     }
 }
 
-impl Measurement for PerMilestone<UnclaimedTokenMeasurement> {
+impl Measurement for UnclaimedTokenMeasurement {
     const NAME: &'static str = "stardust_unclaimed_tokens";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("unclaimed_count", self.inner.unclaimed_count as u64)
-            .add_field("unclaimed_value", self.inner.unclaimed_value)
+            .add_field("unclaimed_count", self.unclaimed_count as u64)
+            .add_field("unclaimed_value", self.unclaimed_value)
     }
 }
 
-impl Measurement for PerMilestone<UnlockConditionMeasurement> {
+impl Measurement for UnlockConditionMeasurement {
     const NAME: &'static str = "stardust_unlock_conditions";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("expiration_count", self.inner.expiration.count as u64)
-            .add_field("expiration_value", self.inner.expiration.value)
-            .add_field("timelock_count", self.inner.timelock.count as u64)
-            .add_field("timelock_value", self.inner.timelock.value)
-            .add_field(
-                "storage_deposit_return_count",
-                self.inner.storage_deposit_return.count as u64,
-            )
-            .add_field("storage_deposit_return_value", self.inner.storage_deposit_return.value)
+            .add_field("expiration_count", self.expiration.count as u64)
+            .add_field("expiration_value", self.expiration.value)
+            .add_field("timelock_count", self.timelock.count as u64)
+            .add_field("timelock_value", self.timelock.value)
+            .add_field("storage_deposit_return_count", self.storage_deposit_return.count as u64)
+            .add_field("storage_deposit_return_value", self.storage_deposit_return.value)
             .add_field(
                 "storage_deposit_return_inner_value",
-                self.inner.storage_deposit_return_inner_value,
+                self.storage_deposit_return_inner_value,
             )
     }
 }
