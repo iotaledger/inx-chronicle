@@ -2,13 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::{
-    analytics::{
-        ledger::{
-            AddressActivity, AddressBalanceAnalytics, LedgerOutputAnalytics, LedgerSizeAnalytics,
-            UnclaimedTokenAnalytics,
-        },
-        Analytic,
-    },
+    analytics::Analytic,
     db::{
         influxdb::{AnalyticsChoice, InfluxDb},
         MongoDb,
@@ -17,7 +11,6 @@ use chronicle::{
     types::tangle::MilestoneIndex,
 };
 use futures::TryStreamExt;
-use time::OffsetDateTime;
 
 pub async fn fill_analytics(
     db: &MongoDb,
@@ -65,40 +58,7 @@ pub async fn fill_analytics(
 
                     let analytics = analytics_choices
                         .iter()
-                        .map(|choice| match choice {
-                            AnalyticsChoice::AddressBalance => {
-                                Analytic::AddressBalance(AddressBalanceAnalytics::init(&ledger_state))
-                            }
-                            AnalyticsChoice::BaseTokenActivity => Analytic::BaseTokenActivity(Default::default()),
-                            AnalyticsChoice::BlockActivity => Analytic::BlockActivity(Default::default()),
-                            AnalyticsChoice::DailyActiveAddresses => {
-                                Analytic::DailyActiveAddresses(AddressActivity::init(
-                                    OffsetDateTime::now_utc().date().midnight().assume_utc(),
-                                    time::Duration::days(1),
-                                    &ledger_state,
-                                ))
-                            }
-                            AnalyticsChoice::LedgerOutputs => {
-                                Analytic::LedgerOutputs(LedgerOutputAnalytics::init(&ledger_state))
-                            }
-                            AnalyticsChoice::LedgerSize => Analytic::LedgerSize(LedgerSizeAnalytics::init(
-                                milestone.protocol_params.clone(),
-                                &ledger_state,
-                            )),
-                            AnalyticsChoice::OutputActivity => Analytic::OutputActivity {
-                                nft: Default::default(),
-                                alias: Default::default(),
-                            },
-                            AnalyticsChoice::ProtocolParameters => {
-                                Analytic::ProtocolParameters(milestone.protocol_params.clone())
-                            }
-                            AnalyticsChoice::UnclaimedTokens => {
-                                Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(&ledger_state))
-                            }
-                            AnalyticsChoice::UnlockConditions => {
-                                Analytic::UnlockConditions(UnlockConditionAnalytics::init(&ledger_state))
-                            }
-                        })
+                        .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
                         .collect::<Vec<_>>();
                     state = Some(AnalyticsState {
                         analytics,

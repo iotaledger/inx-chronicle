@@ -14,7 +14,7 @@ mod output_activity;
 mod unclaimed_tokens;
 mod unlock_conditions;
 
-pub use self::{
+pub(crate) use self::{
     active_addresses::AddressActivity,
     address_balance::AddressBalanceAnalytics,
     base_token::BaseTokenActivityAnalytics,

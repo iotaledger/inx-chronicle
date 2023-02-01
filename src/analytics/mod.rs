@@ -5,6 +5,7 @@
 
 use futures::TryStreamExt;
 use thiserror::Error;
+use time::OffsetDateTime;
 
 use self::{
     ledger::{
@@ -17,10 +18,11 @@ use self::{
 use crate::{
     db::{
         collections::analytics::{Measurement, OutputActivityAnalyticsResult, PerMilestone, TimeInterval},
-        influxdb::InfluxDb,
+        influxdb::{AnalyticsChoice, InfluxDb},
     },
     tangle::{BlockData, InputSource, LedgerUpdateStore, Milestone},
     types::{
+        ledger::LedgerOutput,
         stardust::block::{payload::TransactionEssence, Input, Payload},
         tangle::{MilestoneIndex, ProtocolParameters},
     },
@@ -45,6 +47,41 @@ pub enum Analytic {
     ProtocolParameters(ProtocolParameters),
     UnclaimedTokens(UnclaimedTokenAnalytics),
     UnlockConditions(UnlockConditionAnalytics),
+}
+
+impl Analytic {
+    /// Init an analytic from a choice and ledger state.
+    pub fn init<'a>(
+        choice: &AnalyticsChoice,
+        protocol_params: &ProtocolParameters,
+        unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
+    ) -> Self {
+        match choice {
+            AnalyticsChoice::AddressBalance => Analytic::AddressBalance(AddressBalanceAnalytics::init(unspent_outputs)),
+            AnalyticsChoice::BaseTokenActivity => Analytic::BaseTokenActivity(Default::default()),
+            AnalyticsChoice::BlockActivity => Analytic::BlockActivity(Default::default()),
+            AnalyticsChoice::DailyActiveAddresses => Analytic::DailyActiveAddresses(AddressActivity::init(
+                OffsetDateTime::now_utc().date().midnight().assume_utc(),
+                time::Duration::days(1),
+                unspent_outputs,
+            )),
+            AnalyticsChoice::LedgerOutputs => Analytic::LedgerOutputs(LedgerOutputAnalytics::init(unspent_outputs)),
+            AnalyticsChoice::LedgerSize => {
+                Analytic::LedgerSize(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs))
+            }
+            AnalyticsChoice::OutputActivity => Analytic::OutputActivity {
+                nft: Default::default(),
+                alias: Default::default(),
+            },
+            AnalyticsChoice::ProtocolParameters => Analytic::ProtocolParameters(protocol_params.clone()),
+            AnalyticsChoice::UnclaimedTokens => {
+                Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(unspent_outputs))
+            }
+            AnalyticsChoice::UnlockConditions => {
+                Analytic::UnlockConditions(UnlockConditionAnalytics::init(unspent_outputs))
+            }
+        }
+    }
 }
 
 #[allow(missing_docs)]

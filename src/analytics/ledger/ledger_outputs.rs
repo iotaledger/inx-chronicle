@@ -5,6 +5,8 @@
 
 use std::ops::{AddAssign, SubAssign};
 
+use derive_more::{AddAssign, SubAssign};
+
 use super::TransactionAnalytics;
 use crate::{
     db::collections::analytics::LedgerOutputAnalyticsResult,
@@ -14,7 +16,7 @@ use crate::{
     },
 };
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 pub struct CountValue {
     pub count: usize,
     pub value: u64,
