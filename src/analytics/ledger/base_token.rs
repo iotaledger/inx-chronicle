@@ -4,25 +4,22 @@
 use std::collections::HashMap;
 
 use super::TransactionAnalytics;
-use crate::{
-    db::collections::analytics::BaseTokenActivityAnalyticsResult,
-    types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::Address,
-    },
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    stardust::block::Address,
 };
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
-#[derive(Clone, Debug, Default)]
-pub struct BaseTokenActivityAnalytics {
+#[derive(Copy, Clone, Debug, Default)]
+pub struct BaseTokenActivityMeasurement {
     /// Represents the amount of tokens transfered. Tokens that are send back to an address are not counted.
-    pub booked_value: usize,
+    pub booked_value: u64,
     /// Represents the total amount of tokens transfered, independent of wether tokens were sent back to same address.
-    pub transferred_value: usize,
+    pub transferred_value: u64,
 }
 
-impl TransactionAnalytics for BaseTokenActivityAnalytics {
-    type Measurement = BaseTokenActivityAnalyticsResult;
+impl TransactionAnalytics for BaseTokenActivityMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         *self = Default::default();
@@ -31,12 +28,12 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
-        let mut balance_deltas: HashMap<&Address, usize> = HashMap::new();
+        let mut balance_deltas: HashMap<&Address, u64> = HashMap::new();
 
         // We first gather all tokens that have been moved to an individual address.
         for output in created {
             if let Some(address) = output.owning_address() {
-                *balance_deltas.entry(address).or_default() += output.amount().0 as usize;
+                *balance_deltas.entry(address).or_default() += output.amount().0;
             }
         }
 
@@ -45,7 +42,7 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for input in consumed {
             if let Some(address) = input.owning_address() {
-                *balance_deltas.entry(address).or_default() -= input.amount().0 as usize;
+                *balance_deltas.entry(address).or_default() -= input.amount().0;
             }
         }
 
@@ -54,9 +51,6 @@ impl TransactionAnalytics for BaseTokenActivityAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(BaseTokenActivityAnalyticsResult {
-            booked_value: self.booked_value,
-            transferred_value: self.transferred_value,
-        })
+        Some(*self)
     }
 }

@@ -264,15 +264,7 @@ mod test_rand {
         let spent_tx_inputs = tx_inputs.into_iter().map(spend_output).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&spent_tx_inputs).await.unwrap();
 
-        let analytics = output_collection
-            .get_alias_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.governor_changed_count, 1);
-        assert_eq!(analytics.state_changed_count, 1);
-        assert_eq!(analytics.destroyed_count, 1);
+        todo!("write a test that uses new incremental analytics");
 
         teardown(db).await;
     }
@@ -357,14 +349,7 @@ mod test_rand {
         let spent_tx_inputs = tx_inputs.into_iter().map(spend_output).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&spent_tx_inputs).await.unwrap();
 
-        let analytics = output_collection
-            .get_nft_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 1);
-        assert_eq!(analytics.transferred_count, 2);
-        assert_eq!(analytics.destroyed_count, 2);
+        todo!("write a test that uses new incremental analytics");
 
         teardown(db).await;
     }
@@ -467,14 +452,7 @@ mod test_rand {
         let spent_tx_inputs = tx_inputs.into_iter().map(spend_output).collect::<Vec<_>>();
         output_collection.update_spent_outputs(&spent_tx_inputs).await.unwrap();
 
-        let analytics = output_collection
-            .get_nft_output_activity_analytics(2.into())
-            .await
-            .unwrap();
-
-        assert_eq!(analytics.created_count, 0);
-        assert_eq!(analytics.transferred_count, 3);
-        assert_eq!(analytics.destroyed_count, 0);
+        todo!("write a test that uses new incremental analytics");
 
         teardown(db).await;
     }

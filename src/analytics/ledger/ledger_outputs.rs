@@ -8,12 +8,9 @@ use std::ops::{AddAssign, SubAssign};
 use derive_more::{AddAssign, SubAssign};
 
 use super::TransactionAnalytics;
-use crate::{
-    db::collections::analytics::LedgerOutputAnalyticsResult,
-    types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::Output,
-    },
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    stardust::block::Output,
 };
 
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
@@ -36,8 +33,8 @@ impl SubAssign<&LedgerSpent> for CountValue {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
-pub struct LedgerOutputAnalytics {
+#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
+pub struct LedgerOutputMeasurement {
     pub alias: CountValue,
     pub basic: CountValue,
     pub nft: CountValue,
@@ -45,7 +42,7 @@ pub struct LedgerOutputAnalytics {
     pub treasury: CountValue,
 }
 
-impl LedgerOutputAnalytics {
+impl LedgerOutputMeasurement {
     /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
@@ -62,45 +59,20 @@ impl LedgerOutputAnalytics {
     }
 }
 
-impl TransactionAnalytics for LedgerOutputAnalytics {
-    type Measurement = LedgerOutputAnalyticsResult;
+impl TransactionAnalytics for LedgerOutputMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
-        for input in consumed {
-            match input.output.output {
-                Output::Alias(_) => self.alias -= input,
-                Output::Basic(_) => self.basic -= input,
-                Output::Nft(_) => self.nft -= input,
-                Output::Foundry(_) => self.foundry -= input,
-                Output::Treasury(_) => self.treasury -= input,
-            }
-        }
+        let consumed = Self::init(consumed.iter().map(|input| &input.output));
+        let created = Self::init(created);
 
-        for output in created {
-            match output.output {
-                Output::Alias(_) => self.alias += output,
-                Output::Basic(_) => self.basic += output,
-                Output::Nft(_) => self.nft += output,
-                Output::Foundry(_) => self.foundry += output,
-                Output::Treasury(_) => self.treasury += output,
-            }
-        }
+        *self += created;
+        *self -= consumed;
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(LedgerOutputAnalyticsResult {
-            basic_count: self.basic.count as _,
-            basic_value: self.basic.value,
-            alias_count: self.alias.count as _,
-            alias_value: self.alias.value,
-            foundry_count: self.foundry.count as _,
-            foundry_value: self.foundry.value,
-            nft_count: self.nft.count as _,
-            nft_value: self.nft.value,
-            treasury_count: self.treasury.count as _,
-            treasury_value: self.treasury.value,
-        })
+        Some(*self)
     }
 }

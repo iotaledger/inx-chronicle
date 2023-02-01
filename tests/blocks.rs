@@ -325,16 +325,7 @@ mod test_rand {
             .await
             .unwrap();
 
-        let activity = block_collection.get_block_activity_analytics(1.into()).await.unwrap();
-
-        assert_eq!(activity.payload.transaction_count, 1);
-        assert_eq!(activity.payload.treasury_transaction_count, 1);
-        assert_eq!(activity.payload.milestone_count, 1);
-        assert_eq!(activity.payload.tagged_data_count, 1);
-        assert_eq!(activity.payload.no_payload_count, 1);
-        assert_eq!(activity.transaction.confirmed_count, 1);
-        assert_eq!(activity.transaction.conflicting_count, 1);
-        assert_eq!(activity.transaction.no_transaction_count, 3);
+        todo!("write a test that uses new incremental analytics");
 
         teardown(db).await;
     }

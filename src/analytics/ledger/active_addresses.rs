@@ -6,17 +6,18 @@ use std::collections::HashSet;
 use time::{Duration, OffsetDateTime};
 
 use super::TransactionAnalytics;
-use crate::{
-    db::collections::analytics::DailyActiveAddressAnalyticsResult,
-    types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::Address,
-    },
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    stardust::block::Address,
 };
+
+pub struct AddressActivityMeasurement {
+    pub count: usize,
+}
 
 /// Computes the number of addresses that were active during a given time interval.
 #[allow(missing_docs)]
-pub struct AddressActivity {
+pub struct AddressActivityAnalytics {
     pub start_time: OffsetDateTime,
     pub interval: Duration,
     addresses: HashSet<Address>,
@@ -24,7 +25,7 @@ pub struct AddressActivity {
     flush: Option<usize>,
 }
 
-impl AddressActivity {
+impl AddressActivityAnalytics {
     /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(
         start_time: OffsetDateTime,
@@ -51,8 +52,8 @@ impl AddressActivity {
     }
 }
 
-impl TransactionAnalytics for AddressActivity {
-    type Measurement = DailyActiveAddressAnalyticsResult;
+impl TransactionAnalytics for AddressActivityAnalytics {
+    type Measurement = AddressActivityMeasurement;
 
     fn begin_milestone(&mut self, at: MilestoneIndexTimestamp) {
         let end = self.start_time + self.interval;
@@ -79,8 +80,6 @@ impl TransactionAnalytics for AddressActivity {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        self.flush
-            .take()
-            .map(|count| DailyActiveAddressAnalyticsResult { count: count as _ })
+        self.flush.take().map(|count| AddressActivityMeasurement { count })
     }
 }

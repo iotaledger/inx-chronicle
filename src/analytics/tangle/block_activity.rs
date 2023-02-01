@@ -3,28 +3,25 @@
 
 use super::BlockAnalytics;
 use crate::{
-    db::collections::analytics::{
-        BlockActivityAnalyticsResult, PayloadActivityAnalyticsResult, TransactionActivityAnalyticsResult,
-    },
     tangle::BlockData,
     types::{ledger::LedgerInclusionState, stardust::block::Payload, tangle::MilestoneIndex},
 };
 
 /// The type of payloads that occured within a single milestone.
-#[derive(Clone, Debug, Default)]
-pub struct BlockActivityAnalytics {
-    milestone_count: usize,
-    no_payload_count: usize,
-    tagged_data_count: usize,
-    transaction_count: usize,
-    treasury_transaction_count: usize,
-    confirmed_count: usize,
-    conflicting_count: usize,
-    no_transaction_count: usize,
+#[derive(Copy, Clone, Debug, Default)]
+pub struct BlockActivityMeasurement {
+    pub milestone_count: usize,
+    pub no_payload_count: usize,
+    pub tagged_data_count: usize,
+    pub transaction_count: usize,
+    pub treasury_transaction_count: usize,
+    pub confirmed_count: usize,
+    pub conflicting_count: usize,
+    pub no_transaction_count: usize,
 }
 
-impl BlockAnalytics for BlockActivityAnalytics {
-    type Measurement = BlockActivityAnalyticsResult;
+impl BlockAnalytics for BlockActivityMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndex) {
         *self = Default::default();
@@ -45,20 +42,7 @@ impl BlockAnalytics for BlockActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
-        Some(BlockActivityAnalyticsResult {
-            payload: PayloadActivityAnalyticsResult {
-                transaction_count: self.transaction_count as _,
-                treasury_transaction_count: self.treasury_transaction_count as _,
-                milestone_count: self.milestone_count as _,
-                tagged_data_count: self.tagged_data_count as _,
-                no_payload_count: self.no_payload_count as _,
-            },
-            transaction: TransactionActivityAnalyticsResult {
-                confirmed_count: self.confirmed_count as _,
-                conflicting_count: self.conflicting_count as _,
-                no_transaction_count: self.no_transaction_count as _,
-            },
-        })
+    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self> {
+        Some(*self)
     }
 }

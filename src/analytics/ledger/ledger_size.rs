@@ -4,14 +4,11 @@
 use derive_more::{AddAssign, SubAssign};
 
 use super::TransactionAnalytics;
-use crate::{
-    db::collections::analytics::LedgerSizeAnalyticsResult,
-    types::{
-        context::TryFromWithContext,
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes},
-        stardust::block::Output,
-        tangle::ProtocolParameters,
-    },
+use crate::types::{
+    context::TryFromWithContext,
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes},
+    stardust::block::Output,
+    tangle::ProtocolParameters,
 };
 trait LedgerSize {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement;
@@ -37,10 +34,10 @@ impl LedgerSize for Output {
 
 /// Ledger size statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-struct LedgerSizeMeasurement {
-    total_key_bytes: u64,
-    total_data_bytes: u64,
-    total_storage_deposit_value: u64,
+pub struct LedgerSizeMeasurement {
+    pub total_key_bytes: u64,
+    pub total_data_bytes: u64,
+    pub total_storage_deposit_value: u64,
 }
 
 /// Measures the ledger size depending on current protocol parameters.
@@ -67,7 +64,7 @@ impl LedgerSizeAnalytics {
 }
 
 impl TransactionAnalytics for LedgerSizeAnalytics {
-    type Measurement = LedgerSizeAnalyticsResult;
+    type Measurement = LedgerSizeMeasurement;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
@@ -81,10 +78,6 @@ impl TransactionAnalytics for LedgerSizeAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(LedgerSizeAnalyticsResult {
-            total_key_bytes: self.measurement.total_key_bytes,
-            total_data_bytes: self.measurement.total_data_bytes,
-            total_storage_deposit_value: self.measurement.total_storage_deposit_value,
-        })
+        Some(self.measurement)
     }
 }
