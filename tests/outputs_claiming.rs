@@ -72,25 +72,7 @@ mod test_rand {
 
         output_collection.update_spent_outputs(&spent_outputs).await.unwrap();
 
-        let unclaimed = output_collection.get_unclaimed_token_analytics(1.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 4);
-        assert_eq!(unclaimed.unclaimed_value, (2..=5).sum::<u64>());
-
-        let unclaimed = output_collection.get_unclaimed_token_analytics(2.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 3);
-        assert_eq!(unclaimed.unclaimed_value, (3..=5).sum::<u64>());
-
-        let unclaimed = output_collection.get_unclaimed_token_analytics(3.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 2);
-        assert_eq!(unclaimed.unclaimed_value, (4..=5).sum::<u64>());
-
-        let unclaimed = output_collection.get_unclaimed_token_analytics(4.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 1);
-        assert_eq!(unclaimed.unclaimed_value, 5);
-
-        let unclaimed = output_collection.get_unclaimed_token_analytics(5.into()).await.unwrap();
-        assert_eq!(unclaimed.unclaimed_count, 1);
-        assert_eq!(unclaimed.unclaimed_value, 5);
+        todo!("write a test that uses new incremental analytics");
 
         teardown(db).await;
     }

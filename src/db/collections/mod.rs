@@ -1,9 +1,6 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-/// Module containing the time-series analytics model.
-#[cfg(feature = "analytics")]
-pub mod analytics;
 /// Module containing the Block document model.
 mod block;
 /// Module containing the node configuration collection.

@@ -6,30 +6,24 @@ use std::collections::HashSet;
 use derive_more::{AddAssign, SubAssign};
 
 use super::TransactionAnalytics;
-use crate::{
-    db::collections::analytics::{
-        AliasActivityAnalyticsResult, FoundryActivityAnalyticsResult, NftActivityAnalyticsResult,
-        OutputActivityAnalyticsResult,
-    },
-    types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{
-            output::{AliasId, NftId},
-            Address, Output,
-        },
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    stardust::block::{
+        output::{AliasId, NftId},
+        Address, Output,
     },
 };
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct OutputActivityAnalytics {
-    nft: NftActivityAnalytics,
-    alias: AliasActivityAnalytics,
-    foundry: FoundryActivityAnalytics,
+pub struct OutputActivityMeasurement {
+    pub nft: NftActivityMeasurement,
+    pub alias: AliasActivityMeasurement,
+    pub foundry: FoundryActivityMeasurement,
 }
 
-impl TransactionAnalytics for OutputActivityAnalytics {
-    type Measurement = OutputActivityAnalyticsResult;
+impl TransactionAnalytics for OutputActivityMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         *self = Self::default();
@@ -41,25 +35,21 @@ impl TransactionAnalytics for OutputActivityAnalytics {
         self.foundry.handle_transaction(consumed, created);
     }
 
-    fn end_milestone(&mut self, at: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(OutputActivityAnalyticsResult {
-            nft: self.nft.end_milestone(at).unwrap_or_default(),
-            alias: self.alias.end_milestone(at).unwrap_or_default(),
-            foundry: self.foundry.end_milestone(at).unwrap_or_default(),
-        })
+    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
+        Some(*self)
     }
 }
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-struct NftActivityAnalytics {
-    created_count: usize,
-    transferred_count: usize,
-    destroyed_count: usize,
+pub struct NftActivityMeasurement {
+    pub created_count: usize,
+    pub transferred_count: usize,
+    pub destroyed_count: usize,
 }
 
-impl TransactionAnalytics for NftActivityAnalytics {
-    type Measurement = NftActivityAnalyticsResult;
+impl TransactionAnalytics for NftActivityMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         *self = Self::default();
@@ -104,21 +94,17 @@ impl TransactionAnalytics for NftActivityAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(NftActivityAnalyticsResult {
-            created_count: self.created_count as u64,
-            transferred_count: self.transferred_count as u64,
-            destroyed_count: self.destroyed_count as u64,
-        })
+        Some(*self)
     }
 }
 
 /// Alias activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-struct AliasActivityAnalytics {
-    created_count: usize,
-    governor_changed_count: usize,
-    state_changed_count: usize,
-    destroyed_count: usize,
+pub struct AliasActivityMeasurement {
+    pub created_count: usize,
+    pub governor_changed_count: usize,
+    pub state_changed_count: usize,
+    pub destroyed_count: usize,
 }
 
 struct AliasData {
@@ -141,8 +127,8 @@ impl std::hash::Hash for AliasData {
     }
 }
 
-impl TransactionAnalytics for AliasActivityAnalytics {
-    type Measurement = AliasActivityAnalyticsResult;
+impl TransactionAnalytics for AliasActivityMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
@@ -209,25 +195,20 @@ impl TransactionAnalytics for AliasActivityAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(AliasActivityAnalyticsResult {
-            created_count: self.created_count as u64,
-            governor_changed_count: self.governor_changed_count as u64,
-            state_changed_count: self.state_changed_count as u64,
-            destroyed_count: self.destroyed_count as u64,
-        })
+        Some(*self)
     }
 }
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-struct FoundryActivityAnalytics {
-    created_count: usize,
-    transferred_count: usize,
-    destroyed_count: usize,
+pub struct FoundryActivityMeasurement {
+    pub created_count: usize,
+    pub transferred_count: usize,
+    pub destroyed_count: usize,
 }
 
-impl TransactionAnalytics for FoundryActivityAnalytics {
-    type Measurement = FoundryActivityAnalyticsResult;
+impl TransactionAnalytics for FoundryActivityMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
         *self = Self::default();
@@ -262,10 +243,6 @@ impl TransactionAnalytics for FoundryActivityAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(FoundryActivityAnalyticsResult {
-            created_count: self.created_count as u64,
-            transferred_count: self.transferred_count as u64,
-            destroyed_count: self.destroyed_count as u64,
-        })
+        Some(*self)
     }
 }

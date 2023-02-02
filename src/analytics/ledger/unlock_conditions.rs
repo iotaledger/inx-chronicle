@@ -4,24 +4,21 @@
 use derive_more::{AddAssign, SubAssign};
 
 use super::{CountValue, TransactionAnalytics};
-use crate::{
-    db::collections::analytics::UnlockConditionAnalyticsResult,
-    types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::Output,
-    },
+use crate::types::{
+    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    stardust::block::Output,
 };
 
-#[derive(Clone, Debug, Default, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 #[allow(missing_docs)]
-pub struct UnlockConditionAnalytics {
+pub struct UnlockConditionMeasurement {
     pub timelock: CountValue,
     pub expiration: CountValue,
     pub storage_deposit_return: CountValue,
     pub storage_deposit_return_inner_value: u64,
 }
 
-impl UnlockConditionAnalytics {
+impl UnlockConditionMeasurement {
     /// Initialize the analytics by reading the current ledger state.
     pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
@@ -60,8 +57,8 @@ impl UnlockConditionAnalytics {
     }
 }
 
-impl TransactionAnalytics for UnlockConditionAnalytics {
-    type Measurement = UnlockConditionAnalyticsResult;
+impl TransactionAnalytics for UnlockConditionMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
 
@@ -74,14 +71,6 @@ impl TransactionAnalytics for UnlockConditionAnalytics {
     }
 
     fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(UnlockConditionAnalyticsResult {
-            timelock_count: self.timelock.count as _,
-            timelock_value: self.timelock.value,
-            expiration_count: self.expiration.count as _,
-            expiration_value: self.expiration.value,
-            storage_deposit_return_count: self.storage_deposit_return.count as _,
-            storage_deposit_return_value: self.storage_deposit_return.value,
-            storage_deposit_return_inner_value: self.storage_deposit_return_inner_value,
-        })
+        Some(*self)
     }
 }

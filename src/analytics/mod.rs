@@ -8,18 +8,16 @@ use thiserror::Error;
 use time::OffsetDateTime;
 
 use self::{
+    influx::{Measurement, PerMilestone, TimeInterval},
     ledger::{
-        AddressActivity, AddressBalanceAnalytics, BaseTokenActivityAnalytics, LedgerOutputAnalytics,
-        LedgerSizeAnalytics, OutputActivityAnalytics, TransactionAnalytics, UnclaimedTokenAnalytics,
-        UnlockConditionAnalytics,
+        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
+        LedgerSizeAnalytics, OutputActivityMeasurement, TransactionAnalytics, UnclaimedTokenMeasurement,
+        UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityAnalytics, BlockAnalytics, MilestoneSizeAnalytics},
+    tangle::{BlockActivityMeasurement, BlockAnalytics, MilestoneSizeMeasurement},
 };
 use crate::{
-    db::{
-        collections::analytics::{Measurement, PerMilestone, TimeInterval},
-        influxdb::{AnalyticsChoice, InfluxDb},
-    },
+    db::influxdb::{AnalyticsChoice, InfluxDb},
     tangle::{BlockData, InputSource, Milestone},
     types::{
         ledger::LedgerOutput,
@@ -28,22 +26,23 @@ use crate::{
     },
 };
 
+pub mod influx;
 pub mod ledger;
 pub mod tangle;
 
 #[allow(missing_docs)]
 pub enum Analytic {
-    AddressBalance(AddressBalanceAnalytics),
-    BaseTokenActivity(BaseTokenActivityAnalytics),
-    BlockActivity(BlockActivityAnalytics),
-    DailyActiveAddresses(AddressActivity),
-    LedgerOutputs(LedgerOutputAnalytics),
+    AddressBalance(AddressBalancesAnalytics),
+    BaseTokenActivity(BaseTokenActivityMeasurement),
+    BlockActivity(BlockActivityMeasurement),
+    DailyActiveAddresses(AddressActivityAnalytics),
+    LedgerOutputs(LedgerOutputMeasurement),
     LedgerSize(LedgerSizeAnalytics),
-    MilestoneSize(MilestoneSizeAnalytics),
-    OutputActivity(OutputActivityAnalytics),
+    MilestoneSize(MilestoneSizeMeasurement),
+    OutputActivity(OutputActivityMeasurement),
     ProtocolParameters(ProtocolParameters),
-    UnclaimedTokens(UnclaimedTokenAnalytics),
-    UnlockConditions(UnlockConditionAnalytics),
+    UnclaimedTokens(UnclaimedTokenMeasurement),
+    UnlockConditions(UnlockConditionMeasurement),
 }
 
 impl Analytic {
@@ -54,25 +53,27 @@ impl Analytic {
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
         match choice {
-            AnalyticsChoice::AddressBalance => Analytic::AddressBalance(AddressBalanceAnalytics::init(unspent_outputs)),
+            AnalyticsChoice::AddressBalance => {
+                Analytic::AddressBalance(AddressBalancesAnalytics::init(unspent_outputs))
+            }
             AnalyticsChoice::BaseTokenActivity => Analytic::BaseTokenActivity(Default::default()),
             AnalyticsChoice::BlockActivity => Analytic::BlockActivity(Default::default()),
-            AnalyticsChoice::DailyActiveAddresses => Analytic::DailyActiveAddresses(AddressActivity::init(
+            AnalyticsChoice::DailyActiveAddresses => Analytic::DailyActiveAddresses(AddressActivityAnalytics::init(
                 OffsetDateTime::now_utc().date().midnight().assume_utc(),
                 time::Duration::days(1),
                 unspent_outputs,
             )),
-            AnalyticsChoice::LedgerOutputs => Analytic::LedgerOutputs(LedgerOutputAnalytics::init(unspent_outputs)),
+            AnalyticsChoice::LedgerOutputs => Analytic::LedgerOutputs(LedgerOutputMeasurement::init(unspent_outputs)),
             AnalyticsChoice::LedgerSize => {
                 Analytic::LedgerSize(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs))
             }
             AnalyticsChoice::OutputActivity => Analytic::OutputActivity(Default::default()),
             AnalyticsChoice::ProtocolParameters => Analytic::ProtocolParameters(protocol_params.clone()),
             AnalyticsChoice::UnclaimedTokens => {
-                Analytic::UnclaimedTokens(UnclaimedTokenAnalytics::init(unspent_outputs))
+                Analytic::UnclaimedTokens(UnclaimedTokenMeasurement::init(unspent_outputs))
             }
             AnalyticsChoice::UnlockConditions => {
-                Analytic::UnlockConditions(UnlockConditionAnalytics::init(unspent_outputs))
+                Analytic::UnlockConditions(UnlockConditionMeasurement::init(unspent_outputs))
             }
         }
     }
@@ -184,7 +185,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
     async fn end_milestone(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
         for measurement in analytics.iter_mut().filter_map(|analytic| match analytic {
             Analytic::AddressBalance(stat) => stat.end_milestone(self.at).map(|measurement| {
-                Measurement::AddressActivity(PerMilestone {
+                Measurement::AddressBalance(PerMilestone {
                     at: self.at,
                     inner: measurement,
                 })
@@ -260,4 +261,10 @@ impl<'a, I: InputSource> Milestone<'a, I> {
         }
         Ok(())
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub struct SyncAnalytics {
+    pub sync_time: u64,
 }

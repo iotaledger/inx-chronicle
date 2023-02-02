@@ -3,23 +3,22 @@
 
 use super::BlockAnalytics;
 use crate::{
-    db::collections::analytics::MilestoneSizeAnalyticsResult,
     tangle::BlockData,
     types::{stardust::block::Payload, tangle::MilestoneIndex},
 };
 
 /// Milestone size statistics.
-#[derive(Clone, Debug, Default)]
-pub struct MilestoneSizeAnalytics {
-    total_milestone_payload_bytes: usize,
-    total_tagged_data_payload_bytes: usize,
-    total_transaction_payload_bytes: usize,
-    total_treasury_transaction_payload_bytes: usize,
-    total_milestone_bytes: usize,
+#[derive(Copy, Clone, Debug, Default)]
+pub struct MilestoneSizeMeasurement {
+    pub total_milestone_payload_bytes: usize,
+    pub total_tagged_data_payload_bytes: usize,
+    pub total_transaction_payload_bytes: usize,
+    pub total_treasury_transaction_payload_bytes: usize,
+    pub total_milestone_bytes: usize,
 }
 
-impl BlockAnalytics for MilestoneSizeAnalytics {
-    type Measurement = MilestoneSizeAnalyticsResult;
+impl BlockAnalytics for MilestoneSizeMeasurement {
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _: MilestoneIndex) {
         *self = Self::default();
@@ -38,13 +37,7 @@ impl BlockAnalytics for MilestoneSizeAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
-        Some(MilestoneSizeAnalyticsResult {
-            total_milestone_payload_bytes: self.total_milestone_payload_bytes as _,
-            total_tagged_data_payload_bytes: self.total_tagged_data_payload_bytes as _,
-            total_transaction_payload_bytes: self.total_transaction_payload_bytes as _,
-            total_treasury_transaction_payload_bytes: self.total_treasury_transaction_payload_bytes as _,
-            total_milestone_bytes: self.total_milestone_bytes as _,
-        })
+    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self> {
+        Some(*self)
     }
 }

@@ -15,14 +15,14 @@ mod unclaimed_tokens;
 mod unlock_conditions;
 
 pub(crate) use self::{
-    active_addresses::AddressActivity,
-    address_balance::AddressBalanceAnalytics,
-    base_token::BaseTokenActivityAnalytics,
-    ledger_outputs::{CountValue, LedgerOutputAnalytics},
-    ledger_size::LedgerSizeAnalytics,
-    output_activity::OutputActivityAnalytics,
-    unclaimed_tokens::UnclaimedTokenAnalytics,
-    unlock_conditions::UnlockConditionAnalytics,
+    active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
+    address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
+    base_token::BaseTokenActivityMeasurement,
+    ledger_outputs::{CountValue, LedgerOutputMeasurement},
+    ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
+    output_activity::OutputActivityMeasurement,
+    unclaimed_tokens::UnclaimedTokenMeasurement,
+    unlock_conditions::UnlockConditionMeasurement,
 };
 
 #[allow(missing_docs)]
