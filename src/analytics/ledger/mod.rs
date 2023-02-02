@@ -35,21 +35,21 @@ mod unclaimed_tokens;
 mod unlock_conditions;
 
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
-pub(crate) struct CountValue {
+pub(crate) struct CountAndAmount {
     pub(crate) count: usize,
-    pub(crate) value: TokenAmount,
+    pub(crate) amount: TokenAmount,
 }
 
-impl AddAssign<&LedgerOutput> for CountValue {
+impl AddAssign<&LedgerOutput> for CountAndAmount {
     fn add_assign(&mut self, rhs: &LedgerOutput) {
         self.count += 1;
-        self.value += rhs.output.amount();
+        self.amount += rhs.output.amount();
     }
 }
 
-impl SubAssign<&LedgerSpent> for CountValue {
+impl SubAssign<&LedgerSpent> for CountAndAmount {
     fn sub_assign(&mut self, rhs: &LedgerSpent) {
         self.count -= 1;
-        self.value -= rhs.output.output.amount();
+        self.amount -= rhs.output.output.amount();
     }
 }

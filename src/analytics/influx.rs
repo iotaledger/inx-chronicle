@@ -119,15 +119,15 @@ impl Measurement for LedgerOutputMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("basic_count", self.basic.count as u64)
-            .add_field("basic_value", self.basic.value.0)
+            .add_field("basic_value", self.basic.amount.0)
             .add_field("alias_count", self.alias.count as u64)
-            .add_field("alias_value", self.alias.value.0)
+            .add_field("alias_value", self.alias.amount.0)
             .add_field("foundry_count", self.foundry.count as u64)
-            .add_field("foundry_value", self.foundry.value.0)
+            .add_field("foundry_value", self.foundry.amount.0)
             .add_field("nft_count", self.nft.count as u64)
-            .add_field("nft_value", self.nft.value.0)
+            .add_field("nft_value", self.nft.amount.0)
             .add_field("treasury_count", self.treasury.count as u64)
-            .add_field("treasury_value", self.treasury.value.0)
+            .add_field("treasury_value", self.treasury.amount.0)
     }
 }
 
@@ -215,11 +215,11 @@ impl Measurement for UnlockConditionMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("expiration_count", self.expiration.count as u64)
-            .add_field("expiration_value", self.expiration.value.0)
+            .add_field("expiration_value", self.expiration.amount.0)
             .add_field("timelock_count", self.timelock.count as u64)
-            .add_field("timelock_value", self.timelock.value.0)
+            .add_field("timelock_value", self.timelock.amount.0)
             .add_field("storage_deposit_return_count", self.storage_deposit_return.count as u64)
-            .add_field("storage_deposit_return_value", self.storage_deposit_return.value.0)
+            .add_field("storage_deposit_return_value", self.storage_deposit_return.amount.0)
             .add_field(
                 "storage_deposit_return_inner_value",
                 self.storage_deposit_return_inner_value,
