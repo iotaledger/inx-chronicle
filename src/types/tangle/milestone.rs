@@ -8,12 +8,24 @@ use iota_types::block::payload::milestone as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
+use crate::types::{ledger::MilestoneIndexTimestamp, stardust::milestone::MilestoneTimestamp};
+
 /// The index of a given milestone.
 #[derive(
     Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Add, Sub, Deref, DerefMut, Hash,
 )]
 #[serde(transparent)]
 pub struct MilestoneIndex(pub u32);
+
+impl MilestoneIndex {
+    /// Add a timestamp to the index.
+    pub fn with_timestamp(self, milestone_timestamp: MilestoneTimestamp) -> MilestoneIndexTimestamp {
+        MilestoneIndexTimestamp {
+            milestone_index: self,
+            milestone_timestamp,
+        }
+    }
+}
 
 impl fmt::Display for MilestoneIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

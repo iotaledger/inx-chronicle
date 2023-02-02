@@ -1,6 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+mod application_state;
 /// Module containing the Block document model.
 mod block;
 /// Module containing the node configuration collection.
@@ -24,6 +25,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub use self::{
+    application_state::ApplicationStateCollection,
     block::BlockCollection,
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},
