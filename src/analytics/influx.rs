@@ -4,7 +4,7 @@
 //! Influx Measurement implementations
 
 use influxdb::{InfluxDbWriteable, WriteQuery};
-use time::{Duration, OffsetDateTime};
+use time::Duration;
 
 use super::{
     ledger::{
@@ -12,10 +12,11 @@ use super::{
         LedgerSizeMeasurement, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
+    PerMilestone, TimeInterval,
 };
 use crate::{
     db::influxdb::InfluxDb,
-    types::{ledger::MilestoneIndexTimestamp, stardust::milestone::MilestoneTimestamp, tangle::ProtocolParameters},
+    types::{stardust::milestone::MilestoneTimestamp, tangle::ProtocolParameters},
 };
 
 /// A trait that defines an InfluxDb measurement.
@@ -25,7 +26,7 @@ trait Measurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery;
 }
 
-pub(crate) trait PrepareQuery: Send + Sync {
+pub(super) trait PrepareQuery: Send + Sync {
     fn prepare_query(&self) -> WriteQuery;
 }
 
@@ -40,9 +41,11 @@ where
     M: Measurement,
 {
     fn prepare_query(&self) -> WriteQuery {
-        influxdb::Timestamp::from(self.at.milestone_timestamp)
-            .into_query(M::NAME)
-            .add_field("milestone_index", self.at.milestone_index)
+        self.inner.add_fields(
+            influxdb::Timestamp::from(self.at.milestone_timestamp)
+                .into_query(M::NAME)
+                .add_field("milestone_index", self.at.milestone_index),
+        )
     }
 }
 
@@ -53,7 +56,8 @@ where
     fn prepare_query(&self) -> WriteQuery {
         // We subtract 1 nanosecond to get the inclusive end of the time interval.
         let timestamp = self.to_exclusive - Duration::nanoseconds(1);
-        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(M::NAME)
+        self.inner
+            .add_fields(influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(M::NAME))
     }
 }
 
@@ -213,25 +217,9 @@ impl Measurement for UnlockConditionMeasurement {
     }
 }
 
-#[derive(Clone, Debug)]
-#[allow(missing_docs)]
-pub struct PerMilestone<M> {
-    pub at: MilestoneIndexTimestamp,
-    pub inner: M,
-}
-
-/// Note: We will need this later, for example for daily active addresses.
-#[allow(unused)]
-#[allow(missing_docs)]
-pub struct TimeInterval<M> {
-    pub from: OffsetDateTime,
-    pub to_exclusive: OffsetDateTime,
-    pub inner: M,
-}
-
 impl InfluxDb {
     /// Writes a [`Measurement`] to the InfluxDB database.
-    pub(crate) async fn insert_measurement(&self, measurement: impl PrepareQuery) -> Result<(), influxdb::Error> {
+    pub(super) async fn insert_measurement(&self, measurement: impl PrepareQuery) -> Result<(), influxdb::Error> {
         self.analytics().query(measurement.prepare_query()).await?;
         Ok(())
     }

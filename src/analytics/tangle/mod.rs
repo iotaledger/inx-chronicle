@@ -8,7 +8,7 @@ pub(crate) use self::{
     protocol_params::ProtocolParamsMeasurement,
 };
 use crate::{
-    analytics::{influx::PerMilestone, Analytics, AnalyticsContext},
+    analytics::{Analytics, AnalyticsContext, PerMilestone},
     tangle::BlockData,
     types::{stardust::block::Payload, tangle::ProtocolParameters},
 };

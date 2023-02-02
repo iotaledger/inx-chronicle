@@ -7,7 +7,7 @@ use std::ops::{AddAssign, SubAssign};
 
 use derive_more::{AddAssign, SubAssign};
 
-pub(crate) use self::{
+pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
     base_token::BaseTokenActivityMeasurement,
@@ -18,10 +18,7 @@ pub(crate) use self::{
     unlock_conditions::UnlockConditionMeasurement,
 };
 use crate::{
-    analytics::{
-        influx::{PerMilestone, TimeInterval},
-        Analytics, AnalyticsContext,
-    },
+    analytics::{Analytics, AnalyticsContext, PerMilestone, TimeInterval},
     types::{
         ledger::{LedgerOutput, LedgerSpent},
         stardust::block::Output,

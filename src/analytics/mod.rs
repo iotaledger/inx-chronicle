@@ -25,12 +25,12 @@ use crate::{
     },
 };
 
-pub mod influx;
-pub mod ledger;
-pub mod tangle;
+mod influx;
+mod ledger;
+mod tangle;
 
 /// Provides an API to access basic information used for analytics
-pub(crate) trait AnalyticsContext {
+trait AnalyticsContext {
     fn protocol_params(&self) -> &ProtocolParameters;
 
     fn at(&self) -> &MilestoneIndexTimestamp;
@@ -47,8 +47,8 @@ impl<'a, I: InputSource> AnalyticsContext for Milestone<'a, I> {
 }
 
 #[allow(missing_docs)]
-pub(crate) trait Analytics {
-    type Measurement: PrepareQuery;
+trait Analytics {
+    type Measurement;
     fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext);
     fn handle_transaction(
         &mut self,
@@ -71,7 +71,7 @@ trait DynAnalytics: Send {
 
 impl<T: Analytics + Send> DynAnalytics for T
 where
-    T::Measurement: 'static,
+    T::Measurement: 'static + PrepareQuery,
 {
     fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext) {
         Analytics::begin_milestone(self, ctx)
@@ -214,4 +214,20 @@ impl<'a, I: InputSource> Milestone<'a, I> {
 #[allow(missing_docs)]
 pub struct SyncAnalytics {
     pub sync_time: u64,
+}
+
+#[derive(Clone, Debug)]
+#[allow(missing_docs)]
+struct PerMilestone<M> {
+    at: MilestoneIndexTimestamp,
+    inner: M,
+}
+
+/// Note: We will need this later, for example for daily active addresses.
+#[allow(unused)]
+#[allow(missing_docs)]
+struct TimeInterval<M> {
+    from: OffsetDateTime,
+    to_exclusive: OffsetDateTime,
+    inner: M,
 }
