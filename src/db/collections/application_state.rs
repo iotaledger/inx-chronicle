@@ -15,8 +15,8 @@ use crate::{
 /// The MongoDb document representation of singleton Application State.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
-    pub starting_index: MilestoneIndexTimestamp,
-    pub last_migration: String,
+    pub starting_index: Option<MilestoneIndexTimestamp>,
+    pub last_migration: Option<String>,
 }
 
 /// A collection to store singleton Application State.
@@ -39,8 +39,11 @@ impl MongoDbCollection for ApplicationStateCollection {
 
 impl ApplicationStateCollection {
     /// Gets the singleton application state.
-    pub async fn get_application_state(&self) -> Result<Option<ApplicationStateDocument>, Error> {
-        self.find_one(doc! {}, None).await
+    pub async fn get_starting_index(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        Ok(self
+            .find_one::<ApplicationStateDocument>(doc! {}, None)
+            .await?
+            .and_then(|doc| doc.starting_index))
     }
 
     /// Set the starting milestone index in the singleton application state.
@@ -54,6 +57,14 @@ impl ApplicationStateCollection {
         )
         .await?;
         Ok(())
+    }
+
+    /// Gets the singleton application state.
+    pub async fn get_last_migration(&self) -> Result<Option<String>, Error> {
+        Ok(self
+            .find_one::<ApplicationStateDocument>(doc! {}, None)
+            .await?
+            .and_then(|doc| doc.last_migration))
     }
 
     /// Set the current version in the singleton application state.

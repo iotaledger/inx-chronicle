@@ -14,7 +14,7 @@ mod process;
 mod stardust_inx;
 
 use bytesize::ByteSize;
-use chronicle::db::MongoDb;
+use chronicle::db::{collections::ApplicationStateCollection, MongoDb};
 use clap::Parser;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
@@ -43,6 +43,26 @@ async fn main() -> eyre::Result<()> {
         db.name(),
         ByteSize::b(db.size().await?)
     );
+
+    match db
+        .collection::<ApplicationStateCollection>()
+        .get_last_migration()
+        .await?
+        .as_deref()
+    {
+        None => {
+            db.collection::<ApplicationStateCollection>()
+                .set_last_migration(migrations::LATEST_VERSION)
+                .await?;
+        }
+        Some(migrations::LATEST_VERSION) => (),
+        Some(v) => {
+            eyre::bail!(
+                "Invalid database migration version {}, please run the `migrate` command.",
+                v
+            );
+        }
+    }
 
     build_indexes(&db).await?;
 

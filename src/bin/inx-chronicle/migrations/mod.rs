@@ -6,15 +6,14 @@ use eyre::bail;
 
 pub mod migrate_20230202;
 
-const LATEST_VERSION: &str = migrate_20230202::VERSION;
+pub const LATEST_VERSION: &str = migrate_20230202::VERSION;
 
 pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
     loop {
         let last_migration = db
             .collection::<ApplicationStateCollection>()
-            .get_application_state()
-            .await?
-            .map(|s| s.last_migration);
+            .get_last_migration()
+            .await?;
         match last_migration.as_deref() {
             // First migration using the method, so there is no current version
             None => {
