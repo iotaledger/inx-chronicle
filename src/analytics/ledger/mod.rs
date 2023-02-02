@@ -21,7 +21,7 @@ use crate::{
     analytics::{Analytics, AnalyticsContext, PerMilestone, TimeInterval},
     types::{
         ledger::{LedgerOutput, LedgerSpent},
-        stardust::block::{Output, output::TokenAmount},
+        stardust::block::{output::TokenAmount, Output},
     },
 };
 

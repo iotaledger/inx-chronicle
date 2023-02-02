@@ -13,7 +13,7 @@ use super::{
     unlock_condition::{
         AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
     },
-    Feature, NativeToken, TokenAmount, OutputId,
+    Feature, NativeToken, OutputId, TokenAmount,
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 

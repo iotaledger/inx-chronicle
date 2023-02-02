@@ -13,7 +13,7 @@ use super::{
     feature::Feature,
     native_token::NativeToken,
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
-    TokenAmount, OutputId,
+    OutputId, TokenAmount,
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 

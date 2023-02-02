@@ -19,7 +19,8 @@ impl LedgerSize for Output {
             total_storage_deposit_value: iota_types::block::output::Rent::rent_cost(
                 &output,
                 protocol_params.rent_structure(),
-            ).into(),
+            )
+            .into(),
             total_key_bytes: rent_bytes.num_key_bytes,
             total_data_bytes: rent_bytes.num_data_bytes,
         }

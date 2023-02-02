@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::{
     stardust::{
         block::{
-            output::{Output, TokenAmount, OutputId},
+            output::{Output, OutputId, TokenAmount},
             payload::transaction::TransactionId,
             Address, BlockId,
         },

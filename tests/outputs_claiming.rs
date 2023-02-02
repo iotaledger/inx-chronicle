@@ -10,7 +10,7 @@ mod test_rand {
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
-                output::{BasicOutput, TokenAmount, OutputId},
+                output::{BasicOutput, OutputId, TokenAmount},
                 payload::TransactionId,
                 BlockId, Output,
             },
