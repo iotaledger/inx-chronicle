@@ -1,22 +1,23 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::MongoDb;
+use chronicle::db::{collections::ApplicationStateCollection, MongoDb};
 use eyre::bail;
 
-pub mod migrate_1_0_0_beta_31;
+pub mod migrate_20230202;
 
-pub async fn migrate(version: &str, db: &MongoDb) -> eyre::Result<()> {
-    let curr_version = std::env!("CARGO_PKG_VERSION");
-    match version {
-        "1.0.0-beta.31" => {
-            if migrate_1_0_0_beta_31::PREV_VERSION == curr_version {
-                migrate_1_0_0_beta_31::migrate(db).await?;
-            } else {
-                bail!("cannot migrate to {} from {}", version, curr_version);
-            }
+pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
+    let curr_version = db
+        .collection::<ApplicationStateCollection>()
+        .get_application_state()
+        .await?
+        .map(|s| s.version);
+    match curr_version.as_deref() {
+        // First migration using the method, so there is no current version
+        None => {
+            migrate_20230202::migrate(db).await?;
         }
-        _ => bail!("cannot migrate version {}", version),
+        Some(v) => bail!("cannot migrate version {}", v),
     }
     Ok(())
 }

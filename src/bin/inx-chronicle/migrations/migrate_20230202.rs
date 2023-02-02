@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollection, MongoDbCollectionExt},
+    db::{
+        collections::{ApplicationStateCollection, OutputCollection},
+        MongoDb, MongoDbCollection, MongoDbCollectionExt,
+    },
     types::stardust::block::output::{AliasId, NftId, OutputId},
 };
 use futures::TryStreamExt;
 use mongodb::{bson::doc, options::IndexOptions, IndexModel};
 use serde::Deserialize;
 
-pub const PREV_VERSION: &str = "1.0.0-beta.30";
+pub const VERSION: &str = "20230202";
 
 pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
     let collection = db.collection::<OutputCollection>();
@@ -114,6 +117,10 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 .build(),
             None,
         )
+        .await?;
+
+    db.collection::<ApplicationStateCollection>()
+        .set_version(VERSION)
         .await?;
 
     Ok(())

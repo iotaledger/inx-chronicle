@@ -16,6 +16,7 @@ use crate::{
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
     pub starting_index: MilestoneIndexTimestamp,
+    pub version: String,
 }
 
 /// A collection to store singleton Application State.
@@ -48,6 +49,19 @@ impl ApplicationStateCollection {
             doc! {},
             doc! {
                 "$set": { "starting_index": starting_index }
+            },
+            UpdateOptions::builder().upsert(true).build(),
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Set the current version in the singleton application state.
+    pub async fn set_version(&self, version: &str) -> Result<(), Error> {
+        self.update_one(
+            doc! {},
+            doc! {
+                "$set": { "version": version }
             },
             UpdateOptions::builder().upsert(true).build(),
         )
