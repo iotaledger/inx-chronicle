@@ -51,6 +51,7 @@ async fn main() -> eyre::Result<()> {
         .as_deref()
     {
         None => {
+            info!("Setting migration version to {}", migrations::LATEST_VERSION);
             db.collection::<ApplicationStateCollection>()
                 .set_last_migration(migrations::LATEST_VERSION)
                 .await?;
