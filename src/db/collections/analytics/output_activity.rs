@@ -55,116 +55,330 @@ impl Analytic for OutputActivityAnalytics {
         milestone_index: MilestoneIndex,
         milestone_timestamp: MilestoneTimestamp,
     ) -> Result<Option<Measurement>, Error> {
-        db.collection::<OutputCollection>()
-            .get_output_activity_analytics(milestone_index)
-            .await
-            .map(|measurement| {
-                Some(Measurement::OutputActivityAnalytics(PerMilestone {
-                    milestone_index,
-                    milestone_timestamp,
-                    inner: measurement,
-                }))
-            })
+        let nft_activity = db
+            .collection::<OutputCollection>()
+            .get_nft_output_activity_analytics(milestone_index)
+            .await;
+
+        let alias_activity = db
+            .collection::<OutputCollection>()
+            .get_alias_output_activity_analytics(milestone_index)
+            .await;
+
+        Ok(Some(Measurement::OutputActivityAnalytics(PerMilestone {
+            milestone_index,
+            milestone_timestamp,
+            inner: OutputActivityAnalyticsResult {
+                nft: nft_activity?,
+                alias: alias_activity?,
+            },
+        })))
     }
 }
 
 impl OutputCollection {
-    /// Gathers analytics about outputs that were created/transferred/burned in the given milestone.
+    /// Gathers analytics about nft outputs that were created/transferred/burned in the given milestone.
     #[tracing::instrument(skip(self), err, level = "trace")]
-    pub async fn get_output_activity_analytics(
+    pub async fn get_nft_output_activity_analytics(
         &self,
         index: MilestoneIndex,
-    ) -> Result<OutputActivityAnalyticsResult, Error> {
+    ) -> Result<NftActivityAnalyticsResult, Error> {
         Ok(self
-            .aggregate(
-                vec![
+            .aggregate([
+                    // Match all nft outputs in the given milestone.
                     doc! { "$match": {
-                        "$or": [
-                            { "metadata.booked.milestone_index": index },
-                            { "metadata.spent_metadata.spent.milestone_index": index },
-                        ],
+                        "$and": [
+                            { "$or": [
+                                { "metadata.booked.milestone_index": index },
+                                { "metadata.spent_metadata.spent.milestone_index": index },
+                            ] },
+                            { "output.kind": "nft" },
+                        ]
                     } },
+                    // Screen outputs for being booked and/or spent. An output that was booked and
+                    // spent will appear in both arrays, but with different ids.
                     doc! { "$facet": {
-                        "nft_created": [
-                            { "$match": {
-                                "metadata.booked.milestone_index": index,
-                                "output.nft_id": NftId::implicit(),
-                            } },
-                            { "$group": {
-                                "_id": null,
-                                "count": { "$sum": 1 },
-                            } },
+                        "booked_screening": [
+                            { "$project": {
+                                "_id": {
+                                    "$cond": [
+                                        { "$eq": [ "$metadata.booked.milestone_index", index ] },
+                                        "$_id.transaction_id",
+                                        "$metadata.spent_metadata.transaction_id"
+                                    ]
+                                },
+                                "output_id": "$_id",
+                                "asset_id": "$output.nft_id",
+                            } }
                         ],
-                        "nft_changed": [
-                            { "$match": { 
-                                "$and": [
-                                    { "output.nft_id": { "$exists": true } },
-                                    { "output.nft_id": { "$ne": NftId::implicit() } },
-                                ]
-                            } },
-                            { "$group": {
-                                "_id": "$output.nft_id",
-                                "transferred": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
-                                "unspent": { "$max": { "$cond": [ { "$eq": [ "$metadata.spent_metadata", null ] }, 1, 0 ] } },
-                            } },
-                            { "$group": {
-                                "_id": null,
-                                "transferred": { "$sum": "$transferred" },
-                                "destroyed": { "$sum": { "$cond": [ { "$eq": [ "$unspent", 0 ] }, 1, 0 ] } },
-                            } },
-                        ],
-                        "alias_created": [
-                            { "$match": {
-                                "metadata.booked.milestone_index": index,
-                                "output.alias_id": AliasId::implicit(),
-                            } },
-                            { "$group": {
-                                "_id": null,
-                                "count": { "$sum": 1 },
-                            } },
-                        ],
-                        "alias_changed": [
-                            { "$match": {
-                                "$and": [
-                                    { "output.alias_id": { "$exists": true } },
-                                    { "output.alias_id": { "$ne": AliasId::implicit() } },
-                                ]
-                            } },
-                            // Group by state indexes to find where it changed
-                            { "$group": {
-                                "_id": { "alias_id": "$output.alias_id", "state_index": "$output.state_index" },
-                                "total": { "$sum": { "$cond": [ { "$eq": [ "$metadata.booked.milestone_index", index ] }, 1, 0 ] } },
-                                "unspent": { "$max": { "$cond": [ { "$eq": [ "$metadata.spent_metadata", null ] }, 1, 0 ] } },
-                                "prev_state": { "$max": { "$cond": [ { "$lt": [ "$metadata.booked.milestone_index", index ] }, "$output.state_index", 0 ] } },
-                            } },
-                            { "$group": {
-                                "_id": "$_id.alias_id",
-                                "total": { "$sum": "$total" },
-                                "state": { "$sum": { "$cond": [ { "$ne": [ "$_id.state_index", "$prev_state" ] }, 1, 0 ] } },
-                                "unspent": { "$max": "$unspent" },
-                            } },
-                            { "$group": {
-                                "_id": null,
-                                "total": { "$sum": "$total" },
-                                "state": { "$sum": "$state" },
-                                "destroyed": { "$sum": { "$cond": [ { "$eq": [ "$unspent", 0 ] }, 1, 0 ] } },
-                            } },
-                            { "$set": { "governor": { "$subtract": [ "$total", "$state" ] } } },
-                        ],
+                        "spent_screening": [
+                            { "$project": {
+                                "_id": {
+                                    "$cond": [
+                                        { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", index ] },
+                                        "$metadata.spent_metadata.transaction_id",
+                                        "$_id.transaction_id"
+                                    ]
+                                },
+                                "output_id": "$_id",
+                                "asset_id": "$output.nft_id",
+                                }
+                            }
+                        ]
                     } },
+                    // Merge both arrays from the previous facet operation. That will remove duplicates (outputs
+                    // where each screening produced the same result) and keep outputs that were booked and spent
+                    // within the same milestone. 
+                    doc! { "$project": { "nft_outputs": { "$setUnion": [ "$booked_screening", "$spent_screening" ] } } },
+                    doc! { "$unwind": { "path": "$nft_outputs" } },
+                    // Reconstruct the inputs and outputs for the given asset.
+                    doc! { "$group": {
+                        "_id": "$nft_outputs._id",
+                        "inputs": { "$push": {
+                            "$cond": [
+                                { "$ne": [ "$nft_outputs.output_id.transaction_id", "$nft_outputs._id" ] },
+                                {
+                                    "id": "$nft_outputs.output_id",
+                                    "asset_id": "$nft_outputs.asset_id"
+                                },
+                                null
+                            ]
+                        } },
+                        "outputs": { "$push": {
+                            "$cond": [
+                                { "$eq": [ "$nft_outputs.output_id.transaction_id", "$nft_outputs._id" ] },
+                                {
+                                    "id": "$nft_outputs.output_id",
+                                    "asset_id": "$nft_outputs.asset_id"
+                                },
+                                null
+                            ]
+                        } },
+                    } },
+                    // Filter out the `null`s created in the previous stage.
+                    // Note: not really necessary, but may reduce risk of bugs.
                     doc! { "$project": {
-                        "alias": {
-                            "created_count": { "$first": "$alias_created.count" },
-                            "state_changed_count": { "$first": "$alias_changed.state" },
-                            "governor_changed_count": { "$first": "$alias_changed.governor" },
-                            "destroyed_count": { "$first": "$alias_changed.destroyed" },
-                        },
-                        "nft": {
-                            "created_count": { "$first": "$nft_created.count" },
-                            "transferred_count": { "$first": "$nft_changed.transferred" },
-                            "destroyed_count": { "$first": "$nft_changed.destroyed" },
-                        },
+                        "_id": 1,
+                        "inputs": {  "$filter": {
+                            "input": "$inputs",
+                            "as": "item",
+                            "cond": { "$ne": [ "$$item", null ] }
+                        } },
+                        "outputs": { "$filter": {
+                            "input": "$outputs",
+                            "as": "item",
+                            "cond": { "$ne": [ "$$item", null ] }
+                        } }
                     } },
+                    // Produce the relevant analytics.
+                    doc! {
+                        "$group": {
+                            "_id": null,
+                            "created_count": {
+                                "$sum": { "$size": {
+                                    "$filter": {
+                                        "input": "$outputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$eq": [ "$$item", NftId::implicit() ] }
+                                    }
+                                } }
+                            },
+                            "transferred_count": {
+                                "$sum": {  "$size": { "$setIntersection": [
+                                    { "$filter": {
+                                        "input": "$inputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", NftId::implicit() ] }
+                                    } },
+                                    { "$filter": {
+                                        "input": "$outputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", NftId::implicit() ] }
+                                    } }
+                                ] } }
+                            },
+                            "destroyed_count": {
+                                "$sum": {  "$size": { "$setDifference": [
+                                    { "$filter": {
+                                        "input": "$inputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", NftId::implicit() ] }
+                                    } },
+                                    { "$filter": {
+                                        "input": "$outputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", NftId::implicit() ] }
+                                    } }
+                                ] } }
+                            }
+                        }
+                    },
+                ],
+                None,
+            )
+            .await?
+            .try_next()
+            .await?
+            .unwrap_or_default())
+    }
+
+    /// Gathers analytics about alias outputs that were created/transferred/burned in the given milestone.
+    #[tracing::instrument(skip(self), err, level = "trace")]
+    pub async fn get_alias_output_activity_analytics(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<AliasActivityAnalyticsResult, Error> {
+        Ok(self
+            .aggregate([
+                    // Match all alias outputs in the given milestone.
+                    doc! { "$match": {
+                        "$and": [
+                            { "$or": [
+                                { "metadata.booked.milestone_index": index },
+                                { "metadata.spent_metadata.spent.milestone_index": index },
+                            ] },
+                            { "output.kind": "alias" },
+                        ]
+                    } },
+                    // Screen outputs for being booked and/or spent. An output that was booked and
+                    // spent will appear in both arrays, but with different ids.
+                    doc! { "$facet": {
+                        "booked_screening": [
+                            { "$project": {
+                                "_id": {
+                                    "$cond": [
+                                        { "$eq": [ "$metadata.booked.milestone_index", index ] },
+                                        "$_id.transaction_id",
+                                        "$metadata.spent_metadata.transaction_id"
+                                    ]
+                                },
+                                "output_id": "$_id",
+                                "asset_id": "$output.alias_id",
+                                "state_index": "$output.state_index",
+                                "governor_address": "$output.governor_address_unlock_condition.address",
+                            } }
+                        ],
+                        "spent_screening": [
+                            {"$project": {
+                                "_id": {
+                                    "$cond": [
+                                        { "$eq": [ "$metadata.spent_metadata.spent.milestone_index", index ] },
+                                        "$metadata.spent_metadata.transaction_id",
+                                        "$_id.transaction_id"
+                                    ]
+                                },
+                                "output_id": "$_id",
+                                "asset_id": "$output.alias_id",
+                                "state_index": "$output.state_index",
+                                "governor_address": "$output.governor_address_unlock_condition.address",
+                                }
+                            }
+                        ]
+                    } },
+                    // Merge both arrays from the previous facet operation. That will remove duplicates (outputs
+                    // where each screening produced the same result) and keep outputs that were booked and spent
+                    // within the same milestone. 
+                    doc! { "$project": { "alias_outputs": { "$setUnion": [ "$booked_screening", "$spent_screening" ] } } },
+                    doc! { "$unwind": { "path": "$alias_outputs" } },
+                    // Reconstruct the inputs and outputs for the given asset.
+                    doc! { "$group": {
+                        "_id": { 
+                            "tx_id": "$alias_outputs._id",
+                            "asset_id": "$alias_outputs.asset_id",
+                        },
+                        "inputs": { "$push": {
+                            "$cond": [
+                                { "$ne": [ "$alias_outputs.output_id.transaction_id", "$alias_outputs._id" ] },
+                                {
+                                    "id": "$alias_outputs.output_id",
+                                    "asset_id": "$alias_outputs.asset_id",
+                                    "state_index": "$alias_outputs.state_index",
+                                    "governor_address": "$alias_outputs.governor_address",
+                                },
+                                null
+                            ]
+                        } },
+                        "outputs": { "$push": {
+                            "$cond": [
+                                { "$eq": [ "$alias_outputs.output_id.transaction_id", "$alias_outputs._id" ] },
+                                {
+                                    "id": "$alias_outputs.output_id",
+                                    "asset_id": "$alias_outputs.asset_id",
+                                    "state_index": "$alias_outputs.state_index",
+                                    "governor_address": "$alias_outputs.governor_address",
+                                },
+                                null
+                            ]
+                        } },
+                    } },
+                    // Filter out the `null`s created in the previous stage.
+                    // Note: not really necessary, but may reduce risk of bugs.
+                    doc! { "$project": {
+                        "_id": 1,
+                        "inputs": {  "$filter": {
+                            "input": "$inputs",
+                            "as": "item",
+                            "cond": { "$ne": [ "$$item", null ] }
+                        } },
+                        "outputs": { "$filter": {
+                            "input": "$outputs",
+                            "as": "item",
+                            "cond": { "$ne": [ "$$item", null ] }
+                        } }
+                    } },
+                    // Add fields that indicate whether state index and/or govnernor address changed.
+                    doc! { "$project": {
+                        "_id": 1,
+                        "inputs": 1,
+                        "outputs": 1,
+                        "state_changed": { "$cond": [ 
+                            { "$and": [
+                                { "$gt": [ {"$size": "$inputs" }, 0 ] },
+                                { "$gt": [ {"$size": "$outputs" }, 0] },
+                                { "$lt": [ { "$max": "$inputs.state_index" }, { "$max": "$outputs.state_index" } ] }
+                            ] }, 1, 0 ] },
+                        "governor_address_changed": { "$cond": [ 
+                            { "$and": [
+                                { "$gt": [ {"$size": "$inputs" }, 0 ] },
+                                { "$gt": [ {"$size": "$outputs" }, 0] },
+                                { "$ne": [ { "$first": "$inputs.governor_address" }, { "$first": "$outputs.governor_address" } ] },
+                            ] }, 1, 0 ] },
+                    } },
+                    // Produce the relevant analytics.
+                    doc! {
+                        "$group": {
+                            "_id": null,
+                            "created_count": {
+                                "$sum": { "$size": {
+                                    "$filter": {
+                                        "input": "$outputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$eq": [ "$$item", AliasId::implicit() ] }
+                                    }
+                                } }
+                            },
+                            "state_changed_count": {
+                                "$sum": "$state_changed",
+                            },
+                            "governor_changed_count": {
+                                "$sum": "$governor_address_changed",
+                            },
+                            "destroyed_count": {
+                                "$sum": {  "$size": { "$setDifference": [
+                                    { "$filter": {
+                                        "input": "$inputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", AliasId::implicit() ] }
+                                    } },
+                                    { "$filter": {
+                                        "input": "$outputs.asset_id",
+                                        "as": "item",
+                                        "cond": { "$ne": [ "$$item", AliasId::implicit() ] }
+                                    } }
+                                ] } }
+                            }
+                        }
+                    },
                 ],
                 None,
             )

@@ -13,6 +13,11 @@ on:
       - "**.md"
       - "documentation/**"
       - "docker/**"
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,10 +39,12 @@ jobs:
     with: { os: ubuntu-latest, rust: nightly }
 
   clippy:
+    if: ${{ !github.event.pull_request.draft }}
     uses: ./.github/workflows/_clippy.yml
     with: { os: ubuntu-latest, rust: stable }
 
   check-toml:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -57,6 +64,7 @@ jobs:
           command: ci-toml
 
   docs:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: "-D warnings"
@@ -79,3 +87,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: ci-doc
+  
+  check-all-features:
+    if: ${{ !github.event.pull_request.draft }}
+    uses: ./.github/workflows/_features.yml

@@ -97,6 +97,7 @@ mod test_rand {
                     .get_block_for_transaction(&transaction_id)
                     .await
                     .unwrap()
+                    .map(|res| res.block)
                     .as_ref(),
                 Some(block),
             );

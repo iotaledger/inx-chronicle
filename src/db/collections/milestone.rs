@@ -111,7 +111,7 @@ impl MilestoneCollection {
         milestone_id: &MilestoneId,
     ) -> Result<Option<MilestonePayload>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "_id": milestone_id } },
                 doc! { "$replaceWith": "$payload" },
             ],
@@ -125,7 +125,7 @@ impl MilestoneCollection {
     /// Gets [`MilestonePayload`] of a milestone by the [`MilestoneIndex`].
     pub async fn get_milestone_payload(&self, index: MilestoneIndex) -> Result<Option<MilestonePayload>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "at.milestone_index": index } },
                 doc! { "$replaceWith": "$payload" },
             ],
@@ -247,34 +247,31 @@ impl MilestoneCollection {
         .await
     }
 
+    async fn get_first_milestone_sorted(&self, order: i32) -> Result<Option<MilestoneIndexTimestamp>, Error> {
+        self.aggregate(
+            [
+                doc! { "$sort": doc! { "at.milestone_index": order } },
+                doc! { "$limit": 1 },
+                doc! { "$project": doc! {
+                    "milestone_index": "$at.milestone_index",
+                    "milestone_timestamp": "$at.milestone_timestamp"
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
+    }
+
     /// Find the newest milestone.
     pub async fn get_newest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.find_one(
-            doc! {},
-            FindOneOptions::builder()
-                .sort(doc! { "at.milestone_index": BY_NEWEST })
-                .projection(doc! {
-                    "milestone_index": "$at.milestone_index",
-                    "milestone_timestamp": "$at.milestone_timestamp",
-                })
-                .build(),
-        )
-        .await
+        self.get_first_milestone_sorted(BY_NEWEST).await
     }
 
     /// Find the oldest milestone.
     pub async fn get_oldest_milestone(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
-        self.find_one(
-            doc! {},
-            FindOneOptions::builder()
-                .sort(doc! { "at.milestone_index": BY_OLDEST })
-                .projection(doc! {
-                    "milestone_index": "$at.milestone_index",
-                    "milestone_timestamp": "$at.milestone_timestamp",
-                })
-                .build(),
-        )
-        .await
+        self.get_first_milestone_sorted(BY_OLDEST).await
     }
 
     /// Gets the current ledger index.
@@ -324,8 +321,7 @@ impl MilestoneCollection {
         }
 
         Ok(self
-            .aggregate(
-                vec![
+            .aggregate([
                     doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$and": [ { "$exists": true }, { "$eq": migrated_at } ] },
@@ -366,7 +362,7 @@ impl MilestoneCollection {
         };
 
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "$nor": [
                         { "at.milestone_timestamp": { "$lt": start_timestamp } },

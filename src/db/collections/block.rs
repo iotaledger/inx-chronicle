@@ -93,12 +93,24 @@ impl MongoDbCollection for BlockCollection {
     }
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct IncludedBlockResult {
+    pub block_id: BlockId,
+    pub block: Block,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct IncludedBlockMetadataResult {
+    pub block_id: BlockId,
+    pub metadata: BlockMetadata,
+}
+
 /// Implements the queries for the core API.
 impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "_id": block_id } },
                 doc! { "$lookup": {
                     "from": OutputCollection::NAME,
@@ -137,7 +149,7 @@ impl BlockCollection {
 
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": { "_id": block_id } },
                     doc! { "$replaceWith": { "data": "$raw" } },
                 ],
@@ -152,7 +164,7 @@ impl BlockCollection {
     /// Get the metadata of a [`Block`] by its [`BlockId`].
     pub async fn get_block_metadata(&self, block_id: &BlockId) -> Result<Option<BlockMetadata>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "_id": block_id } },
                 doc! { "$replaceWith": "$metadata" },
             ],
@@ -177,7 +189,7 @@ impl BlockCollection {
 
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": { "block.parents": block_id } },
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
@@ -270,9 +282,12 @@ impl BlockCollection {
     }
 
     /// Finds the [`Block`] that included a transaction by [`TransactionId`].
-    pub async fn get_block_for_transaction(&self, transaction_id: &TransactionId) -> Result<Option<Block>, Error> {
+    pub async fn get_block_for_transaction(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<IncludedBlockResult>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.transaction_id": transaction_id,
@@ -295,7 +310,10 @@ impl BlockCollection {
                     "$$REMOVE",
                     "$block.payload",
                 ] } } },
-                doc! { "$replaceWith": "$block" },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "block": "$block",
+                } },
             ],
             None,
         )
@@ -317,7 +335,7 @@ impl BlockCollection {
 
         Ok(self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": transaction_id,
@@ -332,10 +350,33 @@ impl BlockCollection {
             .map(|RawResult { data }| data))
     }
 
+    /// Finds the [`BlockMetadata`] that included a transaction by [`TransactionId`].
+    pub async fn get_block_metadata_for_transaction(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> Result<Option<IncludedBlockMetadataResult>, Error> {
+        self.aggregate(
+            [
+                doc! { "$match": {
+                    "metadata.inclusion_state": LedgerInclusionState::Included,
+                    "block.payload.transaction_id": transaction_id,
+                } },
+                doc! { "$replaceWith": {
+                    "block_id": "$_id",
+                    "metadata": "$metadata",
+                } },
+            ],
+            None,
+        )
+        .await?
+        .try_next()
+        .await
+    }
+
     /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
@@ -396,7 +437,7 @@ impl BlockCollection {
         }
 
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": { "$and": queries } },
                 doc! { "$sort": sort },
                 doc! { "$limit": page_size as i64 },

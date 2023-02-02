@@ -15,7 +15,7 @@ use mongodb::{
     options::IndexOptions,
     IndexModel,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub use self::{
     alias::AliasOutputsQuery, basic::BasicOutputsQuery, foundry::FoundryOutputsQuery, nft::NftOutputsQuery,
@@ -25,7 +25,7 @@ use crate::{
     db::{collections::SortOrder, mongodb::MongoDbCollectionExt},
     types::{
         ledger::OutputMetadata,
-        stardust::block::output::{AliasId, FoundryId, NftId, OutputId},
+        stardust::block::output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
         tangle::MilestoneIndex,
     },
 };
@@ -43,12 +43,24 @@ pub struct OutputsResult {
     pub outputs: Vec<OutputResult>,
 }
 
-#[derive(From)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, From)]
+#[serde(untagged)]
 #[allow(missing_docs)]
 pub enum IndexedId {
     Alias(AliasId),
     Foundry(FoundryId),
     Nft(NftId),
+}
+
+impl IndexedId {
+    /// Get the indexed ID kind.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            IndexedId::Alias(_) => AliasOutput::KIND,
+            IndexedId::Foundry(_) => FoundryOutput::KIND,
+            IndexedId::Nft(_) => NftOutput::KIND,
+        }
+    }
 }
 
 impl From<IndexedId> for Bson {
@@ -75,16 +87,12 @@ impl OutputCollection {
         ledger_index: MilestoneIndex,
     ) -> Result<Option<IndexedOutputResult>, Error> {
         let id = id.into();
-        let id_string = match id {
-            IndexedId::Alias(_) => "output.alias_id",
-            IndexedId::Foundry(_) => "output.foundry_id",
-            IndexedId::Nft(_) => "output.nft_id",
-        };
         let mut res = self
             .aggregate(
-                vec![
+                [
                     doc! { "$match": {
-                        id_string: id,
+                        "output.kind": id.kind(),
+                        "details.indexed_id": id,
                         "metadata.booked.milestone_index": { "$lte": ledger_index },
                         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                     } },
@@ -153,7 +161,7 @@ impl OutputCollection {
         } };
         let outputs = self
             .aggregate(
-                vec![
+                [
                     match_doc,
                     doc! { "$sort": sort },
                     doc! { "$limit": page_size as i64 },
@@ -183,44 +191,12 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.alias_id": 1 })
+                .keys(doc! { "details.indexed_id": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_alias_id_index".to_string())
+                        .name("output_indexed_id_index".to_string())
                         .partial_filter_expression(doc! {
-                            "output.alias_id": { "$exists": true },
-                        })
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "output.foundry_id": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_foundry_id_index".to_string())
-                        .partial_filter_expression(doc! {
-                            "output.foundry_id": { "$exists": true },
-                        })
-                        .build(),
-                )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "output.nft_id": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("output_nft_id_index".to_string())
-                        .partial_filter_expression(doc! {
-                            "output.nft_id": { "$exists": true },
+                            "details.indexed_id": { "$exists": true },
                         })
                         .build(),
                 )
