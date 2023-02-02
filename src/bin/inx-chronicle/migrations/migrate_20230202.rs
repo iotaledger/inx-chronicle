@@ -4,7 +4,7 @@
 use chronicle::{
     db::{
         collections::{ApplicationStateCollection, OutputCollection},
-        MongoDb, MongoDbCollection, MongoDbCollectionExt,
+        MongoDb, MongoDbCollectionExt,
     },
     types::stardust::block::output::{AliasId, NftId, OutputId},
 };
@@ -94,17 +94,11 @@ pub async fn inner_migrate(db: &MongoDb) -> eyre::Result<()> {
         )
         .await?;
 
-    collection
-        .collection()
-        .drop_index("output_alias_id_index", None)
-        .await?;
+    collection.drop_index("output_alias_id_index", None).await?;
 
-    collection
-        .collection()
-        .drop_index("output_foundry_id_index", None)
-        .await?;
+    collection.drop_index("output_foundry_id_index", None).await?;
 
-    collection.collection().drop_index("output_nft_id_index", None).await?;
+    collection.drop_index("output_nft_id_index", None).await?;
 
     collection
         .create_index(
