@@ -8,9 +8,11 @@ use eyre::bail;
 
 pub mod migrate_20230202;
 
+type MigrateFn = fn(&MongoDb) -> eyre::Result<()>;
+
 pub const LATEST_VERSION: &str = migrate_20230202::VERSION;
 
-const MIGRATIONS: [(Option<&str>, fn(&MongoDb) -> eyre::Result<()>); 1] = [
+const MIGRATIONS: [(Option<&str>, MigrateFn); 1] = [
     // Initial migration
     (None, migrate_20230202::migrate),
 ];
