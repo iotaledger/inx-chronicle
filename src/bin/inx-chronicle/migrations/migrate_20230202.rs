@@ -120,7 +120,7 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
         .await?;
 
     db.collection::<ApplicationStateCollection>()
-        .set_version(VERSION)
+        .set_last_migration(VERSION)
         .await?;
 
     Ok(())
