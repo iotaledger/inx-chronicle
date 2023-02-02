@@ -3,29 +3,26 @@
 
 use std::collections::HashMap;
 
-use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::Address,
-};
+use super::*;
+use crate::types::stardust::block::Address;
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct BaseTokenActivityMeasurement {
+pub(crate) struct BaseTokenActivityMeasurement {
     /// Represents the amount of tokens transfered. Tokens that are send back to an address are not counted.
-    pub booked_value: u64,
+    pub(crate) booked_value: u64,
     /// Represents the total amount of tokens transfered, independent of wether tokens were sent back to same address.
-    pub transferred_value: u64,
+    pub(crate) transferred_value: u64,
 }
 
-impl TransactionAnalytics for BaseTokenActivityMeasurement {
-    type Measurement = Self;
+impl Analytics for BaseTokenActivityMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Default::default();
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
         // is represented by an address.
         let mut balance_deltas: HashMap<&Address, u64> = HashMap::new();
@@ -50,7 +47,10 @@ impl TransactionAnalytics for BaseTokenActivityMeasurement {
         self.transferred_value = balance_deltas.values().sum();
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

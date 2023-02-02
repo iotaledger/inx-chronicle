@@ -5,29 +5,26 @@ use std::collections::HashSet;
 
 use time::{Duration, OffsetDateTime};
 
-use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::Address,
-};
+use super::*;
+use crate::types::stardust::block::Address;
 
-pub struct AddressActivityMeasurement {
-    pub count: usize,
+pub(crate) struct AddressActivityMeasurement {
+    pub(crate) count: usize,
 }
 
 /// Computes the number of addresses that were active during a given time interval.
 #[allow(missing_docs)]
-pub struct AddressActivityAnalytics {
-    pub start_time: OffsetDateTime,
-    pub interval: Duration,
+pub(crate) struct AddressActivityAnalytics {
+    start_time: OffsetDateTime,
+    interval: Duration,
     addresses: HashSet<Address>,
     // Unfortunately, I don't see another way of implementing it using our current trait design
-    flush: Option<usize>,
+    measurement: Option<AddressActivityMeasurement>,
 }
 
 impl AddressActivityAnalytics {
     /// Initialize the analytics by reading the current ledger state.
-    pub fn init<'a>(
+    pub(crate) fn init<'a>(
         start_time: OffsetDateTime,
         interval: Duration,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
@@ -47,25 +44,27 @@ impl AddressActivityAnalytics {
             start_time,
             interval,
             addresses,
-            flush: None,
+            measurement: None,
         }
     }
 }
 
-impl TransactionAnalytics for AddressActivityAnalytics {
-    type Measurement = AddressActivityMeasurement;
+impl Analytics for AddressActivityAnalytics {
+    type Measurement = TimeInterval<AddressActivityMeasurement>;
 
-    fn begin_milestone(&mut self, at: MilestoneIndexTimestamp) {
+    fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext) {
         let end = self.start_time + self.interval;
         // Panic: The milestone timestamp is guaranteed to be valid.
-        if OffsetDateTime::try_from(at.milestone_timestamp).unwrap() > end {
-            self.flush = Some(self.addresses.len());
+        if OffsetDateTime::try_from(ctx.at().milestone_timestamp).unwrap() > end {
+            self.measurement = Some(AddressActivityMeasurement {
+                count: self.addresses.len(),
+            });
             self.addresses.clear();
             self.start_time = end;
         }
     }
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in consumed {
             if let Some(a) = input.owning_address() {
                 self.addresses.insert(*a);
@@ -79,7 +78,11 @@ impl TransactionAnalytics for AddressActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        self.flush.take().map(|count| AddressActivityMeasurement { count })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        self.measurement.take().map(|m| TimeInterval {
+            from: self.start_time,
+            to_exclusive: self.start_time + self.interval,
+            inner: m,
+        })
     }
 }

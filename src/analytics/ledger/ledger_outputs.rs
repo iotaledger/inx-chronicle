@@ -3,48 +3,20 @@
 
 #![allow(missing_docs)]
 
-use std::ops::{AddAssign, SubAssign};
-
-use derive_more::{AddAssign, SubAssign};
-
-use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::Output,
-};
+use super::*;
 
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
-pub struct CountValue {
-    pub count: usize,
-    pub value: u64,
-}
-
-impl AddAssign<&LedgerOutput> for CountValue {
-    fn add_assign(&mut self, rhs: &LedgerOutput) {
-        self.count += 1;
-        self.value += rhs.output.amount().0;
-    }
-}
-
-impl SubAssign<&LedgerSpent> for CountValue {
-    fn sub_assign(&mut self, rhs: &LedgerSpent) {
-        self.count -= 1;
-        self.value -= rhs.output.output.amount().0;
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
-pub struct LedgerOutputMeasurement {
-    pub alias: CountValue,
-    pub basic: CountValue,
-    pub nft: CountValue,
-    pub foundry: CountValue,
-    pub treasury: CountValue,
+pub(crate) struct LedgerOutputMeasurement {
+    pub(crate) alias: CountValue,
+    pub(crate) basic: CountValue,
+    pub(crate) nft: CountValue,
+    pub(crate) foundry: CountValue,
+    pub(crate) treasury: CountValue,
 }
 
 impl LedgerOutputMeasurement {
     /// Initialize the analytics by reading the current ledger state.
-    pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
             match output.output {
@@ -59,12 +31,12 @@ impl LedgerOutputMeasurement {
     }
 }
 
-impl TransactionAnalytics for LedgerOutputMeasurement {
-    type Measurement = Self;
+impl Analytics for LedgerOutputMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 
@@ -72,7 +44,10 @@ impl TransactionAnalytics for LedgerOutputMeasurement {
         *self -= consumed;
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

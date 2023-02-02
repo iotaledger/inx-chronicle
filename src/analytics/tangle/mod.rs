@@ -3,16 +3,16 @@
 
 //! Statistics about the tangle.
 
-pub(crate) use self::{block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement};
-use crate::{tangle::BlockData, types::tangle::MilestoneIndex};
+pub(crate) use self::{
+    block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement,
+    protocol_params::ProtocolParamsMeasurement,
+};
+use crate::{
+    analytics::{Analytics, AnalyticsContext, PerMilestone},
+    tangle::BlockData,
+    types::{stardust::block::Payload, tangle::ProtocolParameters},
+};
 
 mod block_activity;
 mod milestone_size;
-
-#[allow(missing_docs)]
-pub trait BlockAnalytics {
-    type Measurement;
-    fn begin_milestone(&mut self, index: MilestoneIndex);
-    fn handle_block(&mut self, block: &BlockData);
-    fn end_milestone(&mut self, index: MilestoneIndex) -> Option<Self::Measurement>;
-}
+mod protocol_params;

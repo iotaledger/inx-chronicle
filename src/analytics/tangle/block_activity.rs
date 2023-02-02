@@ -1,33 +1,30 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::BlockAnalytics;
-use crate::{
-    tangle::BlockData,
-    types::{ledger::LedgerInclusionState, stardust::block::Payload, tangle::MilestoneIndex},
-};
+use super::*;
+use crate::types::ledger::LedgerInclusionState;
 
 /// The type of payloads that occured within a single milestone.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct BlockActivityMeasurement {
-    pub milestone_count: usize,
-    pub no_payload_count: usize,
-    pub tagged_data_count: usize,
-    pub transaction_count: usize,
-    pub treasury_transaction_count: usize,
-    pub confirmed_count: usize,
-    pub conflicting_count: usize,
-    pub no_transaction_count: usize,
+pub(crate) struct BlockActivityMeasurement {
+    pub(crate) milestone_count: usize,
+    pub(crate) no_payload_count: usize,
+    pub(crate) tagged_data_count: usize,
+    pub(crate) transaction_count: usize,
+    pub(crate) treasury_transaction_count: usize,
+    pub(crate) confirmed_count: usize,
+    pub(crate) conflicting_count: usize,
+    pub(crate) no_transaction_count: usize,
 }
 
-impl BlockAnalytics for BlockActivityMeasurement {
-    type Measurement = Self;
+impl Analytics for BlockActivityMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Default::default();
     }
 
-    fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData) {
+    fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData, _ctx: &dyn AnalyticsContext) {
         match block.payload {
             Some(Payload::Milestone(_)) => self.milestone_count += 1,
             Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
@@ -42,7 +39,10 @@ impl BlockAnalytics for BlockActivityMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self> {
-        Some(*self)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

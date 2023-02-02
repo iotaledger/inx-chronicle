@@ -3,24 +3,21 @@
 
 use std::collections::HashMap;
 
-use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::{output::OutputAmount, Address},
-};
+use super::*;
+use crate::types::stardust::block::{output::OutputAmount, Address};
 
-pub struct AddressBalanceMeasurement {
-    pub address_with_balance_count: usize,
+pub(crate) struct AddressBalanceMeasurement {
+    pub(crate) address_with_balance_count: usize,
 }
 
 /// Computes the number of addresses the currently hold a balance.
-pub struct AddressBalancesAnalytics {
+pub(crate) struct AddressBalancesAnalytics {
     balances: HashMap<Address, OutputAmount>,
 }
 
 impl AddressBalancesAnalytics {
     /// Initialize the analytics by reading the current ledger state.
-    pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut balances = HashMap::new();
         for output in unspent_outputs {
             if let Some(&a) = output.owning_address() {
@@ -31,12 +28,12 @@ impl AddressBalancesAnalytics {
     }
 }
 
-impl TransactionAnalytics for AddressBalancesAnalytics {
-    type Measurement = AddressBalanceMeasurement;
+impl Analytics for AddressBalancesAnalytics {
+    type Measurement = PerMilestone<AddressBalanceMeasurement>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in consumed {
             if let Some(a) = input.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
@@ -57,9 +54,12 @@ impl TransactionAnalytics for AddressBalancesAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(AddressBalanceMeasurement {
-            address_with_balance_count: self.balances.len(),
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: AddressBalanceMeasurement {
+                address_with_balance_count: self.balances.len(),
+            },
         })
     }
 }

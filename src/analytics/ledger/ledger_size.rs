@@ -1,15 +1,9 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use derive_more::{AddAssign, SubAssign};
+use super::*;
+use crate::types::{context::TryFromWithContext, ledger::RentStructureBytes, tangle::ProtocolParameters};
 
-use super::TransactionAnalytics;
-use crate::types::{
-    context::TryFromWithContext,
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes},
-    stardust::block::Output,
-    tangle::ProtocolParameters,
-};
 trait LedgerSize {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement;
 }
@@ -34,21 +28,21 @@ impl LedgerSize for Output {
 
 /// Ledger size statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
-pub struct LedgerSizeMeasurement {
-    pub total_key_bytes: u64,
-    pub total_data_bytes: u64,
-    pub total_storage_deposit_value: u64,
+pub(crate) struct LedgerSizeMeasurement {
+    pub(crate) total_key_bytes: u64,
+    pub(crate) total_data_bytes: u64,
+    pub(crate) total_storage_deposit_value: u64,
 }
 
 /// Measures the ledger size depending on current protocol parameters.
-pub struct LedgerSizeAnalytics {
+pub(crate) struct LedgerSizeAnalytics {
     protocol_params: ProtocolParameters,
     measurement: LedgerSizeMeasurement,
 }
 
 impl LedgerSizeAnalytics {
     /// Set the protocol parameters for this analytic.
-    pub fn init<'a>(
+    pub(crate) fn init<'a>(
         protocol_params: ProtocolParameters,
         unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>,
     ) -> Self {
@@ -63,12 +57,12 @@ impl LedgerSizeAnalytics {
     }
 }
 
-impl TransactionAnalytics for LedgerSizeAnalytics {
-    type Measurement = LedgerSizeMeasurement;
+impl Analytics for LedgerSizeAnalytics {
+    type Measurement = PerMilestone<LedgerSizeMeasurement>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in created {
             self.measurement += output.output.ledger_size(&self.protocol_params);
         }
@@ -77,7 +71,10 @@ impl TransactionAnalytics for LedgerSizeAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(self.measurement)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: self.measurement,
+        })
     }
 }

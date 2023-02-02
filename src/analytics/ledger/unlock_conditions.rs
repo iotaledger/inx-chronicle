@@ -1,26 +1,20 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use derive_more::{AddAssign, SubAssign};
-
-use super::{CountValue, TransactionAnalytics};
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::Output,
-};
+use super::*;
 
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 #[allow(missing_docs)]
-pub struct UnlockConditionMeasurement {
-    pub timelock: CountValue,
-    pub expiration: CountValue,
-    pub storage_deposit_return: CountValue,
-    pub storage_deposit_return_inner_value: u64,
+pub(crate) struct UnlockConditionMeasurement {
+    pub(crate) timelock: CountValue,
+    pub(crate) expiration: CountValue,
+    pub(crate) storage_deposit_return: CountValue,
+    pub(crate) storage_deposit_return_inner_value: u64,
 }
 
 impl UnlockConditionMeasurement {
     /// Initialize the analytics by reading the current ledger state.
-    pub fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
         for output in unspent_outputs {
             match &output.output {
@@ -57,12 +51,12 @@ impl UnlockConditionMeasurement {
     }
 }
 
-impl TransactionAnalytics for UnlockConditionMeasurement {
-    type Measurement = Self;
+impl Analytics for UnlockConditionMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 
@@ -70,7 +64,10 @@ impl TransactionAnalytics for UnlockConditionMeasurement {
         *self -= consumed;
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(*self)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }
