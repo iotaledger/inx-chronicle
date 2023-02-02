@@ -10,7 +10,7 @@ mod test_rand {
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
-                output::{BasicOutput, OutputAmount, OutputId},
+                output::{BasicOutput, TokenAmount, OutputId},
                 payload::TransactionId,
                 BlockId, Output,
             },
@@ -19,7 +19,7 @@ mod test_rand {
 
     use super::common::{setup_collection, setup_database, teardown};
 
-    fn rand_output_with_value(amount: OutputAmount) -> Output {
+    fn rand_output_with_value(amount: TokenAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
         let mut output = BasicOutput::rand(&iota_types::block::protocol::protocol_parameters());
         output.amount = amount;

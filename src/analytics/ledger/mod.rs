@@ -21,7 +21,7 @@ use crate::{
     analytics::{Analytics, AnalyticsContext, PerMilestone, TimeInterval},
     types::{
         ledger::{LedgerOutput, LedgerSpent},
-        stardust::block::Output,
+        stardust::block::{Output, output::TokenAmount},
     },
 };
 
@@ -37,19 +37,19 @@ mod unlock_conditions;
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 pub(crate) struct CountValue {
     pub(crate) count: usize,
-    pub(crate) value: u64,
+    pub(crate) value: TokenAmount,
 }
 
 impl AddAssign<&LedgerOutput> for CountValue {
     fn add_assign(&mut self, rhs: &LedgerOutput) {
         self.count += 1;
-        self.value += rhs.output.amount().0;
+        self.value += rhs.output.amount();
     }
 }
 
 impl SubAssign<&LedgerSpent> for CountValue {
     fn sub_assign(&mut self, rhs: &LedgerSpent) {
         self.count -= 1;
-        self.value -= rhs.output.output.amount().0;
+        self.value -= rhs.output.output.amount();
     }
 }

@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::types::stardust::block::{output::OutputAmount, Address};
+use crate::types::stardust::block::{output::TokenAmount, Address};
 
 pub(crate) struct AddressBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
@@ -12,7 +12,7 @@ pub(crate) struct AddressBalanceMeasurement {
 
 /// Computes the number of addresses the currently hold a balance.
 pub(crate) struct AddressBalancesAnalytics {
-    balances: HashMap<Address, OutputAmount>,
+    balances: HashMap<Address, TokenAmount>,
 }
 
 impl AddressBalancesAnalytics {
@@ -39,7 +39,7 @@ impl Analytics for AddressBalancesAnalytics {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
                 if let Some(amount) = self.balances.get_mut(a) {
                     *amount -= input.amount();
-                    if *amount == OutputAmount(0) {
+                    if *amount == TokenAmount(0) {
                         self.balances.remove(a);
                     }
                 }

@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use super::OutputAmount;
+use super::TokenAmount;
 use crate::types::{context::TryFromWithContext, stardust::block::Address};
 
 /// Defines the amount of tokens used as storage deposit that have to be returned to the return address.
@@ -15,7 +15,7 @@ pub struct StorageDepositReturnUnlockCondition {
     /// The address to which funds will be returned once the storage deposit is unlocked.
     pub return_address: Address,
     /// The amount held in storage.
-    pub amount: OutputAmount,
+    pub amount: TokenAmount,
 }
 
 impl<T: Borrow<iota::StorageDepositReturnUnlockCondition>> From<T> for StorageDepositReturnUnlockCondition {
@@ -57,7 +57,7 @@ mod rand {
         pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 return_address: Address::rand_ed25519(),
-                amount: OutputAmount::rand(ctx),
+                amount: TokenAmount::rand(ctx),
             }
         }
     }
