@@ -15,6 +15,7 @@ use serde::Deserialize;
 pub const VERSION: &str = "20230202";
 
 pub fn migrate(db: &MongoDb) -> eyre::Result<()> {
+    tracing::info!("Migrating to version {}", VERSION);
     tokio::task::block_in_place(move || tokio::runtime::Handle::current().block_on(inner_migrate(db)))
 }
 
