@@ -14,7 +14,11 @@ use serde::Deserialize;
 
 pub const VERSION: &str = "20230202";
 
-pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
+pub fn migrate(db: &MongoDb) -> eyre::Result<()> {
+    tokio::task::block_in_place(move || tokio::runtime::Handle::current().block_on(inner_migrate(db)))
+}
+
+pub async fn inner_migrate(db: &MongoDb) -> eyre::Result<()> {
     let collection = db.collection::<OutputCollection>();
 
     #[derive(Deserialize)]
