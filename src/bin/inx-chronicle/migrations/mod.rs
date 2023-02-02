@@ -6,7 +6,7 @@ use eyre::bail;
 
 pub mod migrate_20230202;
 
-const LATEST_VERSION: &str = "20230202";
+const LATEST_VERSION: &str = migrate_20230202::VERSION;
 
 pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
     loop {
