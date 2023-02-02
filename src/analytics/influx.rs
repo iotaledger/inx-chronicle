@@ -26,6 +26,16 @@ trait Measurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery;
 }
 
+trait AddFields<M: Measurement> {
+    fn add_fields(self, measurement: &M) -> Self;
+}
+
+impl<M: Measurement> AddFields<M> for WriteQuery {
+    fn add_fields(self, measurement: &M) -> Self {
+        measurement.add_fields(self)
+    }
+}
+
 pub(super) trait PrepareQuery: Send + Sync {
     fn prepare_query(&self) -> WriteQuery;
 }
@@ -41,11 +51,10 @@ where
     M: Measurement,
 {
     fn prepare_query(&self) -> WriteQuery {
-        self.inner.add_fields(
-            influxdb::Timestamp::from(self.at.milestone_timestamp)
-                .into_query(M::NAME)
-                .add_field("milestone_index", self.at.milestone_index),
-        )
+        influxdb::Timestamp::from(self.at.milestone_timestamp)
+            .into_query(M::NAME)
+            .add_field("milestone_index", self.at.milestone_index)
+            .add_fields(&self.inner)
     }
 }
 
@@ -56,8 +65,9 @@ where
     fn prepare_query(&self) -> WriteQuery {
         // We subtract 1 nanosecond to get the inclusive end of the time interval.
         let timestamp = self.to_exclusive - Duration::nanoseconds(1);
-        self.inner
-            .add_fields(influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp)).into_query(M::NAME))
+        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp))
+            .into_query(M::NAME)
+            .add_fields(&self.inner)
     }
 }
 
