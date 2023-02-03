@@ -71,9 +71,9 @@ pub async fn fill_analytics(
                     .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
                     .await?;
 
+                let elapsed = start_time.elapsed();
                 #[cfg(feature = "metrics")]
                 {
-                    let elapsed = start_time.elapsed();
                     influx_db
                         .metrics()
                         .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
@@ -84,7 +84,7 @@ pub async fn fill_analytics(
                         })
                         .await?;
                 }
-                tracing::info!("Finished analytics for milestone {}", milestone.at.milestone_index);
+                tracing::info!("Finished analytics for milestone {} in {}ms.", milestone.at.milestone_index, elapsed.as_millis());
             }
             eyre::Result::<_>::Ok(())
         });
