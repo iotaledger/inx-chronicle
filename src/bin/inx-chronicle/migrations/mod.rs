@@ -16,9 +16,7 @@ pub mod migrate_20230202;
 
 pub const LATEST_VERSION: &str = migrate_20230202::Migrate::VERSION;
 
-const MIGRATIONS: &[&'static dyn DynMigration] = &[
-    &migrate_20230202::Migrate
-];
+const MIGRATIONS: &[&'static dyn DynMigration] = &[&migrate_20230202::Migrate];
 
 fn build_migrations(
     migrations: &[&'static dyn DynMigration],
