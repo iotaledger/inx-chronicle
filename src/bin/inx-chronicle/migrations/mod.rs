@@ -50,29 +50,26 @@ pub trait Migration {
     async fn migrate(db: &MongoDb) -> eyre::Result<()>;
 }
 
+#[async_trait]
 trait DynMigration: Send + Sync {
     fn version(&self) -> MigrationVersion;
 
-    fn migrate(&self, db: &MongoDb) -> eyre::Result<()>;
+    async fn migrate(&self, db: &MongoDb) -> eyre::Result<()>;
 }
 
+#[async_trait]
 impl<T: Migration + Send + Sync> DynMigration for T {
     fn version(&self) -> MigrationVersion {
         T::version()
     }
 
-    fn migrate(&self, db: &MongoDb) -> eyre::Result<()> {
+    async fn migrate(&self, db: &MongoDb) -> eyre::Result<()> {
         let version = self.version();
-        tracing::info!("Migrating to version {}", version);
-        tokio::task::block_in_place(move || {
-            tokio::runtime::Handle::current().block_on(async {
-                T::migrate(db).await?;
-                db.collection::<ApplicationStateCollection>()
-                    .set_last_migration(version)
-                    .await?;
-                Ok(())
-            })
-        })
+        T::migrate(db).await?;
+        db.collection::<ApplicationStateCollection>()
+            .set_last_migration(version)
+            .await?;
+        Ok(())
     }
 }
 
@@ -121,7 +118,7 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
         }
         match migrations.get(&last_migration) {
             Some(migration) => {
-                migration.migrate(db)?;
+                migration.migrate(db).await?;
             }
             None => {
                 bail!(
