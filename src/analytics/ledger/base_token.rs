@@ -10,9 +10,9 @@ use crate::types::stardust::block::{output::TokenAmount, Address};
 #[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct BaseTokenActivityMeasurement {
     /// Represents the amount of tokens transfered. Tokens that are send back to an address are not counted.
-    pub(crate) booked_value: TokenAmount,
+    pub(crate) booked_amount: TokenAmount,
     /// Represents the total amount of tokens transfered, independent of wether tokens were sent back to same address.
-    pub(crate) transferred_value: TokenAmount,
+    pub(crate) transferred_amount: TokenAmount,
 }
 
 impl Analytics for BaseTokenActivityMeasurement {
@@ -34,7 +34,7 @@ impl Analytics for BaseTokenActivityMeasurement {
             }
         }
 
-        self.booked_value = balance_deltas.values().copied().sum();
+        self.booked_amount = balance_deltas.values().copied().sum();
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for input in consumed {
@@ -44,7 +44,7 @@ impl Analytics for BaseTokenActivityMeasurement {
         }
 
         // The number of transferred tokens is then the sum of all deltas.
-        self.transferred_value = balance_deltas.values().copied().sum();
+        self.transferred_amount = balance_deltas.values().copied().sum();
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {

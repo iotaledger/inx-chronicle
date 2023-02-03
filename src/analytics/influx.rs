@@ -84,8 +84,8 @@ impl Measurement for BaseTokenActivityMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("booked_value", self.booked_value.0)
-            .add_field("transferred_value", self.transferred_value.0)
+            .add_field("booked_value", self.booked_amount.0)
+            .add_field("transferred_value", self.transferred_amount.0)
     }
 }
 
