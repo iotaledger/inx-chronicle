@@ -9,6 +9,7 @@ use chronicle::db::{
     MongoDb,
 };
 use eyre::bail;
+use tracing::info;
 
 pub mod migrate_0;
 
@@ -73,6 +74,37 @@ impl<T: Migration + Send + Sync> DynMigration for T {
             })
         })
     }
+}
+
+pub async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
+    let latest_version = <LatestMigration as Migration>::version();
+    match db
+        .collection::<ApplicationStateCollection>()
+        .get_last_migration()
+        .await?
+    {
+        None => {
+            // Check if this is the first application run
+            if db
+                .collection::<ApplicationStateCollection>()
+                .get_starting_index()
+                .await?
+                .is_none()
+            {
+                info!("Setting migration version to {}", latest_version);
+                db.collection::<ApplicationStateCollection>()
+                    .set_last_migration(latest_version)
+                    .await?;
+            } else {
+                migrate(db).await?;
+            }
+        }
+        Some(v) if v == latest_version => (),
+        Some(_) => {
+            migrate(db).await?;
+        }
+    }
+    Ok(())
 }
 
 pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {

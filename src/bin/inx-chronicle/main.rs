@@ -14,14 +14,16 @@ mod process;
 mod stardust_inx;
 
 use bytesize::ByteSize;
-use chronicle::db::{collections::ApplicationStateCollection, MongoDb};
+use chronicle::db::MongoDb;
 use clap::Parser;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use self::cli::{ClArgs, PostCommand};
-use crate::migrations::Migration;
+use self::{
+    cli::{ClArgs, PostCommand},
+    migrations::check_migration_version,
+};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -179,27 +181,6 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
             }
         } else {
             info!("Created {} new indexes in {}", indexes.len(), collection);
-        }
-    }
-    Ok(())
-}
-
-async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
-    let latest_version = migrations::LatestMigration::version();
-    match db
-        .collection::<ApplicationStateCollection>()
-        .get_last_migration()
-        .await?
-    {
-        None => {
-            info!("Setting migration version to {}", latest_version);
-            db.collection::<ApplicationStateCollection>()
-                .set_last_migration(latest_version)
-                .await?;
-        }
-        Some(v) if v == latest_version => (),
-        Some(_) => {
-            migrations::migrate(db).await?;
         }
     }
     Ok(())
