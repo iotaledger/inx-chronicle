@@ -23,7 +23,7 @@ use crate::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
         tangle::MilestoneIndex,
-    },
+    }, inx::RawMessage,
 };
 
 /// Chronicle Block record.
@@ -264,8 +264,17 @@ impl BlockCollection {
         &self,
         index: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<(BlockId, Block, Vec<u8>, BlockMetadata), Error>>, Error> {
+        #[derive(Debug, Deserialize)]
+        struct QueryRes {
+            #[serde(rename = "_id")]
+            block_id: BlockId,
+            #[serde(with = "serde_bytes")]
+            raw: Vec<u8>,
+            metadata: BlockMetadata,
+        }
+
         Ok(self
-            .aggregate::<BlockDocument>(
+            .aggregate::<QueryRes>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
@@ -274,12 +283,9 @@ impl BlockCollection {
             )
             .await?
             .map_ok(
-                |BlockDocument {
-                     block_id,
-                     block,
-                     raw,
-                     metadata,
-                 }| (block_id, block, raw, metadata),
+                |r | {
+                    (r.block_id, RawMessage::<iota_types::block::Block>::from(r.raw.clone()).inner_unverified().unwrap().into(), r.raw, r.metadata)
+                 }
             ))
     }
 
