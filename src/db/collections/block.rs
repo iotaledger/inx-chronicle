@@ -18,12 +18,13 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
+    inx::RawMessage,
     tangle::BlockData,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
         tangle::MilestoneIndex,
-    }, inx::RawMessage,
+    },
 };
 
 /// Chronicle Block record.
@@ -282,11 +283,17 @@ impl BlockCollection {
                 None,
             )
             .await?
-            .map_ok(
-                |r | {
-                    (r.block_id, RawMessage::<iota_types::block::Block>::from(r.raw.clone()).inner_unverified().unwrap().into(), r.raw, r.metadata)
-                 }
-            ))
+            .map_ok(|r| {
+                (
+                    r.block_id,
+                    RawMessage::<iota_types::block::Block>::from(r.raw.clone())
+                        .inner_unverified()
+                        .unwrap()
+                        .into(),
+                    r.raw,
+                    r.metadata,
+                )
+            }))
     }
 
     /// Get the blocks that were applied by the specified milestone (in White-Flag order).
