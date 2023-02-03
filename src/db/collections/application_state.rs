@@ -38,7 +38,7 @@ impl MongoDbCollection for ApplicationStateCollection {
 }
 
 impl ApplicationStateCollection {
-    /// Gets the singleton application state.
+    /// Gets the application starting milestone index.
     pub async fn get_starting_index(&self) -> Result<Option<MilestoneIndexTimestamp>, Error> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
@@ -59,7 +59,7 @@ impl ApplicationStateCollection {
         Ok(())
     }
 
-    /// Gets the singleton application state.
+    /// Gets the last migration version of the database.
     pub async fn get_last_migration(&self) -> Result<Option<String>, Error> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
