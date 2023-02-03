@@ -198,12 +198,8 @@ async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
                 .await?;
         }
         Some(v) if v == latest_version => (),
-        Some(v) => {
-            eyre::bail!(
-                "Expected database migration version {}, but found {}, please run the `migrate` command.",
-                latest_version,
-                v
-            );
+        Some(_) => {
+            migrations::migrate(db).await?;
         }
     }
     Ok(())
