@@ -59,7 +59,8 @@ async fn main() -> eyre::Result<()> {
         Some(migrations::LATEST_VERSION) => (),
         Some(v) => {
             eyre::bail!(
-                "Invalid database migration version {}, please run the `migrate` command.",
+                "Expected database migration version {}, but found {}, please run the `migrate` command.",
+                migrations::LATEST_VERSION,
                 v
             );
         }
