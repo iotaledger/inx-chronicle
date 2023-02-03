@@ -44,27 +44,7 @@ async fn main() -> eyre::Result<()> {
         ByteSize::b(db.size().await?)
     );
 
-    match db
-        .collection::<ApplicationStateCollection>()
-        .get_last_migration()
-        .await?
-        .as_deref()
-    {
-        None => {
-            info!("Setting migration version to {}", migrations::LATEST_VERSION);
-            db.collection::<ApplicationStateCollection>()
-                .set_last_migration(migrations::LATEST_VERSION)
-                .await?;
-        }
-        Some(migrations::LATEST_VERSION) => (),
-        Some(v) => {
-            eyre::bail!(
-                "Expected database migration version {}, but found {}, please run the `migrate` command.",
-                migrations::LATEST_VERSION,
-                v
-            );
-        }
-    }
+    check_migration_version(&db).await?;
 
     build_indexes(&db).await?;
 
@@ -198,6 +178,31 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
             }
         } else {
             info!("Created {} new indexes in {}", indexes.len(), collection);
+        }
+    }
+    Ok(())
+}
+
+async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
+    match db
+        .collection::<ApplicationStateCollection>()
+        .get_last_migration()
+        .await?
+        .as_deref()
+    {
+        None => {
+            info!("Setting migration version to {}", migrations::LATEST_VERSION);
+            db.collection::<ApplicationStateCollection>()
+                .set_last_migration(migrations::LATEST_VERSION)
+                .await?;
+        }
+        Some(migrations::LATEST_VERSION) => (),
+        Some(v) => {
+            eyre::bail!(
+                "Expected database migration version {}, but found {}, please run the `migrate` command.",
+                migrations::LATEST_VERSION,
+                v
+            );
         }
     }
     Ok(())

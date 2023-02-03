@@ -78,7 +78,10 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 migration.migrate(db)?;
             }
             None => {
-                bail!("cannot migrate version {:?}", last_migration);
+                bail!(
+                    "cannot migrate version {:?}, database is in invalid state",
+                    last_migration
+                );
             }
         }
     }
