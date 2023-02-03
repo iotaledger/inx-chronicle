@@ -9,14 +9,13 @@ use eyre::bail;
 
 pub mod migrate_20230202;
 
-/// The list of migrations, in order.
-///
-/// In order to add a new migration, change the `LATEST_VERSION` above and add an entry to this list
-/// in the form `migrate_YYYYMMDD`.
-
 pub const LATEST_VERSION: &str = migrate_20230202::Migrate::VERSION;
 
-const MIGRATIONS: &[&'static dyn DynMigration] = &[&migrate_20230202::Migrate];
+/// The list of migrations, in order.
+const MIGRATIONS: &[&'static dyn DynMigration] = &[
+    // In order to add a new migration, change the `LATEST_VERSION` above and add an entry at the bottom of this list.
+    &migrate_20230202::Migrate,
+];
 
 fn build_migrations(
     migrations: &[&'static dyn DynMigration],
