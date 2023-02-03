@@ -9,30 +9,23 @@ use eyre::bail;
 
 pub mod migrate_20230202;
 
+/// The list of migrations, in order.
+///
+/// In order to add a new migration, change the `LATEST_VERSION` above and add an entry to this list
+/// in the form `migrate_YYYYMMDD`.
+
 pub const LATEST_VERSION: &str = migrate_20230202::Migrate::VERSION;
 
-macro_rules! migration {
-    ($($mig:expr),*$(,)?) => {
-        migration([$(Box::new($mig) as _),*])
-    };
-}
+const MIGRATIONS: &[&'static dyn DynMigration] = &[
+    &migrate_20230202::Migrate
+];
 
-lazy_static::lazy_static! {
-    /// The list of migrations, in order.
-    ///
-    /// In order to add a new migration, change the `LATEST_VERSION` above and add an entry to this list
-    /// in the form `migrate_YYYYMMDD`.
-    static ref MIGRATIONS: HashMap<Option<&'static str>, Box<dyn DynMigration>> = migration![
-        migrate_20230202::Migrate,
-    ];
-}
-
-fn migration<const N: usize>(
-    migrations: [Box<dyn DynMigration>; N],
-) -> HashMap<Option<&'static str>, Box<dyn DynMigration>> {
+fn build_migrations(
+    migrations: &[&'static dyn DynMigration],
+) -> HashMap<Option<&'static str>, &'static dyn DynMigration> {
     let mut map = HashMap::default();
     let mut prev_version = None;
-    for migration in migrations {
+    for &migration in migrations {
         let version = migration.version();
         map.insert(prev_version, migration);
         prev_version = Some(version);
@@ -73,6 +66,8 @@ impl<T: Migration + Send + Sync> DynMigration for T {
 }
 
 pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
+    let migrations = build_migrations(MIGRATIONS);
+
     loop {
         let last_migration = db
             .collection::<ApplicationStateCollection>()
@@ -81,7 +76,7 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
         if matches!(last_migration.as_deref(), Some(LATEST_VERSION)) {
             break;
         }
-        match MIGRATIONS.get(&last_migration.as_deref()) {
+        match migrations.get(&last_migration.as_deref()) {
             Some(migration) => {
                 migration.migrate(db)?;
             }
