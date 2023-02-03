@@ -16,7 +16,9 @@ pub struct Migrate;
 
 #[async_trait]
 impl Migration for Migrate {
-    const VERSION: &'static str = "20230202";
+    const ID: usize = 0;
+    const APP_VERSION: &'static str = "1.0.0-beta.32";
+    const DATE: time::Date = time::macros::date!(2023 - 02 - 03);
 
     async fn migrate(db: &MongoDb) -> eyre::Result<()> {
         let collection = db.collection::<OutputCollection>();

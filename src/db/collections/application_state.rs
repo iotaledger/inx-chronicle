@@ -16,7 +16,22 @@ use crate::{
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ApplicationStateDocument {
     pub starting_index: Option<MilestoneIndexTimestamp>,
-    pub last_migration: Option<String>,
+    pub last_migration: Option<MigrationVersion>,
+}
+
+/// The migration version and associated metadata.
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct MigrationVersion {
+    pub id: usize,
+    pub app_version: String,
+    pub date: time::Date,
+}
+
+impl std::fmt::Display for MigrationVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} - {} - {}", self.id, self.app_version, self.date)
+    }
 }
 
 /// A collection to store singleton Application State.
@@ -60,7 +75,7 @@ impl ApplicationStateCollection {
     }
 
     /// Gets the last migration version of the database.
-    pub async fn get_last_migration(&self) -> Result<Option<String>, Error> {
+    pub async fn get_last_migration(&self) -> Result<Option<MigrationVersion>, Error> {
         Ok(self
             .find_one::<ApplicationStateDocument>(doc! {}, None)
             .await?
@@ -68,11 +83,11 @@ impl ApplicationStateCollection {
     }
 
     /// Set the current version in the singleton application state.
-    pub async fn set_last_migration(&self, last_migration: &str) -> Result<(), Error> {
+    pub async fn set_last_migration(&self, last_migration: MigrationVersion) -> Result<(), Error> {
         self.update_one(
             doc! {},
             doc! {
-                "$set": { "last_migration": last_migration }
+                "$set": { "last_migration": mongodb::bson::to_bson(&last_migration).unwrap() }
             },
             UpdateOptions::builder().upsert(true).build(),
         )

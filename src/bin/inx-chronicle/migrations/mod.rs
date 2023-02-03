@@ -4,26 +4,28 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use chronicle::db::{collections::ApplicationStateCollection, MongoDb};
+use chronicle::db::{
+    collections::{ApplicationStateCollection, MigrationVersion},
+    MongoDb,
+};
 use eyre::bail;
 
-pub mod migrate_20230202;
+pub mod migrate_0;
 
-pub const LATEST_VERSION: &str = migrate_20230202::Migrate::VERSION;
+pub type LatestMigration = migrate_0::Migrate;
 
 /// The list of migrations, in order.
 const MIGRATIONS: &[&'static dyn DynMigration] = &[
-    // In order to add a new migration, change the `LATEST_VERSION` above and add an entry at the bottom of this list.
-    &migrate_20230202::Migrate,
+    // In order to add a new migration, change the `LatestMigration` type above and add an entry at the bottom of this
+    // list.
+    &migrate_0::Migrate,
 ];
 
-fn build_migrations(
-    migrations: &[&'static dyn DynMigration],
-) -> HashMap<Option<&'static str>, &'static dyn DynMigration> {
+fn build_migrations(migrations: &[&'static dyn DynMigration]) -> HashMap<Option<usize>, &'static dyn DynMigration> {
     let mut map = HashMap::default();
     let mut prev_version = None;
     for &migration in migrations {
-        let version = migration.version();
+        let version = migration.version().id;
         map.insert(prev_version, migration);
         prev_version = Some(version);
     }
@@ -31,30 +33,41 @@ fn build_migrations(
 }
 
 #[async_trait]
-trait Migration {
-    const VERSION: &'static str;
+pub trait Migration {
+    const ID: usize;
+    const APP_VERSION: &'static str;
+    const DATE: time::Date;
+
+    fn version() -> MigrationVersion {
+        MigrationVersion {
+            id: Self::ID,
+            app_version: Self::APP_VERSION.to_string(),
+            date: Self::DATE,
+        }
+    }
 
     async fn migrate(db: &MongoDb) -> eyre::Result<()>;
 }
 
 trait DynMigration: Send + Sync {
-    fn version(&self) -> &'static str;
+    fn version(&self) -> MigrationVersion;
 
     fn migrate(&self, db: &MongoDb) -> eyre::Result<()>;
 }
 
 impl<T: Migration + Send + Sync> DynMigration for T {
-    fn version(&self) -> &'static str {
-        T::VERSION
+    fn version(&self) -> MigrationVersion {
+        T::version()
     }
 
     fn migrate(&self, db: &MongoDb) -> eyre::Result<()> {
-        tracing::info!("Migrating to version {}", T::VERSION);
+        let version = self.version();
+        tracing::info!("Migrating to version {}", version);
         tokio::task::block_in_place(move || {
             tokio::runtime::Handle::current().block_on(async {
                 T::migrate(db).await?;
                 db.collection::<ApplicationStateCollection>()
-                    .set_last_migration(T::VERSION)
+                    .set_last_migration(version)
                     .await?;
                 Ok(())
             })
@@ -69,11 +82,12 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
         let last_migration = db
             .collection::<ApplicationStateCollection>()
             .get_last_migration()
-            .await?;
-        if matches!(last_migration.as_deref(), Some(LATEST_VERSION)) {
+            .await?
+            .map(|mig| mig.id);
+        if matches!(last_migration, Some(v) if v == LatestMigration::ID) {
             break;
         }
-        match migrations.get(&last_migration.as_deref()) {
+        match migrations.get(&last_migration) {
             Some(migration) => {
                 migration.migrate(db)?;
             }

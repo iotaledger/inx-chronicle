@@ -21,6 +21,7 @@ use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use self::cli::{ClArgs, PostCommand};
+use crate::migrations::Migration;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -184,23 +185,23 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
 }
 
 async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
+    let latest_version = migrations::LatestMigration::version();
     match db
         .collection::<ApplicationStateCollection>()
         .get_last_migration()
         .await?
-        .as_deref()
     {
         None => {
-            info!("Setting migration version to {}", migrations::LATEST_VERSION);
+            info!("Setting migration version to {}", latest_version);
             db.collection::<ApplicationStateCollection>()
-                .set_last_migration(migrations::LATEST_VERSION)
+                .set_last_migration(latest_version)
                 .await?;
         }
-        Some(migrations::LATEST_VERSION) => (),
+        Some(v) if v == latest_version => (),
         Some(v) => {
             eyre::bail!(
                 "Expected database migration version {}, but found {}, please run the `migrate` command.",
-                migrations::LATEST_VERSION,
+                latest_version,
                 v
             );
         }
