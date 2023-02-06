@@ -47,7 +47,7 @@ mod test_rand {
 
         // correct insertion
         node_configuration
-            .update_latest_node_configuration(1.into(), config.clone())
+            .upsert_node_configuration(1.into(), config.clone())
             .await
             .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
@@ -95,7 +95,7 @@ mod test_rand {
 
         // rejected change (not latest)
         node_configuration
-            .update_latest_node_configuration(1.into(), config.clone())
+            .upsert_node_configuration(1.into(), config.clone())
             .await
             .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);

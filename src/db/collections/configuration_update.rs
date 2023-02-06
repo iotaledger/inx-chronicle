@@ -81,24 +81,4 @@ impl ConfigurationUpdateCollection {
 
         Ok(())
     }
-
-    /// Add the node configuration to this collection if it is newer and different.
-    pub async fn update_latest_node_configuration(
-        &self,
-        ledger_index: MilestoneIndex,
-        config: NodeConfiguration,
-    ) -> Result<(), Error> {
-        if let Some(latest_config) = self.get_latest_node_configuration().await? {
-            if latest_config.ledger_index >= ledger_index {
-                return Ok(());
-            } else if latest_config.config != config {
-                self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
-                    .await?;
-            }
-        } else {
-            self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
-                .await?;
-        }
-        Ok(())
-    }
 }

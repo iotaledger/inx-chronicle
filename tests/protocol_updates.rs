@@ -61,7 +61,7 @@ mod test_rand {
         parameters.token_supply = u64::MAX;
 
         update_collection
-            .update_latest_protocol_parameters(1500.into(), parameters)
+            .upsert_protocol_parameters(1500.into(), parameters)
             .await
             .unwrap();
 

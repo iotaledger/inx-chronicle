@@ -76,12 +76,12 @@ impl ProtocolUpdateCollection {
     /// Inserts a protocol parameters for a given milestone index.
     pub async fn insert_protocol_parameters(
         &self,
-        tangle_index: MilestoneIndex,
+        ledger_index: MilestoneIndex,
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {
         self.insert_one(
             ProtocolUpdateDocument {
-                tangle_index,
+                tangle_index: ledger_index,
                 parameters,
             },
             None,
@@ -92,17 +92,17 @@ impl ProtocolUpdateCollection {
     }
 
     /// Add the protocol parameters to the list if the protocol parameters have changed.
-    pub async fn update_latest_protocol_parameters(
+    pub async fn upsert_protocol_parameters(
         &self,
-        tangle_index: MilestoneIndex,
+        ledger_index: MilestoneIndex,
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {
-        if let Some(latest_params) = self.get_latest_protocol_parameters().await? {
+        if let Some(latest_params) = self.get_protocol_parameters_for_ledger_index(ledger_index).await? {
             if latest_params.parameters != parameters {
-                self.insert_protocol_parameters(tangle_index, parameters).await?;
+                self.insert_protocol_parameters(ledger_index, parameters).await?;
             }
         } else {
-            self.insert_protocol_parameters(tangle_index, parameters).await?;
+            self.insert_protocol_parameters(ledger_index, parameters).await?;
         }
         Ok(())
     }
