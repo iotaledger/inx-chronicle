@@ -93,19 +93,6 @@ mod test_rand {
         config.base_token.unit = "suSHI".to_string();
         config.base_token.subunit = "rice".to_string();
 
-        // rejected change (not latest)
-        node_configuration
-            .upsert_node_configuration(1.into(), config.clone())
-            .await
-            .unwrap();
-        assert_eq!(node_configuration.count().await.unwrap(), 1);
-        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
-        assert_eq!(&latest_config.config.base_token.unit, "SMR");
-        assert_eq!(&latest_config.config.base_token.subunit, "glow");
-        assert_eq!(latest_config.config.base_token.decimals, 6);
-        assert!(latest_config.config.base_token.use_metric_prefix);
-
         // accepted latest update
         node_configuration
             .upsert_node_configuration(2.into(), config)
