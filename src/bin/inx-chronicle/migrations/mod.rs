@@ -9,7 +9,6 @@ use chronicle::db::{
     MongoDb,
 };
 use eyre::bail;
-use tracing::info;
 
 pub mod migrate_0;
 
@@ -86,13 +85,8 @@ pub async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
                 .collection::<ApplicationStateCollection>()
                 .get_starting_index()
                 .await?
-                .is_none()
+                .is_some()
             {
-                info!("Setting migration version to {}", latest_version);
-                db.collection::<ApplicationStateCollection>()
-                    .set_last_migration(latest_version)
-                    .await?;
-            } else {
                 migrate(db).await?;
             }
         }

@@ -27,6 +27,7 @@ use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
+use crate::migrations::{LatestMigration, Migration};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;
@@ -266,6 +267,13 @@ impl InxWorker {
             }
         } else {
             self.db.clear().await?;
+
+            let latest_version = LatestMigration::version();
+            info!("Setting migration version to {}", latest_version);
+            self.db
+                .collection::<ApplicationStateCollection>()
+                .set_last_migration(latest_version)
+                .await?;
             info!("Reading unspent outputs.");
             let unspent_output_stream = inx
                 .read_unspent_outputs()
