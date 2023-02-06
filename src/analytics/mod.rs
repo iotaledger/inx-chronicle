@@ -125,8 +125,13 @@ impl Analytic {
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AnalyticsError {
-    #[error("missing output ({output_id}) in milestone {milestone_index}")]
+    #[error("missing created output ({output_id}) in milestone {milestone_index}")]
     MissingLedgerOutput {
+        output_id: String,
+        milestone_index: MilestoneIndex,
+    },
+    #[error("missing consumed output ({output_id}) in milestone {milestone_index}")]
+    MissingLedgerSpent {
         output_id: String,
         milestone_index: MilestoneIndex,
     },
@@ -167,7 +172,7 @@ impl<'a, I: InputSource> Milestone<'a, I> {
                     Ok(self
                         .ledger_updates()
                         .get_consumed(output_id)
-                        .ok_or(AnalyticsError::MissingLedgerOutput {
+                        .ok_or(AnalyticsError::MissingLedgerSpent {
                             output_id: output_id.to_hex(),
                             milestone_index: block_data.metadata.referenced_by_milestone_index,
                         })?
