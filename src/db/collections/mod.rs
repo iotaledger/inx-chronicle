@@ -28,7 +28,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub use self::{
-    application_state::ApplicationStateCollection,
+    application_state::{ApplicationStateCollection, MigrationVersion},
     block::BlockCollection,
     configuration_update::ConfigurationUpdateCollection,
     ledger_update::{LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection},

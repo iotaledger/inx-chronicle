@@ -27,6 +27,7 @@ use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
+use crate::migrations::{LatestMigration, Migration};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;
@@ -108,10 +109,10 @@ impl InxWorker {
         let (start_index, mut inx) = self.init().await?;
 
         #[cfg(feature = "analytics")]
-        let state = self
+        let starting_index = self
             .db
             .collection::<ApplicationStateCollection>()
-            .get_application_state()
+            .get_starting_index()
             .await?
             .ok_or(InxWorkerError::MissingAppState)?;
 
@@ -140,7 +141,7 @@ impl InxWorker {
                 ledger_update,
                 &mut stream,
                 #[cfg(feature = "analytics")]
-                state.starting_index.milestone_index,
+                starting_index.milestone_index,
                 #[cfg(feature = "analytics")]
                 &mut analytics,
             )
@@ -249,7 +250,7 @@ impl InxWorker {
             if self
                 .db
                 .collection::<ApplicationStateCollection>()
-                .get_application_state()
+                .get_starting_index()
                 .await?
                 .is_none()
             {
@@ -266,6 +267,13 @@ impl InxWorker {
             }
         } else {
             self.db.clear().await?;
+
+            let latest_version = LatestMigration::version();
+            info!("Setting migration version to {}", latest_version);
+            self.db
+                .collection::<ApplicationStateCollection>()
+                .set_last_migration(latest_version)
+                .await?;
             info!("Reading unspent outputs.");
             let unspent_output_stream = inx
                 .read_unspent_outputs()

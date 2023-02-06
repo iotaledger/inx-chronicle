@@ -18,8 +18,6 @@ use mongodb::{
 
 pub use self::collection::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt};
 
-const DUPLICATE_KEY_CODE: i32 = 11000;
-
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
 pub struct MongoDb {
