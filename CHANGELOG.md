@@ -1,3 +1,19 @@
+## [1.0.0-beta.32](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.31...v1.0.0-beta.32) (2023-02-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **db:** migration version checking (#1097)
+
+### Features
+
+* **grafana:** explicitly state datasource UIDs ([#991](https://github.com/iotaledger/inx-chronicle/issues/991)) ([315bf0c](https://github.com/iotaledger/inx-chronicle/commit/315bf0cb40e349c208c2f5d6e59eedeb2dcd9aa6))
+
+
+### Bug Fixes
+
+* **db:** migration version checking ([#1097](https://github.com/iotaledger/inx-chronicle/issues/1097)) ([4d1bc3e](https://github.com/iotaledger/inx-chronicle/commit/4d1bc3eb6be969d477328bbabe89e842ee8d723f)), closes [#1098](https://github.com/iotaledger/inx-chronicle/issues/1098)
+
 ## [1.0.0-beta.31](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.30...v1.0.0-beta.31) (2023-02-01)
 
 
