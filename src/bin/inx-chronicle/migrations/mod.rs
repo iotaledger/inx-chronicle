@@ -64,6 +64,7 @@ impl<T: Migration + Send + Sync> DynMigration for T {
 
     async fn migrate(&self, db: &MongoDb) -> eyre::Result<()> {
         let version = self.version();
+        tracing::info!("Migrating to version {}", version);
         T::migrate(db).await?;
         db.collection::<ApplicationStateCollection>()
             .set_last_migration(version)
