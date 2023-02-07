@@ -30,7 +30,7 @@ mod ledger;
 mod tangle;
 
 /// Provides an API to access basic information used for analytics
-trait AnalyticsContext {
+pub(crate) trait AnalyticsContext {
     fn protocol_params(&self) -> &ProtocolParameters;
 
     fn at(&self) -> &MilestoneIndexTimestamp;

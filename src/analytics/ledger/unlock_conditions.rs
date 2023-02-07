@@ -6,9 +6,9 @@ use super::*;
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 #[allow(missing_docs)]
 pub(crate) struct UnlockConditionMeasurement {
-    pub(crate) timelock: CountValue,
-    pub(crate) expiration: CountValue,
-    pub(crate) storage_deposit_return: CountValue,
+    pub(crate) timelock: CountAndAmount,
+    pub(crate) expiration: CountAndAmount,
+    pub(crate) storage_deposit_return: CountAndAmount,
     pub(crate) storage_deposit_return_inner_value: u64,
 }
 
