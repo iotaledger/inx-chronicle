@@ -8,6 +8,7 @@ use mongodb::{
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
+use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -285,8 +286,7 @@ impl BlockCollection {
             .map_ok(|r| {
                 (
                     r.block_id,
-                    crate::inx::RawMessage::<iota_types::block::Block>::from(r.raw.clone())
-                        .inner_unverified()
+                    iota_types::block::Block::unpack_unverified(r.raw.clone())
                         .unwrap()
                         .into(),
                     r.raw,
