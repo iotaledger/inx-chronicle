@@ -49,12 +49,17 @@ pub async fn fill_analytics(
 
                 // Check if the protocol params changed (or we just started)
                 if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
-                    let ledger_state = db
-                        .collection::<chronicle::db::collections::OutputCollection>()
-                        .get_unspent_output_stream(milestone.at.milestone_index)
-                        .await?
-                        .try_collect::<Vec<_>>()
-                        .await?;
+                    // Only get the ledger state for milestones after the genesis since it requires
+                    // getting the previous milestone data.
+                    let ledger_state = if milestone.at.milestone_index.0 > 0 {
+                        db.collection::<chronicle::db::collections::OutputCollection>()
+                            .get_unspent_output_stream(milestone.at.milestone_index - 1)
+                            .await?
+                            .try_collect::<Vec<_>>()
+                            .await?
+                    } else {
+                        Vec::new()
+                    };
 
                     let analytics = analytics_choices
                         .iter()

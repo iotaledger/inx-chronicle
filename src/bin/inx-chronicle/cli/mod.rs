@@ -280,6 +280,10 @@ impl ClArgs {
                             .map(|ts| ts.milestone_index)
                             .unwrap_or_default()
                     };
+                    if end_milestone < start_milestone {
+                        tracing::warn!("No milestones in range.");
+                        return Ok(PostCommand::Exit);
+                    }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
                     let num_tasks = num_tasks.unwrap_or(1);
 
