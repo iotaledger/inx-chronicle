@@ -84,8 +84,8 @@ impl Measurement for BaseTokenActivityMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
-            .add_field("booked_value", self.booked_value)
-            .add_field("transferred_value", self.transferred_value)
+            .add_field("booked_value", self.booked_amount.0)
+            .add_field("transferred_value", self.transferred_amount.0)
     }
 }
 
@@ -119,15 +119,15 @@ impl Measurement for LedgerOutputMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("basic_count", self.basic.count as u64)
-            .add_field("basic_value", self.basic.value)
+            .add_field("basic_value", self.basic.amount.0)
             .add_field("alias_count", self.alias.count as u64)
-            .add_field("alias_value", self.alias.value)
+            .add_field("alias_value", self.alias.amount.0)
             .add_field("foundry_count", self.foundry.count as u64)
-            .add_field("foundry_value", self.foundry.value)
+            .add_field("foundry_value", self.foundry.amount.0)
             .add_field("nft_count", self.nft.count as u64)
-            .add_field("nft_value", self.nft.value)
+            .add_field("nft_value", self.nft.amount.0)
             .add_field("treasury_count", self.treasury.count as u64)
-            .add_field("treasury_value", self.treasury.value)
+            .add_field("treasury_value", self.treasury.amount.0)
     }
 }
 
@@ -138,7 +138,7 @@ impl Measurement for LedgerSizeMeasurement {
         query
             .add_field("total_key_bytes", self.total_key_bytes)
             .add_field("total_data_bytes", self.total_data_bytes)
-            .add_field("total_storage_deposit_value", self.total_storage_deposit_value)
+            .add_field("total_storage_deposit_value", self.total_storage_deposit_value.0)
     }
 }
 
@@ -205,7 +205,7 @@ impl Measurement for UnclaimedTokenMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("unclaimed_count", self.unclaimed_count as u64)
-            .add_field("unclaimed_value", self.unclaimed_value)
+            .add_field("unclaimed_value", self.unclaimed_value.0)
     }
 }
 
@@ -215,11 +215,11 @@ impl Measurement for UnlockConditionMeasurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
             .add_field("expiration_count", self.expiration.count as u64)
-            .add_field("expiration_value", self.expiration.value)
+            .add_field("expiration_value", self.expiration.amount.0)
             .add_field("timelock_count", self.timelock.count as u64)
-            .add_field("timelock_value", self.timelock.value)
+            .add_field("timelock_value", self.timelock.amount.0)
             .add_field("storage_deposit_return_count", self.storage_deposit_return.count as u64)
-            .add_field("storage_deposit_return_value", self.storage_deposit_return.value)
+            .add_field("storage_deposit_return_value", self.storage_deposit_return.amount.0)
             .add_field(
                 "storage_deposit_return_inner_value",
                 self.storage_deposit_return_inner_value,

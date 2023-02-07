@@ -19,7 +19,8 @@ impl LedgerSize for Output {
             total_storage_deposit_value: iota_types::block::output::Rent::rent_cost(
                 &output,
                 protocol_params.rent_structure(),
-            ),
+            )
+            .into(),
             total_key_bytes: rent_bytes.num_key_bytes,
             total_data_bytes: rent_bytes.num_data_bytes,
         }
@@ -31,7 +32,7 @@ impl LedgerSize for Output {
 pub(crate) struct LedgerSizeMeasurement {
     pub(crate) total_key_bytes: u64,
     pub(crate) total_data_bytes: u64,
-    pub(crate) total_storage_deposit_value: u64,
+    pub(crate) total_storage_deposit_value: TokenAmount,
 }
 
 /// Measures the ledger size depending on current protocol parameters.

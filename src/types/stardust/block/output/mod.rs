@@ -53,10 +53,12 @@ use crate::types::{
     Serialize,
     Deserialize,
     derive_more::From,
+    derive_more::Add,
     derive_more::AddAssign,
     derive_more::SubAssign,
+    derive_more::Sum,
 )]
-pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
+pub struct TokenAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
 
 /// The index of an output within a transaction.
 pub type OutputIndex = u16;
@@ -168,7 +170,7 @@ impl Output {
     }
 
     /// Returns the amount associated with an output.
-    pub fn amount(&self) -> OutputAmount {
+    pub fn amount(&self) -> TokenAmount {
         match self {
             Self::Treasury(TreasuryOutput { amount, .. }) => *amount,
             Self::Basic(BasicOutput { amount, .. }) => *amount,
@@ -272,7 +274,7 @@ mod rand {
 
     use super::*;
 
-    impl OutputAmount {
+    impl TokenAmount {
         /// Generates a random [`OutputAmount`].
         pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_number_range(iota::Output::AMOUNT_MIN..ctx.token_supply()).into()

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::{
     stardust::{
         block::{
-            output::{Output, OutputAmount, OutputId},
+            output::{Output, OutputId, TokenAmount},
             payload::transaction::TransactionId,
             Address, BlockId,
         },
@@ -58,7 +58,7 @@ impl LedgerOutput {
         self.output_id
     }
 
-    pub fn amount(&self) -> OutputAmount {
+    pub fn amount(&self) -> TokenAmount {
         self.output.amount()
     }
 
@@ -78,7 +78,7 @@ impl LedgerSpent {
         self.output.output_id
     }
 
-    pub fn amount(&self) -> OutputAmount {
+    pub fn amount(&self) -> TokenAmount {
         self.output.amount()
     }
 

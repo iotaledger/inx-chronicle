@@ -7,11 +7,11 @@ use super::*;
 
 #[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
 pub(crate) struct LedgerOutputMeasurement {
-    pub(crate) alias: CountValue,
-    pub(crate) basic: CountValue,
-    pub(crate) nft: CountValue,
-    pub(crate) foundry: CountValue,
-    pub(crate) treasury: CountValue,
+    pub(crate) alias: CountAndAmount,
+    pub(crate) basic: CountAndAmount,
+    pub(crate) nft: CountAndAmount,
+    pub(crate) foundry: CountAndAmount,
+    pub(crate) treasury: CountAndAmount,
 }
 
 impl LedgerOutputMeasurement {

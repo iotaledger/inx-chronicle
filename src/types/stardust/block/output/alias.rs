@@ -13,7 +13,7 @@ use super::{
     feature::Feature,
     native_token::NativeToken,
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
-    OutputAmount, OutputId,
+    OutputId, TokenAmount,
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 
@@ -82,7 +82,7 @@ impl From<AliasId> for Bson {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasOutput {
     /// The output amount.
-    pub amount: OutputAmount,
+    pub amount: TokenAmount,
     /// The list of [`NativeTokens`](NativeToken).
     pub native_tokens: Box<[NativeToken]>,
     /// The associated id of the alias.
