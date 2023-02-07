@@ -43,6 +43,7 @@ impl MongoDb {
         })
     }
 
+    /// Returns the current database.
     pub fn db(&self) -> mongodb::Database {
         self.client.database(&self.database_name)
     }

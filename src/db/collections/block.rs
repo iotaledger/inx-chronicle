@@ -18,7 +18,6 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    inx::RawMessage,
     tangle::BlockData,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
@@ -286,7 +285,7 @@ impl BlockCollection {
             .map_ok(|r| {
                 (
                     r.block_id,
-                    RawMessage::<iota_types::block::Block>::from(r.raw.clone())
+                    crate::inx::RawMessage::<iota_types::block::Block>::from(r.raw.clone())
                         .inner_unverified()
                         .unwrap()
                         .into(),
