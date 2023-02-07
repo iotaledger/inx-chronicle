@@ -84,7 +84,11 @@ pub async fn fill_analytics(
                         })
                         .await?;
                 }
-                tracing::info!("Finished analytics for milestone {} in {}ms.", milestone.at.milestone_index, elapsed.as_millis());
+                tracing::info!(
+                    "Finished analytics for milestone {} in {}ms.",
+                    milestone.at.milestone_index,
+                    elapsed.as_millis()
+                );
             }
             eyre::Result::<_>::Ok(())
         });
