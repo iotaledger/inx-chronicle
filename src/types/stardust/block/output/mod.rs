@@ -275,7 +275,7 @@ mod rand {
     use super::*;
 
     impl TokenAmount {
-        /// Generates a random [`OutputAmount`].
+        /// Generates a random [`TokenAmount`].
         pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_number_range(iota::Output::AMOUNT_MIN..ctx.token_supply()).into()
         }
