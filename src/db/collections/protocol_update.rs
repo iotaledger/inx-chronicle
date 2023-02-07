@@ -1,7 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{bson::doc, error::Error, options::FindOneOptions};
+use mongodb::{
+    bson::doc,
+    error::Error,
+    options::{FindOneOptions, UpdateOptions},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -73,36 +77,26 @@ impl ProtocolUpdateCollection {
         self.find_one(doc! { "parameters.version": version as i32 }, None).await
     }
 
-    /// Inserts a protocol parameters for a given milestone index.
-    pub async fn insert_protocol_parameters(
-        &self,
-        ledger_index: MilestoneIndex,
-        parameters: ProtocolParameters,
-    ) -> Result<(), Error> {
-        self.insert_one(
-            ProtocolUpdateDocument {
-                tangle_index: ledger_index,
-                parameters,
-            },
-            None,
-        )
-        .await?;
-
-        Ok(())
-    }
-
     /// Add the protocol parameters to the list if the protocol parameters have changed.
     pub async fn upsert_protocol_parameters(
         &self,
         ledger_index: MilestoneIndex,
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {
-        if let Some(latest_params) = self.get_protocol_parameters_for_ledger_index(ledger_index).await? {
-            if latest_params.parameters != parameters {
-                self.insert_protocol_parameters(ledger_index, parameters).await?;
-            }
-        } else {
-            self.insert_protocol_parameters(ledger_index, parameters).await?;
+        let params = self.get_protocol_parameters_for_ledger_index(ledger_index).await?;
+        if params.is_none()
+            || params
+                .map(|latest_params| latest_params.parameters != parameters)
+                .unwrap_or_default()
+        {
+            self.update_one(
+                doc! { "_id": ledger_index },
+                doc! { "$set": {
+                    "parameters": mongodb::bson::to_bson(&parameters).unwrap()
+                } },
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await?;
         }
         Ok(())
     }

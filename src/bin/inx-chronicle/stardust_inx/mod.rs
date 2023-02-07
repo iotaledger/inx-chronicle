@@ -242,7 +242,7 @@ impl InxWorker {
                 debug!("Updating protocol parameters.");
                 self.db
                     .collection::<ProtocolUpdateCollection>()
-                    .insert_protocol_parameters(start_index, protocol_parameters)
+                    .upsert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
 
@@ -350,7 +350,7 @@ impl InxWorker {
 
             self.db
                 .collection::<ProtocolUpdateCollection>()
-                .insert_protocol_parameters(start_index, protocol_parameters.into())
+                .upsert_protocol_parameters(start_index, protocol_parameters.into())
                 .await?;
         }
 

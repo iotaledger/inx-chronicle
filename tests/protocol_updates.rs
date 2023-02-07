@@ -33,7 +33,7 @@ mod test_rand {
             })
         {
             update_collection
-                .insert_protocol_parameters(ledger_index.into(), parameters)
+                .upsert_protocol_parameters(ledger_index.into(), parameters)
                 .await
                 .unwrap();
         }
