@@ -276,61 +276,6 @@ mod test_rand {
     }
 
     #[tokio::test]
-    async fn test_milestone_activity() {
-        let db = setup_database("test-milestone-activity").await.unwrap();
-        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
-
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
-
-        let blocks = vec![
-            Block::rand_treasury_transaction(&protocol_params),
-            Block::rand_transaction(&protocol_params),
-            Block::rand_milestone(&protocol_params),
-            Block::rand_tagged_data(),
-            Block::rand_no_payload(),
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|(i, block)| {
-            let parents = block.parents.clone();
-            (
-                BlockId::rand(),
-                block,
-                iota_types::block::rand::bytes::rand_bytes(100),
-                BlockMetadata {
-                    parents,
-                    is_solid: true,
-                    should_promote: false,
-                    should_reattach: false,
-                    referenced_by_milestone_index: 1.into(),
-                    milestone_index: 0.into(),
-                    inclusion_state: match i {
-                        0 => LedgerInclusionState::Included,
-                        1 => LedgerInclusionState::Conflicting,
-                        _ => LedgerInclusionState::NoTransaction,
-                    },
-                    conflict_reason: match i {
-                        0 => ConflictReason::None,
-                        1 => ConflictReason::InputUtxoNotFound,
-                        _ => ConflictReason::None,
-                    },
-                    white_flag_index: i as u32,
-                },
-            )
-        })
-        .collect::<Vec<_>>();
-
-        block_collection
-            .insert_blocks_with_metadata(blocks.clone())
-            .await
-            .unwrap();
-
-        todo!("write a test that uses new incremental analytics");
-
-        teardown(db).await;
-    }
-
-    #[tokio::test]
     async fn test_pastcone_whiteflag_order() {
         let db = setup_database("test-pastcone-whiteflag-order").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();

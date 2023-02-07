@@ -231,3 +231,24 @@ struct TimeInterval<M> {
     to_exclusive: OffsetDateTime,
     inner: M,
 }
+
+#[cfg(test)]
+mod test {
+    use super::AnalyticsContext;
+    use crate::types::{ledger::MilestoneIndexTimestamp, tangle::ProtocolParameters};
+
+    pub(crate) struct TestContext {
+        pub(crate) at: MilestoneIndexTimestamp,
+        pub(crate) params: ProtocolParameters,
+    }
+
+    impl AnalyticsContext for TestContext {
+        fn protocol_params(&self) -> &ProtocolParameters {
+            &self.params
+        }
+
+        fn at(&self) -> &MilestoneIndexTimestamp {
+            &self.at
+        }
+    }
+}
