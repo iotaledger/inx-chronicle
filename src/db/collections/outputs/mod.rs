@@ -58,7 +58,7 @@ impl MongoDbCollection for OutputCollection {
 
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
         Self {
-            db: db.db.clone(),
+            db: db.db(),
             collection,
         }
     }

@@ -23,7 +23,8 @@ const DUPLICATE_KEY_CODE: i32 = 11000;
 /// A handle to the underlying `MongoDB` database.
 #[derive(Clone, Debug)]
 pub struct MongoDb {
-    pub(crate) db: mongodb::Database,
+    pub(crate) database_name: String,
+    //pub(crate) db: mongodb::Database,
     pub(crate) client: mongodb::Client,
 }
 
@@ -37,9 +38,13 @@ impl MongoDb {
         let client = Client::with_options(client_options)?;
 
         Ok(Self {
-            db: client.database(&config.database_name),
+            database_name: config.database_name.clone(),
             client,
         })
+    }
+
+    pub fn db(&self) -> mongodb::Database {
+        self.client.database(&self.database_name)
     }
 
     /// Creates a collection if it does not exist.
@@ -52,14 +57,14 @@ impl MongoDb {
 
     /// Gets a collection of the provided type.
     pub fn collection<T: MongoDbCollection>(&self) -> T {
-        T::instantiate(self, self.db.collection(T::NAME))
+        T::instantiate(self, self.db().collection(T::NAME))
     }
 
     /// Gets all index names by their collection.
     pub async fn get_index_names(&self) -> Result<HashMap<String, HashSet<String>>, Error> {
         let mut res = HashMap::new();
-        for collection in self.db.list_collection_names(None).await? {
-            let indexes = self.db.collection::<Document>(&collection).list_index_names().await?;
+        for collection in self.db().list_collection_names(None).await? {
+            let indexes = self.db().collection::<Document>(&collection).list_index_names().await?;
             if !indexes.is_empty() {
                 res.insert(collection, indexes.into_iter().collect());
             }
@@ -69,10 +74,10 @@ impl MongoDb {
 
     /// Clears all the collections from the database.
     pub async fn clear(&self) -> Result<(), Error> {
-        let collections = self.db.list_collection_names(None).await?;
+        let collections = self.db().list_collection_names(None).await?;
 
         for c in collections.into_iter().filter(|c| c != "system.views") {
-            self.db.collection::<Document>(&c).drop(None).await?;
+            self.db().collection::<Document>(&c).drop(None).await?;
         }
 
         Ok(())
@@ -80,14 +85,14 @@ impl MongoDb {
 
     /// Drops the database.
     pub async fn drop(self) -> Result<(), Error> {
-        self.db.drop(None).await
+        self.db().drop(None).await
     }
 
     /// Returns the storage size of the database.
     pub async fn size(&self) -> Result<u64, Error> {
         Ok(
             match self
-                .db
+                .db()
                 .run_command(
                     doc! {
                         "dbStats": 1,
@@ -115,6 +120,6 @@ impl MongoDb {
 
     /// Returns the name of the database.
     pub fn name(&self) -> &str {
-        self.db.name()
+        &self.database_name
     }
 }
