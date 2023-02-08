@@ -368,6 +368,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    /// Fill analytics from Chronicle's database.
     #[cfg(feature = "analytics")]
     FillAnalytics {
         /// The inclusive starting milestone index.
@@ -383,6 +384,7 @@ pub enum Subcommands {
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     },
+    /// Fill analytics over INX.
     #[cfg(all(feature = "analytics", feature = "inx"))]
     FillAnalyticsOverInx {
         /// The inclusive starting milestone index.
@@ -395,7 +397,7 @@ pub enum Subcommands {
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
     },
-    /// Clear the chronicle database.
+    /// Clear the Chronicle database.
     #[cfg(debug_assertions)]
     ClearDatabase {
         /// Run the application after this command.
