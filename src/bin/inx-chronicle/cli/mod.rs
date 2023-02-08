@@ -2,10 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::db::mongodb::config as mongodb;
-#[cfg(feature = "inx")]
-use chronicle::inx::Inx;
-#[cfg(feature = "analytics")]
-use chronicle::tangle::Tangle;
 use clap::{Args, Parser, Subcommand};
 
 use crate::config::ChronicleConfig;
@@ -296,8 +292,8 @@ impl ClArgs {
                         #[cfg(feature = "inx")]
                         InputSourceChoice::Inx => {
                             tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
-                            let inx = Inx::connect(config.inx.url.clone()).await?;
-                            let tangle = Tangle::from_inx(inx);
+                            let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
+                            let tangle = chronicle::tangle::Tangle::from_inx(inx);
                             analytics::fill_analytics(
                                 db.clone(),
                                 influx_db.clone(),
@@ -310,7 +306,7 @@ impl ClArgs {
                             .await?;
                         }
                         InputSourceChoice::MongoDb => {
-                            let tangle = Tangle::from_mongodb(db.clone());
+                            let tangle = chronicle::tangle::Tangle::from_mongodb(db.clone());
                             analytics::fill_analytics(
                                 db.clone(),
                                 influx_db.clone(),
@@ -323,7 +319,6 @@ impl ClArgs {
                             .await?;
                         }
                     };
-
                     return Ok(PostCommand::Exit);
                 }
                 #[cfg(debug_assertions)]

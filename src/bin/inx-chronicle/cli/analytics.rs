@@ -12,7 +12,7 @@ use chronicle::{
 };
 use futures::TryStreamExt;
 
-pub async fn fill_analytics<I: InputSource + Clone + Send + Sync + 'static>(
+pub async fn fill_analytics<I: InputSource + Clone>(
     db: MongoDb,
     influx_db: InfluxDb,
     start_milestone: MilestoneIndex,

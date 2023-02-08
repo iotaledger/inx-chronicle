@@ -47,7 +47,7 @@ pub struct BlockData {
 #[async_trait]
 pub trait InputSource
 where
-    Self: Send,
+    Self: Send + Sync,
 {
     /// The error type for this input source.
     type Error: 'static + std::error::Error + std::fmt::Debug + Send + Sync;

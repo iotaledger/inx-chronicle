@@ -19,7 +19,7 @@ pub use self::{
 use crate::{db::MongoDb, types::tangle::MilestoneIndex};
 
 /// Provides access to the tangle.
-pub struct Tangle<I: InputSource> {
+pub struct Tangle<I: InputSource + 'static> {
     source: I,
 }
 
