@@ -366,39 +366,63 @@ mod test {
         let transferred_nft2 = NftOutput::rand(&protocol_params);
         let transferred_nft3 = NftOutput::rand(&protocol_params);
 
-        let created = std::iter::once(created_nft)
-            .map(|output| LedgerOutput {
-                output_id: OutputId::rand(),
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
-                },
-                output: Output::Nft(output),
-                block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 1234.into(),
-                },
-            })
-            .chain(
-                vec![
-                    transferred_nft1.clone(),
-                    transferred_nft2.clone(),
-                    transferred_nft3.clone(),
-                ]
-                .into_iter()
-                .enumerate()
-                .map(tx_output),
-            )
-            .collect::<Vec<_>>();
+        // Created on milestone 1
+        let created = [LedgerOutput {
+            output_id: OutputId::rand(),
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: Output::Nft(created_nft),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: 1.into(),
+                milestone_timestamp: 1234.into(),
+            },
+        }];
 
-        // Create and insert transaction inputs.
+        let ctx = TestContext {
+            at: MilestoneIndexTimestamp {
+                milestone_index: 1.into(),
+                milestone_timestamp: 1234.into(),
+            },
+            params: protocol_params.clone().into(),
+        };
+        let mut output_activity = OutputActivityMeasurement::default();
+        output_activity.begin_milestone(&ctx);
+        output_activity.handle_transaction(&[], &created, &ctx);
+        let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
+
+        assert_eq!(output_activity_measurement.at, ctx.at);
+        assert_eq!(output_activity_measurement.inner.nft.created_count, 1);
+        assert_eq!(output_activity_measurement.inner.nft.transferred_count, 0);
+        assert_eq!(output_activity_measurement.inner.nft.destroyed_count, 0);
+
+        // Created on milestone 2
+        let created = [
+            transferred_nft1.clone(),
+            transferred_nft2.clone(),
+            transferred_nft3.clone(),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(tx_output)
+        .collect::<Vec<_>>();
+
+        // Consumed on milestone 2
         let consumed = vec![transferred_nft1, transferred_nft2, transferred_nft3]
             .into_iter()
             .map(tx_input)
             .map(spend_output)
             .collect::<Vec<_>>();
 
+        let ctx = TestContext {
+            at: MilestoneIndexTimestamp {
+                milestone_index: 2.into(),
+                milestone_timestamp: 12345.into(),
+            },
+            params: protocol_params.clone().into(),
+        };
         let mut output_activity = OutputActivityMeasurement::default();
         output_activity.begin_milestone(&ctx);
         output_activity.handle_transaction(&consumed, &created, &ctx);
