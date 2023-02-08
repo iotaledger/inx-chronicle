@@ -8,14 +8,14 @@ use std::borrow::Borrow;
 use iota_types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
-use super::OutputAmount;
+use super::TokenAmount;
 use crate::types::context::TryFromWithContext;
 
 /// Represents a treasury in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryOutput {
     /// The output amount.
-    pub amount: OutputAmount,
+    pub amount: TokenAmount,
 }
 
 impl TreasuryOutput {

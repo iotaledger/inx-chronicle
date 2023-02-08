@@ -14,17 +14,18 @@ use chronicle::{
         },
         MongoDb,
     },
-    inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
+    inx::{Inx, InxError},
+    tangle::{Milestone, Tangle},
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{Block, BlockId, Payload},
+        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        stardust::block::Payload,
         tangle::MilestoneIndex,
     },
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
-use tracing::{debug, info, instrument, trace, trace_span, Instrument};
+use tracing::{debug, info, instrument, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
 
@@ -36,47 +37,6 @@ pub struct InxWorker {
     #[cfg(any(feature = "analytics", feature = "metrics"))]
     influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
-}
-
-#[instrument(skip_all, err, level = "debug")]
-#[cfg(feature = "analytics")]
-pub async fn gather_analytics(
-    mongodb: &MongoDb,
-    influxdb: &chronicle::db::influxdb::InfluxDb,
-    analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
-    milestone_index: MilestoneIndex,
-    milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
-) -> eyre::Result<()> {
-    let mut tasks = JoinSet::new();
-
-    let len_before = analytics.len();
-
-    for analytic in analytics.drain(..) {
-        let mongodb = mongodb.clone();
-        let influxdb = influxdb.clone();
-        tasks.spawn(async move {
-            let mut a: Box<dyn chronicle::db::collections::analytics::Analytic> = analytic;
-            if let Some(measurement) = a
-                .get_measurement(&mongodb, milestone_index, milestone_timestamp)
-                .await?
-            {
-                influxdb.insert_measurement(measurement).await?;
-            }
-            Ok::<_, InxWorkerError>(a)
-        });
-    }
-
-    while let Some(res) = tasks.join_next().await {
-        analytics.push(res??);
-    }
-
-    debug_assert_eq!(
-        len_before,
-        analytics.len(),
-        "The number of analytics should never change."
-    );
-
-    Ok(())
 }
 
 impl InxWorker {
@@ -105,44 +65,43 @@ impl InxWorker {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let (start_index, mut inx) = self.init().await?;
+        let (start_index, inx) = self.init().await?;
+
+        let tangle = Tangle::from(inx);
+
+        let mut stream = tangle.milestone_stream(start_index..).await?;
 
         #[cfg(feature = "analytics")]
-        let state = self
+        let app_state = self
             .db
             .collection::<ApplicationStateCollection>()
             .get_application_state()
             .await?
             .ok_or(InxWorkerError::MissingAppState)?;
 
-        let mut stream = inx.listen_to_ledger_updates((start_index.0..).into()).await?;
-
         debug!("Started listening to ledger updates via INX.");
 
         #[cfg(feature = "analytics")]
-        let mut analytics = match self.influx_db.as_ref() {
-            None => Vec::new(),
-            Some(influx_db) if influx_db.config().analytics.is_empty() => {
-                chronicle::db::collections::analytics::all_analytics()
+        let analytics_choices = self.influx_db.as_ref().map(|influx_db| {
+            if influx_db.config().analytics.is_empty() {
+                chronicle::db::influxdb::config::all_analytics()
+            } else {
+                influx_db.config().analytics.iter().copied().collect()
             }
-            Some(influx_db) => {
-                tracing::info!("Computing the following analytics: {:?}", influx_db.config().analytics);
+        });
 
-                let mut tmp: std::collections::HashSet<chronicle::db::influxdb::config::AnalyticsChoice> =
-                    influx_db.config().analytics.iter().copied().collect();
-                tmp.drain().map(Into::into).collect()
-            }
-        };
+        #[cfg(feature = "analytics")]
+        let mut state: Option<crate::cli::analytics::AnalyticsState> = None;
 
-        while let Some(ledger_update) = stream.try_next().await? {
+        while let Some(milestone) = stream.try_next().await? {
             self.handle_ledger_update(
-                &mut inx,
-                ledger_update,
-                &mut stream,
+                milestone,
                 #[cfg(feature = "analytics")]
-                state.starting_index.milestone_index,
+                &analytics_choices,
                 #[cfg(feature = "analytics")]
-                &mut analytics,
+                &mut state,
+                #[cfg(feature = "analytics")]
+                app_state.starting_index.milestone_index,
             )
             .await?;
         }
@@ -350,127 +309,56 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
-    async fn handle_ledger_update(
+    async fn handle_ledger_update<'a>(
         &mut self,
-        inx: &mut Inx,
-        start_marker: LedgerUpdateMessage,
-        stream: &mut (impl futures::Stream<Item = Result<LedgerUpdateMessage, InxError>> + Unpin),
+        milestone: Milestone<'a, Inx>,
+        #[cfg(feature = "analytics")] analytics_choices: &Option<
+            std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>,
+        >,
+        #[cfg(feature = "analytics")] state: &mut Option<crate::cli::analytics::AnalyticsState>,
         #[cfg(feature = "analytics")] synced_index: MilestoneIndex,
-        #[cfg(feature = "analytics")] analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     ) -> Result<()> {
         #[cfg(feature = "metrics")]
         let start_time = std::time::Instant::now();
 
-        let MarkerMessage {
-            milestone_index,
-            consumed_count,
-            created_count,
-        } = start_marker.begin().ok_or(InxWorkerError::InvalidMilestoneState)?;
-
-        trace!(
-            "Received begin marker of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
-        );
-
         let mut tasks = JoinSet::new();
-        let mut actual_created_count = 0;
-        let mut actual_consumed_count = 0;
 
-        stream
-            .by_ref()
-            .take(consumed_count)
-            .map(|res| Result::<_>::Ok(res?.consumed().ok_or(InxWorkerError::InvalidMilestoneState)?))
-            .inspect_ok(|_| {
-                actual_consumed_count += 1;
-            })
-            .try_chunks(INSERT_BATCH_SIZE)
-            // We only care if we had an error, so discard the other data
-            .map_err(|e| e.1)
-            // Convert batches to tasks
-            .try_fold(&mut tasks, |tasks, batch| async {
-                let db = self.db.clone();
-                tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
-                Ok(tasks)
-            })
-            .await?;
+        for batch in milestone.ledger_updates().created_outputs().chunks(INSERT_BATCH_SIZE) {
+            let db = self.db.clone();
+            let batch = batch.to_vec();
+            tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
+        }
 
-        stream
-            .by_ref()
-            .take(created_count)
-            .map(|res| Result::<_>::Ok(res?.created().ok_or(InxWorkerError::InvalidMilestoneState)?))
-            .inspect_ok(|_| {
-                actual_created_count += 1;
-            })
-            .try_chunks(INSERT_BATCH_SIZE)
-            // We only care if we had an error, so discard the other data
-            .map_err(|e| e.1)
-            // Convert batches to tasks
-            .try_fold(&mut tasks, |tasks, batch| async {
-                let db = self.db.clone();
-                tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-                Ok(tasks)
-            })
-            .await?;
+        for batch in milestone.ledger_updates().consumed_outputs().chunks(INSERT_BATCH_SIZE) {
+            let db = self.db.clone();
+            let batch = batch.to_vec();
+            tasks.spawn(async move { update_spent_outputs(&db, &batch).await });
+        }
 
         while let Some(res) = tasks.join_next().await {
             res??;
         }
 
-        let MarkerMessage {
-            milestone_index,
-            consumed_count,
-            created_count,
-        } = stream
-            .try_next()
-            .await?
-            .and_then(LedgerUpdateMessage::end)
-            .ok_or(InxWorkerError::InvalidMilestoneState)?;
-        trace!(
-            "Received end of milestone {milestone_index} with {consumed_count} consumed and {created_count} created outputs."
-        );
-        if actual_created_count != created_count || actual_consumed_count != consumed_count {
-            bail!(InxWorkerError::InvalidLedgerUpdateCount {
-                received: actual_consumed_count + actual_created_count,
-                expected: consumed_count + created_count,
-            });
-        }
-
         // Record the result as part of the current span.
-        tracing::Span::current().record("milestone_index", milestone_index.0);
-        tracing::Span::current().record("created", created_count);
-        tracing::Span::current().record("consumed", consumed_count);
+        tracing::Span::current().record("milestone_index", milestone.at.milestone_index.0);
+        tracing::Span::current().record("created", milestone.ledger_updates().created_outputs().len());
+        tracing::Span::current().record("consumed", milestone.ledger_updates().consumed_outputs().len());
 
-        self.handle_cone_stream(inx, milestone_index).await?;
-        self.handle_protocol_params(inx, milestone_index).await?;
-        self.handle_node_configuration(inx, milestone_index).await?;
-
-        let milestone = inx.read_milestone(milestone_index.0.into()).await?;
-
-        let milestone_index: MilestoneIndex = milestone.milestone_info.milestone_index;
-
-        let milestone_timestamp = milestone.milestone_info.milestone_timestamp.into();
-
-        let milestone_id = milestone
-            .milestone_info
-            .milestone_id
-            .ok_or(InxWorkerError::MissingMilestoneInfo(milestone_index))?;
-
-        let payload =
-            if let iota_types::block::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
-                chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
-            } else {
-                // The raw data is guaranteed to contain a milestone payload.
-                unreachable!();
-            };
+        self.handle_cone_stream(&milestone).await?;
+        self.db
+            .collection::<ProtocolUpdateCollection>()
+            .update_latest_protocol_parameters(milestone.at.milestone_index, milestone.protocol_params.clone())
+            .await?;
+        self.db
+            .collection::<ConfigurationUpdateCollection>()
+            .update_latest_node_configuration(milestone.at.milestone_index, milestone.node_config.clone())
+            .await?;
 
         #[cfg(all(feature = "analytics", feature = "metrics"))]
         let analytics_start_time = std::time::Instant::now();
         #[cfg(feature = "analytics")]
-        if milestone_index >= synced_index {
-            if let Some(influx_db) = &self.influx_db {
-                if influx_db.config().analytics_enabled {
-                    gather_analytics(&self.db, influx_db, analytics, milestone_index, milestone_timestamp).await?;
-                }
-            }
+        if milestone.at.milestone_index >= synced_index {
+            self.update_analytics(&milestone, analytics_choices, state).await?;
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
         {
@@ -481,7 +369,7 @@ impl InxWorker {
                         .metrics()
                         .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
                             time: chrono::Utc::now(),
-                            milestone_index,
+                            milestone_index: milestone.at.milestone_index,
                             analytics_time: analytics_elapsed.as_millis() as u64,
                             chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                         })
@@ -498,7 +386,7 @@ impl InxWorker {
                     .metrics()
                     .insert(chronicle::db::collections::metrics::SyncMetrics {
                         time: chrono::Utc::now(),
-                        milestone_index,
+                        milestone_index: milestone.at.milestone_index,
                         milestone_time: elapsed.as_millis() as u64,
                         chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
                     })
@@ -509,54 +397,22 @@ impl InxWorker {
         // This acts as a checkpoint for the syncing and has to be done last, after everything else completed.
         self.db
             .collection::<MilestoneCollection>()
-            .insert_milestone(milestone_id, milestone_index, milestone_timestamp, payload)
+            .insert_milestone(
+                milestone.milestone_id,
+                milestone.at.milestone_index,
+                milestone.at.milestone_timestamp,
+                milestone.payload.clone(),
+            )
             .await?;
 
         Ok(())
     }
 
-    #[instrument(skip_all, level = "trace")]
-    async fn handle_protocol_params(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
-        let parameters = inx
-            .read_protocol_parameters(milestone_index.0.into())
-            .await?
-            .params
-            .inner(&())?;
-
-        self.db
-            .collection::<ProtocolUpdateCollection>()
-            .update_latest_protocol_parameters(milestone_index, parameters.into())
-            .await?;
-
-        Ok(())
-    }
-
-    #[instrument(skip_all, level = "trace")]
-    async fn handle_node_configuration(&self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
-        let node_configuration = inx.read_node_configuration().await?;
-
-        self.db
-            .collection::<ConfigurationUpdateCollection>()
-            .update_latest_node_configuration(milestone_index, node_configuration.into())
-            .await?;
-
-        Ok(())
-    }
-
-    #[instrument(skip(self, inx), err, level = "trace")]
-    async fn handle_cone_stream(&mut self, inx: &mut Inx, milestone_index: MilestoneIndex) -> Result<()> {
-        let cone_stream = inx.read_milestone_cone(milestone_index.0.into()).await?;
+    #[instrument(skip_all, err, level = "trace")]
+    async fn handle_cone_stream<'a>(&mut self, milestone: &Milestone<'a, Inx>) -> Result<()> {
+        let cone_stream = milestone.cone_stream().await?;
 
         let mut tasks = cone_stream
-            .map(|res| {
-                let BlockWithMetadataMessage { block, metadata } = res?;
-                Result::<_>::Ok((
-                    metadata.block_id,
-                    block.clone().inner_unverified()?.into(),
-                    block.data(),
-                    BlockMetadata::from(metadata),
-                ))
-            })
             .try_chunks(INSERT_BATCH_SIZE)
             .map_err(|e| e.1)
             .try_fold(JoinSet::new(), |mut tasks, batch| async {
@@ -564,11 +420,11 @@ impl InxWorker {
                 tasks.spawn(async move {
                     let payloads = batch
                         .iter()
-                        .filter_map(|(_, block, _, metadata): &(BlockId, Block, Vec<u8>, BlockMetadata)| {
-                            if metadata.inclusion_state == LedgerInclusionState::Included {
-                                if let Some(Payload::TreasuryTransaction(payload)) = &block.payload {
+                        .filter_map(|data| {
+                            if data.metadata.inclusion_state == LedgerInclusionState::Included {
+                                if let Some(Payload::TreasuryTransaction(payload)) = &data.block.payload {
                                     return Some((
-                                        metadata.referenced_by_milestone_index,
+                                        data.metadata.referenced_by_milestone_index,
                                         payload.input_milestone_id,
                                         payload.output_amount,
                                     ));
@@ -593,6 +449,47 @@ impl InxWorker {
 
         while let Some(res) = tasks.join_next().await {
             res??;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "analytics")]
+    async fn update_analytics<'a>(
+        &self,
+        milestone: &Milestone<'a, Inx>,
+        analytics_choices: &Option<std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>>,
+        state: &mut Option<crate::cli::analytics::AnalyticsState>,
+    ) -> Result<()> {
+        if let (Some(influx_db), Some(analytics_choices)) = (&self.influx_db, analytics_choices) {
+            if influx_db.config().analytics_enabled {
+                // Check if the protocol params changed (or we just started)
+                if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
+                    let ledger_state = self
+                        .db
+                        .collection::<chronicle::db::collections::OutputCollection>()
+                        .get_unspent_output_stream(milestone.at.milestone_index - 1)
+                        .await?
+                        .try_collect::<Vec<_>>()
+                        .await?;
+
+                    let analytics = analytics_choices
+                        .iter()
+                        .map(|choice| {
+                            chronicle::analytics::Analytic::init(choice, &milestone.protocol_params, &ledger_state)
+                        })
+                        .collect::<Vec<_>>();
+                    *state = Some(crate::cli::analytics::AnalyticsState {
+                        analytics,
+                        prev_protocol_params: milestone.protocol_params.clone(),
+                    });
+                }
+
+                // Unwrap: safe because we guarantee it is initialized above
+                milestone
+                    .update_analytics(&mut state.as_mut().unwrap().analytics, influx_db)
+                    .await?;
+            }
         }
 
         Ok(())

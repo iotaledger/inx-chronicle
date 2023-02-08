@@ -58,7 +58,7 @@ impl MongoDbCollection for OutputCollection {
 
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
         Self {
-            db: db.db.clone(),
+            db: db.db(),
             collection,
         }
     }
@@ -285,6 +285,7 @@ impl OutputCollection {
         self.aggregate(
             vec![
                 doc! { "$match": {
+                    "metadata.booked.milestone_index" : { "$lte": ledger_index },
                     "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                 } },
                 doc! { "$project": {
@@ -293,6 +294,55 @@ impl OutputCollection {
                     "booked": "$metadata.booked",
                     "output": "$output",
                     "rent_structure": "$details.rent_structure",
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+
+    /// Get all created [`LedgerOutput`]s for the given milestone.
+    pub async fn get_created_outputs(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
+        self.aggregate(
+            [
+                doc! { "$match": {
+                    "metadata.booked.milestone_index": { "$eq": index }
+                } },
+                doc! { "$project": {
+                    "output_id": "$_id",
+                    "block_id": "$metadata.block_id",
+                    "booked": "$metadata.booked",
+                    "output": "$output",
+                    "rent_structure": "$details.rent_structure",
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+
+    /// Get all consumed [`LedgerSpent`]s for the given milestone.
+    pub async fn get_consumed_outputs(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerSpent, Error>>, Error> {
+        self.aggregate(
+            [
+                doc! { "$match": {
+                    "metadata.spent_metadata.spent.milestone_index": { "$eq": index }
+                } },
+                doc! { "$project": {
+                    "output": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "output": "$output",
+                        "rent_structure": "$details.rent_structure",
+                    },
+                    "spent_metadata": "$metadata.spent_metadata",
                 } },
             ],
             None,

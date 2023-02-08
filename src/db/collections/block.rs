@@ -8,6 +8,7 @@ use mongodb::{
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
+use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -18,6 +19,7 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
+    tangle::BlockData,
     types::{
         ledger::{BlockMetadata, LedgerInclusionState},
         stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
@@ -37,6 +39,35 @@ pub struct BlockDocument {
     raw: Vec<u8>,
     /// The block's metadata.
     metadata: BlockMetadata,
+}
+
+impl From<BlockData> for BlockDocument {
+    fn from(
+        BlockData {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }: BlockData,
+    ) -> Self {
+        Self {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }
+    }
+}
+
+impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
+    fn from((block_id, block, raw, metadata): (BlockId, Block, Vec<u8>, BlockMetadata)) -> Self {
+        Self {
+            block_id,
+            block,
+            raw,
+            metadata,
+        }
+    }
 }
 
 /// The stardust blocks collection.
@@ -234,8 +265,17 @@ impl BlockCollection {
         &self,
         index: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<(BlockId, Block, Vec<u8>, BlockMetadata), Error>>, Error> {
+        #[derive(Debug, Deserialize)]
+        struct QueryRes {
+            #[serde(rename = "_id")]
+            block_id: BlockId,
+            #[serde(with = "serde_bytes")]
+            raw: Vec<u8>,
+            metadata: BlockMetadata,
+        }
+
         Ok(self
-            .aggregate::<BlockDocument>(
+            .aggregate::<QueryRes>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
@@ -243,14 +283,16 @@ impl BlockCollection {
                 None,
             )
             .await?
-            .map_ok(
-                |BlockDocument {
-                     block_id,
-                     block,
-                     raw,
-                     metadata,
-                 }| (block_id, block, raw, metadata),
-            ))
+            .map_ok(|r| {
+                (
+                    r.block_id,
+                    iota_types::block::Block::unpack_unverified(r.raw.clone())
+                        .unwrap()
+                        .into(),
+                    r.raw,
+                    r.metadata,
+                )
+            }))
     }
 
     /// Get the blocks that were applied by the specified milestone (in White-Flag order).
@@ -282,19 +324,13 @@ impl BlockCollection {
 
     /// Inserts [`Block`]s together with their associated [`BlockMetadata`].
     #[instrument(skip_all, err, level = "trace")]
-    pub async fn insert_blocks_with_metadata<I>(&self, blocks_with_metadata: I) -> Result<(), Error>
+    pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), Error>
     where
-        I: IntoIterator<Item = (BlockId, Block, Vec<u8>, BlockMetadata)>,
+        I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
+        BlockDocument: From<B>,
     {
-        let blocks_with_metadata = blocks_with_metadata
-            .into_iter()
-            .map(|(block_id, block, raw, metadata)| BlockDocument {
-                block_id,
-                block,
-                raw,
-                metadata,
-            });
+        let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
 
         self.insert_many_ignore_duplicates(
             blocks_with_metadata,

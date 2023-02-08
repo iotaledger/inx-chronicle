@@ -6,6 +6,9 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::config::ChronicleConfig;
 
+#[cfg(feature = "analytics")]
+pub mod analytics;
+
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
 // #[command(author, version, about, next_display_order = None)]
@@ -250,12 +253,13 @@ impl ClArgs {
                     );
                     return Ok(PostCommand::Exit);
                 }
-                #[cfg(all(feature = "analytics", feature = "inx"))]
+                #[cfg(feature = "analytics")]
                 Subcommands::FillAnalytics {
                     start_milestone,
                     end_milestone,
                     num_tasks,
                     analytics,
+                    input_source,
                 } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -277,69 +281,41 @@ impl ClArgs {
                             .map(|ts| ts.milestone_index)
                             .unwrap_or_default()
                     };
+                    if end_milestone < start_milestone {
+                        tracing::warn!("No milestones in range.");
+                        return Ok(PostCommand::Exit);
+                    }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
 
-                    let num_tasks = num_tasks.unwrap_or(1);
-                    let mut join_set = tokio::task::JoinSet::new();
-                    for i in 0..num_tasks {
-                        let db = db.clone();
-                        let influx_db = influx_db.clone();
-                        let analytics_choice = analytics.clone();
-                        join_set.spawn(async move {
-                            let mut analytics = if analytics_choice.is_empty() {
-                                chronicle::db::collections::analytics::all_analytics()
-                            } else {
-                                let mut tmp: std::collections::HashSet<
-                                    chronicle::db::influxdb::config::AnalyticsChoice,
-                                > = analytics_choice.iter().copied().collect();
-                                tmp.drain().map(Into::into).collect()
-                            };
-
-                            tracing::info!("Computing the following analytics: {:?}", analytics);
-
-                            for index in (*start_milestone..*end_milestone).skip(i).step_by(num_tasks) {
-                                let milestone_index = index.into();
-                                if let Some(milestone_timestamp) = db
-                                    .collection::<chronicle::db::collections::MilestoneCollection>()
-                                    .get_milestone_timestamp(milestone_index)
-                                    .await?
-                                {
-                                    #[cfg(feature = "metrics")]
-                                    let start_time = std::time::Instant::now();
-
-                                    super::stardust_inx::gather_analytics(
-                                        &db,
-                                        &influx_db,
-                                        &mut analytics,
-                                        milestone_index,
-                                        milestone_timestamp,
-                                    )
-                                    .await?;
-
-                                    #[cfg(feature = "metrics")]
-                                    {
-                                        let elapsed = start_time.elapsed();
-                                        influx_db
-                                            .metrics()
-                                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
-                                                time: chrono::Utc::now(),
-                                                milestone_index,
-                                                analytics_time: elapsed.as_millis() as u64,
-                                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                                            })
-                                            .await?;
-                                    }
-                                    tracing::info!("Finished analytics for milestone {}", milestone_index);
-                                } else {
-                                    tracing::info!("No milestone in database for index {}", milestone_index);
-                                }
-                            }
-                            eyre::Result::<_>::Ok(())
-                        });
-                    }
-                    while let Some(res) = join_set.join_next().await {
-                        res??;
-                    }
+                    match input_source {
+                        #[cfg(feature = "inx")]
+                        InputSourceChoice::Inx => {
+                            tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
+                            let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
+                            analytics::fill_analytics(
+                                &db,
+                                &influx_db,
+                                &inx,
+                                start_milestone,
+                                end_milestone,
+                                *num_tasks,
+                                analytics,
+                            )
+                            .await?;
+                        }
+                        InputSourceChoice::MongoDb => {
+                            analytics::fill_analytics(
+                                &db,
+                                &influx_db,
+                                &db,
+                                start_milestone,
+                                end_milestone,
+                                *num_tasks,
+                                analytics,
+                            )
+                            .await?;
+                        }
+                    };
                     return Ok(PostCommand::Exit);
                 }
                 #[cfg(debug_assertions)]
@@ -352,7 +328,6 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                 }
-
                 Subcommands::BuildIndexes => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -372,6 +347,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    /// Fill analytics from Chronicle's database.
     #[cfg(feature = "analytics")]
     FillAnalytics {
         /// The inclusive starting milestone index.
@@ -381,13 +357,16 @@ pub enum Subcommands {
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         /// The number of parallel tasks to use when filling the analytics.
-        #[arg(short, long)]
-        num_tasks: Option<usize>,
+        #[arg(short, long, default_value_t = 1)]
+        num_tasks: usize,
         /// Select a subset of analytics to compute.
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
+        /// The input source to use for filling the analytics.
+        #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
+        input_source: InputSourceChoice,
     },
-    /// Clear the chronicle database.
+    /// Clear the Chronicle database.
     #[cfg(debug_assertions)]
     ClearDatabase {
         /// Run the application after this command.
@@ -402,4 +381,11 @@ pub enum Subcommands {
 pub enum PostCommand {
     Start,
     Exit,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum InputSourceChoice {
+    MongoDb,
+    #[cfg(feature = "inx")]
+    Inx,
 }

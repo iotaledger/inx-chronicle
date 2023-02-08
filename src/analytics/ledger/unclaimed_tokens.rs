@@ -1,55 +1,49 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::TransactionAnalytics;
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    tangle::MilestoneIndex,
-};
+use super::*;
 
 /// Information about the claiming process.
 #[derive(Copy, Clone, Debug, Default)]
-pub struct UnclaimedTokens {
+pub(crate) struct UnclaimedTokenMeasurement {
     /// The number of outputs that are still unclaimed.
-    pub unclaimed_count: usize,
+    pub(crate) unclaimed_count: usize,
     /// The remaining number of unclaimed tokens.
-    pub unclaimed_value: usize,
+    pub(crate) unclaimed_value: TokenAmount,
 }
 
-/// Computes information about the claiming process.
-pub struct UnclaimedTokensAnalytics {
-    measurement: UnclaimedTokens,
-}
-
-impl UnclaimedTokensAnalytics {
-    /// Initialize the analytics be reading the current ledger state.
-    pub async fn init(unspent_outputs: impl Iterator<Item = &LedgerOutput>) -> Self {
-        let mut measurement = UnclaimedTokens::default();
+impl UnclaimedTokenMeasurement {
+    /// Initialize the analytics by reading the current ledger state.
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+        let mut measurement = Self::default();
         for output in unspent_outputs {
-            if output.booked.milestone_index == MilestoneIndex(0) {
+            if output.booked.milestone_index == 0 {
                 measurement.unclaimed_count += 1;
-                measurement.unclaimed_value += output.amount().0 as usize;
+                measurement.unclaimed_value += output.amount();
             }
         }
-        Self { measurement }
+        measurement
     }
 }
 
-impl TransactionAnalytics for UnclaimedTokensAnalytics {
-    type Measurement = UnclaimedTokens;
+impl Analytics for UnclaimedTokenMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput]) {
+    fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in inputs {
-            if input.output.booked.milestone_index == MilestoneIndex(0) {
-                self.measurement.unclaimed_count -= 1;
-                self.measurement.unclaimed_value -= input.amount().0 as usize;
+            if input.output.booked.milestone_index == 0 {
+                self.unclaimed_count -= 1;
+                self.unclaimed_value -= input.amount();
             }
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(self.measurement)
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

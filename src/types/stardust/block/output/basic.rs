@@ -12,7 +12,7 @@ use super::{
     unlock_condition::{
         AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
     },
-    Feature, NativeToken, OutputAmount,
+    Feature, NativeToken, TokenAmount,
 };
 use crate::types::context::TryFromWithContext;
 
@@ -20,7 +20,7 @@ use crate::types::context::TryFromWithContext;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicOutput {
     /// The output amount.
-    pub amount: OutputAmount,
+    pub amount: TokenAmount,
     /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
     /// The address unlock condition.
