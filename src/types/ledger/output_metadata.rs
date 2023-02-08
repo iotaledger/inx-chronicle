@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::{
     stardust::{
         block::{
-            output::{Output, OutputAmount, OutputId},
+            output::{Output, OutputId, TokenAmount},
             payload::transaction::TransactionId,
             Address, BlockId,
         },
@@ -17,7 +17,7 @@ use crate::types::{
     tangle::MilestoneIndex,
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 pub struct MilestoneIndexTimestamp {
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,
@@ -54,7 +54,11 @@ pub struct LedgerOutput {
 }
 
 impl LedgerOutput {
-    pub fn amount(&self) -> OutputAmount {
+    pub fn output_id(&self) -> OutputId {
+        self.output_id
+    }
+
+    pub fn amount(&self) -> TokenAmount {
         self.output.amount()
     }
 
@@ -70,7 +74,11 @@ pub struct LedgerSpent {
 }
 
 impl LedgerSpent {
-    pub fn amount(&self) -> OutputAmount {
+    pub fn output_id(&self) -> OutputId {
+        self.output.output_id
+    }
+
+    pub fn amount(&self) -> TokenAmount {
         self.output.amount()
     }
 

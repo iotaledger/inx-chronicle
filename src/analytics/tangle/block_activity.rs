@@ -1,45 +1,48 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use super::BlockAnalytics;
-use crate::{
-    tangle::BlockData,
-    types::{stardust::block::Payload, tangle::MilestoneIndex},
-};
+use super::*;
+use crate::types::ledger::LedgerInclusionState;
 
 /// The type of payloads that occured within a single milestone.
-#[derive(Clone, Debug, Default)]
-pub struct BlockActivity {
-    milestone_count: usize,
-    no_payload_count: usize,
-    tagged_data_count: usize,
-    transaction_count: usize,
-    treasury_transaction_count: usize,
+#[derive(Copy, Clone, Debug, Default)]
+pub(crate) struct BlockActivityMeasurement {
+    pub(crate) milestone_count: usize,
+    pub(crate) no_payload_count: usize,
+    pub(crate) tagged_data_count: usize,
+    pub(crate) transaction_count: usize,
+    pub(crate) treasury_transaction_count: usize,
+    pub(crate) confirmed_count: usize,
+    pub(crate) conflicting_count: usize,
+    pub(crate) no_transaction_count: usize,
 }
 
-/// Computes the block-level activity that happened in a milestone.
-pub struct BlockActivityAnalytics {
-    measurement: BlockActivity,
-}
+impl Analytics for BlockActivityMeasurement {
+    type Measurement = PerMilestone<Self>;
 
-impl BlockAnalytics for BlockActivityAnalytics {
-    type Measurement = BlockActivity;
-
-    fn begin_milestone(&mut self, _: MilestoneIndex) {
-        self.measurement = BlockActivity::default();
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
+        *self = Default::default();
     }
 
-    fn handle_block(&mut self, block: &BlockData) {
-        match block.block.payload {
-            Some(Payload::Milestone(_)) => self.measurement.milestone_count += 1,
-            Some(Payload::TaggedData(_)) => self.measurement.tagged_data_count += 1,
-            Some(Payload::Transaction(_)) => self.measurement.transaction_count += 1,
-            Some(Payload::TreasuryTransaction(_)) => self.measurement.treasury_transaction_count += 1,
-            None => self.measurement.no_payload_count += 1,
+    fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData, _ctx: &dyn AnalyticsContext) {
+        match block.payload {
+            Some(Payload::Milestone(_)) => self.milestone_count += 1,
+            Some(Payload::TaggedData(_)) => self.tagged_data_count += 1,
+            Some(Payload::Transaction(_)) => self.transaction_count += 1,
+            Some(Payload::TreasuryTransaction(_)) => self.treasury_transaction_count += 1,
+            None => self.no_payload_count += 1,
+        }
+        match metadata.inclusion_state {
+            LedgerInclusionState::Conflicting => self.conflicting_count += 1,
+            LedgerInclusionState::Included => self.confirmed_count += 1,
+            LedgerInclusionState::NoTransaction => self.no_transaction_count += 1,
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndex) -> Option<Self::Measurement> {
-        Some(self.measurement.clone())
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: *self,
+        })
     }
 }

@@ -3,57 +3,63 @@
 
 use std::collections::HashMap;
 
-use super::{AddressCount, TransactionAnalytics};
-use crate::types::{
-    ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-    stardust::block::{output::OutputAmount, Address},
-};
+use super::*;
+use crate::types::stardust::block::{output::TokenAmount, Address};
 
-/// Computes the number of addresses the currently hold a balance.
-pub struct AddressBalanceAnalytics {
-    addresses: HashMap<Address, OutputAmount>,
+pub(crate) struct AddressBalanceMeasurement {
+    pub(crate) address_with_balance_count: usize,
 }
 
-impl AddressBalanceAnalytics {
-    /// Initialize the analytics be reading the current ledger state.
-    pub fn init<'a>(unspent_outputs: impl Iterator<Item = &'a LedgerOutput>) -> Self {
-        let mut addresses: HashMap<Address, OutputAmount> = HashMap::new();
+/// Computes the number of addresses the currently hold a balance.
+pub(crate) struct AddressBalancesAnalytics {
+    balances: HashMap<Address, TokenAmount>,
+}
+
+impl AddressBalancesAnalytics {
+    /// Initialize the analytics by reading the current ledger state.
+    pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
+        let mut balances = HashMap::new();
         for output in unspent_outputs {
             if let Some(&a) = output.owning_address() {
-                *addresses.entry(a).or_default() += output.amount();
+                *balances.entry(a).or_default() += output.amount();
             }
         }
-        Self { addresses }
+        Self { balances }
     }
 }
 
-impl TransactionAnalytics for AddressBalanceAnalytics {
-    type Measurement = AddressCount;
+impl Analytics for AddressBalancesAnalytics {
+    type Measurement = PerMilestone<AddressBalanceMeasurement>;
 
-    fn begin_milestone(&mut self, _: MilestoneIndexTimestamp) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
-    fn handle_transaction(&mut self, inputs: &[LedgerSpent], outputs: &[LedgerOutput]) {
-        for input in inputs {
+    fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
+        for input in consumed {
             if let Some(a) = input.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
-                if let Some(amount) = self.addresses.get_mut(a) {
+                if let Some(amount) = self.balances.get_mut(a) {
                     *amount -= input.amount();
-                    if *amount == OutputAmount(0) {
-                        self.addresses.remove(a);
+                    if *amount == TokenAmount(0) {
+                        self.balances.remove(a);
                     }
                 }
             }
         }
 
-        for output in outputs {
+        for output in created {
             if let Some(&a) = output.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
-                *self.addresses.entry(a).or_default() += output.amount();
+                *self.balances.entry(a).or_default() += output.amount();
             }
         }
     }
 
-    fn end_milestone(&mut self, _: MilestoneIndexTimestamp) -> Option<Self::Measurement> {
-        Some(AddressCount(self.addresses.len()))
+    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(PerMilestone {
+            at: *ctx.at(),
+            inner: AddressBalanceMeasurement {
+                address_with_balance_count: self.balances.len(),
+            },
+        })
     }
 }
