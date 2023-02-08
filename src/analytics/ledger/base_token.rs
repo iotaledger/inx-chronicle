@@ -37,9 +37,9 @@ impl Analytics for BaseTokenActivityMeasurement {
         self.booked_amount = TokenAmount(balance_deltas.values().copied().sum::<i128>() as u64);
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
-        for input in consumed {
-            if let Some(address) = input.owning_address() {
-                *balance_deltas.entry(address).or_default() -= input.amount().0 as i128;
+        for output in consumed {
+            if let Some(address) = output.owning_address() {
+                *balance_deltas.entry(address).or_default() -= output.amount().0 as i128;
             }
         }
 
