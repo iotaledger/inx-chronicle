@@ -285,9 +285,8 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
-                    let num_tasks = num_tasks.unwrap_or(1);
 
-                    analytics::fill_analytics(&db, &influx_db, start_milestone, end_milestone, num_tasks, analytics)
+                    analytics::fill_analytics(&db, &influx_db, start_milestone, end_milestone, *num_tasks, analytics)
                         .await?;
                     return Ok(PostCommand::Exit);
                 }
@@ -330,8 +329,8 @@ pub enum Subcommands {
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         /// The number of parallel tasks to use when filling the analytics.
-        #[arg(short, long)]
-        num_tasks: Option<usize>,
+        #[arg(short, long, default_value_t = 1)]
+        num_tasks: usize,
         /// Select a subset of analytics to compute.
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,

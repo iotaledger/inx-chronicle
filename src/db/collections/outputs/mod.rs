@@ -58,7 +58,7 @@ impl MongoDbCollection for OutputCollection {
 
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
         Self {
-            db: db.db.clone(),
+            db: db.db(),
             collection,
         }
     }
@@ -285,6 +285,7 @@ impl OutputCollection {
         self.aggregate(
             vec![
                 doc! { "$match": {
+                    "metadata.booked.milestone_index" : { "$lte": ledger_index },
                     "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                 } },
                 doc! { "$project": {
