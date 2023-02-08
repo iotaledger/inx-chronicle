@@ -87,7 +87,7 @@ impl ApplicationStateCollection {
         self.update_one(
             doc! {},
             doc! {
-                "$set": { "last_migration": mongodb::bson::to_bson(&last_migration).unwrap() }
+                "$set": { "last_migration": mongodb::bson::to_bson(&last_migration)? }
             },
             UpdateOptions::builder().upsert(true).build(),
         )

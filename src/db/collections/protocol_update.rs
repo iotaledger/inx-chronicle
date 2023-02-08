@@ -84,15 +84,11 @@ impl ProtocolUpdateCollection {
         parameters: ProtocolParameters,
     ) -> Result<(), Error> {
         let params = self.get_protocol_parameters_for_ledger_index(ledger_index).await?;
-        if params.is_none()
-            || params
-                .map(|latest_params| latest_params.parameters != parameters)
-                .unwrap_or_default()
-        {
+        if !matches!(params, Some(params) if params.parameters == parameters) {
             self.update_one(
                 doc! { "_id": ledger_index },
                 doc! { "$set": {
-                    "parameters": mongodb::bson::to_bson(&parameters).unwrap()
+                    "parameters": mongodb::bson::to_bson(&parameters)?
                 } },
                 UpdateOptions::builder().upsert(true).build(),
             )

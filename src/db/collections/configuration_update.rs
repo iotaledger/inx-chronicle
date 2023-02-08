@@ -68,15 +68,11 @@ impl ConfigurationUpdateCollection {
         ledger_index: MilestoneIndex,
         config: NodeConfiguration,
     ) -> Result<(), Error> {
-        let params = self.get_node_configuration_for_ledger_index(ledger_index).await?;
-        if params.is_none()
-            || params
-                .map(|latest_config| latest_config.config != config)
-                .unwrap_or_default()
-        {
+        let node_config = self.get_node_configuration_for_ledger_index(ledger_index).await?;
+        if !matches!(node_config, Some(node_config) if node_config.config == config) {
             self.update_one(
                 doc! { "_id": ledger_index },
-                doc! { "$set": mongodb::bson::to_bson(&config).unwrap() },
+                doc! { "$set": mongodb::bson::to_bson(&config)? },
                 UpdateOptions::builder().upsert(true).build(),
             )
             .await?;
