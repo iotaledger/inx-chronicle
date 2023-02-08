@@ -67,7 +67,7 @@ impl InxWorker {
     pub async fn run(&mut self) -> Result<()> {
         let (start_index, inx) = self.init().await?;
 
-        let tangle = Tangle::from(&inx);
+        let tangle = Tangle::from(inx);
 
         let mut stream = tangle.milestone_stream(start_index..).await?;
 
@@ -468,7 +468,7 @@ impl InxWorker {
                     let ledger_state = self
                         .db
                         .collection::<chronicle::db::collections::OutputCollection>()
-                        .get_unspent_output_stream(milestone.at.milestone_index)
+                        .get_unspent_output_stream(milestone.at.milestone_index - 1)
                         .await?
                         .try_collect::<Vec<_>>()
                         .await?;

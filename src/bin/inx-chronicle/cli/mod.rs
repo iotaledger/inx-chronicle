@@ -259,6 +259,7 @@ impl ClArgs {
                     end_milestone,
                     num_tasks,
                     analytics,
+                    input_source,
                 } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -286,8 +287,35 @@ impl ClArgs {
                     }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
 
-                    analytics::fill_analytics(&db, &influx_db, start_milestone, end_milestone, *num_tasks, analytics)
-                        .await?;
+                    match input_source {
+                        #[cfg(feature = "inx")]
+                        InputSourceChoice::Inx => {
+                            tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
+                            let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
+                            analytics::fill_analytics(
+                                &db,
+                                &influx_db,
+                                &inx,
+                                start_milestone,
+                                end_milestone,
+                                *num_tasks,
+                                analytics,
+                            )
+                            .await?;
+                        }
+                        InputSourceChoice::MongoDb => {
+                            analytics::fill_analytics(
+                                &db,
+                                &influx_db,
+                                &db,
+                                start_milestone,
+                                end_milestone,
+                                *num_tasks,
+                                analytics,
+                            )
+                            .await?;
+                        }
+                    };
                     return Ok(PostCommand::Exit);
                 }
                 #[cfg(debug_assertions)]
@@ -300,7 +328,6 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                 }
-
                 Subcommands::BuildIndexes => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
@@ -320,6 +347,7 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
+    /// Fill analytics from Chronicle's database.
     #[cfg(feature = "analytics")]
     FillAnalytics {
         /// The inclusive starting milestone index.
@@ -334,8 +362,11 @@ pub enum Subcommands {
         /// Select a subset of analytics to compute.
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
+        /// The input source to use for filling the analytics.
+        #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
+        input_source: InputSourceChoice,
     },
-    /// Clear the chronicle database.
+    /// Clear the Chronicle database.
     #[cfg(debug_assertions)]
     ClearDatabase {
         /// Run the application after this command.
@@ -350,4 +381,11 @@ pub enum Subcommands {
 pub enum PostCommand {
     Start,
     Exit,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum InputSourceChoice {
+    MongoDb,
+    #[cfg(feature = "inx")]
+    Inx,
 }
