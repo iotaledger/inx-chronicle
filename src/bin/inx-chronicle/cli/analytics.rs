@@ -47,7 +47,7 @@ pub async fn fill_analytics(
                 // TODO: Provide better instrumentation. If we measure here, we don't account for the time required to
                 // receive a milestone.
                 let start_time = std::time::Instant::now();
-                #[cfg(feature = "metrics")]
+
                 // Check if the protocol params changed (or we just started)
                 if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
                     // Only get the ledger state for milestones after the genesis since it requires
