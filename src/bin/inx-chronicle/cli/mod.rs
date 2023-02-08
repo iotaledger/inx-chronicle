@@ -366,7 +366,7 @@ pub enum Subcommands {
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
         /// The input source to use for filling the analytics.
-        #[arg(long, value_name = "INPUT_SOURCE")]
+        #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
         input_source: InputSourceChoice,
     },
     /// Clear the Chronicle database.
