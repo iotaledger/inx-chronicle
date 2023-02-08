@@ -67,7 +67,7 @@ impl InxWorker {
     pub async fn run(&mut self) -> Result<()> {
         let (start_index, inx) = self.init().await?;
 
-        let tangle = Tangle::from_inx(&inx);
+        let tangle = Tangle::from_inx(inx);
 
         let mut stream = tangle.milestone_stream(start_index..).await?;
 

@@ -7,42 +7,46 @@ use chronicle::{
         influxdb::{AnalyticsChoice, InfluxDb},
         MongoDb,
     },
-    tangle::Tangle,
+    tangle::{InputSource, Tangle},
     types::tangle::MilestoneIndex,
 };
 use futures::TryStreamExt;
 
-pub async fn fill_analytics(
-    db: &MongoDb,
-    influx_db: &InfluxDb,
+pub async fn fill_analytics<I: InputSource + Clone + Send + Sync + 'static>(
+    db: MongoDb,
+    influx_db: InfluxDb,
     start_milestone: MilestoneIndex,
     end_milestone: MilestoneIndex,
     num_tasks: usize,
-    analytics: &[AnalyticsChoice],
+    analytics: Vec<AnalyticsChoice>,
+    tangle: Tangle<I>,
 ) -> eyre::Result<()> {
     let mut join_set = tokio::task::JoinSet::new();
+
     let chunk_size = (end_milestone.0 - start_milestone.0) / num_tasks as u32
         + ((end_milestone.0 - start_milestone.0) % num_tasks as u32 != 0) as u32;
+
     for i in 0..num_tasks {
         let db = db.clone();
+        let tangle = tangle.clone();
         let influx_db = influx_db.clone();
+
         let analytics_choices = if analytics.is_empty() {
             super::influxdb::all_analytics()
         } else {
             analytics.iter().copied().collect()
         };
+        tracing::info!("Computing the following analytics: {:?}", analytics_choices);
 
         join_set.spawn(async move {
-            tracing::info!("Computing the following analytics: {:?}", analytics_choices);
-
             let start_milestone = start_milestone + i as u32 * chunk_size;
 
             let mut state: Option<AnalyticsState> = None;
 
-            let tangle = Tangle::from_mongodb(&db);
             let mut milestone_stream = tangle
                 .milestone_stream(start_milestone..start_milestone + chunk_size)
                 .await?;
+
             while let Some(milestone) = milestone_stream.try_next().await? {
                 #[cfg(feature = "metrics")]
                 let start_time = std::time::Instant::now();

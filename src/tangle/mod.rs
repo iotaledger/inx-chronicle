@@ -19,44 +19,46 @@ pub use self::{
 use crate::{db::MongoDb, types::tangle::MilestoneIndex};
 
 /// Provides access to the tangle.
-pub struct Tangle<'a, I: InputSource> {
-    source: &'a I,
+pub struct Tangle<I: InputSource> {
+    source: I,
 }
 
-impl<'a, I: InputSource> Clone for Tangle<'a, I> {
+impl<I: InputSource + Clone> Clone for Tangle<I> {
     fn clone(&self) -> Self {
-        Self { source: self.source }
+        Self {
+            source: self.source.clone(),
+        }
     }
 }
-impl<'a, I: InputSource> Copy for Tangle<'a, I> {}
+impl<I: InputSource + Copy> Copy for Tangle<I> {}
 
-impl<'a> Tangle<'a, MongoDb> {
+impl Tangle<MongoDb> {
     /// Create a tangle from a [`MongoDb`] input source.
-    pub fn from_mongodb(mongodb: &'a MongoDb) -> Self {
+    pub fn from_mongodb(mongodb: MongoDb) -> Self {
         Self { source: mongodb }
     }
 }
 
 #[cfg(feature = "inx")]
-impl<'a> Tangle<'a, crate::inx::Inx> {
+impl Tangle<crate::inx::Inx> {
     /// Create a tangle from an [`Inx`](crate::inx::Inx) input source.
-    pub fn from_inx(inx: &'a crate::inx::Inx) -> Self {
+    pub fn from_inx(inx: crate::inx::Inx) -> Self {
         Self { source: inx }
     }
 }
 
-impl<'a, I: 'a + InputSource + Sync> Tangle<'a, I> {
+impl<I: InputSource + Sync> Tangle<I> {
     /// Returns a stream of milestones for a given range.
     pub async fn milestone_stream(
         &self,
         range: impl RangeBounds<MilestoneIndex> + Send,
-    ) -> Result<MilestoneStream<'a, I>, I::Error> {
+    ) -> Result<MilestoneStream<'_, I>, I::Error> {
         let stream = self.source.milestone_stream(range).await?;
         Ok(MilestoneStream {
             inner: stream
                 .and_then(|data| {
                     #[allow(clippy::borrow_deref_ref)]
-                    let source = &*self.source;
+                    let source = &self.source;
                     async move {
                         Ok(Milestone {
                             ledger_updates: source.ledger_updates(data.at.milestone_index).await?,
