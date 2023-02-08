@@ -58,7 +58,7 @@ pub async fn fill_analytics(
                             .try_collect::<Vec<_>>()
                             .await?
                     } else {
-                        Vec::new()
+                        panic!("There should be no milestone with index 0.");
                     };
 
                     let analytics = analytics_choices
