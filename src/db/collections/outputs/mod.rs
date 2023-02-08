@@ -285,6 +285,7 @@ impl OutputCollection {
         self.aggregate(
             vec![
                 doc! { "$match": {
+                    "metadata.booked.milestone_index" : { "$lte": ledger_index },
                     "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
                 } },
                 doc! { "$project": {
