@@ -28,8 +28,8 @@ pub async fn fill_analytics<I: InputSource + Clone>(
 
     for i in 0..num_tasks {
         let db = db.clone();
-        let tangle = tangle.clone();
         let influx_db = influx_db.clone();
+        let tangle = tangle.clone();
 
         let analytics_choices = if analytics.is_empty() {
             super::influxdb::all_analytics()
