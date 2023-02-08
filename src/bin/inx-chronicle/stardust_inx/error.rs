@@ -6,33 +6,16 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum InxWorkerError {
-    #[cfg(feature = "analytics")]
-    #[error("failed to establish connection: {0}")]
-    ConnectionError(#[from] chronicle::inx::InxError),
-    #[cfg(any(feature = "analytics", feature = "metrics"))]
-    #[error("InfluxDb error: {0}")]
-    InfluxDb(#[from] influxdb::Error),
     #[error("expected INX address with format `http://<address>:<port>`, but found `{0}`")]
     InvalidAddress(String),
-    #[allow(unused)]
-    #[error("wrong number of ledger updates: `{received}` but expected `{expected}`")]
-    InvalidLedgerUpdateCount { received: usize, expected: usize },
     #[error("invalid unspent output stream: found ledger index {found}, expected {expected}")]
     InvalidUnspentOutputIndex {
         found: MilestoneIndex,
         expected: MilestoneIndex,
     },
-    #[allow(unused)]
-    #[error("invalid milestone state")]
-    InvalidMilestoneState,
-    #[allow(unused)]
-    #[error("missing milestone id for milestone index `{0}`")]
-    MissingMilestoneInfo(MilestoneIndex),
     #[cfg(feature = "analytics")]
     #[error("missing application state")]
     MissingAppState,
-    #[error("MongoDb error: {0}")]
-    MongoDb(#[from] mongodb::error::Error),
     #[error("network changed from previous run. old network name: `{0}`, new network name: `{1}`")]
     NetworkChanged(String, String),
     #[error("node pruned required milestones between `{start}` and `{end}`")]

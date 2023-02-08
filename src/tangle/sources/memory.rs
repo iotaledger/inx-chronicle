@@ -17,14 +17,14 @@ pub struct InMemoryData {
 }
 
 #[derive(Debug, Error)]
-pub enum InMemoryError {
+pub enum InMemoryInputSourceError {
     #[error("missing block data for milestone {0}")]
     MissingBlockData(MilestoneIndex),
 }
 
 #[async_trait]
 impl InputSource for BTreeMap<MilestoneIndex, InMemoryData> {
-    type Error = InMemoryError;
+    type Error = InMemoryInputSourceError;
 
     async fn milestone_stream(
         &self,
@@ -39,14 +39,17 @@ impl InputSource for BTreeMap<MilestoneIndex, InMemoryData> {
         &self,
         index: MilestoneIndex,
     ) -> Result<BoxStream<Result<BlockData, Self::Error>>, Self::Error> {
-        let cone = &self.get(&index).ok_or(InMemoryError::MissingBlockData(index))?.cone;
+        let cone = &self
+            .get(&index)
+            .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
+            .cone;
         Ok(Box::pin(futures::stream::iter(cone.values().map(|v| Ok(v.clone())))))
     }
 
     async fn ledger_updates(&self, index: MilestoneIndex) -> Result<LedgerUpdateStore, Self::Error> {
         Ok(self
             .get(&index)
-            .ok_or(InMemoryError::MissingBlockData(index))?
+            .ok_or(InMemoryInputSourceError::MissingBlockData(index))?
             .ledger_updates
             .clone())
     }
