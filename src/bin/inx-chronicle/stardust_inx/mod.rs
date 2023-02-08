@@ -221,7 +221,7 @@ impl InxWorker {
 
         self.db
             .collection::<ConfigurationUpdateCollection>()
-            .update_latest_node_configuration(node_status.ledger_index, node_configuration.into())
+            .upsert_node_configuration(node_status.ledger_index, node_configuration.into())
             .await?;
 
         if let Some(latest) = self
@@ -242,7 +242,7 @@ impl InxWorker {
                 debug!("Updating protocol parameters.");
                 self.db
                     .collection::<ProtocolUpdateCollection>()
-                    .insert_protocol_parameters(start_index, protocol_parameters)
+                    .upsert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
 
@@ -350,7 +350,7 @@ impl InxWorker {
 
             self.db
                 .collection::<ProtocolUpdateCollection>()
-                .insert_protocol_parameters(start_index, protocol_parameters.into())
+                .upsert_protocol_parameters(start_index, protocol_parameters.into())
                 .await?;
         }
 
@@ -533,7 +533,7 @@ impl InxWorker {
 
         self.db
             .collection::<ProtocolUpdateCollection>()
-            .update_latest_protocol_parameters(milestone_index, parameters.into())
+            .upsert_protocol_parameters(milestone_index, parameters.into())
             .await?;
 
         Ok(())
@@ -545,7 +545,7 @@ impl InxWorker {
 
         self.db
             .collection::<ConfigurationUpdateCollection>()
-            .update_latest_node_configuration(milestone_index, node_configuration.into())
+            .upsert_node_configuration(milestone_index, node_configuration.into())
             .await?;
 
         Ok(())
