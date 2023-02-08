@@ -295,26 +295,26 @@ impl ClArgs {
                             let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
                             let tangle = chronicle::tangle::Tangle::from_inx(inx);
                             analytics::fill_analytics(
-                                db.clone(),
-                                influx_db.clone(),
+                                &db,
+                                &influx_db,
                                 start_milestone,
                                 end_milestone,
                                 num_tasks,
-                                analytics.to_vec(),
-                                tangle.clone(),
+                                analytics,
+                                tangle,
                             )
                             .await?;
                         }
                         InputSourceChoice::MongoDb => {
                             let tangle = chronicle::tangle::Tangle::from_mongodb(db.clone());
                             analytics::fill_analytics(
-                                db.clone(),
-                                influx_db.clone(),
+                                &db,
+                                &influx_db,
                                 start_milestone,
                                 end_milestone,
                                 num_tasks,
-                                analytics.to_vec(),
-                                tangle.clone(),
+                                analytics,
+                                tangle,
                             )
                             .await?;
                         }

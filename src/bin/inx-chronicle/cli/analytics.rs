@@ -13,12 +13,12 @@ use chronicle::{
 use futures::TryStreamExt;
 
 pub async fn fill_analytics<I: InputSource + Clone>(
-    db: MongoDb,
-    influx_db: InfluxDb,
+    db: &MongoDb,
+    influx_db: &InfluxDb,
     start_milestone: MilestoneIndex,
     end_milestone: MilestoneIndex,
     num_tasks: usize,
-    analytics: Vec<AnalyticsChoice>,
+    analytics: &[AnalyticsChoice],
     tangle: Tangle<I>,
 ) -> eyre::Result<()> {
     let mut join_set = tokio::task::JoinSet::new();
