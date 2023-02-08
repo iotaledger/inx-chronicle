@@ -24,7 +24,6 @@ const DUPLICATE_KEY_CODE: i32 = 11000;
 #[derive(Clone, Debug)]
 pub struct MongoDb {
     pub(crate) database_name: String,
-    // pub(crate) db: mongodb::Database,
     pub(crate) client: mongodb::Client,
 }
 
