@@ -421,7 +421,7 @@ mod test {
                 milestone_index: 2.into(),
                 milestone_timestamp: 12345.into(),
             },
-            params: protocol_params.clone().into(),
+            params: protocol_params.into(),
         };
         let mut output_activity = OutputActivityMeasurement::default();
         output_activity.begin_milestone(&ctx);
