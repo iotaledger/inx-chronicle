@@ -34,12 +34,12 @@ impl Analytics for AddressBalancesAnalytics {
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
-        for input in consumed {
-            if let Some(a) = input.owning_address() {
+        for output in consumed {
+            if let Some(a) = output.owning_address() {
                 // All inputs should be present in `addresses`. If not, we skip it's value.
                 if let Some(amount) = self.balances.get_mut(a) {
-                    *amount -= input.amount();
-                    if *amount == TokenAmount(0) {
+                    *amount -= output.amount();
+                    if amount.0 == 0 {
                         self.balances.remove(a);
                     }
                 }

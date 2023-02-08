@@ -65,8 +65,8 @@ impl Analytics for AddressActivityAnalytics {
     }
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
-        for input in consumed {
-            if let Some(a) = input.owning_address() {
+        for output in consumed {
+            if let Some(a) = output.owning_address() {
                 self.addresses.insert(*a);
             }
         }

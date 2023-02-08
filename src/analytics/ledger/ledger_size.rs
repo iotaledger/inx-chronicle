@@ -67,8 +67,8 @@ impl Analytics for LedgerSizeAnalytics {
         for output in created {
             self.measurement += output.output.ledger_size(&self.protocol_params);
         }
-        for input in consumed.iter().map(|ledger_spent| &ledger_spent.output) {
-            self.measurement -= input.output.ledger_size(&self.protocol_params);
+        for output in consumed.iter().map(|ledger_spent| &ledger_spent.output) {
+            self.measurement -= output.output.ledger_size(&self.protocol_params);
         }
     }
 
