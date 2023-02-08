@@ -1,13 +1,15 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::db::mongodb::config as mongodb;
+use chronicle::{db::mongodb::config as mongodb, inx::Inx};
 use clap::{Args, Parser, Subcommand};
 
 use crate::config::ChronicleConfig;
 
 #[cfg(feature = "analytics")]
 pub mod analytics;
+#[cfg(all(feature = "analytics", feature = "inx"))]
+pub mod analytics_inx;
 
 /// Chronicle permanode storage as an INX plugin
 #[derive(Parser, Debug)]
@@ -291,6 +293,51 @@ impl ClArgs {
                         .await?;
                     return Ok(PostCommand::Exit);
                 }
+                #[cfg(all(feature = "analytics", feature = "inx"))]
+                Subcommands::FillAnalyticsOverInx {
+                    start_milestone,
+                    end_milestone,
+                    analytics,
+                } => {
+                    tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
+                    let inx = Inx::connect(config.inx.url.clone()).await?;
+
+                    tracing::info!(
+                        "Connecting to main database using hosts: `{}`.",
+                        config.mongodb.hosts_str()?
+                    );
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+
+                    let start_milestone = if let Some(index) = start_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_oldest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    let end_milestone = if let Some(index) = end_milestone {
+                        *index
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_newest_milestone()
+                            .await?
+                            .map(|ts| ts.milestone_index)
+                            .unwrap_or_default()
+                    };
+                    if end_milestone < start_milestone {
+                        tracing::warn!("No milestones in range.");
+                        return Ok(PostCommand::Exit);
+                    }
+
+                    tracing::info!("Connecting to analytics database at url: `{}`.", config.influxdb.url);
+                    let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+
+                    analytics_inx::fill_analytics(&db, &influx_db, start_milestone, end_milestone, &inx, analytics)
+                        .await?;
+                    return Ok(PostCommand::Exit);
+                }
                 #[cfg(debug_assertions)]
                 Subcommands::ClearDatabase { run } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
@@ -332,6 +379,18 @@ pub enum Subcommands {
         /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,
+        /// Select a subset of analytics to compute.
+        #[arg(long)]
+        analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
+    },
+    #[cfg(all(feature = "analytics", feature = "inx"))]
+    FillAnalyticsOverInx {
+        /// The inclusive starting milestone index.
+        #[arg(short, long)]
+        start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        /// The exclusive ending milestone index.
+        #[arg(short, long)]
+        end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         /// Select a subset of analytics to compute.
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,
