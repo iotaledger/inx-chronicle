@@ -19,7 +19,7 @@ pub use self::{
 use crate::types::tangle::MilestoneIndex;
 
 /// Provides access to the tangle.
-pub struct Tangle<I: InputSource + 'static> {
+pub struct Tangle<I: InputSource> {
     source: I,
 }
 

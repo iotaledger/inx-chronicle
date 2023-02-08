@@ -12,10 +12,10 @@ use chronicle::{
 };
 use futures::TryStreamExt;
 
-pub async fn fill_analytics<I: InputSource + Clone>(
+pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     db: &MongoDb,
     influx_db: &InfluxDb,
-    tangle: &Tangle<I>,
+    input_source: &I,
     start_milestone: MilestoneIndex,
     end_milestone: MilestoneIndex,
     num_tasks: usize,
@@ -29,7 +29,7 @@ pub async fn fill_analytics<I: InputSource + Clone>(
     for i in 0..num_tasks {
         let db = db.clone();
         let influx_db = influx_db.clone();
-        let tangle = tangle.clone();
+        let tangle = Tangle::from(input_source.clone());
 
         let analytics_choices = if analytics.is_empty() {
             super::influxdb::all_analytics()

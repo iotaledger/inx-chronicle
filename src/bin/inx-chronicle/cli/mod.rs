@@ -292,11 +292,10 @@ impl ClArgs {
                         InputSourceChoice::Inx => {
                             tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
                             let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
-                            let tangle = chronicle::tangle::Tangle::from(inx);
                             analytics::fill_analytics(
                                 &db,
                                 &influx_db,
-                                &tangle,
+                                &inx,
                                 start_milestone,
                                 end_milestone,
                                 *num_tasks,
@@ -305,11 +304,10 @@ impl ClArgs {
                             .await?;
                         }
                         InputSourceChoice::MongoDb => {
-                            let tangle = chronicle::tangle::Tangle::from(db.clone());
                             analytics::fill_analytics(
                                 &db,
                                 &influx_db,
-                                &tangle,
+                                &db,
                                 start_milestone,
                                 end_milestone,
                                 *num_tasks,
