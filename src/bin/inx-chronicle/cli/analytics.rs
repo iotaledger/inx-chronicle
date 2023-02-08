@@ -39,7 +39,7 @@ pub async fn fill_analytics(
 
             let mut state: Option<AnalyticsState> = None;
 
-            let tangle = Tangle::from_mongodb(&db);
+            let tangle = Tangle::from(&db);
             let mut milestone_stream = tangle
                 .milestone_stream(start_milestone..start_milestone + chunk_size)
                 .await?;
