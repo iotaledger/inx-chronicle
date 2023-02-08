@@ -468,7 +468,7 @@ impl InxWorker {
                     let ledger_state = self
                         .db
                         .collection::<chronicle::db::collections::OutputCollection>()
-                        .get_unspent_output_stream(milestone.at.milestone_index)
+                        .get_unspent_output_stream(milestone.at.milestone_index - 1)
                         .await?
                         .try_collect::<Vec<_>>()
                         .await?;
