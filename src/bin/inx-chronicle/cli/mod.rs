@@ -286,34 +286,33 @@ impl ClArgs {
                         return Ok(PostCommand::Exit);
                     }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
-                    let num_tasks = num_tasks.unwrap_or(1);
 
                     match input_source {
                         #[cfg(feature = "inx")]
                         InputSourceChoice::Inx => {
                             tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
                             let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
-                            let tangle = chronicle::tangle::Tangle::from_inx(inx);
+                            let tangle = chronicle::tangle::Tangle::from(inx);
                             analytics::fill_analytics(
                                 &db,
                                 &influx_db,
                                 &tangle,
                                 start_milestone,
                                 end_milestone,
-                                num_tasks,
+                                *num_tasks,
                                 analytics,
                             )
                             .await?;
                         }
                         InputSourceChoice::MongoDb => {
-                            let tangle = chronicle::tangle::Tangle::from_mongodb(db.clone());
+                            let tangle = chronicle::tangle::Tangle::from(db.clone());
                             analytics::fill_analytics(
                                 &db,
                                 &influx_db,
                                 &tangle,
                                 start_milestone,
                                 end_milestone,
-                                num_tasks,
+                                *num_tasks,
                                 analytics,
                             )
                             .await?;
@@ -360,8 +359,8 @@ pub enum Subcommands {
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         /// The number of parallel tasks to use when filling the analytics.
-        #[arg(short, long)]
-        num_tasks: Option<usize>,
+        #[arg(short, long, default_value_t = 1)]
+        num_tasks: usize,
         /// Select a subset of analytics to compute.
         #[arg(long)]
         analytics: Vec<chronicle::db::influxdb::AnalyticsChoice>,

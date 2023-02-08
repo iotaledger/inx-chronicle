@@ -48,7 +48,8 @@ pub async fn fill_analytics<I: InputSource + Clone>(
                 .await?;
 
             while let Some(milestone) = milestone_stream.try_next().await? {
-                #[cfg(feature = "metrics")]
+                // TODO: Provide better instrumentation. If we measure here, we don't account for the time required to
+                // receive a milestone.
                 let start_time = std::time::Instant::now();
 
                 // Check if the protocol params changed (or we just started)
@@ -62,7 +63,7 @@ pub async fn fill_analytics<I: InputSource + Clone>(
                             .try_collect::<Vec<_>>()
                             .await?
                     } else {
-                        Vec::new()
+                        panic!("There should be no milestone with index 0.");
                     };
 
                     let analytics = analytics_choices
@@ -80,9 +81,9 @@ pub async fn fill_analytics<I: InputSource + Clone>(
                     .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
                     .await?;
 
+                let elapsed = start_time.elapsed();
                 #[cfg(feature = "metrics")]
                 {
-                    let elapsed = start_time.elapsed();
                     influx_db
                         .metrics()
                         .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
@@ -93,7 +94,11 @@ pub async fn fill_analytics<I: InputSource + Clone>(
                         })
                         .await?;
                 }
-                tracing::info!("Finished analytics for milestone {}", milestone.at.milestone_index);
+                tracing::info!(
+                    "Finished analytics for milestone {} in {}ms.",
+                    milestone.at.milestone_index,
+                    elapsed.as_millis()
+                );
             }
             eyre::Result::<_>::Ok(())
         });

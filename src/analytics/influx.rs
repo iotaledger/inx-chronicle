@@ -72,7 +72,7 @@ where
 }
 
 impl Measurement for AddressBalanceMeasurement {
-    const NAME: &'static str = "stardust_address_balances";
+    const NAME: &'static str = "stardust_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query.add_field("address_with_balance_count", self.address_with_balance_count as u64)
@@ -114,7 +114,7 @@ impl Measurement for AddressActivityMeasurement {
 }
 
 impl Measurement for LedgerOutputMeasurement {
-    const NAME: &'static str = "stardust_ledger_output";
+    const NAME: &'static str = "stardust_ledger_outputs";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query
@@ -200,7 +200,7 @@ impl Measurement for ProtocolParameters {
 }
 
 impl Measurement for UnclaimedTokenMeasurement {
-    const NAME: &'static str = "stardust_unclaimed_tokens";
+    const NAME: &'static str = "stardust_unclaimed_rewards";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query

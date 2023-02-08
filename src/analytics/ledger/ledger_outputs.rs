@@ -40,8 +40,8 @@ impl Analytics for LedgerOutputMeasurement {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 
-        *self += created;
         *self -= consumed;
+        *self += created;
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
