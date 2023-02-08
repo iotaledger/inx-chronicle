@@ -15,11 +15,11 @@ use futures::TryStreamExt;
 pub async fn fill_analytics<I: InputSource + Clone>(
     db: &MongoDb,
     influx_db: &InfluxDb,
+    tangle: &Tangle<I>,
     start_milestone: MilestoneIndex,
     end_milestone: MilestoneIndex,
     num_tasks: usize,
     analytics: &[AnalyticsChoice],
-    tangle: Tangle<I>,
 ) -> eyre::Result<()> {
     let mut join_set = tokio::task::JoinSet::new();
 

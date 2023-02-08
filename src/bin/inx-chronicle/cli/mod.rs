@@ -297,11 +297,11 @@ impl ClArgs {
                             analytics::fill_analytics(
                                 &db,
                                 &influx_db,
+                                &tangle,
                                 start_milestone,
                                 end_milestone,
                                 num_tasks,
                                 analytics,
-                                tangle,
                             )
                             .await?;
                         }
@@ -310,11 +310,11 @@ impl ClArgs {
                             analytics::fill_analytics(
                                 &db,
                                 &influx_db,
+                                &tangle,
                                 start_milestone,
                                 end_milestone,
                                 num_tasks,
                                 analytics,
-                                tangle,
                             )
                             .await?;
                         }
