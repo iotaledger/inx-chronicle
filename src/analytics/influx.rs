@@ -8,8 +8,9 @@ use time::Duration;
 
 use super::{
     ledger::{
-        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeMeasurement, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement, InputOutputDegreeDistributionMeasurement,
+        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement,
+        InputOutputDegreeDistributionMeasurement, LedgerOutputMeasurement, LedgerSizeMeasurement,
+        OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
     PerMilestone, TimeInterval,
@@ -117,19 +118,21 @@ impl Measurement for InputOutputDegreeDistributionMeasurement {
     const NAME: &'static str = "stardust_input_output_degree_distribution";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        // TODO: we can't possibly have a bucket for each possible degree so we should make bigger buckets for higher degrees.
-        query.add_field("input_degree_1", self.input_degree_dist.get(&1).unwrap_or(&0.0))
-        .add_field("input_degree_2", self.input_degree_dist.get(&2).unwrap_or(&0.0))
-        .add_field("input_degree_3", self.input_degree_dist.get(&3).unwrap_or(&0.0))
-        .add_field("input_degree_4", self.input_degree_dist.get(&4).unwrap_or(&0.0))
-        .add_field("input_degree_5", self.input_degree_dist.get(&5).unwrap_or(&0.0))
-        .add_field("input_degree_6", self.input_degree_dist.get(&6).unwrap_or(&0.0))
-        .add_field("output_degree_1", self.output_degree_dist.get(&1).unwrap_or(&0.0))
-        .add_field("output_degree_2", self.output_degree_dist.get(&2).unwrap_or(&0.0))
-        .add_field("output_degree_3", self.output_degree_dist.get(&3).unwrap_or(&0.0))
-        .add_field("output_degree_4", self.output_degree_dist.get(&4).unwrap_or(&0.0))
-        .add_field("output_degree_5", self.output_degree_dist.get(&5).unwrap_or(&0.0))
-        .add_field("output_degree_6", self.output_degree_dist.get(&6).unwrap_or(&0.0))
+        // TODO: we can't possibly have a bucket for each possible degree so we should make bigger buckets for higher
+        // degrees.
+        query
+            .add_field("input_degree_1", self.input_degree_dist.get(&1).unwrap_or(&0.0))
+            .add_field("input_degree_2", self.input_degree_dist.get(&2).unwrap_or(&0.0))
+            .add_field("input_degree_3", self.input_degree_dist.get(&3).unwrap_or(&0.0))
+            .add_field("input_degree_4", self.input_degree_dist.get(&4).unwrap_or(&0.0))
+            .add_field("input_degree_5", self.input_degree_dist.get(&5).unwrap_or(&0.0))
+            .add_field("input_degree_6", self.input_degree_dist.get(&6).unwrap_or(&0.0))
+            .add_field("output_degree_1", self.output_degree_dist.get(&1).unwrap_or(&0.0))
+            .add_field("output_degree_2", self.output_degree_dist.get(&2).unwrap_or(&0.0))
+            .add_field("output_degree_3", self.output_degree_dist.get(&3).unwrap_or(&0.0))
+            .add_field("output_degree_4", self.output_degree_dist.get(&4).unwrap_or(&0.0))
+            .add_field("output_degree_5", self.output_degree_dist.get(&5).unwrap_or(&0.0))
+            .add_field("output_degree_6", self.output_degree_dist.get(&6).unwrap_or(&0.0))
     }
 }
 

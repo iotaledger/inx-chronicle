@@ -10,9 +10,9 @@ use time::OffsetDateTime;
 use self::{
     influx::PrepareQuery,
     ledger::{
-        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeAnalytics, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
-        InputOutputDegreeAnalytics,
+        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, InputOutputDegreeAnalytics,
+        LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, UnclaimedTokenMeasurement,
+        UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
 };
