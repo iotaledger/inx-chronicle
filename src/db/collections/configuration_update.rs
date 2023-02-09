@@ -1,7 +1,11 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use mongodb::{bson::doc, error::Error, options::FindOneOptions};
+use mongodb::{
+    bson::doc,
+    error::Error,
+    options::{FindOneOptions, UpdateOptions},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -64,40 +68,14 @@ impl ConfigurationUpdateCollection {
         ledger_index: MilestoneIndex,
         config: NodeConfiguration,
     ) -> Result<(), Error> {
-        if let Some(latest_config) = self.get_node_configuration_for_ledger_index(ledger_index).await? {
-            if latest_config.ledger_index == ledger_index {
-                if latest_config.config != config {
-                    self.replace_one(doc! {}, ConfigurationUpdateDocument { ledger_index, config }, None)
-                        .await?;
-                }
-            } else {
-                self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
-                    .await?;
-            }
-        } else {
-            self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Add the node configuration to this collection if it is newer and different.
-    pub async fn update_latest_node_configuration(
-        &self,
-        ledger_index: MilestoneIndex,
-        config: NodeConfiguration,
-    ) -> Result<(), Error> {
-        if let Some(latest_config) = self.get_latest_node_configuration().await? {
-            if latest_config.ledger_index >= ledger_index {
-                return Ok(());
-            } else if latest_config.config != config {
-                self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
-                    .await?;
-            }
-        } else {
-            self.insert_one(ConfigurationUpdateDocument { ledger_index, config }, None)
-                .await?;
+        let node_config = self.get_node_configuration_for_ledger_index(ledger_index).await?;
+        if !matches!(node_config, Some(node_config) if node_config.config == config) {
+            self.update_one(
+                doc! { "_id": ledger_index },
+                doc! { "$set": mongodb::bson::to_bson(&config)? },
+                UpdateOptions::builder().upsert(true).build(),
+            )
+            .await?;
         }
         Ok(())
     }
