@@ -9,7 +9,7 @@ use iota_types::block::output as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
+use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, TokenAmount, TokenScheme};
 use crate::types::{context::TryFromWithContext, util::bytify};
 
 /// The id of a foundry.
@@ -62,7 +62,7 @@ impl From<FoundryId> for Bson {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FoundryOutput {
     /// The output amount.
-    pub amount: OutputAmount,
+    pub amount: TokenAmount,
     /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
     /// The associated id of the foundry.

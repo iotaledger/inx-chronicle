@@ -1,3 +1,35 @@
+## [1.0.0-beta.32](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.31...v1.0.0-beta.32) (2023-02-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **db:** migration version checking (#1097)
+
+### Features
+
+* **grafana:** explicitly state datasource UIDs ([#991](https://github.com/iotaledger/inx-chronicle/issues/991)) ([315bf0c](https://github.com/iotaledger/inx-chronicle/commit/315bf0cb40e349c208c2f5d6e59eedeb2dcd9aa6))
+
+
+### Bug Fixes
+
+* **db:** migration version checking ([#1097](https://github.com/iotaledger/inx-chronicle/issues/1097)) ([4d1bc3e](https://github.com/iotaledger/inx-chronicle/commit/4d1bc3eb6be969d477328bbabe89e842ee8d723f)), closes [#1098](https://github.com/iotaledger/inx-chronicle/issues/1098)
+
+## [1.0.0-beta.31](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.30...v1.0.0-beta.31) (2023-02-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **indexer:** add indexed id to fix implicit aliases and nfts (#1075)
+
+### Bug Fixes
+
+* **analytics:** only calculate analytics after chronicle is synced ([#1065](https://github.com/iotaledger/inx-chronicle/issues/1065)) ([3568cfe](https://github.com/iotaledger/inx-chronicle/commit/3568cfecdbc962be7f697adc634126c247e79ff4))
+* **ci:** fix `format` arguments ([#1042](https://github.com/iotaledger/inx-chronicle/issues/1042)) ([77c03cd](https://github.com/iotaledger/inx-chronicle/commit/77c03cda5569efad14dc0da51611fad512eca592))
+* **ci:** generalize license template regex ([#1058](https://github.com/iotaledger/inx-chronicle/issues/1058)) ([bf57230](https://github.com/iotaledger/inx-chronicle/commit/bf57230509bec9f08c06d4f9e75708a173e21439))
+* **db:** slow newest/oldest milestone query ([#1071](https://github.com/iotaledger/inx-chronicle/issues/1071)) ([5e3b9f9](https://github.com/iotaledger/inx-chronicle/commit/5e3b9f9e55edcc5218b8de543be40057b0d974f1))
+* **grafana:** remove deprecated panel ([#1040](https://github.com/iotaledger/inx-chronicle/issues/1040)) ([87f5b42](https://github.com/iotaledger/inx-chronicle/commit/87f5b4229bce635fab88fda3e9bfa347a9d2bdeb))
+* **indexer:** add indexed id to fix implicit aliases and nfts ([#1075](https://github.com/iotaledger/inx-chronicle/issues/1075)) ([c37a5cb](https://github.com/iotaledger/inx-chronicle/commit/c37a5cb72342fcb7285666760984873c0cc71211))
+
 ## [1.0.0-beta.30](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.29...v1.0.0-beta.30) (2023-01-17)
 
 

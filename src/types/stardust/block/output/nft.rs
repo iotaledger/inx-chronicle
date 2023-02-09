@@ -13,7 +13,7 @@ use super::{
     unlock_condition::{
         AddressUnlockCondition, ExpirationUnlockCondition, StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
     },
-    Feature, NativeToken, OutputAmount,
+    Feature, NativeToken, OutputId, TokenAmount,
 };
 use crate::types::{context::TryFromWithContext, util::bytify};
 
@@ -39,6 +39,12 @@ impl NftId {
 impl From<iota::NftId> for NftId {
     fn from(value: iota::NftId) -> Self {
         Self(*value)
+    }
+}
+
+impl From<OutputId> for NftId {
+    fn from(value: OutputId) -> Self {
+        Self(value.hash())
     }
 }
 
@@ -76,7 +82,7 @@ impl From<NftId> for Bson {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NftOutput {
     /// The output amount.
-    pub amount: OutputAmount,
+    pub amount: TokenAmount,
     /// The list of [`NativeToken`]s.
     pub native_tokens: Box<[NativeToken]>,
     /// The associated id of the NFT.

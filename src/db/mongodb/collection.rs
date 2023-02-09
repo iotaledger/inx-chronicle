@@ -7,17 +7,20 @@ use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use mongodb::{
     bson::{self, doc, Document},
-    error::Error,
+    error::{Error, ErrorKind},
     options::{
-        AggregateOptions, CreateIndexOptions, FindOneOptions, FindOptions, InsertManyOptions, InsertOneOptions,
-        ReplaceOptions, UpdateModifications, UpdateOptions,
+        AggregateOptions, CreateIndexOptions, DropIndexOptions, FindOneOptions, FindOptions, InsertManyOptions,
+        InsertOneOptions, ReplaceOptions, UpdateModifications, UpdateOptions,
     },
     results::{CreateIndexResult, InsertManyResult, InsertOneResult, UpdateResult},
     Cursor, IndexModel,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-use super::{MongoDb, DUPLICATE_KEY_CODE};
+use super::MongoDb;
+
+const DUPLICATE_KEY_CODE: i32 = 11000;
+const INDEX_NOT_FOUND_CODE: i32 = 27;
 
 /// A MongoDB collection.
 #[async_trait]
@@ -41,7 +44,7 @@ pub trait MongoDbCollection {
 
     /// Creates the collection.
     async fn create_collection(&self, db: &MongoDb) -> Result<(), Error> {
-        db.db.create_collection(Self::NAME, None).await.ok();
+        db.db().create_collection(Self::NAME, None).await.ok();
         Ok(())
     }
 
@@ -63,6 +66,28 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
         options: impl Into<Option<CreateIndexOptions>> + Send + Sync,
     ) -> Result<CreateIndexResult, Error> {
         self.collection().create_index(index, options).await
+    }
+
+    /// Calls [`mongodb::Collection::drop_index()`] and coerces the document type.
+    /// Also, ignores already missing indexes.
+    async fn drop_index(
+        &self,
+        name: impl AsRef<str> + Send + Sync,
+        options: impl Into<Option<DropIndexOptions>> + Send + Sync,
+    ) -> Result<(), Error> {
+        match self.collection().drop_index(name, options).await {
+            Err(e) => match &*e.kind {
+                ErrorKind::Command(c) => {
+                    if c.code == INDEX_NOT_FOUND_CODE {
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                }
+                _ => Err(e),
+            },
+            ok => ok,
+        }
     }
 
     /// Calls [`mongodb::Collection::aggregate()`] and coerces the document type.
@@ -123,6 +148,16 @@ pub trait MongoDbCollectionExt: MongoDbCollection {
         options: impl Into<Option<UpdateOptions>> + Send + Sync,
     ) -> Result<UpdateResult, Error> {
         self.collection().update_one(doc, update, options).await
+    }
+
+    /// Calls [`mongodb::Collection::update_many()`].
+    async fn update_many(
+        &self,
+        doc: Document,
+        update: impl Into<UpdateModifications> + Send + Sync,
+        options: impl Into<Option<UpdateOptions>> + Send + Sync,
+    ) -> Result<UpdateResult, Error> {
+        self.collection().update_many(doc, update, options).await
     }
 
     /// Calls [`mongodb::Collection::replace_one()`] and coerces the document type.

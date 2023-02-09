@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.30"
+version = "1.0.0-beta.32"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -26,13 +26,14 @@ async-trait = { version = "0.1", default-features = false }
 bytesize = { version = "1.1", default-features = false }
 clap = { version = "4.1", default-features = false, features = ["env", "derive", "std", "help", "usage", "error-context", "wrap_help"] }
 decimal = { version = "2.1", default-features = false, features = [ "serde" ] }
-derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut" ] }
+derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut", "sum" ] }
 dotenvy = { version = "0.15", default-features = false }
 eyre = { version = "0.6", default-features = false, features = [ "track-caller", "auto-install" ] }
 futures = { version = "0.3", default-features = false }
 humantime = { version = "2.1.0", default-features = false }
 humantime-serde = { version = "1.1", default-features = false }
-iota-types = { version = "1.0.0-rc.4", default-features = false, features = [ "api", "block", "std" ] }
+iota-crypto = { version = "0.15", default-features = false, features = [ "blake2b" ] }
+iota-types = { version = "1.0.0-rc.5", default-features = false, features = [ "api", "block", "std" ] }
 mongodb = { version = "2.3", default-features = false, features = [ "tokio-runtime" ] }
 packable = { version = "0.7", default-features = false }
 pin-project = { version = "1.0", default-features = false }
@@ -42,7 +43,7 @@ serde = { version = "1.0", features = [ "derive" ], default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = [ "std" ] }
 thiserror = { version = "1.0", default-features = false }
-time = { version = "0.3", default-features = false, features = [ "std" ] }
+time = { version = "0.3", default-features = false, features = [ "std", "serde", "macros" ] }
 tokio = { version = "1.24", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = [ "std", "attributes", "release_max_level_debug" ] }
@@ -74,11 +75,8 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 inx = { version = "1.0.0-beta.8", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
 
-# PoI
-iota-crypto = { version = "0.15", default-features = false, features = [ "blake2b" ], optional = true }
-
 [dev-dependencies]
-iota-types = { version = "1.0.0-rc.4", default-features = false, features = [ "api", "block", "std", "rand" ] }
+iota-types = { version = "1.0.0-rc.5", default-features = false, features = [ "api", "block", "std", "rand" ] }
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
@@ -118,7 +116,6 @@ metrics = [
 ]
 poi = [
     "api",
-    "dep:iota-crypto",
 ]
 rand = [
     "iota-types/rand",
