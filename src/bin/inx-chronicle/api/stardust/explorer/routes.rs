@@ -12,7 +12,13 @@ use chronicle::{
         MongoDb,
     },
     types::{
-        stardust::block::{payload::milestone::MilestoneId, Address, BlockId},
+        stardust::block::{
+            payload::{
+                milestone::MilestoneId, MilestonePayload, TaggedDataPayload, TransactionPayload,
+                TreasuryTransactionPayload,
+            },
+            Address, BlockId,
+        },
         tangle::MilestoneIndex,
     },
 };
@@ -25,7 +31,7 @@ use super::{
         LedgerUpdatesByMilestonePagination, MilestonesCursor, MilestonesPagination, RichestAddressesQuery,
     },
     responses::{
-        AddressStatDto, BalanceResponse, BlockChildrenResponse, BlocksByMilestoneResponse,
+        AddressStatDto, BalanceResponse, BlockChildrenResponse, BlockPayloadTypeDto, BlocksByMilestoneResponse,
         LedgerUpdatesByAddressResponse, LedgerUpdatesByMilestoneResponse, MilestonesResponse, RichestAddressesResponse,
         TokenDistributionResponse,
     },
@@ -249,7 +255,16 @@ async fn blocks_by_milestone_index(
     let blocks = record_stream
         .by_ref()
         .take(page_size)
-        .map_ok(|rec| rec.block_id.to_hex())
+        .map_ok(|rec| BlockPayloadTypeDto {
+            block_id: rec.block_id.to_hex(),
+            payload_kind: rec.payload_kind.map(|desc| match desc.as_str() {
+                TransactionPayload::KIND => iota_types::block::payload::TransactionPayload::KIND,
+                MilestonePayload::KIND => iota_types::block::payload::MilestonePayload::KIND,
+                TreasuryTransactionPayload::KIND => iota_types::block::payload::TreasuryTransactionPayload::KIND,
+                TaggedDataPayload::KIND => iota_types::block::payload::TaggedDataPayload::KIND,
+                _ => panic!("Unknown payload type."),
+            }),
+        })
         .try_collect()
         .await?;
 

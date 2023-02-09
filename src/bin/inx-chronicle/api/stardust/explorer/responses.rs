@@ -102,10 +102,18 @@ pub struct MilestonesResponse {
 
 impl_success_response!(MilestonesResponse);
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockPayloadTypeDto {
+    pub block_id: String,
+    #[serde(rename = "type")]
+    pub payload_kind: Option<u32>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlocksByMilestoneResponse {
-    pub blocks: Vec<String>,
+    pub blocks: Vec<BlockPayloadTypeDto>,
     pub cursor: Option<String>,
 }
 
