@@ -3,7 +3,7 @@
 
 use super::*;
 
-#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default)]
 #[allow(missing_docs)]
 pub(crate) struct UnlockConditionMeasurement {
     pub(crate) timelock: CountAndAmount,
@@ -13,6 +13,24 @@ pub(crate) struct UnlockConditionMeasurement {
 }
 
 impl UnlockConditionMeasurement {
+    fn wrapping_add(&mut self, rhs: Self) {
+        self.timelock.wrapping_add(rhs.timelock);
+        self.expiration.wrapping_add(rhs.expiration);
+        self.storage_deposit_return.wrapping_add(rhs.storage_deposit_return);
+        self.storage_deposit_return_inner_value = self
+            .storage_deposit_return_inner_value
+            .wrapping_add(rhs.storage_deposit_return_inner_value);
+    }
+
+    fn wrapping_sub(&mut self, rhs: Self) {
+        self.timelock.wrapping_sub(rhs.timelock);
+        self.expiration.wrapping_sub(rhs.expiration);
+        self.storage_deposit_return.wrapping_sub(rhs.storage_deposit_return);
+        self.storage_deposit_return_inner_value = self
+            .storage_deposit_return_inner_value
+            .wrapping_sub(rhs.storage_deposit_return_inner_value);
+    }
+
     /// Initialize the analytics by reading the current ledger state.
     pub(crate) fn init<'a>(unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput>) -> Self {
         let mut measurement = Self::default();
@@ -21,25 +39,25 @@ impl UnlockConditionMeasurement {
                 Output::Alias(_) => {}
                 Output::Basic(basic) => {
                     if basic.timelock_unlock_condition.is_some() {
-                        measurement.timelock += output;
+                        measurement.timelock.add_output(output);
                     }
                     if basic.expiration_unlock_condition.is_some() {
-                        measurement.expiration += output;
+                        measurement.expiration.add_output(output);
                     }
                     if let Some(storage) = basic.storage_deposit_return_unlock_condition {
-                        measurement.storage_deposit_return += output;
+                        measurement.storage_deposit_return.add_output(output);
                         measurement.storage_deposit_return_inner_value += storage.amount.0;
                     }
                 }
                 Output::Nft(nft) => {
                     if nft.timelock_unlock_condition.is_some() {
-                        measurement.timelock += output;
+                        measurement.timelock.add_output(output);
                     }
                     if nft.expiration_unlock_condition.is_some() {
-                        measurement.expiration += output;
+                        measurement.expiration.add_output(output);
                     }
                     if let Some(storage) = nft.storage_deposit_return_unlock_condition {
-                        measurement.storage_deposit_return += output;
+                        measurement.storage_deposit_return.add_output(output);
                         measurement.storage_deposit_return_inner_value += storage.amount.0;
                     }
                 }
@@ -60,8 +78,8 @@ impl Analytics for UnlockConditionMeasurement {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
 
-        *self += created;
-        *self -= consumed;
+        self.wrapping_add(created);
+        self.wrapping_sub(consumed);
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
