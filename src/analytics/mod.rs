@@ -110,7 +110,7 @@ impl Analytic {
                 time::Duration::days(1),
                 unspent_outputs,
             )) as _,
-            AnalyticsChoice::InputOutputDistribution => Box::<InputOutputDegreeAnalytics>::default() as _,
+            AnalyticsChoice::InputOutputDegrees => Box::<InputOutputDegreeAnalytics>::default() as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => {
                 Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
