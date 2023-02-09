@@ -45,98 +45,121 @@ mod test_rand {
         };
         assert_eq!(node_configuration.count().await.unwrap(), 0);
 
-        // correct insertion
+        let assert_latest_config_unchanged = || async {
+            let latest_config = node_configuration
+                .get_latest_node_configuration()
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(&latest_config.config.base_token.name, "Shimmer");
+            assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
+            assert_eq!(&latest_config.config.base_token.unit, "SMR");
+            assert_eq!(&latest_config.config.base_token.subunit, "glow");
+            assert_eq!(latest_config.config.base_token.decimals, 6);
+            assert!(!latest_config.config.base_token.use_metric_prefix);
+        };
+
+        // mimicing inserting in the future initially
         node_configuration
-            .update_latest_node_configuration(1.into(), config.clone())
+            .upsert_node_configuration(10.into(), config.clone())
             .await
             .unwrap();
         assert_eq!(node_configuration.count().await.unwrap(), 1);
+        assert_latest_config_unchanged().await;
 
-        // correct fetch
-        let latest_config = node_configuration
-            .get_latest_node_configuration()
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
-
-        // rejected upsert (same config)
+        // correct insertion
         node_configuration
             .upsert_node_configuration(1.into(), config.clone())
             .await
             .unwrap();
-        assert_eq!(node_configuration.count().await.unwrap(), 1);
-        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
-        assert_eq!(&latest_config.config.base_token.unit, "SMR");
-        assert_eq!(&latest_config.config.base_token.subunit, "glow");
-        assert_eq!(latest_config.config.base_token.decimals, 6);
-        assert!(!latest_config.config.base_token.use_metric_prefix);
+        let doc = node_configuration
+            .get_node_configuration_for_ledger_index(5.into())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(node_configuration.count().await.unwrap(), 2);
+        assert_eq!(&doc.config.base_token.name, "Shimmer");
+        assert_eq!(&doc.config.base_token.ticker_symbol, "SMR");
+        assert_eq!(&doc.config.base_token.unit, "SMR");
+        assert_eq!(&doc.config.base_token.subunit, "glow");
+        assert_eq!(doc.config.base_token.decimals, 6);
+        assert!(!doc.config.base_token.use_metric_prefix);
+        assert_latest_config_unchanged().await;
+
+        // rejected upsert (same config)
+        node_configuration
+            .upsert_node_configuration(2.into(), config.clone())
+            .await
+            .unwrap();
+        let doc = node_configuration
+            .get_node_configuration_for_ledger_index(5.into())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(node_configuration.count().await.unwrap(), 2);
+        assert_eq!(&doc.config.base_token.name, "Shimmer");
+        assert_eq!(&doc.config.base_token.ticker_symbol, "SMR");
+        assert_eq!(&doc.config.base_token.unit, "SMR");
+        assert_eq!(&doc.config.base_token.subunit, "glow");
+        assert_eq!(doc.config.base_token.decimals, 6);
+        assert!(!doc.config.base_token.use_metric_prefix);
+        assert_latest_config_unchanged().await;
 
         // accepted upsert (altered config)
         config.base_token.use_metric_prefix = true;
         node_configuration
-            .upsert_node_configuration(1.into(), config.clone())
+            .upsert_node_configuration(2.into(), config.clone())
             .await
             .unwrap();
-        assert_eq!(node_configuration.count().await.unwrap(), 1);
-
-        let latest_config = node_configuration
-            .get_latest_node_configuration()
+        let doc = node_configuration
+            .get_node_configuration_for_ledger_index(5.into())
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
-        assert!(latest_config.config.base_token.use_metric_prefix);
+        assert_eq!(node_configuration.count().await.unwrap(), 3);
+        assert_eq!(&doc.config.base_token.name, "Shimmer");
+        assert_eq!(&doc.config.base_token.ticker_symbol, "SMR");
+        assert_eq!(&doc.config.base_token.unit, "SMR");
+        assert_eq!(&doc.config.base_token.subunit, "glow");
+        assert_eq!(doc.config.base_token.decimals, 6);
+        assert!(doc.config.base_token.use_metric_prefix);
+        assert_latest_config_unchanged().await;
 
         config.base_token.ticker_symbol = "SHI".to_string();
         config.base_token.unit = "suSHI".to_string();
         config.base_token.subunit = "rice".to_string();
 
-        // rejected change (not latest)
-        node_configuration
-            .update_latest_node_configuration(1.into(), config.clone())
-            .await
-            .unwrap();
-        assert_eq!(node_configuration.count().await.unwrap(), 1);
-        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SMR");
-        assert_eq!(&latest_config.config.base_token.unit, "SMR");
-        assert_eq!(&latest_config.config.base_token.subunit, "glow");
-        assert_eq!(latest_config.config.base_token.decimals, 6);
-        assert!(latest_config.config.base_token.use_metric_prefix);
-
         // accepted latest update
         node_configuration
-            .upsert_node_configuration(2.into(), config)
+            .upsert_node_configuration(3.into(), config)
             .await
             .unwrap();
-        assert_eq!(node_configuration.count().await.unwrap(), 2);
-
-        let latest_config = node_configuration
-            .get_latest_node_configuration()
+        let doc = node_configuration
+            .get_node_configuration_for_ledger_index(5.into())
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&latest_config.config.base_token.name, "Shimmer");
-        assert_eq!(&latest_config.config.base_token.ticker_symbol, "SHI");
-        assert_eq!(&latest_config.config.base_token.unit, "suSHI");
-        assert_eq!(&latest_config.config.base_token.subunit, "rice");
-        assert_eq!(latest_config.config.base_token.decimals, 6);
-        assert!(latest_config.config.base_token.use_metric_prefix);
+        assert_eq!(node_configuration.count().await.unwrap(), 4);
+        assert_eq!(&doc.config.base_token.name, "Shimmer");
+        assert_eq!(&doc.config.base_token.ticker_symbol, "SHI");
+        assert_eq!(&doc.config.base_token.unit, "suSHI");
+        assert_eq!(&doc.config.base_token.subunit, "rice");
+        assert_eq!(doc.config.base_token.decimals, 6);
+        assert!(doc.config.base_token.use_metric_prefix);
+        assert_latest_config_unchanged().await;
 
         // get older update (yields the one inserted at index 1)
-        let old_config = node_configuration
+        let doc = node_configuration
             .get_node_configuration_for_ledger_index(1.into())
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(&old_config.config.base_token.name, "Shimmer");
-        assert_eq!(&old_config.config.base_token.ticker_symbol, "SMR");
-        assert_eq!(&old_config.config.base_token.unit, "SMR");
-        assert_eq!(&old_config.config.base_token.subunit, "glow");
-        assert_eq!(old_config.config.base_token.decimals, 6);
-        assert!(old_config.config.base_token.use_metric_prefix);
+        assert_eq!(&doc.config.base_token.name, "Shimmer");
+        assert_eq!(&doc.config.base_token.ticker_symbol, "SMR");
+        assert_eq!(&doc.config.base_token.unit, "SMR");
+        assert_eq!(&doc.config.base_token.subunit, "glow");
+        assert_eq!(doc.config.base_token.decimals, 6);
+        assert!(!doc.config.base_token.use_metric_prefix);
 
         teardown(db).await;
     }

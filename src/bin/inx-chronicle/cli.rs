@@ -360,10 +360,10 @@ impl ClArgs {
                     tracing::info!("Indexes built successfully.");
                     return Ok(PostCommand::Exit);
                 }
-                Subcommands::MigrateTo { version } => {
+                Subcommands::Migrate => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
                     let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
-                    crate::migrations::migrate(version, &db).await?;
+                    crate::migrations::migrate(&db).await?;
                     tracing::info!("Migration completed successfully.");
                     return Ok(PostCommand::Exit);
                 }
@@ -404,7 +404,7 @@ pub enum Subcommands {
     /// Manually build indexes.
     BuildIndexes,
     /// Migrate to a new version.
-    MigrateTo { version: String },
+    Migrate,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
