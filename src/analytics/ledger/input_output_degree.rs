@@ -11,8 +11,7 @@ use super::*;
 pub(crate) struct InputOutputDegreeAnalytics {
     input_degree_hist: HashMap<u8, usize>,
     output_degree_hist: HashMap<u8, usize>,
-    total_inputs: usize,
-    total_outputs: usize,
+    num_transactions: usize,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -37,19 +36,18 @@ impl Analytics for InputOutputDegreeAnalytics {
             .and_modify(|count| *count += 1)
             .or_insert(1);
 
-        self.total_inputs += consumed.len();
-        self.total_outputs += created.len();
+        self.num_transactions += 1;
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
         let mut dist = InputOutputDegreeDistributionMeasurement::default();
         for (degree, count) in self.input_degree_hist.iter().map(|(k, v)| (*k, *v)) {
-            let total_inputs_per_degree = degree as f32 * count as f32 / self.total_inputs as f32;
-            dist.input_degree_dist.insert(degree, total_inputs_per_degree);
+            dist.input_degree_dist
+                .insert(degree, count as f32 / self.num_transactions as f32);
         }
         for (degree, count) in self.output_degree_hist.iter().map(|(k, v)| (*k, *v)) {
-            let total_outputs_per_degree = degree as f32 * count as f32 / self.total_outputs as f32;
-            dist.output_degree_dist.insert(degree, total_outputs_per_degree);
+            dist.output_degree_dist
+                .insert(degree, count as f32 / self.num_transactions as f32);
         }
 
         Some(PerMilestone {
