@@ -467,14 +467,16 @@ mod test {
 
         let transaction_id = TransactionId::rand();
 
+        let milestone = MilestoneIndexTimestamp {
+            milestone_index: 1.into(),
+            milestone_timestamp: 10000.into(),
+        };
+
         let spend_output = |output| LedgerSpent {
             output,
             spent_metadata: SpentMetadata {
                 transaction_id,
-                spent: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 10000.into(),
-                },
+                spent: milestone,
             },
         };
 
@@ -487,10 +489,7 @@ mod test {
                 },
                 output: rand_output_with_address_and_value(address, amount, &protocol_params),
                 block_id: BlockId::rand(),
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 10000.into(),
-                },
+                booked: milestone,
             })
         };
 
@@ -502,10 +501,7 @@ mod test {
             },
             output: rand_output_with_address_and_value(address, amount, &protocol_params),
             block_id: BlockId::rand(),
-            booked: MilestoneIndexTimestamp {
-                milestone_index: 1.into(),
-                milestone_timestamp: 10000.into(),
-            },
+            booked: milestone,
         };
 
         let consumed = [
@@ -532,10 +528,7 @@ mod test {
         ];
 
         let ctx = TestContext {
-            at: MilestoneIndexTimestamp {
-                milestone_index: 1.into(),
-                milestone_timestamp: 10000.into(),
-            },
+            at: milestone,
             params: protocol_params.clone().into(),
         };
         let mut base_tokens = BaseTokenActivityMeasurement::default();
