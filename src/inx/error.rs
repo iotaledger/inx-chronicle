@@ -4,8 +4,6 @@
 use thiserror::Error;
 
 /// The different errors that can happen with INX.
-// TODO: Maybe this should be called `ConversionError`?
-// TODO: Consider splitting up this error.
 #[derive(Debug, Error)]
 #[allow(missing_docs)]
 pub enum InxError {

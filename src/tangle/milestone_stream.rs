@@ -8,31 +8,41 @@ use std::{
 
 use futures::{stream::BoxStream, Stream};
 
-use super::{cone_stream::ConeStream, sources::InputSource};
+use super::{
+    sources::{BlockData, InputSource},
+    LedgerUpdateStore,
+};
 use crate::types::{
     ledger::MilestoneIndexTimestamp,
+    node::NodeConfiguration,
     stardust::block::payload::{MilestoneId, MilestonePayload},
     tangle::ProtocolParameters,
 };
 
+#[allow(missing_docs)]
 pub struct Milestone<'a, I: InputSource> {
     pub(super) source: &'a I,
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
     pub payload: MilestonePayload,
     pub protocol_params: ProtocolParameters,
+    pub node_config: NodeConfiguration,
+    pub ledger_updates: LedgerUpdateStore,
 }
 
 impl<'a, I: InputSource> Milestone<'a, I> {
     /// Returns the blocks of a milestone in white-flag order.
-    pub async fn cone_stream(&self) -> Result<ConeStream<'a, I>, I::Error> {
-        Ok(ConeStream {
-            inner: self.source.cone_stream(self.at.milestone_index).await?,
-            store: self.source.ledger_updates(self.at.milestone_index).await?,
-        })
+    pub async fn cone_stream(&self) -> Result<BoxStream<Result<BlockData, I::Error>>, I::Error> {
+        self.source.cone_stream(self.at.milestone_index).await
+    }
+
+    /// Returns the ledger update store.
+    pub fn ledger_updates(&self) -> &LedgerUpdateStore {
+        &self.ledger_updates
     }
 }
 
+#[allow(missing_docs)]
 pub struct MilestoneStream<'a, I: InputSource> {
     pub(super) inner: BoxStream<'a, Result<Milestone<'a, I>, I::Error>>,
 }

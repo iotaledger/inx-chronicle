@@ -15,7 +15,7 @@ pub use self::{
     state_controller_address::StateControllerAddressUnlockCondition,
     storage_deposit_return::StorageDepositReturnUnlockCondition, timelock::TimelockUnlockCondition,
 };
-use super::OutputAmount;
+use super::TokenAmount;
 
 #[cfg(all(test, feature = "rand"))]
 mod test {

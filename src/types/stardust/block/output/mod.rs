@@ -15,6 +15,7 @@ pub mod treasury;
 
 use std::{borrow::Borrow, str::FromStr};
 
+use crypto::hashes::{blake2b::Blake2b256, Digest};
 use iota_types::block::output as iota;
 use mongodb::bson::{doc, Bson};
 use packable::PackableExt;
@@ -42,8 +43,22 @@ use crate::types::{
 };
 
 /// The amount of tokens associated with an output.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, derive_more::From)]
-pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    derive_more::Add,
+    derive_more::AddAssign,
+    derive_more::SubAssign,
+    derive_more::Sum,
+)]
+pub struct TokenAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
 
 /// The index of an output within a transaction.
 pub type OutputIndex = u16;
@@ -61,7 +76,23 @@ pub struct OutputId {
 impl OutputId {
     /// Converts the [`OutputId`] to its `0x`-prefixed hex representation.
     pub fn to_hex(&self) -> String {
-        prefix_hex::encode([self.transaction_id.0.as_ref(), &self.index.to_le_bytes()].concat())
+        prefix_hex::encode(self.as_bytes())
+    }
+
+    /// Hash the [`OutputId`] with BLAKE2b-256.
+    #[inline(always)]
+    pub fn hash(&self) -> [u8; 32] {
+        Blake2b256::digest(self.as_bytes()).into()
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        [self.transaction_id.0.as_ref(), &self.index.to_le_bytes()].concat()
+    }
+}
+
+impl From<(TransactionId, OutputIndex)> for OutputId {
+    fn from((transaction_id, index): (TransactionId, OutputIndex)) -> Self {
+        Self { transaction_id, index }
     }
 }
 
@@ -139,7 +170,7 @@ impl Output {
     }
 
     /// Returns the amount associated with an output.
-    pub fn amount(&self) -> OutputAmount {
+    pub fn amount(&self) -> TokenAmount {
         match self {
             Self::Treasury(TreasuryOutput { amount, .. }) => *amount,
             Self::Basic(BasicOutput { amount, .. }) => *amount,
@@ -243,8 +274,8 @@ mod rand {
 
     use super::*;
 
-    impl OutputAmount {
-        /// Generates a random [`OutputAmount`].
+    impl TokenAmount {
+        /// Generates a random [`TokenAmount`].
         pub fn rand(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             rand_number_range(iota::Output::AMOUNT_MIN..ctx.token_supply()).into()
         }

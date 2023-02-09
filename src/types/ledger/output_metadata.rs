@@ -8,16 +8,16 @@ use serde::{Deserialize, Serialize};
 use crate::types::{
     stardust::{
         block::{
-            output::{Output, OutputId},
+            output::{Output, OutputId, TokenAmount},
             payload::transaction::TransactionId,
-            BlockId,
+            Address, BlockId,
         },
         milestone::MilestoneTimestamp,
     },
     tangle::MilestoneIndex,
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 pub struct MilestoneIndexTimestamp {
     pub milestone_index: MilestoneIndex,
     pub milestone_timestamp: MilestoneTimestamp,
@@ -53,10 +53,38 @@ pub struct LedgerOutput {
     pub rent_structure: RentStructureBytes,
 }
 
+impl LedgerOutput {
+    pub fn output_id(&self) -> OutputId {
+        self.output_id
+    }
+
+    pub fn amount(&self) -> TokenAmount {
+        self.output.amount()
+    }
+
+    pub fn owning_address(&self) -> Option<&Address> {
+        self.output.owning_address()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerSpent {
     pub output: LedgerOutput,
     pub spent_metadata: SpentMetadata,
+}
+
+impl LedgerSpent {
+    pub fn output_id(&self) -> OutputId {
+        self.output.output_id
+    }
+
+    pub fn amount(&self) -> TokenAmount {
+        self.output.amount()
+    }
+
+    pub fn owning_address(&self) -> Option<&Address> {
+        self.output.owning_address()
+    }
 }
 
 /// The different number of bytes that are used for computing the rent cost.

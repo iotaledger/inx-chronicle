@@ -14,6 +14,7 @@ use futures::stream::BoxStream;
 use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
     ledger::{BlockMetadata, MilestoneIndexTimestamp},
+    node::NodeConfiguration,
     stardust::block::{
         payload::{MilestoneId, MilestonePayload},
         Block, BlockId,
@@ -22,15 +23,18 @@ use crate::types::{
 };
 
 /// Logical grouping of data that belongs to a milestone.
+#[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct MilestoneData {
     pub milestone_id: MilestoneId,
     pub at: MilestoneIndexTimestamp,
     pub payload: MilestonePayload,
     pub protocol_params: ProtocolParameters,
+    pub node_config: NodeConfiguration,
 }
 
 /// Logical grouping of data that belongs to a block.
+#[allow(missing_docs)]
 #[derive(Clone, Debug)]
 pub struct BlockData {
     pub block_id: BlockId,
@@ -41,12 +45,9 @@ pub struct BlockData {
 
 /// Defines a type as a source for milestone and cone stream data.
 #[async_trait]
-pub trait InputSource
-where
-    Self: Send,
-{
+pub trait InputSource: Send + Sync {
     /// The error type for this input source.
-    type Error: 'static + std::error::Error + std::fmt::Debug;
+    type Error: 'static + std::error::Error + std::fmt::Debug + Send + Sync;
 
     /// Retrieves a stream of milestones and their protocol parameters given a range of indexes.
     async fn milestone_stream(
