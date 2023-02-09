@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::api::dto as iota;
+use iota_types::api::core::dto as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
