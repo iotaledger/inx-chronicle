@@ -13,6 +13,7 @@ pub(super) use self::{
     base_token::BaseTokenActivityMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
+    input_output_degree::{InputOutputDegreeAnalytics, InputOutputDegreeDistributionMeasurement},
     output_activity::OutputActivityMeasurement,
     unclaimed_tokens::UnclaimedTokenMeasurement,
     unlock_conditions::UnlockConditionMeasurement,
@@ -28,6 +29,7 @@ use crate::{
 mod active_addresses;
 mod address_balance;
 mod base_token;
+mod input_output_degree;
 mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
