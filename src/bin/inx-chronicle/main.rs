@@ -8,6 +8,7 @@
 mod api;
 mod cli;
 mod config;
+mod migrations;
 mod process;
 #[cfg(feature = "inx")]
 mod stardust_inx;
@@ -19,7 +20,10 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use self::cli::{ClArgs, PostCommand};
+use self::{
+    cli::{ClArgs, PostCommand},
+    migrations::check_migration_version,
+};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -42,6 +46,8 @@ async fn main() -> eyre::Result<()> {
         db.name(),
         ByteSize::b(db.size().await?)
     );
+
+    check_migration_version(&db).await?;
 
     build_indexes(&db).await?;
 
