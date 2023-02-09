@@ -448,7 +448,6 @@ mod test {
             output::{unlock_condition::AddressUnlockCondition, BasicOutput},
             rand::output::feature::rand_allowed_features,
         };
-        // We use `BasicOutput`s in the genesis.
         let output = BasicOutput::build_with_amount(amount)
             .unwrap()
             .with_features(rand_allowed_features(BasicOutput::ALLOWED_FEATURES))
