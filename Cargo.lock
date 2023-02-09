@@ -937,6 +937,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "getset"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e45727250e75cc04ff2846a66397da8ef2b3db8e40e0cef4df67950a07621eb9"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "h2"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1319,8 +1331,9 @@ dependencies = [
 
 [[package]]
 name = "iota-pow"
-version = "1.0.0-rc.2"
-source = "git+https://github.com/iotaledger/iota.rs.git#00b5df3f01a49e51a166b37bda8d22ae79a750d8"
+version = "1.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73b3ffe5d6ada4c62fa5e5d0a7622893af02ad431d6a6144979686662eee5f1c"
 dependencies = [
  "instant",
  "iota-crypto",
@@ -1330,13 +1343,15 @@ dependencies = [
 
 [[package]]
 name = "iota-types"
-version = "1.0.0-rc.4"
-source = "git+https://github.com/iotaledger/iota.rs.git#00b5df3f01a49e51a166b37bda8d22ae79a750d8"
+version = "1.0.0-rc.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ac00be923ed4f7ae33c03628d24d03c920f0d6c27806daae57ce735ac240f96"
 dependencies = [
  "bech32",
  "bitflags",
  "bytemuck",
  "derive_more",
+ "getset",
  "hashbrown 0.13.2",
  "hex",
  "iota-crypto",
@@ -1349,6 +1364,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "serde_json",
+ "serde_repr",
  "thiserror",
 ]
 
@@ -2303,6 +2319,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a5ec9fa74a20ebbe5d9ac23dac1fc96ba0ecfe9f50f2843b52e537b10fbcb4e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
