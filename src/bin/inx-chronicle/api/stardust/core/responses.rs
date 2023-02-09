@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use iota_types::{api::response as iota, block::protocol::dto::ProtocolParametersDto};
+use iota_types::{api::core::response as iota, block::protocol::dto::ProtocolParametersDto};
 use serde::{Deserialize, Serialize};
 
 use crate::api::responses::impl_success_response;

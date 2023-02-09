@@ -31,7 +31,7 @@ use chronicle::{
 };
 use futures::TryStreamExt;
 use iota_types::{
-    api::{
+    api::core::{
         dto::ReceiptDto,
         response::{
             self as iota, BaseTokenResponse, BlockMetadataResponse, ConfirmedMilestoneResponse,
