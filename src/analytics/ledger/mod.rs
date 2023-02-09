@@ -62,7 +62,11 @@ mod test {
 
     use super::UnclaimedTokenMeasurement;
     use crate::{
-        analytics::{ledger::output_activity, test::TestContext, Analytics},
+        analytics::{
+            ledger::{output_activity, BaseTokenActivityMeasurement},
+            test::TestContext,
+            Analytics,
+        },
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
@@ -432,5 +436,117 @@ mod test {
         assert_eq!(output_activity_measurement.inner.nft.created_count, 0);
         assert_eq!(output_activity_measurement.inner.nft.transferred_count, 3);
         assert_eq!(output_activity_measurement.inner.nft.destroyed_count, 0);
+    }
+
+    fn rand_output_with_address_and_value(
+        address: Address,
+        amount: u64,
+        ctx: &iota_types::block::protocol::ProtocolParameters,
+    ) -> Output {
+        use iota_types::block::{
+            address::Address,
+            output::{unlock_condition::AddressUnlockCondition, BasicOutput},
+            rand::output::feature::rand_allowed_features,
+        };
+        // We use `BasicOutput`s in the genesis.
+        let output = BasicOutput::build_with_amount(amount)
+            .unwrap()
+            .with_features(rand_allowed_features(BasicOutput::ALLOWED_FEATURES))
+            .add_unlock_condition(AddressUnlockCondition::from(Address::from(address)).into())
+            .finish(ctx.token_supply())
+            .unwrap();
+        Output::Basic(output.into())
+    }
+
+    #[test]
+    fn test_base_tokens() {
+        let protocol_params = iota_types::block::protocol::protocol_parameters();
+
+        let address_1 = Address::rand_ed25519();
+        let address_2 = Address::rand_ed25519();
+        let address_3 = Address::rand_ed25519();
+
+        let transaction_id = TransactionId::rand();
+
+        let spend_output = |output| LedgerSpent {
+            output,
+            spent_metadata: SpentMetadata {
+                transaction_id,
+                spent: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 10000.into(),
+                },
+            },
+        };
+
+        let from_address = |address, amount| {
+            spend_output(LedgerOutput {
+                output_id: OutputId::rand(),
+                rent_structure: RentStructureBytes {
+                    num_key_bytes: 0,
+                    num_data_bytes: 100,
+                },
+                output: rand_output_with_address_and_value(address, amount, &protocol_params),
+                block_id: BlockId::rand(),
+                booked: MilestoneIndexTimestamp {
+                    milestone_index: 1.into(),
+                    milestone_timestamp: 10000.into(),
+                },
+            })
+        };
+
+        let to_address = |address, amount| LedgerOutput {
+            output_id: OutputId::rand(),
+            rent_structure: RentStructureBytes {
+                num_key_bytes: 0,
+                num_data_bytes: 100,
+            },
+            output: rand_output_with_address_and_value(address, amount, &protocol_params),
+            block_id: BlockId::rand(),
+            booked: MilestoneIndexTimestamp {
+                milestone_index: 1.into(),
+                milestone_timestamp: 10000.into(),
+            },
+        };
+
+        let consumed = [
+            from_address(address_1, 50),
+            from_address(address_1, 20),
+            from_address(address_1, 35),
+            from_address(address_2, 5),
+            from_address(address_2, 15),
+            from_address(address_3, 25),
+            from_address(address_3, 55),
+            from_address(address_3, 75),
+            from_address(address_3, 80),
+            from_address(address_3, 100),
+        ];
+
+        let created = [
+            to_address(address_1, 60),
+            to_address(address_1, 20),
+            to_address(address_1, 200),
+            to_address(address_2, 40),
+            to_address(address_2, 50),
+            to_address(address_3, 45),
+            to_address(address_3, 45),
+        ];
+
+        let ctx = TestContext {
+            at: MilestoneIndexTimestamp {
+                milestone_index: 1.into(),
+                milestone_timestamp: 10000.into(),
+            },
+            params: protocol_params.clone().into(),
+        };
+        let mut base_tokens = BaseTokenActivityMeasurement::default();
+        base_tokens.begin_milestone(&ctx);
+        base_tokens.handle_transaction(&consumed, &created, &ctx);
+        let base_tokens_measurement = base_tokens.end_milestone(&ctx).unwrap();
+
+        assert_eq!(base_tokens_measurement.at, ctx.at);
+        assert_eq!(base_tokens_measurement.inner.booked_amount.0, 460);
+        // Address 1 has delta +175, Address 2 has delta +70, Address 3 has delta -255
+        assert_eq!(base_tokens_measurement.inner.transferred_amount.0, 245)
     }
 }
