@@ -65,7 +65,10 @@ impl Analytics for AddressBalancesAnalytics {
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        let mut distribution = HashMap::new();
+        let mut distribution: HashMap<u32, DistributionStat> = (0..=9u32)
+            .into_iter()
+            .map(|i| (i, DistributionStat::default()))
+            .collect();
 
         for (_, amount) in self.balances.iter() {
             // The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
