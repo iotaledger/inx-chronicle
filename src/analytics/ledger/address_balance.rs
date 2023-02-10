@@ -6,12 +6,9 @@ use std::collections::HashMap;
 use super::*;
 use crate::types::stardust::block::{output::TokenAmount, Address};
 
-/// 20
-const BUCKET_MAX: usize = u64::MAX.ilog10() as usize + 1;
-
 pub(crate) struct AddressBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
-    pub(crate) token_distribution: [DistributionStat; BUCKET_MAX],
+    pub(crate) token_distribution: Vec<DistributionStat>,
 }
 
 /// Statistics for a particular logarithmic range of balances.
@@ -68,7 +65,8 @@ impl Analytics for AddressBalancesAnalytics {
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        let mut token_distribution = [DistributionStat::default(); BUCKET_MAX];
+        let bucket_max = ctx.protocol_params().token_supply.ilog10() as usize + 1;
+        let mut token_distribution = vec![DistributionStat::default(); bucket_max];
 
         for amount in self.balances.values() {
             // Balances are partitioned into ranges defined by: [10^index..10^(index+1)).
