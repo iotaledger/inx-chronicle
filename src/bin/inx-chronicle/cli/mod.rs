@@ -45,7 +45,7 @@ pub struct MongoDbArgs {
     )]
     pub mongodb_conn_str: String,
     /// The MongoDb database name.
-    #[arg(long, value_name = "NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
+    #[arg(long, value_name = "NAME", env = "MONGODB_DB_NAME", default_value = mongodb::DEFAULT_DATABASE_NAME)]
     pub mongodb_database_name: String,
 }
 
@@ -65,7 +65,7 @@ use chronicle::db::influxdb::config as influxdb;
 #[derive(Args, Debug)]
 pub struct InfluxDbArgs {
     /// The url pointing to an InfluxDb instance.
-    #[arg(long, value_name = "URL", default_value = influxdb::DEFAULT_URL)]
+    #[arg(long, value_name = "URL", env = "INFLUXDB_URL", default_value = influxdb::DEFAULT_URL)]
     pub influxdb_url: String,
     /// The InfluxDb username.
     #[arg(long, value_name = "USERNAME", env = "INFLUXDB_USERNAME", default_value = influxdb::DEFAULT_USERNAME)]
@@ -123,7 +123,7 @@ use crate::stardust_inx::config as inx;
 #[derive(Args, Debug)]
 pub struct InxArgs {
     /// The address of the node INX interface Chronicle tries to connect to - if enabled.
-    #[arg(long, value_name = "URL", default_value = inx::DEFAULT_URL)]
+    #[arg(long, value_name = "URL", env = "INX_URL", default_value = inx::DEFAULT_URL)]
     pub inx_url: String,
     /// Milestone at which synchronization should begin. If set to `1` Chronicle will try to sync back until the
     /// genesis block. If set to `0` Chronicle will start syncing from the most recent milestone it received.
