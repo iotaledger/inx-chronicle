@@ -75,7 +75,13 @@ impl Measurement for AddressBalanceMeasurement {
     const NAME: &'static str = "stardust_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query.add_field("address_with_balance_count", self.address_with_balance_count as u64)
+        let mut query = query.add_field("address_with_balance_count", self.address_with_balance_count as u64);
+        for (index, stat) in self.distribution.iter() {
+            query = query
+                .add_field(format!("address_count_{index}"), stat.address_count)
+                .add_field(format!("total_amount_{index}"), stat.total_amount.0);
+        }
+        query
     }
 }
 

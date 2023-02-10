@@ -8,6 +8,16 @@ use crate::types::stardust::block::{output::TokenAmount, Address};
 
 pub(crate) struct AddressBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
+    pub(crate) distribution: HashMap<u32, DistributionStat>,
+}
+
+/// Statistics for a particular logarithmic range of balances.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct DistributionStat {
+    /// The number of unique addresses in this range.
+    pub(crate) address_count: u64,
+    /// The total amount of tokens in this range.
+    pub(crate) total_amount: TokenAmount,
 }
 
 /// Computes the number of addresses the currently hold a balance.
@@ -55,10 +65,25 @@ impl Analytics for AddressBalancesAnalytics {
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        let mut distribution = HashMap::new();
+
+        for (_, amount) in self.balances.iter() {
+            // The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
+            let index = amount.0.ilog10();
+
+            distribution
+                .entry(index)
+                .and_modify(|stat: &mut DistributionStat| {
+                    stat.address_count += 1;
+                    stat.total_amount += *amount;
+                })
+                .or_default();
+        }
         Some(PerMilestone {
             at: *ctx.at(),
             inner: AddressBalanceMeasurement {
                 address_with_balance_count: self.balances.len(),
+                distribution,
             },
         })
     }
