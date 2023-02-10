@@ -6,13 +6,16 @@ use std::collections::HashMap;
 use super::*;
 use crate::types::stardust::block::{output::TokenAmount, Address};
 
+/// 20
+const BUCKET_MAX: usize = u64::MAX.ilog10() as usize + 1;
+
 pub(crate) struct AddressBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
-    pub(crate) token_distribution: HashMap<u32, DistributionStat>,
+    pub(crate) token_distribution: [DistributionStat; BUCKET_MAX],
 }
 
 /// Statistics for a particular logarithmic range of balances.
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct DistributionStat {
     /// The number of unique addresses in this range.
     pub(crate) address_count: u64,
@@ -65,21 +68,13 @@ impl Analytics for AddressBalancesAnalytics {
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        let mut token_distribution: HashMap<u32, DistributionStat> = (0..=9u32)
-            .into_iter()
-            .map(|i| (i, DistributionStat::default()))
-            .collect();
+        let mut token_distribution = [DistributionStat::default(); BUCKET_MAX];
 
-        for (_, amount) in self.balances.iter() {
+        for amount in self.balances.values() {
             // Balances are partitioned into ranges defined by: [10^index..10^(index+1)).
-            let index = amount.0.ilog10();
-            token_distribution
-                .entry(index)
-                .and_modify(|stat: &mut DistributionStat| {
-                    stat.address_count += 1;
-                    stat.total_amount += *amount;
-                })
-                .or_default();
+            let index = amount.0.ilog10() as usize;
+            token_distribution[index].address_count += 1;
+            token_distribution[index].total_amount += *amount;
         }
         Some(PerMilestone {
             at: *ctx.at(),
