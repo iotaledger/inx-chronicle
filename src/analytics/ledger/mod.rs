@@ -14,7 +14,7 @@ pub(super) use self::{
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
     output_activity::OutputActivityMeasurement,
-    token_distribution::{TokenDistributionMeasurement, TokenDistributionAnalytics},
+    token_distribution::{TokenDistributionAnalytics, TokenDistributionMeasurement},
     unclaimed_tokens::UnclaimedTokenMeasurement,
     unlock_conditions::UnlockConditionMeasurement,
 };

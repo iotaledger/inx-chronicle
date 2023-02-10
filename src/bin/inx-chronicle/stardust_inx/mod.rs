@@ -355,19 +355,11 @@ impl InxWorker {
         self.handle_cone_stream(&milestone).await?;
         self.db
             .collection::<ProtocolUpdateCollection>()
-<<<<<<< HEAD
-            .update_latest_protocol_parameters(milestone.at.milestone_index, milestone.protocol_params.clone())
-            .await?;
-        self.db
-            .collection::<ConfigurationUpdateCollection>()
-            .update_latest_node_configuration(milestone.at.milestone_index, milestone.node_config.clone())
-=======
             .upsert_protocol_parameters(milestone.at.milestone_index, milestone.protocol_params.clone())
             .await?;
         self.db
             .collection::<ConfigurationUpdateCollection>()
             .upsert_node_configuration(milestone.at.milestone_index, milestone.node_config.clone())
->>>>>>> upstream/feature/tangle-abstraction
             .await?;
 
         #[cfg(all(feature = "analytics", feature = "metrics"))]

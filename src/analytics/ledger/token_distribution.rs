@@ -5,9 +5,8 @@
 
 use std::collections::HashMap;
 
-use crate::types::stardust::block::Address;
-
 use super::*;
+use crate::types::stardust::block::Address;
 
 #[derive(Clone, Debug)]
 pub(crate) struct TokenDistributionMeasurement {
