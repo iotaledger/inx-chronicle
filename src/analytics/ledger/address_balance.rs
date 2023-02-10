@@ -71,9 +71,8 @@ impl Analytics for AddressBalancesAnalytics {
             .collect();
 
         for (_, amount) in self.balances.iter() {
-            // The logarithmic index the balances are contained between: \[10^index..10^(index+1)\]
+            // Balances are partitioned into ranges defined by: [10^index..10^(index+1)).
             let index = amount.0.ilog10();
-
             distribution
                 .entry(index)
                 .and_modify(|stat: &mut DistributionStat| {
