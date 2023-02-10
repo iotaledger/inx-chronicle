@@ -20,9 +20,9 @@ impl From<usize> for TransactionBucket {
     fn from(value: usize) -> Self {
         match value {
             ..=2 => TransactionBucket::Small,
-            ..=6 => TransactionBucket::Medium,
-            ..=9 => TransactionBucket::Large,
-            ..=49 => TransactionBucket::Huge,
+            3..=6 => TransactionBucket::Medium,
+            7..=9 => TransactionBucket::Large,
+            10..=49 => TransactionBucket::Huge,
             _ => TransactionBucket::Gigantic,
         }
     }
