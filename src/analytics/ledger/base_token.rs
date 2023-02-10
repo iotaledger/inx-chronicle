@@ -43,7 +43,7 @@ impl Analytics for BaseTokenActivityMeasurement {
             }
         }
 
-        // The number of transferred tokens is then the sum of all deltas.
+        // The number of transferred tokens is then the sum of all positive deltas.
         self.transferred_amount = balance_deltas
             .values()
             .copied()
