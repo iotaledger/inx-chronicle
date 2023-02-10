@@ -3,56 +3,79 @@
 
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use super::*;
 
-#[derive(Clone, Debug, Default)]
-pub(crate) struct InputOutputDegreeAnalytics {
-    input_degree_hist: HashMap<u8, usize>,
-    output_degree_hist: HashMap<u8, usize>,
-    num_transactions: usize,
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+pub(crate) enum TransactionBucket {
+    Small,    // 0-2
+    Medium,   // 3-6
+    Large,    // 7-9
+    Huge,     // 10-49
+    Gigantic, // 50-256(?)
+}
+
+impl From<usize> for TransactionBucket {
+    fn from(value: usize) -> Self {
+        match value {
+            ..=2 => TransactionBucket::Small,
+            ..=6 => TransactionBucket::Medium,
+            ..=9 => TransactionBucket::Large,
+            ..=49 => TransactionBucket::Huge,
+            _ => TransactionBucket::Gigantic,
+        }
+    }
+}
+
+impl Display for TransactionBucket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TransactionBucket::Small => "small",
+                TransactionBucket::Medium => "medium",
+                TransactionBucket::Large => "large",
+                TransactionBucket::Huge => "huge",
+                TransactionBucket::Gigantic => "gigantic",
+            }
+        )
+    }
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct InputOutputDegreeDistributionMeasurement {
-    pub(crate) input_degree_dist: HashMap<u8, f32>,
-    pub(crate) output_degree_dist: HashMap<u8, f32>,
+pub(crate) struct TransactionDistributionMeasurement {
+    pub(crate) input_buckets: HashMap<TransactionBucket, usize>,
+    pub(crate) output_buckets: HashMap<TransactionBucket, usize>,
 }
 
-impl Analytics for InputOutputDegreeAnalytics {
-    type Measurement = PerMilestone<InputOutputDegreeDistributionMeasurement>;
+impl Analytics for TransactionDistributionMeasurement {
+    type Measurement = PerMilestone<TransactionDistributionMeasurement>;
 
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
+    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
+        let buckets = HashMap::from([
+            (TransactionBucket::Small, 0),
+            (TransactionBucket::Medium, 0),
+            (TransactionBucket::Large, 0),
+            (TransactionBucket::Huge, 0),
+            (TransactionBucket::Gigantic, 0),
+        ]);
+        *self = Self {
+            input_buckets: buckets.clone(),
+            output_buckets: buckets,
+        };
+    }
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
-        // TODO: confirm that maximum number of inputs and outputs is 256
-        self.input_degree_hist
-            .entry(consumed.len() as u8)
-            .and_modify(|count| *count += 1)
-            .or_insert(1);
-        self.output_degree_hist
-            .entry(created.len() as u8)
-            .and_modify(|count| *count += 1)
-            .or_insert(1);
-
-        self.num_transactions += 1;
+        *self.input_buckets.entry(consumed.len().into()).or_default() += 1;
+        *self.output_buckets.entry(created.len().into()).or_default() += 1;
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        let mut dist = InputOutputDegreeDistributionMeasurement::default();
-        for (degree, count) in self.input_degree_hist.iter().map(|(k, v)| (*k, *v)) {
-            dist.input_degree_dist
-                .insert(degree, count as f32 / self.num_transactions as f32);
-        }
-        for (degree, count) in self.output_degree_hist.iter().map(|(k, v)| (*k, *v)) {
-            dist.output_degree_dist
-                .insert(degree, count as f32 / self.num_transactions as f32);
-        }
-
         Some(PerMilestone {
             at: *ctx.at(),
-            inner: dist,
+            inner: self.clone(),
         })
     }
 }

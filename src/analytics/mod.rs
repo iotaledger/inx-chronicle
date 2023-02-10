@@ -10,8 +10,8 @@ use time::OffsetDateTime;
 use self::{
     influx::PrepareQuery,
     ledger::{
-        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, InputOutputDegreeAnalytics,
-        LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, UnclaimedTokenMeasurement,
+        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
+        LedgerSizeAnalytics, OutputActivityMeasurement, TransactionDistributionMeasurement, UnclaimedTokenMeasurement,
         UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
@@ -110,7 +110,6 @@ impl Analytic {
                 time::Duration::days(1),
                 unspent_outputs,
             )) as _,
-            AnalyticsChoice::InputOutputDegrees => Box::<InputOutputDegreeAnalytics>::default() as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => {
                 Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
@@ -118,6 +117,7 @@ impl Analytic {
             AnalyticsChoice::MilestoneSize => Box::<MilestoneSizeMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsMeasurement>::default() as _,
+            AnalyticsChoice::TransactionDistribution => Box::<TransactionDistributionMeasurement>::default() as _,
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
         })
