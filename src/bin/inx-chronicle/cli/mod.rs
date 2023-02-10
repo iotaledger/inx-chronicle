@@ -282,7 +282,7 @@ impl ClArgs {
                             .unwrap_or_default()
                     };
                     if end_milestone < start_milestone {
-                        tracing::warn!("No milestones in range.");
+                        tracing::warn!("No milestones in range: {start_milestone}..={end_milestone}.");
                         return Ok(PostCommand::Exit);
                     }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
