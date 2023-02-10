@@ -2791,8 +2791,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "bars",
-            "fillOpacity": 0,
-            "gradientMode": "none",
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -3837,7 +3837,7 @@
       },
       "targets": [
         {
-          "alias": "Claimed tokens",
+          "alias": "Unclaimed outputs",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
