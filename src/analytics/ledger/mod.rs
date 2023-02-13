@@ -11,10 +11,10 @@ pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
     base_token::BaseTokenActivityMeasurement,
-    input_output_degree::TransactionSizeMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
     output_activity::OutputActivityMeasurement,
+    transaction_size::TransactionSizeMeasurement,
     unclaimed_tokens::UnclaimedTokenMeasurement,
     unlock_conditions::UnlockConditionMeasurement,
 };
@@ -29,10 +29,10 @@ use crate::{
 mod active_addresses;
 mod address_balance;
 mod base_token;
-mod input_output_degree;
 mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
+mod transaction_size;
 mod unclaimed_tokens;
 mod unlock_conditions;
 
