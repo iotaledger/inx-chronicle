@@ -11,7 +11,7 @@ pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
     base_token::BaseTokenActivityMeasurement,
-    input_output_degree::TransactionDistributionMeasurement,
+    input_output_degree::TransactionSizeMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
     output_activity::OutputActivityMeasurement,

@@ -8,58 +8,58 @@ use std::{collections::HashMap, fmt::Display};
 use super::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
-pub(crate) enum TransactionBucket {
+pub(crate) enum TransactionSizeBucket {
     Small,    // 0-2
     Medium,   // 3-6
     Large,    // 7-9
     Huge,     // 10-49
-    Gigantic, // 50-256(?)
+    Gigantic, // 50-128
 }
 
-impl From<usize> for TransactionBucket {
+impl From<usize> for TransactionSizeBucket {
     fn from(value: usize) -> Self {
         match value {
-            ..=2 => TransactionBucket::Small,
-            3..=6 => TransactionBucket::Medium,
-            7..=9 => TransactionBucket::Large,
-            10..=49 => TransactionBucket::Huge,
-            _ => TransactionBucket::Gigantic,
+            ..=2 => TransactionSizeBucket::Small,
+            3..=6 => TransactionSizeBucket::Medium,
+            7..=9 => TransactionSizeBucket::Large,
+            10..=49 => TransactionSizeBucket::Huge,
+            _ => TransactionSizeBucket::Gigantic,
         }
     }
 }
 
-impl Display for TransactionBucket {
+impl Display for TransactionSizeBucket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                TransactionBucket::Small => "small",
-                TransactionBucket::Medium => "medium",
-                TransactionBucket::Large => "large",
-                TransactionBucket::Huge => "huge",
-                TransactionBucket::Gigantic => "gigantic",
+                TransactionSizeBucket::Small => "small",
+                TransactionSizeBucket::Medium => "medium",
+                TransactionSizeBucket::Large => "large",
+                TransactionSizeBucket::Huge => "huge",
+                TransactionSizeBucket::Gigantic => "gigantic",
             }
         )
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct TransactionDistributionMeasurement {
-    pub(crate) input_buckets: HashMap<TransactionBucket, usize>,
-    pub(crate) output_buckets: HashMap<TransactionBucket, usize>,
+pub(crate) struct TransactionSizeMeasurement {
+    pub(crate) input_buckets: HashMap<TransactionSizeBucket, usize>,
+    pub(crate) output_buckets: HashMap<TransactionSizeBucket, usize>,
 }
 
-impl Analytics for TransactionDistributionMeasurement {
-    type Measurement = PerMilestone<TransactionDistributionMeasurement>;
+impl Analytics for TransactionSizeMeasurement {
+    type Measurement = PerMilestone<TransactionSizeMeasurement>;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         let buckets = HashMap::from([
-            (TransactionBucket::Small, 0),
-            (TransactionBucket::Medium, 0),
-            (TransactionBucket::Large, 0),
-            (TransactionBucket::Huge, 0),
-            (TransactionBucket::Gigantic, 0),
+            (TransactionSizeBucket::Small, 0),
+            (TransactionSizeBucket::Medium, 0),
+            (TransactionSizeBucket::Large, 0),
+            (TransactionSizeBucket::Huge, 0),
+            (TransactionSizeBucket::Gigantic, 0),
         ]);
         *self = Self {
             input_buckets: buckets.clone(),
