@@ -3,10 +3,6 @@
 
 //! Statistics about the ledger.
 
-use std::ops::{AddAssign, SubAssign};
-
-use derive_more::{AddAssign, SubAssign};
-
 pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
@@ -34,23 +30,30 @@ mod output_activity;
 mod unclaimed_tokens;
 mod unlock_conditions;
 
-#[derive(Copy, Clone, Debug, Default, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct CountAndAmount {
     pub(crate) count: usize,
     pub(crate) amount: TokenAmount,
 }
 
-impl AddAssign<&LedgerOutput> for CountAndAmount {
-    fn add_assign(&mut self, rhs: &LedgerOutput) {
-        self.count += 1;
-        self.amount += rhs.output.amount();
+impl CountAndAmount {
+    fn wrapping_add(&mut self, rhs: Self) {
+        *self = Self {
+            count: self.count.wrapping_add(rhs.count),
+            amount: TokenAmount(self.amount.0.wrapping_add(rhs.amount.0)),
+        }
     }
-}
 
-impl SubAssign<&LedgerSpent> for CountAndAmount {
-    fn sub_assign(&mut self, rhs: &LedgerSpent) {
-        self.count -= 1;
-        self.amount -= rhs.output.output.amount();
+    fn wrapping_sub(&mut self, rhs: Self) {
+        *self = Self {
+            count: self.count.wrapping_sub(rhs.count),
+            amount: TokenAmount(self.amount.0.wrapping_sub(rhs.amount.0)),
+        }
+    }
+
+    fn add_output(&mut self, rhs: &LedgerOutput) {
+        self.count += 1;
+        self.amount += rhs.amount();
     }
 }
 
