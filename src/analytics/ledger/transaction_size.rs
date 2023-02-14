@@ -19,7 +19,8 @@ pub(crate) enum SizeBucket {
 impl From<usize> for SizeBucket {
     fn from(value: usize) -> Self {
         match value {
-            ..=7 => SizeBucket::Single(value),
+            0 => unreachable!("invalid transaction"),
+            1..=7 => SizeBucket::Single(value),
             8..=15 => SizeBucket::Small,
             16..=31 => SizeBucket::Medium,
             32..=63 => SizeBucket::Large,
