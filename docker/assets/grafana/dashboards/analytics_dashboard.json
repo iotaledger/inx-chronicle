@@ -677,7 +677,7 @@
             [
               {
                 "params": [
-                  "basic_value"
+                  "basic_amount"
                 ],
                 "type": "field"
               },
@@ -701,7 +701,7 @@
             [
               {
                 "params": [
-                  "alias_value"
+                  "alias_amount"
                 ],
                 "type": "field"
               },
@@ -725,7 +725,7 @@
             [
               {
                 "params": [
-                  "foundry_value"
+                  "foundry_amount"
                 ],
                 "type": "field"
               },
@@ -749,7 +749,7 @@
             [
               {
                 "params": [
-                  "nft_value"
+                  "nft_amount"
                 ],
                 "type": "field"
               },
@@ -1964,7 +1964,7 @@
             [
               {
                 "params": [
-                  "booked_value"
+                  "booked_amount"
                 ],
                 "type": "field"
               },
@@ -2093,7 +2093,7 @@
             [
               {
                 "params": [
-                  "transferred_value"
+                  "transferred_amount"
                 ],
                 "type": "field"
               },
@@ -3826,7 +3826,7 @@
             [
               {
                 "params": [
-                  "timelock_value"
+                  "timelock_amount"
                 ],
                 "type": "field"
               },
@@ -3850,7 +3850,7 @@
             [
               {
                 "params": [
-                  "storage_deposit_return_value"
+                  "storage_deposit_return_amount"
                 ],
                 "type": "field"
               },
@@ -3874,7 +3874,7 @@
             [
               {
                 "params": [
-                  "expiration_value"
+                  "expiration_amount"
                 ],
                 "type": "field"
               },
@@ -4023,7 +4023,7 @@
             [
               {
                 "params": [
-                  "unclaimed_value"
+                  "unclaimed_amount"
                 ],
                 "type": "field"
               },
@@ -4437,7 +4437,7 @@
             [
               {
                 "params": [
-                  "total_storage_deposit_value"
+                  "total_storage_deposit_amount"
                 ],
                 "type": "field"
               },
@@ -4566,7 +4566,7 @@
             [
               {
                 "params": [
-                  "storage_deposit_return_inner_value"
+                  "storage_deposit_return_inner_amount"
                 ],
                 "type": "field"
               },

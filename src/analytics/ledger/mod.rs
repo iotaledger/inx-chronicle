@@ -82,7 +82,7 @@ mod test {
         },
     };
 
-    fn rand_output_with_value(amount: TokenAmount) -> Output {
+    fn rand_output_with_amount(amount: TokenAmount) -> Output {
         // We use `BasicOutput`s in the genesis.
         let mut output = BasicOutput::rand(&iota_types::block::protocol::protocol_parameters());
         output.amount = amount;
@@ -101,7 +101,7 @@ mod test {
                     num_key_bytes: 0,
                     num_data_bytes: 100,
                 },
-                output: rand_output_with_value((i as u64).into()),
+                output: rand_output_with_amount((i as u64).into()),
                 block_id: BlockId::rand(),
                 booked: MilestoneIndexTimestamp {
                     milestone_index: 0.into(),
@@ -139,7 +139,7 @@ mod test {
                                 num_key_bytes: 0,
                                 num_data_bytes: 100,
                             },
-                            output: rand_output_with_value(output.amount()),
+                            output: rand_output_with_amount(output.amount()),
                             block_id: BlockId::rand(),
                             booked: MilestoneIndexTimestamp {
                                 milestone_index: output.spent_metadata.spent.milestone_index,
@@ -154,7 +154,7 @@ mod test {
 
         let mut unclaimed_tokens = UnclaimedTokenMeasurement::init(&ledger_state);
         assert_eq!(unclaimed_tokens.unclaimed_count, 5);
-        assert_eq!(unclaimed_tokens.unclaimed_value.0, (1..=5).sum::<u64>());
+        assert_eq!(unclaimed_tokens.unclaimed_amount.0, (1..=5).sum::<u64>());
 
         for (i, (at, (created, consumed))) in transactions.into_iter().enumerate() {
             let ctx = TestContext {
@@ -167,7 +167,7 @@ mod test {
             assert_eq!(unclaimed_tokens_measurement.at, ctx.at);
             assert_eq!(unclaimed_tokens_measurement.inner.unclaimed_count, 5 - i - 1);
             assert_eq!(
-                unclaimed_tokens_measurement.inner.unclaimed_value.0,
+                unclaimed_tokens_measurement.inner.unclaimed_amount.0,
                 (1..=5).sum::<u64>() - (1..=(i as u64 + 1)).sum::<u64>()
             )
         }
@@ -443,7 +443,7 @@ mod test {
         assert_eq!(output_activity_measurement.inner.nft.destroyed_count, 0);
     }
 
-    fn rand_output_with_address_and_value(
+    fn rand_output_with_address_and_amount(
         address: Address,
         amount: u64,
         ctx: &iota_types::block::protocol::ProtocolParameters,
@@ -492,7 +492,7 @@ mod test {
                     num_key_bytes: 0,
                     num_data_bytes: 100,
                 },
-                output: rand_output_with_address_and_value(address, amount, &protocol_params),
+                output: rand_output_with_address_and_amount(address, amount, &protocol_params),
                 block_id: BlockId::rand(),
                 booked: milestone,
             })
@@ -504,7 +504,7 @@ mod test {
                 num_key_bytes: 0,
                 num_data_bytes: 100,
             },
-            output: rand_output_with_address_and_value(address, amount, &protocol_params),
+            output: rand_output_with_address_and_amount(address, amount, &protocol_params),
             block_id: BlockId::rand(),
             booked: milestone,
         };
