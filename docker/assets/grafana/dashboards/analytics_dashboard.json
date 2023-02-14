@@ -2981,7 +2981,7 @@
               "type": "fill"
             }
           ],
-          "measurement": "stardust_transaction_distribution",
+          "measurement": "stardust_transaction_size_distribution",
           "orderByTime": "ASC",
           "policy": "default",
           "query": "SELECT last(\"total_amount_0\"), last(\"total_amount_1\"), last(\"total_amount_2\"), last(\"total_amount_3\"), last(\"total_amount_4\"), last(\"total_amount_5\"), last(\"total_amount_6\"), last(\"total_amount_7\"), last(\"total_amount_8\"), last(\"total_amount_9\"), last(\"total_amount_10\") FROM \"stardust_addresses\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
@@ -3310,7 +3310,7 @@
               "type": "fill"
             }
           ],
-          "measurement": "stardust_transaction_distribution",
+          "measurement": "stardust_transaction_size_distribution",
           "orderByTime": "ASC",
           "policy": "default",
           "query": "SELECT last(\"total_amount_0\"), last(\"total_amount_1\"), last(\"total_amount_2\"), last(\"total_amount_3\"), last(\"total_amount_4\"), last(\"total_amount_5\"), last(\"total_amount_6\"), last(\"total_amount_7\"), last(\"total_amount_8\"), last(\"total_amount_9\"), last(\"total_amount_10\") FROM \"stardust_addresses\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
