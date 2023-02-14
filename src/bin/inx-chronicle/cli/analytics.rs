@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::{
-    analytics::Analytic,
+    analytics::{Analytic, DailyAnalytic},
     db::{
-        influxdb::{AnalyticsChoice, InfluxDb},
+        influxdb::{config::DailyAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
     tangle::{InputSource, Tangle},
@@ -26,17 +26,18 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     let chunk_size = (end_milestone.0 - start_milestone.0) / num_tasks as u32
         + ((end_milestone.0 - start_milestone.0) % num_tasks as u32 != 0) as u32;
 
+    let analytics_choices = if analytics.is_empty() {
+        super::influxdb::all_analytics()
+    } else {
+        analytics.iter().copied().collect()
+    };
+    tracing::info!("Computing the following analytics: {:?}", analytics_choices);
+
     for i in 0..num_tasks {
         let db = db.clone();
         let influx_db = influx_db.clone();
         let tangle = Tangle::from(input_source.clone());
-
-        let analytics_choices = if analytics.is_empty() {
-            super::influxdb::all_analytics()
-        } else {
-            analytics.iter().copied().collect()
-        };
-        tracing::info!("Computing the following analytics: {:?}", analytics_choices);
+        let analytics_choices = analytics_choices.clone();
 
         join_set.spawn(async move {
             let start_milestone = start_milestone + i as u32 * chunk_size;
@@ -99,6 +100,55 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                     milestone.at.milestone_index,
                     elapsed.as_millis()
                 );
+            }
+            eyre::Result::<_>::Ok(())
+        });
+    }
+    while let Some(res) = join_set.join_next().await {
+        // Panic: Acceptable risk
+        res.unwrap()?;
+    }
+    Ok(())
+}
+
+pub async fn fill_daily_analytics(
+    db: &MongoDb,
+    influx_db: &InfluxDb,
+    start_date: time::Date,
+    end_date: time::Date,
+    num_tasks: usize,
+    analytics: &[DailyAnalyticsChoice],
+) -> eyre::Result<()> {
+    let mut join_set = tokio::task::JoinSet::new();
+
+    let chunk_size = (end_date - start_date).whole_days() as usize / num_tasks
+        + ((end_date - start_date).whole_days() as usize % num_tasks != 0) as usize;
+
+    let analytics_choices = if analytics.is_empty() {
+        super::influxdb::all_daily_analytics()
+    } else {
+        analytics.iter().copied().collect()
+    };
+    tracing::info!("Computing the following daily analytics: {:?}", analytics_choices);
+
+    for i in 0..num_tasks {
+        let db = db.clone();
+        let influx_db = influx_db.clone();
+        let analytics_choices = analytics_choices.clone();
+
+        join_set.spawn(async move {
+            let start_date = start_date + time::Duration::days((i * chunk_size) as _);
+
+            let mut analytics = analytics_choices.iter().map(DailyAnalytic::init).collect::<Vec<_>>();
+
+            for delta in 0..chunk_size {
+                let start_time = std::time::Instant::now();
+
+                let date = start_date + time::Duration::days(delta as _);
+                db.update_daily_analytics(&mut analytics, &influx_db, date).await?;
+
+                let elapsed = start_time.elapsed();
+                tracing::info!("Finished analytics for {} in {}ms.", date, elapsed.as_millis());
             }
             eyre::Result::<_>::Ok(())
         });

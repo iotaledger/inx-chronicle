@@ -27,9 +27,12 @@ use crate::{
         ledger::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
         },
-        stardust::block::{
-            output::{AliasId, NftId, Output, OutputId},
-            Address, BlockId,
+        stardust::{
+            block::{
+                output::{AliasId, NftId, Output, OutputId},
+                Address, BlockId,
+            },
+            milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
     },
@@ -491,6 +494,50 @@ impl OutputCollection {
                 .unwrap_or_default(),
             ))
         }
+    }
+
+    /// Get the address activity in a date
+    pub async fn get_address_activity_count(&self, date: time::Date) -> Result<usize, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            count: usize,
+        }
+
+        let date = date.midnight().assume_utc();
+
+        let (start_timestamp, end_timestamp) = (
+            MilestoneTimestamp::from(date),
+            MilestoneTimestamp::from(date + time::Duration::days(1)),
+        );
+
+        Ok(self
+            .aggregate::<Res>(
+                [
+                    doc! { "$match": { "$or": [
+                        { "metadata.booked.milestone_timestamp": {
+                            "$gte": start_timestamp,
+                            "$lt": end_timestamp
+                        } },
+                        { "metadata.spent_metadata.spent.milestone_timestamp": {
+                            "$gte": start_timestamp,
+                            "$lt": end_timestamp
+                        } },
+                    ] } },
+                    doc! { "$group": {
+                        "_id": "$details.address",
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "count": { "$sum": 1 }
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|r| r.count)
+            .try_next()
+            .await?
+            .unwrap_or_default())
     }
 }
 

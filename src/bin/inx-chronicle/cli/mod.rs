@@ -318,6 +318,47 @@ impl ClArgs {
                     };
                     return Ok(PostCommand::Exit);
                 }
+                #[cfg(feature = "analytics")]
+                Subcommands::FillDailyAnalytics {
+                    start_date,
+                    end_date,
+                    num_tasks,
+                    analytics,
+                } => {
+                    tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+                    let db = chronicle::db::MongoDb::connect(&config.mongodb).await?;
+
+                    let start_date = if let Some(date) = start_date {
+                        *date
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_oldest_milestone()
+                            .await?
+                            .map(|ts| time::OffsetDateTime::try_from(ts.milestone_timestamp).unwrap())
+                            .unwrap_or_else(time::OffsetDateTime::now_utc)
+                            .date()
+                    };
+                    let end_date = if let Some(date) = end_date {
+                        *date
+                    } else {
+                        db.collection::<chronicle::db::collections::MilestoneCollection>()
+                            .get_newest_milestone()
+                            .await?
+                            .map(|ts| time::OffsetDateTime::try_from(ts.milestone_timestamp).unwrap())
+                            .unwrap_or_else(time::OffsetDateTime::now_utc)
+                            .date()
+                    };
+                    if end_date < start_date {
+                        tracing::warn!("No dates in range: {start_date}..={end_date}.");
+                        return Ok(PostCommand::Exit);
+                    }
+                    let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
+
+                    analytics::fill_daily_analytics(&db, &influx_db, start_date, end_date, *num_tasks, analytics)
+                        .await?;
+
+                    return Ok(PostCommand::Exit);
+                }
                 #[cfg(debug_assertions)]
                 Subcommands::ClearDatabase { run } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
@@ -354,13 +395,13 @@ pub enum Subcommands {
     /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT,
-    /// Fill analytics from Chronicle's database.
+    /// Fill analytics from an input source.
     #[cfg(feature = "analytics")]
     FillAnalytics {
         /// The inclusive starting milestone index.
         #[arg(short, long)]
         start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
-        /// The exclusive ending milestone index.
+        /// The inclusive ending milestone index.
         #[arg(short, long)]
         end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
         /// The number of parallel tasks to use when filling the analytics.
@@ -373,6 +414,22 @@ pub enum Subcommands {
         #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
         input_source: InputSourceChoice,
     },
+    /// Fill daily analytics from Chronicle's database.
+    #[cfg(feature = "analytics")]
+    FillDailyAnalytics {
+        /// The inclusive starting date (YYYY-MM-DD).
+        #[arg(short, long, value_parser = parse_date)]
+        start_date: Option<time::Date>,
+        /// The inclusive ending date (YYYY-MM-DD).
+        #[arg(short, long, value_parser = parse_date)]
+        end_date: Option<time::Date>,
+        /// The number of parallel tasks to use when filling the analytics.
+        #[arg(short, long, default_value_t = 1)]
+        num_tasks: usize,
+        /// Select a subset of analytics to compute.
+        #[arg(long)]
+        analytics: Vec<chronicle::db::influxdb::config::DailyAnalyticsChoice>,
+    },
     /// Clear the Chronicle database.
     #[cfg(debug_assertions)]
     ClearDatabase {
@@ -384,6 +441,14 @@ pub enum Subcommands {
     BuildIndexes,
     /// Migrate to a new version.
     Migrate,
+}
+
+#[cfg(feature = "analytics")]
+fn parse_date(s: &str) -> eyre::Result<time::Date> {
+    Ok(time::Date::parse(
+        s,
+        time::macros::format_description!("[year]-[month]-[day]"),
+    )?)
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]

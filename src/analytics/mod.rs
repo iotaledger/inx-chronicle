@@ -10,14 +10,17 @@ use time::OffsetDateTime;
 use self::{
     influx::PrepareQuery,
     ledger::{
-        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
-        UnlockConditionMeasurement,
+        AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
+        LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
+        UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
 };
 use crate::{
-    db::influxdb::{AnalyticsChoice, InfluxDb},
+    db::{
+        influxdb::{config::DailyAnalyticsChoice, AnalyticsChoice, InfluxDb},
+        MongoDb,
+    },
     tangle::{BlockData, InputSource, Milestone},
     types::{
         ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
@@ -92,6 +95,31 @@ where
 }
 
 #[allow(missing_docs)]
+#[async_trait::async_trait]
+trait DailyAnalytics {
+    type Measurement;
+    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Self::Measurement>;
+}
+
+// This trait allows using the above implementation dynamically
+#[async_trait::async_trait]
+trait DynDailyAnalytics: Send {
+    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Box<dyn PrepareQuery>>;
+}
+
+#[async_trait::async_trait]
+impl<T: DailyAnalytics + Send> DynDailyAnalytics for T
+where
+    T::Measurement: 'static + PrepareQuery,
+{
+    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Box<dyn PrepareQuery>> {
+        DailyAnalytics::handle_date(self, date, db)
+            .await
+            .map(|r| Box::new(r) as _)
+    }
+}
+
+#[allow(missing_docs)]
 pub struct Analytic(Box<dyn DynAnalytics>);
 
 impl Analytic {
@@ -105,11 +133,7 @@ impl Analytic {
             AnalyticsChoice::AddressBalance => Box::new(AddressBalancesAnalytics::init(unspent_outputs)) as _,
             AnalyticsChoice::BaseTokenActivity => Box::<BaseTokenActivityMeasurement>::default() as _,
             AnalyticsChoice::BlockActivity => Box::<BlockActivityMeasurement>::default() as _,
-            AnalyticsChoice::DailyActiveAddresses => Box::new(AddressActivityAnalytics::init(
-                OffsetDateTime::now_utc().date().midnight().assume_utc(),
-                time::Duration::days(1),
-                unspent_outputs,
-            )) as _,
+            AnalyticsChoice::ActiveAddresses => Box::<AddressActivityAnalytics>::default() as _,
             AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::LedgerSize => {
                 Box::new(LedgerSizeAnalytics::init(protocol_params.clone(), unspent_outputs)) as _
@@ -120,6 +144,18 @@ impl Analytic {
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
+        })
+    }
+}
+
+#[allow(missing_docs)]
+pub struct DailyAnalytic(Box<dyn DynDailyAnalytics>);
+
+impl DailyAnalytic {
+    /// Init an analytic from a choice and ledger state.
+    pub fn init(choice: &DailyAnalyticsChoice) -> Self {
+        Self(match choice {
+            DailyAnalyticsChoice::ActiveAddresses => Box::<AddressActivityMeasurement>::default() as _,
         })
     }
 }
@@ -214,6 +250,23 @@ impl<'a, I: InputSource> Milestone<'a, I> {
             .filter_map(|analytic| analytic.0.end_milestone(self))
         {
             influxdb.insert_measurement(measurement).await?;
+        }
+        Ok(())
+    }
+}
+
+impl MongoDb {
+    /// Update a list of daily analytics with this date
+    pub async fn update_daily_analytics(
+        &self,
+        analytics: &mut [DailyAnalytic],
+        influxdb: &InfluxDb,
+        date: time::Date,
+    ) -> eyre::Result<()> {
+        for analytic in analytics {
+            influxdb
+                .insert_measurement(analytic.0.handle_date(date, self).await?)
+                .await?;
         }
         Ok(())
     }

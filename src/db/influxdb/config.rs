@@ -78,7 +78,7 @@ pub enum AnalyticsChoice {
     AddressBalance,
     BaseTokenActivity,
     BlockActivity,
-    DailyActiveAddresses,
+    ActiveAddresses,
     LedgerOutputs,
     LedgerSize,
     MilestoneSize,
@@ -96,7 +96,7 @@ pub fn all_analytics() -> HashSet<AnalyticsChoice> {
         AnalyticsChoice::AddressBalance,
         AnalyticsChoice::BaseTokenActivity,
         AnalyticsChoice::BlockActivity,
-        AnalyticsChoice::DailyActiveAddresses,
+        AnalyticsChoice::ActiveAddresses,
         AnalyticsChoice::LedgerOutputs,
         AnalyticsChoice::LedgerSize,
         AnalyticsChoice::MilestoneSize,
@@ -107,4 +107,17 @@ pub fn all_analytics() -> HashSet<AnalyticsChoice> {
         AnalyticsChoice::UnlockConditions,
     ]
     .into()
+}
+
+#[allow(missing_docs)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
+pub enum DailyAnalyticsChoice {
+    // Please keep the alphabetic order.
+    ActiveAddresses,
+}
+
+/// Returns a list of trait objects for all analytics.
+pub fn all_daily_analytics() -> HashSet<DailyAnalyticsChoice> {
+    // Please keep the alphabetic order.
+    [DailyAnalyticsChoice::ActiveAddresses].into()
 }
