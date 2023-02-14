@@ -11,7 +11,8 @@ use self::{
     influx::PrepareQuery,
     ledger::{
         AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeAnalytics, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
+        LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
+        UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
 };
@@ -116,6 +117,7 @@ impl Analytic {
             AnalyticsChoice::MilestoneSize => Box::<MilestoneSizeMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
             AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsMeasurement>::default() as _,
+            AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
         })

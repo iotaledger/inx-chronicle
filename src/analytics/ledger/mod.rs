@@ -10,6 +10,7 @@ pub(super) use self::{
     ledger_outputs::LedgerOutputMeasurement,
     ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
     output_activity::OutputActivityMeasurement,
+    transaction_size::TransactionSizeMeasurement,
     unclaimed_tokens::UnclaimedTokenMeasurement,
     unlock_conditions::UnlockConditionMeasurement,
 };
@@ -27,6 +28,7 @@ mod base_token;
 mod ledger_outputs;
 mod ledger_size;
 mod output_activity;
+mod transaction_size;
 mod unclaimed_tokens;
 mod unlock_conditions;
 

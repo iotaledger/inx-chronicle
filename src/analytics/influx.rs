@@ -9,7 +9,8 @@ use time::Duration;
 use super::{
     ledger::{
         AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeMeasurement, OutputActivityMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
+        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
+        UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
     PerMilestone, TimeInterval,
@@ -116,6 +117,20 @@ impl Measurement for AddressActivityMeasurement {
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query.add_field("count", self.count as u64)
+    }
+}
+
+impl Measurement for TransactionSizeMeasurement {
+    const NAME: &'static str = "stardust_transaction_size_distribution";
+
+    fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
+        for (bucket, value) in self.input_buckets.iter() {
+            query = query.add_field(format!("input_{}", bucket), *value as u64);
+        }
+        for (bucket, value) in self.output_buckets.iter() {
+            query = query.add_field(format!("output_{}", bucket), *value as u64);
+        }
+        query
     }
 }
 
