@@ -13,6 +13,7 @@ mod test_rand {
             MongoDbCollectionExt,
         },
         types::{
+            context::TryFromWithContext,
             ledger::{
                 BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp,
                 RentStructureBytes,
@@ -21,6 +22,7 @@ mod test_rand {
         },
     };
     use futures::TryStreamExt;
+    use packable::PackableExt;
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -36,10 +38,13 @@ mod test_rand {
             .enumerate()
             .map(|(i, (block_id, block))| {
                 let parents = block.parents.clone();
+                let raw = iota_types::block::Block::try_from_with_context(&protocol_params, block.clone())
+                    .unwrap()
+                    .pack_to_vec();
                 (
                     block_id,
                     block,
-                    iota_types::block::rand::bytes::rand_bytes(100),
+                    raw,
                     BlockMetadata {
                         parents,
                         is_solid: true,
@@ -227,7 +232,9 @@ mod test_rand {
                 .unwrap();
 
         let parents = block.parents.clone();
-        let raw = iota_types::block::rand::bytes::rand_bytes(100);
+        let raw = iota_types::block::Block::try_from_with_context(&ctx, block.clone())
+            .unwrap()
+            .pack_to_vec();
         let metadata = BlockMetadata {
             parents,
             is_solid: true,
