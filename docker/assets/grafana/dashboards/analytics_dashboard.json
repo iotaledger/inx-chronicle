@@ -2937,7 +2937,7 @@
               }
             ]
           },
-          "unit": "transactions"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -2962,7 +2962,7 @@
       },
       "targets": [
         {
-          "alias": "$col Consumed Outputs",
+          "alias": "$col",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -2989,24 +2989,6 @@
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
-            [
-              {
-                "params": [
-                  "input_0"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              },
-              {
-                "params": [
-                  "0"
-                ],
-                "type": "alias"
-              }
-            ],
             [
               {
                 "params": [
@@ -3209,7 +3191,7 @@
           "tags": []
         }
       ],
-      "title": "Consumed Output Distribution",
+      "title": "Transaction distribution by Consumed Outputs /${aggregation_interval}",
       "type": "timeseries"
     },
     {
@@ -3266,7 +3248,7 @@
               }
             ]
           },
-          "unit": "transactions"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -3291,7 +3273,7 @@
       },
       "targets": [
         {
-          "alias": "$col Created Outputs",
+          "alias": "$col",
           "datasource": {
             "type": "influxdb",
             "uid": "PE5723DBC504634E6"
@@ -3313,29 +3295,11 @@
           "measurement": "stardust_transaction_size_distribution",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT last(\"output_0\"), last(\"output_1\"), last(\"output_2\"), last(\"output_3\"), last(\"output_4\"), last(\"output_5\"), last(\"output_6\"), last(\"output_7\"), last(\"output_small\"), last(\"output_medium\"), last(\"output_large\"), last(\"output_huge\") FROM \"stardust_transaction_size_distribution\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
+          "query": "SELECT last(\"output_1\"), last(\"output_2\"), last(\"output_3\"), last(\"output_4\"), last(\"output_5\"), last(\"output_6\"), last(\"output_7\"), last(\"output_small\"), last(\"output_medium\"), last(\"output_large\"), last(\"output_huge\") FROM \"stardust_transaction_size_distribution\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
           "rawQuery": false,
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
-            [
-              {
-                "params": [
-                  "output_0"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              },
-              {
-                "params": [
-                  "0"
-                ],
-                "type": "alias"
-              }
-            ],
             [
               {
                 "params": [
@@ -3538,7 +3502,7 @@
           "tags": []
         }
       ],
-      "title": "Created Output Distribution",
+      "title": "Transaction distribution by Created Outputs /${aggregation_interval}",
       "type": "timeseries"
     },
     {
@@ -4504,8 +4468,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",

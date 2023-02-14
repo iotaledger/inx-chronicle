@@ -9,7 +9,7 @@ use super::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) enum SizeBucket {
-    Single(usize), // 0,1,..7
+    Single(usize), // 1,..7
     Small,         // [8..16)
     Medium,        // [16..32)
     Large,         // [32..64)
@@ -19,7 +19,8 @@ pub(crate) enum SizeBucket {
 impl From<usize> for SizeBucket {
     fn from(value: usize) -> Self {
         match value {
-            ..=7 => SizeBucket::Single(value),
+            0 => unreachable!("invalid transaction"),
+            1..=7 => SizeBucket::Single(value),
             8..=15 => SizeBucket::Small,
             16..=31 => SizeBucket::Medium,
             32..=63 => SizeBucket::Large,
