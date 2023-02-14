@@ -2984,7 +2984,7 @@
           "measurement": "stardust_transaction_size_distribution",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT last(\"total_amount_0\"), last(\"total_amount_1\"), last(\"total_amount_2\"), last(\"total_amount_3\"), last(\"total_amount_4\"), last(\"total_amount_5\"), last(\"total_amount_6\"), last(\"total_amount_7\"), last(\"total_amount_8\"), last(\"total_amount_9\"), last(\"total_amount_10\") FROM \"stardust_addresses\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
+          "query": "SELECT last(\"input_0\"), last(\"input_1\"), last(\"input_2\"), last(\"input_3\"), last(\"input_4\"), last(\"input_5\"), last(\"input_6\"), last(\"input_7\"), last(\"input_small\"), last(\"input_medium\"), last(\"input_large\"), last(\"input_huge\") FROM \"stardust_transaction_size_distribution\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
           "rawQuery": false,
           "refId": "A",
           "resultFormat": "time_series",
@@ -3136,7 +3136,7 @@
             [
               {
                 "params": [
-                  "input_bucket_small"
+                  "input_small"
                 ],
                 "type": "field"
               },
@@ -3154,7 +3154,7 @@
             [
               {
                 "params": [
-                  "input_bucket_medium"
+                  "input_medium"
                 ],
                 "type": "field"
               },
@@ -3172,7 +3172,7 @@
             [
               {
                 "params": [
-                  "input_bucket_large"
+                  "input_large"
                 ],
                 "type": "field"
               },
@@ -3190,7 +3190,7 @@
             [
               {
                 "params": [
-                  "input_bucket_huge"
+                  "input_huge"
                 ],
                 "type": "field"
               },
@@ -3313,7 +3313,7 @@
           "measurement": "stardust_transaction_size_distribution",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT last(\"total_amount_0\"), last(\"total_amount_1\"), last(\"total_amount_2\"), last(\"total_amount_3\"), last(\"total_amount_4\"), last(\"total_amount_5\"), last(\"total_amount_6\"), last(\"total_amount_7\"), last(\"total_amount_8\"), last(\"total_amount_9\"), last(\"total_amount_10\") FROM \"stardust_addresses\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
+          "query": "SELECT last(\"output_0\"), last(\"output_1\"), last(\"output_2\"), last(\"output_3\"), last(\"output_4\"), last(\"output_5\"), last(\"output_6\"), last(\"output_7\"), last(\"output_small\"), last(\"output_medium\"), last(\"output_large\"), last(\"output_huge\") FROM \"stardust_transaction_size_distribution\" WHERE $timeFilter GROUP BY time($aggregation_interval) fill(null)",
           "rawQuery": false,
           "refId": "A",
           "resultFormat": "time_series",
