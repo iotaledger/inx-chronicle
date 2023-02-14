@@ -121,14 +121,14 @@ impl Measurement for AddressActivityMeasurement {
 }
 
 impl Measurement for TransactionSizeMeasurement {
-    const NAME: &'static str = "stardust_transaction_distribution";
+    const NAME: &'static str = "stardust_transaction_size_distribution";
 
     fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
         for (bucket, value) in self.input_buckets.iter() {
-            query = query.add_field(format!("input_bucket_{}", bucket), *value as u64);
+            query = query.add_field(format!("input_{}", bucket), *value as u64);
         }
         for (bucket, value) in self.output_buckets.iter() {
-            query = query.add_field(format!("output_bucket_{}", bucket), *value as u64);
+            query = query.add_field(format!("output_{}", bucket), *value as u64);
         }
         query
     }

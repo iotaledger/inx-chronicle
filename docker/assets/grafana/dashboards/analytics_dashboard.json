@@ -2992,7 +2992,7 @@
             [
               {
                 "params": [
-                  "input_bucket_0"
+                  "input_0"
                 ],
                 "type": "field"
               },
@@ -3010,7 +3010,7 @@
             [
               {
                 "params": [
-                  "input_bucket_1"
+                  "input_1"
                 ],
                 "type": "field"
               },
@@ -3028,7 +3028,7 @@
             [
               {
                 "params": [
-                  "input_bucket_2"
+                  "input_2"
                 ],
                 "type": "field"
               },
@@ -3046,7 +3046,7 @@
             [
               {
                 "params": [
-                  "input_bucket_3"
+                  "input_3"
                 ],
                 "type": "field"
               },
@@ -3064,7 +3064,7 @@
             [
               {
                 "params": [
-                  "input_bucket_4"
+                  "input_4"
                 ],
                 "type": "field"
               },
@@ -3082,7 +3082,7 @@
             [
               {
                 "params": [
-                  "input_bucket_5"
+                  "input_5"
                 ],
                 "type": "field"
               },
@@ -3100,7 +3100,7 @@
             [
               {
                 "params": [
-                  "input_bucket_6"
+                  "input_6"
                 ],
                 "type": "field"
               },
@@ -3118,7 +3118,7 @@
             [
               {
                 "params": [
-                  "input_bucket_7"
+                  "input_7"
                 ],
                 "type": "field"
               },
@@ -3136,7 +3136,7 @@
             [
               {
                 "params": [
-                  "input_bucket_8"
+                  "input_bucket_small"
                 ],
                 "type": "field"
               },
@@ -3146,25 +3146,7 @@
               },
               {
                 "params": [
-                  "8"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "input_bucket_9"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              },
-              {
-                "params": [
-                  "9"
+                  "[8..16)"
                 ],
                 "type": "alias"
               }
@@ -3182,7 +3164,7 @@
               },
               {
                 "params": [
-                  "10-49"
+                  "[16..32)"
                 ],
                 "type": "alias"
               }
@@ -3200,7 +3182,25 @@
               },
               {
                 "params": [
-                  "50+"
+                  "[32..64)"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "input_bucket_huge"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "sum"
+              },
+              {
+                "params": [
+                  "[64..128)"
                 ],
                 "type": "alias"
               }
@@ -3321,7 +3321,7 @@
             [
               {
                 "params": [
-                  "output_bucket_0"
+                  "output_0"
                 ],
                 "type": "field"
               },
@@ -3339,7 +3339,7 @@
             [
               {
                 "params": [
-                  "output_bucket_1"
+                  "output_1"
                 ],
                 "type": "field"
               },
@@ -3357,7 +3357,7 @@
             [
               {
                 "params": [
-                  "output_bucket_2"
+                  "output_2"
                 ],
                 "type": "field"
               },
@@ -3375,7 +3375,7 @@
             [
               {
                 "params": [
-                  "output_bucket_3"
+                  "output_3"
                 ],
                 "type": "field"
               },
@@ -3393,7 +3393,7 @@
             [
               {
                 "params": [
-                  "output_bucket_4"
+                  "output_4"
                 ],
                 "type": "field"
               },
@@ -3411,7 +3411,7 @@
             [
               {
                 "params": [
-                  "output_bucket_5"
+                  "output_5"
                 ],
                 "type": "field"
               },
@@ -3429,7 +3429,7 @@
             [
               {
                 "params": [
-                  "output_bucket_6"
+                  "output_6"
                 ],
                 "type": "field"
               },
@@ -3447,7 +3447,7 @@
             [
               {
                 "params": [
-                  "output_bucket_7"
+                  "output_7"
                 ],
                 "type": "field"
               },
@@ -3465,7 +3465,7 @@
             [
               {
                 "params": [
-                  "output_bucket_8"
+                  "output_small"
                 ],
                 "type": "field"
               },
@@ -3475,7 +3475,7 @@
               },
               {
                 "params": [
-                  "8"
+                  "[8..16)"
                 ],
                 "type": "alias"
               }
@@ -3483,7 +3483,7 @@
             [
               {
                 "params": [
-                  "output_bucket_9"
+                  "output_medium"
                 ],
                 "type": "field"
               },
@@ -3493,7 +3493,7 @@
               },
               {
                 "params": [
-                  "9"
+                  "[16..32)"
                 ],
                 "type": "alias"
               }
@@ -3501,7 +3501,7 @@
             [
               {
                 "params": [
-                  "output_bucket_medium"
+                  "output_large"
                 ],
                 "type": "field"
               },
@@ -3511,7 +3511,7 @@
               },
               {
                 "params": [
-                  "10-49"
+                  "[32..64)"
                 ],
                 "type": "alias"
               }
@@ -3519,7 +3519,7 @@
             [
               {
                 "params": [
-                  "output_bucket_large"
+                  "output_huge"
                 ],
                 "type": "field"
               },
@@ -3529,7 +3529,7 @@
               },
               {
                 "params": [
-                  "50+"
+                  "[64..128)"
                 ],
                 "type": "alias"
               }
