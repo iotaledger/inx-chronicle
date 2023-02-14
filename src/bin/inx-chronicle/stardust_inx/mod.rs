@@ -245,26 +245,6 @@ impl InxWorker {
                     .upsert_protocol_parameters(start_index, protocol_parameters)
                     .await?;
             }
-
-            // TODO: This is for migration purposes only. Remove it in the next version release.
-            if self
-                .db
-                .collection::<ApplicationStateCollection>()
-                .get_starting_index()
-                .await?
-                .is_none()
-            {
-                let start_timestamp = inx
-                    .read_milestone(start_index.0.into())
-                    .await?
-                    .milestone_info
-                    .milestone_timestamp
-                    .into();
-                self.db
-                    .collection::<ApplicationStateCollection>()
-                    .set_starting_index(start_index.with_timestamp(start_timestamp))
-                    .await?;
-            }
         } else {
             self.db.clear().await?;
 
