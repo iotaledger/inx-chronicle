@@ -84,7 +84,7 @@ pub enum AnalyticsChoice {
     MilestoneSize,
     OutputActivity,
     ProtocolParameters,
-    TransactionDistribution,
+    TransactionSizeDistribution,
     UnclaimedTokens,
     UnlockConditions,
 }
@@ -102,7 +102,7 @@ pub fn all_analytics() -> HashSet<AnalyticsChoice> {
         AnalyticsChoice::MilestoneSize,
         AnalyticsChoice::OutputActivity,
         AnalyticsChoice::ProtocolParameters,
-        AnalyticsChoice::TransactionDistribution,
+        AnalyticsChoice::TransactionSizeDistribution,
         AnalyticsChoice::UnclaimedTokens,
         AnalyticsChoice::UnlockConditions,
     ]
