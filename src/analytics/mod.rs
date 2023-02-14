@@ -49,7 +49,6 @@ impl<'a, I: InputSource> AnalyticsContext for Milestone<'a, I> {
     }
 }
 
-#[allow(missing_docs)]
 trait Analytics {
     type Measurement;
     fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext);
@@ -98,7 +97,6 @@ where
     }
 }
 
-#[allow(missing_docs)]
 #[async_trait::async_trait]
 trait DailyAnalytics {
     type Measurement;
