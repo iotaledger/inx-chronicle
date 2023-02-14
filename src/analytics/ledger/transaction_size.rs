@@ -9,7 +9,7 @@ use super::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) enum SizeBucket {
-    Single(usize), // 0,1,..7
+    Single(usize), // 1,..7
     Small,         // [8..16)
     Medium,        // [16..32)
     Large,         // [32..64)
