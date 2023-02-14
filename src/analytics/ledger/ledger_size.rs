@@ -28,11 +28,37 @@ impl LedgerSize for Output {
 }
 
 /// Ledger size statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct LedgerSizeMeasurement {
     pub(crate) total_key_bytes: u64,
     pub(crate) total_data_bytes: u64,
     pub(crate) total_storage_deposit_value: TokenAmount,
+}
+
+impl LedgerSizeMeasurement {
+    fn wrapping_add(&mut self, rhs: Self) {
+        *self = Self {
+            total_key_bytes: self.total_key_bytes.wrapping_add(rhs.total_key_bytes),
+            total_data_bytes: self.total_data_bytes.wrapping_add(rhs.total_data_bytes),
+            total_storage_deposit_value: TokenAmount(
+                self.total_storage_deposit_value
+                    .0
+                    .wrapping_add(rhs.total_storage_deposit_value.0),
+            ),
+        }
+    }
+
+    fn wrapping_sub(&mut self, rhs: Self) {
+        *self = Self {
+            total_key_bytes: self.total_key_bytes.wrapping_sub(rhs.total_key_bytes),
+            total_data_bytes: self.total_data_bytes.wrapping_sub(rhs.total_data_bytes),
+            total_storage_deposit_value: TokenAmount(
+                self.total_storage_deposit_value
+                    .0
+                    .wrapping_sub(rhs.total_storage_deposit_value.0),
+            ),
+        }
+    }
 }
 
 /// Measures the ledger size depending on current protocol parameters.
@@ -49,7 +75,7 @@ impl LedgerSizeAnalytics {
     ) -> Self {
         let mut measurement = LedgerSizeMeasurement::default();
         for output in unspent_outputs {
-            measurement += output.output.ledger_size(&protocol_params);
+            measurement.wrapping_add(output.output.ledger_size(&protocol_params));
         }
         Self {
             protocol_params,
@@ -65,10 +91,12 @@ impl Analytics for LedgerSizeAnalytics {
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in created {
-            self.measurement += output.output.ledger_size(&self.protocol_params);
+            self.measurement
+                .wrapping_add(output.output.ledger_size(&self.protocol_params));
         }
         for output in consumed.iter().map(|ledger_spent| &ledger_spent.output) {
-            self.measurement -= output.output.ledger_size(&self.protocol_params);
+            self.measurement
+                .wrapping_sub(output.output.ledger_size(&self.protocol_params));
         }
     }
 

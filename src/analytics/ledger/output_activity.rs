@@ -10,7 +10,7 @@ use crate::types::stardust::block::{
 };
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct OutputActivityMeasurement {
     pub(crate) nft: NftActivityMeasurement,
     pub(crate) alias: AliasActivityMeasurement,
@@ -39,7 +39,7 @@ impl Analytics for OutputActivityMeasurement {
 }
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct NftActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) transferred_count: usize,
@@ -87,7 +87,7 @@ impl NftActivityMeasurement {
 }
 
 /// Alias activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct AliasActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) governor_changed_count: usize,
@@ -180,7 +180,7 @@ impl AliasActivityMeasurement {
 }
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq, AddAssign, SubAssign)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct FoundryActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) transferred_count: usize,
