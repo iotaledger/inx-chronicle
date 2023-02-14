@@ -47,7 +47,7 @@ pub(crate) struct TransactionSizeMeasurement {
 }
 
 impl Analytics for TransactionSizeMeasurement {
-    type Measurement = PerMilestone<TransactionSizeMeasurement>;
+    type Measurement = TransactionSizeMeasurement;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         let mut buckets = HashMap::from([
@@ -68,10 +68,7 @@ impl Analytics for TransactionSizeMeasurement {
         *self.output_buckets.entry(created.len().into()).or_default() += 1;
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: self.clone(),
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(std::mem::take(self))
     }
 }

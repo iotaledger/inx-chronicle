@@ -5,14 +5,13 @@
 
 use futures::TryStreamExt;
 use thiserror::Error;
-use time::OffsetDateTime;
 
 use self::{
     influx::PrepareQuery,
     ledger::{
-        AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
-        LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
-        UnclaimedTokenMeasurement, UnlockConditionMeasurement,
+        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
+        DailyAddressActivityMeasurement, LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement,
+        TransactionSizeMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
 };
@@ -75,7 +74,7 @@ trait DynAnalytics: Send {
 
 impl<T: Analytics + Send> DynAnalytics for T
 where
-    T::Measurement: 'static + PrepareQuery,
+    PerMilestone<T::Measurement>: 'static + PrepareQuery,
 {
     fn begin_milestone(&mut self, ctx: &dyn AnalyticsContext) {
         Analytics::begin_milestone(self, ctx)
@@ -90,7 +89,12 @@ where
     }
 
     fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Box<dyn PrepareQuery>> {
-        Analytics::end_milestone(self, ctx).map(|r| Box::new(r) as _)
+        Analytics::end_milestone(self, ctx).map(|r| {
+            Box::new(PerMilestone {
+                at: *ctx.at(),
+                inner: r,
+            }) as _
+        })
     }
 }
 
@@ -110,12 +114,12 @@ trait DynDailyAnalytics: Send {
 #[async_trait::async_trait]
 impl<T: DailyAnalytics + Send> DynDailyAnalytics for T
 where
-    T::Measurement: 'static + PrepareQuery,
+    PerDay<T::Measurement>: 'static + PrepareQuery,
 {
     async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Box<dyn PrepareQuery>> {
         DailyAnalytics::handle_date(self, date, db)
             .await
-            .map(|r| Box::new(r) as _)
+            .map(|r| Box::new(PerDay { date, inner: r }) as _)
     }
 }
 
@@ -155,7 +159,7 @@ impl DailyAnalytic {
     /// Init an analytic from a choice and ledger state.
     pub fn init(choice: &DailyAnalyticsChoice) -> Self {
         Self(match choice {
-            DailyAnalyticsChoice::ActiveAddresses => Box::<AddressActivityMeasurement>::default() as _,
+            DailyAnalyticsChoice::ActiveAddresses => Box::<DailyAddressActivityMeasurement>::default() as _,
         })
     }
 }
@@ -285,12 +289,10 @@ struct PerMilestone<M> {
     inner: M,
 }
 
-/// Note: We will need this later, for example for daily active addresses.
-#[allow(unused)]
+#[derive(Clone, Debug)]
 #[allow(missing_docs)]
-struct TimeInterval<M> {
-    from: OffsetDateTime,
-    to_exclusive: OffsetDateTime,
+struct PerDay<M> {
+    date: time::Date,
     inner: M,
 }
 

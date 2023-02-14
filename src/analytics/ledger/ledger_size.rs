@@ -85,7 +85,7 @@ impl LedgerSizeAnalytics {
 }
 
 impl Analytics for LedgerSizeAnalytics {
-    type Measurement = PerMilestone<LedgerSizeMeasurement>;
+    type Measurement = LedgerSizeMeasurement;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
@@ -100,10 +100,7 @@ impl Analytics for LedgerSizeAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: self.measurement,
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(self.measurement)
     }
 }

@@ -22,26 +22,26 @@ pub(crate) struct AddressActivityAnalytics {
     addresses: HashSet<Address>,
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct DailyAddressActivityMeasurement {
+    pub(crate) count: usize,
+}
+
 #[async_trait::async_trait]
-impl DailyAnalytics for AddressActivityMeasurement {
-    type Measurement = TimeInterval<Self>;
+impl DailyAnalytics for DailyAddressActivityMeasurement {
+    type Measurement = Self;
 
     async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Self::Measurement> {
         let count = db
             .collection::<OutputCollection>()
             .get_address_activity_count(date)
             .await?;
-        let from = date.midnight().assume_utc();
-        Ok(TimeInterval {
-            from,
-            to_exclusive: from + time::Duration::days(1),
-            inner: AddressActivityMeasurement { count },
-        })
+        Ok(DailyAddressActivityMeasurement { count })
     }
 }
 
 impl Analytics for AddressActivityAnalytics {
-    type Measurement = PerMilestone<AddressActivityMeasurement>;
+    type Measurement = AddressActivityMeasurement;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Self::default();
@@ -61,12 +61,9 @@ impl Analytics for AddressActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: AddressActivityMeasurement {
-                count: self.addresses.len(),
-            },
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(AddressActivityMeasurement {
+            count: self.addresses.len(),
         })
     }
 }

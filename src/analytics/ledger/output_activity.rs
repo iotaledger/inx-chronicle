@@ -18,7 +18,7 @@ pub(crate) struct OutputActivityMeasurement {
 }
 
 impl Analytics for OutputActivityMeasurement {
-    type Measurement = PerMilestone<Self>;
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Self::default();
@@ -30,11 +30,8 @@ impl Analytics for OutputActivityMeasurement {
         self.foundry.handle_transaction(consumed, created);
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: *self,
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(*self)
     }
 }
 

@@ -70,7 +70,7 @@ impl UnlockConditionMeasurement {
 }
 
 impl Analytics for UnlockConditionMeasurement {
-    type Measurement = PerMilestone<Self>;
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
@@ -82,10 +82,7 @@ impl Analytics for UnlockConditionMeasurement {
         self.wrapping_sub(consumed);
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: *self,
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(*self)
     }
 }

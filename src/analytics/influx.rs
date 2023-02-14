@@ -4,21 +4,17 @@
 //! Influx Measurement implementations
 
 use influxdb::{InfluxDbWriteable, WriteQuery};
-use time::Duration;
 
 use super::{
     ledger::{
-        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
-        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
-        UnlockConditionMeasurement,
+        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement,
+        DailyAddressActivityMeasurement, LedgerOutputMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement,
+        TransactionSizeMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
-    PerMilestone, TimeInterval,
+    PerDay, PerMilestone,
 };
-use crate::{
-    db::influxdb::InfluxDb,
-    types::{stardust::milestone::MilestoneTimestamp, tangle::ProtocolParameters},
-};
+use crate::{db::influxdb::InfluxDb, types::tangle::ProtocolParameters};
 
 /// A trait that defines an InfluxDb measurement.
 trait Measurement {
@@ -59,14 +55,12 @@ where
     }
 }
 
-impl<M: Send + Sync> PrepareQuery for TimeInterval<M>
+impl<M: Send + Sync> PrepareQuery for PerDay<M>
 where
     M: Measurement,
 {
     fn prepare_query(&self) -> WriteQuery {
-        // We subtract 1 nanosecond to get the inclusive end of the time interval.
-        let timestamp = self.to_exclusive - Duration::nanoseconds(1);
-        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp))
+        influxdb::Timestamp::Seconds(self.date.midnight().assume_utc().unix_timestamp() as _)
             .into_query(M::NAME)
             .add_fields(&self.inner)
     }
@@ -113,6 +107,14 @@ impl Measurement for BlockActivityMeasurement {
 }
 
 impl Measurement for AddressActivityMeasurement {
+    const NAME: &'static str = "stardust_active_addresses";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query.add_field("count", self.count as u64)
+    }
+}
+
+impl Measurement for DailyAddressActivityMeasurement {
     const NAME: &'static str = "stardust_daily_active_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {

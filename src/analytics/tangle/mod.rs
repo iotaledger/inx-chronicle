@@ -8,7 +8,7 @@ pub(crate) use self::{
     protocol_params::ProtocolParamsMeasurement,
 };
 use crate::{
-    analytics::{Analytics, AnalyticsContext, PerMilestone},
+    analytics::{Analytics, AnalyticsContext},
     tangle::BlockData,
     types::{stardust::block::Payload, tangle::ProtocolParameters},
 };
@@ -89,26 +89,19 @@ mod test {
         let block_activity_measurement = block_activity.end_milestone(&ctx).unwrap();
         let milestone_size_measurement = milestone_size.end_milestone(&ctx).unwrap();
 
-        assert_eq!(block_activity_measurement.at, ctx.at);
-        assert_eq!(block_activity_measurement.inner.transaction_count, 1);
-        assert_eq!(block_activity_measurement.inner.treasury_transaction_count, 1);
-        assert_eq!(block_activity_measurement.inner.milestone_count, 1);
-        assert_eq!(block_activity_measurement.inner.tagged_data_count, 1);
-        assert_eq!(block_activity_measurement.inner.no_payload_count, 1);
-        assert_eq!(block_activity_measurement.inner.confirmed_count, 1);
-        assert_eq!(block_activity_measurement.inner.conflicting_count, 1);
-        assert_eq!(block_activity_measurement.inner.no_transaction_count, 3);
+        assert_eq!(block_activity_measurement.transaction_count, 1);
+        assert_eq!(block_activity_measurement.treasury_transaction_count, 1);
+        assert_eq!(block_activity_measurement.milestone_count, 1);
+        assert_eq!(block_activity_measurement.tagged_data_count, 1);
+        assert_eq!(block_activity_measurement.no_payload_count, 1);
+        assert_eq!(block_activity_measurement.confirmed_count, 1);
+        assert_eq!(block_activity_measurement.conflicting_count, 1);
+        assert_eq!(block_activity_measurement.no_transaction_count, 3);
 
-        assert_eq!(milestone_size_measurement.at, ctx.at);
-        assert_eq!(
-            milestone_size_measurement
-                .inner
-                .total_treasury_transaction_payload_bytes,
-            100
-        );
-        assert_eq!(milestone_size_measurement.inner.total_transaction_payload_bytes, 200);
-        assert_eq!(milestone_size_measurement.inner.total_milestone_payload_bytes, 300);
-        assert_eq!(milestone_size_measurement.inner.total_tagged_data_payload_bytes, 400);
-        assert_eq!(milestone_size_measurement.inner.total_milestone_bytes, 1500);
+        assert_eq!(milestone_size_measurement.total_treasury_transaction_payload_bytes, 100);
+        assert_eq!(milestone_size_measurement.total_transaction_payload_bytes, 200);
+        assert_eq!(milestone_size_measurement.total_milestone_payload_bytes, 300);
+        assert_eq!(milestone_size_measurement.total_tagged_data_payload_bytes, 400);
+        assert_eq!(milestone_size_measurement.total_milestone_bytes, 1500);
     }
 }

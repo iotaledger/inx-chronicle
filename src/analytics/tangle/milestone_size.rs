@@ -14,7 +14,7 @@ pub(crate) struct MilestoneSizeMeasurement {
 }
 
 impl Analytics for MilestoneSizeMeasurement {
-    type Measurement = PerMilestone<Self>;
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Self::default();
@@ -33,10 +33,7 @@ impl Analytics for MilestoneSizeMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: *self,
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(*self)
     }
 }

@@ -4,7 +4,7 @@
 //! Statistics about the ledger.
 
 pub(super) use self::{
-    active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
+    active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement, DailyAddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
     base_token::BaseTokenActivityMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
@@ -15,7 +15,7 @@ pub(super) use self::{
     unlock_conditions::UnlockConditionMeasurement,
 };
 use crate::{
-    analytics::{Analytics, AnalyticsContext, PerMilestone, TimeInterval},
+    analytics::{Analytics, AnalyticsContext},
     types::{
         ledger::{LedgerOutput, LedgerSpent},
         stardust::block::{output::TokenAmount, Output},
@@ -164,10 +164,9 @@ mod test {
             unclaimed_tokens.begin_milestone(&ctx);
             unclaimed_tokens.handle_transaction(&[consumed], &[created], &ctx);
             let unclaimed_tokens_measurement = unclaimed_tokens.end_milestone(&ctx).unwrap();
-            assert_eq!(unclaimed_tokens_measurement.at, ctx.at);
-            assert_eq!(unclaimed_tokens_measurement.inner.unclaimed_count, 5 - i - 1);
+            assert_eq!(unclaimed_tokens_measurement.unclaimed_count, 5 - i - 1);
             assert_eq!(
-                unclaimed_tokens_measurement.inner.unclaimed_value.0,
+                unclaimed_tokens_measurement.unclaimed_value.0,
                 (1..=5).sum::<u64>() - (1..=(i as u64 + 1)).sum::<u64>()
             )
         }
@@ -272,11 +271,10 @@ mod test {
         output_activity.handle_transaction(&consumed, &created, &ctx);
         let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
 
-        assert_eq!(output_activity_measurement.at, ctx.at);
-        assert_eq!(output_activity_measurement.inner.alias.created_count, 1);
-        assert_eq!(output_activity_measurement.inner.alias.governor_changed_count, 1);
-        assert_eq!(output_activity_measurement.inner.alias.state_changed_count, 1);
-        assert_eq!(output_activity_measurement.inner.alias.destroyed_count, 1);
+        assert_eq!(output_activity_measurement.alias.created_count, 1);
+        assert_eq!(output_activity_measurement.alias.governor_changed_count, 1);
+        assert_eq!(output_activity_measurement.alias.state_changed_count, 1);
+        assert_eq!(output_activity_measurement.alias.destroyed_count, 1);
     }
 
     #[test]
@@ -364,10 +362,9 @@ mod test {
         output_activity.handle_transaction(&consumed, &created, &ctx);
         let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
 
-        assert_eq!(output_activity_measurement.at, ctx.at);
-        assert_eq!(output_activity_measurement.inner.nft.created_count, 1);
-        assert_eq!(output_activity_measurement.inner.nft.transferred_count, 2);
-        assert_eq!(output_activity_measurement.inner.nft.destroyed_count, 2);
+        assert_eq!(output_activity_measurement.nft.created_count, 1);
+        assert_eq!(output_activity_measurement.nft.transferred_count, 2);
+        assert_eq!(output_activity_measurement.nft.destroyed_count, 2);
 
         let mut created_nft = NftOutput::rand(&protocol_params);
         created_nft.nft_id = NftId::implicit();
@@ -402,10 +399,9 @@ mod test {
         output_activity.handle_transaction(&[], &created, &ctx);
         let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
 
-        assert_eq!(output_activity_measurement.at, ctx.at);
-        assert_eq!(output_activity_measurement.inner.nft.created_count, 1);
-        assert_eq!(output_activity_measurement.inner.nft.transferred_count, 0);
-        assert_eq!(output_activity_measurement.inner.nft.destroyed_count, 0);
+        assert_eq!(output_activity_measurement.nft.created_count, 1);
+        assert_eq!(output_activity_measurement.nft.transferred_count, 0);
+        assert_eq!(output_activity_measurement.nft.destroyed_count, 0);
 
         // Created on milestone 2
         let created = [
@@ -437,10 +433,9 @@ mod test {
         output_activity.handle_transaction(&consumed, &created, &ctx);
         let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
 
-        assert_eq!(output_activity_measurement.at, ctx.at);
-        assert_eq!(output_activity_measurement.inner.nft.created_count, 0);
-        assert_eq!(output_activity_measurement.inner.nft.transferred_count, 3);
-        assert_eq!(output_activity_measurement.inner.nft.destroyed_count, 0);
+        assert_eq!(output_activity_measurement.nft.created_count, 0);
+        assert_eq!(output_activity_measurement.nft.transferred_count, 3);
+        assert_eq!(output_activity_measurement.nft.destroyed_count, 0);
     }
 
     fn rand_output_with_address_and_value(
@@ -541,9 +536,8 @@ mod test {
         base_tokens.handle_transaction(&consumed, &created, &ctx);
         let base_tokens_measurement = base_tokens.end_milestone(&ctx).unwrap();
 
-        assert_eq!(base_tokens_measurement.at, ctx.at);
-        assert_eq!(base_tokens_measurement.inner.booked_amount.0, 460);
+        assert_eq!(base_tokens_measurement.booked_amount.0, 460);
         // Address 1 has delta +175, Address 2 has delta +70, Address 3 has delta -255
-        assert_eq!(base_tokens_measurement.inner.transferred_amount.0, 245)
+        assert_eq!(base_tokens_measurement.transferred_amount.0, 245)
     }
 }
