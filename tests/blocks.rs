@@ -33,7 +33,7 @@ mod test_rand {
     async fn test_blocks() {
         let db = setup_database("test-blocks").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
-        let file = File::open("blocks_ms_2418807.json").unwrap();
+        let file = File::open("tests/data/blocks_ms_2418807.json").unwrap();
         let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
 
         let blocks: Vec<BlockTestData> = mongodb::bson::from_bson(test_data).unwrap();
@@ -168,7 +168,7 @@ mod test_rand {
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
 
         // The spent block in the sample data is at white flag index 44.
-        let file = File::open("blocks_ms_2418187.json").unwrap();
+        let file = File::open("tests/data/blocks_ms_2418187.json").unwrap();
         let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
 
         let blocks: Vec<BlockTestData> = mongodb::bson::from_bson(test_data).unwrap();
@@ -192,7 +192,7 @@ mod test_rand {
         block_collection.insert_blocks_with_metadata(blocks).await.unwrap();
 
         // The spending block in the sample data is at white flag index 66.
-        let file = File::open("blocks_ms_2418807.json").unwrap();
+        let file = File::open("tests/data/blocks_ms_2418807.json").unwrap();
         let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
 
         let blocks: Vec<BlockTestData> = mongodb::bson::from_bson(test_data).unwrap();
