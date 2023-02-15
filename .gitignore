@@ -2,8 +2,6 @@
 
 **/.env
 
-config.toml
-
 .vscode
 
 .DS_Store

@@ -397,9 +397,18 @@ components:
       properties:
         blocks:
           type: array
-          description: A list of block ids.
+          description: A list of block ids and corresponding payload types.
           items:
-            type: string
+            type: object
+            properties:
+              blockId:
+                type: string
+                description: The block ID.
+              payloadType:
+                type: integer
+                description: The corresponding payload type of the block if it exists.
+            required:
+            - blockId
         cursor:
           type: string
           description: The cursor which can be used to retrieve the next logical page of results.
@@ -644,7 +653,10 @@ components:
     blocks-by-milestone-example:
       value:
         blocks:
-          - "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
-          - "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
-          - "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2"
+          - blockId: "0xd0d361341fa3bb2f6855039a82ee9ea470c3336eaf34d22767fdfa901ba63e31"
+            payloadType: 0
+          - blockId: "0x7a09324557e9200f39bf493fc8fd6ac43e9ca750c6f6d884cc72386ddcb7d695"
+            payloadType: 0
+          - blockId: "0xfa0de75d225cca2799395e5fc340702fc7eac821d2bdd79911126f131ae097a2"
+            payloadType: 0
         cursor: "4.100"

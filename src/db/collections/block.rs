@@ -470,10 +470,11 @@ impl BlockCollection {
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
 pub struct BlocksByMilestoneResult {
     pub block_id: BlockId,
+    pub payload_kind: Option<String>,
     pub white_flag_index: u32,
 }
 
@@ -503,6 +504,7 @@ impl BlockCollection {
                 doc! { "$limit": page_size as i64 },
                 doc! { "$replaceWith": {
                     "block_id": "$_id",
+                    "payload_kind": "$block.payload.kind",
                     "white_flag_index": "$metadata.white_flag_index"
                 } },
             ],
