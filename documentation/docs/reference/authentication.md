@@ -9,22 +9,7 @@ keywords:
 
 # Authentication
 
-Usage of the Chronicle API can be protected using [JWT](https://jwt.io/), by setting the following configuration settings under the `[api]` table in [config.toml](https://github.com/iotaledger/inx-chronicle/blob/main/config.template.toml).
-
-- `password_hash` - The [argon2](https://argon2.online/) hash of your chosen password.
-- `password_salt` - The salt used to hash the above password.
-- `identity_path` - The path to an [EdDSA](https://en.wikipedia.org/wiki/EdDSA) secret key.
-- `jwt_expiration` - The duration for which the JWT token is valid.
-- `public_routes` - A list of routes that can be accessed without providing a token. These can include the wildcard (*) symbol to allow any sequence of characters to match.
-
-The `[api.argon_config]` sub-table can be used to configure the argon2 hash generation, using the following settings:
-
-- `hash_length` - The length of the resulting hash in bytes.
-- `parallelism` - The number of threads used.
-- `mem_cost` - The memory used.
-- `iterations` - The number of iterations to perform.
-- `variant` - One of three variants: [argon2d](https://www.argon2d.com/), [argon2i](https://www.argon2i.com/), or [argon2id](https://www.argon2id.com/).
-- `version` - The argon version (currently 0x13).
+Usage of the Chronicle API can be protected using [JWT](https://jwt.io/) by using Chronicle's command-line interface (CLI). Run `inx-chronicle --help` and read about all available options under the `API:` section.
 
 All JWT interactions should be performed via HTTPS.
 
