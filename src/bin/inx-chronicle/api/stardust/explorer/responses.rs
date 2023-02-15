@@ -106,7 +106,7 @@ impl_success_response!(MilestonesResponse);
 #[serde(rename_all = "camelCase")]
 pub struct BlockPayloadTypeDto {
     pub block_id: String,
-    #[serde(rename = "type")]
+    #[serde(rename = "payloadType")]
     pub payload_kind: Option<u32>,
 }
 

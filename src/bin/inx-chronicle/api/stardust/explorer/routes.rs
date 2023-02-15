@@ -257,7 +257,7 @@ async fn blocks_by_milestone_index(
         .take(page_size)
         .map_ok(|rec| BlockPayloadTypeDto {
             block_id: rec.block_id.to_hex(),
-            payload_kind: rec.payload_kind.map(|desc| match desc.as_str() {
+            payload_kind: rec.payload_kind.map(|kind| match kind.as_str() {
                 TransactionPayload::KIND => iota_types::block::payload::TransactionPayload::KIND,
                 MilestonePayload::KIND => iota_types::block::payload::MilestonePayload::KIND,
                 TreasuryTransactionPayload::KIND => iota_types::block::payload::TreasuryTransactionPayload::KIND,

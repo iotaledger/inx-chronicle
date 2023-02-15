@@ -444,7 +444,7 @@ impl BlockCollection {
                 doc! { "$limit": page_size as i64 },
                 doc! { "$replaceWith": {
                     "block_id": "$_id",
-                    "payload_kind": "$block.payload.payload_kind",
+                    "payload_kind": "$block.payload.kind",
                     "white_flag_index": "$metadata.white_flag_index"
                 } },
             ],
