@@ -15,7 +15,6 @@ use tracing::instrument;
 use super::SortOrder;
 use crate::{
     db::{
-        collections::OutputCollection,
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
@@ -126,70 +125,54 @@ impl MongoDbCollection for BlockCollection {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct IncludedBlockResult {
+    #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub block: Block,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct IncludedBlockMetadataResult {
+    #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub metadata: BlockMetadata,
+}
+
+#[derive(Deserialize)]
+struct RawResult {
+    #[serde(with = "serde_bytes")]
+    raw: Vec<u8>,
+}
+
+#[derive(Deserialize)]
+struct BlockIdResult {
+    #[serde(rename = "_id")]
+    block_id: BlockId,
 }
 
 /// Implements the queries for the core API.
 impl BlockCollection {
     /// Get a [`Block`] by its [`BlockId`].
     pub async fn get_block(&self, block_id: &BlockId) -> Result<Option<Block>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": { "_id": block_id } },
-                doc! { "$lookup": {
-                    "from": OutputCollection::NAME,
-                    "localField": "_id",
-                    "foreignField": "metadata.block_id",
-                    "pipeline": [
-                        { "$sort": { "_id": 1 } },
-                        { "$replaceWith": "$output" }
-                    ],
-                    "as": "block.payload.essence.outputs"
-                } },
-                // Stupidly, if the block has no payload, then the above lookup
-                // will add the structure, causing the deserialization to fail.
-                // So this is needed to make sure we remove it if necessary.
-                doc! { "$set": { "block.payload": { "$cond": [
-                    { "$not": [ "$block.payload.kind" ] },
-                    "$$REMOVE",
-                    "$block.payload",
-                ] } } },
-                doc! { "$replaceWith": "$block" },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+        Ok(self
+            .get_block_raw(block_id)
+            .await?
+            .map(|raw| iota_types::block::Block::unpack_unverified(raw).unwrap().into()))
     }
 
     /// Get the raw bytes of a [`Block`] by its [`BlockId`].
     pub async fn get_block_raw(&self, block_id: &BlockId) -> Result<Option<Vec<u8>>, Error> {
-        #[derive(Deserialize)]
-        struct RawResult {
-            #[serde(with = "serde_bytes")]
-            data: Vec<u8>,
-        }
-
         Ok(self
             .aggregate(
                 [
                     doc! { "$match": { "_id": block_id } },
-                    doc! { "$replaceWith": { "data": "$raw" } },
+                    doc! { "$project": { "raw": 1 } },
                 ],
                 None,
             )
             .await?
             .try_next()
             .await?
-            .map(|RawResult { data }| data))
+            .map(|RawResult { raw }| raw))
     }
 
     /// Get the metadata of a [`Block`] by its [`BlockId`].
@@ -213,11 +196,6 @@ impl BlockCollection {
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-        #[derive(Deserialize)]
-        struct BlockIdResult {
-            block_id: BlockId,
-        }
-
         Ok(self
             .aggregate(
                 [
@@ -225,7 +203,7 @@ impl BlockCollection {
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
                     doc! { "$limit": page_size as i64 },
-                    doc! { "$replaceWith": { "block_id": "$_id" } },
+                    doc! { "$project": { "_id": 1 } },
                 ],
                 None,
             )
@@ -238,22 +216,17 @@ impl BlockCollection {
         &self,
         index: MilestoneIndex,
     ) -> Result<Vec<BlockId>, Error> {
-        #[derive(Deserialize)]
-        struct BlockIdResult {
-            id: BlockId,
-        }
-
         let block_ids = self
             .aggregate::<BlockIdResult>(
                 vec![
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
-                    doc! { "$replaceWith": { "id": "$_id" } },
+                    doc! { "$project": { "_id": 1 } },
                 ],
                 None,
             )
             .await?
-            .map_ok(|res| res.id)
+            .map_ok(|res| res.block_id)
             .try_collect()
             .await?;
 
@@ -297,11 +270,6 @@ impl BlockCollection {
 
     /// Get the blocks that were applied by the specified milestone (in White-Flag order).
     pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
-        #[derive(Deserialize)]
-        struct BlockIdResult {
-            id: BlockId,
-        }
-
         let block_ids = self
             .aggregate::<BlockIdResult>(
                 vec![
@@ -310,12 +278,12 @@ impl BlockCollection {
                         "metadata.inclusion_state": LedgerInclusionState::Included,
                     } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
-                    doc! { "$replaceWith": { "id": "$_id" } },
+                    doc! { "$project": { "_id": 1 } },
                 ],
                 None,
             )
             .await?
-            .map_ok(|res| res.id)
+            .map_ok(|res| res.block_id)
             .try_collect()
             .await?;
 
@@ -346,40 +314,13 @@ impl BlockCollection {
         &self,
         transaction_id: &TransactionId,
     ) -> Result<Option<IncludedBlockResult>, Error> {
-        self.aggregate(
-            [
-                doc! { "$match": {
-                    "metadata.inclusion_state": LedgerInclusionState::Included,
-                    "block.payload.transaction_id": transaction_id,
-                } },
-                doc! { "$lookup": {
-                    "from": OutputCollection::NAME,
-                    "localField": "_id",
-                    "foreignField": "metadata.block_id",
-                    "pipeline": [
-                        { "$sort": { "_id": 1 } },
-                        { "$replaceWith": "$output" }
-                    ],
-                    "as": "block.payload.essence.outputs"
-                } },
-                // Stupidly, if the block has no payload, then the above lookup
-                // will add the structure, causing the deserialization to fail.
-                // So this is needed to make sure we remove it if necessary.
-                doc! { "$set": { "block.payload": { "$cond": [
-                    { "$not": [ "$block.payload.kind" ] },
-                    "$$REMOVE",
-                    "$block.payload",
-                ] } } },
-                doc! { "$replaceWith": {
-                    "block_id": "$_id",
-                    "block": "$block",
-                } },
-            ],
-            None,
-        )
-        .await?
-        .try_next()
-        .await
+        Ok(self.get_block_raw_for_transaction(transaction_id).await?.map(|raw| {
+            let block = iota_types::block::Block::unpack_unverified(raw).unwrap();
+            IncludedBlockResult {
+                block_id: block.id().into(),
+                block: block.into(),
+            }
+        }))
     }
 
     /// Finds the raw bytes of the block that included a transaction by [`TransactionId`].
@@ -387,12 +328,6 @@ impl BlockCollection {
         &self,
         transaction_id: &TransactionId,
     ) -> Result<Option<Vec<u8>>, Error> {
-        #[derive(Deserialize)]
-        struct RawResult {
-            #[serde(with = "serde_bytes")]
-            data: Vec<u8>,
-        }
-
         Ok(self
             .aggregate(
                 [
@@ -400,14 +335,14 @@ impl BlockCollection {
                         "metadata.inclusion_state": LedgerInclusionState::Included,
                         "block.payload.transaction_id": transaction_id,
                     } },
-                    doc! { "$replaceWith": { "data": "$raw" } },
+                    doc! { "$project": { "raw": 1 } },
                 ],
                 None,
             )
             .await?
             .try_next()
             .await?
-            .map(|RawResult { data }| data))
+            .map(|RawResult { raw }| raw))
     }
 
     /// Finds the [`BlockMetadata`] that included a transaction by [`TransactionId`].
@@ -421,9 +356,9 @@ impl BlockCollection {
                     "metadata.inclusion_state": LedgerInclusionState::Included,
                     "block.payload.transaction_id": transaction_id,
                 } },
-                doc! { "$replaceWith": {
-                    "block_id": "$_id",
-                    "metadata": "$metadata",
+                doc! { "$project": {
+                    "_id": 1,
+                    "metadata": 1,
                 } },
             ],
             None,
@@ -442,29 +377,12 @@ impl BlockCollection {
                     "block.payload.essence.inputs.transaction_id": &output_id.transaction_id,
                     "block.payload.essence.inputs.index": &(output_id.index as i32)
                 } },
-                doc! { "$lookup": {
-                    "from": OutputCollection::NAME,
-                    "localField": "_id",
-                    "foreignField": "metadata.block_id",
-                    "pipeline": [
-                        { "$sort": { "_id": 1 } },
-                        { "$replaceWith": "$output" }
-                    ],
-                    "as": "block.payload.essence.outputs"
-                } },
-                // Stupidly, if the block has no payload, then the above lookup
-                // will add the structure, causing the deserialization to fail.
-                // So this is needed to make sure we remove it if necessary.
-                doc! { "$set": { "block.payload": { "$cond": [
-                    { "$not": [ "$block.payload.kind" ] },
-                    "$$REMOVE",
-                    "$block.payload",
-                ] } } },
-                doc! { "$replaceWith": "$block" },
+                doc! { "$project": { "raw": 1 } },
             ],
             None,
         )
         .await?
+        .map_ok(|RawResult { raw }| iota_types::block::Block::unpack_unverified(raw).unwrap().into())
         .try_next()
         .await
     }
@@ -473,6 +391,7 @@ impl BlockCollection {
 #[derive(Clone, Debug, Deserialize)]
 #[allow(missing_docs)]
 pub struct BlocksByMilestoneResult {
+    #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub payload_kind: Option<String>,
     pub white_flag_index: u32,
@@ -502,8 +421,8 @@ impl BlockCollection {
                 doc! { "$match": { "$and": queries } },
                 doc! { "$sort": sort },
                 doc! { "$limit": page_size as i64 },
-                doc! { "$replaceWith": {
-                    "block_id": "$_id",
+                doc! { "$project": {
+                    "_id": 1,
                     "payload_kind": "$block.payload.kind",
                     "white_flag_index": "$metadata.white_flag_index"
                 } },
