@@ -9,7 +9,7 @@ keywords:
 
 # Authentication
 
-Usage of the Chronicle API can be protected using [JWT](https://jwt.io/) by using Chronicle's command-line interface (CLI). Run `inx-chronicle --help` and read about all available options under the `API:` section.
+Usage of the Chronicle API can be protected using [JWT](https://jwt.io/) by using Chronicle's command-line interface (CLI). Run `inx-chronicle --help` to learn about all available options under the `API` section.
 
 All JWT interactions should be performed via HTTPS.
 
