@@ -125,6 +125,7 @@ impl MongoDbCollection for BlockCollection {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct IncludedBlockResult {
+    #[serde(rename = "_id")]
     pub block_id: BlockId,
     pub block: Block,
 }
