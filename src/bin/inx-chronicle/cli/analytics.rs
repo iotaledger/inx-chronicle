@@ -47,58 +47,60 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                 .milestone_stream(start_milestone..start_milestone + chunk_size)
                 .await?;
 
-            while let Some(milestone) = milestone_stream.try_next().await? {
-                // TODO: Provide better instrumentation. If we measure here, we don't account for the time required to
-                // receive a milestone.
+            loop {
                 let start_time = std::time::Instant::now();
 
-                // Check if the protocol params changed (or we just started)
-                if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
-                    // Only get the ledger state for milestones after the genesis since it requires
-                    // getting the previous milestone data.
-                    let ledger_state = if milestone.at.milestone_index.0 > 0 {
-                        db.collection::<chronicle::db::collections::OutputCollection>()
-                            .get_unspent_output_stream(milestone.at.milestone_index - 1)
-                            .await?
-                            .try_collect::<Vec<_>>()
-                            .await?
-                    } else {
-                        panic!("There should be no milestone with index 0.");
-                    };
+                if let Some(milestone) = milestone_stream.try_next().await? {
+                    // Check if the protocol params changed (or we just started)
+                    if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
+                        // Only get the ledger state for milestones after the genesis since it requires
+                        // getting the previous milestone data.
+                        let ledger_state = if milestone.at.milestone_index.0 > 0 {
+                            db.collection::<chronicle::db::collections::OutputCollection>()
+                                .get_unspent_output_stream(milestone.at.milestone_index - 1)
+                                .await?
+                                .try_collect::<Vec<_>>()
+                                .await?
+                        } else {
+                            panic!("There should be no milestone with index 0.");
+                        };
 
-                    let analytics = analytics_choices
-                        .iter()
-                        .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
-                        .collect::<Vec<_>>();
-                    state = Some(AnalyticsState {
-                        analytics,
-                        prev_protocol_params: milestone.protocol_params.clone(),
-                    });
-                }
+                        let analytics = analytics_choices
+                            .iter()
+                            .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
+                            .collect::<Vec<_>>();
+                        state = Some(AnalyticsState {
+                            analytics,
+                            prev_protocol_params: milestone.protocol_params.clone(),
+                        });
+                    }
 
-                // Unwrap: safe because we guarantee it is initialized above
-                milestone
-                    .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
-                    .await?;
-
-                let elapsed = start_time.elapsed();
-                #[cfg(feature = "metrics")]
-                {
-                    influx_db
-                        .metrics()
-                        .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
-                            time: chrono::Utc::now(),
-                            milestone_index: milestone.at.milestone_index,
-                            analytics_time: elapsed.as_millis() as u64,
-                            chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                        })
+                    // Unwrap: safe because we guarantee it is initialized above
+                    milestone
+                        .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
                         .await?;
+
+                    let elapsed = start_time.elapsed();
+                    #[cfg(feature = "metrics")]
+                    {
+                        influx_db
+                            .metrics()
+                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                                time: chrono::Utc::now(),
+                                milestone_index: milestone.at.milestone_index,
+                                analytics_time: elapsed.as_millis() as u64,
+                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                            })
+                            .await?;
+                    }
+                    tracing::info!(
+                        "Finished analytics for milestone {} in {}ms.",
+                        milestone.at.milestone_index,
+                        elapsed.as_millis()
+                    );
+                } else {
+                    break;
                 }
-                tracing::info!(
-                    "Finished analytics for milestone {} in {}ms.",
-                    milestone.at.milestone_index,
-                    elapsed.as_millis()
-                );
             }
             eyre::Result::<_>::Ok(())
         });
