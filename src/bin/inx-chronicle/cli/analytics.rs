@@ -11,7 +11,7 @@ use chronicle::{
     types::tangle::MilestoneIndex,
 };
 use futures::TryStreamExt;
-use tracing::info;
+use tracing::{debug, info};
 
 pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     db: &MongoDb,
@@ -25,6 +25,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     let mut join_set = tokio::task::JoinSet::new();
 
     let chunk_size = (end_milestone.0 - start_milestone.0) / num_tasks as u32;
+    let remainder = (end_milestone.0 - start_milestone.0) % num_tasks as u32;
 
     let analytics_choices = if analytics.is_empty() {
         super::influxdb::all_analytics()
@@ -39,22 +40,25 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
         let tangle = Tangle::from(input_source.clone());
         let analytics_choices = analytics_choices.clone();
 
-        join_set.spawn(async move {
-            let mut start_milestone = start_milestone + i as u32 * chunk_size;
-            // We have to add work for those tasks that get the remainders
-            let remainder = (end_milestone.0 - start_milestone.0) % num_tasks as u32;
-            let chunk_size = if i < remainder as usize {
-                start_milestone += i as u32;
-                chunk_size + 1
-            } else {
-                start_milestone += remainder;
-                chunk_size
-            };
+        let mut chunk_start_milestone = start_milestone + i as u32 * chunk_size;
+        // We have to add work for those tasks that get the remainders
+        let chunk_size = if i < remainder as usize {
+            chunk_start_milestone += i as u32;
+            chunk_size + 1
+        } else {
+            chunk_start_milestone += remainder;
+            chunk_size
+        };
+        debug!(
+            "Task {i} chunk {chunk_start_milestone}..{}, {chunk_size} milestones",
+            chunk_start_milestone + chunk_size,
+        );
 
+        join_set.spawn(async move {
             let mut state: Option<AnalyticsState> = None;
 
             let mut milestone_stream = tangle
-                .milestone_stream(start_milestone..start_milestone + chunk_size)
+                .milestone_stream(chunk_start_milestone..chunk_start_milestone + chunk_size)
                 .await?;
 
             while let Some(milestone) = milestone_stream.try_next().await? {
@@ -105,7 +109,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                         .await?;
                 }
                 info!(
-                    "Finished analytics for milestone {} in {}ms.",
+                    "Task {i} finished analytics for milestone {} in {}ms.",
                     milestone.at.milestone_index,
                     elapsed.as_millis()
                 );
@@ -142,18 +146,17 @@ pub async fn fill_interval_analytics(
         let db = db.clone();
         let influx_db = influx_db.clone();
         let analytics_choices = analytics_choices.clone();
+        let mut date = start_date;
+        for _ in 0..i {
+            date = interval.end_date(&date);
+            if date >= end_date {
+                break;
+            }
+        }
+
+        let mut analytics = analytics_choices.iter().map(IntervalAnalytic::init).collect::<Vec<_>>();
 
         join_set.spawn(async move {
-            let mut date = start_date;
-            for _ in 0..i {
-                date = interval.end_date(&date);
-                if date >= end_date {
-                    break;
-                }
-            }
-
-            let mut analytics = analytics_choices.iter().map(IntervalAnalytic::init).collect::<Vec<_>>();
-
             while date < end_date {
                 let start_time = std::time::Instant::now();
 
@@ -162,7 +165,7 @@ pub async fn fill_interval_analytics(
 
                 let elapsed = start_time.elapsed().as_millis();
                 info!(
-                    "Finished {interval} analytics for {date}..{} in {elapsed}ms.",
+                    "Task {i} finished {interval} analytics for {date}..{} in {elapsed}ms.",
                     interval.end_date(&date)
                 );
                 for _ in 0..num_tasks {
