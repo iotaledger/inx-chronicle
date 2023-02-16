@@ -53,23 +53,30 @@ impl InputSource for MongoDb {
         };
         Ok(Box::pin(futures::stream::iter(start..=end).then(
             move |index| async move {
-                let (milestone_id, at, payload) = self
-                    .collection::<MilestoneCollection>()
-                    .get_milestone(index.into())
-                    .await?
-                    .ok_or(MongoDbInputSourceError::MissingMilestone(index.into()))?;
-                let protocol_params = self
-                    .collection::<ProtocolUpdateCollection>()
-                    .get_protocol_parameters_for_ledger_index(index.into())
-                    .await?
-                    .ok_or(MongoDbInputSourceError::MissingProtocolParams(index.into()))?
-                    .parameters;
-                let node_config = self
-                    .collection::<ConfigurationUpdateCollection>()
-                    .get_node_configuration_for_ledger_index(index.into())
-                    .await?
-                    .ok_or(MongoDbInputSourceError::MissingNodeConfig(index.into()))?
-                    .config;
+                let ((milestone_id, at, payload), protocol_params, node_config) = tokio::try_join!(
+                    async {
+                        self.collection::<MilestoneCollection>()
+                            .get_milestone(index.into())
+                            .await?
+                            .ok_or(MongoDbInputSourceError::MissingMilestone(index.into()))
+                    },
+                    async {
+                        Ok(self
+                            .collection::<ProtocolUpdateCollection>()
+                            .get_protocol_parameters_for_ledger_index(index.into())
+                            .await?
+                            .ok_or(MongoDbInputSourceError::MissingProtocolParams(index.into()))?
+                            .parameters)
+                    },
+                    async {
+                        Ok(self
+                            .collection::<ConfigurationUpdateCollection>()
+                            .get_node_configuration_for_ledger_index(index.into())
+                            .await?
+                            .ok_or(MongoDbInputSourceError::MissingNodeConfig(index.into()))?
+                            .config)
+                    }
+                )?;
                 Ok(MilestoneData {
                     milestone_id,
                     at,
