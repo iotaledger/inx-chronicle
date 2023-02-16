@@ -16,7 +16,7 @@ impl LedgerSize for Output {
         let output = iota_types::block::output::Output::try_from_with_context(&protocol_params, self.clone()).unwrap();
         let rent_bytes = RentStructureBytes::compute(&output);
         LedgerSizeMeasurement {
-            total_storage_deposit_value: iota_types::block::output::Rent::rent_cost(
+            total_storage_deposit_amount: iota_types::block::output::Rent::rent_cost(
                 &output,
                 protocol_params.rent_structure(),
             )
@@ -32,7 +32,7 @@ impl LedgerSize for Output {
 pub(crate) struct LedgerSizeMeasurement {
     pub(crate) total_key_bytes: u64,
     pub(crate) total_data_bytes: u64,
-    pub(crate) total_storage_deposit_value: TokenAmount,
+    pub(crate) total_storage_deposit_amount: TokenAmount,
 }
 
 impl LedgerSizeMeasurement {
@@ -40,10 +40,10 @@ impl LedgerSizeMeasurement {
         *self = Self {
             total_key_bytes: self.total_key_bytes.wrapping_add(rhs.total_key_bytes),
             total_data_bytes: self.total_data_bytes.wrapping_add(rhs.total_data_bytes),
-            total_storage_deposit_value: TokenAmount(
-                self.total_storage_deposit_value
+            total_storage_deposit_amount: TokenAmount(
+                self.total_storage_deposit_amount
                     .0
-                    .wrapping_add(rhs.total_storage_deposit_value.0),
+                    .wrapping_add(rhs.total_storage_deposit_amount.0),
             ),
         }
     }
@@ -52,10 +52,10 @@ impl LedgerSizeMeasurement {
         *self = Self {
             total_key_bytes: self.total_key_bytes.wrapping_sub(rhs.total_key_bytes),
             total_data_bytes: self.total_data_bytes.wrapping_sub(rhs.total_data_bytes),
-            total_storage_deposit_value: TokenAmount(
-                self.total_storage_deposit_value
+            total_storage_deposit_amount: TokenAmount(
+                self.total_storage_deposit_amount
                     .0
-                    .wrapping_sub(rhs.total_storage_deposit_value.0),
+                    .wrapping_sub(rhs.total_storage_deposit_amount.0),
             ),
         }
     }
