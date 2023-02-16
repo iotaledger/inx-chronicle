@@ -65,7 +65,7 @@ where
     M: IntervalMeasurement,
 {
     fn prepare_query(&self) -> WriteQuery {
-        influxdb::Timestamp::Seconds(self.date.midnight().assume_utc().unix_timestamp() as _)
+        influxdb::Timestamp::Seconds(self.start_date.midnight().assume_utc().unix_timestamp() as _)
             .into_query(M::name(self.interval))
             .add_fields(&self.inner)
     }

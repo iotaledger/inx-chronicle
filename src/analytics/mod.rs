@@ -102,7 +102,7 @@ trait IntervalAnalytics {
     type Measurement;
     async fn handle_date_range(
         &mut self,
-        start: time::Date,
+        start_date: time::Date,
         interval: AnalyticsInterval,
         db: &MongoDb,
     ) -> eyre::Result<Self::Measurement>;
@@ -113,7 +113,7 @@ trait IntervalAnalytics {
 trait DynIntervalAnalytics: Send {
     async fn handle_date_range(
         &mut self,
-        start: time::Date,
+        start_date: time::Date,
         interval: AnalyticsInterval,
         db: &MongoDb,
     ) -> eyre::Result<Box<dyn PrepareQuery>>;
@@ -126,15 +126,15 @@ where
 {
     async fn handle_date_range(
         &mut self,
-        start: time::Date,
+        start_date: time::Date,
         interval: AnalyticsInterval,
         db: &MongoDb,
     ) -> eyre::Result<Box<dyn PrepareQuery>> {
-        IntervalAnalytics::handle_date_range(self, start, interval, db)
+        IntervalAnalytics::handle_date_range(self, start_date, interval, db)
             .await
             .map(|r| {
                 Box::new(PerInterval {
-                    date: start,
+                    start_date,
                     interval,
                     inner: r,
                 }) as _
@@ -355,7 +355,7 @@ struct PerMilestone<M> {
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 struct PerInterval<M> {
-    date: time::Date,
+    start_date: time::Date,
     interval: AnalyticsInterval,
     inner: M,
 }

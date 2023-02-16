@@ -28,13 +28,13 @@ impl IntervalAnalytics for AddressActivityMeasurement {
 
     async fn handle_date_range(
         &mut self,
-        start: time::Date,
+        start_date: time::Date,
         interval: AnalyticsInterval,
         db: &MongoDb,
     ) -> eyre::Result<Self::Measurement> {
         let count = db
             .collection::<OutputCollection>()
-            .get_address_activity_count_in_range(start, interval.end_date(&start))
+            .get_address_activity_count_in_range(start_date, interval.end_date(&start_date))
             .await?;
         Ok(AddressActivityMeasurement { count })
     }
