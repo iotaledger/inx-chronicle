@@ -10,7 +10,12 @@ keywords:
 
 Currently Chronicle supports the following environment variables:
 
-* `CONFIG_PATH="<FILE_PATH>"`: sets the file path to the `config.toml` file;
-* `INX=<true|false>`: enables/disables INX;
-* `API=<true|false>`: enables/disables the REST API;
-* `METRICS=<true|false>`: enables/disables the Metrics Server;
+* `MONGODB_CONN_STR`: sets the MongoDb connection string including credentials;
+* `MONGODB_DB_NAME`: sets the name of Chronicle's MongoDB main database;
+* `INFLUXDB_URL`: sets the url to Chronicle's InfluxDb time-series database;
+* `INFLUXDB_USERNAME`: sets the InfluxDb user;
+* `INFLUXDB_PASSWORD`: sets the InfluxDb password;
+* `INX_URL`: sets the url to an INX server (e.g a Hornet node) providing live data;
+* `JWT_IDENTITY`: sets the filepath to a JWT identity file;
+* `JWT_PASSWORD`: sets the JWT password;
+* `JWT_SALT`: sets the JWT salt;
