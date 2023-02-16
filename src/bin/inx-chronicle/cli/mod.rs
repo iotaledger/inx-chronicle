@@ -319,9 +319,10 @@ impl ClArgs {
                     return Ok(PostCommand::Exit);
                 }
                 #[cfg(feature = "analytics")]
-                Subcommands::FillDailyAnalytics {
+                Subcommands::FillIntervalAnalytics {
                     start_date,
                     end_date,
+                    interval,
                     num_tasks,
                     analytics,
                 } => {
@@ -354,8 +355,10 @@ impl ClArgs {
                     }
                     let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
 
-                    analytics::fill_daily_analytics(&db, &influx_db, start_date, end_date, *num_tasks, analytics)
-                        .await?;
+                    analytics::fill_interval_analytics(
+                        &db, &influx_db, start_date, end_date, *interval, *num_tasks, analytics,
+                    )
+                    .await?;
 
                     return Ok(PostCommand::Exit);
                 }
@@ -414,21 +417,24 @@ pub enum Subcommands {
         #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
         input_source: InputSourceChoice,
     },
-    /// Fill daily analytics from Chronicle's database.
+    /// Fill interval analytics from Chronicle's database.
     #[cfg(feature = "analytics")]
-    FillDailyAnalytics {
+    FillIntervalAnalytics {
         /// The inclusive starting date (YYYY-MM-DD).
         #[arg(short, long, value_parser = parse_date)]
         start_date: Option<time::Date>,
         /// The inclusive ending date (YYYY-MM-DD).
         #[arg(short, long, value_parser = parse_date)]
         end_date: Option<time::Date>,
+        /// The interval to use [day, week, month, year].
+        #[arg(short, long, default_value = "day")]
+        interval: chronicle::analytics::AnalyticsInterval,
         /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long, default_value_t = 1)]
         num_tasks: usize,
         /// Select a subset of analytics to compute.
         #[arg(long)]
-        analytics: Vec<chronicle::db::influxdb::config::DailyAnalyticsChoice>,
+        analytics: Vec<chronicle::db::influxdb::config::IntervalAnalyticsChoice>,
     },
     /// Clear the Chronicle database.
     #[cfg(debug_assertions)]

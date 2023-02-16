@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use super::*;
 use crate::{
-    analytics::DailyAnalytics,
+    analytics::{AnalyticsInterval, IntervalAnalytics},
     db::{collections::OutputCollection, MongoDb},
     types::stardust::block::Address,
 };
@@ -22,21 +22,21 @@ pub(crate) struct AddressActivityAnalytics {
     addresses: HashSet<Address>,
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct DailyAddressActivityMeasurement {
-    pub(crate) count: usize,
-}
-
 #[async_trait::async_trait]
-impl DailyAnalytics for DailyAddressActivityMeasurement {
+impl IntervalAnalytics for AddressActivityMeasurement {
     type Measurement = Self;
 
-    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Self::Measurement> {
+    async fn handle_date_range(
+        &mut self,
+        start: time::Date,
+        interval: AnalyticsInterval,
+        db: &MongoDb,
+    ) -> eyre::Result<Self::Measurement> {
         let count = db
             .collection::<OutputCollection>()
-            .get_address_activity_count(date)
+            .get_address_activity_count_in_range(start, interval.end_date(&start))
             .await?;
-        Ok(DailyAddressActivityMeasurement { count })
+        Ok(AddressActivityMeasurement { count })
     }
 }
 

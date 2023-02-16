@@ -497,17 +497,19 @@ impl OutputCollection {
     }
 
     /// Get the address activity in a date
-    pub async fn get_address_activity_count(&self, date: time::Date) -> Result<usize, Error> {
+    pub async fn get_address_activity_count_in_range(
+        &self,
+        start_date: time::Date,
+        end_date: time::Date,
+    ) -> Result<usize, Error> {
         #[derive(Deserialize)]
         struct Res {
             count: usize,
         }
 
-        let date = date.midnight().assume_utc();
-
         let (start_timestamp, end_timestamp) = (
-            MilestoneTimestamp::from(date),
-            MilestoneTimestamp::from(date + time::Duration::days(1)),
+            MilestoneTimestamp::from(start_date.midnight().assume_utc()),
+            MilestoneTimestamp::from(end_date.midnight().assume_utc()),
         );
 
         Ok(self

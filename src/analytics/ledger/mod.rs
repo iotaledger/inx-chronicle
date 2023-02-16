@@ -4,7 +4,7 @@
 //! Statistics about the ledger.
 
 pub(super) use self::{
-    active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement, DailyAddressActivityMeasurement},
+    active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
     base_token::BaseTokenActivityMeasurement,
     ledger_outputs::LedgerOutputMeasurement,

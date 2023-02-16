@@ -9,15 +9,15 @@ use thiserror::Error;
 use self::{
     influx::PrepareQuery,
     ledger::{
-        AddressActivityAnalytics, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
-        DailyAddressActivityMeasurement, LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement,
-        TransactionSizeMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
+        AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
+        LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
+        UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
 };
 use crate::{
     db::{
-        influxdb::{config::DailyAnalyticsChoice, AnalyticsChoice, InfluxDb},
+        influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
     tangle::{BlockData, InputSource, Milestone},
@@ -98,26 +98,47 @@ where
 }
 
 #[async_trait::async_trait]
-trait DailyAnalytics {
+trait IntervalAnalytics {
     type Measurement;
-    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Self::Measurement>;
+    async fn handle_date_range(
+        &mut self,
+        start: time::Date,
+        interval: AnalyticsInterval,
+        db: &MongoDb,
+    ) -> eyre::Result<Self::Measurement>;
 }
 
 // This trait allows using the above implementation dynamically
 #[async_trait::async_trait]
-trait DynDailyAnalytics: Send {
-    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Box<dyn PrepareQuery>>;
+trait DynIntervalAnalytics: Send {
+    async fn handle_date_range(
+        &mut self,
+        start: time::Date,
+        interval: AnalyticsInterval,
+        db: &MongoDb,
+    ) -> eyre::Result<Box<dyn PrepareQuery>>;
 }
 
 #[async_trait::async_trait]
-impl<T: DailyAnalytics + Send> DynDailyAnalytics for T
+impl<T: IntervalAnalytics + Send> DynIntervalAnalytics for T
 where
-    PerDay<T::Measurement>: 'static + PrepareQuery,
+    PerInterval<T::Measurement>: 'static + PrepareQuery,
 {
-    async fn handle_date(&mut self, date: time::Date, db: &MongoDb) -> eyre::Result<Box<dyn PrepareQuery>> {
-        DailyAnalytics::handle_date(self, date, db)
+    async fn handle_date_range(
+        &mut self,
+        start: time::Date,
+        interval: AnalyticsInterval,
+        db: &MongoDb,
+    ) -> eyre::Result<Box<dyn PrepareQuery>> {
+        IntervalAnalytics::handle_date_range(self, start, interval, db)
             .await
-            .map(|r| Box::new(PerDay { date, inner: r }) as _)
+            .map(|r| {
+                Box::new(PerInterval {
+                    date: start,
+                    interval,
+                    inner: r,
+                }) as _
+            })
     }
 }
 
@@ -151,13 +172,13 @@ impl Analytic {
 }
 
 #[allow(missing_docs)]
-pub struct DailyAnalytic(Box<dyn DynDailyAnalytics>);
+pub struct IntervalAnalytic(Box<dyn DynIntervalAnalytics>);
 
-impl DailyAnalytic {
+impl IntervalAnalytic {
     /// Init an analytic from a choice and ledger state.
-    pub fn init(choice: &DailyAnalyticsChoice) -> Self {
+    pub fn init(choice: &IntervalAnalyticsChoice) -> Self {
         Self(match choice {
-            DailyAnalyticsChoice::ActiveAddresses => Box::<DailyAddressActivityMeasurement>::default() as _,
+            IntervalAnalyticsChoice::ActiveAddresses => Box::<AddressActivityMeasurement>::default() as _,
         })
     }
 }
@@ -258,19 +279,63 @@ impl<'a, I: InputSource> Milestone<'a, I> {
 }
 
 impl MongoDb {
-    /// Update a list of daily analytics with this date
-    pub async fn update_daily_analytics(
+    /// Update a list of interval analytics with this date.
+    pub async fn update_interval_analytics(
         &self,
-        analytics: &mut [DailyAnalytic],
+        analytics: &mut [IntervalAnalytic],
         influxdb: &InfluxDb,
-        date: time::Date,
+        start: time::Date,
+        interval: AnalyticsInterval,
     ) -> eyre::Result<()> {
         for analytic in analytics {
             influxdb
-                .insert_measurement(analytic.0.handle_date(date, self).await?)
+                .insert_measurement(analytic.0.handle_date_range(start, interval, self).await?)
                 .await?;
         }
         Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+#[allow(missing_docs)]
+pub enum AnalyticsInterval {
+    Day,
+    Week,
+    Month,
+    Year,
+}
+
+impl AnalyticsInterval {
+    /// Get the duration based on the start date and interval.
+    pub fn to_duration(&self, start_date: &time::Date) -> time::Duration {
+        match self {
+            AnalyticsInterval::Day => time::Duration::days(1),
+            AnalyticsInterval::Week => time::Duration::days(7),
+            AnalyticsInterval::Month => {
+                time::Duration::days(time::util::days_in_year_month(start_date.year(), start_date.month()) as _)
+            }
+            AnalyticsInterval::Year => time::Duration::days(time::util::days_in_year(start_date.year()) as _),
+        }
+    }
+
+    /// Get the exclusive end date based on the start date and interval.
+    pub fn end_date(&self, start_date: &time::Date) -> time::Date {
+        *start_date + self.to_duration(start_date)
+    }
+}
+
+impl std::fmt::Display for AnalyticsInterval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AnalyticsInterval::Day => "daily",
+                AnalyticsInterval::Week => "weekly",
+                AnalyticsInterval::Month => "monthly",
+                AnalyticsInterval::Year => "yearly",
+            }
+        )
     }
 }
 
@@ -289,8 +354,9 @@ struct PerMilestone<M> {
 
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
-struct PerDay<M> {
+struct PerInterval<M> {
     date: time::Date,
+    interval: AnalyticsInterval,
     inner: M,
 }
 

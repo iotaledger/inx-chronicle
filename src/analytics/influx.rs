@@ -7,12 +7,12 @@ use influxdb::{InfluxDbWriteable, WriteQuery};
 
 use super::{
     ledger::{
-        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement,
-        DailyAddressActivityMeasurement, LedgerOutputMeasurement, LedgerSizeMeasurement, OutputActivityMeasurement,
-        TransactionSizeMeasurement, UnclaimedTokenMeasurement, UnlockConditionMeasurement,
+        AddressActivityMeasurement, AddressBalanceMeasurement, BaseTokenActivityMeasurement, LedgerOutputMeasurement,
+        LedgerSizeMeasurement, OutputActivityMeasurement, TransactionSizeMeasurement, UnclaimedTokenMeasurement,
+        UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
-    PerDay, PerMilestone,
+    AnalyticsInterval, PerInterval, PerMilestone,
 };
 use crate::{db::influxdb::InfluxDb, types::tangle::ProtocolParameters};
 
@@ -21,6 +21,11 @@ trait Measurement {
     const NAME: &'static str;
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery;
+}
+
+/// A trait that defines an InfluxDb measurement over an interval.
+trait IntervalMeasurement: Measurement {
+    fn name(interval: AnalyticsInterval) -> String;
 }
 
 trait AddFields<M: Measurement> {
@@ -55,13 +60,13 @@ where
     }
 }
 
-impl<M: Send + Sync> PrepareQuery for PerDay<M>
+impl<M: Send + Sync> PrepareQuery for PerInterval<M>
 where
-    M: Measurement,
+    M: IntervalMeasurement,
 {
     fn prepare_query(&self) -> WriteQuery {
         influxdb::Timestamp::Seconds(self.date.midnight().assume_utc().unix_timestamp() as _)
-            .into_query(M::NAME)
+            .into_query(M::name(self.interval))
             .add_fields(&self.inner)
     }
 }
@@ -114,11 +119,9 @@ impl Measurement for AddressActivityMeasurement {
     }
 }
 
-impl Measurement for DailyAddressActivityMeasurement {
-    const NAME: &'static str = "stardust_daily_active_addresses";
-
-    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
-        query.add_field("count", self.count as u64)
+impl IntervalMeasurement for AddressActivityMeasurement {
+    fn name(interval: AnalyticsInterval) -> String {
+        format!("stardust_{interval}_active_addresses")
     }
 }
 

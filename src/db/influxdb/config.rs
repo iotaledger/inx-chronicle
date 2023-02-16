@@ -111,13 +111,13 @@ pub fn all_analytics() -> HashSet<AnalyticsChoice> {
 
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
-pub enum DailyAnalyticsChoice {
+pub enum IntervalAnalyticsChoice {
     // Please keep the alphabetic order.
     ActiveAddresses,
 }
 
 /// Returns a list of trait objects for all analytics.
-pub fn all_daily_analytics() -> HashSet<DailyAnalyticsChoice> {
+pub fn all_interval_analytics() -> HashSet<IntervalAnalyticsChoice> {
     // Please keep the alphabetic order.
-    [DailyAnalyticsChoice::ActiveAddresses].into()
+    [IntervalAnalyticsChoice::ActiveAddresses].into()
 }
