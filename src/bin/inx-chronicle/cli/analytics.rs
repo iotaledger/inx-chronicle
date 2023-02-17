@@ -34,31 +34,25 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     };
     info!("Computing the following analytics: {:?}", analytics_choices);
 
+    let mut chunk_start_milestone = start_milestone;
+
     for i in 0..num_tasks {
         let db = db.clone();
         let influx_db = influx_db.clone();
         let tangle = Tangle::from(input_source.clone());
         let analytics_choices = analytics_choices.clone();
 
-        let mut chunk_start_milestone = start_milestone + i as u32 * chunk_size;
-        // We have to add work for those tasks that get the remainders
-        let chunk_size = if i < remainder as usize {
-            chunk_start_milestone += i as u32;
-            chunk_size + 1
-        } else {
-            chunk_start_milestone += remainder;
-            chunk_size
-        };
+        let actual_chunk_size = chunk_size + (i < remainder as usize) as u32;
         debug!(
-            "Task {i} chunk {chunk_start_milestone}..{}, {chunk_size} milestones",
-            chunk_start_milestone + chunk_size,
+            "Task {i} chunk {chunk_start_milestone}..{}, {actual_chunk_size} milestones",
+            chunk_start_milestone + actual_chunk_size,
         );
 
         join_set.spawn(async move {
             let mut state: Option<AnalyticsState> = None;
 
             let mut milestone_stream = tangle
-                .milestone_stream(chunk_start_milestone..chunk_start_milestone + chunk_size)
+                .milestone_stream(chunk_start_milestone..chunk_start_milestone + actual_chunk_size)
                 .await?;
 
             loop {
@@ -118,6 +112,8 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
             }
             eyre::Result::<_>::Ok(())
         });
+
+        chunk_start_milestone += actual_chunk_size;
     }
     while let Some(res) = join_set.join_next().await {
         // Panic: Acceptable risk
