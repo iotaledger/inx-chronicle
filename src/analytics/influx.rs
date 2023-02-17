@@ -4,7 +4,6 @@
 //! Influx Measurement implementations
 
 use influxdb::{InfluxDbWriteable, WriteQuery};
-use time::Duration;
 
 use super::{
     ledger::{
@@ -13,18 +12,20 @@ use super::{
         UnlockConditionMeasurement,
     },
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
-    PerMilestone, TimeInterval,
+    AnalyticsInterval, PerInterval, PerMilestone,
 };
-use crate::{
-    db::influxdb::InfluxDb,
-    types::{stardust::milestone::MilestoneTimestamp, tangle::ProtocolParameters},
-};
+use crate::{db::influxdb::InfluxDb, types::tangle::ProtocolParameters};
 
 /// A trait that defines an InfluxDb measurement.
 trait Measurement {
     const NAME: &'static str;
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery;
+}
+
+/// A trait that defines an InfluxDb measurement over an interval.
+trait IntervalMeasurement: Measurement {
+    fn name(interval: AnalyticsInterval) -> String;
 }
 
 trait AddFields<M: Measurement> {
@@ -59,15 +60,13 @@ where
     }
 }
 
-impl<M: Send + Sync> PrepareQuery for TimeInterval<M>
+impl<M: Send + Sync> PrepareQuery for PerInterval<M>
 where
-    M: Measurement,
+    M: IntervalMeasurement,
 {
     fn prepare_query(&self) -> WriteQuery {
-        // We subtract 1 nanosecond to get the inclusive end of the time interval.
-        let timestamp = self.to_exclusive - Duration::nanoseconds(1);
-        influxdb::Timestamp::from(MilestoneTimestamp::from(timestamp))
-            .into_query(M::NAME)
+        influxdb::Timestamp::Seconds(self.start_date.midnight().assume_utc().unix_timestamp() as _)
+            .into_query(M::name(self.interval))
             .add_fields(&self.inner)
     }
 }
@@ -113,10 +112,16 @@ impl Measurement for BlockActivityMeasurement {
 }
 
 impl Measurement for AddressActivityMeasurement {
-    const NAME: &'static str = "stardust_daily_active_addresses";
+    const NAME: &'static str = "stardust_active_addresses";
 
     fn add_fields(&self, query: WriteQuery) -> WriteQuery {
         query.add_field("count", self.count as u64)
+    }
+}
+
+impl IntervalMeasurement for AddressActivityMeasurement {
+    fn name(interval: AnalyticsInterval) -> String {
+        format!("stardust_{interval}_active_addresses")
     }
 }
 
@@ -124,12 +129,22 @@ impl Measurement for TransactionSizeMeasurement {
     const NAME: &'static str = "stardust_transaction_size_distribution";
 
     fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
-        for (bucket, value) in self.input_buckets.iter() {
-            query = query.add_field(format!("input_{}", bucket), *value as u64);
+        for (bucket, value) in self.input_buckets.single.iter().enumerate() {
+            query = query.add_field(format!("input_{}", bucket + 1), *value as u64);
         }
-        for (bucket, value) in self.output_buckets.iter() {
-            query = query.add_field(format!("output_{}", bucket), *value as u64);
+        query = query
+            .add_field("input_small", self.input_buckets.small as u64)
+            .add_field("input_medium", self.input_buckets.medium as u64)
+            .add_field("input_large", self.input_buckets.large as u64)
+            .add_field("input_huge", self.input_buckets.huge as u64);
+        for (bucket, value) in self.output_buckets.single.iter().enumerate() {
+            query = query.add_field(format!("output_{}", bucket + 1), *value as u64);
         }
+        query = query
+            .add_field("output_small", self.output_buckets.small as u64)
+            .add_field("output_medium", self.output_buckets.medium as u64)
+            .add_field("output_large", self.output_buckets.large as u64)
+            .add_field("output_huge", self.output_buckets.huge as u64);
         query
     }
 }

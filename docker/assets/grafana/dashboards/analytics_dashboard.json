@@ -3191,7 +3191,7 @@
           "tags": []
         }
       ],
-      "title": "Transaction distribution by Consumed Outputs /${aggregation_interval}",
+      "title": "Transaction Distribution by Consumed Outputs /${aggregation_interval}",
       "type": "timeseries"
     },
     {
@@ -3502,7 +3502,7 @@
           "tags": []
         }
       ],
-      "title": "Transaction distribution by Created Outputs /${aggregation_interval}",
+      "title": "Transaction Distribution by Created Outputs /${aggregation_interval}",
       "type": "timeseries"
     },
     {

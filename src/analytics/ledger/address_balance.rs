@@ -39,7 +39,7 @@ impl AddressBalancesAnalytics {
 }
 
 impl Analytics for AddressBalancesAnalytics {
-    type Measurement = PerMilestone<AddressBalanceMeasurement>;
+    type Measurement = AddressBalanceMeasurement;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
@@ -74,12 +74,9 @@ impl Analytics for AddressBalancesAnalytics {
             token_distribution[index].address_count += 1;
             token_distribution[index].total_amount += *amount;
         }
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: AddressBalanceMeasurement {
-                address_with_balance_count: self.balances.len(),
-                token_distribution,
-            },
+        Some(AddressBalanceMeasurement {
+            address_with_balance_count: self.balances.len(),
+            token_distribution,
         })
     }
 }

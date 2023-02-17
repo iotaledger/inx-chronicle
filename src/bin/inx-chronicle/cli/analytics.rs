@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use chronicle::{
-    analytics::Analytic,
+    analytics::{Analytic, AnalyticsInterval, IntervalAnalytic},
     db::{
-        influxdb::{AnalyticsChoice, InfluxDb},
+        influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
     tangle::{InputSource, Tangle},
     types::tangle::MilestoneIndex,
 };
 use futures::TryStreamExt;
+use tracing::{debug, info};
 
 pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     db: &MongoDb,
@@ -23,28 +24,35 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 ) -> eyre::Result<()> {
     let mut join_set = tokio::task::JoinSet::new();
 
-    let chunk_size = (end_milestone.0 - start_milestone.0) / num_tasks as u32
-        + ((end_milestone.0 - start_milestone.0) % num_tasks as u32 != 0) as u32;
+    let chunk_size = (end_milestone.0 - start_milestone.0) / num_tasks as u32;
+    let remainder = (end_milestone.0 - start_milestone.0) % num_tasks as u32;
+
+    let analytics_choices = if analytics.is_empty() {
+        super::influxdb::all_analytics()
+    } else {
+        analytics.iter().copied().collect()
+    };
+    info!("Computing the following analytics: {:?}", analytics_choices);
+
+    let mut chunk_start_milestone = start_milestone;
 
     for i in 0..num_tasks {
         let db = db.clone();
         let influx_db = influx_db.clone();
         let tangle = Tangle::from(input_source.clone());
+        let analytics_choices = analytics_choices.clone();
 
-        let analytics_choices = if analytics.is_empty() {
-            super::influxdb::all_analytics()
-        } else {
-            analytics.iter().copied().collect()
-        };
-        tracing::info!("Computing the following analytics: {:?}", analytics_choices);
+        let actual_chunk_size = chunk_size + (i < remainder as usize) as u32;
+        debug!(
+            "Task {i} chunk {chunk_start_milestone}..{}, {actual_chunk_size} milestones",
+            chunk_start_milestone + actual_chunk_size,
+        );
 
         join_set.spawn(async move {
-            let start_milestone = start_milestone + i as u32 * chunk_size;
-
             let mut state: Option<AnalyticsState> = None;
 
             let mut milestone_stream = tangle
-                .milestone_stream(start_milestone..start_milestone + chunk_size)
+                .milestone_stream(chunk_start_milestone..chunk_start_milestone + actual_chunk_size)
                 .await?;
 
             loop {
@@ -93,13 +101,76 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                             })
                             .await?;
                     }
-                    tracing::info!(
-                        "Finished analytics for milestone {} in {}ms.",
+                    info!(
+                        "Task {i} finished analytics for milestone {} in {}ms.",
                         milestone.at.milestone_index,
                         elapsed.as_millis()
                     );
                 } else {
                     break;
+                }
+            }
+            eyre::Result::<_>::Ok(())
+        });
+
+        chunk_start_milestone += actual_chunk_size;
+    }
+    while let Some(res) = join_set.join_next().await {
+        // Panic: Acceptable risk
+        res.unwrap()?;
+    }
+    Ok(())
+}
+
+pub async fn fill_interval_analytics(
+    db: &MongoDb,
+    influx_db: &InfluxDb,
+    start_date: time::Date,
+    end_date: time::Date,
+    interval: AnalyticsInterval,
+    num_tasks: usize,
+    analytics: &[IntervalAnalyticsChoice],
+) -> eyre::Result<()> {
+    let mut join_set = tokio::task::JoinSet::new();
+
+    let analytics_choices = if analytics.is_empty() {
+        super::influxdb::all_interval_analytics()
+    } else {
+        analytics.iter().copied().collect()
+    };
+    info!("Computing the following {interval} analytics for {start_date}..{end_date}: {analytics_choices:?}",);
+
+    for i in 0..num_tasks {
+        let db = db.clone();
+        let influx_db = influx_db.clone();
+        let analytics_choices = analytics_choices.clone();
+        let mut date = start_date;
+        for _ in 0..i {
+            date = interval.end_date(&date);
+            if date >= end_date {
+                break;
+            }
+        }
+
+        let mut analytics = analytics_choices.iter().map(IntervalAnalytic::init).collect::<Vec<_>>();
+
+        join_set.spawn(async move {
+            while date < end_date {
+                let start_time = std::time::Instant::now();
+
+                db.update_interval_analytics(&mut analytics, &influx_db, date, interval)
+                    .await?;
+
+                let elapsed = start_time.elapsed().as_millis();
+                info!(
+                    "Task {i} finished {interval} analytics for {date}..{} in {elapsed}ms.",
+                    interval.end_date(&date)
+                );
+                for _ in 0..num_tasks {
+                    date = interval.end_date(&date);
+                    if date >= end_date {
+                        break;
+                    }
                 }
             }
             eyre::Result::<_>::Ok(())

@@ -16,7 +16,7 @@ pub(crate) struct BaseTokenActivityMeasurement {
 }
 
 impl Analytics for BaseTokenActivityMeasurement {
-    type Measurement = PerMilestone<Self>;
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Default::default();
@@ -47,10 +47,7 @@ impl Analytics for BaseTokenActivityMeasurement {
         self.transferred_amount = TokenAmount(balance_deltas.values().copied().map(|d| d.max(0) as u64).sum());
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: *self,
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(*self)
     }
 }

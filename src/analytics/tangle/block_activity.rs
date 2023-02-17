@@ -18,7 +18,7 @@ pub(crate) struct BlockActivityMeasurement {
 }
 
 impl Analytics for BlockActivityMeasurement {
-    type Measurement = PerMilestone<Self>;
+    type Measurement = Self;
 
     fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
         *self = Default::default();
@@ -39,10 +39,7 @@ impl Analytics for BlockActivityMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(PerMilestone {
-            at: *ctx.at(),
-            inner: *self,
-        })
+    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        Some(*self)
     }
 }
