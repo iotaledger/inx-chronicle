@@ -55,7 +55,6 @@ uuid = { version = "1.3", default-features = false, features = [ "v4" ] }
 # Optional
 chrono = { version = "0.4", default-features = false, features = [ "std" ], optional = true }
 influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
-once_cell = { version = "1.17.1", default-features = false, optional = true }
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
@@ -81,13 +80,46 @@ iota-types = { version = "1.0.0-rc.5", default-features = false, features = [ "a
 rand = { version = "0.8", default-features = false, features = [ "std" ] }
 
 [features]
-default = ["analytics", "api", "inx", "metrics", "poi"]
-analytics = ["dep:influxdb", "dep:once_cell"]
-api = ["dep:auth-helper", "dep:axum", "dep:ed25519", "dep:ed25519-dalek", "dep:hex", "derive_more/from", "dep:hyper", "dep:rand", "dep:regex", "dep:rust-argon2", "dep:serde_urlencoded", "dep:tower", "dep:tower-http", "dep:zeroize"]
-inx = ["dep:inx", "dep:tonic"]
-metrics = ["dep:influxdb", "dep:chrono"]
-poi = ["api"]
-rand = ["iota-types/rand"]
+default = [
+    "analytics",
+    "api",
+    "inx",
+    "metrics",
+    "poi",
+]
+analytics = [
+    "dep:influxdb",
+]
+api = [
+    "dep:auth-helper",
+    "dep:axum",
+    "dep:ed25519",
+    "dep:ed25519-dalek",
+    "dep:hex",
+    "derive_more/from",
+    "dep:hyper",
+    "dep:rand",
+    "dep:regex",
+    "dep:rust-argon2",
+    "dep:serde_urlencoded",
+    "dep:tower",
+    "dep:tower-http",
+    "dep:zeroize",
+]
+inx = [ 
+    "dep:inx",
+    "dep:tonic",
+]
+metrics = [
+    "dep:influxdb",
+    "dep:chrono",
+]
+poi = [
+    "api",
+]
+rand = [
+    "iota-types/rand",
+]
 
 [profile.production]
 inherits = "release"
