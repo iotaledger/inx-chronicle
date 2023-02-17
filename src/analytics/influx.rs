@@ -129,7 +129,7 @@ impl Measurement for TransactionSizeMeasurement {
     const NAME: &'static str = "stardust_transaction_size_distribution";
 
     fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
-        for (bucket, value) in self.input_buckets.buckets.iter().enumerate() {
+        for (bucket, value) in self.input_buckets.single.iter().enumerate() {
             query = query.add_field(format!("input_{}", bucket + 1), *value as u64);
         }
         query = query
@@ -137,7 +137,7 @@ impl Measurement for TransactionSizeMeasurement {
             .add_field("input_medium", self.input_buckets.medium as u64)
             .add_field("input_large", self.input_buckets.large as u64)
             .add_field("input_huge", self.input_buckets.huge as u64);
-        for (bucket, value) in self.output_buckets.buckets.iter().enumerate() {
+        for (bucket, value) in self.output_buckets.single.iter().enumerate() {
             query = query.add_field(format!("output_{}", bucket + 1), *value as u64);
         }
         query = query

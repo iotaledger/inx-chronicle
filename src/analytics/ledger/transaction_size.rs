@@ -5,18 +5,18 @@ use super::*;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct TransactionSizeBuckets {
-    pub(crate) buckets: [usize; 7],
-    pub(crate) small: usize,
-    pub(crate) medium: usize,
-    pub(crate) large: usize,
-    pub(crate) huge: usize,
+    pub(crate) single: [usize; 7], // 1,..,7
+    pub(crate) small: usize,       // [8..16)
+    pub(crate) medium: usize,      // [16..32)
+    pub(crate) large: usize,       // [32..64)
+    pub(crate) huge: usize,        // [64..128)
 }
 
 impl TransactionSizeBuckets {
     fn add(&mut self, value: usize) {
         match value {
             0 => unreachable!("invalid transaction"),
-            1..=7 => self.buckets[value - 1] += 1,
+            1..=7 => self.single[value - 1] += 1,
             8..=15 => self.small += 1,
             16..=31 => self.medium += 1,
             32..=63 => self.large += 1,
