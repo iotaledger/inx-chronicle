@@ -39,8 +39,8 @@ impl Analytics for TransactionSizeMeasurement {
     }
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
-        self.input_buckets.add(consumed.len().into());
-        self.output_buckets.add(created.len().into());
+        self.input_buckets.add(consumed.len());
+        self.output_buckets.add(created.len());
     }
 
     fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
