@@ -426,7 +426,7 @@ pub enum Subcommands {
         /// The inclusive ending date (YYYY-MM-DD).
         #[arg(short, long, value_parser = parse_date)]
         end_date: Option<time::Date>,
-        /// The interval to use [day, week, month, year].
+        /// The interval to use.
         #[arg(short, long, default_value = "day")]
         interval: chronicle::analytics::AnalyticsInterval,
         /// The number of parallel tasks to use when filling the analytics.
