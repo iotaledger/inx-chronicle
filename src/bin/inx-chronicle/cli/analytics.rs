@@ -59,14 +59,10 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
 
             tokio::try_join!(
                 async {
-                    loop {
-                        if let Some(milestone) = milestone_stream.try_next().await? {
-                            buffer_in.send(milestone).await.map_err(|e| {
-                                eyre::eyre!("failed to send milestone {} across channel", e.0.at.milestone_index)
-                            })?;
-                        } else {
-                            break;
-                        }
+                    while let Some(milestone) = milestone_stream.try_next().await? {
+                        buffer_in.send(milestone).await.map_err(|e| {
+                            eyre::eyre!("failed to send milestone {} across channel", e.0.at.milestone_index)
+                        })?;
                     }
                     eyre::Result::<_>::Ok(())
                 },
