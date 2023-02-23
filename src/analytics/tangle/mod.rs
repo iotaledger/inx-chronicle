@@ -3,6 +3,8 @@
 
 //! Statistics about the tangle.
 
+use serde::{Deserialize, Serialize};
+
 pub(crate) use self::{
     block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement,
     protocol_params::ProtocolParamsMeasurement,
@@ -80,8 +82,6 @@ mod test {
             params: protocol_params.into(),
         };
 
-        block_activity.begin_milestone(&ctx);
-        milestone_size.begin_milestone(&ctx);
         for block_data in blocks.iter() {
             block_activity.handle_block(block_data, &ctx);
             milestone_size.handle_block(block_data, &ctx);

@@ -4,7 +4,7 @@
 use super::*;
 
 /// Information about the claiming process.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct UnclaimedTokenMeasurement {
     /// The number of outputs that are still unclaimed.
     pub(crate) unclaimed_count: usize,
@@ -28,8 +28,6 @@ impl UnclaimedTokenMeasurement {
 
 impl Analytics for UnclaimedTokenMeasurement {
     type Measurement = Self;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
     fn handle_transaction(&mut self, inputs: &[LedgerSpent], _: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for input in inputs {

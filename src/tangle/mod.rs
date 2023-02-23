@@ -6,11 +6,12 @@
 mod ledger_updates;
 mod milestone_stream;
 mod sources;
-
 use std::ops::RangeBounds;
 
 use futures::{StreamExt, TryStreamExt};
 
+#[cfg(test)]
+pub(crate) use self::sources::{get_in_memory_data, IN_MEM_MILESTONE};
 pub use self::{
     ledger_updates::LedgerUpdateStore,
     milestone_stream::{Milestone, MilestoneStream},

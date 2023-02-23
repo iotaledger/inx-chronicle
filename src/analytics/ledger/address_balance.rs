@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use super::*;
 use crate::types::stardust::block::{output::TokenAmount, Address};
 
+#[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
     pub(crate) token_distribution: Vec<DistributionStat>,
@@ -21,6 +22,7 @@ pub(crate) struct DistributionStat {
 }
 
 /// Computes the number of addresses the currently hold a balance.
+#[derive(Serialize, Deserialize)]
 pub(crate) struct AddressBalancesAnalytics {
     balances: HashMap<Address, TokenAmount>,
 }
@@ -40,8 +42,6 @@ impl AddressBalancesAnalytics {
 
 impl Analytics for AddressBalancesAnalytics {
     type Measurement = AddressBalanceMeasurement;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in consumed {

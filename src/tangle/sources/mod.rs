@@ -5,12 +5,13 @@
 mod inx;
 mod memory;
 mod mongodb;
-
 use std::ops::RangeBounds;
 
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 
+#[cfg(test)]
+pub(crate) use self::memory::test::{get_in_memory_data, IN_MEM_MILESTONE};
 use super::ledger_updates::LedgerUpdateStore;
 use crate::types::{
     ledger::{BlockMetadata, MilestoneIndexTimestamp},

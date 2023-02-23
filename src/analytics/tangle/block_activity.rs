@@ -5,7 +5,7 @@ use super::*;
 use crate::types::ledger::LedgerInclusionState;
 
 /// The type of payloads that occured within a single milestone.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct BlockActivityMeasurement {
     pub(crate) milestone_count: usize,
     pub(crate) no_payload_count: usize,
@@ -19,10 +19,6 @@ pub(crate) struct BlockActivityMeasurement {
 
 impl Analytics for BlockActivityMeasurement {
     type Measurement = Self;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
-        *self = Default::default();
-    }
 
     fn handle_block(&mut self, BlockData { block, metadata, .. }: &BlockData, _ctx: &dyn AnalyticsContext) {
         match block.payload {
@@ -40,6 +36,6 @@ impl Analytics for BlockActivityMeasurement {
     }
 
     fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+        Some(std::mem::take(self))
     }
 }

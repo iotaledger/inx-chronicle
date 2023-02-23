@@ -17,7 +17,7 @@ pub(crate) struct AddressActivityMeasurement {
 
 /// Computes the number of addresses that were active during a given time interval.
 #[allow(missing_docs)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct AddressActivityAnalytics {
     addresses: HashSet<Address>,
 }
@@ -43,10 +43,6 @@ impl IntervalAnalytics for AddressActivityMeasurement {
 impl Analytics for AddressActivityAnalytics {
     type Measurement = AddressActivityMeasurement;
 
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
-        *self = Self::default();
-    }
-
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in consumed {
             if let Some(a) = output.owning_address() {
@@ -62,8 +58,9 @@ impl Analytics for AddressActivityAnalytics {
     }
 
     fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+        let this = std::mem::take(self);
         Some(AddressActivityMeasurement {
-            count: self.addresses.len(),
+            count: this.addresses.len(),
         })
     }
 }

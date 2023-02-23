@@ -28,7 +28,7 @@ impl LedgerSize for Output {
 }
 
 /// Ledger size statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct LedgerSizeMeasurement {
     pub(crate) total_key_bytes: u64,
     pub(crate) total_data_bytes: u64,
@@ -62,6 +62,7 @@ impl LedgerSizeMeasurement {
 }
 
 /// Measures the ledger size depending on current protocol parameters.
+#[derive(Serialize, Deserialize)]
 pub(crate) struct LedgerSizeAnalytics {
     protocol_params: ProtocolParameters,
     measurement: LedgerSizeMeasurement,
@@ -86,8 +87,6 @@ impl LedgerSizeAnalytics {
 
 impl Analytics for LedgerSizeAnalytics {
     type Measurement = LedgerSizeMeasurement;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in created {

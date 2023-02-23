@@ -4,7 +4,7 @@
 use super::*;
 
 /// Milestone size statistics.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct MilestoneSizeMeasurement {
     pub(crate) total_milestone_payload_bytes: usize,
     pub(crate) total_tagged_data_payload_bytes: usize,
@@ -15,10 +15,6 @@ pub(crate) struct MilestoneSizeMeasurement {
 
 impl Analytics for MilestoneSizeMeasurement {
     type Measurement = Self;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
-        *self = Self::default();
-    }
 
     fn handle_block(&mut self, BlockData { block, raw, .. }: &BlockData, _ctx: &dyn AnalyticsContext) {
         self.total_milestone_bytes += raw.len();
@@ -34,6 +30,6 @@ impl Analytics for MilestoneSizeMeasurement {
     }
 
     fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+        Some(std::mem::take(self))
     }
 }

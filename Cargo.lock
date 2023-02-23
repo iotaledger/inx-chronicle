@@ -384,6 +384,7 @@ dependencies = [
  "primitive-types",
  "rand",
  "regex",
+ "ron",
  "rust-argon2",
  "serde",
  "serde_bytes",
@@ -2140,6 +2141,17 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
+]
+
+[[package]]
+name = "ron"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
+dependencies = [
+ "base64 0.13.1",
+ "bitflags",
+ "serde",
 ]
 
 [[package]]
