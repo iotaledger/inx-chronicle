@@ -39,7 +39,7 @@ pub(crate) trait AnalyticsContext {
     fn at(&self) -> &MilestoneIndexTimestamp;
 }
 
-impl<'a, I: InputSource> AnalyticsContext for Milestone<'a, I> {
+impl<I: InputSource> AnalyticsContext for Milestone<I> {
     fn protocol_params(&self) -> &ProtocolParameters {
         &self.protocol_params
     }
@@ -198,7 +198,7 @@ pub enum AnalyticsError {
     },
 }
 
-impl<'a, I: InputSource> Milestone<'a, I> {
+impl<I: InputSource> Milestone<I> {
     /// Update a list of analytics with this milestone
     pub async fn update_analytics(&self, analytics: &mut [Analytic], influxdb: &InfluxDb) -> eyre::Result<()> {
         let mut cone_stream = self.cone_stream().await?;

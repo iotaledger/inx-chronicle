@@ -14,7 +14,7 @@ mod process;
 mod stardust_inx;
 
 use bytesize::ByteSize;
-use chronicle::db::MongoDb;
+use chronicle::{db::MongoDb, tangle::Milestone, inx::Inx};
 use clap::Parser;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
@@ -85,16 +85,30 @@ async fn main() -> eyre::Result<()> {
             None
         };
 
-        let mut worker = stardust_inx::InxWorker::new(
+        let (tx, rx) = tokio::sync::mpsc::channel::<Milestone<Inx>>(1000);
+        let mut listener = stardust_inx::InxListener::new(
             &db,
-            #[cfg(any(feature = "analytics", feature = "metrics"))]
-            influx_db.as_ref(),
             &config.inx,
         );
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {
-                res = worker.run() => {
+                res = listener.run(tx) => {
+                    res?;
+                },
+                _ = handle.recv() => {},
+            }
+            Ok(())
+        });
+        let mut worker = stardust_inx::InxWorker::new(
+            &db,
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
+            influx_db.as_ref(),
+        );
+        let mut handle = shutdown_signal.subscribe();
+        tasks.spawn(async move {
+            tokio::select! {
+                res = worker.run(rx) => {
                     res?;
                 },
                 _ = handle.recv() => {},

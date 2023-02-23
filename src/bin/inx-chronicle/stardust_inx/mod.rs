@@ -33,24 +33,19 @@ use crate::migrations::{LatestMigration, Migration};
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;
 
-pub struct InxWorker {
+pub struct InxListener {
     db: MongoDb,
-    #[cfg(any(feature = "analytics", feature = "metrics"))]
-    influx_db: Option<chronicle::db::influxdb::InfluxDb>,
     config: InxConfig,
 }
 
-impl InxWorker {
+impl InxListener {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
     pub fn new(
         db: &MongoDb,
-        #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
         inx_config: &InxConfig,
     ) -> Self {
         Self {
             db: db.clone(),
-            #[cfg(any(feature = "analytics", feature = "metrics"))]
-            influx_db: influx_db.cloned(),
             config: inx_config.clone(),
         }
     }
@@ -65,46 +60,16 @@ impl InxWorker {
         Ok(Inx::connect(self.config.url.clone()).await?)
     }
 
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(&mut self, tx: tokio::sync::mpsc::Sender<Milestone<Inx>>) -> Result<()> {
         let (start_index, inx) = self.init().await?;
 
         let tangle = Tangle::from(inx);
-
         let mut stream = tangle.milestone_stream(start_index..).await?;
 
-        #[cfg(feature = "analytics")]
-        let starting_index = self
-            .db
-            .collection::<ApplicationStateCollection>()
-            .get_starting_index()
-            .await?
-            .ok_or(InxWorkerError::MissingAppState)?;
-
-        debug!("Started listening to ledger updates via INX.");
-
-        #[cfg(feature = "analytics")]
-        let analytics_choices = self.influx_db.as_ref().map(|influx_db| {
-            if influx_db.config().analytics.is_empty() {
-                chronicle::db::influxdb::config::all_analytics()
-            } else {
-                influx_db.config().analytics.iter().copied().collect()
-            }
-        });
-
-        #[cfg(feature = "analytics")]
-        let mut state: Option<crate::cli::analytics::AnalyticsState> = None;
-
         while let Some(milestone) = stream.try_next().await? {
-            self.handle_ledger_update(
-                milestone,
-                #[cfg(feature = "analytics")]
-                &analytics_choices,
-                #[cfg(feature = "analytics")]
-                &mut state,
-                #[cfg(feature = "analytics")]
-                starting_index.milestone_index,
-            )
-            .await?;
+            if !tx.send(milestone).await.is_ok() {
+                break;
+            }
         }
 
         tracing::debug!("INX stream closed unexpectedly.");
@@ -296,10 +261,72 @@ impl InxWorker {
         Ok((start_index, inx))
     }
 
+}
+
+pub struct InxWorker {
+    db: MongoDb,
+    #[cfg(any(feature = "analytics", feature = "metrics"))]
+    influx_db: Option<chronicle::db::influxdb::InfluxDb>,
+}
+
+impl InxWorker {
+    /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
+    pub fn new(
+        db: &MongoDb,
+        #[cfg(any(feature = "analytics", feature = "metrics"))] influx_db: Option<&chronicle::db::influxdb::InfluxDb>,
+    ) -> Self {
+        Self {
+            db: db.clone(),
+            #[cfg(any(feature = "analytics", feature = "metrics"))]
+            influx_db: influx_db.cloned(),
+        }
+    }
+
+    pub async fn run(&mut self, mut rx: tokio::sync::mpsc::Receiver<Milestone<Inx>>) -> Result<()> {
+        #[cfg(feature = "analytics")]
+        let starting_index = self
+            .db
+            .collection::<ApplicationStateCollection>()
+            .get_starting_index()
+            .await?
+            .ok_or(InxWorkerError::MissingAppState)?;
+
+        debug!("Started listening to ledger updates via INX.");
+
+        #[cfg(feature = "analytics")]
+        let analytics_choices = self.influx_db.as_ref().map(|influx_db| {
+            if influx_db.config().analytics.is_empty() {
+                chronicle::db::influxdb::config::all_analytics()
+            } else {
+                influx_db.config().analytics.iter().copied().collect()
+            }
+        });
+
+        #[cfg(feature = "analytics")]
+        let mut state: Option<crate::cli::analytics::AnalyticsState> = None;
+
+        while let Some(milestone) = rx.recv().await {
+            self.handle_ledger_update(
+                milestone,
+                #[cfg(feature = "analytics")]
+                &analytics_choices,
+                #[cfg(feature = "analytics")]
+                &mut state,
+                #[cfg(feature = "analytics")]
+                starting_index.milestone_index,
+            )
+            .await?;
+        }
+
+        tracing::debug!("INX receiver closed unexpectedly.");
+
+        Ok(())
+    }
+
     #[instrument(skip_all, fields(milestone_index, created, consumed), err, level = "debug")]
-    async fn handle_ledger_update<'a>(
+    async fn handle_ledger_update(
         &mut self,
-        milestone: Milestone<'a, Inx>,
+        milestone: Milestone<Inx>,
         #[cfg(feature = "analytics")] analytics_choices: &Option<
             std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>,
         >,
@@ -397,7 +424,7 @@ impl InxWorker {
     }
 
     #[instrument(skip_all, err, level = "trace")]
-    async fn handle_cone_stream<'a>(&mut self, milestone: &Milestone<'a, Inx>) -> Result<()> {
+    async fn handle_cone_stream<'a>(&mut self, milestone: &Milestone<Inx>) -> Result<()> {
         let cone_stream = milestone.cone_stream().await?;
 
         let mut tasks = cone_stream
@@ -443,9 +470,9 @@ impl InxWorker {
     }
 
     #[cfg(feature = "analytics")]
-    async fn update_analytics<'a>(
+    async fn update_analytics(
         &self,
-        milestone: &Milestone<'a, Inx>,
+        milestone: &Milestone<Inx>,
         analytics_choices: &Option<std::collections::HashSet<chronicle::db::influxdb::AnalyticsChoice>>,
         state: &mut Option<crate::cli::analytics::AnalyticsState>,
     ) -> Result<()> {

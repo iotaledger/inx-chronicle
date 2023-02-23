@@ -23,7 +23,7 @@ pub struct Tangle<I: InputSource> {
     source: I,
 }
 
-impl<I: InputSource + Clone> Clone for Tangle<I> {
+impl<I: InputSource> Clone for Tangle<I> {
     fn clone(&self) -> Self {
         Self {
             source: self.source.clone(),
@@ -48,8 +48,8 @@ impl<I: InputSource + Sync> Tangle<I> {
         Ok(MilestoneStream {
             inner: stream
                 .and_then(|data| {
-                    #[allow(clippy::borrow_deref_ref)]
-                    let source = &self.source;
+                    // #[allow(clippy::borrow_deref_ref)]
+                    let source = self.source.clone();
                     async move {
                         Ok(Milestone {
                             ledger_updates: source.ledger_updates(data.at.milestone_index).await?,

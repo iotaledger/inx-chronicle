@@ -45,7 +45,7 @@ pub struct BlockData {
 
 /// Defines a type as a source for milestone and cone stream data.
 #[async_trait]
-pub trait InputSource: Send + Sync {
+pub trait InputSource: Send + Sync + Clone {
     /// The error type for this input source.
     type Error: 'static + std::error::Error + std::fmt::Debug + Send + Sync;
 

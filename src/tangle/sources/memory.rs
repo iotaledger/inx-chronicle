@@ -10,6 +10,7 @@ use thiserror::Error;
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{tangle::ledger_updates::LedgerUpdateStore, types::tangle::MilestoneIndex};
 
+#[derive(Clone)]
 pub struct InMemoryData {
     pub milestone: MilestoneData,
     pub cone: BTreeMap<u32, BlockData>,
