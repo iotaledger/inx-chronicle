@@ -94,18 +94,33 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         let mut state: Option<crate::cli::analytics::AnalyticsState> = None;
 
-        while let Some(milestone) = stream.try_next().await? {
-            self.handle_ledger_update(
-                milestone,
-                #[cfg(feature = "analytics")]
-                &analytics_choices,
-                #[cfg(feature = "analytics")]
-                &mut state,
-                #[cfg(feature = "analytics")]
-                starting_index.milestone_index,
-            )
-            .await?;
-        }
+        let (buffer_in, mut buffer) = tokio::sync::mpsc::channel(10);
+
+        tokio::try_join!(
+            async {
+                while let Some(milestone) = stream.try_next().await? {
+                    buffer_in.send(milestone).await.map_err(|e| {
+                        eyre::eyre!("failed to send milestone {} across channel", e.0.at.milestone_index)
+                    })?;
+                }
+                eyre::Result::<_>::Ok(())
+            },
+            async {
+                while let Some(milestone) = buffer.recv().await {
+                    self.handle_ledger_update(
+                        milestone,
+                        #[cfg(feature = "analytics")]
+                        &analytics_choices,
+                        #[cfg(feature = "analytics")]
+                        &mut state,
+                        #[cfg(feature = "analytics")]
+                        starting_index.milestone_index,
+                    )
+                    .await?;
+                }
+                Ok(())
+            }
+        )?;
 
         tracing::debug!("INX stream closed unexpectedly.");
 
