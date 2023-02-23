@@ -34,7 +34,7 @@ impl Analytics for BaseTokenActivityMeasurement {
             }
         }
 
-        self.booked_amount = TokenAmount(balance_deltas.values().sum::<i128>() as u64);
+        self.booked_amount += TokenAmount(balance_deltas.values().sum::<i128>() as u64);
 
         // Afterwards, we subtract the tokens from that address to get the actual deltas of each account.
         for output in consumed {
@@ -44,7 +44,7 @@ impl Analytics for BaseTokenActivityMeasurement {
         }
 
         // The number of transferred tokens is then the sum of all deltas.
-        self.transferred_amount = TokenAmount(balance_deltas.values().copied().map(|d| d.max(0) as u64).sum());
+        self.transferred_amount += TokenAmount(balance_deltas.values().copied().map(|d| d.max(0) as u64).sum());
     }
 
     fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
