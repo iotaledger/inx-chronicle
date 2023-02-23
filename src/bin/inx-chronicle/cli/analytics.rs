@@ -55,61 +55,83 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                 .milestone_stream(chunk_start_milestone..chunk_start_milestone + actual_chunk_size)
                 .await?;
 
-            loop {
-                let start_time = std::time::Instant::now();
+            let (buffer_in, mut buffer) = tokio::sync::mpsc::channel(10);
 
-                if let Some(milestone) = milestone_stream.try_next().await? {
-                    // Check if the protocol params changed (or we just started)
-                    if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
-                        // Only get the ledger state for milestones after the genesis since it requires
-                        // getting the previous milestone data.
-                        let ledger_state = if milestone.at.milestone_index.0 > 0 {
-                            db.collection::<chronicle::db::collections::OutputCollection>()
-                                .get_unspent_output_stream(milestone.at.milestone_index - 1)
-                                .await?
-                                .try_collect::<Vec<_>>()
-                                .await?
+            tokio::try_join!(
+                async {
+                    loop {
+                        if let Some(milestone) = milestone_stream.try_next().await? {
+                            buffer_in.send(milestone).await.map_err(|e| {
+                                eyre::eyre!("failed to send milestone {} across channel", e.0.at.milestone_index)
+                            })?;
                         } else {
-                            panic!("There should be no milestone with index 0.");
-                        };
+                            break;
+                        }
+                    }
+                    eyre::Result::<_>::Ok(())
+                },
+                async {
+                    loop {
+                        let start_time = std::time::Instant::now();
+                        if let Some(milestone) = buffer.recv().await {
+                            // Check if the protocol params changed (or we just started)
+                            if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params)
+                            {
+                                debug!("Getting ledger state at {}", milestone.at.milestone_index - 1);
+                                // Only get the ledger state for milestones after the genesis since it requires
+                                // getting the previous milestone data.
+                                let ledger_state = if milestone.at.milestone_index.0 > 0 {
+                                    db.collection::<chronicle::db::collections::OutputCollection>()
+                                        .get_unspent_output_stream(milestone.at.milestone_index - 1)
+                                        .await?
+                                        .try_collect::<Vec<_>>()
+                                        .await?
+                                } else {
+                                    panic!("There should be no milestone with index 0.");
+                                };
 
-                        let analytics = analytics_choices
-                            .iter()
-                            .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
-                            .collect::<Vec<_>>();
-                        state = Some(AnalyticsState {
-                            analytics,
-                            prev_protocol_params: milestone.protocol_params.clone(),
-                        });
+                                let analytics = analytics_choices
+                                    .iter()
+                                    .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
+                                    .collect::<Vec<_>>();
+                                state = Some(AnalyticsState {
+                                    analytics,
+                                    prev_protocol_params: milestone.protocol_params.clone(),
+                                });
+                            }
+
+                            // Unwrap: safe because we guarantee it is initialized above
+                            milestone
+                                .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
+                                .await?;
+
+                            let elapsed = start_time.elapsed();
+                            #[cfg(feature = "metrics")]
+                            {
+                                influx_db
+                                    .metrics()
+                                    .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                                        time: chrono::Utc::now(),
+                                        milestone_index: milestone.at.milestone_index,
+                                        analytics_time: elapsed.as_millis() as u64,
+                                        chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
+                                    })
+                                    .await?;
+                            }
+                            info!(
+                                "Task {i} finished analytics for milestone {} in {}ms.",
+                                milestone.at.milestone_index,
+                                elapsed.as_millis()
+                            );
+                        } else {
+                            break;
+                        }
                     }
 
-                    // Unwrap: safe because we guarantee it is initialized above
-                    milestone
-                        .update_analytics(&mut state.as_mut().unwrap().analytics, &influx_db)
-                        .await?;
-
-                    let elapsed = start_time.elapsed();
-                    #[cfg(feature = "metrics")]
-                    {
-                        influx_db
-                            .metrics()
-                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
-                                time: chrono::Utc::now(),
-                                milestone_index: milestone.at.milestone_index,
-                                analytics_time: elapsed.as_millis() as u64,
-                                chronicle_version: std::env!("CARGO_PKG_VERSION").to_string(),
-                            })
-                            .await?;
-                    }
-                    info!(
-                        "Task {i} finished analytics for milestone {} in {}ms.",
-                        milestone.at.milestone_index,
-                        elapsed.as_millis()
-                    );
-                } else {
-                    break;
+                    Ok(())
                 }
-            }
+            )?;
+
             eyre::Result::<_>::Ok(())
         });
 
