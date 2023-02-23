@@ -143,7 +143,7 @@ impl Measurement for TransactionSizeMeasurement {
 
     fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
         for (bucket, value) in self.input_buckets.single_buckets() {
-            query = query.add_field(format!("input_{}", bucket), value as u64);
+            query = query.add_field(format!("input_{bucket}"), value as u64);
         }
         query = query
             .add_field("input_small", self.input_buckets.small as u64)
@@ -151,7 +151,7 @@ impl Measurement for TransactionSizeMeasurement {
             .add_field("input_large", self.input_buckets.large as u64)
             .add_field("input_huge", self.input_buckets.huge as u64);
         for (bucket, value) in self.output_buckets.single_buckets() {
-            query = query.add_field(format!("output_{}", bucket), value as u64);
+            query = query.add_field(format!("output_{bucket}"), value as u64);
         }
         query = query
             .add_field("output_small", self.output_buckets.small as u64)

@@ -379,9 +379,10 @@ struct PerInterval<M> {
 
 #[cfg(test)]
 mod test {
-    use std::{fs::File, io::BufReader};
+    use std::{collections::BTreeMap, fs::File, io::BufReader};
 
     use futures::TryStreamExt;
+    use packable::PackableExt;
     use serde::{Deserialize, Serialize};
 
     use super::{
@@ -397,8 +398,16 @@ mod test {
             AddressBalancesAnalytics, LedgerOutputMeasurement, LedgerSizeAnalytics, UnclaimedTokenMeasurement,
             UnlockConditionMeasurement,
         },
-        tangle::{get_in_memory_data, IN_MEM_MILESTONE},
-        types::{ledger::MilestoneIndexTimestamp, tangle::ProtocolParameters},
+        tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
+        types::{
+            ledger::{BlockMetadata, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+            node::NodeConfiguration,
+            stardust::block::{
+                payload::{MilestoneId, MilestonePayload},
+                BlockId,
+            },
+            tangle::{MilestoneIndex, ProtocolParameters},
+        },
     };
 
     pub(crate) struct TestContext {
@@ -625,5 +634,81 @@ mod test {
         }
 
         Ok(res.unwrap())
+    }
+
+    const IN_MEM_MILESTONE: MilestoneIndex = MilestoneIndex(17339);
+
+    fn get_in_memory_data() -> Tangle<BTreeMap<MilestoneIndex, InMemoryData>> {
+        let file = File::open(format!("tests/data/in_memory_ms_{IN_MEM_MILESTONE}.json",)).unwrap();
+        let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
+
+        #[derive(Deserialize)]
+        struct BsonMilestoneData {
+            milestone_id: MilestoneId,
+            at: MilestoneIndexTimestamp,
+            payload: MilestonePayload,
+            protocol_params: ProtocolParameters,
+            node_config: NodeConfiguration,
+        }
+
+        impl From<BsonMilestoneData> for MilestoneData {
+            fn from(value: BsonMilestoneData) -> Self {
+                Self {
+                    milestone_id: value.milestone_id,
+                    at: value.at,
+                    payload: value.payload,
+                    protocol_params: value.protocol_params,
+                    node_config: value.node_config,
+                }
+            }
+        }
+
+        #[derive(Deserialize)]
+        struct BsonBlockData {
+            block_id: BlockId,
+            #[serde(with = "serde_bytes")]
+            raw: Vec<u8>,
+            metadata: BlockMetadata,
+        }
+
+        impl From<BsonBlockData> for BlockData {
+            fn from(value: BsonBlockData) -> Self {
+                Self {
+                    block_id: value.block_id,
+                    block: iota_types::block::Block::unpack_unverified(value.raw.clone())
+                        .unwrap()
+                        .into(),
+                    raw: value.raw,
+                    metadata: value.metadata,
+                }
+            }
+        }
+
+        #[derive(Deserialize)]
+        struct InMemoryBsonData {
+            milestone: BsonMilestoneData,
+            cone: BTreeMap<String, BsonBlockData>,
+            created: Vec<LedgerOutput>,
+            consumed: Vec<LedgerSpent>,
+        }
+
+        impl From<InMemoryBsonData> for InMemoryData {
+            fn from(value: InMemoryBsonData) -> Self {
+                Self {
+                    milestone: value.milestone.into(),
+                    cone: value
+                        .cone
+                        .into_iter()
+                        .map(|(idx, data)| (idx.parse().unwrap(), data.into()))
+                        .collect(),
+                    ledger_updates: LedgerUpdateStore::init(value.consumed, value.created),
+                }
+            }
+        }
+
+        Tangle::from(BTreeMap::from([(
+            IN_MEM_MILESTONE,
+            mongodb::bson::from_bson::<InMemoryBsonData>(test_data).unwrap().into(),
+        )]))
     }
 }
