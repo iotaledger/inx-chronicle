@@ -4,16 +4,14 @@
 use super::*;
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct ProtocolParamsMeasurement {
+pub(crate) struct ProtocolParamsAnalytics {
     params: Option<ProtocolParameters>,
 }
 
-impl Analytics for ProtocolParamsMeasurement {
-    type Measurement = ProtocolParameters;
+impl Analytics for ProtocolParamsAnalytics {
+    type Measurement = Option<ProtocolParameters>;
 
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
-
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
         // Ensure that we record it if either the protocol changes or we had no params
         (!matches!(&self.params, Some(last_params) if last_params == ctx.protocol_params())).then(|| {
             self.params.replace(ctx.protocol_params().clone());

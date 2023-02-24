@@ -10,7 +10,7 @@ use crate::types::stardust::block::{
 };
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct OutputActivityMeasurement {
     pub(crate) nft: NftActivityMeasurement,
     pub(crate) alias: AliasActivityMeasurement,
@@ -20,23 +20,19 @@ pub(crate) struct OutputActivityMeasurement {
 impl Analytics for OutputActivityMeasurement {
     type Measurement = Self;
 
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
-        *self = Self::default();
-    }
-
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         self.nft.handle_transaction(consumed, created);
         self.alias.handle_transaction(consumed, created);
         self.foundry.handle_transaction(consumed, created);
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        std::mem::take(self)
     }
 }
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct NftActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) transferred_count: usize,
@@ -84,7 +80,7 @@ impl NftActivityMeasurement {
 }
 
 /// Alias activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct AliasActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) governor_changed_count: usize,
@@ -177,7 +173,7 @@ impl AliasActivityMeasurement {
 }
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct FoundryActivityMeasurement {
     pub(crate) created_count: usize,
     pub(crate) transferred_count: usize,

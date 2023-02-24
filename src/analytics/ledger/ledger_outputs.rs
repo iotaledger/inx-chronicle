@@ -5,7 +5,7 @@
 
 use super::*;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct LedgerOutputMeasurement {
     pub(crate) alias: CountAndAmount,
     pub(crate) basic: CountAndAmount,
@@ -50,8 +50,6 @@ impl LedgerOutputMeasurement {
 impl Analytics for LedgerOutputMeasurement {
     type Measurement = Self;
 
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
-
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
@@ -60,7 +58,7 @@ impl Analytics for LedgerOutputMeasurement {
         self.wrapping_add(created);
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        *self
     }
 }

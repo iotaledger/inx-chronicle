@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[cfg(feature = "inx")]
-mod inx;
-mod memory;
-mod mongodb;
-
+pub(crate) mod inx;
+pub(crate) mod memory;
+pub(crate) mod mongodb;
 use std::ops::RangeBounds;
 
 use async_trait::async_trait;

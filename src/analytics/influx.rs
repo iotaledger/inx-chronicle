@@ -23,6 +23,14 @@ trait Measurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery;
 }
 
+impl<M: Measurement + ?Sized> Measurement for &M {
+    const NAME: &'static str = M::NAME;
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        (*self).add_fields(query)
+    }
+}
+
 /// A trait that defines an InfluxDb measurement over an interval.
 trait IntervalMeasurement: Measurement {
     fn name(interval: AnalyticsInterval) -> String;
@@ -38,12 +46,12 @@ impl<M: Measurement> AddFields<M> for WriteQuery {
     }
 }
 
-pub(super) trait PrepareQuery: Send + Sync {
-    fn prepare_query(&self) -> WriteQuery;
+pub trait PrepareQuery: Send + Sync {
+    fn prepare_query(&self) -> Vec<WriteQuery>;
 }
 
 impl<T: PrepareQuery + ?Sized> PrepareQuery for Box<T> {
-    fn prepare_query(&self) -> WriteQuery {
+    fn prepare_query(&self) -> Vec<WriteQuery> {
         (**self).prepare_query()
     }
 }
@@ -52,11 +60,31 @@ impl<M: Send + Sync> PrepareQuery for PerMilestone<M>
 where
     M: Measurement,
 {
-    fn prepare_query(&self) -> WriteQuery {
-        influxdb::Timestamp::from(self.at.milestone_timestamp)
-            .into_query(M::NAME)
-            .add_field("milestone_index", self.at.milestone_index)
-            .add_fields(&self.inner)
+    fn prepare_query(&self) -> Vec<WriteQuery> {
+        vec![
+            influxdb::Timestamp::from(self.at.milestone_timestamp)
+                .into_query(M::NAME)
+                .add_field("milestone_index", self.at.milestone_index)
+                .add_fields(&self.inner),
+        ]
+    }
+}
+
+impl<T: PrepareQuery> PrepareQuery for PerMilestone<Vec<T>> {
+    fn prepare_query(&self) -> Vec<WriteQuery> {
+        self.inner.iter().flat_map(|inner| inner.prepare_query()).collect()
+    }
+}
+
+impl<M: Send + Sync> PrepareQuery for PerMilestone<Option<M>>
+where
+    M: Measurement,
+{
+    fn prepare_query(&self) -> Vec<WriteQuery> {
+        self.inner
+            .iter()
+            .flat_map(|inner| PerMilestone { at: self.at, inner }.prepare_query())
+            .collect()
     }
 }
 
@@ -64,10 +92,12 @@ impl<M: Send + Sync> PrepareQuery for PerInterval<M>
 where
     M: IntervalMeasurement,
 {
-    fn prepare_query(&self) -> WriteQuery {
-        influxdb::Timestamp::Seconds(self.start_date.midnight().assume_utc().unix_timestamp() as _)
-            .into_query(M::name(self.interval))
-            .add_fields(&self.inner)
+    fn prepare_query(&self) -> Vec<WriteQuery> {
+        vec![
+            influxdb::Timestamp::Seconds(self.start_date.midnight().assume_utc().unix_timestamp() as _)
+                .into_query(M::name(self.interval))
+                .add_fields(&self.inner),
+        ]
     }
 }
 
@@ -129,16 +159,16 @@ impl Measurement for TransactionSizeMeasurement {
     const NAME: &'static str = "stardust_transaction_size_distribution";
 
     fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
-        for (bucket, value) in self.input_buckets.single.iter().enumerate() {
-            query = query.add_field(format!("input_{}", bucket + 1), *value as u64);
+        for (bucket, value) in self.input_buckets.single_buckets() {
+            query = query.add_field(format!("input_{bucket}"), value as u64);
         }
         query = query
             .add_field("input_small", self.input_buckets.small as u64)
             .add_field("input_medium", self.input_buckets.medium as u64)
             .add_field("input_large", self.input_buckets.large as u64)
             .add_field("input_huge", self.input_buckets.huge as u64);
-        for (bucket, value) in self.output_buckets.single.iter().enumerate() {
-            query = query.add_field(format!("output_{}", bucket + 1), *value as u64);
+        for (bucket, value) in self.output_buckets.single_buckets() {
+            query = query.add_field(format!("output_{bucket}"), value as u64);
         }
         query = query
             .add_field("output_small", self.output_buckets.small as u64)

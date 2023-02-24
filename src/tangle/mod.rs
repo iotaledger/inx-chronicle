@@ -5,8 +5,7 @@
 
 mod ledger_updates;
 mod milestone_stream;
-mod sources;
-
+pub(crate) mod sources;
 use std::ops::RangeBounds;
 
 use futures::{StreamExt, TryStreamExt};

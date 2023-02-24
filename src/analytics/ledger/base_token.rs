@@ -7,20 +7,17 @@ use super::*;
 use crate::types::stardust::block::{output::TokenAmount, Address};
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct BaseTokenActivityMeasurement {
-    /// Represents the amount of tokens transfered. Tokens that are send back to an address are not counted.
+    /// Represents the amount of tokens transferred. Tokens that are send back to an address are not counted.
     pub(crate) booked_amount: TokenAmount,
-    /// Represents the total amount of tokens transfered, independent of wether tokens were sent back to same address.
+    /// Represents the total amount of tokens transferred, independent of whether tokens were sent back to same
+    /// address.
     pub(crate) transferred_amount: TokenAmount,
 }
 
 impl Analytics for BaseTokenActivityMeasurement {
     type Measurement = Self;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {
-        *self = Default::default();
-    }
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         // The idea behind the following code is that we keep track of the deltas that are applied to each account that
@@ -47,7 +44,7 @@ impl Analytics for BaseTokenActivityMeasurement {
         self.transferred_amount += TokenAmount(balance_deltas.values().copied().map(|d| d.max(0) as u64).sum());
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        *self
     }
 }

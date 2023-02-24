@@ -3,9 +3,11 @@
 
 //! Statistics about the tangle.
 
+use serde::{Deserialize, Serialize};
+
 pub(crate) use self::{
     block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement,
-    protocol_params::ProtocolParamsMeasurement,
+    protocol_params::ProtocolParamsAnalytics,
 };
 use crate::{
     analytics::{Analytics, AnalyticsContext},
@@ -80,14 +82,12 @@ mod test {
             params: protocol_params.into(),
         };
 
-        block_activity.begin_milestone(&ctx);
-        milestone_size.begin_milestone(&ctx);
         for block_data in blocks.iter() {
             block_activity.handle_block(block_data, &ctx);
             milestone_size.handle_block(block_data, &ctx);
         }
-        let block_activity_measurement = block_activity.end_milestone(&ctx).unwrap();
-        let milestone_size_measurement = milestone_size.end_milestone(&ctx).unwrap();
+        let block_activity_measurement = block_activity.take_measurement(&ctx);
+        let milestone_size_measurement = milestone_size.take_measurement(&ctx);
 
         assert_eq!(block_activity_measurement.transaction_count, 1);
         assert_eq!(block_activity_measurement.treasury_transaction_count, 1);

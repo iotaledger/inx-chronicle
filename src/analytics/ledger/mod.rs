@@ -3,6 +3,8 @@
 
 //! Statistics about the ledger.
 
+use serde::{Deserialize, Serialize};
+
 pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
     address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
@@ -32,7 +34,7 @@ mod transaction_size;
 mod unclaimed_tokens;
 mod unlock_conditions;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct CountAndAmount {
     pub(crate) count: usize,
     pub(crate) amount: TokenAmount,
@@ -63,15 +65,9 @@ impl CountAndAmount {
 mod test {
     use std::collections::BTreeMap;
 
-    use output_activity::OutputActivityMeasurement;
-
-    use super::UnclaimedTokenMeasurement;
+    use super::*;
     use crate::{
-        analytics::{
-            ledger::{output_activity, BaseTokenActivityMeasurement},
-            test::TestContext,
-            Analytics,
-        },
+        analytics::{test::TestContext, Analytics},
         types::{
             ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
             stardust::block::{
@@ -161,9 +157,9 @@ mod test {
                 at,
                 params: protocol_params.clone().into(),
             };
-            unclaimed_tokens.begin_milestone(&ctx);
+
             unclaimed_tokens.handle_transaction(&[consumed], &[created], &ctx);
-            let unclaimed_tokens_measurement = unclaimed_tokens.end_milestone(&ctx).unwrap();
+            let unclaimed_tokens_measurement = unclaimed_tokens.take_measurement(&ctx);
             assert_eq!(unclaimed_tokens_measurement.unclaimed_count, 5 - i - 1);
             assert_eq!(
                 unclaimed_tokens_measurement.unclaimed_amount.0,
@@ -267,9 +263,9 @@ mod test {
             },
             params: protocol_params.into(),
         };
-        output_activity.begin_milestone(&ctx);
+
         output_activity.handle_transaction(&consumed, &created, &ctx);
-        let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
+        let output_activity_measurement = output_activity.take_measurement(&ctx);
 
         assert_eq!(output_activity_measurement.alias.created_count, 1);
         assert_eq!(output_activity_measurement.alias.governor_changed_count, 1);
@@ -358,9 +354,9 @@ mod test {
             },
             params: protocol_params.clone().into(),
         };
-        output_activity.begin_milestone(&ctx);
+
         output_activity.handle_transaction(&consumed, &created, &ctx);
-        let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
+        let output_activity_measurement = output_activity.take_measurement(&ctx);
 
         assert_eq!(output_activity_measurement.nft.created_count, 1);
         assert_eq!(output_activity_measurement.nft.transferred_count, 2);
@@ -395,9 +391,9 @@ mod test {
             params: protocol_params.clone().into(),
         };
         let mut output_activity = OutputActivityMeasurement::default();
-        output_activity.begin_milestone(&ctx);
+
         output_activity.handle_transaction(&[], &created, &ctx);
-        let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
+        let output_activity_measurement = output_activity.take_measurement(&ctx);
 
         assert_eq!(output_activity_measurement.nft.created_count, 1);
         assert_eq!(output_activity_measurement.nft.transferred_count, 0);
@@ -429,9 +425,9 @@ mod test {
             params: protocol_params.into(),
         };
         let mut output_activity = OutputActivityMeasurement::default();
-        output_activity.begin_milestone(&ctx);
+
         output_activity.handle_transaction(&consumed, &created, &ctx);
-        let output_activity_measurement = output_activity.end_milestone(&ctx).unwrap();
+        let output_activity_measurement = output_activity.take_measurement(&ctx);
 
         assert_eq!(output_activity_measurement.nft.created_count, 0);
         assert_eq!(output_activity_measurement.nft.transferred_count, 3);
@@ -532,9 +528,9 @@ mod test {
             params: protocol_params.clone().into(),
         };
         let mut base_tokens = BaseTokenActivityMeasurement::default();
-        base_tokens.begin_milestone(&ctx);
+
         base_tokens.handle_transaction(&consumed, &created, &ctx);
-        let base_tokens_measurement = base_tokens.end_milestone(&ctx).unwrap();
+        let base_tokens_measurement = base_tokens.take_measurement(&ctx);
 
         assert_eq!(base_tokens_measurement.booked_amount.0, 460);
         // Address 1 has delta +175, Address 2 has delta +70, Address 3 has delta -255

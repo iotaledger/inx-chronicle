@@ -3,7 +3,7 @@
 
 use super::*;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub(crate) struct UnlockConditionMeasurement {
     pub(crate) timelock: CountAndAmount,
@@ -72,8 +72,6 @@ impl UnlockConditionMeasurement {
 impl Analytics for UnlockConditionMeasurement {
     type Measurement = Self;
 
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
-
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         let consumed = Self::init(consumed.iter().map(|input| &input.output));
         let created = Self::init(created);
@@ -82,7 +80,7 @@ impl Analytics for UnlockConditionMeasurement {
         self.wrapping_sub(consumed);
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        *self
     }
 }

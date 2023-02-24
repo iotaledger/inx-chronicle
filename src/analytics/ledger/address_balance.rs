@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use super::*;
 use crate::types::stardust::block::{output::TokenAmount, Address};
 
+#[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {
     pub(crate) address_with_balance_count: usize,
     pub(crate) token_distribution: Vec<DistributionStat>,
@@ -21,6 +22,7 @@ pub(crate) struct DistributionStat {
 }
 
 /// Computes the number of addresses the currently hold a balance.
+#[derive(Serialize, Deserialize)]
 pub(crate) struct AddressBalancesAnalytics {
     balances: HashMap<Address, TokenAmount>,
 }
@@ -40,8 +42,6 @@ impl AddressBalancesAnalytics {
 
 impl Analytics for AddressBalancesAnalytics {
     type Measurement = AddressBalanceMeasurement;
-
-    fn begin_milestone(&mut self, _ctx: &dyn AnalyticsContext) {}
 
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], _ctx: &dyn AnalyticsContext) {
         for output in consumed {
@@ -64,7 +64,7 @@ impl Analytics for AddressBalancesAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
         let bucket_max = ctx.protocol_params().token_supply.ilog10() as usize + 1;
         let mut token_distribution = vec![DistributionStat::default(); bucket_max];
 
@@ -74,9 +74,9 @@ impl Analytics for AddressBalancesAnalytics {
             token_distribution[index].address_count += 1;
             token_distribution[index].total_amount += *amount;
         }
-        Some(AddressBalanceMeasurement {
+        AddressBalanceMeasurement {
             address_with_balance_count: self.balances.len(),
             token_distribution,
-        })
+        }
     }
 }
