@@ -5,7 +5,7 @@ use super::*;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ProtocolParamsAnalytics {
-    pub(crate) params: Option<ProtocolParameters>,
+    params: Option<ProtocolParameters>,
 }
 
 impl Analytics for ProtocolParamsAnalytics {
