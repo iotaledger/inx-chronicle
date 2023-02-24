@@ -57,10 +57,9 @@ impl Analytics for AddressActivityAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        let this = std::mem::take(self);
-        Some(AddressActivityMeasurement {
-            count: this.addresses.len(),
-        })
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        AddressActivityMeasurement {
+            count: std::mem::take(self).addresses.len(),
+        }
     }
 }

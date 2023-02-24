@@ -58,7 +58,7 @@ impl Analytics for LedgerOutputMeasurement {
         self.wrapping_add(created);
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        *self
     }
 }

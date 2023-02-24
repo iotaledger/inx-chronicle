@@ -44,7 +44,7 @@ impl Analytics for BaseTokenActivityMeasurement {
         self.transferred_amount += TokenAmount(balance_deltas.values().copied().map(|d| d.max(0) as u64).sum());
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        *self
     }
 }

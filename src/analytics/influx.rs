@@ -23,6 +23,14 @@ trait Measurement {
     fn add_fields(&self, query: WriteQuery) -> WriteQuery;
 }
 
+impl<M: Measurement + ?Sized> Measurement for &M {
+    const NAME: &'static str = M::NAME;
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        (*self).add_fields(query)
+    }
+}
+
 /// A trait that defines an InfluxDb measurement over an interval.
 trait IntervalMeasurement: Measurement {
     fn name(interval: AnalyticsInterval) -> String;
@@ -48,15 +56,6 @@ impl<T: PrepareQuery + ?Sized> PrepareQuery for Box<T> {
     }
 }
 
-impl<T: PrepareQuery> PrepareQuery for PerMilestone<Vec<T>> {
-    fn prepare_query(&self) -> Vec<WriteQuery> {
-        self.inner
-            .iter()
-            .flat_map(|inner| inner.prepare_query())
-            .collect::<Vec<_>>()
-    }
-}
-
 impl<M: Send + Sync> PrepareQuery for PerMilestone<M>
 where
     M: Measurement,
@@ -68,6 +67,24 @@ where
                 .add_field("milestone_index", self.at.milestone_index)
                 .add_fields(&self.inner),
         ]
+    }
+}
+
+impl<T: PrepareQuery> PrepareQuery for PerMilestone<Vec<T>> {
+    fn prepare_query(&self) -> Vec<WriteQuery> {
+        self.inner.iter().flat_map(|inner| inner.prepare_query()).collect()
+    }
+}
+
+impl<M: Send + Sync> PrepareQuery for PerMilestone<Option<M>>
+where
+    M: Measurement,
+{
+    fn prepare_query(&self) -> Vec<WriteQuery> {
+        self.inner
+            .iter()
+            .flat_map(|inner| PerMilestone { at: self.at, inner }.prepare_query())
+            .collect()
     }
 }
 

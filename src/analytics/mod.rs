@@ -13,7 +13,7 @@ use self::{
         LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
         UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
-    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsMeasurement},
+    tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsAnalytics},
 };
 use crate::{
     db::{
@@ -64,15 +64,15 @@ pub trait Analytics {
     }
     /// Handle a block.
     fn handle_block(&mut self, _block_data: &BlockData, _ctx: &dyn AnalyticsContext) {}
-    /// Finish a milestone and return the measurement if one was created.
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement>;
+    /// Take the measurement from the analytic. This should prepare the analytic for the next milestone.
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement;
 }
 
 // This trait allows using the above implementation dynamically
 trait DynAnalytics: Send {
     fn handle_transaction(&mut self, consumed: &[LedgerSpent], created: &[LedgerOutput], ctx: &dyn AnalyticsContext);
     fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext);
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Box<dyn PrepareQuery>>;
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery>;
 }
 
 impl<T: Analytics + Send> DynAnalytics for T
@@ -87,13 +87,11 @@ where
         Analytics::handle_block(self, block_data, ctx)
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Box<dyn PrepareQuery>> {
-        Analytics::end_milestone(self, ctx).map(|r| {
-            Box::new(PerMilestone {
-                at: *ctx.at(),
-                inner: r,
-            }) as _
-        })
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Box<dyn PrepareQuery> {
+        Box::new(PerMilestone {
+            at: *ctx.at(),
+            inner: Analytics::take_measurement(self, ctx),
+        }) as _
     }
 }
 
@@ -163,7 +161,7 @@ impl Analytic {
             }
             AnalyticsChoice::MilestoneSize => Box::<MilestoneSizeMeasurement>::default() as _,
             AnalyticsChoice::OutputActivity => Box::<OutputActivityMeasurement>::default() as _,
-            AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsMeasurement>::default() as _,
+            AnalyticsChoice::ProtocolParameters => Box::<ProtocolParamsAnalytics>::default() as _,
             AnalyticsChoice::TransactionSizeDistribution => Box::<TransactionSizeMeasurement>::default() as _,
             AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenMeasurement::init(unspent_outputs)) as _,
             AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionMeasurement::init(unspent_outputs)) as _,
@@ -186,13 +184,11 @@ impl<T: AsMut<[Analytic]>> Analytics for T {
         }
     }
 
-    fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(
-            self.as_mut()
-                .iter_mut()
-                .filter_map(|analytic| analytic.0.end_milestone(ctx))
-                .collect(),
-        )
+    fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        self.as_mut()
+            .iter_mut()
+            .map(|analytic| analytic.0.take_measurement(ctx))
+            .collect()
     }
 }
 
@@ -239,7 +235,9 @@ impl<'a, I: InputSource> Milestone<'a, I> {
             self.handle_block(analytics, &block_data)?;
         }
 
-        self.end_milestone(analytics, influxdb).await?;
+        influxdb
+            .insert_measurement((analytics as &mut dyn DynAnalytics).take_measurement(self))
+            .await?;
 
         Ok(())
     }
@@ -284,13 +282,6 @@ impl<'a, I: InputSource> Milestone<'a, I> {
             }
         }
         analytics.handle_block(block_data, self);
-        Ok(())
-    }
-
-    async fn end_milestone(&self, analytics: &mut impl DynAnalytics, influxdb: &InfluxDb) -> eyre::Result<()> {
-        if let Some(measurement) = analytics.end_milestone(self) {
-            influxdb.insert_measurement(measurement).await?;
-        }
         Ok(())
     }
 }
@@ -513,20 +504,20 @@ mod test {
             self.milestone_size.handle_transaction(consumed, created, ctx);
         }
 
-        fn end_milestone(&mut self, ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-            Some(TestMeasurements {
-                active_addresses: self.active_addresses.end_milestone(ctx).unwrap(),
-                address_balance: self.address_balance.end_milestone(ctx).unwrap(),
-                base_tokens: self.base_tokens.end_milestone(ctx).unwrap(),
-                ledger_outputs: self.ledger_outputs.end_milestone(ctx).unwrap(),
-                ledger_size: self.ledger_size.end_milestone(ctx).unwrap(),
-                output_activity: self.output_activity.end_milestone(ctx).unwrap(),
-                transaction_size: self.transaction_size.end_milestone(ctx).unwrap(),
-                unclaimed_tokens: self.unclaimed_tokens.end_milestone(ctx).unwrap(),
-                unlock_conditions: self.unlock_conditions.end_milestone(ctx).unwrap(),
-                block_activity: self.block_activity.end_milestone(ctx).unwrap(),
-                milestone_size: self.milestone_size.end_milestone(ctx).unwrap(),
-            })
+        fn take_measurement(&mut self, ctx: &dyn AnalyticsContext) -> Self::Measurement {
+            TestMeasurements {
+                active_addresses: self.active_addresses.take_measurement(ctx),
+                address_balance: self.address_balance.take_measurement(ctx),
+                base_tokens: self.base_tokens.take_measurement(ctx),
+                ledger_outputs: self.ledger_outputs.take_measurement(ctx),
+                ledger_size: self.ledger_size.take_measurement(ctx),
+                output_activity: self.output_activity.take_measurement(ctx),
+                transaction_size: self.transaction_size.take_measurement(ctx),
+                unclaimed_tokens: self.unclaimed_tokens.take_measurement(ctx),
+                unlock_conditions: self.unlock_conditions.take_measurement(ctx),
+                block_activity: self.block_activity.take_measurement(ctx),
+                milestone_size: self.milestone_size.take_measurement(ctx),
+            }
         }
     }
 
@@ -630,7 +621,7 @@ mod test {
                 milestone.handle_block(&mut analytics, &block_data)?;
             }
 
-            res = analytics.end_milestone(&milestone);
+            res = Some(analytics.take_measurement(&milestone));
         }
 
         Ok(res.unwrap())

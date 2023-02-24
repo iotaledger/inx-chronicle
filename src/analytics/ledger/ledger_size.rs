@@ -99,7 +99,7 @@ impl Analytics for LedgerSizeAnalytics {
         }
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(self.measurement)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        self.measurement
     }
 }

@@ -58,7 +58,7 @@ impl Analytics for TransactionSizeMeasurement {
         self.output_buckets.add(created.len());
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(std::mem::take(self))
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        std::mem::take(self)
     }
 }

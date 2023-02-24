@@ -26,8 +26,8 @@ impl Analytics for OutputActivityMeasurement {
         self.foundry.handle_transaction(consumed, created);
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(std::mem::take(self))
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        std::mem::take(self)
     }
 }
 

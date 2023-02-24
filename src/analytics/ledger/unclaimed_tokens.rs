@@ -38,7 +38,7 @@ impl Analytics for UnclaimedTokenMeasurement {
         }
     }
 
-    fn end_milestone(&mut self, _ctx: &dyn AnalyticsContext) -> Option<Self::Measurement> {
-        Some(*self)
+    fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
+        *self
     }
 }
