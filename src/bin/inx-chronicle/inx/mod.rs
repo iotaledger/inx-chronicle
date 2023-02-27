@@ -56,8 +56,8 @@ impl InxWorker {
     }
 
     #[cfg(feature = "influx")]
-    pub fn set_influx_db(&mut self, influx_db: Option<&chronicle::db::influxdb::InfluxDb>) {
-        self.influx_db = influx_db.cloned();
+    pub fn set_influx_db(&mut self, influx_db: &chronicle::db::influxdb::InfluxDb) {
+        self.influx_db.replace(influx_db.clone());
     }
 
     async fn connect(&self) -> Result<Inx> {

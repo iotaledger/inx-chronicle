@@ -87,7 +87,9 @@ async fn main() -> eyre::Result<()> {
 
         let mut worker = inx::InxWorker::new(&db, &config.inx);
         #[cfg(feature = "influx")]
-        worker.set_influx_db(influx_db.as_ref());
+        if let Some(influx_db) = &influx_db {
+            worker.set_influx_db(influx_db);
+        }
 
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
