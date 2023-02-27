@@ -23,18 +23,13 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::{
-        ledger::{
-            LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
-        },
+    model::{
+        ledger::{LedgerOutput, LedgerSpent, OutputMetadata, RentStructureBytes, SpentMetadata},
         stardust::{
-            block::{
-                output::{AliasId, NftId, Output, OutputId},
-                Address, BlockId,
-            },
-            milestone::MilestoneTimestamp,
+            output::{AliasId, NftId, Output, OutputId},
+            payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
+            Address, BlockId,
         },
-        tangle::MilestoneIndex,
     },
 };
 
@@ -184,8 +179,8 @@ pub struct UtxoChangesResult {
 
 /// Implements the queries for the core API.
 impl OutputCollection {
-    /// Upserts [`Outputs`](crate::types::stardust::block::Output) with their
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    /// Upserts [`Outputs`](crate::model::stardust::Output) with their
+    /// [`OutputMetadata`](crate::model::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
@@ -215,8 +210,8 @@ impl OutputCollection {
         Ok(())
     }
 
-    /// Inserts [`Outputs`](crate::types::stardust::block::Output) with their
-    /// [`OutputMetadata`](crate::types::ledger::OutputMetadata).
+    /// Inserts [`Outputs`](crate::model::stardust::Output) with their
+    /// [`OutputMetadata`](crate::model::ledger::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
     where
@@ -422,7 +417,7 @@ impl OutputCollection {
         .await
     }
 
-    /// Sums the amounts of all outputs owned by the given [`Address`](crate::types::stardust::block::Address).
+    /// Sums the amounts of all outputs owned by the given [`Address`](crate::model::stardust::Address).
     pub async fn get_address_balance(
         &self,
         address: Address,

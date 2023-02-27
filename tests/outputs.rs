@@ -7,9 +7,13 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
-        types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
-            stardust::block::{output::OutputId, payload::TransactionId, BlockId, Output},
+        model::{
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
+            stardust::{
+                output::OutputId,
+                payload::{milestone::MilestoneIndexTimestamp, TransactionId},
+                BlockId, Output,
+            },
         },
     };
 

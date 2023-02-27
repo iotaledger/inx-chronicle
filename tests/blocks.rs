@@ -9,9 +9,9 @@ mod test_rand {
 
     use chronicle::{
         db::{collections::BlockCollection, MongoDbCollectionExt},
-        types::{
+        model::{
             ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-            stardust::block::{output::OutputId, Block, BlockId, Payload},
+            stardust::{output::OutputId, Block, BlockId, Payload},
         },
     };
     use futures::TryStreamExt;

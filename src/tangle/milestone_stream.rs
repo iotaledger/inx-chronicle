@@ -12,10 +12,9 @@ use super::{
     sources::{BlockData, InputSource},
     LedgerUpdateStore,
 };
-use crate::types::{
-    ledger::MilestoneIndexTimestamp,
+use crate::model::{
     node::NodeConfiguration,
-    stardust::block::payload::{MilestoneId, MilestonePayload},
+    stardust::payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
     tangle::ProtocolParameters,
 };
 

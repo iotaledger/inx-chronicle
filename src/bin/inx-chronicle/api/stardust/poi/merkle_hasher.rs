@@ -59,7 +59,7 @@ const fn bit_length(n: u32) -> u32 {
 mod tests {
     use std::str::FromStr;
 
-    use chronicle::types::stardust::block::BlockId;
+    use chronicle::model::stardust::BlockId;
 
     use super::*;
 

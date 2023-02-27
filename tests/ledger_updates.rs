@@ -14,10 +14,11 @@ mod test_rand {
             },
             MongoDbCollectionExt,
         },
-        types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
-            stardust::block::{
+        model::{
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
+            stardust::{
                 output::{AddressUnlockCondition, BasicOutput, OutputId},
+                payload::milestone::MilestoneIndexTimestamp,
                 BlockId, Output,
             },
         },

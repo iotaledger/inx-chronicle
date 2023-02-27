@@ -8,7 +8,7 @@ use futures::stream::BoxStream;
 use thiserror::Error;
 
 use super::{BlockData, InputSource, MilestoneData};
-use crate::{tangle::ledger_updates::LedgerUpdateStore, types::tangle::MilestoneIndex};
+use crate::{model::stardust::payload::milestone::MilestoneIndex, tangle::ledger_updates::LedgerUpdateStore};
 
 pub struct InMemoryData {
     pub milestone: MilestoneData,

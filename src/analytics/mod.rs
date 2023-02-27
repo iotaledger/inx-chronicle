@@ -20,12 +20,18 @@ use crate::{
         influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
-    tangle::{BlockData, InputSource, Milestone},
-    types::{
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{payload::TransactionEssence, Input, Payload},
-        tangle::{MilestoneIndex, ProtocolParameters},
+    model::{
+        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
+        stardust::{
+            payload::{
+                milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+                TransactionEssence,
+            },
+            Input, Payload,
+        },
+        tangle::ProtocolParameters,
     },
+    tangle::{BlockData, InputSource, Milestone},
 };
 
 mod influx;
@@ -389,16 +395,19 @@ mod test {
             AddressBalancesAnalytics, LedgerOutputMeasurement, LedgerSizeAnalytics, UnclaimedTokenMeasurement,
             UnlockConditionMeasurement,
         },
-        tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
-        types::{
-            ledger::{BlockMetadata, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        model::{
+            ledger::{BlockMetadata, LedgerOutput, LedgerSpent},
             node::NodeConfiguration,
-            stardust::block::{
-                payload::{MilestoneId, MilestonePayload},
+            stardust::{
+                payload::{
+                    milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+                    MilestoneId, MilestonePayload,
+                },
                 BlockId,
             },
-            tangle::{MilestoneIndex, ProtocolParameters},
+            tangle::ProtocolParameters,
         },
+        tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
     };
 
     pub(crate) struct TestContext {
@@ -435,7 +444,7 @@ mod test {
         #[allow(dead_code)]
         fn init<'a>(
             protocol_params: ProtocolParameters,
-            unspent_outputs: impl IntoIterator<Item = &'a crate::types::ledger::LedgerOutput> + Copy,
+            unspent_outputs: impl IntoIterator<Item = &'a crate::model::ledger::LedgerOutput> + Copy,
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
@@ -487,8 +496,8 @@ mod test {
 
         fn handle_transaction(
             &mut self,
-            consumed: &[crate::types::ledger::LedgerSpent],
-            created: &[crate::types::ledger::LedgerOutput],
+            consumed: &[crate::model::ledger::LedgerSpent],
+            created: &[crate::model::ledger::LedgerOutput],
             ctx: &dyn AnalyticsContext,
         ) {
             self.active_addresses.handle_transaction(consumed, created, ctx);

@@ -7,7 +7,7 @@ use super::*;
 use crate::{
     analytics::{AnalyticsInterval, IntervalAnalytics},
     db::{collections::OutputCollection, MongoDb},
-    types::stardust::block::Address,
+    model::stardust::Address,
 };
 
 #[derive(Debug, Default)]

@@ -13,7 +13,10 @@ use chronicle::{
         collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
-    types::{node::MilestoneKeyRange, stardust::block::BlockId, tangle::MilestoneIndex},
+    model::{
+        node::MilestoneKeyRange,
+        stardust::{payload::milestone::MilestoneIndex, BlockId},
+    },
 };
 
 use super::{
@@ -161,7 +164,7 @@ async fn create_proof_for_applied_blocks(
     let referenced_index = block_metadata.referenced_by_milestone_index;
     if referenced_index == 0 {
         return Err(RequestError::PoI(poi::RequestError::BlockNotReferenced(block_id.to_hex())).into());
-    } else if block_metadata.inclusion_state != chronicle::types::ledger::LedgerInclusionState::Included {
+    } else if block_metadata.inclusion_state != chronicle::model::ledger::LedgerInclusionState::Included {
         return Err(RequestError::PoI(poi::RequestError::BlockNotApplied(block_id.to_hex())).into());
     }
 

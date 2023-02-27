@@ -10,10 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
-    types::{
-        stardust::block::{output::OutputId, Address},
-        tangle::MilestoneIndex,
-    },
+    model::stardust::{output::OutputId, payload::milestone::MilestoneIndex, Address},
 };
 use mongodb::bson;
 use primitive_types::U256;

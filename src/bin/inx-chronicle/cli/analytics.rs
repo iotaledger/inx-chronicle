@@ -4,14 +4,115 @@
 use chronicle::{
     analytics::{Analytic, AnalyticsInterval, IntervalAnalytic},
     db::{
-        influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
+        collections::{MilestoneCollection, OutputCollection},
+        influxdb::{
+            config::{all_analytics, all_interval_analytics, IntervalAnalyticsChoice},
+            AnalyticsChoice, InfluxDb,
+        },
         MongoDb,
     },
+    model::{stardust::payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
     tangle::{InputSource, Tangle},
-    types::tangle::MilestoneIndex,
 };
+use clap::Parser;
 use futures::TryStreamExt;
+use time::{Date, OffsetDateTime};
 use tracing::{debug, info};
+
+use crate::config::ChronicleConfig;
+
+#[derive(Clone, Debug, PartialEq, Eq, Parser)]
+pub struct FillAnalyticsCommand {
+    /// The inclusive starting milestone index.
+    #[arg(short, long)]
+    start_milestone: Option<MilestoneIndex>,
+    /// The inclusive ending milestone index.
+    #[arg(short, long)]
+    end_milestone: Option<MilestoneIndex>,
+    /// The number of parallel tasks to use when filling the analytics.
+    #[arg(short, long, default_value_t = 1)]
+    num_tasks: usize,
+    /// Select a subset of analytics to compute.
+    #[arg(long)]
+    analytics: Vec<AnalyticsChoice>,
+    /// The input source to use for filling the analytics.
+    #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
+    input_source: InputSourceChoice,
+}
+
+impl FillAnalyticsCommand {
+    pub async fn handle(&self, config: &ChronicleConfig) -> eyre::Result<()> {
+        let Self {
+            start_milestone,
+            end_milestone,
+            num_tasks,
+            analytics,
+            input_source,
+        } = self;
+        tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+        let db = MongoDb::connect(&config.mongodb).await?;
+        let start_milestone = if let Some(index) = start_milestone {
+            *index
+        } else {
+            db.collection::<MilestoneCollection>()
+                .get_oldest_milestone()
+                .await?
+                .map(|ts| ts.milestone_index)
+                .unwrap_or_default()
+        };
+        let end_milestone = if let Some(index) = end_milestone {
+            *index
+        } else {
+            db.collection::<MilestoneCollection>()
+                .get_newest_milestone()
+                .await?
+                .map(|ts| ts.milestone_index)
+                .unwrap_or_default()
+        };
+        if end_milestone < start_milestone {
+            eyre::bail!("No milestones in range: {start_milestone}..={end_milestone}.");
+        }
+        let influx_db = InfluxDb::connect(&config.influxdb).await?;
+
+        match input_source {
+            #[cfg(feature = "inx")]
+            InputSourceChoice::Inx => {
+                tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
+                let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
+                fill_analytics(
+                    &db,
+                    &influx_db,
+                    &inx,
+                    start_milestone,
+                    end_milestone,
+                    *num_tasks,
+                    analytics,
+                )
+                .await?;
+            }
+            InputSourceChoice::MongoDb => {
+                fill_analytics(
+                    &db,
+                    &influx_db,
+                    &db,
+                    start_milestone,
+                    end_milestone,
+                    *num_tasks,
+                    analytics,
+                )
+                .await?;
+            }
+        };
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum InputSourceChoice {
+    MongoDb,
+    #[cfg(feature = "inx")]
+    Inx,
+}
 
 pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     db: &MongoDb,
@@ -28,7 +129,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     let remainder = (end_milestone.0 - start_milestone.0) % num_tasks as u32;
 
     let analytics_choices = if analytics.is_empty() {
-        super::influxdb::all_analytics()
+        all_analytics()
     } else {
         analytics.iter().copied().collect()
     };
@@ -64,7 +165,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                         // Only get the ledger state for milestones after the genesis since it requires
                         // getting the previous milestone data.
                         let ledger_state = if milestone.at.milestone_index.0 > 0 {
-                            db.collection::<chronicle::db::collections::OutputCollection>()
+                            db.collection::<OutputCollection>()
                                 .get_unspent_output_stream(milestone.at.milestone_index - 1)
                                 .await?
                                 .try_collect::<Vec<_>>()
@@ -122,11 +223,79 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     Ok(())
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Parser)]
+pub struct FillIntervalAnalyticsCommand {
+    /// The inclusive starting date (YYYY-MM-DD).
+    #[arg(short, long, value_parser = parse_date)]
+    start_date: Option<Date>,
+    /// The inclusive ending date (YYYY-MM-DD).
+    #[arg(short, long, value_parser = parse_date)]
+    end_date: Option<Date>,
+    /// The interval to use.
+    #[arg(short, long, default_value = "day")]
+    interval: AnalyticsInterval,
+    /// The number of parallel tasks to use when filling the analytics.
+    #[arg(short, long, default_value_t = 1)]
+    num_tasks: usize,
+    /// Select a subset of analytics to compute.
+    #[arg(long)]
+    analytics: Vec<IntervalAnalyticsChoice>,
+}
+
+fn parse_date(s: &str) -> eyre::Result<Date> {
+    Ok(Date::parse(
+        s,
+        time::macros::format_description!("[year]-[month]-[day]"),
+    )?)
+}
+
+impl FillIntervalAnalyticsCommand {
+    pub async fn handle(&self, config: &ChronicleConfig) -> eyre::Result<()> {
+        let Self {
+            start_date,
+            end_date,
+            interval,
+            num_tasks,
+            analytics,
+        } = self;
+        tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
+        let db = MongoDb::connect(&config.mongodb).await?;
+
+        let start_date = if let Some(date) = start_date {
+            *date
+        } else {
+            db.collection::<MilestoneCollection>()
+                .get_oldest_milestone()
+                .await?
+                .map(|ts| OffsetDateTime::try_from(ts.milestone_timestamp).unwrap())
+                .unwrap_or_else(OffsetDateTime::now_utc)
+                .date()
+        };
+        let end_date = if let Some(date) = end_date {
+            *date
+        } else {
+            db.collection::<MilestoneCollection>()
+                .get_newest_milestone()
+                .await?
+                .map(|ts| OffsetDateTime::try_from(ts.milestone_timestamp).unwrap())
+                .unwrap_or_else(OffsetDateTime::now_utc)
+                .date()
+        };
+        if end_date < start_date {
+            eyre::bail!("No dates in range: {start_date}..={end_date}.");
+        }
+        let influx_db = InfluxDb::connect(&config.influxdb).await?;
+
+        fill_interval_analytics(&db, &influx_db, start_date, end_date, *interval, *num_tasks, analytics).await?;
+        Ok(())
+    }
+}
+
 pub async fn fill_interval_analytics(
     db: &MongoDb,
     influx_db: &InfluxDb,
-    start_date: time::Date,
-    end_date: time::Date,
+    start_date: Date,
+    end_date: Date,
     interval: AnalyticsInterval,
     num_tasks: usize,
     analytics: &[IntervalAnalyticsChoice],
@@ -134,7 +303,7 @@ pub async fn fill_interval_analytics(
     let mut join_set = tokio::task::JoinSet::new();
 
     let analytics_choices = if analytics.is_empty() {
-        super::influxdb::all_interval_analytics()
+        all_interval_analytics()
     } else {
         analytics.iter().copied().collect()
     };
@@ -184,6 +353,6 @@ pub async fn fill_interval_analytics(
 }
 
 pub struct AnalyticsState {
-    pub analytics: Vec<chronicle::analytics::Analytic>,
-    pub prev_protocol_params: chronicle::types::tangle::ProtocolParameters,
+    pub analytics: Vec<Analytic>,
+    pub prev_protocol_params: ProtocolParameters,
 }

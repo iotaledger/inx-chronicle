@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::collections::MilestoneCollection,
-        types::stardust::block::payload::{MilestoneId, MilestonePayload},
+        model::stardust::payload::{MilestoneId, MilestonePayload},
     };
 
     use super::common::{setup_collection, setup_database, teardown};

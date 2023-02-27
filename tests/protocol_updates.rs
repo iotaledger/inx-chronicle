@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::{collections::ProtocolUpdateCollection, MongoDbCollectionExt},
-        types::tangle::{MilestoneIndex, ProtocolParameters},
+        model::{stardust::payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
     };
     use iota_types::block::rand::number::rand_number_range;
 

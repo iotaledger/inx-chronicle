@@ -18,12 +18,15 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    tangle::BlockData,
-    types::{
+    model::{
         ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
-        tangle::MilestoneIndex,
+        stardust::{
+            output::OutputId,
+            payload::{milestone::MilestoneIndex, transaction::TransactionId},
+            Block, BlockId,
+        },
     },
+    tangle::BlockData,
 };
 
 /// Chronicle Block record.
@@ -368,7 +371,7 @@ impl BlockCollection {
         .await
     }
 
-    /// Gets the spending transaction of an [`Output`](crate::types::stardust::block::Output) by [`OutputId`].
+    /// Gets the spending transaction of an [`Output`](crate::model::stardust::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         self.aggregate(
             [

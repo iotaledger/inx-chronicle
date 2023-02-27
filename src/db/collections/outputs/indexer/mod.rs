@@ -23,10 +23,12 @@ pub use self::{
 use super::{OutputCollection, OutputDocument};
 use crate::{
     db::{collections::SortOrder, mongodb::MongoDbCollectionExt},
-    types::{
+    model::{
         ledger::OutputMetadata,
-        stardust::block::output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
-        tangle::MilestoneIndex,
+        stardust::{
+            output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
+            payload::milestone::MilestoneIndex,
+        },
     },
 };
 

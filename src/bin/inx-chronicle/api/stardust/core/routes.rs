@@ -18,15 +18,17 @@ use chronicle::{
         },
         MongoDb,
     },
-    types::{
+    model::{
         context::TryFromWithContext,
         ledger::BlockMetadata,
-        stardust::block::{
+        stardust::{
             output::OutputId,
-            payload::{milestone::MilestoneId, transaction::TransactionId},
+            payload::{
+                milestone::{MilestoneId, MilestoneIndex},
+                transaction::TransactionId,
+            },
             BlockId,
         },
-        tangle::MilestoneIndex,
     },
 };
 use futures::TryStreamExt;

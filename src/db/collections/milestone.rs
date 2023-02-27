@@ -19,13 +19,8 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::{
-        ledger::MilestoneIndexTimestamp,
-        stardust::{
-            block::payload::milestone::{MilestoneId, MilestoneOption, MilestonePayload},
-            milestone::MilestoneTimestamp,
-        },
-        tangle::MilestoneIndex,
+    model::stardust::payload::milestone::{
+        MilestoneId, MilestoneIndex, MilestoneIndexTimestamp, MilestoneOption, MilestonePayload, MilestoneTimestamp,
     },
 };
 

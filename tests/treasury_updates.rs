@@ -9,10 +9,7 @@ mod test_rand {
 
     use chronicle::{
         db::{collections::TreasuryCollection, MongoDbCollectionExt},
-        types::{
-            stardust::block::payload::{MilestoneId, TreasuryTransactionPayload},
-            tangle::MilestoneIndex,
-        },
+        model::stardust::payload::{milestone::MilestoneIndex, MilestoneId, TreasuryTransactionPayload},
     };
     use iota_types::block::rand::number::rand_number_range;
 

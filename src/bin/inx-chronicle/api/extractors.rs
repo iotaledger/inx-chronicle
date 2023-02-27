@@ -70,7 +70,7 @@ pub struct TimeRangeQuery {
 }
 
 mod stardust {
-    use chronicle::types::stardust::milestone::MilestoneTimestamp;
+    use chronicle::model::stardust::payload::milestone::MilestoneTimestamp;
 
     use super::*;
     use crate::api::error::RequestError;

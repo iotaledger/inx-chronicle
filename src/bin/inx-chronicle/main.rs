@@ -8,10 +8,10 @@
 mod api;
 mod cli;
 mod config;
+#[cfg(feature = "inx")]
+mod inx;
 mod migrations;
 mod process;
-#[cfg(feature = "inx")]
-mod stardust_inx;
 
 use bytesize::ByteSize;
 use chronicle::db::MongoDb;
@@ -57,7 +57,7 @@ async fn main() -> eyre::Result<()> {
 
     #[cfg(feature = "inx")]
     if config.inx.enabled {
-        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        #[cfg(feature = "influx")]
         #[allow(unused_mut)]
         let mut influx_required = false;
         #[cfg(feature = "analytics")]
@@ -69,7 +69,7 @@ async fn main() -> eyre::Result<()> {
             influx_required |= config.influxdb.metrics_enabled;
         }
 
-        #[cfg(any(feature = "analytics", feature = "metrics"))]
+        #[cfg(feature = "influx")]
         let influx_db = if influx_required {
             info!("Connecting to influx at `{}`", config.influxdb.url);
             let influx_db = chronicle::db::influxdb::InfluxDb::connect(&config.influxdb).await?;
@@ -85,12 +85,10 @@ async fn main() -> eyre::Result<()> {
             None
         };
 
-        let mut worker = stardust_inx::InxWorker::new(
-            &db,
-            #[cfg(any(feature = "analytics", feature = "metrics"))]
-            influx_db.as_ref(),
-            &config.inx,
-        );
+        let mut worker = inx::InxWorker::new(&db, &config.inx);
+        #[cfg(feature = "influx")]
+        worker.set_influx_db(influx_db.as_ref());
+
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {

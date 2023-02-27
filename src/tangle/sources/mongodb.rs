@@ -16,8 +16,8 @@ use crate::{
         },
         MongoDb,
     },
+    model::stardust::payload::milestone::MilestoneIndex,
     tangle::ledger_updates::LedgerUpdateStore,
-    types::tangle::MilestoneIndex,
 };
 
 #[derive(Debug, Error)]

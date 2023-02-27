@@ -3,9 +3,9 @@
 
 use std::collections::HashMap;
 
-use crate::types::{
+use crate::model::{
     ledger::{LedgerOutput, LedgerSpent},
-    stardust::block::output::OutputId,
+    stardust::output::OutputId,
 };
 
 /// Holds the ledger updates that happened during a milestone.

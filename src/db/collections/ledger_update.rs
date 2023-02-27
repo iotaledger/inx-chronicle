@@ -17,13 +17,13 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+    model::{
+        ledger::{LedgerOutput, LedgerSpent},
         stardust::{
-            block::{output::OutputId, Address},
-            milestone::MilestoneTimestamp,
+            output::OutputId,
+            payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
+            Address,
         },
-        tangle::MilestoneIndex,
     },
 };
 
@@ -104,7 +104,7 @@ fn oldest() -> Document {
     doc! { "address": 1, "_id.milestone_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
 }
 
-/// Queries that are related to [`Output`](crate::types::stardust::block::Output)s.
+/// Queries that are related to [`Output`](crate::model::stardust::Output)s.
 impl LedgerUpdateCollection {
     /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]

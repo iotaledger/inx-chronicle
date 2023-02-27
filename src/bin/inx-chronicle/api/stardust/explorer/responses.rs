@@ -5,9 +5,9 @@ use std::ops::Range;
 
 use chronicle::{
     db::collections::{DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult},
-    types::{
-        stardust::{block::Address, milestone::MilestoneTimestamp},
-        tangle::MilestoneIndex,
+    model::stardust::{
+        payload::milestone::{MilestoneIndex, MilestoneTimestamp},
+        Address,
     },
 };
 use serde::{Deserialize, Serialize};

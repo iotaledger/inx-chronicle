@@ -12,7 +12,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    types::stardust::block::output::{AliasId, FoundryId, NftId},
+    model::stardust::output::{AliasId, FoundryId, NftId},
 };
 use mongodb::bson;
 
