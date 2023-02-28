@@ -43,7 +43,7 @@ pub struct ProtocolParameters {
     pub min_pow_score: u32,
     pub below_max_depth: u8,
     pub rent_structure: RentStructure,
-    #[serde(with = "crate::types::util::stringify")]
+    #[serde(with = "crate::types::serde::stringify")]
     pub token_supply: u64,
 }
 

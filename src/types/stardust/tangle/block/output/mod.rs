@@ -55,7 +55,7 @@ use crate::types::{
     derive_more::AddAssign,
     derive_more::SubAssign,
 )]
-pub struct OutputAmount(#[serde(with = "crate::types::util::stringify")] pub u64);
+pub struct OutputAmount(#[serde(with = "crate::types::serde::stringify")] pub u64);
 
 /// The index of an output within a transaction.
 pub type OutputIndex = u16;

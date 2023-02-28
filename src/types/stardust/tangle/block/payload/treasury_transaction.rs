@@ -17,7 +17,7 @@ pub struct TreasuryTransactionPayload {
     /// The milestone id of the input.
     pub input_milestone_id: MilestoneId,
     /// The amount of tokens in output.
-    #[serde(with = "crate::types::util::stringify")]
+    #[serde(with = "crate::types::serde::stringify")]
     pub output_amount: u64,
 }
 

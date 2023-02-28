@@ -17,7 +17,7 @@ use crate::types::{
         block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
         milestone::MilestoneIndex,
     },
-    util::bytify,
+    serde::bytify,
 };
 
 /// Represents a milestone payload.
@@ -284,7 +284,7 @@ pub struct MigratedFundsEntry {
     /// The target address.
     address: Address,
     /// The amount of tokens that have been migrated.
-    #[serde(with = "crate::types::util::stringify")]
+    #[serde(with = "crate::types::serde::stringify")]
     amount: u64,
 }
 

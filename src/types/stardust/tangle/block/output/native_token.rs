@@ -7,7 +7,7 @@ use iota_types::block::output as iota;
 use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 
-use crate::types::util::bytify;
+use crate::types::serde::bytify;
 
 /// Represents the amount of native tokens.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -9,7 +9,7 @@ use iota_types::block as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use crate::types::util::bytify;
+use crate::types::serde::bytify;
 
 /// Uniquely identifies a block.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize, Hash, Ord, PartialOrd, Eq)]

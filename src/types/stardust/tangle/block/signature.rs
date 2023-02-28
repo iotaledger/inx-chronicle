@@ -6,7 +6,7 @@
 use iota_types::block::signature as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::types::util::bytify;
+use crate::types::serde::bytify;
 
 /// Represents a signature used to unlock an output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

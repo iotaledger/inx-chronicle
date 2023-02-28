@@ -30,7 +30,7 @@ pub struct Block {
     /// The payload of the block.
     pub payload: Option<Payload>,
     /// The nonce determined by proof-of-work.
-    #[serde(with = "crate::types::util::stringify")]
+    #[serde(with = "crate::types::serde::stringify")]
     pub nonce: u64,
 }
 

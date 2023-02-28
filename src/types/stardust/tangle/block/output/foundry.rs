@@ -10,7 +10,7 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
-use crate::types::{context::TryFromWithContext, util::bytify};
+use crate::types::{context::TryFromWithContext, serde::bytify};
 
 /// The id of a foundry.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -68,7 +68,7 @@ pub struct FoundryOutput {
     /// The associated id of the foundry.
     pub foundry_id: FoundryId,
     /// The serial number of the foundry.
-    #[serde(with = "crate::types::util::stringify")]
+    #[serde(with = "crate::types::serde::stringify")]
     pub serial_number: u32,
     /// The [`TokenScheme`] of the underlying token.
     pub token_scheme: TokenScheme,

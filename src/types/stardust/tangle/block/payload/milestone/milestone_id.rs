@@ -7,7 +7,7 @@ use iota_types::block::payload::milestone as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use crate::types::util::bytify;
+use crate::types::serde::bytify;
 
 /// Uniquely identifies a milestone.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

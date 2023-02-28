@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
     stardust::tangle::block::{Input, Output, Payload, Unlock},
-    util::bytify,
+    serde::bytify,
 };
 
 /// Uniquely identifies a transaction.
@@ -126,7 +126,7 @@ pub enum TransactionEssence {
     Regular {
         /// The network id for which this transaction was issued.
         /// Note: Including the network id in the transaction prevents replay attacks.
-        #[serde(with = "crate::types::util::stringify")]
+        #[serde(with = "crate::types::serde::stringify")]
         network_id: u64,
         /// The list of inputs that this transaction consumes.
         inputs: Box<[Input]>,
