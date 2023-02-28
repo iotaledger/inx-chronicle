@@ -38,18 +38,11 @@ const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
 pub fn routes() -> Router {
-    #[allow(unused_mut)]
-    let mut router = Router::new();
-
-    {
-        router = router.merge(super::stardust::routes())
-    }
-
     Router::new()
         .route("/health", get(health))
         .route("/login", post(login))
         .route("/routes", get(list_routes))
-        .nest("/api", router.route_layer(from_extractor::<Auth>()))
+        .nest("/api", super::stardust::routes().route_layer(from_extractor::<Auth>()))
         .fallback(not_found.into_service())
 }
 
