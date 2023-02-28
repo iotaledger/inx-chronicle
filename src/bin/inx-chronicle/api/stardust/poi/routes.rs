@@ -13,9 +13,9 @@ use chronicle::{
         collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
-    types::{
+    types::stardust::{
         node::MilestoneKeyRange,
-        stardust::tangle::{block::BlockId, milestone::MilestoneIndex},
+        tangle::{block::BlockId, milestone::MilestoneIndex},
     },
 };
 

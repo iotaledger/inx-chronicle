@@ -13,7 +13,7 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::{node::NodeConfiguration, stardust::tangle::milestone::MilestoneIndex},
+    types::stardust::{node::NodeConfiguration, tangle::milestone::MilestoneIndex},
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.
