@@ -42,9 +42,9 @@ use self::{
 };
 use crate::{
     db::MongoDb,
-    types::{
-        stardust::tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
-        tangle::ProtocolParameters,
+    types::stardust::{
+        tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
+        ProtocolParameters,
     },
 };
 

@@ -7,3 +7,7 @@
 pub mod ledger;
 /// Module containing the Tangle model.
 pub mod tangle;
+
+mod protocol;
+
+pub use self::protocol::{ProtocolParameters, RentStructure};

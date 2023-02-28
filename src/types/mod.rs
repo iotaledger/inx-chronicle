@@ -6,5 +6,4 @@
 pub mod context;
 pub mod node;
 pub mod stardust;
-pub mod tangle;
 pub mod util;

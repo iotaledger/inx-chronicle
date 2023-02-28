@@ -12,12 +12,10 @@ use crate::{
         collections::{OutputCollection, ProtocolUpdateCollection},
         MongoDb, MongoDbCollection, MongoDbCollectionExt,
     },
-    types::{
-        stardust::{
-            ledger::RentStructureBytes,
-            tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
-        },
-        tangle::RentStructure,
+    types::stardust::{
+        ledger::RentStructureBytes,
+        tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
+        RentStructure,
     },
 };
 

@@ -232,7 +232,7 @@ impl InxWorker {
             .get_latest_protocol_parameters()
             .await?
         {
-            let protocol_parameters = chronicle::types::tangle::ProtocolParameters::from(protocol_parameters);
+            let protocol_parameters = chronicle::types::stardust::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
                 bail!(InxWorkerError::NetworkChanged(
                     latest.parameters.network_name,

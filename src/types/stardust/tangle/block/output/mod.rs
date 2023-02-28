@@ -38,8 +38,7 @@ pub use self::{
 use super::Address;
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
-    stardust::tangle::block::payload::transaction::TransactionId,
-    tangle::ProtocolParameters,
+    stardust::{tangle::block::payload::transaction::TransactionId, ProtocolParameters},
 };
 
 /// The amount of tokens associated with an output.
