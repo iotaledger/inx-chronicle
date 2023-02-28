@@ -3,6 +3,8 @@
 
 //! Holds the `InfluxDb` config and its defaults.
 
+use std::collections::HashSet;
+
 /// The default InfluxDb URL to connect to.
 pub const DEFAULT_URL: &str = "http://localhost:8086";
 /// The default InfluxDb username.
@@ -73,39 +75,49 @@ impl Default for InfluxDbConfig {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
 pub enum AnalyticsChoice {
     // Please keep the alphabetic order.
-    Addresses,
-    BaseToken,
+    AddressBalance,
+    BaseTokenActivity,
     BlockActivity,
-    DailyActiveAddresses,
+    ActiveAddresses,
     LedgerOutputs,
     LedgerSize,
+    MilestoneSize,
     OutputActivity,
     ProtocolParameters,
+    TransactionSizeDistribution,
     UnclaimedTokens,
     UnlockConditions,
 }
 
-#[cfg(feature = "analytics")]
-impl From<AnalyticsChoice> for Box<dyn crate::db::collections::analytics::Analytic> {
-    fn from(value: AnalyticsChoice) -> Self {
-        use crate::db::collections::analytics::{
-            AddressAnalytics, BaseTokenActivityAnalytics, BlockActivityAnalytics, DailyActiveAddressesAnalytics,
-            LedgerOutputAnalytics, LedgerSizeAnalytics, OutputActivityAnalytics, ProtocolParametersAnalytics,
-            UnclaimedTokenAnalytics, UnlockConditionAnalytics,
-        };
+/// Returns a list of trait objects for all analytics.
+pub fn all_analytics() -> HashSet<AnalyticsChoice> {
+    // Please keep the alphabetic order.
+    [
+        AnalyticsChoice::AddressBalance,
+        AnalyticsChoice::BaseTokenActivity,
+        AnalyticsChoice::BlockActivity,
+        AnalyticsChoice::ActiveAddresses,
+        AnalyticsChoice::LedgerOutputs,
+        AnalyticsChoice::LedgerSize,
+        AnalyticsChoice::MilestoneSize,
+        AnalyticsChoice::OutputActivity,
+        AnalyticsChoice::ProtocolParameters,
+        AnalyticsChoice::TransactionSizeDistribution,
+        AnalyticsChoice::UnclaimedTokens,
+        AnalyticsChoice::UnlockConditions,
+    ]
+    .into()
+}
 
-        match value {
-            // Please keep the alphabetic order.
-            AnalyticsChoice::Addresses => Box::new(AddressAnalytics),
-            AnalyticsChoice::BaseToken => Box::new(BaseTokenActivityAnalytics),
-            AnalyticsChoice::BlockActivity => Box::new(BlockActivityAnalytics),
-            AnalyticsChoice::DailyActiveAddresses => Box::<DailyActiveAddressesAnalytics>::default(),
-            AnalyticsChoice::LedgerOutputs => Box::new(LedgerOutputAnalytics),
-            AnalyticsChoice::LedgerSize => Box::new(LedgerSizeAnalytics),
-            AnalyticsChoice::OutputActivity => Box::new(OutputActivityAnalytics),
-            AnalyticsChoice::ProtocolParameters => Box::new(ProtocolParametersAnalytics),
-            AnalyticsChoice::UnclaimedTokens => Box::new(UnclaimedTokenAnalytics),
-            AnalyticsChoice::UnlockConditions => Box::new(UnlockConditionAnalytics),
-        }
-    }
+#[allow(missing_docs)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, clap::ValueEnum)]
+pub enum IntervalAnalyticsChoice {
+    // Please keep the alphabetic order.
+    ActiveAddresses,
+}
+
+/// Returns a list of trait objects for all analytics.
+pub fn all_interval_analytics() -> HashSet<IntervalAnalyticsChoice> {
+    // Please keep the alphabetic order.
+    [IntervalAnalyticsChoice::ActiveAddresses].into()
 }

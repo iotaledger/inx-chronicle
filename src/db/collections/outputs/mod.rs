@@ -5,7 +5,7 @@ mod indexer;
 
 use std::borrow::Borrow;
 
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::{doc, to_bson, to_document},
     error::Error,
@@ -27,9 +27,12 @@ use crate::{
         ledger::{
             LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
         },
-        stardust::block::{
-            output::{AliasId, NftId, Output, OutputId},
-            Address, BlockId,
+        stardust::{
+            block::{
+                output::{AliasId, NftId, Output, OutputId},
+                Address, BlockId,
+            },
+            milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,
     },
@@ -58,7 +61,7 @@ impl MongoDbCollection for OutputCollection {
 
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
         Self {
-            db: db.db.clone(),
+            db: db.db(),
             collection,
         }
     }
@@ -299,6 +302,106 @@ impl OutputCollection {
         .await
     }
 
+    /// Stream all [`LedgerOutput`]s that were unspent at a given ledger index.
+    pub async fn get_unspent_output_stream(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
+        self.aggregate(
+            vec![
+                doc! { "$match": {
+                    "metadata.booked.milestone_index" : { "$lte": ledger_index },
+                    "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+                } },
+                doc! { "$project": {
+                    "output_id": "$_id",
+                    "block_id": "$metadata.block_id",
+                    "booked": "$metadata.booked",
+                    "output": "$output",
+                    "rent_structure": "$details.rent_structure",
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+
+    /// Get all created [`LedgerOutput`]s for the given milestone.
+    pub async fn get_created_outputs(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
+        self.aggregate(
+            [
+                doc! { "$match": {
+                    "metadata.booked.milestone_index": { "$eq": index }
+                } },
+                doc! { "$project": {
+                    "output_id": "$_id",
+                    "block_id": "$metadata.block_id",
+                    "booked": "$metadata.booked",
+                    "output": "$output",
+                    "rent_structure": "$details.rent_structure",
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+
+    /// Get all consumed [`LedgerSpent`]s for the given milestone.
+    pub async fn get_consumed_outputs(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<LedgerSpent, Error>>, Error> {
+        self.aggregate(
+            [
+                doc! { "$match": {
+                    "metadata.spent_metadata.spent.milestone_index": { "$eq": index }
+                } },
+                doc! { "$project": {
+                    "output": {
+                        "output_id": "$_id",
+                        "block_id": "$metadata.block_id",
+                        "booked": "$metadata.booked",
+                        "output": "$output",
+                        "rent_structure": "$details.rent_structure",
+                    },
+                    "spent_metadata": "$metadata.spent_metadata",
+                } },
+            ],
+            None,
+        )
+        .await
+    }
+
+    /// Get all ledger updates (i.e. consumed [`Output`]s) for the given milestone.
+    pub async fn get_ledger_update_stream(
+        &self,
+        ledger_index: MilestoneIndex,
+    ) -> Result<impl Stream<Item = Result<(OutputId, Output), Error>>, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            output_id: OutputId,
+            output: Output,
+        }
+        Ok(self
+            .aggregate::<Res>(
+                vec![
+                    doc! { "$match": {
+                        "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
+                    } },
+                    doc! { "$project": {
+                        "output_id": "$_id",
+                        "output": "$output",
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|res| (res.output_id, res.output)))
+    }
+
     /// Gets the spending transaction metadata of an [`Output`] by [`OutputId`].
     pub async fn get_spending_transaction_metadata(
         &self,
@@ -391,6 +494,52 @@ impl OutputCollection {
                 .unwrap_or_default(),
             ))
         }
+    }
+
+    /// Get the address activity in a date
+    pub async fn get_address_activity_count_in_range(
+        &self,
+        start_date: time::Date,
+        end_date: time::Date,
+    ) -> Result<usize, Error> {
+        #[derive(Deserialize)]
+        struct Res {
+            count: usize,
+        }
+
+        let (start_timestamp, end_timestamp) = (
+            MilestoneTimestamp::from(start_date.midnight().assume_utc()),
+            MilestoneTimestamp::from(end_date.midnight().assume_utc()),
+        );
+
+        Ok(self
+            .aggregate::<Res>(
+                [
+                    doc! { "$match": { "$or": [
+                        { "metadata.booked.milestone_timestamp": {
+                            "$gte": start_timestamp,
+                            "$lt": end_timestamp
+                        } },
+                        { "metadata.spent_metadata.spent.milestone_timestamp": {
+                            "$gte": start_timestamp,
+                            "$lt": end_timestamp
+                        } },
+                    ] } },
+                    doc! { "$group": {
+                        "_id": "$details.address",
+                    } },
+                    doc! { "$group": {
+                        "_id": null,
+                        "count": { "$sum": 1 }
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|r| r.count)
+            .try_next()
+            .await?
+            .unwrap_or_default())
     }
 }
 
