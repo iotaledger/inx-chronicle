@@ -14,9 +14,9 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::{
-        stardust::block::payload::{milestone::MilestoneId, treasury_transaction::TreasuryTransactionPayload},
-        tangle::MilestoneIndex,
+    types::stardust::tangle::{
+        block::payload::{milestone::MilestoneId, treasury_transaction::TreasuryTransactionPayload},
+        milestone::MilestoneIndex,
     },
 };
 

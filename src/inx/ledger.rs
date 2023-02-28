@@ -9,8 +9,10 @@ use crate::{
     maybe_missing,
     types::{
         context::{TryFromWithContext, TryIntoWithContext},
-        stardust::ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
-        tangle::MilestoneIndex,
+        stardust::{
+            ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
+            tangle::milestone::MilestoneIndex,
+        },
     },
 };
 

@@ -10,9 +10,9 @@ use axum::{
 };
 use chronicle::{
     db::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
-    types::{
-        stardust::block::{output::OutputId, Address},
-        tangle::MilestoneIndex,
+    types::stardust::tangle::{
+        block::{output::OutputId, Address},
+        milestone::MilestoneIndex,
     },
 };
 use mongodb::bson;

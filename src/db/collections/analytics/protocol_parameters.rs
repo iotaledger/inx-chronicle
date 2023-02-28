@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use super::{Analytic, Error, Measurement, PerMilestone};
 use crate::{
     db::{collections::ProtocolUpdateCollection, MongoDb},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    types::stardust::tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
 };
 
 /// Computes the statistics about the token claiming process.

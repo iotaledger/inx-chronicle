@@ -15,12 +15,12 @@ use chronicle::{
         MongoDb,
     },
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
-    types::{
-        stardust::{
+    types::stardust::{
+        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        tangle::{
             block::{Block, BlockId, Payload},
-            ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+            milestone::MilestoneIndex,
         },
-        tangle::MilestoneIndex,
     },
 };
 use eyre::{bail, Result};
@@ -48,7 +48,7 @@ pub async fn gather_analytics(
     influxdb: &chronicle::db::influxdb::InfluxDb,
     analytics: &mut Vec<Box<dyn chronicle::db::collections::analytics::Analytic>>,
     milestone_index: MilestoneIndex,
-    milestone_timestamp: chronicle::types::stardust::milestone::MilestoneTimestamp,
+    milestone_timestamp: chronicle::types::stardust::tangle::milestone::MilestoneTimestamp,
 ) -> eyre::Result<()> {
     let mut tasks = JoinSet::new();
 
@@ -446,7 +446,7 @@ impl InxWorker {
 
         let payload =
             if let iota_types::block::payload::Payload::Milestone(payload) = milestone.milestone.inner_unverified()? {
-                chronicle::types::stardust::block::payload::MilestonePayload::from(payload)
+                chronicle::types::stardust::tangle::block::payload::MilestonePayload::from(payload)
             } else {
                 // The raw data is guaranteed to contain a milestone payload.
                 unreachable!();

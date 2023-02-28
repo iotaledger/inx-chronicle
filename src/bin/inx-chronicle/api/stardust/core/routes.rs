@@ -21,14 +21,16 @@ use chronicle::{
     types::{
         context::TryFromWithContext,
         stardust::{
-            block::{
-                output::OutputId,
-                payload::{milestone::MilestoneId, transaction::TransactionId},
-                BlockId,
-            },
             ledger::BlockMetadata,
+            tangle::{
+                block::{
+                    output::OutputId,
+                    payload::{milestone::MilestoneId, transaction::TransactionId},
+                    BlockId,
+                },
+                milestone::MilestoneIndex,
+            },
         },
-        tangle::MilestoneIndex,
     },
 };
 use futures::TryStreamExt;

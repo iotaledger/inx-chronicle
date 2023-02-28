@@ -9,7 +9,7 @@ use influxdb::InfluxDbWriteable;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use crate::types::tangle::MilestoneIndex;
+use crate::types::stardust::tangle::milestone::MilestoneIndex;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, InfluxDbWriteable)]
 #[allow(missing_docs)]

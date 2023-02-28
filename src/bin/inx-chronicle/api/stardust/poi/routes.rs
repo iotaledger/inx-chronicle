@@ -13,7 +13,10 @@ use chronicle::{
         collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
-    types::{node::MilestoneKeyRange, stardust::block::BlockId, tangle::MilestoneIndex},
+    types::{
+        node::MilestoneKeyRange,
+        stardust::tangle::{block::BlockId, milestone::MilestoneIndex},
+    },
 };
 
 use super::{

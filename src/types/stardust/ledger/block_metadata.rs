@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{ConflictReason, LedgerInclusionState};
-use crate::types::{stardust::block::BlockId, tangle::MilestoneIndex};
+use crate::types::stardust::tangle::{block::BlockId, MilestoneIndex};
 
 /// Block metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

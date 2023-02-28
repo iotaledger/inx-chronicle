@@ -383,10 +383,10 @@ pub enum Subcommands {
     FillAnalytics {
         /// The inclusive starting milestone index.
         #[arg(short, long)]
-        start_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        start_milestone: Option<chronicle::types::stardust::tangle::milestone::MilestoneIndex>,
         /// The exclusive ending milestone index.
         #[arg(short, long)]
-        end_milestone: Option<chronicle::types::tangle::MilestoneIndex>,
+        end_milestone: Option<chronicle::types::stardust::tangle::milestone::MilestoneIndex>,
         /// The number of parallel tasks to use when filling the analytics.
         #[arg(short, long)]
         num_tasks: Option<usize>,

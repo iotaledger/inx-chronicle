@@ -12,7 +12,7 @@ use axum::{
 };
 use chronicle::{
     db::{collections::MilestoneCollection, MongoDb},
-    types::stardust::milestone::MilestoneTimestamp,
+    types::stardust::tangle::milestone::MilestoneTimestamp,
 };
 use hyper::StatusCode;
 use regex::RegexSet;

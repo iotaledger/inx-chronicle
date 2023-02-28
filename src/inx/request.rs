@@ -7,7 +7,7 @@ use std::ops::{Bound, RangeBounds};
 
 use inx::proto;
 
-use crate::types::{stardust::block::payload::MilestoneId, tangle::MilestoneIndex};
+use crate::types::stardust::tangle::{block::payload::MilestoneId, milestone::MilestoneIndex};
 
 /// A request for a milestone that can either be a [`MilestoneIndex`] or a [`MilestoneId`].
 pub enum MilestoneRequest {

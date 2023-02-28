@@ -5,16 +5,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::{
-    stardust::{
-        block::{
-            output::{Output, OutputId},
-            payload::transaction::TransactionId,
-            BlockId,
-        },
-        milestone::MilestoneTimestamp,
+use crate::types::stardust::tangle::{
+    block::{
+        output::{Output, OutputId},
+        payload::transaction::TransactionId,
+        BlockId,
     },
-    tangle::MilestoneIndex,
+    milestone::{MilestoneIndex, MilestoneTimestamp},
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

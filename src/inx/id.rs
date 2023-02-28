@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::InxError;
-use crate::types::stardust::block::{
+use crate::types::stardust::tangle::block::{
     output::OutputId,
     payload::{MilestoneId, TransactionId},
     BlockId,

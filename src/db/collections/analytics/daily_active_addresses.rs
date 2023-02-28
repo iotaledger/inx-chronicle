@@ -10,7 +10,7 @@ use time::{Date, OffsetDateTime};
 use super::{Analytic, Error, Measurement, TimeInterval};
 use crate::{
     db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    types::stardust::tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
 };
 
 /// Computes the activity of addresses within a milestone.

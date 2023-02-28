@@ -11,15 +11,15 @@ use chronicle::{
         },
         MongoDb,
     },
-    types::{
-        stardust::block::{
+    types::stardust::tangle::{
+        block::{
             payload::{
                 milestone::MilestoneId, MilestonePayload, TaggedDataPayload, TransactionPayload,
                 TreasuryTransactionPayload,
             },
             Address, BlockId,
         },
-        tangle::MilestoneIndex,
+        milestone::MilestoneIndex,
     },
 };
 use futures::{StreamExt, TryStreamExt};

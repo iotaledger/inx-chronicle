@@ -8,7 +8,7 @@ use super::queries::{
     AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, NativeTokensQuery, SenderQuery,
     StorageDepositReturnQuery, TagQuery, TimelockQuery,
 };
-use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
+use crate::types::stardust::tangle::{block::Address, milestone::MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]

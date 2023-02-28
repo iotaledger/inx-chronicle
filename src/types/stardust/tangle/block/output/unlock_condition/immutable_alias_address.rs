@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::Address;
+use crate::types::stardust::tangle::block::Address;
 
 /// Defines the permanent alias address that owns this output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

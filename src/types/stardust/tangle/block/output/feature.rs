@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::feature as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::Address;
+use crate::types::stardust::tangle::block::Address;
 
 /// The different [`Feature`] variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

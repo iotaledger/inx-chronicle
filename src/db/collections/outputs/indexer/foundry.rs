@@ -5,7 +5,7 @@ use mongodb::bson::{self, doc};
 use primitive_types::U256;
 
 use super::queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery};
-use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
+use crate::types::stardust::tangle::{block::Address, milestone::MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]

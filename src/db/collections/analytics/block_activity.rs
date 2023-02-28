@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{Analytic, Error, Measurement, PerMilestone};
 use crate::{
     db::{collections::BlockCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    types::stardust::tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
 };
 
 /// Computes the statistics about the token claiming process.

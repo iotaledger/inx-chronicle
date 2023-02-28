@@ -17,13 +17,12 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    types::{
-        stardust::{
+    types::stardust::{
+        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        tangle::{
             block::{output::OutputId, Address},
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-            milestone::MilestoneTimestamp,
+            milestone::{MilestoneIndex, MilestoneTimestamp},
         },
-        tangle::MilestoneIndex,
     },
 };
 

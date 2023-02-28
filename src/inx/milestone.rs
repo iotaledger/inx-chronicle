@@ -7,7 +7,7 @@ use iota_types::block as iota;
 use super::{raw::RawMessage, InxError, RawProtocolParametersMessage};
 use crate::{
     maybe_missing,
-    types::{stardust::block::payload::MilestoneId, tangle::MilestoneIndex},
+    types::stardust::tangle::{block::payload::MilestoneId, milestone::MilestoneIndex},
 };
 
 #[allow(missing_docs)]

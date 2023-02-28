@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{Analytic, Error, Measurement, PerMilestone};
 use crate::{
     db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::{stardust::milestone::MilestoneTimestamp, tangle::MilestoneIndex},
+    types::stardust::tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
 };
 
 /// Computes the number of addresses that hold a balance.

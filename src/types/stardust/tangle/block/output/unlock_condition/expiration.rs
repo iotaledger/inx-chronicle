@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::{block::Address, milestone::MilestoneTimestamp};
+use crate::types::stardust::tangle::{block::Address, milestone::MilestoneTimestamp};
 
 /// Defines a unix time until which only Address, defined in Address Unlock Condition, is allowed to unlock the output.
 /// After or at the unix time, only Return Address can unlock it.

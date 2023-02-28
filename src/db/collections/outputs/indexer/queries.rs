@@ -4,7 +4,7 @@
 use mongodb::bson::{self, doc, Document};
 use primitive_types::U256;
 
-use crate::types::stardust::{
+use crate::types::stardust::tangle::{
     block::{output::NativeTokenAmount, Address},
     milestone::MilestoneTimestamp,
 };

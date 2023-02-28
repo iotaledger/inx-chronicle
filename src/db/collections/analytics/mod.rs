@@ -43,8 +43,8 @@ use self::{
 use crate::{
     db::MongoDb,
     types::{
-        stardust::milestone::MilestoneTimestamp,
-        tangle::{MilestoneIndex, ProtocolParameters},
+        stardust::tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
+        tangle::ProtocolParameters,
     },
 };
 

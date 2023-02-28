@@ -41,7 +41,7 @@ pub use self::{
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},
 };
-use crate::types::stardust::block::{
+use crate::types::stardust::tangle::block::{
     output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
     Output,
 };

@@ -13,8 +13,10 @@ use serde::{Deserialize, Serialize};
 pub use self::milestone_id::MilestoneId;
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
-    stardust::block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
-    tangle::MilestoneIndex,
+    stardust::tangle::{
+        block::{payload::treasury_transaction::TreasuryTransactionPayload, Address, BlockId, Signature},
+        milestone::MilestoneIndex,
+    },
     util::bytify,
 };
 

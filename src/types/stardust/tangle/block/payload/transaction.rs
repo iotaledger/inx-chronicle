@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
-    stardust::block::{Input, Output, Payload, Unlock},
+    stardust::tangle::block::{Input, Output, Payload, Unlock},
     util::bytify,
 };
 

@@ -13,8 +13,11 @@ use crate::{
         MongoDb, MongoDbCollection, MongoDbCollectionExt,
     },
     types::{
-        stardust::{ledger::RentStructureBytes, milestone::MilestoneTimestamp},
-        tangle::{MilestoneIndex, RentStructure},
+        stardust::{
+            ledger::RentStructureBytes,
+            tangle::milestone::{MilestoneIndex, MilestoneTimestamp},
+        },
+        tangle::RentStructure,
     },
 };
 

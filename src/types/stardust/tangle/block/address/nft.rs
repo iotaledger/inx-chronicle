@@ -7,7 +7,7 @@ use iota_types::block::address as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::output::NftId;
+use crate::types::stardust::tangle::block::output::NftId;
 
 /// An NFT address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::types::stardust::block::Address;
+use crate::types::stardust::tangle::block::Address;
 
 /// Defines the Governor Address that owns this output, that is, it can unlock it with the proper Unlock in a
 /// transaction that governance transitions the alias output.

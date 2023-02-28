@@ -38,7 +38,7 @@ pub use self::{
 use super::Address;
 use crate::types::{
     context::{TryFromWithContext, TryIntoWithContext},
-    stardust::block::payload::transaction::TransactionId,
+    stardust::tangle::block::payload::transaction::TransactionId,
     tangle::ProtocolParameters,
 };
 
