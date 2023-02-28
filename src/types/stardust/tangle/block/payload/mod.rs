@@ -19,7 +19,7 @@ pub use self::{
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,
 };
-use crate::types::context::{TryFromWithContext, TryIntoWithContext};
+use crate::types::stardust::protocol::{TryFromWithContext, TryIntoWithContext};
 
 /// The different payloads of a [`Block`](crate::types::stardust::block::Block).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -3,6 +3,5 @@
 
 //! Module that contains the types.
 
-pub mod context;
-pub mod stardust;
 pub mod serde;
+pub mod stardust;

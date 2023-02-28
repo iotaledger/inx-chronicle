@@ -10,9 +10,11 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    context::{TryFromWithContext, TryIntoWithContext},
-    stardust::tangle::block::{Input, Output, Payload, Unlock},
     serde::bytify,
+    stardust::{
+        protocol::{TryFromWithContext, TryIntoWithContext},
+        tangle::block::{Input, Output, Payload, Unlock},
+    },
 };
 
 /// Uniquely identifies a transaction.

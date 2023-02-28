@@ -18,18 +18,16 @@ use chronicle::{
         },
         MongoDb,
     },
-    types::{
-        context::TryFromWithContext,
-        stardust::{
-            ledger::BlockMetadata,
-            tangle::{
-                block::{
-                    output::OutputId,
-                    payload::{milestone::MilestoneId, transaction::TransactionId},
-                    BlockId,
-                },
-                milestone::MilestoneIndex,
+    types::stardust::{
+        ledger::BlockMetadata,
+        protocol::TryFromWithContext,
+        tangle::{
+            block::{
+                output::OutputId,
+                payload::{milestone::MilestoneId, transaction::TransactionId},
+                BlockId,
             },
+            milestone::MilestoneIndex,
         },
     },
 };

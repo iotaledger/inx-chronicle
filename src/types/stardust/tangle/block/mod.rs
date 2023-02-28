@@ -17,7 +17,7 @@ pub use self::{
     address::Address, block_id::BlockId, input::Input, output::Output, payload::Payload, signature::Signature,
     unlock::Unlock,
 };
-use crate::types::context::{TryFromWithContext, TryIntoWithContext};
+use crate::types::stardust::protocol::{TryFromWithContext, TryIntoWithContext};
 
 /// The Block type.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

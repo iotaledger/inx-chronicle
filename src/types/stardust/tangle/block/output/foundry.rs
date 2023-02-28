@@ -10,7 +10,7 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, OutputAmount, TokenScheme};
-use crate::types::{context::TryFromWithContext, serde::bytify};
+use crate::types::{serde::bytify, stardust::protocol::TryFromWithContext};
 
 /// The id of a foundry.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

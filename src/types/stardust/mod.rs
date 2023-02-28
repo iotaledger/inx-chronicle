@@ -7,9 +7,9 @@
 pub mod ledger;
 /// Module containing the node models.
 pub mod node;
+/// Module containing the protocol models.
+pub mod protocol;
 /// Module containing the Tangle models.
 pub mod tangle;
-
-mod protocol;
 
 pub use self::protocol::{ProtocolParameters, RentStructure};
