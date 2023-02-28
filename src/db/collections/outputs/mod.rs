@@ -24,12 +24,14 @@ use crate::{
         MongoDb,
     },
     types::{
-        ledger::{
-            LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
-        },
-        stardust::block::{
-            output::{AliasId, NftId, Output, OutputId},
-            Address, BlockId,
+        stardust::{
+            block::{
+                output::{AliasId, NftId, Output, OutputId},
+                Address, BlockId,
+            },
+            ledger::{
+                LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, OutputMetadata, RentStructureBytes, SpentMetadata,
+            },
         },
         tangle::MilestoneIndex,
     },

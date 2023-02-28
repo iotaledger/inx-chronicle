@@ -7,13 +7,13 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::collections::OutputCollection,
-        types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
-            stardust::block::{
+        types::stardust::{
+            block::{
                 output::{BasicOutput, OutputAmount, OutputId},
                 payload::TransactionId,
                 BlockId, Output,
             },
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
         },
     };
     use decimal::d128;

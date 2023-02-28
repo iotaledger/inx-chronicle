@@ -8,7 +8,7 @@ use iota_types::block::payload::milestone as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ledger::MilestoneIndexTimestamp, stardust::milestone::MilestoneTimestamp};
+use crate::types::stardust::{ledger::MilestoneIndexTimestamp, milestone::MilestoneTimestamp};
 
 /// The index of a given milestone.
 #[derive(

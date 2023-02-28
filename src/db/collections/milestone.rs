@@ -20,9 +20,9 @@ use crate::{
         MongoDb,
     },
     types::{
-        ledger::MilestoneIndexTimestamp,
         stardust::{
             block::payload::milestone::{MilestoneId, MilestoneOption, MilestonePayload},
+            ledger::MilestoneIndexTimestamp,
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,

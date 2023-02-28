@@ -18,9 +18,9 @@ use crate::{
         MongoDb,
     },
     types::{
-        ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
         stardust::{
             block::{output::OutputId, Address},
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
             milestone::MilestoneTimestamp,
         },
         tangle::MilestoneIndex,

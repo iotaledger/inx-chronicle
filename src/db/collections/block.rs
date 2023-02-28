@@ -19,8 +19,10 @@ use crate::{
         MongoDb,
     },
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState},
-        stardust::block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
+        stardust::{
+            block::{output::OutputId, payload::transaction::TransactionId, Block, BlockId},
+            ledger::{BlockMetadata, LedgerInclusionState},
+        },
         tangle::MilestoneIndex,
     },
 };

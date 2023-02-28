@@ -12,12 +12,12 @@ mod test_rand {
             collections::{BlockCollection, OutputCollection},
             MongoDbCollectionExt,
         },
-        types::{
+        types::stardust::{
+            block::{output::OutputId, payload::TransactionEssence, Block, BlockId, Input, Payload},
             ledger::{
                 BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp,
                 RentStructureBytes,
             },
-            stardust::block::{output::OutputId, payload::TransactionEssence, Block, BlockId, Input, Payload},
         },
     };
     use futures::TryStreamExt;

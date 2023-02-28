@@ -4,12 +4,7 @@
 //! Module that contains the types.
 
 pub mod context;
-
-pub mod ledger;
-
 pub mod node;
-
 pub mod stardust;
-
 pub mod tangle;
 pub mod util;

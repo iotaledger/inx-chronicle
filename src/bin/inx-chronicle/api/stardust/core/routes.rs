@@ -20,11 +20,13 @@ use chronicle::{
     },
     types::{
         context::TryFromWithContext,
-        ledger::BlockMetadata,
-        stardust::block::{
-            output::OutputId,
-            payload::{milestone::MilestoneId, transaction::TransactionId},
-            BlockId,
+        stardust::{
+            block::{
+                output::OutputId,
+                payload::{milestone::MilestoneId, transaction::TransactionId},
+                BlockId,
+            },
+            ledger::BlockMetadata,
         },
         tangle::MilestoneIndex,
     },

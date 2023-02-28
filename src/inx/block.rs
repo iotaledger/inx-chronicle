@@ -8,8 +8,10 @@ use super::{InxError, RawMessage};
 use crate::{
     maybe_missing,
     types::{
-        ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-        stardust::block::BlockId,
+        stardust::{
+            block::BlockId,
+            ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
+        },
         tangle::MilestoneIndex,
     },
 };

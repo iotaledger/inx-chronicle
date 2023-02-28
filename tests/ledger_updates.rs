@@ -14,12 +14,12 @@ mod test_rand {
             },
             MongoDbCollectionExt,
         },
-        types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
-            stardust::block::{
+        types::stardust::{
+            block::{
                 output::{AddressUnlockCondition, BasicOutput, OutputId},
                 BlockId, Output,
             },
+            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
         },
     };
     use futures::TryStreamExt;

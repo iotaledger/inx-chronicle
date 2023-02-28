@@ -24,8 +24,10 @@ use super::{OutputCollection, OutputDocument};
 use crate::{
     db::{collections::SortOrder, mongodb::MongoDbCollectionExt},
     types::{
-        ledger::OutputMetadata,
-        stardust::block::output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
+        stardust::{
+            block::output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
+            ledger::OutputMetadata,
+        },
         tangle::MilestoneIndex,
     },
 };

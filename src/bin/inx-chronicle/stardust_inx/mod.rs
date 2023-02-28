@@ -16,8 +16,10 @@ use chronicle::{
     },
     inx::{BlockWithMetadataMessage, Inx, InxError, LedgerUpdateMessage, MarkerMessage},
     types::{
-        ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{Block, BlockId, Payload},
+        stardust::{
+            block::{Block, BlockId, Payload},
+            ledger::{BlockMetadata, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        },
         tangle::MilestoneIndex,
     },
 };
