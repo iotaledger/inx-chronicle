@@ -20,7 +20,7 @@ impl InxWorker {
         #[cfg(feature = "analytics")]
         if let Some(analytics_info) = analytics_info {
             if milestone.at.milestone_index >= analytics_info.synced_index {
-                self.update_analytics(&milestone, analytics_info).await?;
+                self.update_analytics(milestone, analytics_info).await?;
             }
         }
         #[cfg(all(feature = "analytics", feature = "metrics"))]
@@ -30,7 +30,7 @@ impl InxWorker {
                     let analytics_elapsed = analytics_start_time.elapsed();
                     influx_db
                         .metrics()
-                        .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                        .insert(chronicle::metrics::AnalyticsMetrics {
                             time: chrono::Utc::now(),
                             milestone_index: milestone.at.milestone_index,
                             analytics_time: analytics_elapsed.as_millis() as u64,
@@ -47,7 +47,7 @@ impl InxWorker {
                 let elapsed = milestone_start_time.elapsed();
                 influx_db
                     .metrics()
-                    .insert(chronicle::db::collections::metrics::SyncMetrics {
+                    .insert(chronicle::metrics::SyncMetrics {
                         time: chrono::Utc::now(),
                         milestone_index: milestone.at.milestone_index,
                         milestone_time: elapsed.as_millis() as u64,

@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use super::*;
-use crate::model::stardust::{
+use crate::model::{
     output::{AliasId, NftId},
     Address,
 };

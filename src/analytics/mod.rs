@@ -22,14 +22,12 @@ use crate::{
     },
     model::{
         ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        stardust::{
-            payload::{
-                milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-                TransactionEssence,
-            },
-            Input, Payload,
+        payload::{
+            milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+            TransactionEssence,
         },
         tangle::ProtocolParameters,
+        Input, Payload,
     },
     tangle::{BlockData, InputSource, Milestone},
 };
@@ -353,12 +351,6 @@ impl std::fmt::Display for AnalyticsInterval {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[allow(missing_docs)]
-pub struct SyncAnalytics {
-    pub sync_time: u64,
-}
-
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct PerMilestone<M> {
@@ -398,14 +390,12 @@ mod test {
         model::{
             ledger::{BlockMetadata, LedgerOutput, LedgerSpent},
             node::NodeConfiguration,
-            stardust::{
-                payload::{
-                    milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-                    MilestoneId, MilestonePayload,
-                },
-                BlockId,
+            payload::{
+                milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+                MilestoneId, MilestonePayload,
             },
             tangle::ProtocolParameters,
+            BlockId,
         },
         tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
     };

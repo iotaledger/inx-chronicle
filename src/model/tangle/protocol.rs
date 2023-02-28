@@ -6,7 +6,7 @@
 use iota_types::block as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::model::util::stringify;
+use crate::model::serde::stringify;
 
 /// Parameters relevant to byte cost calculations.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

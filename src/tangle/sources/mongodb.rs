@@ -10,13 +10,13 @@ use thiserror::Error;
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     db::{
-        collections::{
+        mongodb::collections::{
             BlockCollection, ConfigurationUpdateCollection, MilestoneCollection, OutputCollection,
             ProtocolUpdateCollection,
         },
         MongoDb,
     },
-    model::stardust::payload::milestone::MilestoneIndex,
+    model::payload::milestone::MilestoneIndex,
     tangle::ledger_updates::LedgerUpdateStore,
 };
 

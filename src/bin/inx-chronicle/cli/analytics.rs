@@ -4,14 +4,14 @@
 use chronicle::{
     analytics::{Analytic, AnalyticsInterval, IntervalAnalytic},
     db::{
-        collections::{MilestoneCollection, OutputCollection},
         influxdb::{
             config::{all_analytics, all_interval_analytics, IntervalAnalyticsChoice},
             AnalyticsChoice, InfluxDb,
         },
+        mongodb::collections::{MilestoneCollection, OutputCollection},
         MongoDb,
     },
-    model::{stardust::payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
+    model::{payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
     tangle::{InputSource, Tangle},
 };
 use clap::Parser;
@@ -194,7 +194,7 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
                     {
                         influx_db
                             .metrics()
-                            .insert(chronicle::db::collections::metrics::AnalyticsMetrics {
+                            .insert(chronicle::metrics::AnalyticsMetrics {
                                 time: chrono::Utc::now(),
                                 milestone_index: milestone.at.milestone_index,
                                 analytics_time: elapsed.as_millis() as u64,

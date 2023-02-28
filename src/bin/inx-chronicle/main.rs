@@ -161,7 +161,7 @@ fn set_up_logging() -> eyre::Result<()> {
 }
 
 async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
-    use chronicle::db::collections;
+    use chronicle::db::mongodb::collections;
     let start_indexes = db.get_index_names().await?;
     db.create_indexes::<collections::OutputCollection>().await?;
     db.create_indexes::<collections::BlockCollection>().await?;

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::model::{
     ledger::{LedgerOutput, LedgerSpent},
-    stardust::output::OutputId,
+    output::OutputId,
 };
 
 /// Holds the ledger updates that happened during a milestone.

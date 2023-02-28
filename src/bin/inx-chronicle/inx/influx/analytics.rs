@@ -4,13 +4,14 @@
 use std::collections::HashSet;
 
 use chronicle::{
+    analytics::Analytic,
     db::{
-        collections::ApplicationStateCollection,
         influxdb::{AnalyticsChoice, InfluxDb},
+        mongodb::collections::{ApplicationStateCollection, OutputCollection},
         MongoDb,
     },
     inx::Inx,
-    model::stardust::payload::milestone::MilestoneIndex,
+    model::payload::milestone::MilestoneIndex,
     tangle::Milestone,
 };
 use futures::TryStreamExt;
@@ -63,7 +64,7 @@ impl InxWorker {
                 if !matches!(&state, Some(state) if state.prev_protocol_params == milestone.protocol_params) {
                     let ledger_state = self
                         .db
-                        .collection::<chronicle::db::collections::OutputCollection>()
+                        .collection::<OutputCollection>()
                         .get_unspent_output_stream(milestone.at.milestone_index - 1)
                         .await?
                         .try_collect::<Vec<_>>()
@@ -71,11 +72,9 @@ impl InxWorker {
 
                     let analytics = analytics_choices
                         .iter()
-                        .map(|choice| {
-                            chronicle::analytics::Analytic::init(choice, &milestone.protocol_params, &ledger_state)
-                        })
+                        .map(|choice| Analytic::init(choice, &milestone.protocol_params, &ledger_state))
                         .collect::<Vec<_>>();
-                    *state = Some(crate::cli::analytics::AnalyticsState {
+                    *state = Some(AnalyticsState {
                         analytics,
                         prev_protocol_params: milestone.protocol_params.clone(),
                     });

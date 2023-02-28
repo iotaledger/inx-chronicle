@@ -9,7 +9,8 @@ use crate::{
     maybe_missing,
     model::{
         ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-        stardust::{payload::milestone::MilestoneIndex, BlockId},
+        payload::milestone::MilestoneIndex,
+        BlockId,
     },
 };
 

@@ -14,7 +14,7 @@ use super::{
 };
 use crate::model::{
     node::NodeConfiguration,
-    stardust::payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
+    payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
     tangle::ProtocolParameters,
 };
 

@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::stardust::{
+use crate::model::{
     output::{Output, OutputId, TokenAmount},
     payload::{milestone::MilestoneIndexTimestamp, transaction::TransactionId},
     Address, BlockId,

@@ -20,7 +20,8 @@ use crate::{
     analytics::{Analytics, AnalyticsContext},
     model::{
         ledger::{LedgerOutput, LedgerSpent},
-        stardust::{output::TokenAmount, Output},
+        output::TokenAmount,
+        Output,
     },
 };
 
@@ -70,11 +71,9 @@ mod test {
         analytics::{test::TestContext, Analytics},
         model::{
             ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
-            stardust::{
-                output::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, OutputId, TokenAmount},
-                payload::{milestone::MilestoneIndexTimestamp, TransactionId},
-                Address, BlockId, Output,
-            },
+            output::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, OutputId, TokenAmount},
+            payload::{milestone::MilestoneIndexTimestamp, TransactionId},
+            Address, BlockId, Output,
         },
     };
 

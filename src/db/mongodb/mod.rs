@@ -4,6 +4,8 @@
 //! Holds the `MongoDb` type.
 
 mod collection;
+/// Module containing the collections in the database.
+pub mod collections;
 pub mod config;
 
 use std::collections::{HashMap, HashSet};

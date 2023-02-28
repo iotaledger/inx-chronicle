@@ -10,7 +10,7 @@ use crate::{
     model::{
         context::{TryFromWithContext, TryIntoWithContext},
         ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
-        stardust::payload::milestone::MilestoneIndex,
+        payload::milestone::MilestoneIndex,
     },
 };
 

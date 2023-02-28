@@ -90,11 +90,11 @@ impl ClArgs {
                 }
                 #[cfg(feature = "analytics")]
                 Subcommands::FillAnalytics(cmd) => {
-                    cmd.handle(&config).await?;
+                    cmd.handle(config).await?;
                 }
                 #[cfg(feature = "analytics")]
                 Subcommands::FillIntervalAnalytics(cmd) => {
-                    cmd.handle(&config).await?;
+                    cmd.handle(config).await?;
                 }
                 #[cfg(debug_assertions)]
                 Subcommands::ClearDatabase { run } => {

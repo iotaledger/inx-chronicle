@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use chronicle::{
     db::{
-        collections::{
+        mongodb::collections::{
             ApplicationStateCollection, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
             MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
@@ -19,10 +19,8 @@ use chronicle::{
     inx::{Inx, InxError},
     model::{
         ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        stardust::{
-            payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-            Payload,
-        },
+        payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+        Payload,
     },
     tangle::{Milestone, Tangle},
 };

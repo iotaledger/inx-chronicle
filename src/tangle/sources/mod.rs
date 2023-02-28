@@ -14,14 +14,12 @@ use super::ledger_updates::LedgerUpdateStore;
 use crate::model::{
     ledger::BlockMetadata,
     node::NodeConfiguration,
-    stardust::{
-        payload::{
-            milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-            MilestoneId, MilestonePayload,
-        },
-        Block, BlockId,
+    payload::{
+        milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+        MilestoneId, MilestonePayload,
     },
     tangle::ProtocolParameters,
+    Block, BlockId,
 };
 
 /// Logical grouping of data that belongs to a milestone.

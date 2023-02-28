@@ -6,8 +6,8 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::{collections::ProtocolUpdateCollection, MongoDbCollectionExt},
-        model::{stardust::payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
+        db::{mongodb::collections::ProtocolUpdateCollection, MongoDbCollectionExt},
+        model::{payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
     };
     use iota_types::block::rand::number::rand_number_range;
 

@@ -6,6 +6,7 @@ use axum::{
     extract::{FromRequest, Query},
     Extension,
 };
+use chronicle::model::payload::milestone::MilestoneTimestamp;
 use serde::Deserialize;
 
 use super::{
@@ -69,42 +70,33 @@ pub struct TimeRangeQuery {
     end_timestamp: Option<u32>,
 }
 
-mod stardust {
-    use chronicle::model::stardust::payload::milestone::MilestoneTimestamp;
-
-    use super::*;
-    use crate::api::error::RequestError;
-
-    #[derive(Copy, Clone)]
-    pub struct TimeRange {
-        pub start_timestamp: Option<MilestoneTimestamp>,
-        pub end_timestamp: Option<MilestoneTimestamp>,
-    }
-
-    #[async_trait]
-    impl<B: Send> FromRequest<B> for TimeRange {
-        type Rejection = ApiError;
-
-        async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-            let Query(TimeRangeQuery {
-                start_timestamp,
-                end_timestamp,
-            }) = Query::<TimeRangeQuery>::from_request(req)
-                .await
-                .map_err(RequestError::from)?;
-            if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
-                return Err(ApiError::from(RequestError::BadTimeRange));
-            }
-            let time_range = TimeRange {
-                start_timestamp: start_timestamp.map(Into::into),
-                end_timestamp: end_timestamp.map(Into::into),
-            };
-            Ok(time_range)
-        }
-    }
+#[derive(Copy, Clone)]
+pub struct TimeRange {
+    pub start_timestamp: Option<MilestoneTimestamp>,
+    pub end_timestamp: Option<MilestoneTimestamp>,
 }
 
-pub use stardust::*;
+#[async_trait]
+impl<B: Send> FromRequest<B> for TimeRange {
+    type Rejection = ApiError;
+
+    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+        let Query(TimeRangeQuery {
+            start_timestamp,
+            end_timestamp,
+        }) = Query::<TimeRangeQuery>::from_request(req)
+            .await
+            .map_err(RequestError::from)?;
+        if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {
+            return Err(ApiError::from(RequestError::BadTimeRange));
+        }
+        let time_range = TimeRange {
+            start_timestamp: start_timestamp.map(Into::into),
+            end_timestamp: end_timestamp.map(Into::into),
+        };
+        Ok(time_range)
+    }
+}
 
 #[cfg(test)]
 mod test {

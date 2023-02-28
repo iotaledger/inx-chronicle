@@ -6,14 +6,12 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
+        db::mongodb::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         model::{
             ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
-            stardust::{
-                output::OutputId,
-                payload::{milestone::MilestoneIndexTimestamp, TransactionId},
-                BlockId, Output,
-            },
+            output::OutputId,
+            payload::{milestone::MilestoneIndexTimestamp, TransactionId},
+            BlockId, Output,
         },
     };
 

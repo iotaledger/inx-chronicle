@@ -3,9 +3,6 @@
 
 //! Module that contains the database and associated models.
 
-/// Module containing the collections in the database.
-pub mod collections;
-
 /// Module containing InfluxDb types and traits.
 #[cfg(feature = "influx")]
 pub mod influxdb;

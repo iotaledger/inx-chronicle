@@ -6,7 +6,7 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::{collections::ConfigurationUpdateCollection, MongoDbCollectionExt},
+        db::{mongodb::collections::ConfigurationUpdateCollection, MongoDbCollectionExt},
         model::node::{BaseToken, MilestoneKeyRange, NodeConfiguration},
     };
 

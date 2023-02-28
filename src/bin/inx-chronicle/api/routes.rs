@@ -11,8 +11,8 @@ use axum::{
     Extension, Json, TypedHeader,
 };
 use chronicle::{
-    db::{collections::MilestoneCollection, MongoDb},
-    model::stardust::payload::milestone::MilestoneTimestamp,
+    db::{mongodb::collections::MilestoneCollection, MongoDb},
+    model::payload::milestone::MilestoneTimestamp,
 };
 use hyper::StatusCode;
 use regex::RegexSet;
@@ -39,10 +39,14 @@ const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
 pub fn routes() -> Router {
     #[allow(unused_mut)]
-    let mut router = Router::new();
+    let mut router = Router::new()
+        .nest("/core/v2", super::core::routes())
+        .nest("/explorer/v2", super::explorer::routes())
+        .nest("/indexer/v1", super::indexer::routes());
 
+    #[cfg(feature = "poi")]
     {
-        router = router.merge(super::stardust::routes())
+        router = router.nest("/poi/v1", super::poi::routes());
     }
 
     Router::new()

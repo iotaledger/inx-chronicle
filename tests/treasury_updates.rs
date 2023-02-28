@@ -8,8 +8,8 @@ mod test_rand {
     use std::collections::HashMap;
 
     use chronicle::{
-        db::{collections::TreasuryCollection, MongoDbCollectionExt},
-        model::stardust::payload::{milestone::MilestoneIndex, MilestoneId, TreasuryTransactionPayload},
+        db::{mongodb::collections::TreasuryCollection, MongoDbCollectionExt},
+        model::payload::{milestone::MilestoneIndex, MilestoneId, TreasuryTransactionPayload},
     };
     use iota_types::block::rand::number::rand_number_range;
 
