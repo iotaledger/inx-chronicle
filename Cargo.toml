@@ -108,7 +108,7 @@ api = [
     "dep:zeroize",
 ]
 influx = [
-    "dep:influxdb"
+    "dep:influxdb",
 ]
 inx = [ 
     "dep:inx",

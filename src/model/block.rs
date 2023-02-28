@@ -163,7 +163,7 @@ mod rand {
             }
         }
 
-        /// Generates a random [`Block`] with a [`TransactionPayload`](payload::TransactionPayload).
+        /// Generates a random [`Block`] with a [`TransactionPayload`](crate::model::payload::TransactionPayload).
         pub fn rand_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
@@ -173,7 +173,7 @@ mod rand {
             }
         }
 
-        /// Generates a random [`Block`] with a [`MilestonePayload`](payload::MilestonePayload).
+        /// Generates a random [`Block`] with a [`MilestonePayload`](crate::model::payload::MilestonePayload).
         pub fn rand_milestone(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
@@ -183,7 +183,7 @@ mod rand {
             }
         }
 
-        /// Generates a random [`Block`] with a [`TaggedDataPayload`](payload::TaggedDataPayload).
+        /// Generates a random [`Block`] with a [`TaggedDataPayload`](crate::model::payload::TaggedDataPayload).
         pub fn rand_tagged_data() -> Self {
             Self {
                 protocol_version: rand_number(),
@@ -194,7 +194,7 @@ mod rand {
         }
 
         /// Generates a random [`Block`] with a
-        /// [`TreasuryTransactionPayload`](payload::TreasuryTransactionPayload).
+        /// [`TreasuryTransactionPayload`](crate::model::payload::TreasuryTransactionPayload).
         pub fn rand_treasury_transaction(ctx: &iota_types::block::protocol::ProtocolParameters) -> Self {
             Self {
                 protocol_version: rand_number(),
