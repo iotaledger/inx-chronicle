@@ -13,7 +13,7 @@ rust-version = "1.60"
 
 [lib]
 name = "chronicle"
-path = "src/lib.rs"
+path = "src/lib/lib.rs"
 
 [[bin]]
 name = "inx-chronicle"
