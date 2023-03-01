@@ -153,7 +153,7 @@ mod test_rand {
         assert_eq!(block_collection.count().await.unwrap(), 10);
 
         let mut s = block_collection
-            .get_block_children(&parents[0], 1.into(), 100, 0)
+            .get_block_children(&parents[0], 1.into(), 15, 100, 0)
             .await
             .unwrap();
 
