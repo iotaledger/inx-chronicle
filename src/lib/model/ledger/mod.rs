@@ -4,9 +4,10 @@
 //! Module containing the ledger data models.
 
 pub mod address;
-mod block_metadata;
-mod conflict_reason;
-mod inclusion_state;
-mod output_metadata;
+pub mod block_metadata;
+pub mod conflict_reason;
+pub mod inclusion_state;
+pub mod output;
+pub mod output_metadata;
 
-pub use self::{address::*, block_metadata::*, conflict_reason::*, inclusion_state::*, output_metadata::*};
+pub use self::{address::*, block_metadata::*, conflict_reason::*, inclusion_state::*, output::*, output_metadata::*};

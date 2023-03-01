@@ -9,10 +9,8 @@ pub mod context;
 pub mod input;
 pub mod ledger;
 pub mod node;
-pub mod output;
 pub mod payload;
 pub mod serde;
-pub mod signature;
 pub mod tangle;
 pub mod unlock;
 
@@ -22,6 +20,6 @@ pub use self::{
     ledger::*,
     output::Output,
     payload::Payload,
-    signature::Signature,
+    node::signature::Signature,
     unlock::Unlock,
 };

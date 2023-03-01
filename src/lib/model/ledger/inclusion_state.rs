@@ -1,6 +1,8 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the [`LedgerInclusionState`] type.
+
 use iota_types::api::core::dto as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
