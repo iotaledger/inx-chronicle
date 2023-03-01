@@ -3,7 +3,6 @@
 
 //! Module that contains the types.
 
-pub mod address;
 /// Module containing the block model.
 pub mod block;
 pub mod context;
@@ -18,9 +17,9 @@ pub mod tangle;
 pub mod unlock;
 
 pub use self::{
-    address::Address,
     block::{Block, BlockId},
     input::Input,
+    ledger::*,
     output::Output,
     payload::Payload,
     signature::Signature,
