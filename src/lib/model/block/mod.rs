@@ -3,6 +3,7 @@
 
 pub mod block_metadata;
 pub mod payload;
+pub mod signature;
 
 use std::str::FromStr;
 

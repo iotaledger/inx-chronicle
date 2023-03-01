@@ -11,8 +11,8 @@ use axum::{
 use chronicle::{
     db::mongodb::collections::SortOrder,
     model::{
-        output::OutputId,
         block::payload::milestone::{MilestoneIndex, MilestoneTimestamp},
+        output::OutputId,
     },
 };
 use serde::Deserialize;

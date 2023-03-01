@@ -18,8 +18,8 @@ use chronicle::{
     },
     inx::{Inx, InxError},
     model::{
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
         block::payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
         Payload,
     },
     tangle::{Milestone, Tangle},

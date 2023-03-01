@@ -6,7 +6,11 @@
 pub mod address;
 pub mod conflict_reason;
 pub mod inclusion_state;
+pub mod input;
 pub mod output;
 pub mod output_metadata;
+pub mod unlock;
 
-pub use self::{address::*, conflict_reason::*, inclusion_state::*, output::*, output_metadata::*};
+pub use self::{
+    address::*, conflict_reason::*, inclusion_state::*, input::*, output::*, output_metadata::*, unlock::Unlock,
+};

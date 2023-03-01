@@ -6,7 +6,7 @@
 use iota_types::block::unlock as iota;
 use serde::{Deserialize, Serialize};
 
-use super::Signature;
+use crate::model::block::signature::Signature;
 
 /// The different types of [`Unlock`]s.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

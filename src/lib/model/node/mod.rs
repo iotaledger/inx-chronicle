@@ -3,8 +3,6 @@
 
 //! Module containing the node models.
 
-pub mod signature;
-
 use core::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};

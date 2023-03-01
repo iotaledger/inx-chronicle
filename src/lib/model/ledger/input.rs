@@ -6,7 +6,7 @@
 use iota_types::block::input as iota;
 use serde::{Deserialize, Serialize};
 
-use super::{block::payload::milestone::MilestoneId, output::OutputId};
+use crate::model::{block::payload::milestone::MilestoneId, output::OutputId};
 
 /// The type for [`Inputs`](Input) in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
