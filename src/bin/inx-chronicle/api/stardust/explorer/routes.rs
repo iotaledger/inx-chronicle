@@ -189,20 +189,16 @@ async fn block_children(
         .await?
         .ok_or(MissingError::NoResults)?
         .referenced_by_milestone_index;
-    let protocol_parameters = database
+    let below_max_depth = database
         .collection::<ProtocolUpdateCollection>()
         .get_protocol_parameters_for_ledger_index(block_referenced_index)
         .await?
-        .ok_or(MissingError::NoResults)?;
+        .ok_or(MissingError::NoResults)?
+        .parameters
+        .below_max_depth;
     let mut block_children = database
         .collection::<BlockCollection>()
-        .get_block_children(
-            &block_id,
-            block_referenced_index,
-            protocol_parameters.parameters.below_max_depth,
-            page_size,
-            page,
-        )
+        .get_block_children(&block_id, block_referenced_index, below_max_depth, page_size, page)
         .await
         .map_err(|_| MissingError::NoResults)?;
 
