@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{unlock_condition::ImmutableAliasAddressUnlockCondition, Feature, NativeToken, TokenAmount, TokenScheme};
 use crate::model::{
+    protocol::TryFromWithContext,
     serde::{bytify, stringify},
-    tangle::TryFromWithContext,
 };
 
 /// The id of a foundry.

@@ -38,8 +38,8 @@ pub use self::{
 use super::Address;
 use crate::model::{
     block::payload::transaction::TransactionId,
+    protocol::{ProtocolParameters, TryFromWithContext, TryIntoWithContext},
     serde::stringify,
-    tangle::{ProtocolParameters, TryFromWithContext, TryIntoWithContext},
 };
 
 /// The amount of tokens associated with an output.

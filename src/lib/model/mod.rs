@@ -7,8 +7,8 @@
 pub mod block;
 pub mod ledger;
 pub mod node;
+pub mod protocol;
 pub mod serde;
-pub mod tangle;
 
 pub use self::{
     block::{payload::Payload, signature::Signature, Block, BlockId},

@@ -7,7 +7,7 @@ use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
 use super::TokenAmount;
-use crate::model::{tangle::TryFromWithContext, Address};
+use crate::model::{protocol::TryFromWithContext, Address};
 
 /// Defines the amount of tokens used as storage deposit that have to be returned to the return address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

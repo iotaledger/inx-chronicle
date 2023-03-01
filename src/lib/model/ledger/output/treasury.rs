@@ -9,7 +9,7 @@ use iota_types::block::output as iota;
 use serde::{Deserialize, Serialize};
 
 use super::TokenAmount;
-use crate::model::tangle::TryFromWithContext;
+use crate::model::protocol::TryFromWithContext;
 
 /// Represents a treasury in the UTXO model.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

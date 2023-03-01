@@ -14,7 +14,7 @@ use super::{
     },
     Feature, NativeToken, TokenAmount,
 };
-use crate::model::tangle::TryFromWithContext;
+use crate::model::protocol::TryFromWithContext;
 
 /// Represents a basic output in the UTXO model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

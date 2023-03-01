@@ -20,7 +20,7 @@ use crate::model::{
         BlockMetadata,
     },
     node::NodeConfiguration,
-    tangle::ProtocolParameters,
+    protocol::ProtocolParameters,
     Block, BlockId,
 };
 

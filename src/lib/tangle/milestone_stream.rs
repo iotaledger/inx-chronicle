@@ -15,7 +15,7 @@ use super::{
 use crate::model::{
     block::payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
     node::NodeConfiguration,
-    tangle::ProtocolParameters,
+    protocol::ProtocolParameters,
 };
 
 #[allow(missing_docs)]

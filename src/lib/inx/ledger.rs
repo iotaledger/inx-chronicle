@@ -10,7 +10,7 @@ use crate::{
     model::{
         block::payload::milestone::MilestoneIndex,
         ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
-        tangle::{TryFromWithContext, TryIntoWithContext},
+        protocol::{TryFromWithContext, TryIntoWithContext},
     },
 };
 

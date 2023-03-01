@@ -171,7 +171,7 @@ impl InxWorker {
             .get_latest_protocol_parameters()
             .await?
         {
-            let protocol_parameters = chronicle::model::tangle::ProtocolParameters::from(protocol_parameters);
+            let protocol_parameters = chronicle::model::protocol::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
                 bail!(InxWorkerError::NetworkChanged {
                     old: latest.parameters.network_name,

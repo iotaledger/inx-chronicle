@@ -27,7 +27,7 @@ use chronicle::{
             BlockMetadata,
         },
         output::OutputId,
-        tangle::TryFromWithContext,
+        protocol::TryFromWithContext,
         BlockId,
     },
 };

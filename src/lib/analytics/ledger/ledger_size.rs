@@ -4,7 +4,7 @@
 use super::*;
 use crate::model::{
     ledger::RentStructureBytes,
-    tangle::{ProtocolParameters, TryFromWithContext},
+    protocol::{ProtocolParameters, TryFromWithContext},
 };
 
 trait LedgerSize {

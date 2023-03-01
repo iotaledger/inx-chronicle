@@ -1,11 +1,16 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+//! Module containing the protocol models.
+
 #![allow(missing_docs)]
+
+mod context;
 
 use iota_types::block as iota;
 use serde::{Deserialize, Serialize};
 
+pub use self::context::*;
 use crate::model::serde::stringify;
 
 /// Parameters relevant to byte cost calculations.

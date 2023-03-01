@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 pub use self::block_metadata::BlockMetadata;
 use super::Payload;
 use crate::model::{
+    protocol::{TryFromWithContext, TryIntoWithContext},
     serde::{bytify, stringify},
-    tangle::{TryFromWithContext, TryIntoWithContext},
 };
 
 /// Uniquely identifies a block.

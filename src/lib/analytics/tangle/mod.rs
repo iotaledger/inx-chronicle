@@ -11,7 +11,7 @@ pub(crate) use self::{
 };
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::{tangle::ProtocolParameters, Payload},
+    model::{protocol::ProtocolParameters, Payload},
     tangle::BlockData,
 };
 
