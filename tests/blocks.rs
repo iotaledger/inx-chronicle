@@ -152,7 +152,10 @@ mod test_rand {
             .unwrap();
         assert_eq!(block_collection.count().await.unwrap(), 10);
 
-        let mut s = block_collection.get_block_children(&parents[0], 1.into(), 100, 0).await.unwrap();
+        let mut s = block_collection
+            .get_block_children(&parents[0], 1.into(), 100, 0)
+            .await
+            .unwrap();
 
         while let Some(child_id) = s.try_next().await.unwrap() {
             assert!(children.remove(&child_id))
