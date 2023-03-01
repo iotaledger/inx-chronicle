@@ -5,8 +5,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{ConflictReason, LedgerInclusionState};
-use crate::model::{payload::milestone::MilestoneIndex, BlockId};
+use crate::model::{
+    block::payload::milestone::MilestoneIndex,
+    ledger::{ConflictReason, LedgerInclusionState},
+    BlockId,
+};
 
 /// Block metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

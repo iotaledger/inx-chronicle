@@ -19,7 +19,7 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::payload::milestone::{
+    model::block::payload::milestone::{
         MilestoneId, MilestoneIndex, MilestoneIndexTimestamp, MilestoneOption, MilestonePayload, MilestoneTimestamp,
     },
 };

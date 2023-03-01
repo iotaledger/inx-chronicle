@@ -21,11 +21,11 @@ use crate::{
         MongoDb,
     },
     model::{
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        payload::{
+        block::payload::{
             milestone::{MilestoneIndex, MilestoneIndexTimestamp},
             TransactionEssence,
         },
+        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
         tangle::ProtocolParameters,
         Input, Payload,
     },

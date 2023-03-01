@@ -14,7 +14,7 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::payload::{
+    model::block::payload::{
         milestone::{MilestoneId, MilestoneIndex},
         treasury_transaction::TreasuryTransactionPayload,
     },

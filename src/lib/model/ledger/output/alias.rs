@@ -15,7 +15,7 @@ use super::{
     unlock_condition::{GovernorAddressUnlockCondition, StateControllerAddressUnlockCondition},
     OutputId, TokenAmount,
 };
-use crate::model::{context::TryFromWithContext, serde::bytify};
+use crate::model::{serde::bytify, tangle::TryFromWithContext};
 
 /// Uniquely identifies an Alias.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

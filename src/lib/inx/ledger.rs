@@ -8,9 +8,9 @@ use super::InxError;
 use crate::{
     maybe_missing,
     model::{
-        context::{TryFromWithContext, TryIntoWithContext},
+        block::payload::milestone::MilestoneIndex,
         ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
-        payload::milestone::MilestoneIndex,
+        tangle::{TryFromWithContext, TryIntoWithContext},
     },
 };
 

@@ -3,6 +3,10 @@
 
 //! Module containing the tangle models.
 
-mod protocol;
+pub mod context;
+pub mod protocol;
 
-pub use self::protocol::{ProtocolParameters, RentStructure};
+pub use self::{
+    context::*,
+    protocol::{ProtocolParameters, RentStructure},
+};

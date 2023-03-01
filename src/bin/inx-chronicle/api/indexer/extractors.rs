@@ -10,7 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::mongodb::collections::{AliasOutputsQuery, BasicOutputsQuery, FoundryOutputsQuery, NftOutputsQuery, SortOrder},
-    model::{output::OutputId, payload::milestone::MilestoneIndex, Address},
+    model::{output::OutputId, block::payload::milestone::MilestoneIndex, Address},
 };
 use mongodb::bson;
 use primitive_types::U256;

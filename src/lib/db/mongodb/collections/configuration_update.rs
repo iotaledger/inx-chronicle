@@ -13,7 +13,7 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::{node::NodeConfiguration, payload::milestone::MilestoneIndex},
+    model::{block::payload::milestone::MilestoneIndex, node::NodeConfiguration},
 };
 
 /// The corresponding MongoDb document representation to store [`NodeConfiguration`]s.

@@ -8,7 +8,7 @@ use super::queries::{
     AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, NativeTokensQuery, SenderQuery,
     StorageDepositReturnQuery, TagQuery, TimelockQuery,
 };
-use crate::model::{payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{block::payload::milestone::MilestoneTimestamp, Address};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]

@@ -12,7 +12,7 @@ use chronicle::{
         MongoDb,
     },
     model::{
-        payload::{
+        block::payload::{
             milestone::{MilestoneId, MilestoneIndex},
             MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload,
         },

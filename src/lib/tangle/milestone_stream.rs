@@ -13,8 +13,8 @@ use super::{
     LedgerUpdateStore,
 };
 use crate::model::{
+    block::payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
     node::NodeConfiguration,
-    payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
     tangle::ProtocolParameters,
 };
 

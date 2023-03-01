@@ -11,7 +11,7 @@ use chronicle::{
         mongodb::collections::{MilestoneCollection, OutputCollection},
         MongoDb,
     },
-    model::{payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
+    model::{block::payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
     tangle::{InputSource, Tangle},
 };
 use clap::Parser;

@@ -7,7 +7,7 @@ use primitive_types::U256;
 use super::queries::{
     AppendQuery, CreatedQuery, GovernorQuery, IssuerQuery, NativeTokensQuery, SenderQuery, StateControllerQuery,
 };
-use crate::model::{payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{block::payload::milestone::MilestoneTimestamp, Address};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]

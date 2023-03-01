@@ -13,7 +13,7 @@ use chronicle::{
         mongodb::collections::{BlockCollection, ConfigurationUpdateCollection, MilestoneCollection},
         MongoDb,
     },
-    model::{node::MilestoneKeyRange, payload::milestone::MilestoneIndex, BlockId},
+    model::{node::MilestoneKeyRange, block::payload::milestone::MilestoneIndex, BlockId},
 };
 
 use super::{

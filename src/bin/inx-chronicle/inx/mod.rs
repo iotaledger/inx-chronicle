@@ -19,7 +19,7 @@ use chronicle::{
     inx::{Inx, InxError},
     model::{
         ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+        block::payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
         Payload,
     },
     tangle::{Milestone, Tangle},

@@ -24,9 +24,9 @@ use crate::{
         MongoDb,
     },
     model::{
+        block::payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
         ledger::{LedgerOutput, LedgerSpent, OutputMetadata, RentStructureBytes, SpentMetadata},
         output::{AliasId, NftId, Output, OutputId},
-        payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
         Address, BlockId,
     },
 };

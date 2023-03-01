@@ -12,7 +12,7 @@ use chronicle::{
     db::mongodb::collections::SortOrder,
     model::{
         output::OutputId,
-        payload::milestone::{MilestoneIndex, MilestoneTimestamp},
+        block::payload::milestone::{MilestoneIndex, MilestoneTimestamp},
     },
 };
 use serde::Deserialize;

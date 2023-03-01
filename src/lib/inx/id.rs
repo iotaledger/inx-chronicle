@@ -3,8 +3,8 @@
 
 use super::InxError;
 use crate::model::{
+    block::payload::{MilestoneId, TransactionId},
     output::OutputId,
-    payload::{MilestoneId, TransactionId},
     BlockId,
 };
 

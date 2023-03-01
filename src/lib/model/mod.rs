@@ -5,21 +5,18 @@
 
 /// Module containing the block model.
 pub mod block;
-pub mod context;
 pub mod input;
 pub mod ledger;
 pub mod node;
-pub mod payload;
 pub mod serde;
 pub mod tangle;
 pub mod unlock;
 
 pub use self::{
-    block::{Block, BlockId},
+    block::{payload::Payload, Block, BlockId},
     input::Input,
     ledger::*,
-    output::Output,
-    payload::Payload,
     node::signature::Signature,
+    output::Output,
     unlock::Unlock,
 };

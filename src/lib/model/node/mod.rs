@@ -9,7 +9,7 @@ use core::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-use super::payload::milestone::MilestoneIndex;
+use super::block::payload::milestone::MilestoneIndex;
 
 /// The [`NodeConfiguration`] type.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

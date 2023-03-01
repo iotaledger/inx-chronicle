@@ -8,8 +8,8 @@ use super::{InxError, RawMessage};
 use crate::{
     maybe_missing,
     model::{
-        ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-        payload::milestone::MilestoneIndex,
+        block::{payload::milestone::MilestoneIndex, BlockMetadata},
+        ledger::{ConflictReason, LedgerInclusionState},
         BlockId,
     },
 };

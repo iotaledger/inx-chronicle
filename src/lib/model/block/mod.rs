@@ -1,6 +1,9 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod block_metadata;
+pub mod payload;
+
 use std::str::FromStr;
 
 use iota::protocol::ProtocolParameters;
@@ -8,10 +11,11 @@ use iota_types::block as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
+pub use self::block_metadata::BlockMetadata;
 use super::Payload;
 use crate::model::{
-    context::{TryFromWithContext, TryIntoWithContext},
     serde::{bytify, stringify},
+    tangle::{TryFromWithContext, TryIntoWithContext},
 };
 
 /// Uniquely identifies a block.

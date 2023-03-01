@@ -19,13 +19,15 @@ use chronicle::{
         MongoDb,
     },
     model::{
-        context::TryFromWithContext,
-        ledger::BlockMetadata,
-        output::OutputId,
-        payload::{
-            milestone::{MilestoneId, MilestoneIndex},
-            transaction::TransactionId,
+        block::{
+            payload::{
+                milestone::{MilestoneId, MilestoneIndex},
+                transaction::TransactionId,
+            },
+            BlockMetadata,
         },
+        output::OutputId,
+        tangle::TryFromWithContext,
         BlockId,
     },
 };

@@ -19,9 +19,12 @@ use crate::{
         MongoDb,
     },
     model::{
-        ledger::{BlockMetadata, LedgerInclusionState},
+        block::{
+            payload::{milestone::MilestoneIndex, transaction::TransactionId},
+            BlockMetadata,
+        },
+        ledger::LedgerInclusionState,
         output::OutputId,
-        payload::{milestone::MilestoneIndex, transaction::TransactionId},
         Block, BlockId,
     },
     tangle::BlockData,

@@ -10,8 +10,8 @@ use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    context::{TryFromWithContext, TryIntoWithContext},
     serde::{bytify, stringify},
+    tangle::{TryFromWithContext, TryIntoWithContext},
     Input, Output, Payload, Unlock,
 };
 

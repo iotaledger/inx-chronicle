@@ -37,10 +37,9 @@ pub use self::{
 };
 use super::Address;
 use crate::model::{
-    context::{TryFromWithContext, TryIntoWithContext},
-    payload::transaction::TransactionId,
+    block::payload::transaction::TransactionId,
     serde::stringify,
-    tangle::ProtocolParameters,
+    tangle::{ProtocolParameters, TryFromWithContext, TryIntoWithContext},
 };
 
 /// The amount of tokens associated with an output.
