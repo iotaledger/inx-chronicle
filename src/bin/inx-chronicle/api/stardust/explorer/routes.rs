@@ -183,9 +183,11 @@ async fn block_children(
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
+    let block_metadata = database.collection::<BlockCollection>().get_block_metadata(&block_id).await?.unwrap();
+    let block_referenced_index = block_metadata.referenced_by_milestone_index;
     let mut block_children = database
         .collection::<BlockCollection>()
-        .get_block_children(&block_id, page_size, page)
+        .get_block_children(&block_id, block_referenced_index, page_size, page)
         .await
         .map_err(|_| MissingError::NoResults)?;
 

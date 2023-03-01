@@ -119,6 +119,19 @@ impl MongoDbCollection for BlockCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "block.parents": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("block_parents_index".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         Ok(())
     }
 }
@@ -193,13 +206,18 @@ impl BlockCollection {
     pub async fn get_block_children(
         &self,
         block_id: &BlockId,
+        block_referenced_index: MilestoneIndex,
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
+
         Ok(self
             .aggregate(
                 [
-                    doc! { "$match": { "block.parents": block_id } },
+                    doc! { "$match": { 
+                        "block.parents": block_id,
+                        "metadata.referenced_by_milestone_index": { "$gte": block_referenced_index },
+                    } },
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
                     doc! { "$limit": page_size as i64 },
