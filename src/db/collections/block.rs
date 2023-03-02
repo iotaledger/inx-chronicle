@@ -108,10 +108,10 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.referenced_by_milestone_index": 1 })
+                .keys(doc! { "metadata.referenced_by_milestone_index": -1, "metadata.white_flag_index": 1, "metadata.inclusion_state": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("block_referenced_index".to_string())
+                        .name("block_referenced_index_comp".to_string())
                         .build(),
                 )
                 .build(),
@@ -121,10 +121,10 @@ impl MongoDbCollection for BlockCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "metadata.referenced_by_milestone_index": -1, "metadata.white_flag_index": 1, "metadata.inclusion_state": 1 })
+                .keys(doc! { "block.parents": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("block_referenced_index_comp".to_string())
+                        .name("block_parents_index".to_string())
                         .build(),
                 )
                 .build(),
