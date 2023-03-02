@@ -7,10 +7,10 @@ use iota_types::block as iota;
 use super::{InxError, RawMessage};
 use crate::{
     maybe_missing,
-    types::{
-        ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-        stardust::block::BlockId,
+    model::{
+        metadata::{BlockMetadata, ConflictReason, LedgerInclusionState},
         tangle::MilestoneIndex,
+        BlockId,
     },
 };
 

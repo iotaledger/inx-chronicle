@@ -4,16 +4,18 @@
 //! Contains routes that can be used to access data stored by Chronicle
 //! as well as the health of the application and analytics.
 
-mod extractors;
-
-pub mod stardust;
-
 mod error;
+mod extractors;
 mod secret_key;
 #[macro_use]
 mod responses;
 mod auth;
 pub mod config;
+mod core;
+mod explorer;
+mod indexer;
+#[cfg(feature = "poi")]
+mod poi;
 mod router;
 mod routes;
 
@@ -28,7 +30,6 @@ use tower_http::{
 };
 use tracing::info;
 
-use self::routes::routes;
 pub use self::{
     config::{ApiConfig, ApiConfigData},
     error::{ApiError, ApiResult, AuthError, ConfigError},
@@ -57,7 +58,7 @@ impl ApiWorker {
         info!("Starting API server on port `{}`", self.api_data.port);
 
         let port = self.api_data.port;
-        let routes = routes()
+        let routes = routes::routes()
             .layer(Extension(self.db.clone()))
             .layer(Extension(self.api_data.clone()))
             .layer(CatchPanicLayer::new())

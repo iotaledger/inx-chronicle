@@ -9,17 +9,17 @@ mod test_rand {
 
     use chronicle::{
         db::{
-            collections::{
+            mongodb::collections::{
                 LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, LedgerUpdateCollection, SortOrder,
             },
             MongoDbCollectionExt,
         },
-        types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
-            stardust::block::{
-                output::{AddressUnlockCondition, BasicOutput, OutputId},
-                BlockId, Output,
-            },
+        model::{
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+            metadata::SpentMetadata,
+            tangle::MilestoneIndexTimestamp,
+            utxo::{AddressUnlockCondition, BasicOutput, Output, OutputId},
+            BlockId,
         },
     };
     use futures::TryStreamExt;

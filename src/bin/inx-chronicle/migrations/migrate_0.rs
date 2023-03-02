@@ -3,8 +3,8 @@
 
 use async_trait::async_trait;
 use chronicle::{
-    db::{collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    types::stardust::block::output::{AliasId, NftId, OutputId},
+    db::{mongodb::collections::OutputCollection, MongoDb, MongoDbCollectionExt},
+    model::utxo::{AliasId, NftId, OutputId},
 };
 use futures::TryStreamExt;
 use mongodb::{bson::doc, options::IndexOptions, IndexModel};
