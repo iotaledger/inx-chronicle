@@ -367,6 +367,32 @@ impl OutputCollection {
         )
         .await?;
 
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.booked.milestone_timestamp": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_booked_milestone_timestamp".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "metadata.spent_metadata.spent.milestone_timestamp": -1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_spent_milestone_timestamp".to_string())
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
         Ok(())
     }
 }

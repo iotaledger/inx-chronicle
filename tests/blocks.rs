@@ -5,22 +5,27 @@ mod common;
 
 #[cfg(feature = "rand")]
 mod test_rand {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, fs::File, io::BufReader};
 
     use chronicle::{
-        db::{
-            collections::{BlockCollection, OutputCollection},
-            MongoDbCollectionExt,
-        },
+        db::{collections::BlockCollection, MongoDbCollectionExt},
         types::{
-            ledger::{
-                BlockMetadata, ConflictReason, LedgerInclusionState, LedgerOutput, MilestoneIndexTimestamp,
-                RentStructureBytes,
-            },
-            stardust::block::{output::OutputId, payload::TransactionEssence, Block, BlockId, Input, Payload},
+            ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
+            stardust::block::{output::OutputId, Block, BlockId, Payload},
         },
     };
     use futures::TryStreamExt;
+    use packable::PackableExt;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct BlockTestData {
+        #[serde(rename = "_id")]
+        block_id: BlockId,
+        #[serde(with = "serde_bytes")]
+        raw: Vec<u8>,
+        metadata: BlockMetadata,
+    }
 
     use super::common::{setup_collection, setup_database, teardown};
 
@@ -28,31 +33,23 @@ mod test_rand {
     async fn test_blocks() {
         let db = setup_database("test-blocks").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
+        let file = File::open("tests/data/blocks_ms_2418807.json").unwrap();
+        let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
 
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
+        let blocks: Vec<BlockTestData> = mongodb::bson::from_bson(test_data).unwrap();
 
-        let blocks = std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&protocol_params)))
-            .take(100)
-            .enumerate()
-            .map(|(i, (block_id, block))| {
-                let parents = block.parents.clone();
-                (
-                    block_id,
-                    block,
-                    iota_types::block::rand::bytes::rand_bytes(100),
-                    BlockMetadata {
-                        parents,
-                        is_solid: true,
-                        should_promote: false,
-                        should_reattach: false,
-                        referenced_by_milestone_index: 1.into(),
-                        milestone_index: 0.into(),
-                        inclusion_state: LedgerInclusionState::Included,
-                        conflict_reason: ConflictReason::None,
-                        white_flag_index: i as u32,
-                    },
-                )
-            })
+        let blocks = blocks
+            .into_iter()
+            .map(
+                |BlockTestData {
+                     block_id,
+                     raw,
+                     metadata,
+                 }| {
+                    let block = iota_types::block::Block::unpack_unverified(raw.clone()).unwrap().into();
+                    (block_id, block, raw, metadata)
+                },
+            )
             .collect::<Vec<_>>();
 
         block_collection
@@ -60,38 +57,15 @@ mod test_rand {
             .await
             .unwrap();
 
-        for (block_id, transaction_id, block, outputs) in blocks.iter().filter_map(|(block_id, block, _, _)| {
+        for (transaction_id, block) in blocks.iter().filter_map(|(_, block, _, _)| {
             block.payload.as_ref().and_then(|p| {
                 if let Payload::Transaction(payload) = p {
-                    let TransactionEssence::Regular { outputs, .. } = &payload.essence;
-                    Some((block_id, payload.transaction_id, block, outputs))
+                    Some((payload.transaction_id, block))
                 } else {
                     None
                 }
             })
         }) {
-            if !outputs.is_empty() {
-                db.collection::<OutputCollection>()
-                    .insert_unspent_outputs(outputs.iter().cloned().enumerate().map(|(i, output)| LedgerOutput {
-                        output_id: OutputId {
-                            transaction_id,
-                            index: i as u16,
-                        },
-                        block_id: *block_id,
-                        booked: MilestoneIndexTimestamp {
-                            milestone_index: 0.into(),
-                            milestone_timestamp: 12345.into(),
-                        },
-                        rent_structure: RentStructureBytes {
-                            num_key_bytes: 0,
-                            num_data_bytes: 100,
-                        },
-                        output,
-                    }))
-                    .await
-                    .unwrap();
-            }
-
             assert_eq!(
                 block_collection
                     .get_block_for_transaction(&transaction_id)
@@ -178,7 +152,10 @@ mod test_rand {
             .unwrap();
         assert_eq!(block_collection.count().await.unwrap(), 10);
 
-        let mut s = block_collection.get_block_children(&parents[0], 100, 0).await.unwrap();
+        let mut s = block_collection
+            .get_block_children(&parents[0], 1.into(), 15, 100, 0)
+            .await
+            .unwrap();
 
         while let Some(child_id) = s.try_next().await.unwrap() {
             assert!(children.remove(&child_id))
@@ -192,149 +169,74 @@ mod test_rand {
     async fn test_spending_transaction() {
         let db = setup_database("test-spending-transaction").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
-        let output_collection = setup_collection::<OutputCollection>(&db).await.unwrap();
 
-        let ctx = iota_types::block::protocol::protocol_parameters();
+        // The spent block in the sample data is at white flag index 44.
+        let file = File::open("tests/data/blocks_ms_2418187.json").unwrap();
+        let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
 
-        let (block_id, block, transaction_id, input_id, outputs) =
-            std::iter::repeat_with(|| (BlockId::rand(), Block::rand(&ctx)))
-                .filter_map(|(block_id, block)| {
-                    block.payload.as_ref().and_then(|p| {
-                        if let Payload::Transaction(payload) = p {
-                            let TransactionEssence::Regular { inputs, outputs, .. } = &payload.essence;
-                            for input in inputs.iter() {
-                                if let Input::Utxo(input_id) = input {
-                                    let input_id = *input_id;
-                                    let outputs = outputs.to_vec();
-                                    if !outputs.is_empty() {
-                                        return Some((
-                                            block_id,
-                                            block.clone(),
-                                            payload.transaction_id,
-                                            input_id,
-                                            outputs,
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                        None
-                    })
-                })
-                .take(1)
-                .collect::<Vec<_>>()
-                .pop()
-                .unwrap();
+        let blocks: Vec<BlockTestData> = mongodb::bson::from_bson(test_data).unwrap();
 
-        let parents = block.parents.clone();
-        let raw = iota_types::block::rand::bytes::rand_bytes(100);
-        let metadata = BlockMetadata {
-            parents,
-            is_solid: true,
-            should_promote: false,
-            should_reattach: false,
-            referenced_by_milestone_index: 2.into(),
-            milestone_index: 1.into(),
-            inclusion_state: LedgerInclusionState::Included,
-            conflict_reason: ConflictReason::None,
-            white_flag_index: 0u32,
-        };
+        let spent_block_id = blocks[44].block_id;
 
-        block_collection
-            .insert_blocks_with_metadata(vec![(block_id, block.clone(), raw, metadata)])
-            .await
-            .unwrap();
-        output_collection
-            .insert_unspent_outputs(outputs.into_iter().enumerate().map(|(i, output)| LedgerOutput {
-                output_id: OutputId {
-                    transaction_id,
-                    index: i as u16,
-                },
-                block_id,
-                booked: MilestoneIndexTimestamp {
-                    milestone_index: 1.into(),
-                    milestone_timestamp: 12345.into(),
-                },
-                rent_structure: RentStructureBytes {
-                    num_key_bytes: 0,
-                    num_data_bytes: 100,
-                },
-                output,
-            }))
-            .await
-            .unwrap();
-
-        let spending_block = block_collection
-            .get_spending_transaction(&input_id)
-            .await
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(spending_block, block);
-
-        teardown(db).await;
-    }
-
-    #[tokio::test]
-    async fn test_milestone_activity() {
-        let db = setup_database("test-milestone-activity").await.unwrap();
-        let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
-
-        let protocol_params = iota_types::block::protocol::protocol_parameters();
-
-        let blocks = vec![
-            Block::rand_treasury_transaction(&protocol_params),
-            Block::rand_transaction(&protocol_params),
-            Block::rand_milestone(&protocol_params),
-            Block::rand_tagged_data(),
-            Block::rand_no_payload(),
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|(i, block)| {
-            let parents = block.parents.clone();
-            (
-                BlockId::rand(),
-                block,
-                iota_types::block::rand::bytes::rand_bytes(100),
-                BlockMetadata {
-                    parents,
-                    is_solid: true,
-                    should_promote: false,
-                    should_reattach: false,
-                    referenced_by_milestone_index: 1.into(),
-                    milestone_index: 0.into(),
-                    inclusion_state: match i {
-                        0 => LedgerInclusionState::Included,
-                        1 => LedgerInclusionState::Conflicting,
-                        _ => LedgerInclusionState::NoTransaction,
-                    },
-                    conflict_reason: match i {
-                        0 => ConflictReason::None,
-                        1 => ConflictReason::InputUtxoNotFound,
-                        _ => ConflictReason::None,
-                    },
-                    white_flag_index: i as u32,
+        let blocks = blocks
+            .into_iter()
+            .map(
+                |BlockTestData {
+                     block_id,
+                     raw,
+                     metadata,
+                 }| {
+                    let block = iota_types::block::Block::unpack_unverified(raw.clone()).unwrap().into();
+                    (block_id, block, raw, metadata)
                 },
             )
-        })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
+
+        block_collection.insert_blocks_with_metadata(blocks).await.unwrap();
+
+        // The spending block in the sample data is at white flag index 66.
+        let file = File::open("tests/data/blocks_ms_2418807.json").unwrap();
+        let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
+
+        let blocks: Vec<BlockTestData> = mongodb::bson::from_bson(test_data).unwrap();
+
+        let blocks = blocks
+            .into_iter()
+            .map(
+                |BlockTestData {
+                     block_id,
+                     raw,
+                     metadata,
+                 }| {
+                    let block: Block = iota_types::block::Block::unpack_unverified(raw.clone()).unwrap().into();
+                    (block_id, block, raw, metadata)
+                },
+            )
+            .collect::<Vec<_>>();
+
+        let spending_block = blocks[66].1.clone();
 
         block_collection
             .insert_blocks_with_metadata(blocks.clone())
             .await
             .unwrap();
 
-        let activity = block_collection.get_block_activity_analytics(1.into()).await.unwrap();
+        let spent_block = block_collection.get_block(&spent_block_id).await.unwrap().unwrap();
 
-        assert_eq!(activity.payload.transaction_count, 1);
-        assert_eq!(activity.payload.treasury_transaction_count, 1);
-        assert_eq!(activity.payload.milestone_count, 1);
-        assert_eq!(activity.payload.tagged_data_count, 1);
-        assert_eq!(activity.payload.no_payload_count, 1);
-        assert_eq!(activity.transaction.confirmed_count, 1);
-        assert_eq!(activity.transaction.conflicting_count, 1);
-        assert_eq!(activity.transaction.no_transaction_count, 3);
+        let spent_output_id = if let Some(Payload::Transaction(payload)) = &spent_block.payload {
+            OutputId::from((payload.transaction_id, 0))
+        } else {
+            unreachable!()
+        };
+
+        assert_eq!(
+            spending_block,
+            block_collection
+                .get_spending_transaction(&spent_output_id)
+                .await
+                .unwrap()
+                .unwrap()
+        );
 
         teardown(db).await;
     }

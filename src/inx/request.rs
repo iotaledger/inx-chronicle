@@ -74,6 +74,17 @@ where
     }
 }
 
+impl MilestoneRangeRequest {
+    /// Convert any range that can be interpreted as a range request.
+    pub fn from_range<T, I>(range: T) -> Self
+    where
+        T: RangeBounds<I>,
+        I: Into<u32> + Copy,
+    {
+        Self(to_milestone_range_request(range))
+    }
+}
+
 impl From<MilestoneRangeRequest> for proto::MilestoneRangeRequest {
     fn from(value: MilestoneRangeRequest) -> Self {
         value.0

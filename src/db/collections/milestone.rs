@@ -136,6 +136,24 @@ impl MilestoneCollection {
         .await
     }
 
+    /// Gets Milestone by the [`MilestoneIndex`].
+    pub async fn get_milestone(
+        &self,
+        index: MilestoneIndex,
+    ) -> Result<Option<(MilestoneId, MilestoneIndexTimestamp, MilestonePayload)>, Error> {
+        self.aggregate::<MilestoneDocument>(vec![doc! { "$match": { "at.milestone_index": index } }], None)
+            .await?
+            .map_ok(
+                |MilestoneDocument {
+                     milestone_id,
+                     at,
+                     payload,
+                 }| (milestone_id, at, payload),
+            )
+            .try_next()
+            .await
+    }
+
     /// Gets the [`MilestoneTimestamp`] of a milestone by [`MilestoneIndex`].
     pub async fn get_milestone_timestamp(&self, index: MilestoneIndex) -> Result<Option<MilestoneTimestamp>, Error> {
         #[derive(Deserialize)]
@@ -250,9 +268,9 @@ impl MilestoneCollection {
     async fn get_first_milestone_sorted(&self, order: i32) -> Result<Option<MilestoneIndexTimestamp>, Error> {
         self.aggregate(
             [
-                doc! { "$sort": doc! { "at.milestone_index": order } },
+                doc! { "$sort": { "at.milestone_index": order } },
                 doc! { "$limit": 1 },
-                doc! { "$project": doc! {
+                doc! { "$project": {
                     "milestone_index": "$at.milestone_index",
                     "milestone_timestamp": "$at.milestone_timestamp"
                 } },

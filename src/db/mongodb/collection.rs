@@ -44,7 +44,7 @@ pub trait MongoDbCollection {
 
     /// Creates the collection.
     async fn create_collection(&self, db: &MongoDb) -> Result<(), Error> {
-        db.db.create_collection(Self::NAME, None).await.ok();
+        db.db().create_collection(Self::NAME, None).await.ok();
         Ok(())
     }
 
