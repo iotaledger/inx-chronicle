@@ -14,7 +14,8 @@ use chronicle::{
     model::{
         payload::{MilestoneId, MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
         tangle::MilestoneIndex,
-        Address, BlockId,
+        utxo::Address,
+        BlockId,
     },
 };
 use futures::{StreamExt, TryStreamExt};

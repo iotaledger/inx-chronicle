@@ -73,8 +73,8 @@ mod test {
             metadata::SpentMetadata,
             payload::TransactionId,
             tangle::MilestoneIndexTimestamp,
-            utxo::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, Output, OutputId, TokenAmount},
-            Address, BlockId,
+            utxo::{Address, AliasId, AliasOutput, BasicOutput, NftId, NftOutput, Output, OutputId, TokenAmount},
+            BlockId,
         },
     };
 

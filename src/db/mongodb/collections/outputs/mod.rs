@@ -27,8 +27,8 @@ use crate::{
         ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
         metadata::{OutputMetadata, SpentMetadata},
         tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
-        utxo::{AliasId, NftId, Output, OutputId},
-        Address, BlockId,
+        utxo::{Address, AliasId, NftId, Output, OutputId},
+        BlockId,
     },
 };
 

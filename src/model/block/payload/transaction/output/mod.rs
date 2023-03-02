@@ -3,6 +3,7 @@
 
 //! Module containing the [`Output`] types.
 
+pub mod address;
 pub mod alias;
 pub mod basic;
 pub mod feature;
@@ -23,6 +24,7 @@ use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
+    address::{Address, AliasAddress, Ed25519Address, NftAddress},
     alias::{AliasId, AliasOutput},
     basic::BasicOutput,
     feature::Feature,
@@ -31,9 +33,7 @@ pub use self::{
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
 };
-use crate::model::{
-    payload::TransactionId, stringify, Address, ProtocolParameters, TryFromWithContext, TryIntoWithContext,
-};
+use crate::model::{payload::TransactionId, stringify, ProtocolParameters, TryFromWithContext, TryIntoWithContext};
 
 /// The amount of tokens associated with an output.
 #[derive(

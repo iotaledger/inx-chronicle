@@ -3,14 +3,12 @@
 
 //! Module that contains the types.
 
-pub mod address;
 pub mod block;
 pub mod node;
 pub mod protocol;
 pub mod signature;
 pub mod util;
 
-pub use address::*;
 pub use block::*;
 pub use node::*;
 pub use protocol::*;
@@ -21,7 +19,7 @@ pub mod utxo {
     //! A logical grouping of UTXO types for convenience.
     pub use super::block::payload::transaction::{
         input::*,
-        output::{unlock_condition::*, *},
+        output::{address::*, unlock_condition::*, *},
         unlock::*,
     };
 }

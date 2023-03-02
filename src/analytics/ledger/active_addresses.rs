@@ -7,7 +7,7 @@ use super::*;
 use crate::{
     analytics::{AnalyticsInterval, IntervalAnalytics},
     db::{mongodb::collections::OutputCollection, MongoDb},
-    model::Address,
+    model::utxo::Address,
 };
 
 #[derive(Debug, Default)]

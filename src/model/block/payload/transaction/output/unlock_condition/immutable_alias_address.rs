@@ -8,7 +8,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::model::Address;
+use crate::model::utxo::Address;
 
 /// Defines the permanent alias address that owns this output.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

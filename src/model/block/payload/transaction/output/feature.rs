@@ -8,7 +8,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::feature as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::model::Address;
+use crate::model::utxo::Address;
 
 /// The different [`Feature`] variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

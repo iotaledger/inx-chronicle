@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 pub use self::{milestone_id::MilestoneId, milestone_index::MilestoneIndex, milestone_timestamp::MilestoneTimestamp};
 use crate::model::{
-    block::BlockId, bytify, payload::TreasuryTransactionPayload, signature::Signature, stringify, Address,
+    block::BlockId, bytify, payload::TreasuryTransactionPayload, signature::Signature, stringify, utxo::Address,
     TryFromWithContext, TryIntoWithContext,
 };
 

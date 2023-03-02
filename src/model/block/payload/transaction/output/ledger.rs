@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{Output, OutputId, TokenAmount};
-use crate::model::{block::BlockId, metadata::SpentMetadata, tangle::MilestoneIndexTimestamp, Address};
+use crate::model::{block::BlockId, metadata::SpentMetadata, tangle::MilestoneIndexTimestamp, utxo::Address};
 
 /// An unspent output according to the ledger.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

@@ -20,8 +20,7 @@ use crate::{
     model::{
         ledger::{LedgerOutput, LedgerSpent},
         tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
-        utxo::OutputId,
-        Address,
+        utxo::{Address, OutputId},
     },
 };
 

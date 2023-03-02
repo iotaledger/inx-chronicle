@@ -9,7 +9,7 @@ use chronicle::{
     },
     model::{
         tangle::{MilestoneIndex, MilestoneTimestamp},
-        Address,
+        utxo::Address,
     },
 };
 use serde::{Deserialize, Serialize};

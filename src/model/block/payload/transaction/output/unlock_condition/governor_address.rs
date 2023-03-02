@@ -8,7 +8,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::model::Address;
+use crate::model::utxo::Address;
 
 /// Defines the Governor Address that owns this output, that is, it can unlock it with the proper Unlock in a
 /// transaction that governance transitions the alias output.
