@@ -9,7 +9,7 @@ use iota_types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
 use super::milestone::MilestoneId;
-use crate::model::{TryFromWithContext, stringify};
+use crate::model::{stringify, TryFromWithContext};
 
 /// Represents a treasury transaction payload.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

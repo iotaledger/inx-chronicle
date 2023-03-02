@@ -416,7 +416,7 @@ impl OutputCollection {
         .await
     }
 
-    /// Sums the amounts of all outputs owned by the given [`Address`](crate::model::Address).
+    /// Sums the amounts of all outputs owned by the given [`Address`](crate::model::utxo::Address).
     pub async fn get_address_balance(
         &self,
         address: Address,
