@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::types::stardust::block::{output::TokenAmount, Address};
+use crate::model::utxo::{Address, TokenAmount};
 
 #[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {

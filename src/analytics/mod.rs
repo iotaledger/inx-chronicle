@@ -20,12 +20,15 @@ use crate::{
         influxdb::{config::IntervalAnalyticsChoice, AnalyticsChoice, InfluxDb},
         MongoDb,
     },
-    tangle::{BlockData, InputSource, Milestone},
-    types::{
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
-        stardust::block::{payload::TransactionEssence, Input, Payload},
-        tangle::{MilestoneIndex, ProtocolParameters},
+    model::{
+        ledger::{LedgerOutput, LedgerSpent},
+        metadata::LedgerInclusionState,
+        payload::{Payload, TransactionEssence},
+        protocol::ProtocolParameters,
+        tangle::{MilestoneIndex, MilestoneIndexTimestamp},
+        utxo::Input,
     },
+    tangle::{BlockData, InputSource, Milestone},
 };
 
 mod influx;
@@ -347,12 +350,6 @@ impl std::fmt::Display for AnalyticsInterval {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[allow(missing_docs)]
-pub struct SyncAnalytics {
-    pub sync_time: u64,
-}
-
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
 pub struct PerMilestone<M> {
@@ -389,16 +386,16 @@ mod test {
             AddressBalancesAnalytics, LedgerOutputMeasurement, LedgerSizeAnalytics, UnclaimedTokenMeasurement,
             UnlockConditionMeasurement,
         },
-        tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
-        types::{
-            ledger::{BlockMetadata, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp},
+        model::{
+            block::BlockId,
+            ledger::{LedgerOutput, LedgerSpent},
+            metadata::BlockMetadata,
             node::NodeConfiguration,
-            stardust::block::{
-                payload::{MilestoneId, MilestonePayload},
-                BlockId,
-            },
-            tangle::{MilestoneIndex, ProtocolParameters},
+            payload::{MilestoneId, MilestonePayload},
+            protocol::ProtocolParameters,
+            tangle::{MilestoneIndex, MilestoneIndexTimestamp},
         },
+        tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
     };
 
     pub(crate) struct TestContext {
@@ -435,7 +432,7 @@ mod test {
         #[allow(dead_code)]
         fn init<'a>(
             protocol_params: ProtocolParameters,
-            unspent_outputs: impl IntoIterator<Item = &'a crate::types::ledger::LedgerOutput> + Copy,
+            unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput> + Copy,
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
@@ -471,7 +468,7 @@ mod test {
     impl Analytics for TestAnalytics {
         type Measurement = TestMeasurements;
 
-        fn handle_block(&mut self, block_data: &crate::tangle::BlockData, ctx: &dyn AnalyticsContext) {
+        fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
             self.active_addresses.handle_block(block_data, ctx);
             self.address_balance.handle_block(block_data, ctx);
             self.base_tokens.handle_block(block_data, ctx);
@@ -487,8 +484,8 @@ mod test {
 
         fn handle_transaction(
             &mut self,
-            consumed: &[crate::types::ledger::LedgerSpent],
-            created: &[crate::types::ledger::LedgerOutput],
+            consumed: &[LedgerSpent],
+            created: &[LedgerOutput],
             ctx: &dyn AnalyticsContext,
         ) {
             self.active_addresses.handle_transaction(consumed, created, ctx);

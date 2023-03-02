@@ -7,10 +7,11 @@ use packable::PackableExt;
 use super::InxError;
 use crate::{
     maybe_missing,
-    types::{
-        context::{TryFromWithContext, TryIntoWithContext},
-        ledger::{ConflictReason, LedgerInclusionState, LedgerOutput, LedgerSpent},
+    model::{
+        ledger::{LedgerOutput, LedgerSpent},
+        metadata::{ConflictReason, LedgerInclusionState},
         tangle::MilestoneIndex,
+        TryFromWithContext, TryIntoWithContext,
     },
 };
 
