@@ -7,11 +7,7 @@ use iota_types::block as iota;
 use super::{InxError, RawMessage};
 use crate::{
     maybe_missing,
-    model::{
-        block::{payload::milestone::MilestoneIndex, BlockMetadata},
-        ledger::{ConflictReason, LedgerInclusionState},
-        BlockId,
-    },
+    model::{BlockId, BlockMetadata, ConflictReason, LedgerInclusionState, MilestoneIndex},
 };
 
 /// The [`BlockMessage`] type.

@@ -8,7 +8,7 @@ use influxdb::InfluxDbWriteable;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::influxdb::InfluxDbMeasurement, model::block::payload::milestone::MilestoneIndex};
+use crate::{db::influxdb::InfluxDbMeasurement, model::MilestoneIndex};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, InfluxDbWriteable)]
 #[allow(missing_docs)]

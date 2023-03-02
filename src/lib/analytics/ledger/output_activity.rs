@@ -4,10 +4,7 @@
 use std::collections::HashSet;
 
 use super::*;
-use crate::model::{
-    output::{AliasId, NftId},
-    Address,
-};
+use crate::model::{Address, AliasId, NftId};
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

@@ -3,15 +3,14 @@
 
 //! Module containing the [`Output`] types.
 
+mod alias;
+mod basic;
 mod feature;
+mod foundry;
 mod native_token;
+mod nft;
+mod treasury;
 mod unlock_condition;
-
-pub mod alias;
-pub mod basic;
-pub mod foundry;
-pub mod nft;
-pub mod treasury;
 
 use std::{borrow::Borrow, str::FromStr};
 
@@ -35,12 +34,7 @@ pub use self::{
         StorageDepositReturnUnlockCondition, TimelockUnlockCondition,
     },
 };
-use super::Address;
-use crate::model::{
-    block::payload::transaction::TransactionId,
-    protocol::{ProtocolParameters, TryFromWithContext, TryIntoWithContext},
-    serde::stringify,
-};
+use crate::model::{stringify, Address, ProtocolParameters, TransactionId, TryFromWithContext, TryIntoWithContext};
 
 /// The amount of tokens associated with an output.
 #[derive(

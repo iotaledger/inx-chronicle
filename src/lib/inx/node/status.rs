@@ -6,7 +6,7 @@ use inx::proto;
 use crate::{
     inx::{milestone::MilestoneMessage, InxError, RawProtocolParametersMessage},
     maybe_missing,
-    model::block::payload::milestone::MilestoneIndex,
+    model::MilestoneIndex,
 };
 
 /// The [`NodeStatusMessage`] type.

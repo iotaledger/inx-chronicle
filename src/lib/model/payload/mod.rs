@@ -3,23 +3,21 @@
 
 //! Module containing the [`Payload`] types.
 
+mod tagged_data;
+mod transaction;
+mod treasury_transaction;
+
 use std::borrow::Borrow;
 
 use iota_types::block::payload as iota;
 use serde::{Deserialize, Serialize};
 
-pub mod milestone;
-pub mod tagged_data;
-pub mod transaction;
-pub mod treasury_transaction;
-
 pub use self::{
-    milestone::{MilestoneId, MilestonePayload},
     tagged_data::TaggedDataPayload,
     transaction::{TransactionEssence, TransactionId, TransactionPayload},
     treasury_transaction::TreasuryTransactionPayload,
 };
-use crate::model::protocol::{TryFromWithContext, TryIntoWithContext};
+use crate::model::{MilestonePayload, TryFromWithContext, TryIntoWithContext};
 
 /// The different payloads of a [`Block`](crate::model::Block).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

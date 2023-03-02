@@ -3,10 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::model::{
-    ledger::{LedgerOutput, LedgerSpent},
-    output::OutputId,
-};
+use crate::model::{LedgerOutput, LedgerSpent, OutputId};
 
 /// Holds the ledger updates that happened during a milestone.
 ///

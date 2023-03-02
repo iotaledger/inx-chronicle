@@ -10,7 +10,7 @@ use thiserror::Error;
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     inx::{Inx, InxError, MarkerMessage, MilestoneRangeRequest},
-    model::block::payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
+    model::{MilestoneIndex, MilestoneIndexTimestamp},
     tangle::ledger_updates::LedgerUpdateStore,
 };
 

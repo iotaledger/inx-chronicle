@@ -11,7 +11,7 @@ use chronicle::{
         MongoDb,
     },
     inx::Inx,
-    model::block::payload::milestone::MilestoneIndex,
+    model::MilestoneIndex,
     tangle::Milestone,
 };
 use futures::TryStreamExt;

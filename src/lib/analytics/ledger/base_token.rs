@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::model::{output::TokenAmount, Address};
+use crate::model::{Address, TokenAmount};
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]

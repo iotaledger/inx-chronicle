@@ -18,18 +18,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    model::{
-        block::{
-            payload::{
-                milestone::{MilestoneId, MilestoneIndex},
-                transaction::TransactionId,
-            },
-            BlockMetadata,
-        },
-        output::OutputId,
-        protocol::TryFromWithContext,
-        BlockId,
-    },
+    model::{BlockId, BlockMetadata, MilestoneId, MilestoneIndex, OutputId, TransactionId, TryFromWithContext},
 };
 use futures::TryStreamExt;
 use iota_types::{

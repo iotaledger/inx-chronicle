@@ -12,16 +12,8 @@ use futures::stream::BoxStream;
 
 use super::ledger_updates::LedgerUpdateStore;
 use crate::model::{
-    block::{
-        payload::{
-            milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-            MilestoneId, MilestonePayload,
-        },
-        BlockMetadata,
-    },
-    node::NodeConfiguration,
-    protocol::ProtocolParameters,
-    Block, BlockId,
+    Block, BlockId, BlockMetadata, MilestoneId, MilestoneIndex, MilestoneIndexTimestamp, MilestonePayload,
+    NodeConfiguration, ProtocolParameters,
 };
 
 /// Logical grouping of data that belongs to a milestone.

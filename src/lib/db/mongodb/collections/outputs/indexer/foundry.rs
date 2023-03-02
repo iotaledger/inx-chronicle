@@ -5,7 +5,7 @@ use mongodb::bson::{self, doc};
 use primitive_types::U256;
 
 use super::queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery};
-use crate::model::{block::payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{Address, MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -42,7 +42,7 @@ mod test {
     use primitive_types::U256;
 
     use super::FoundryOutputsQuery;
-    use crate::model::{output::NativeTokenAmount, Address};
+    use crate::model::{Address, NativeTokenAmount};
 
     #[test]
     fn test_foundry_query_everything() {

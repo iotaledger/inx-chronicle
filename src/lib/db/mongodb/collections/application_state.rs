@@ -9,7 +9,7 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::block::payload::milestone::MilestoneIndexTimestamp,
+    model::MilestoneIndexTimestamp,
 };
 
 /// The MongoDb document representation of singleton Application State.

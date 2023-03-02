@@ -5,11 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{
-    block::payload::{milestone::MilestoneIndexTimestamp, transaction::TransactionId},
-    output::{Output, OutputId, TokenAmount},
-    Address, BlockId,
-};
+use crate::model::{Address, BlockId, MilestoneIndexTimestamp, Output, OutputId, TokenAmount, TransactionId};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SpentMetadata {

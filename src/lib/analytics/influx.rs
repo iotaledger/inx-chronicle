@@ -14,7 +14,7 @@ use super::{
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement},
     AnalyticsInterval, PerInterval, PerMilestone,
 };
-use crate::{db::influxdb::InfluxDb, model::protocol::ProtocolParameters};
+use crate::{db::influxdb::InfluxDb, model::ProtocolParameters};
 
 /// A trait that defines an InfluxDb measurement.
 trait Measurement {

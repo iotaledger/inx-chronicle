@@ -3,15 +3,14 @@
 
 //! Module that contains the types.
 
-/// Module containing the block model.
-pub mod block;
-pub mod ledger;
-pub mod node;
-pub mod protocol;
-pub mod serde;
+mod address;
+mod block;
+mod milestone;
+mod node;
+mod payload;
+mod protocol;
+mod serde;
+mod signature;
+mod utxo;
 
-pub use self::{
-    block::{payload::Payload, signature::Signature, Block, BlockId},
-    ledger::*,
-    output::Output,
-};
+pub use self::{address::*, block::*, milestone::*, node::*, payload::*, protocol::*, serde::*, signature::*, utxo::*};

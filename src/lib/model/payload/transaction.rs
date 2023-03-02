@@ -9,11 +9,7 @@ use iota_types::block::{output::InputsCommitment, payload::transaction as iota};
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use crate::model::{
-    protocol::{TryFromWithContext, TryIntoWithContext},
-    serde::{bytify, stringify},
-    Input, Output, Payload, Unlock,
-};
+use crate::model::{bytify, stringify, Input, Output, Payload, TryFromWithContext, TryIntoWithContext, Unlock};
 
 /// Uniquely identifies a transaction.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

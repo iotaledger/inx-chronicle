@@ -21,13 +21,8 @@ use crate::{
         MongoDb,
     },
     model::{
-        block::payload::{
-            milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-            TransactionEssence,
-        },
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        protocol::ProtocolParameters,
-        Input, Payload,
+        Input, LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndex, MilestoneIndexTimestamp, Payload,
+        ProtocolParameters, TransactionEssence,
     },
     tangle::{BlockData, InputSource, Milestone},
 };
@@ -388,14 +383,8 @@ mod test {
             UnlockConditionMeasurement,
         },
         model::{
-            ledger::{BlockMetadata, LedgerOutput, LedgerSpent},
-            node::NodeConfiguration,
-            payload::{
-                milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-                MilestoneId, MilestonePayload,
-            },
-            protocol::ProtocolParameters,
-            BlockId,
+            BlockId, BlockMetadata, LedgerOutput, LedgerSpent, MilestoneId, MilestoneIndex, MilestoneIndexTimestamp,
+            MilestonePayload, NodeConfiguration, ProtocolParameters,
         },
         tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
     };
@@ -434,7 +423,7 @@ mod test {
         #[allow(dead_code)]
         fn init<'a>(
             protocol_params: ProtocolParameters,
-            unspent_outputs: impl IntoIterator<Item = &'a crate::model::ledger::LedgerOutput> + Copy,
+            unspent_outputs: impl IntoIterator<Item = &'a crate::model::LedgerOutput> + Copy,
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
@@ -486,8 +475,8 @@ mod test {
 
         fn handle_transaction(
             &mut self,
-            consumed: &[crate::model::ledger::LedgerSpent],
-            created: &[crate::model::ledger::LedgerOutput],
+            consumed: &[crate::model::LedgerSpent],
+            created: &[crate::model::LedgerOutput],
             ctx: &dyn AnalyticsContext,
         ) {
             self.active_addresses.handle_transaction(consumed, created, ctx);

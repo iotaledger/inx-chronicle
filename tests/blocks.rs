@@ -9,11 +9,7 @@ mod test_rand {
 
     use chronicle::{
         db::{mongodb::collections::BlockCollection, MongoDbCollectionExt},
-        model::{
-            ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-            output::OutputId,
-            Block, BlockId, Payload,
-        },
+        model::{Block, BlockId, BlockMetadata, ConflictReason, LedgerInclusionState, OutputId, Payload},
     };
     use futures::TryStreamExt;
     use packable::PackableExt;

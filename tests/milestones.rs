@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::mongodb::collections::MilestoneCollection,
-        model::payload::{MilestoneId, MilestonePayload},
+        model::{MilestoneId, MilestonePayload},
     };
 
     use super::common::{setup_collection, setup_database, teardown};

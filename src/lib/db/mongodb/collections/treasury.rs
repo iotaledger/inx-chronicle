@@ -14,10 +14,7 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::block::payload::{
-        milestone::{MilestoneId, MilestoneIndex},
-        treasury_transaction::TreasuryTransactionPayload,
-    },
+    model::{MilestoneId, MilestoneIndex, TreasuryTransactionPayload},
 };
 
 /// Contains all information regarding the treasury.

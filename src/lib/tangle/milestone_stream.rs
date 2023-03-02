@@ -12,11 +12,7 @@ use super::{
     sources::{BlockData, InputSource},
     LedgerUpdateStore,
 };
-use crate::model::{
-    block::payload::{milestone::MilestoneIndexTimestamp, MilestoneId, MilestonePayload},
-    node::NodeConfiguration,
-    protocol::ProtocolParameters,
-};
+use crate::model::{MilestoneId, MilestoneIndexTimestamp, MilestonePayload, NodeConfiguration, ProtocolParameters};
 
 #[allow(missing_docs)]
 pub struct Milestone<'a, I: InputSource> {

@@ -18,11 +18,7 @@ pub(super) use self::{
 };
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::{
-        ledger::{LedgerOutput, LedgerSpent},
-        output::TokenAmount,
-        Output,
-    },
+    model::{LedgerOutput, LedgerSpent, Output, TokenAmount},
 };
 
 mod active_addresses;
@@ -70,10 +66,8 @@ mod test {
     use crate::{
         analytics::{test::TestContext, Analytics},
         model::{
-            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
-            output::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, OutputId, TokenAmount},
-            payload::{milestone::MilestoneIndexTimestamp, TransactionId},
-            Address, BlockId, Output,
+            Address, AliasId, AliasOutput, BasicOutput, BlockId, LedgerOutput, LedgerSpent, MilestoneIndexTimestamp,
+            NftId, NftOutput, Output, OutputId, RentStructureBytes, SpentMetadata, TokenAmount, TransactionId,
         },
     };
 

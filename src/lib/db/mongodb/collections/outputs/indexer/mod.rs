@@ -24,9 +24,7 @@ use super::{OutputCollection, OutputDocument};
 use crate::{
     db::mongodb::{collections::SortOrder, MongoDbCollectionExt},
     model::{
-        block::payload::milestone::MilestoneIndex,
-        ledger::OutputMetadata,
-        output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
+        AliasId, AliasOutput, FoundryId, FoundryOutput, MilestoneIndex, NftId, NftOutput, OutputId, OutputMetadata,
     },
 };
 

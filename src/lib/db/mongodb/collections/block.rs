@@ -18,15 +18,7 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::{
-        block::{
-            payload::{milestone::MilestoneIndex, transaction::TransactionId},
-            BlockMetadata,
-        },
-        ledger::LedgerInclusionState,
-        output::OutputId,
-        Block, BlockId,
-    },
+    model::{Block, BlockId, BlockMetadata, LedgerInclusionState, MilestoneIndex, OutputId, TransactionId},
     tangle::BlockData,
 };
 

@@ -15,7 +15,7 @@ use super::{
     },
     Feature, NativeToken, OutputId, TokenAmount,
 };
-use crate::model::{protocol::TryFromWithContext, serde::bytify};
+use crate::model::{bytify, TryFromWithContext};
 
 /// Uniquely identifies an NFT.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

@@ -17,11 +17,7 @@ use chronicle::{
         MongoDb,
     },
     inx::{Inx, InxError},
-    model::{
-        block::payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        Payload,
-    },
+    model::{LedgerInclusionState, LedgerOutput, LedgerSpent, MilestoneIndex, MilestoneIndexTimestamp, Payload},
     tangle::{Milestone, Tangle},
 };
 use eyre::{bail, Result};
@@ -171,7 +167,7 @@ impl InxWorker {
             .get_latest_protocol_parameters()
             .await?
         {
-            let protocol_parameters = chronicle::model::protocol::ProtocolParameters::from(protocol_parameters);
+            let protocol_parameters = chronicle::model::ProtocolParameters::from(protocol_parameters);
             if latest.parameters.network_name != protocol_parameters.network_name {
                 bail!(InxWorkerError::NetworkChanged {
                     old: latest.parameters.network_name,

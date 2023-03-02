@@ -12,7 +12,7 @@ use chronicle::{
         },
         MongoDb,
     },
-    model::output::{AliasId, FoundryId, NftId},
+    model::{AliasId, FoundryId, NftId},
 };
 use mongodb::bson;
 

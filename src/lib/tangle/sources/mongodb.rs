@@ -16,7 +16,7 @@ use crate::{
         },
         MongoDb,
     },
-    model::block::payload::milestone::MilestoneIndex,
+    model::MilestoneIndex,
     tangle::ledger_updates::LedgerUpdateStore,
 };
 

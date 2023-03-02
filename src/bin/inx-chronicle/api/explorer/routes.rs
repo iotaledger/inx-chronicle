@@ -12,11 +12,8 @@ use chronicle::{
         MongoDb,
     },
     model::{
-        block::payload::{
-            milestone::{MilestoneId, MilestoneIndex},
-            MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload,
-        },
-        Address, BlockId,
+        Address, BlockId, MilestoneId, MilestoneIndex, MilestonePayload, TaggedDataPayload, TransactionPayload,
+        TreasuryTransactionPayload,
     },
 };
 use futures::{StreamExt, TryStreamExt};

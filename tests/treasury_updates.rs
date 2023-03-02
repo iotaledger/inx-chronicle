@@ -9,7 +9,7 @@ mod test_rand {
 
     use chronicle::{
         db::{mongodb::collections::TreasuryCollection, MongoDbCollectionExt},
-        model::payload::{milestone::MilestoneIndex, MilestoneId, TreasuryTransactionPayload},
+        model::{MilestoneId, MilestoneIndex, TreasuryTransactionPayload},
     };
     use iota_types::block::rand::number::rand_number_range;
 

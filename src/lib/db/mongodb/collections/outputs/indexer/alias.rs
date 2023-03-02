@@ -7,7 +7,7 @@ use primitive_types::U256;
 use super::queries::{
     AppendQuery, CreatedQuery, GovernorQuery, IssuerQuery, NativeTokensQuery, SenderQuery, StateControllerQuery,
 };
-use crate::model::{block::payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{Address, MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -50,7 +50,7 @@ mod test {
     use primitive_types::U256;
 
     use super::AliasOutputsQuery;
-    use crate::model::{output::NativeTokenAmount, Address};
+    use crate::model::{Address, NativeTokenAmount};
 
     #[test]
     fn test_alias_query_everything() {

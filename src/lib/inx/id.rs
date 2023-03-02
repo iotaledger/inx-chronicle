@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::InxError;
-use crate::model::{
-    block::payload::{MilestoneId, TransactionId},
-    output::OutputId,
-    BlockId,
-};
+use crate::model::{BlockId, MilestoneId, OutputId, TransactionId};
 
 /// Implements `TryFrom` for the different ids that are sent via INX.
 #[macro_export]

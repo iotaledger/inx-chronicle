@@ -7,10 +7,7 @@ use chronicle::{
     db::mongodb::collections::{
         DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult,
     },
-    model::{
-        block::payload::milestone::{MilestoneIndex, MilestoneTimestamp},
-        Address,
-    },
+    model::{Address, MilestoneIndex, MilestoneTimestamp},
 };
 use serde::{Deserialize, Serialize};
 

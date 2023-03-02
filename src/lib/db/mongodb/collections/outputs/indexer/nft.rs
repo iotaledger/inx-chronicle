@@ -8,7 +8,7 @@ use super::queries::{
     AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, IssuerQuery, NativeTokensQuery, SenderQuery,
     StorageDepositReturnQuery, TagQuery, TimelockQuery,
 };
-use crate::model::{block::payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{Address, MilestoneTimestamp};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -75,7 +75,7 @@ mod test {
     use primitive_types::U256;
 
     use super::NftOutputsQuery;
-    use crate::model::{output::NativeTokenAmount, Address};
+    use crate::model::{Address, NativeTokenAmount};
 
     #[test]
     fn test_nft_query_everything() {

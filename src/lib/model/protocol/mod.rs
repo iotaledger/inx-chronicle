@@ -10,7 +10,7 @@ mod context;
 use iota_types::block as iota;
 use serde::{Deserialize, Serialize};
 
-pub use self::context::*;
+pub use self::context::{TryFromWithContext, TryIntoWithContext};
 use crate::model::serde::stringify;
 
 /// Parameters relevant to byte cost calculations.

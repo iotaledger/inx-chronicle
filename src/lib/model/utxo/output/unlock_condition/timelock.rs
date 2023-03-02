@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use iota_types::block::output::unlock_condition as iota;
 use serde::{Deserialize, Serialize};
 
-use crate::model::block::payload::milestone::MilestoneTimestamp;
+use crate::model::MilestoneTimestamp;
 
 /// Defines a unix timestamp until which the output can not be unlocked.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

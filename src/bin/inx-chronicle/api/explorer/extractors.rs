@@ -10,10 +10,7 @@ use axum::{
 };
 use chronicle::{
     db::mongodb::collections::SortOrder,
-    model::{
-        block::payload::milestone::{MilestoneIndex, MilestoneTimestamp},
-        output::OutputId,
-    },
+    model::{MilestoneIndex, MilestoneTimestamp, OutputId},
 };
 use serde::Deserialize;
 

@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::model::{output::TokenAmount, Address};
+use crate::model::{Address, TokenAmount};
 
 #[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {
