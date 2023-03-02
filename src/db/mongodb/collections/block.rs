@@ -124,11 +124,7 @@ impl MongoDbCollection for BlockCollection {
         self.create_index(
             IndexModel::builder()
                 .keys(doc! { "block.parents": 1 })
-                .options(
-                    IndexOptions::builder()
-                        .name("block_parents_index".to_string())
-                        .build(),
-                )
+                .options(IndexOptions::builder().name("block_parents_index".to_string()).build())
                 .build(),
             None,
         )
