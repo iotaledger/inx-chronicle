@@ -193,13 +193,21 @@ impl BlockCollection {
     pub async fn get_block_children(
         &self,
         block_id: &BlockId,
+        block_referenced_index: MilestoneIndex,
+        below_max_depth: u8,
         page_size: usize,
         page: usize,
     ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
+        let max_referenced_index = block_referenced_index + below_max_depth as u32;
+
         Ok(self
             .aggregate(
                 [
-                    doc! { "$match": { "block.parents": block_id } },
+                    doc! { "$match": {
+                        "metadata.referenced_by_milestone_index": { "$gte": block_referenced_index },
+                        "metadata.referenced_by_milestone_index": { "$lte": max_referenced_index },
+                        "block.parents": block_id,
+                    } },
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
                     doc! { "$limit": page_size as i64 },
