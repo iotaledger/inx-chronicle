@@ -1,3 +1,21 @@
+## [1.0.0-beta.33](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.32...v1.0.0-beta.33) (2023-02-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** add payload type to `block_by_milestone` (#1116)
+* **analytics:** rework analytics (#1049)
+
+### Features
+
+* **api:** add payload type to `block_by_milestone` ([#1116](https://github.com/iotaledger/inx-chronicle/issues/1116)) ([d5b9f55](https://github.com/iotaledger/inx-chronicle/commit/d5b9f55fbe0662ee553adf08ac0ccdffee4d37d1))
+* **analytics:** rework analytics ([#1049] (https://github.com/iotaledger/inx-chronicle/issues/1049)) ([8870176](https://github.com/iotaledger/inx-chronicle/commit/88701768831400cdb98653965839677407cba1a3))
+
+### Bug Fixes
+
+* **docs:** Remove `config.toml` remnants ([#1135](https://github.com/iotaledger/inx-chronicle/issues/1135)) ([14a67e9] (https://github.com/iotaledger/inx-chronicle/commit/14a67e9e5462b885c04a9adfe7580e6a014971e6))
+* **inx:** node config updates ([#1110](https://github.com/iotaledger/inx-chronicle/issues/1110)) ([f48936b] (https://github.com/iotaledger/inx-chronicle/commit/f48936bec1b121415ca7524019f7f08d21a697fc))
+
 ## [1.0.0-beta.32](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.31...v1.0.0-beta.32) (2023-02-06)
 
 
