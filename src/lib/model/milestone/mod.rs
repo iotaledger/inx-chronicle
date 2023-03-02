@@ -190,13 +190,13 @@ pub enum MilestoneOption {
         /// The payload that updates the treasury accordingly.
         transaction: TreasuryTransactionPayload,
     },
-    /// An update of the [`ProtocolParameters`](crate::model::tangle::ProtocolParameters).
+    /// An update of the [`ProtocolParameters`](crate::model::ProtocolParameters).
     Parameters {
         /// The target milestone for when the update will become active.
         target_milestone_index: MilestoneIndex,
         /// The new protocol version.
         protocol_version: u8,
-        /// The [`ProtocolParameters`](crate::model::tangle::ProtocolParameters) in binary representation.
+        /// The [`ProtocolParameters`](crate::model::ProtocolParameters) in binary representation.
         binary_parameters: Box<[u8]>,
     },
 }

@@ -176,7 +176,7 @@ pub struct UtxoChangesResult {
 /// Implements the queries for the core API.
 impl OutputCollection {
     /// Upserts [`Outputs`](crate::model::Output) with their
-    /// [`OutputMetadata`](crate::model::ledger::OutputMetadata).
+    /// [`OutputMetadata`](crate::model::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
@@ -207,7 +207,7 @@ impl OutputCollection {
     }
 
     /// Inserts [`Outputs`](crate::model::Output) with their
-    /// [`OutputMetadata`](crate::model::ledger::OutputMetadata).
+    /// [`OutputMetadata`](crate::model::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
     where
