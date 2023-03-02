@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chronicle::db::{
-    collections::{ApplicationStateCollection, MigrationVersion},
+    mongodb::collections::{ApplicationStateCollection, MigrationVersion},
     MongoDb,
 };
 use eyre::bail;

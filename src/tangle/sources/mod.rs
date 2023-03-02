@@ -11,14 +11,13 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 
 use super::ledger_updates::LedgerUpdateStore;
-use crate::types::{
-    ledger::{BlockMetadata, MilestoneIndexTimestamp},
+use crate::model::{
+    metadata::BlockMetadata,
     node::NodeConfiguration,
-    stardust::block::{
-        payload::{MilestoneId, MilestonePayload},
-        Block, BlockId,
-    },
-    tangle::{MilestoneIndex, ProtocolParameters},
+    payload::{MilestoneId, MilestonePayload},
+    protocol::ProtocolParameters,
+    tangle::{MilestoneIndex, MilestoneIndexTimestamp},
+    Block, BlockId,
 };
 
 /// Logical grouping of data that belongs to a milestone.

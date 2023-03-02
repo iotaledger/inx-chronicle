@@ -149,18 +149,6 @@ where
         }
     }
 
-    pub fn merge<R>(mut self, other: R) -> Self
-    where
-        R: Into<Router<B>>,
-    {
-        let other = other.into();
-        self.root.merge(other.root);
-        Self {
-            inner: self.inner.merge(other.inner),
-            root: self.root,
-        }
-    }
-
     pub fn layer<L, NewReqBody, NewResBody>(self, layer: L) -> Router<NewReqBody>
     where
         L: Layer<Route<B>>,

@@ -8,9 +8,9 @@ mod test_rand {
     use std::collections::HashMap;
 
     use chronicle::{
-        db::{collections::TreasuryCollection, MongoDbCollectionExt},
-        types::{
-            stardust::block::payload::{MilestoneId, TreasuryTransactionPayload},
+        db::{mongodb::collections::TreasuryCollection, MongoDbCollectionExt},
+        model::{
+            payload::{MilestoneId, TreasuryTransactionPayload},
             tangle::MilestoneIndex,
         },
     };

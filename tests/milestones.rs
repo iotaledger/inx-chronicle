@@ -6,8 +6,8 @@ mod common;
 #[cfg(feature = "rand")]
 mod test_rand {
     use chronicle::{
-        db::collections::MilestoneCollection,
-        types::stardust::block::payload::{MilestoneId, MilestonePayload},
+        db::mongodb::collections::MilestoneCollection,
+        model::payload::{MilestoneId, MilestonePayload},
     };
 
     use super::common::{setup_collection, setup_database, teardown};
@@ -24,7 +24,7 @@ mod test_rand {
             .insert_milestone(
                 milestone_id,
                 milestone.essence.index,
-                milestone.essence.timestamp.into(),
+                milestone.essence.timestamp,
                 milestone.clone(),
             )
             .await
