@@ -7,7 +7,7 @@ mod common;
 mod test_rand {
     use chronicle::{
         db::{mongodb::collections::ConfigurationUpdateCollection, MongoDbCollectionExt},
-        model::node::{BaseToken, MilestoneKeyRange, NodeConfiguration},
+        model::{BaseToken, MilestoneKeyRange, NodeConfiguration},
     };
 
     use super::common::{setup_collection, setup_database, teardown};

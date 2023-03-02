@@ -7,7 +7,7 @@ use iota_types::block as iota;
 use crate::{
     inx::InxError,
     maybe_missing,
-    model::node::{BaseToken, MilestoneKeyRange, NodeConfiguration},
+    model::{BaseToken, MilestoneKeyRange, NodeConfiguration},
 };
 
 /// The [`BaseTokenMessage`] type.

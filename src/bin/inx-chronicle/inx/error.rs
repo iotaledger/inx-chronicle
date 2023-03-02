@@ -1,7 +1,7 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use chronicle::model::payload::milestone::MilestoneIndex;
+use chronicle::model::tangle::MilestoneIndex;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

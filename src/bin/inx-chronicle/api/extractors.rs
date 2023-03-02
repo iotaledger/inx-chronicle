@@ -6,7 +6,7 @@ use axum::{
     extract::{FromRequest, Query},
     Extension,
 };
-use chronicle::model::payload::milestone::MilestoneTimestamp;
+use chronicle::model::tangle::MilestoneTimestamp;
 use serde::Deserialize;
 
 use super::{

@@ -14,9 +14,9 @@ use crate::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::payload::{
-        milestone::{MilestoneId, MilestoneIndex},
-        treasury_transaction::TreasuryTransactionPayload,
+    model::{
+        payload::{MilestoneId, TreasuryTransactionPayload},
+        tangle::MilestoneIndex,
     },
 };
 

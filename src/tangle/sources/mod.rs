@@ -12,13 +12,11 @@ use futures::stream::BoxStream;
 
 use super::ledger_updates::LedgerUpdateStore;
 use crate::model::{
-    ledger::BlockMetadata,
+    metadata::BlockMetadata,
     node::NodeConfiguration,
-    payload::{
-        milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-        MilestoneId, MilestonePayload,
-    },
-    tangle::ProtocolParameters,
+    payload::{MilestoneId, MilestonePayload},
+    protocol::ProtocolParameters,
+    tangle::{MilestoneIndex, MilestoneIndexTimestamp},
     Block, BlockId,
 };
 

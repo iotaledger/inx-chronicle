@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use super::*;
 use crate::model::{
-    output::{AliasId, NftId},
+    utxo::{AliasId, NftId},
     Address,
 };
 

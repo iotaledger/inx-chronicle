@@ -24,9 +24,9 @@ use super::{OutputCollection, OutputDocument};
 use crate::{
     db::mongodb::{collections::SortOrder, MongoDbCollectionExt},
     model::{
-        ledger::OutputMetadata,
-        output::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
-        payload::milestone::MilestoneIndex,
+        metadata::OutputMetadata,
+        tangle::MilestoneIndex,
+        utxo::{AliasId, AliasOutput, FoundryId, FoundryOutput, NftId, NftOutput, OutputId},
     },
 };
 

@@ -7,7 +7,7 @@ use iota_types::block as iota;
 use super::{raw::RawMessage, InxError, RawProtocolParametersMessage};
 use crate::{
     maybe_missing,
-    model::payload::{milestone::MilestoneIndex, MilestoneId},
+    model::{payload::MilestoneId, tangle::MilestoneIndex},
 };
 
 #[allow(missing_docs)]

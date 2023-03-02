@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use crate::model::ledger::LedgerInclusionState;
+use crate::model::metadata::LedgerInclusionState;
 
 /// The type of payloads that occured within a single milestone.
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]

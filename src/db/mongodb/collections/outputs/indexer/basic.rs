@@ -8,7 +8,7 @@ use super::queries::{
     AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, NativeTokensQuery, SenderQuery,
     StorageDepositReturnQuery, TagQuery, TimelockQuery,
 };
-use crate::model::{payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{tangle::MilestoneTimestamp, Address};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -73,7 +73,7 @@ mod test {
     use primitive_types::U256;
 
     use super::BasicOutputsQuery;
-    use crate::model::{output::NativeTokenAmount, Address};
+    use crate::model::{utxo::NativeTokenAmount, Address};
 
     #[test]
     fn test_basic_query_everything() {

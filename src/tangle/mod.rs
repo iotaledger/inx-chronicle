@@ -15,7 +15,7 @@ pub use self::{
     milestone_stream::{Milestone, MilestoneStream},
     sources::{BlockData, InputSource, MilestoneData},
 };
-use crate::model::payload::milestone::MilestoneIndex;
+use crate::model::tangle::MilestoneIndex;
 
 /// Provides access to the tangle.
 pub struct Tangle<I: InputSource> {

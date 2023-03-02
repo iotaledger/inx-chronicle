@@ -8,10 +8,12 @@ mod test_rand {
     use chronicle::{
         db::mongodb::collections::{OutputCollection, OutputMetadataResult, OutputWithMetadataResult},
         model::{
-            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
-            output::OutputId,
-            payload::{milestone::MilestoneIndexTimestamp, TransactionId},
-            BlockId, Output,
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+            metadata::SpentMetadata,
+            payload::TransactionId,
+            tangle::MilestoneIndexTimestamp,
+            utxo::{Output, OutputId},
+            BlockId,
         },
     };
 

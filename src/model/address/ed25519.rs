@@ -7,7 +7,7 @@ use iota_types::block::address as iota;
 use mongodb::bson::{spec::BinarySubtype, Binary, Bson};
 use serde::{Deserialize, Serialize};
 
-use crate::model::serde::bytify;
+use crate::model::bytify;
 
 /// A regular Ed25519 address.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

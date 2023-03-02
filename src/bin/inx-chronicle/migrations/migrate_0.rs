@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use chronicle::{
     db::{mongodb::collections::OutputCollection, MongoDb, MongoDbCollectionExt},
-    model::output::{AliasId, NftId, OutputId},
+    model::utxo::{AliasId, NftId, OutputId},
 };
 use futures::TryStreamExt;
 use mongodb::{bson::doc, options::IndexOptions, IndexModel};

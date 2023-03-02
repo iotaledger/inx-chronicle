@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
-use crate::model::{context::TryFromWithContext, ledger::RentStructureBytes, tangle::ProtocolParameters};
+use crate::model::{ledger::RentStructureBytes, ProtocolParameters, TryFromWithContext};
 
 trait LedgerSize {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement;

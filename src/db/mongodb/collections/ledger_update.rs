@@ -19,8 +19,8 @@ use crate::{
     },
     model::{
         ledger::{LedgerOutput, LedgerSpent},
-        output::OutputId,
-        payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
+        tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
+        utxo::OutputId,
         Address,
     },
 };
@@ -102,7 +102,7 @@ fn oldest() -> Document {
     doc! { "address": 1, "_id.milestone_index": 1, "_id.output_id": 1, "_id.is_spent": 1 }
 }
 
-/// Queries that are related to [`Output`](crate::model::Output)s.
+/// Queries that are related to [`Output`](crate::model::utxo::Output)s.
 impl LedgerUpdateCollection {
     /// Inserts [`LedgerSpent`] updates.
     #[instrument(skip_all, err, level = "trace")]

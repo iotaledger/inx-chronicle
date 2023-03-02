@@ -20,8 +20,7 @@ use crate::{
     analytics::{Analytics, AnalyticsContext},
     model::{
         ledger::{LedgerOutput, LedgerSpent},
-        output::TokenAmount,
-        Output,
+        utxo::{Output, TokenAmount},
     },
 };
 
@@ -70,10 +69,12 @@ mod test {
     use crate::{
         analytics::{test::TestContext, Analytics},
         model::{
-            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
-            output::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, OutputId, TokenAmount},
-            payload::{milestone::MilestoneIndexTimestamp, TransactionId},
-            Address, BlockId, Output,
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+            metadata::SpentMetadata,
+            payload::TransactionId,
+            tangle::MilestoneIndexTimestamp,
+            utxo::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, Output, OutputId, TokenAmount},
+            Address, BlockId,
         },
     };
 

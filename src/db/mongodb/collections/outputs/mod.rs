@@ -24,9 +24,10 @@ use crate::{
         MongoDb,
     },
     model::{
-        ledger::{LedgerOutput, LedgerSpent, OutputMetadata, RentStructureBytes, SpentMetadata},
-        output::{AliasId, NftId, Output, OutputId},
-        payload::milestone::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
+        ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+        metadata::{OutputMetadata, SpentMetadata},
+        tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
+        utxo::{AliasId, NftId, Output, OutputId},
         Address, BlockId,
     },
 };
@@ -177,8 +178,8 @@ pub struct UtxoChangesResult {
 
 /// Implements the queries for the core API.
 impl OutputCollection {
-    /// Upserts [`Outputs`](crate::model::Output) with their
-    /// [`OutputMetadata`](crate::model::ledger::OutputMetadata).
+    /// Upserts [`Outputs`](crate::model::utxo::Output) with their
+    /// [`OutputMetadata`](crate::model::metadata::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn update_spent_outputs(&self, outputs: impl IntoIterator<Item = &LedgerSpent>) -> Result<(), Error> {
         // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
@@ -208,8 +209,8 @@ impl OutputCollection {
         Ok(())
     }
 
-    /// Inserts [`Outputs`](crate::model::Output) with their
-    /// [`OutputMetadata`](crate::model::ledger::OutputMetadata).
+    /// Inserts [`Outputs`](crate::model::utxo::Output) with their
+    /// [`OutputMetadata`](crate::model::metadata::OutputMetadata).
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_unspent_outputs<I, B>(&self, outputs: I) -> Result<(), Error>
     where

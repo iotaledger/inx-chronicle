@@ -35,10 +35,7 @@ pub use self::{
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},
 };
-use crate::model::{
-    output::{AliasOutput, BasicOutput, FoundryOutput, NftOutput},
-    Output,
-};
+use crate::model::utxo::{AliasOutput, BasicOutput, FoundryOutput, NftOutput, Output};
 
 /// Helper to specify a kind for an output type.
 pub trait OutputKindQuery {

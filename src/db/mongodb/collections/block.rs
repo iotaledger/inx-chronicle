@@ -19,9 +19,10 @@ use crate::{
         MongoDb,
     },
     model::{
-        ledger::{BlockMetadata, LedgerInclusionState},
-        output::OutputId,
-        payload::{milestone::MilestoneIndex, transaction::TransactionId},
+        metadata::{BlockMetadata, LedgerInclusionState},
+        payload::TransactionId,
+        tangle::MilestoneIndex,
+        utxo::OutputId,
         Block, BlockId,
     },
     tangle::BlockData,
@@ -369,7 +370,7 @@ impl BlockCollection {
         .await
     }
 
-    /// Gets the spending transaction of an [`Output`](crate::model::Output) by [`OutputId`].
+    /// Gets the spending transaction of an [`Output`](crate::model::utxo::Output) by [`OutputId`].
     pub async fn get_spending_transaction(&self, output_id: &OutputId) -> Result<Option<Block>, Error> {
         self.aggregate(
             [

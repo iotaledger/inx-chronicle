@@ -4,7 +4,7 @@
 use mongodb::bson::{self, doc, Document};
 use primitive_types::U256;
 
-use crate::model::{output::NativeTokenAmount, payload::milestone::MilestoneTimestamp, Address};
+use crate::model::{tangle::MilestoneTimestamp, utxo::NativeTokenAmount, Address};
 
 /// Defines how a query is appended to a list of `$and` queries.
 pub(super) trait AppendToQuery {

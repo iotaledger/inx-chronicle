@@ -13,7 +13,7 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::{payload::milestone::MilestoneIndex, tangle::ProtocolParameters},
+    model::{tangle::MilestoneIndex, ProtocolParameters},
 };
 
 /// A milestone's metadata.

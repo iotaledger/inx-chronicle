@@ -19,14 +19,11 @@ use chronicle::{
         MongoDb,
     },
     model::{
-        context::TryFromWithContext,
-        ledger::BlockMetadata,
-        output::OutputId,
-        payload::{
-            milestone::{MilestoneId, MilestoneIndex},
-            transaction::TransactionId,
-        },
-        BlockId,
+        metadata::BlockMetadata,
+        payload::{MilestoneId, TransactionId},
+        tangle::MilestoneIndex,
+        utxo::OutputId,
+        BlockId, TryFromWithContext,
     },
 };
 use futures::TryStreamExt;

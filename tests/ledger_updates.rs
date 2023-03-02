@@ -15,10 +15,11 @@ mod test_rand {
             MongoDbCollectionExt,
         },
         model::{
-            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes, SpentMetadata},
-            output::{AddressUnlockCondition, BasicOutput, OutputId},
-            payload::milestone::MilestoneIndexTimestamp,
-            BlockId, Output,
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+            metadata::SpentMetadata,
+            tangle::MilestoneIndexTimestamp,
+            utxo::{AddressUnlockCondition, BasicOutput, Output, OutputId},
+            BlockId,
         },
     };
     use futures::TryStreamExt;

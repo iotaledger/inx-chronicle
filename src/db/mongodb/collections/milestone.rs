@@ -19,8 +19,9 @@ use crate::{
         mongodb::{MongoDbCollection, MongoDbCollectionExt},
         MongoDb,
     },
-    model::payload::milestone::{
-        MilestoneId, MilestoneIndex, MilestoneIndexTimestamp, MilestoneOption, MilestonePayload, MilestoneTimestamp,
+    model::{
+        payload::{MilestoneId, MilestoneOption, MilestonePayload},
+        tangle::{MilestoneIndex, MilestoneIndexTimestamp, MilestoneTimestamp},
     },
 };
 

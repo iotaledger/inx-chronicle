@@ -11,7 +11,7 @@ pub(crate) use self::{
 };
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    model::{tangle::ProtocolParameters, Payload},
+    model::{payload::Payload, ProtocolParameters},
     tangle::BlockData,
 };
 
@@ -25,8 +25,8 @@ mod test {
     use crate::{
         analytics::{tangle::MilestoneSizeMeasurement, test::TestContext, Analytics},
         model::{
-            ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-            payload::milestone::MilestoneIndex,
+            metadata::{BlockMetadata, ConflictReason, LedgerInclusionState},
+            tangle::MilestoneIndex,
             Block, BlockId,
         },
         tangle::BlockData,

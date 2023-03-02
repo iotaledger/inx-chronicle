@@ -7,7 +7,7 @@ use iota_types::block::address as iota;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
-use crate::model::output::AliasId;
+use crate::model::utxo::AliasId;
 
 /// An address of an alias.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]

@@ -12,10 +12,8 @@ use chronicle::{
         MongoDb,
     },
     model::{
-        payload::{
-            milestone::{MilestoneId, MilestoneIndex},
-            MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload,
-        },
+        payload::{MilestoneId, MilestonePayload, TaggedDataPayload, TransactionPayload, TreasuryTransactionPayload},
+        tangle::MilestoneIndex,
         Address, BlockId,
     },
 };

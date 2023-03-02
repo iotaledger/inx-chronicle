@@ -8,7 +8,7 @@ use chronicle::{
         DistributionStat, LedgerUpdateByAddressRecord, LedgerUpdateByMilestoneRecord, MilestoneResult,
     },
     model::{
-        payload::milestone::{MilestoneIndex, MilestoneTimestamp},
+        tangle::{MilestoneIndex, MilestoneTimestamp},
         Address,
     },
 };

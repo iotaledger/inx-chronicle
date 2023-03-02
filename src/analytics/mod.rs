@@ -21,13 +21,12 @@ use crate::{
         MongoDb,
     },
     model::{
-        ledger::{LedgerInclusionState, LedgerOutput, LedgerSpent},
-        payload::{
-            milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-            TransactionEssence,
-        },
-        tangle::ProtocolParameters,
-        Input, Payload,
+        ledger::{LedgerOutput, LedgerSpent},
+        metadata::LedgerInclusionState,
+        payload::{Payload, TransactionEssence},
+        protocol::ProtocolParameters,
+        tangle::{MilestoneIndex, MilestoneIndexTimestamp},
+        utxo::Input,
     },
     tangle::{BlockData, InputSource, Milestone},
 };
@@ -388,14 +387,13 @@ mod test {
             UnlockConditionMeasurement,
         },
         model::{
-            ledger::{BlockMetadata, LedgerOutput, LedgerSpent},
+            block::BlockId,
+            ledger::{LedgerOutput, LedgerSpent},
+            metadata::BlockMetadata,
             node::NodeConfiguration,
-            payload::{
-                milestone::{MilestoneIndex, MilestoneIndexTimestamp},
-                MilestoneId, MilestonePayload,
-            },
-            tangle::ProtocolParameters,
-            BlockId,
+            payload::{MilestoneId, MilestonePayload},
+            protocol::ProtocolParameters,
+            tangle::{MilestoneIndex, MilestoneIndexTimestamp},
         },
         tangle::{sources::memory::InMemoryData, BlockData, LedgerUpdateStore, MilestoneData, Tangle},
     };
@@ -434,7 +432,7 @@ mod test {
         #[allow(dead_code)]
         fn init<'a>(
             protocol_params: ProtocolParameters,
-            unspent_outputs: impl IntoIterator<Item = &'a crate::model::ledger::LedgerOutput> + Copy,
+            unspent_outputs: impl IntoIterator<Item = &'a LedgerOutput> + Copy,
         ) -> Self {
             Self {
                 active_addresses: Default::default(),
@@ -470,7 +468,7 @@ mod test {
     impl Analytics for TestAnalytics {
         type Measurement = TestMeasurements;
 
-        fn handle_block(&mut self, block_data: &crate::tangle::BlockData, ctx: &dyn AnalyticsContext) {
+        fn handle_block(&mut self, block_data: &BlockData, ctx: &dyn AnalyticsContext) {
             self.active_addresses.handle_block(block_data, ctx);
             self.address_balance.handle_block(block_data, ctx);
             self.base_tokens.handle_block(block_data, ctx);
@@ -486,8 +484,8 @@ mod test {
 
         fn handle_transaction(
             &mut self,
-            consumed: &[crate::model::ledger::LedgerSpent],
-            created: &[crate::model::ledger::LedgerOutput],
+            consumed: &[LedgerSpent],
+            created: &[LedgerOutput],
             ctx: &dyn AnalyticsContext,
         ) {
             self.active_addresses.handle_transaction(consumed, created, ctx);

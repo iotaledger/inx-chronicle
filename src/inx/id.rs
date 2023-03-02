@@ -3,9 +3,9 @@
 
 use super::InxError;
 use crate::model::{
-    output::OutputId,
+    block::BlockId,
     payload::{MilestoneId, TransactionId},
-    BlockId,
+    utxo::OutputId,
 };
 
 /// Implements `TryFrom` for the different ids that are sent via INX.
