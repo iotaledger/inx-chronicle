@@ -10,14 +10,14 @@ use thiserror::Error;
 use super::{BlockData, InputSource, MilestoneData};
 use crate::{
     db::{
-        collections::{
+        mongodb::collections::{
             BlockCollection, ConfigurationUpdateCollection, MilestoneCollection, OutputCollection,
             ProtocolUpdateCollection,
         },
         MongoDb,
     },
+    model::tangle::MilestoneIndex,
     tangle::ledger_updates::LedgerUpdateStore,
-    types::tangle::MilestoneIndex,
 };
 
 #[derive(Debug, Error)]

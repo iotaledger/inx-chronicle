@@ -7,7 +7,7 @@ use axum::{
     extract::rejection::{QueryRejection, TypedHeaderRejection},
     response::IntoResponse,
 };
-use chronicle::db::collections::ParseSortError;
+use chronicle::db::mongodb::collections::ParseSortError;
 use hyper::{header::InvalidHeaderValue, StatusCode};
 use serde::Serialize;
 use thiserror::Error;
@@ -93,7 +93,7 @@ pub enum CorruptStateError {
     Milestone,
     #[cfg(feature = "poi")]
     #[error(transparent)]
-    PoI(#[from] crate::api::stardust::poi::CorruptStateError),
+    PoI(#[from] crate::api::poi::CorruptStateError),
     #[error("no node configuration in the database")]
     NodeConfig,
     #[error("no protocol parameters in the database")]
@@ -180,7 +180,7 @@ pub enum RequestError {
     InvalidQueryParams(#[from] QueryRejection),
     #[cfg(feature = "poi")]
     #[error(transparent)]
-    PoI(#[from] crate::api::stardust::poi::RequestError),
+    PoI(#[from] crate::api::poi::RequestError),
     #[error("invalid sort order provided: {0}")]
     SortOrder(#[from] ParseSortError),
 }

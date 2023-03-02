@@ -12,11 +12,11 @@ use super::{
     sources::{BlockData, InputSource},
     LedgerUpdateStore,
 };
-use crate::types::{
-    ledger::MilestoneIndexTimestamp,
+use crate::model::{
     node::NodeConfiguration,
-    stardust::block::payload::{MilestoneId, MilestonePayload},
-    tangle::ProtocolParameters,
+    payload::{MilestoneId, MilestonePayload},
+    protocol::ProtocolParameters,
+    tangle::MilestoneIndexTimestamp,
 };
 
 #[allow(missing_docs)]

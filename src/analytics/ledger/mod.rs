@@ -18,9 +18,9 @@ pub(super) use self::{
 };
 use crate::{
     analytics::{Analytics, AnalyticsContext},
-    types::{
+    model::{
         ledger::{LedgerOutput, LedgerSpent},
-        stardust::block::{output::TokenAmount, Output},
+        utxo::{Output, TokenAmount},
     },
 };
 
@@ -68,13 +68,13 @@ mod test {
     use super::*;
     use crate::{
         analytics::{test::TestContext, Analytics},
-        types::{
-            ledger::{LedgerOutput, LedgerSpent, MilestoneIndexTimestamp, RentStructureBytes, SpentMetadata},
-            stardust::block::{
-                output::{AliasId, AliasOutput, BasicOutput, NftId, NftOutput, OutputId, TokenAmount},
-                payload::TransactionId,
-                Address, BlockId, Output,
-            },
+        model::{
+            ledger::{LedgerOutput, LedgerSpent, RentStructureBytes},
+            metadata::SpentMetadata,
+            payload::TransactionId,
+            tangle::MilestoneIndexTimestamp,
+            utxo::{Address, AliasId, AliasOutput, BasicOutput, NftId, NftOutput, Output, OutputId, TokenAmount},
+            BlockId,
         },
     };
 

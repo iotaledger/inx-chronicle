@@ -8,10 +8,12 @@ mod test_rand {
     use std::{collections::HashSet, fs::File, io::BufReader};
 
     use chronicle::{
-        db::{collections::BlockCollection, MongoDbCollectionExt},
-        types::{
-            ledger::{BlockMetadata, ConflictReason, LedgerInclusionState},
-            stardust::block::{output::OutputId, Block, BlockId, Payload},
+        db::{mongodb::collections::BlockCollection, MongoDbCollectionExt},
+        model::{
+            metadata::{BlockMetadata, ConflictReason, LedgerInclusionState},
+            payload::Payload,
+            utxo::OutputId,
+            Block, BlockId,
         },
     };
     use futures::TryStreamExt;

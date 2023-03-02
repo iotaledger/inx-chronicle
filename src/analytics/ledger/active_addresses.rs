@@ -6,8 +6,8 @@ use std::collections::HashSet;
 use super::*;
 use crate::{
     analytics::{AnalyticsInterval, IntervalAnalytics},
-    db::{collections::OutputCollection, MongoDb},
-    types::stardust::block::Address,
+    db::{mongodb::collections::OutputCollection, MongoDb},
+    model::utxo::Address,
 };
 
 #[derive(Debug, Default)]
