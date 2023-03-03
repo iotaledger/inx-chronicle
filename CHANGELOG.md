@@ -1,3 +1,10 @@
+## [1.0.0-beta.35](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.34...v1.0.0-beta.35) (2023-03-03)
+
+
+### Bug Fixes
+
+* **cli:** fix regression at startup ([#1162](https://github.com/iotaledger/inx-chronicle/issues/1162)) ([aaa7986] (https://github.com/iotaledger/inx-chronicle/commit/aaa79864253df72139be686fb7b43c13b1f88038))
+
 ## [1.0.0-beta.34](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.33...v1.0.0-beta.34) (2023-03-02)
 
 
