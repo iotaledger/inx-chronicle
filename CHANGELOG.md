@@ -1,3 +1,11 @@
+## [1.0.0-beta.34](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.33...v1.0.0-beta.34) (2023-03-02)
+
+
+### Bug Fixes
+
+* **db:** add block parents index ([#1160](https://github.com/iotaledger/inx-chronicle/issues/1160)) ([7fd515f](https://github.com/iotaledger/inx-chronicle/commit/7fd515f8eb1fbd7a8e54afe3632738b617509612))
+* **db:** fix slow get block children query ([#1158](https://github.com/iotaledger/inx-chronicle/issues/1158)) ([587e9ab](https://github.com/iotaledger/inx-chronicle/commit/587e9ab9d41e5dfb0521da2b74dc688a85ae2338))
+
 ## [1.0.0-beta.33](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.32...v1.0.0-beta.33) (2023-02-28)
 
 
