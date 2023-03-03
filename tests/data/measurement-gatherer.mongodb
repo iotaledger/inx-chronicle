@@ -1,0 +1,287 @@
+use("chronicle_beta_25");
+
+let res = {};
+let start_index = 17339;
+let end_index = 17341;
+
+for (let ledger_index = start_index; ledger_index<=end_index; ++ledger_index) {
+    let ms = {};
+    
+    // Uncomment to gather specific measurements
+
+    // ms.active_addresses = db.stardust_outputs.aggregate([
+    //     { "$match": { "$or": [
+    //         { "metadata.booked.milestone_index": ledger_index },
+    //         { "metadata.spent_metadata.spent.milestone_index": ledger_index },
+    //     ] } },
+    //     { "$group": { "_id": { "addr": "$details.address" } } },
+    //     { "$count": "count" },
+    // ]).toArray()[0];
+
+    // ms.addresses_with_balance = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "metadata.booked.milestone_index": { "$lte": ledger_index },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group" : { "_id": "$details.address" } },
+    //     { "$count" : "address_with_balance_count" },
+    // ]).toArray()[0];
+
+    // ms.ledger_outputs = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "metadata.booked.milestone_index": { "$lte": ledger_index },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group" : {
+    //         "_id": "$output.kind",
+    //         "count": { "$sum": 1 },
+    //         "value": { "$sum": { "$toDecimal": "$output.amount" } },
+    //     } },
+    //     { "$group" : {
+    //         "_id": null,
+    //         "result": { "$addToSet": {
+    //             "k": "$_id",
+    //             "v": {
+    //                 "count": "$count",
+    //                 "value": { "$toString": "$value" },
+    //             }
+    //         } },
+    //     } },
+    //     { "$replaceWith": {
+    //         "$arrayToObject": "$result"
+    //     } },
+    // ]).toArray()[0];
+
+    // ms.ledger_size = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "metadata.booked.milestone_index": { "$lte": ledger_index },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group" : {
+    //         "_id": null,
+    //         "total_key_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_key_bytes" } },
+    //         "total_data_bytes": { "$sum": { "$toDecimal": "$details.rent_structure.num_data_bytes" } },
+    //     } },
+    //     { "$lookup": {
+    //         "from": "stardust_protocol_updates",
+    //         "pipeline": [
+    //             { "$match": { "_id": { "$lte": ledger_index } } },
+    //             { "$sort": { "_id": -1 } },
+    //             { "$limit": 1 },
+    //             { "$replaceWith": "$parameters.rent_structure" }
+    //         ],
+    //         "as": "rent_structure",
+    //     } },
+    //     { "$set": { "config": { "$first": "$rent_structure" } } },
+    //     { "$project": {
+    //         "_id": 0,
+    //         "total_key_bytes": { "$toString": "$total_key_bytes" },
+    //         "total_data_bytes": { "$toString": "$total_data_bytes" },
+    //         // This isn't correct because it is missing weighted bytes
+    //         "total_storage_deposit_value": { "$multiply": [
+    //             { "$add": [ 
+    //                 { "$multiply": [ 
+    //                     "$total_key_bytes", "$config.v_byte_factor_data" 
+    //                 ] }, 
+    //                 { "$multiply": [
+    //                     "$total_data_bytes", "$config.v_byte_factor_key"
+    //                 ] } ] 
+    //             },
+    //             "$config.v_byte_cost"
+    //         ] },
+    //     } },
+    // ]).toArray()[0];
+
+    ms.transaction_size = db.stardust_blocks.aggregate([
+        { "$match": { 
+            "metadata.referenced_by_milestone_index": ledger_index,
+            "block.payload.kind": "transaction",
+        } },
+        { "$lookup": {
+            "from": "stardust_outputs",
+            "localField": "block.payload.transaction_id",
+            "foreignField": "_id.transaction_id",
+            "as": "outputs",
+        } },
+        { "$set": {
+            "input_count": { "$size": "$block.payload.essence.inputs" },
+            "output_count": { "$size": "$outputs" },
+        } },
+        { "$group": {
+            "_id": null,
+            "inputs_1": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 1 ]}, 1, 0 ] } },
+            "inputs_2": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 2 ]}, 1, 0 ] } },
+            "inputs_3": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 3 ]}, 1, 0 ] } },
+            "inputs_4": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 4 ]}, 1, 0 ] } },
+            "inputs_5": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 5 ]}, 1, 0 ] } },
+            "inputs_6": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 6 ]}, 1, 0 ] } },
+            "inputs_7": { "$sum": { "$cond": [ { "$eq": [ "$input_count", 7 ]}, 1, 0 ] } },
+            "inputs_small": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$input_count", 8 ]}, { "$lt": [ "$input_count", 16 ] } ] }, 1, 0 ] } },
+            "inputs_medium": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$input_count", 16 ]}, { "$lt": [ "$input_count", 32 ] } ] }, 1, 0 ] } },
+            "inputs_large": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$input_count", 32 ]}, { "$lt": [ "$input_count", 64 ] } ] }, 1, 0 ] } },
+            "inputs_huge": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$input_count", 64 ]}, { "$lt": [ "$input_count", 128 ] } ] }, 1, 0 ] } },
+            "outputs_1": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 1 ]}, 1, 0 ] } },
+            "outputs_2": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 2 ]}, 1, 0 ] } },
+            "outputs_3": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 3 ]}, 1, 0 ] } },
+            "outputs_4": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 4 ]}, 1, 0 ] } },
+            "outputs_5": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 5 ]}, 1, 0 ] } },
+            "outputs_6": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 6 ]}, 1, 0 ] } },
+            "outputs_7": { "$sum": { "$cond": [ { "$eq": [ "$output_count", 7 ]}, 1, 0 ] } },
+            "outputs_small": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$output_count", 8 ]}, { "$lt": [ "$output_count", 16 ] } ] }, 1, 0 ] } },
+            "outputs_medium": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$output_count", 16 ]}, { "$lt": [ "$output_count", 32 ] } ] }, 1, 0 ] } },
+            "outputs_large": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$output_count", 32 ]}, { "$lt": [ "$output_count", 64 ] } ] }, 1, 0 ] } },
+            "outputs_huge": { "$sum": { "$cond": [ { "$and": [ { "$gte": [ "$output_count", 64 ]}, { "$lt": [ "$output_count", 128 ] } ] }, 1, 0 ] } },
+        } },
+        { "$project": {
+            "_id": 0,
+        }}
+    ]).toArray()[0];
+
+    // ms.unclaimed_tokens = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "metadata.booked.milestone_index": { "$eq": 0 },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group": {
+    //         "_id": null,
+    //         "unclaimed_count": { "$sum": 1 },
+    //         "unclaimed_value": { "$sum": { "$toDecimal": "$output.amount" } },
+    //     } },
+    //     { "$project": {
+    //         "_id": 0,
+    //         "unclaimed_count": 1,
+    //         "unclaimed_value": { "$toString": "$unclaimed_value" },
+    //     } },
+    // ]).toArray()[0];
+
+    // ms.unclaimed_tokens = {};
+
+    // ms.unclaimed_tokens.timelock = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "output.timelock_unlock_condition": { "$exists": true },
+    //         "metadata.booked.milestone_index": { "$lte": ledger_index },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group": {
+    //         "_id": null,
+    //         "count": { "$sum": 1 },
+    //         "value": { "$sum": { "$toDecimal": "$output.amount" } },
+    //     } },
+    //     { "$project": {
+    //         "_id": 0,
+    //         "count": 1,
+    //         "value": { "$toString": "$value" },
+    //     } },
+    // ]).toArray()[0];
+
+    // ms.unclaimed_tokens.expiration = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "output.expiration_unlock_condition": { "$exists": true },
+    //         "metadata.booked.milestone_index": { "$lte": ledger_index },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group": {
+    //         "_id": null,
+    //         "count": { "$sum": 1 },
+    //         "value": { "$sum": { "$toDecimal": "$output.amount" } },
+    //     } },
+    //     { "$project": {
+    //         "_id": 0,
+    //         "count": 1,
+    //         "value": { "$toString": "$value" },
+    //     } },
+    // ]).toArray()[0];
+
+    // ms.unclaimed_tokens.storage_deposit_return = db.stardust_outputs.aggregate([
+    //     { "$match": {
+    //         "output.storage_deposit_return_unlock_condition": { "$exists": true },
+    //         "metadata.booked.milestone_index": { "$lte": ledger_index },
+    //         "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
+    //     } },
+    //     { "$group": {
+    //         "_id": null,
+    //         "count": { "$sum": 1 },
+    //         "value": { "$sum": { "$toDecimal": "$output.amount" } },
+    //         "inner": { "$sum": { "$toDecimal": "$output.storage_deposit_return_unlock_condition.amount" } },
+    //     } },
+    //     { "$project": {
+    //         "_id": 0,
+    //         "count": 1,
+    //         "value": { "$toString": "$value" },
+    //         "inner": { "$toString": "$inner" },
+    //     } },
+    // ]).toArray()[0];
+
+    // ms.block_activity = db.stardust_blocks.aggregate([
+    //     { "$match": { "metadata.referenced_by_milestone_index": ledger_index } },
+    //     { "$group": {
+    //         "_id": null,
+    //         "transaction_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$block.payload.kind", "transaction" ] }, 1 , 0 ]
+    //         } },
+    //         "treasury_transaction_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$block.payload.kind", "treasury_transaction" ] }, 1 , 0 ]
+    //         } },
+    //         "milestone_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$block.payload.kind", "milestone" ] }, 1 , 0 ]
+    //         } },
+    //         "tagged_data_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$block.payload.kind", "tagged_data" ] }, 1 , 0 ]
+    //         } },
+    //         "no_payload_count": { "$sum": {
+    //             "$cond": [ { "$not": "$block.payload" }, 1 , 0 ]
+    //         } },
+    //         "confirmed_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "included" ] }, 1 , 0 ]
+    //         } },
+    //         "conflicting_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "conflicting" ] }, 1 , 0 ]
+    //         } },
+    //         "no_transaction_count": { "$sum": {
+    //             "$cond": [ { "$eq": [ "$metadata.inclusion_state", "no_transaction" ] }, 1 , 0 ]
+    //         } },
+    //     } },
+    //     { "$project": {
+    //         "_id": 0,
+    //         "payload": {
+    //             "transaction_count": "$transaction_count",
+    //             "treasury_transaction_count": "$treasury_transaction_count",
+    //             "milestone_count": "$milestone_count",
+    //             "tagged_data_count": "$tagged_data_count",
+    //             "no_payload_count": "$no_payload_count",
+    //         },
+    //         "transaction": {
+    //             "confirmed_count": "$confirmed_count",
+    //             "conflicting_count": "$conflicting_count",
+    //             "no_transaction_count": "$no_transaction_count",
+    //         }
+    //     } },
+    // ]).toArray()[0];
+
+    // ms.block_activity = db.stardust_blocks.aggregate([
+    //     { "$match": { "metadata.referenced_by_milestone_index": ledger_index } },
+    //     { "$group": {
+    //         "_id": "$block.payload.kind",
+    //         "bytes": { "$sum": { "$binarySize": "$raw" } },
+    //     } },
+    //     { "$group": {
+    //         "_id": null,
+    //         "counts": { "$addToSet": { "k": "$_id", "v": "$bytes" } }
+    //     }},
+    //     { "$replaceWith": {
+    //         "$arrayToObject": "$counts"
+    //     } },
+    //     { "$set": {
+    //         "total": { "$add": [
+    //             { "$ifNull": [ "$tagged_data", 0] },
+    //             { "$ifNull": [ "$treasury_transaction", 0] },
+    //             { "$ifNull": [ "$milestone", 0] },
+    //             { "$ifNull": [ "$transaction", 0] },
+    //         ]}
+    //     }}
+    // ]).toArray()[0];
+
+    res[ledger_index] = ms;
+}
+
+res
