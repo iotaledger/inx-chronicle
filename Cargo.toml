@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.33"
+version = "1.0.0-beta.34"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -68,7 +68,7 @@ regex = { version = "1.7", default-features = false, features = [ "std" ], optio
 rust-argon2 = { version = "1.0.0", default-features = false, optional = true }
 serde_urlencoded = { version = "0.7", default-features = false, optional = true }
 tower = { version = "0.4", default-features = false, optional = true }
-tower-http = { version = "0.3", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
+tower-http = { version = "0.4", default-features = false, features = [ "cors", "catch-panic", "trace" ], optional = true }
 zeroize = { version = "1.5", default-features = false, features = [ "std" ], optional = true }
 
 # INX
