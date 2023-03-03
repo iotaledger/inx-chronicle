@@ -120,8 +120,10 @@ impl ClArgs {
                 }
                 _ => (),
             }
+            Ok(PostCommand::Exit)
+        } else {
+            Ok(PostCommand::Start)
         }
-        Ok(PostCommand::Exit)
     }
 }
 
