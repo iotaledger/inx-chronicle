@@ -44,7 +44,7 @@ serde_bytes = { version = "0.11", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = [ "std" ] }
 thiserror = { version = "1.0", default-features = false }
 time = { version = "0.3", default-features = false, features = [ "std", "serde", "macros" ] }
-tokio = { version = "1.24", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
+tokio = { version = "1.26", default-features = false, features = [ "macros", "rt-multi-thread", "signal" ] }
 tokio-stream = { version = "0.1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = [ "std", "attributes", "release_max_level_debug" ] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [ "std", "fmt", "ansi", "smallvec", "tracing-log", "local-time", "env-filter" ] }
