@@ -712,13 +712,6 @@ mod test {
         )
     }
 
-    #[test]
-    fn reser() -> eyre::Result<()> {
-        let file = File::open("tests/data/ms_17339_analytics.ron")?;
-        let analytics: TestAnalytics = ron::de::from_reader(BufReader::new(file))?;
-        encode_file(&analytics, "tests/data/ms_17339_analytics_bin")
-    }
-
     fn decode_file<T: DeserializeOwned>(file_name: &str) -> eyre::Result<T> {
         let file = File::open(file_name)?;
         let mut decoder = yazi::Decoder::boxed();
