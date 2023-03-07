@@ -8,7 +8,7 @@ use super::queries::{
     AddressQuery, AppendQuery, CreatedQuery, ExpirationQuery, NativeTokensQuery, SenderQuery,
     StorageDepositReturnQuery, TagQuery, TimelockQuery,
 };
-use crate::model::{tangle::MilestoneTimestamp, utxo::Address};
+use crate::model::{payload::transaction::output::Tag, tangle::MilestoneTimestamp, utxo::Address};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -27,7 +27,7 @@ pub struct BasicOutputsQuery {
     pub expires_after: Option<MilestoneTimestamp>,
     pub expiration_return_address: Option<Address>,
     pub sender: Option<Address>,
-    pub tag: Option<String>,
+    pub tag: Option<Tag>,
     pub created_before: Option<MilestoneTimestamp>,
     pub created_after: Option<MilestoneTimestamp>,
 }
