@@ -149,7 +149,6 @@ mod test {
     #[test]
     fn test_nft_query_all_false() {
         let address = Address::rand_ed25519();
-        // let tag = Tag::from("my_tag");
         let query = NftOutputsQuery {
             address: Some(address),
             issuer: None,

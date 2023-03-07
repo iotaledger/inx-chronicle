@@ -280,14 +280,14 @@ impl Tag {
     }
 }
 
-// Note: assumes the the [`Tag`] to be created as-is from an ASCII string.
+// Note: assumes an ASCII string as input.
 impl<T: ToString> From<T> for Tag {
     fn from(value: T) -> Self {
         Self(value.to_string().into_bytes())
     }
 }
 
-// Note: assumes the [`Tag`] to be parsed from a `0x`-prefixed hex representation.
+// Note: assumes a `0x`-prefixed hex representation as input.
 impl FromStr for Tag {
     type Err = prefix_hex::Error;
 
