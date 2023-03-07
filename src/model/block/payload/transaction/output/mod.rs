@@ -33,7 +33,9 @@ pub use self::{
     nft::{NftId, NftOutput},
     treasury::TreasuryOutput,
 };
-use crate::model::{payload::TransactionId, stringify, ProtocolParameters, TryFromWithContext, TryIntoWithContext};
+use crate::model::{
+    bytify, payload::TransactionId, stringify, ProtocolParameters, TryFromWithContext, TryIntoWithContext,
+};
 
 /// The amount of tokens associated with an output.
 #[derive(
@@ -258,6 +260,46 @@ impl From<Output> for iota::dto::OutputDto {
             Output::Foundry(o) => Self::Foundry(o.into()),
             Output::Nft(o) => Self::Nft(o.into()),
         }
+    }
+}
+
+/// A [`Tag`] associated with an [`Output`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Tag(#[serde(with = "bytify")] Vec<u8>);
+
+impl Tag {
+    /// Creates a [`Tag`] from `0x`-prefixed hex representation.
+    pub fn from_hex<T: AsRef<str>>(tag: T) -> Result<Self, prefix_hex::Error> {
+        Ok(Self(prefix_hex::decode::<Vec<u8>>(tag.as_ref())?))
+    }
+
+    /// Converts the [`Tag`] to its `0x`-prefixed hex representation.
+    pub fn to_hex(&self) -> String {
+        prefix_hex::encode(&*self.0)
+    }
+}
+
+// Note: assumes an ASCII string as input.
+impl<T: ToString> From<T> for Tag {
+    fn from(value: T) -> Self {
+        Self(value.to_string().into_bytes())
+    }
+}
+
+// Note: assumes a `0x`-prefixed hex representation as input.
+impl FromStr for Tag {
+    type Err = prefix_hex::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_hex(s)
+    }
+}
+
+impl From<Tag> for Bson {
+    fn from(val: Tag) -> Self {
+        // Unwrap: Cannot fail as type is well defined
+        mongodb::bson::to_bson(&serde_bytes::ByteBuf::from(val.0)).unwrap()
     }
 }
 
