@@ -75,7 +75,10 @@ mod test {
     use primitive_types::U256;
 
     use super::NftOutputsQuery;
-    use crate::model::utxo::{Address, NativeTokenAmount};
+    use crate::model::{
+        payload::transaction::output::Tag,
+        utxo::{Address, NativeTokenAmount},
+    };
 
     #[test]
     fn test_nft_query_everything() {
@@ -96,8 +99,7 @@ mod test {
             expires_before: Some(10000.into()),
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
-            // tag: Some("my_tag".to_string()),
-            tag: Some("0x6d795f746167".to_string()), // "my_tag"
+            tag: Some(Tag::from("my_tag")),
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
@@ -135,7 +137,7 @@ mod test {
                 { "output.expiration_unlock_condition.return_address": address },
                 { "output.features": { "$elemMatch": {
                     "kind": "tag",
-                    "data": bson::to_bson(&serde_bytes::Bytes::new("my_tag".as_bytes())).unwrap()
+                    "data": Tag::from("my_tag"),
                 } } },
                 { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
                 { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },
@@ -164,8 +166,7 @@ mod test {
             expires_before: Some(10000.into()),
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
-            tag: Some("0x6d795f746167".to_string()), // "my_tag"
-            // tag: Some(tag),
+            tag: Some(Tag::from("my_tag")),
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
@@ -185,7 +186,7 @@ mod test {
                 { "output.expiration_unlock_condition.return_address": address },
                 { "output.features": { "$elemMatch": {
                     "kind": "tag",
-                    "data": bson::to_bson(&serde_bytes::Bytes::new("my_tag".as_bytes())).unwrap()
+                    "data": Tag::from("my_tag"),
                 } } },
                 { "metadata.booked.milestone_timestamp": { "$lt": 10000 } },
                 { "metadata.booked.milestone_timestamp": { "$gt": 1000 } },

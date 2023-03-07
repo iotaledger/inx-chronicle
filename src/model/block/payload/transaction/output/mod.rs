@@ -270,8 +270,8 @@ pub struct Tag(#[serde(with = "bytify")] Vec<u8>);
 
 impl Tag {
     /// Creates a [`Tag`] from `0x`-prefixed hex representation.
-    pub fn from_hex<T: AsRef<str>>(tag: T) -> Self {
-        Self(prefix_hex::decode::<Vec<u8>>(tag.as_ref()).unwrap())
+    pub fn from_hex<T: AsRef<str>>(tag: T) -> Result<Self, prefix_hex::Error> {
+        Ok(Self(prefix_hex::decode::<Vec<u8>>(tag.as_ref())?))
     }
 
     /// Converts the [`Tag`] to its `0x`-prefixed hex representation.
@@ -280,9 +280,19 @@ impl Tag {
     }
 }
 
-impl From<String> for Tag {
-    fn from(value: String) -> Self {
-        Self(value.into_bytes())
+// Note: assumes the the [`Tag`] to be created as-is from an ASCII string.
+impl<T: ToString> From<T> for Tag {
+    fn from(value: T) -> Self {
+        Self(value.to_string().into_bytes())
+    }
+}
+
+// Note: assumes the [`Tag`] to be parsed from a `0x`-prefixed hex representation.
+impl FromStr for Tag {
+    type Err = prefix_hex::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_hex(s)
     }
 }
 

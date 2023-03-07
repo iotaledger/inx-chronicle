@@ -157,7 +157,11 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<BasicOutputsQuery> {
                     .map(|address| Address::from_str(&address))
                     .transpose()
                     .map_err(RequestError::from)?,
-                tag: query.tag.map(Tag::from),
+                tag: query
+                    .tag
+                    .map(|tag| Tag::from_str(&tag))
+                    .transpose()
+                    .map_err(RequestError::from)?,
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },
@@ -416,7 +420,11 @@ impl<B: Send> FromRequest<B> for IndexedOutputsPagination<NftOutputsQuery> {
                     .map(|address| Address::from_str(&address))
                     .transpose()
                     .map_err(RequestError::from)?,
-                tag: query.tag.map(Tag::from),
+                tag: query
+                    .tag
+                    .map(|tag| Tag::from_str(&tag))
+                    .transpose()
+                    .map_err(RequestError::from)?,
                 created_before: query.created_before.map(Into::into),
                 created_after: query.created_after.map(Into::into),
             },

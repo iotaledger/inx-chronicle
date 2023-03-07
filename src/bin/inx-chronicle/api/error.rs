@@ -172,6 +172,8 @@ pub enum RequestError {
     Bool(#[from] ParseBoolError),
     #[error("invalid U256 value provided: {0}")]
     DecimalU256(#[from] uint::FromDecStrErr),
+    #[error("invalid hex value provided: {0}")]
+    Hex(#[from] prefix_hex::Error),
     #[error("invalid integer value provided: {0}")]
     Int(#[from] ParseIntError),
     #[error("invalid authorization header provided: {0}")]
