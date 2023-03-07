@@ -66,11 +66,13 @@ pub(super) struct TagQuery(pub(super) Option<String>);
 impl AppendToQuery for TagQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(tag) = self.0 {
+            // `tag` is a hex string, so we need to decode it first.
+            let tag = prefix_hex::decode::<Vec<u8>>(&tag).unwrap();
             queries.push(doc! {
                 "output.features": {
                     "$elemMatch": {
                         "kind": "tag",
-                        "data": bson::to_bson(&serde_bytes::Bytes::new(tag.as_bytes())).unwrap()
+                        "data": bson::to_bson(&serde_bytes::ByteBuf::from(tag)).unwrap()
                     }
                 }
             });
