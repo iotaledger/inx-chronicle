@@ -93,7 +93,8 @@ mod test {
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
             sender: Some(address),
-            tag: Some("my_tag".to_string()),
+            // tag: Some("my_tag".to_string()),
+            tag: Some("0x6d795f746167".to_string()), // "my_tag"
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
@@ -154,7 +155,7 @@ mod test {
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
             sender: None,
-            tag: Some("my_tag".to_string()),
+            tag: Some("0x6d795f746167".to_string()), // "my_tag"
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };

@@ -96,7 +96,8 @@ mod test {
             expires_before: Some(10000.into()),
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
-            tag: Some("my_tag".to_string()),
+            // tag: Some("my_tag".to_string()),
+            tag: Some("0x6d795f746167".to_string()), // "my_tag"
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
@@ -146,6 +147,7 @@ mod test {
     #[test]
     fn test_nft_query_all_false() {
         let address = Address::rand_ed25519();
+        // let tag = Tag::from("my_tag");
         let query = NftOutputsQuery {
             address: Some(address),
             issuer: None,
@@ -162,7 +164,8 @@ mod test {
             expires_before: Some(10000.into()),
             expires_after: Some(1000.into()),
             expiration_return_address: Some(address),
-            tag: Some("my_tag".to_string()),
+            tag: Some("0x6d795f746167".to_string()), // "my_tag"
+            // tag: Some(tag),
             created_before: Some(10000.into()),
             created_after: Some(1000.into()),
         };
