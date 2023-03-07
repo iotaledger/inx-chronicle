@@ -231,6 +231,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -360,6 +369,7 @@ dependencies = [
  "async-trait",
  "auth-helper",
  "axum 0.5.17",
+ "bincode",
  "bytesize",
  "chrono",
  "clap",
@@ -403,6 +413,7 @@ dependencies = [
  "uint",
  "url",
  "uuid",
+ "yazi",
  "zeroize",
 ]
 
@@ -3379,6 +3390,12 @@ checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
 ]
+
+[[package]]
+name = "yazi"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c03b3e19c937b5b9bd8e52b1c88f30cce5c0d33d676cf174866175bb794ff658"
 
 [[package]]
 name = "zeroize"
