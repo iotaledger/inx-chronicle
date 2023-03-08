@@ -367,11 +367,15 @@ struct PerInterval<M> {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::BTreeMap, fs::File, io::BufReader};
+    use std::{
+        collections::{BTreeMap, HashMap},
+        fs::File,
+        io::{BufReader, BufWriter},
+    };
 
     use futures::TryStreamExt;
     use packable::PackableExt;
-    use serde::{Deserialize, Serialize};
+    use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
     use super::{
         ledger::{
@@ -520,116 +524,119 @@ mod test {
 
     #[tokio::test]
     async fn test_in_memory_analytics() {
-        let analytics = gather_in_memory_analytics().await.unwrap();
-        assert_eq!(analytics.active_addresses.count, 32);
+        let analytics_map = gather_in_memory_analytics().await.unwrap();
+        let expected: HashMap<MilestoneIndex, HashMap<String, usize>> =
+            ron::de::from_reader(File::open("tests/data/measurements.ron").unwrap()).unwrap();
+        for (milestone, analytics) in analytics_map {
+            let expected = &expected[&milestone];
+            println!("{milestone} - {analytics:#?}");
 
-        assert_eq!(analytics.address_balance.address_with_balance_count, 111983);
+            macro_rules! assert_expected {
+                ($path:expr) => {
+                    assert_eq!($path as usize, expected[stringify!($path)]);
+                };
+            }
+            assert_expected!(analytics.active_addresses.count);
 
-        assert_eq!(analytics.base_tokens.booked_amount.0, 96847628508);
-        assert_eq!(analytics.base_tokens.transferred_amount.0, 95428996456);
+            assert_expected!(analytics.address_balance.address_with_balance_count);
 
-        assert_eq!(analytics.ledger_outputs.basic.count, 99398);
-        assert_eq!(analytics.ledger_outputs.basic.amount.0, 1813618032119665);
-        assert_eq!(analytics.ledger_outputs.alias.count, 40);
-        assert_eq!(analytics.ledger_outputs.alias.amount.0, 2083400);
-        assert_eq!(analytics.ledger_outputs.nft.count, 14948);
-        assert_eq!(analytics.ledger_outputs.nft.amount.0, 2473025700);
-        assert_eq!(analytics.ledger_outputs.foundry.count, 28);
-        assert_eq!(analytics.ledger_outputs.foundry.amount.0, 1832600);
+            assert_expected!(analytics.base_tokens.booked_amount.0);
+            assert_expected!(analytics.base_tokens.transferred_amount.0);
 
-        assert_eq!(analytics.ledger_size.total_key_bytes, 3890076);
-        assert_eq!(analytics.ledger_size.total_data_bytes, 28233855);
-        assert_eq!(analytics.ledger_size.total_storage_deposit_amount.0, 6713461500);
+            assert_expected!(analytics.ledger_outputs.basic.count);
+            assert_expected!(analytics.ledger_outputs.basic.amount.0);
+            assert_expected!(analytics.ledger_outputs.alias.count);
+            assert_expected!(analytics.ledger_outputs.alias.amount.0);
+            assert_expected!(analytics.ledger_outputs.nft.count);
+            assert_expected!(analytics.ledger_outputs.nft.amount.0);
+            assert_expected!(analytics.ledger_outputs.foundry.count);
+            assert_expected!(analytics.ledger_outputs.foundry.amount.0);
 
-        assert_eq!(analytics.output_activity.nft.created_count, 22);
-        assert_eq!(analytics.output_activity.nft.transferred_count, 1);
-        assert_eq!(analytics.output_activity.nft.destroyed_count, 0);
-        assert_eq!(analytics.output_activity.alias.created_count, 0);
-        assert_eq!(analytics.output_activity.alias.governor_changed_count, 0);
-        assert_eq!(analytics.output_activity.alias.state_changed_count, 1);
-        assert_eq!(analytics.output_activity.alias.destroyed_count, 0);
-        assert_eq!(analytics.output_activity.foundry.created_count, 0);
-        assert_eq!(analytics.output_activity.foundry.transferred_count, 0);
-        assert_eq!(analytics.output_activity.foundry.destroyed_count, 0);
+            assert_expected!(analytics.ledger_size.total_key_bytes);
+            assert_expected!(analytics.ledger_size.total_data_bytes);
+            assert_expected!(analytics.ledger_size.total_storage_deposit_amount.0);
 
-        assert_eq!(analytics.transaction_size.input_buckets.single(1), 2);
-        assert_eq!(analytics.transaction_size.input_buckets.single(2), 0);
-        assert_eq!(analytics.transaction_size.input_buckets.single(3), 2);
-        assert_eq!(analytics.transaction_size.input_buckets.single(4), 1);
-        assert_eq!(analytics.transaction_size.input_buckets.single(5), 0);
-        assert_eq!(analytics.transaction_size.input_buckets.single(6), 0);
-        assert_eq!(analytics.transaction_size.input_buckets.single(7), 0);
-        assert_eq!(analytics.transaction_size.input_buckets.small, 0);
-        assert_eq!(analytics.transaction_size.input_buckets.medium, 0);
-        assert_eq!(analytics.transaction_size.input_buckets.large, 0);
-        assert_eq!(analytics.transaction_size.input_buckets.huge, 0);
-        assert_eq!(analytics.transaction_size.output_buckets.single(1), 1);
-        assert_eq!(analytics.transaction_size.output_buckets.single(2), 3);
-        assert_eq!(analytics.transaction_size.output_buckets.single(3), 0);
-        assert_eq!(analytics.transaction_size.output_buckets.single(4), 0);
-        assert_eq!(analytics.transaction_size.output_buckets.single(5), 0);
-        assert_eq!(analytics.transaction_size.output_buckets.single(6), 0);
-        assert_eq!(analytics.transaction_size.output_buckets.single(7), 0);
-        assert_eq!(analytics.transaction_size.output_buckets.small, 0);
-        assert_eq!(analytics.transaction_size.output_buckets.medium, 1);
-        assert_eq!(analytics.transaction_size.output_buckets.large, 0);
-        assert_eq!(analytics.transaction_size.output_buckets.huge, 0);
+            assert_expected!(analytics.output_activity.nft.created_count);
+            assert_expected!(analytics.output_activity.nft.transferred_count);
+            assert_expected!(analytics.output_activity.nft.destroyed_count);
+            assert_expected!(analytics.output_activity.alias.created_count);
+            assert_expected!(analytics.output_activity.alias.governor_changed_count);
+            assert_expected!(analytics.output_activity.alias.state_changed_count);
+            assert_expected!(analytics.output_activity.alias.destroyed_count);
+            assert_expected!(analytics.output_activity.foundry.created_count);
+            assert_expected!(analytics.output_activity.foundry.transferred_count);
+            assert_expected!(analytics.output_activity.foundry.destroyed_count);
 
-        assert_eq!(analytics.unclaimed_tokens.unclaimed_count, 90018);
-        assert_eq!(analytics.unclaimed_tokens.unclaimed_amount.0, 1672822033755291);
+            assert_expected!(analytics.transaction_size.input_buckets.single(1));
+            assert_expected!(analytics.transaction_size.input_buckets.single(2));
+            assert_expected!(analytics.transaction_size.input_buckets.single(3));
+            assert_expected!(analytics.transaction_size.input_buckets.single(4));
+            assert_expected!(analytics.transaction_size.input_buckets.single(5));
+            assert_expected!(analytics.transaction_size.input_buckets.single(6));
+            assert_expected!(analytics.transaction_size.input_buckets.single(7));
+            assert_expected!(analytics.transaction_size.input_buckets.small);
+            assert_expected!(analytics.transaction_size.input_buckets.medium);
+            assert_expected!(analytics.transaction_size.input_buckets.large);
+            assert_expected!(analytics.transaction_size.input_buckets.huge);
+            assert_expected!(analytics.transaction_size.output_buckets.single(1));
+            assert_expected!(analytics.transaction_size.output_buckets.single(2));
+            assert_expected!(analytics.transaction_size.output_buckets.single(3));
+            assert_expected!(analytics.transaction_size.output_buckets.single(4));
+            assert_expected!(analytics.transaction_size.output_buckets.single(5));
+            assert_expected!(analytics.transaction_size.output_buckets.single(6));
+            assert_expected!(analytics.transaction_size.output_buckets.single(7));
+            assert_expected!(analytics.transaction_size.output_buckets.small);
+            assert_expected!(analytics.transaction_size.output_buckets.medium);
+            assert_expected!(analytics.transaction_size.output_buckets.large);
+            assert_expected!(analytics.transaction_size.output_buckets.huge);
 
-        assert_eq!(analytics.unlock_conditions.expiration.count, 189);
-        assert_eq!(analytics.unlock_conditions.expiration.amount.0, 256841968260);
-        assert_eq!(analytics.unlock_conditions.timelock.count, 0);
-        assert_eq!(analytics.unlock_conditions.timelock.amount.0, 0);
-        assert_eq!(analytics.unlock_conditions.storage_deposit_return.count, 449);
-        assert_eq!(analytics.unlock_conditions.storage_deposit_return.amount.0, 3987025775);
-        assert_eq!(
-            analytics.unlock_conditions.storage_deposit_return_inner_amount,
-            22432909
-        );
+            assert_expected!(analytics.unclaimed_tokens.unclaimed_count);
+            assert_expected!(analytics.unclaimed_tokens.unclaimed_amount.0);
 
-        assert_eq!(analytics.block_activity.milestone_count, 1);
-        assert_eq!(analytics.block_activity.no_payload_count, 0);
-        assert_eq!(analytics.block_activity.tagged_data_count, 32);
-        assert_eq!(analytics.block_activity.transaction_count, 5);
-        assert_eq!(analytics.block_activity.treasury_transaction_count, 0);
-        assert_eq!(analytics.block_activity.confirmed_count, 5);
-        assert_eq!(analytics.block_activity.conflicting_count, 0);
-        assert_eq!(analytics.block_activity.no_transaction_count, 33);
+            assert_expected!(analytics.unlock_conditions.expiration.count);
+            assert_expected!(analytics.unlock_conditions.expiration.amount.0);
+            assert_expected!(analytics.unlock_conditions.timelock.count);
+            assert_expected!(analytics.unlock_conditions.timelock.amount.0);
+            assert_expected!(analytics.unlock_conditions.storage_deposit_return.count);
+            assert_expected!(analytics.unlock_conditions.storage_deposit_return.amount.0);
+            assert_expected!(analytics.unlock_conditions.storage_deposit_return_inner_amount);
 
-        assert_eq!(analytics.milestone_size.total_milestone_payload_bytes, 1482);
-        assert_eq!(analytics.milestone_size.total_tagged_data_payload_bytes, 8352);
-        assert_eq!(analytics.milestone_size.total_transaction_payload_bytes, 34063);
-        assert_eq!(analytics.milestone_size.total_treasury_transaction_payload_bytes, 0);
-        assert_eq!(analytics.milestone_size.total_milestone_bytes, 43897);
+            assert_expected!(analytics.block_activity.milestone_count);
+            assert_expected!(analytics.block_activity.no_payload_count);
+            assert_expected!(analytics.block_activity.tagged_data_count);
+            assert_expected!(analytics.block_activity.transaction_count);
+            assert_expected!(analytics.block_activity.treasury_transaction_count);
+            assert_expected!(analytics.block_activity.confirmed_count);
+            assert_expected!(analytics.block_activity.conflicting_count);
+            assert_expected!(analytics.block_activity.no_transaction_count);
+
+            assert_expected!(analytics.milestone_size.total_milestone_payload_bytes);
+            assert_expected!(analytics.milestone_size.total_tagged_data_payload_bytes);
+            assert_expected!(analytics.milestone_size.total_transaction_payload_bytes);
+            assert_expected!(analytics.milestone_size.total_treasury_transaction_payload_bytes);
+            assert_expected!(analytics.milestone_size.total_milestone_bytes);
+        }
     }
 
-    async fn gather_in_memory_analytics() -> eyre::Result<TestMeasurements> {
+    async fn gather_in_memory_analytics() -> eyre::Result<BTreeMap<MilestoneIndex, TestMeasurements>> {
+        let mut analytics = decode_file::<TestAnalytics>("tests/data/ms_17338_analytics_compressed")?;
         let data = get_in_memory_data();
-        let mut stream = data.milestone_stream(IN_MEM_MILESTONE..=IN_MEM_MILESTONE).await?;
-        let mut res = None;
+        let mut stream = data.milestone_stream(..).await?;
+        let mut res = BTreeMap::new();
         while let Some(milestone) = stream.try_next().await? {
-            let file = File::open(format!("tests/data/ledger_state_ms_{IN_MEM_MILESTONE}_analytics.ron"))?;
-            let mut analytics: TestAnalytics = ron::de::from_reader(BufReader::new(file))?;
             let mut cone_stream = milestone.cone_stream().await?;
 
             while let Some(block_data) = cone_stream.try_next().await? {
                 milestone.handle_block(&mut analytics, &block_data)?;
             }
 
-            res = Some(analytics.take_measurement(&milestone));
+            res.insert(milestone.at().milestone_index, analytics.take_measurement(&milestone));
         }
 
-        Ok(res.unwrap())
+        Ok(res)
     }
 
-    const IN_MEM_MILESTONE: MilestoneIndex = MilestoneIndex(17339);
-
     fn get_in_memory_data() -> Tangle<BTreeMap<MilestoneIndex, InMemoryData>> {
-        let file = File::open(format!("tests/data/in_memory_ms_{IN_MEM_MILESTONE}.json",)).unwrap();
-        let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
-
         #[derive(Deserialize)]
         struct BsonMilestoneData {
             milestone_id: MilestoneId,
@@ -674,7 +681,7 @@ mod test {
 
         #[derive(Deserialize)]
         struct InMemoryBsonData {
-            milestone: BsonMilestoneData,
+            milestone_data: BsonMilestoneData,
             cone: BTreeMap<String, BsonBlockData>,
             created: Vec<LedgerOutput>,
             consumed: Vec<LedgerSpent>,
@@ -683,7 +690,7 @@ mod test {
         impl From<InMemoryBsonData> for InMemoryData {
             fn from(value: InMemoryBsonData) -> Self {
                 Self {
-                    milestone: value.milestone.into(),
+                    milestone: value.milestone_data.into(),
                     cone: value
                         .cone
                         .into_iter()
@@ -694,9 +701,37 @@ mod test {
             }
         }
 
-        Tangle::from(BTreeMap::from([(
-            IN_MEM_MILESTONE,
-            mongodb::bson::from_bson::<InMemoryBsonData>(test_data).unwrap().into(),
-        )]))
+        let file = File::open("tests/data/in_memory_data.json").unwrap();
+        let test_data: mongodb::bson::Bson = serde_json::from_reader(BufReader::new(file)).unwrap();
+        Tangle::from(
+            mongodb::bson::from_bson::<BTreeMap<String, InMemoryBsonData>>(test_data)
+                .unwrap()
+                .into_iter()
+                .map(|(k, v)| (k.parse().unwrap(), v.into()))
+                .collect::<BTreeMap<_, _>>(),
+        )
+    }
+
+    fn decode_file<T: DeserializeOwned>(file_name: &str) -> eyre::Result<T> {
+        let file = File::open(file_name)?;
+        let mut decoder = yazi::Decoder::boxed();
+        let mut bytes = Vec::new();
+        let mut stream = decoder.stream(&mut bytes);
+        std::io::copy(&mut BufReader::new(file), &mut stream)?;
+        stream.finish().map_err(|e| eyre::eyre!("{:?}", e))?;
+        Ok(bincode::deserialize(&bytes)?)
+    }
+
+    #[allow(unused)]
+    // This is here so that we can compress in the future if needed.
+    fn encode_file(value: &impl Serialize, file_name: &str) -> eyre::Result<()> {
+        let mut file = BufWriter::new(File::create(file_name)?);
+        let mut compressor = yazi::Encoder::boxed();
+        compressor.set_level(yazi::CompressionLevel::BestSize);
+        let mut stream = compressor.stream(&mut file);
+        bincode::serialize_into(&mut stream, value)?;
+        let n_bytes = stream.finish().map_err(|e| eyre::eyre!("{:?}", e))?;
+        println!("compressed {file_name} to {:.2}mb", n_bytes as f32 / 1000000.0);
+        Ok(())
     }
 }
