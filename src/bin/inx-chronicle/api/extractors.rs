@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use axum::{
-    extract::{FromRequest, Query},
-    Extension,
-};
+use axum::extract::{FromRef, FromRequestParts, Query};
 use chronicle::model::tangle::MilestoneTimestamp;
 use serde::Deserialize;
 
@@ -32,14 +29,18 @@ impl Default for Pagination {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for Pagination {
+impl<S> FromRequestParts<S> for Pagination
+where
+    ApiConfigData: FromRef<S>,
+    S: Send + Sync,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(mut pagination) = Query::<Pagination>::from_request(req)
+    async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(mut pagination) = Query::<Pagination>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
-        let Extension(config) = Extension::<ApiConfigData>::from_request(req).await?;
+        let config = ApiConfigData::from_ref(state);
         pagination.page_size = pagination.page_size.min(config.max_page_size);
         Ok(pagination)
     }
@@ -52,11 +53,14 @@ pub struct ListRoutesQuery {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for ListRoutesQuery {
+impl<S> FromRequestParts<S> for ListRoutesQuery
+where
+    S: Send + Sync,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
-        let Query(query) = Query::<ListRoutesQuery>::from_request(req)
+    async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Query(query) = Query::<ListRoutesQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
         Ok(query)
@@ -77,14 +81,17 @@ pub struct TimeRange {
 }
 
 #[async_trait]
-impl<B: Send> FromRequest<B> for TimeRange {
+impl<S> FromRequestParts<S> for TimeRange
+where
+    S: Send + Sync,
+{
     type Rejection = ApiError;
 
-    async fn from_request(req: &mut axum::extract::RequestParts<B>) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut axum::http::request::Parts, state: &S) -> Result<Self, Self::Rejection> {
         let Query(TimeRangeQuery {
             start_timestamp,
             end_timestamp,
-        }) = Query::<TimeRangeQuery>::from_request(req)
+        }) = Query::<TimeRangeQuery>::from_request_parts(parts, state)
             .await
             .map_err(RequestError::from)?;
         if matches!((start_timestamp, end_timestamp), (Some(start), Some(end)) if end < start) {

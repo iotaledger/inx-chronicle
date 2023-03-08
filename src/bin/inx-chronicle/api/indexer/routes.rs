@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use axum::{extract::Path, routing::get, Extension};
+use axum::{extract::Path, routing::get, Extension, Router};
 use chronicle::{
     db::{
         mongodb::collections::{
@@ -20,11 +20,10 @@ use super::{extractors::IndexedOutputsPagination, responses::IndexerOutputsRespo
 use crate::api::{
     error::{MissingError, RequestError},
     indexer::extractors::IndexedOutputsCursor,
-    router::Router,
-    ApiResult,
+    ApiResult, AppState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new().nest(
         "/outputs",
         Router::new()

@@ -4,9 +4,9 @@
 use std::{collections::HashSet, str::FromStr};
 
 use axum::{
-    extract::{Json, Path},
+    extract::{Json, Path, State},
     routing::{get, post},
-    Extension,
+    Router,
 };
 use chronicle::{
     db::{
@@ -23,11 +23,10 @@ use super::{
 };
 use crate::api::{
     error::{CorruptStateError, MissingError, RequestError},
-    router::Router,
-    ApiResult,
+    ApiResult, AppState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
             "/referenced-block/create/:block_id",
@@ -39,7 +38,7 @@ pub fn routes() -> Router {
 }
 
 async fn create_proof_for_referenced_blocks(
-    database: Extension<MongoDb>,
+    State(database): State<MongoDb>,
     Path(block_id): Path<String>,
 ) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
@@ -105,7 +104,7 @@ async fn create_proof_for_referenced_blocks(
 }
 
 async fn validate_proof_for_referenced_blocks(
-    database: Extension<MongoDb>,
+    State(database): State<MongoDb>,
     Json(CreateProofResponse {
         milestone,
         block,
@@ -144,7 +143,7 @@ async fn validate_proof_for_referenced_blocks(
 }
 
 async fn create_proof_for_applied_blocks(
-    database: Extension<MongoDb>,
+    State(database): State<MongoDb>,
     Path(block_id): Path<String>,
 ) -> ApiResult<CreateProofResponse> {
     let block_id = BlockId::from_str(&block_id)?;
@@ -210,7 +209,7 @@ async fn create_proof_for_applied_blocks(
 }
 
 async fn validate_proof_for_applied_blocks(
-    database: Extension<MongoDb>,
+    State(database): State<MongoDb>,
     Json(CreateProofResponse {
         milestone,
         block,

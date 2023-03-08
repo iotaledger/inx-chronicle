@@ -5,9 +5,9 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Extension, Path},
-    handler::Handler,
     http::header::HeaderMap,
     routing::get,
+    Router,
 };
 use chronicle::{
     db::{
@@ -48,19 +48,18 @@ use packable::PackableExt;
 use super::responses::{InfoResponse, IotaRawResponse, IotaResponse};
 use crate::api::{
     error::{ApiError, CorruptStateError, MissingError, RequestError},
-    router::Router,
     routes::{is_healthy, not_implemented, BYTE_CONTENT_HEADER},
-    ApiResult,
+    ApiResult, AppState,
 };
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/info", get(info))
-        .route("/tips", not_implemented.into_service())
+        .route("/tips", get(not_implemented))
         .nest(
             "/blocks",
             Router::new()
-                .route("/", not_implemented.into_service())
+                .route("/", get(not_implemented))
                 .route("/:block_id", get(block))
                 .route("/:block_id/metadata", get(block_metadata)),
         )
@@ -94,11 +93,11 @@ pub fn routes() -> Router {
         .nest(
             "/peers",
             Router::new()
-                .route("/", not_implemented.into_service())
-                .route("/:peer_id", not_implemented.into_service()),
+                .route("/", get(not_implemented))
+                .route("/:peer_id", get(not_implemented)),
         )
-        .route("/control/database/prune", not_implemented.into_service())
-        .route("/control/snapshot/create", not_implemented.into_service())
+        .route("/control/database/prune", get(not_implemented))
+        .route("/control/snapshot/create", get(not_implemented))
 }
 
 pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {

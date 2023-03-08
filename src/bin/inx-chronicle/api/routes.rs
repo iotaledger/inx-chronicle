@@ -3,12 +3,13 @@
 
 use auth_helper::jwt::{BuildValidation, Claims, JsonWebToken, Validation};
 use axum::{
-    handler::Handler,
+    extract::State,
+    handler::HandlerWithoutStateExt,
     headers::{authorization::Bearer, Authorization},
     http::HeaderValue,
-    middleware::from_extractor,
+    middleware::from_extractor_with_state,
     routing::{get, post},
-    Extension, Json, TypedHeader,
+    Extension, Json, Router, TypedHeader,
 };
 use chronicle::{
     db::{mongodb::collections::MilestoneCollection, MongoDb},
@@ -23,10 +24,10 @@ use super::{
     auth::Auth,
     config::ApiConfigData,
     error::{ApiError, MissingError, UnimplementedError},
-    extractors::ListRoutesQuery,
+    // TODO
+    // extractors::ListRoutesQuery,
     responses::RoutesResponse,
-    router::{RouteNode, Router},
-    ApiResult, AuthError,
+    ApiResult, AppState, AuthError,
 };
 
 pub(crate) static BYTE_CONTENT_HEADER: HeaderValue = HeaderValue::from_static("application/vnd.iota.serializer-v1");
@@ -37,24 +38,26 @@ const ALWAYS_AVAILABLE_ROUTES: &[&str] = &["/health", "/login", "/routes"];
 // sufficient time to catch up with the node that it is connected too. The current milestone interval is 5 seconds.
 const STALE_MILESTONE_DURATION: Duration = Duration::minutes(5);
 
-pub fn routes() -> Router {
+pub fn routes(state: AppState) -> Router<AppState> {
     #[allow(unused_mut)]
-    let mut router = Router::new()
+    let mut auth_router = Router::<AppState>::new()
         .nest("/core/v2", super::core::routes())
         .nest("/explorer/v2", super::explorer::routes())
         .nest("/indexer/v1", super::indexer::routes());
 
     #[cfg(feature = "poi")]
     {
-        router = router.nest("/poi/v1", super::poi::routes());
+        auth_router = auth_router.nest("/poi/v1", super::poi::routes());
     }
+
+    auth_router = auth_router.route_layer(from_extractor_with_state::<Auth, AppState>(state));
 
     Router::new()
         .route("/health", get(health))
         .route("/login", post(login))
         .route("/routes", get(list_routes))
-        .nest("/api", router.route_layer(from_extractor::<Auth>()))
-        .fallback(not_found.into_service())
+        .nest("/api", auth_router)
+        .fallback_service(not_found.into_service())
 }
 
 #[derive(Deserialize)]
@@ -63,8 +66,8 @@ struct LoginInfo {
 }
 
 async fn login(
+    State(config): State<ApiConfigData>,
     Json(LoginInfo { password }): Json<LoginInfo>,
-    Extension(config): Extension<ApiConfigData>,
 ) -> ApiResult<String> {
     if password_verify(
         password.as_bytes(),
@@ -105,12 +108,9 @@ fn is_new_enough(timestamp: MilestoneTimestamp) -> bool {
 }
 
 async fn list_routes(
-    ListRoutesQuery { depth }: ListRoutesQuery,
-    Extension(config): Extension<ApiConfigData>,
-    Extension(root): Extension<RouteNode>,
+    State(config): State<ApiConfigData>,
     bearer_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> ApiResult<RoutesResponse> {
-    let depth = depth.or(Some(3));
     let routes = if let Some(TypedHeader(Authorization(bearer))) = bearer_header {
         let jwt = JsonWebToken(bearer.token().to_string());
 
@@ -123,16 +123,23 @@ async fn list_routes(
         )
         .map_err(AuthError::InvalidJwt)?;
 
-        root.list_routes(None, depth)
+        // TODO
+        vec![
+            "/restricted1".to_string(),
+            "/restricted2".to_string(),
+            "/restricted3".to_string(),
+        ]
     } else {
-        let public_routes = RegexSet::new(
+        // TODO
+        let _public_routes = RegexSet::new(
             ALWAYS_AVAILABLE_ROUTES
                 .iter()
                 .copied()
                 .chain(config.public_routes.patterns().iter().map(String::as_str)),
         )
         .unwrap(); // Panic: Safe as we know previous regex compiled and ALWAYS_AVAILABLE_ROUTES is const
-        root.list_routes(public_routes, depth)
+        // root.list_routes(public_routes, depth)
+        vec!["/public1".to_string(), "/public2".to_string(), "/public3".to_string()]
     };
     Ok(RoutesResponse { routes })
 }
