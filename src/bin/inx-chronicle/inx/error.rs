@@ -16,8 +16,6 @@ pub enum InxWorkerError {
     #[cfg(feature = "analytics")]
     #[error("missing application state")]
     MissingAppState,
-    #[error("network changed from previous run. old network name: `{old}`, new network name: `{new}`")]
-    NetworkChanged { old: String, new: String },
     #[error("node pruned required milestones between `{start}` and `{end}`")]
     SyncMilestoneGap { start: MilestoneIndex, end: MilestoneIndex },
     #[error("node confirmed milestone index `{node}` is less than index in database `{db}`")]

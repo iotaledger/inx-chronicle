@@ -166,28 +166,13 @@ impl InxWorker {
             .upsert_node_configuration(node_status.ledger_index, node_configuration.into())
             .await?;
 
-        if let Some(latest) = self
+        if self
             .db
             .collection::<ProtocolUpdateCollection>()
             .get_latest_protocol_parameters()
             .await?
+            .is_none()
         {
-            let protocol_parameters = chronicle::model::ProtocolParameters::from(protocol_parameters);
-            if latest.parameters.network_name != protocol_parameters.network_name {
-                bail!(InxWorkerError::NetworkChanged {
-                    old: latest.parameters.network_name,
-                    new: protocol_parameters.network_name,
-                });
-            }
-            debug!("Found matching network in the database.");
-            if latest.parameters != protocol_parameters {
-                debug!("Updating protocol parameters.");
-                self.db
-                    .collection::<ProtocolUpdateCollection>()
-                    .upsert_protocol_parameters(start_index, protocol_parameters)
-                    .await?;
-            }
-        } else {
             self.db.clear().await?;
 
             let latest_version = LatestMigration::version();
@@ -262,17 +247,6 @@ impl InxWorker {
             self.db
                 .collection::<ApplicationStateCollection>()
                 .set_starting_index(starting_index)
-                .await?;
-
-            info!(
-                "Linking database `{}` to network `{}`.",
-                self.db.name(),
-                protocol_parameters.network_name()
-            );
-
-            self.db
-                .collection::<ProtocolUpdateCollection>()
-                .upsert_protocol_parameters(start_index, protocol_parameters.into())
                 .await?;
         }
 
