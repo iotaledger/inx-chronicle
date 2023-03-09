@@ -8,9 +8,17 @@ keywords:
 
 # INX Syncing
 
-The primary function of Chronicle is to gather tangle data via an INX connection. This connection will most likely be to an IOTA Node, which should be on the same machine as the Chronicle instance.
+The primary function of Chronicle is to gather confirmed tangle data via an INX connection. This connection will most likely be to an IOTA Node, which should be on the same machine as the Chronicle instance.
 
 When running with the `inx` feature (default using the docker image), Chronicle will stream data from the `INX_URL` and store it in the configured `MongoDB` instance.
+
+## Singleton Writer
+
+Chronicle assumes that it is the only instance writing to the configured `MongoDB` database. Otherwise it will exit due to write conflicts.
+
+## Network Name Link
+
+When Chronicle starts for the first time, it stores the latest network protocol parameters. It uses these to check that the same network is used across the lifetime of the dataset. In particular, the network name must not change, or Chronicle will fail to start.
 
 ## Ledger State
 
