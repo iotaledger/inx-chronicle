@@ -139,5 +139,10 @@ Note: Some analytics cannot correctly be produced live on a per-milestone basis 
 
 You can now access Chronicle's [REST API](../reference/api.md) endpoints at `http://<IP>:8042/`.
 
+#### Protected endpoints
 
+In order to access the protected endpoints you need to request a JWT bearer token by providing the password as specified in the `.env` file.
 
+```sh
+curl http://<IP>:8042/login -H "Content-Type: application/json" -X POST -d '{"password":"<...>"}'
+```
