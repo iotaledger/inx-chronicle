@@ -31,7 +31,7 @@ Create the necessary directories for all `Hornet` and `Chronicle` databases:
 
 ## Configuration
 
-Configure `Hornet` through command-line arguments by editing the `docker-compose.yml` file
+Configure `Hornet` through command-line arguments by editing the `docker-compose.yml` file:
 
 ```sh
 <your-favorite-text-editor> docker-compose.yml
@@ -112,9 +112,9 @@ docker compose --profile metrics up -d
 
 ## 4. Access Grafana dashboard
 
-You can now access the Grafana dashboard at `http://<IP>:3000/`. Be aware however, that data might not show up immediatedly. `Chronicle` needs to fetch the full ledger state from `Hornet` first before it can start producing live analytics.
+You can now access the Grafana dashboard at `http://<IP>:3000/`. Be aware however, that data might not show up instantly. `Chronicle` needs to fetch the full ledger state from `Hornet` first before it can start producing live analytics.
 
-Note: The dashbaord is only available if you ran `docker compose` with the `--profile "metrics"` option.
+Note: The dashboard is only available if you ran `docker compose` with the `--profile "metrics"` option.
 
 Note: Some analytics cannot correctly be produced live on a per-milestone basis (the time interval analytics like `daily addresses`), and hence, some charts may stay empty until you run the appropriate CLI command to fill them (`--fill-interval-analytics`).
 
