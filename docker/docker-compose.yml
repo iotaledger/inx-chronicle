@@ -7,40 +7,40 @@ services:
     command: ["--quiet", "--logpath", "/dev/null"]
     volumes:
       - ./data/chronicle/mongodb:/data/db
-    # environment:
-    #   - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USERNAME}
-    #   - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
     ports:
       - 27017:27017
 
-  # inx-chronicle:
-  #   container_name: inx-chronicle
-  #   depends_on:
-  #     influx:
-  #       condition: service_started
-  #     hornet:
-  #       condition: service_healthy
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/Dockerfile.debug
-  #   image: inx-chronicle:dev
-  #   ports:
-  #     - "8042:8042/tcp" # REST API
-  #     - "9100:9100/tcp" # Metrics
-  #   tty: true
-  #   deploy:
-  #     restart_policy:
-  #       condition: on-failure
-  #       delay: 5s
-  #       max_attempts: 3
-  #   command:
-  #     - "--mongodb-conn-str=${MONGODB_CONN_STR}"
-  #     - "--influxdb-url=http://influx:8086"
-  #     - "--influxdb-username=${INFLUXDB_USERNAME}"
-  #     - "--influxdb-password=${INFLUXDB_PASSWORD}"
-  #     - "--inx-url=http://hornet:9029"
-  #     - "--jwt-password=${JWT_PASSWORD}"
-  #     - "--jwt-salt=${JWT_SALT}"
+  inx-chronicle:
+    container_name: inx-chronicle
+    depends_on:
+      influx:
+        condition: service_started
+      hornet:
+        condition: service_healthy
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.debug
+    image: inx-chronicle:dev
+    ports:
+      - "8042:8042/tcp" # REST API
+      - "9100:9100/tcp" # Metrics
+    tty: true
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    command:
+      - "--mongodb-conn-str=${MONGODB_CONN_STR}"
+      - "--influxdb-url=http://influx:8086"
+      - "--influxdb-username=${INFLUXDB_USERNAME}"
+      - "--influxdb-password=${INFLUXDB_PASSWORD}"
+      - "--inx-url=http://hornet:9029"
+      - "--jwt-password=${JWT_PASSWORD}"
+      - "--jwt-salt=${JWT_SALT}"
 
   influx:
     image: influxdb:1.8
@@ -55,39 +55,39 @@ services:
     ports:
       - 8086:8086
 
-  # hornet:
-  #   image: iotaledger/hornet:2.0-rc
-  #   container_name: hornet
-  #   ulimits:
-  #     nofile:
-  #       soft: 8192
-  #       hard: 8192
-  #   stop_grace_period: 5m
-  #   ports:
-  #     - "15600:15600/tcp" # Gossip
-  #     - "14626:14626/udp" # Autopeering
-  #     - "14265:14265/tcp" # REST API
-  #     - "8081:8081/tcp" # Dashboard
-  #     - "8091:8091/tcp" # Faucet
-  #     - "9311:9311/tcp" # Prometheus
-  #     - "9029:9029/tcp" # INX
-  #   cap_drop:
-  #     - ALL
-  #   volumes:
-  #     - ./data/hornet/alphanet/:/app/alphanet
-  #     - ./data/hornet/testnet/:/app/testnet
-  #     - ./data/hornet/shimmer/:/app/shimmer
-  #     - ./config.testnet.hornet.json:/app/config_testnet.json:ro
-  #     - ./config.alphanet.hornet.json:/app/config_alphanet.json:ro
-  #   command:
-  #     # We can connect to the non-default networks by choosing a different Hornet configuration file.
-  #     # - "-c"
-  #     # - "config_testnet.json"
-  #     # - "config_alphanet.json"
-  #     - "--inx.enabled=true"
-  #     - "--inx.bindAddress=hornet:9029"
-  #     - "--prometheus.enabled=true"
-  #     - "--prometheus.bindAddress=0.0.0.0:9311"
+  hornet:
+    image: iotaledger/hornet:2.0-rc
+    container_name: hornet
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    stop_grace_period: 5m
+    ports:
+      - "15600:15600/tcp" # Gossip
+      - "14626:14626/udp" # Autopeering
+      - "14265:14265/tcp" # REST API
+      - "8081:8081/tcp" # Dashboard
+      - "8091:8091/tcp" # Faucet
+      - "9311:9311/tcp" # Prometheus
+      - "9029:9029/tcp" # INX
+    cap_drop:
+      - ALL
+    volumes:
+      - ./data/hornet/alphanet/:/app/alphanet
+      - ./data/hornet/testnet/:/app/testnet
+      - ./data/hornet/shimmer/:/app/shimmer
+      - ./config.testnet.hornet.json:/app/config_testnet.json:ro
+      - ./config.alphanet.hornet.json:/app/config_alphanet.json:ro
+    command:
+      # We can connect to the non-default networks by choosing a different Hornet configuration file.
+      # - "-c"
+      # - "config_testnet.json"
+      # - "config_alphanet.json"
+      - "--inx.enabled=true"
+      - "--inx.bindAddress=hornet:9029"
+      - "--prometheus.enabled=true"
+      - "--prometheus.bindAddress=0.0.0.0:9311"
 
   ################################################################################
   # The following services can be enabled by setting the `debug` profile.
@@ -139,7 +139,7 @@ services:
     ports:
       - 9216:9261
     command:
-      - "--mongodb.uri=mongodb://mongo:27017"
+      - "--mongodb.uri=mongodb://root:root@mongo:27017"
       - "--mongodb.direct-connect=true"
       - "--web.listen-address=:9216"
       - "--log.level=info"
