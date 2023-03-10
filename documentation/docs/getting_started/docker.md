@@ -135,7 +135,7 @@ Note: The dashboard is only available if you ran `docker compose` with the `--pr
 
 Note: Some analytics cannot correctly be produced live on a per-milestone basis (the time interval analytics like `daily addresses`), and hence, some charts may stay empty until you run the appropriate CLI command to fill them (`--fill-interval-analytics`).
 
-### Qery API endpoints
+### Query API endpoints
 
 You can now access Chronicle's [REST API](../reference/api.md) endpoints at `http://<IP>:8042/`.
 
