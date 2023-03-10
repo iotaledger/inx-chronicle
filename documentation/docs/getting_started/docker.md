@@ -13,7 +13,7 @@ This guide describes the necessary steps to set up and run `Chronicle` as an INX
 
 1. A recent release of Docker enterprise or community edition. You can find installation instructions in the [official Docker documentation](https://docs.docker.com/engine/install/).
 2. [Docker Compose CLI plugin](https://docs.docker.com/compose/install/compose-plugin/).
-3. A local clone of the [Chronicle](https://github.com/iotaledger/inx-chronicle.git) repository
+3. A local clone of the [Chronicle](https://github.com/iotaledger/inx-chronicle.git) repository.
 
 Enter the `docker` folder:
 
@@ -26,7 +26,7 @@ cd inx-chronicle/docker
 Create the necessary directories for all `Hornet` and `Chronicle` databases:
 
 ```sh
-sudo ./create_dirs.sh
+./create_dirs.sh
 ```
 
 ## Configuration
