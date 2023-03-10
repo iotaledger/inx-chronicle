@@ -17,7 +17,7 @@ pub(crate) struct AddressActivityMeasurement {
 
 /// Computes the number of addresses that were active during a given time interval.
 #[allow(missing_docs)]
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub(crate) struct AddressActivityAnalytics {
     addresses: HashSet<Address>,
 }

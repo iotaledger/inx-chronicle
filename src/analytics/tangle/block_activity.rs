@@ -5,7 +5,7 @@ use super::*;
 use crate::model::metadata::LedgerInclusionState;
 
 /// The type of payloads that occured within a single milestone.
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct BlockActivityMeasurement {
     pub(crate) milestone_count: usize,
     pub(crate) no_payload_count: usize,
