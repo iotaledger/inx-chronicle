@@ -45,6 +45,6 @@ impl Analytics for BaseTokenActivityMeasurement {
     }
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        *self
+        std::mem::take(self)
     }
 }
