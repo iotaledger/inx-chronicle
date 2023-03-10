@@ -7,7 +7,7 @@ use super::*;
 use crate::model::utxo::{Address, AliasId, NftId};
 
 /// Nft activity statistics.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub(crate) struct OutputActivityMeasurement {
     pub(crate) nft: NftActivityMeasurement,
     pub(crate) alias: AliasActivityMeasurement,

@@ -3,7 +3,7 @@
     17339: {
         "analytics.active_addresses.count": 32,
         "analytics.address_balance.address_with_balance_count": 111983,
-        /* UNREPRESENTED */ "analytics.base_tokens.booked_amount.0": 96847628508,
+        "analytics.base_tokens.booked_amount.0": 96847628508,
         /* UNREPRESENTED */ "analytics.base_tokens.transferred_amount.0": 95428996456,
         "analytics.ledger_outputs.basic.count": 99398,
         "analytics.ledger_outputs.basic.amount.0": 1813618032119665,
@@ -74,8 +74,8 @@
     17340: {
         "analytics.active_addresses.count": 14,
         "analytics.address_balance.address_with_balance_count": 111981,
-        /* UNREPRESENTED */ "analytics.base_tokens.booked_amount.0": 97738659308,
-        /* UNREPRESENTED */ "analytics.base_tokens.transferred_amount.0": 96318557256,
+        "analytics.base_tokens.booked_amount.0": 891030800,
+        /* UNREPRESENTED */ "analytics.base_tokens.transferred_amount.0": 889560800,
         "analytics.ledger_outputs.basic.count": 99398,
         "analytics.ledger_outputs.basic.amount.0": 1813618032119665,
         "analytics.ledger_outputs.alias.count": 40,
@@ -145,8 +145,8 @@
     17341: {
         "analytics.active_addresses.count": 30,
         "analytics.address_balance.address_with_balance_count": 112005,
-        /* UNREPRESENTED */ "analytics.base_tokens.booked_amount.0": 98413982908,
-        /* UNREPRESENTED */ "analytics.base_tokens.transferred_amount.0": 96324042456,
+        "analytics.base_tokens.booked_amount.0": 675323600,
+        /* UNREPRESENTED */ "analytics.base_tokens.transferred_amount.0": 5485200,
         "analytics.ledger_outputs.basic.count": 99400,
         "analytics.ledger_outputs.basic.amount.0": 1813618028256565,
         "analytics.ledger_outputs.alias.count": 40,
