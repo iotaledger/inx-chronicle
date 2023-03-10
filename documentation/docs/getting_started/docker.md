@@ -24,7 +24,11 @@ Create the necessary directories for all `Hornet` and `Chronicle` databases:
 
 ## Configuration
 
-Configure the `hornet` docker image via command-line arguments by editing the `docker-compose.yml` file. See the [Hornet Wiki](https://wiki.iota.org/hornet/references/configuration/) for details.
+Configure the docker images via command-line arguments by editing the `docker-compose.yml` file. 
+
+Refer to the Chronicle CLI (run `inx-chronicle --help`) for details about configuring Chronicle via command-line arguments.
+
+See the [Hornet Wiki](https://wiki.iota.org/hornet/references/configuration/) for details about configuring `Hornet`.
 
 ## Docker Image Build Variants
 
