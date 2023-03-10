@@ -30,6 +30,19 @@ Refer to the Chronicle CLI (run `inx-chronicle --help`) for details about config
 
 See the [Hornet Wiki](https://wiki.iota.org/hornet/references/configuration/) for details about configuring `Hornet`.
 
+## Environment
+
+Chronicle's docker setup uses several environment variables. These must be configured in order to run the docker compose file as-is:
+
+* `MONGODB_USERNAME`
+* `MONGODB_PASSWORD`
+* `MONGODB_CONN_STR`
+* `INFLUXDB_URL`
+* `INFLUXDB_USERNAME`
+* `INFLUXDB_PASSWORD`
+* `JWT_PASSWORD`
+* `JWT_SALT`
+
 ## Docker Image Build Variants
 
 Chronicle has two build variants, which can be selected using the corresponding YML override file.
