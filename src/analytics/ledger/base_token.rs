@@ -7,7 +7,7 @@ use super::*;
 use crate::model::utxo::{Address, TokenAmount};
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct BaseTokenActivityMeasurement {
     /// Represents the amount of tokens transferred. Tokens that are send back to an address are not counted.
     pub(crate) booked_amount: TokenAmount,
@@ -45,6 +45,6 @@ impl Analytics for BaseTokenActivityMeasurement {
     }
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
-        *self
+        std::mem::take(self)
     }
 }

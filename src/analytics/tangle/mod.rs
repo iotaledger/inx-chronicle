@@ -3,8 +3,6 @@
 
 //! Statistics about the tangle.
 
-use serde::{Deserialize, Serialize};
-
 pub(crate) use self::{
     block_activity::BlockActivityMeasurement, milestone_size::MilestoneSizeMeasurement,
     protocol_params::ProtocolParamsAnalytics,

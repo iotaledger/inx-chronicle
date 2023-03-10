@@ -419,16 +419,22 @@ mod test {
 
     #[derive(Serialize, Deserialize)]
     struct TestAnalytics {
+        #[serde(skip)]
         active_addresses: AddressActivityAnalytics,
         address_balance: AddressBalancesAnalytics,
+        #[serde(skip)]
         base_tokens: BaseTokenActivityMeasurement,
         ledger_outputs: LedgerOutputMeasurement,
         ledger_size: LedgerSizeAnalytics,
+        #[serde(skip)]
         output_activity: OutputActivityMeasurement,
+        #[serde(skip)]
         transaction_size: TransactionSizeMeasurement,
         unclaimed_tokens: UnclaimedTokenMeasurement,
         unlock_conditions: UnlockConditionMeasurement,
+        #[serde(skip)]
         block_activity: BlockActivityMeasurement,
+        #[serde(skip)]
         milestone_size: MilestoneSizeMeasurement,
     }
 
@@ -529,7 +535,6 @@ mod test {
             ron::de::from_reader(File::open("tests/data/measurements.ron").unwrap()).unwrap();
         for (milestone, analytics) in analytics_map {
             let expected = &expected[&milestone];
-            println!("{milestone} - {analytics:#?}");
 
             macro_rules! assert_expected {
                 ($path:expr) => {
