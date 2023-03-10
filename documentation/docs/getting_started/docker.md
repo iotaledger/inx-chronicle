@@ -23,10 +23,25 @@ cd inx-chronicle/docker
 
 ## Preparations 
 
+### Creating directories
 Create the necessary directories for all `Hornet` and `Chronicle` databases:
 
 ```sh
 ./create_dirs.sh
+```
+
+### Environment file `.env`
+
+Create a `.env` file in the current directory and define usernames and passwords for `MongoDb`, `InfluxDb`, and `JWT`:
+
+```
+MONGODB_CONN_STR=mongodb://mongo:27017
+MONGODB_USERNAME=
+MONGODB_PASSWORD=
+INFLUXDB_USERNAME=
+INFLUXDB_PASSWORD=
+JWT_PASSWORD=
+JWT_SALT=
 ```
 
 ## Configuration
@@ -110,7 +125,9 @@ Of course, you can enable `metrics` here as well:
 docker compose --profile metrics up -d
 ```
 
-## 4. Access Grafana dashboard
+## Usage
+
+### Access Grafana dashboard
 
 You can now access the Grafana dashboard at `http://<IP>:3000/`. Be aware however, that data might not show up instantly. `Chronicle` needs to fetch the full ledger state from `Hornet` first before it can start producing live analytics.
 
@@ -118,6 +135,9 @@ Note: The dashboard is only available if you ran `docker compose` with the `--pr
 
 Note: Some analytics cannot correctly be produced live on a per-milestone basis (the time interval analytics like `daily addresses`), and hence, some charts may stay empty until you run the appropriate CLI command to fill them (`--fill-interval-analytics`).
 
+### Qery API endpoints
+
+You can now access Chronicle's [REST API](../reference/api.md) endpoints at `http://<IP>:8042/`.
 
 
 
