@@ -26,7 +26,7 @@ When Chronicle starts syncing, it will get the current Ledger State from the INX
 
 ## Analytics
 
-The starting index determines when Analytics can begin. Analytics are calculated incrementally per-milestone, but require an initial ledger state which is only valid once Chronicle is caught up to the starting index.
+The starting index determines when Analytics can begin. Analytics are calculated incrementally per-milestone, but require an initial ledger state which is only valid once Chronicle has caught up to the starting index.
 
 # CLI Analytics
 
