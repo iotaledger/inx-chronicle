@@ -43,6 +43,14 @@ Chronicle's docker setup uses several environment variables. These must be confi
 * `JWT_PASSWORD`
 * `JWT_SALT`
 
+These variables can be defined in a `.env` file and specified to docker using the `--env-file` flag.
+
+```sh
+docker compose -f docker/docker-compose.yml --env-file .env up
+```
+
+For more information, see the [docker docs](https://docs.docker.com/compose/environment-variables).
+
 ## Docker Image Build Variants
 
 Chronicle has two build variants, which can be selected using the corresponding YML override file.
