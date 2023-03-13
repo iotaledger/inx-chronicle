@@ -44,7 +44,7 @@ impl TransactionSizeBuckets {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct TransactionSizeMeasurement {
     pub(crate) input_buckets: TransactionSizeBuckets,
     pub(crate) output_buckets: TransactionSizeBuckets,

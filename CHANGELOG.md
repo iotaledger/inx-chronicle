@@ -1,3 +1,15 @@
+## [1.0.0-beta.36](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.35...v1.0.0-beta.36) (2023-03-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **analytics:** properly take the base token analytics after each milestone (#1179)
+
+### Bug Fixes
+
+* **analytics:** properly take the base token analytics after each milestone ([#1179](https://github.com/iotaledger/inx-chronicle/issues/1179)) ([02d28b3](https://github.com/iotaledger/inx-chronicle/commit/02d28b3c39d8c2b57437d0e538a4ea749e7d856c))
+* **db:** indexer query by tag ([#1171](https://github.com/iotaledger/inx-chronicle/issues/1171)) ([3c894a3](https://github.com/iotaledger/inx-chronicle/commit/3c894a37bc91d6968da6adad2878aecc49b80833))
+
 ## [1.0.0-beta.35](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.34...v1.0.0-beta.35) (2023-03-03)
 
 
@@ -786,4 +798,3 @@
 
 * **docker:** fix and document ports ([#239](https://github.com/iotaledger/inx-chronicle/issues/239)) ([9c68717](https://github.com/iotaledger/inx-chronicle/commit/9c68717d364ef2d2908ead76fdd17e62f6786648))
 * remove `Archiver` ([#125](https://github.com/iotaledger/inx-chronicle/issues/125)) ([9249cf1](https://github.com/iotaledger/inx-chronicle/commit/9249cf1b643d1e45e4286e3942564d347492351b))
-

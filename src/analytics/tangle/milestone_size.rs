@@ -4,7 +4,7 @@
 use super::*;
 
 /// Milestone size statistics.
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct MilestoneSizeMeasurement {
     pub(crate) total_milestone_payload_bytes: usize,
     pub(crate) total_tagged_data_payload_bytes: usize,

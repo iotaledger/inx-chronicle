@@ -1,6 +1,6 @@
 [package]
 name = "chronicle"
-version = "1.0.0-beta.35"
+version = "1.0.0-beta.36"
 authors = ["IOTA Stiftung"]
 edition = "2021"
 description = "IOTA permanode implemented as an IOTA Node Extension (INX)."
@@ -54,7 +54,7 @@ uuid = { version = "1.3", default-features = false, features = [ "v4" ] }
 
 # Optional
 chrono = { version = "0.4", default-features = false, features = [ "std" ], optional = true }
-influxdb = { version = "0.6", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
+influxdb = { version = "0.5", default-features = false, features = [ "use-serde", "reqwest-client-rustls", "derive" ], optional = true }
 
 # API
 auth-helper = { version = "0.3", default-features = false, optional = true }
