@@ -386,7 +386,7 @@ dependencies = [
  "hyper",
  "influxdb",
  "inx",
- "iota-crypto 0.16.0",
+ "iota-crypto 0.16.1",
  "iota-types",
  "mongodb",
  "packable",
@@ -1355,9 +1355,9 @@ dependencies = [
 
 [[package]]
 name = "iota-crypto"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d1d447f89ea13f2cd26d50195378bb2f76a0f9320ae4db3c0811b25fe6ed6c1"
+checksum = "529626176298e8b3bab06c1c2aedf50437622c9408bed2d73a6b8952839c8d4b"
 dependencies = [
  "autocfg",
  "blake2",
