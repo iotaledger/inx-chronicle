@@ -32,18 +32,18 @@ See the [Hornet Wiki](https://wiki.iota.org/hornet/references/configuration/) fo
 
 ## Environment
 
-Chronicle's docker setup uses several environment variables. These must be configured in order to run the docker compose file as-is:
+Chronicle's docker setup uses several environment variables. These must be configured in order to run the docker compose file as-is. These variables can be defined in a `.env` file and specified to docker using the `--env-file` flag.
 
-* `MONGODB_USERNAME`
-* `MONGODB_PASSWORD`
-* `MONGODB_CONN_STR`
-* `INFLUXDB_URL`
-* `INFLUXDB_USERNAME`
-* `INFLUXDB_PASSWORD`
-* `JWT_PASSWORD`
-* `JWT_SALT`
-
-These variables can be defined in a `.env` file and specified to docker using the `--env-file` flag.
+```ini
+MONGODB_USERNAME=root
+MONGODB_PASSWORD=root
+MONGODB_CONN_STR=mongodb://root:root@mongo:27017
+INFLUXDB_URL=http://influx:8086
+INFLUXDB_USERNAME=admin
+INFLUXDB_PASSWORD=password
+JWT_PASSWORD=password
+JWT_SALT=saltines
+```
 
 ```sh
 docker compose -f docker/docker-compose.yml --env-file .env up
