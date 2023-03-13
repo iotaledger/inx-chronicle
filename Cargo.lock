@@ -391,7 +391,7 @@ dependencies = [
  "mongodb",
  "packable",
  "pin-project",
- "prefix-hex",
+ "prefix-hex 0.6.0",
  "primitive-types",
  "rand",
  "regex",
@@ -1393,7 +1393,7 @@ dependencies = [
  "iota-pow",
  "iterator-sorted",
  "packable",
- "prefix-hex",
+ "prefix-hex 0.5.0",
  "primitive-types",
  "rand",
  "serde",
@@ -1875,6 +1875,17 @@ name = "prefix-hex"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75e3396888185b76a6e4c8fc883b3f039e56d3c0bca279744d2df70b3662e784"
+dependencies = [
+ "hex",
+ "primitive-types",
+ "uint",
+]
+
+[[package]]
+name = "prefix-hex"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b765bdee4f947c49356ac04884a3a929a03464c3325ec11c76e5a9ddf78101"
 dependencies = [
  "hex",
  "primitive-types",
