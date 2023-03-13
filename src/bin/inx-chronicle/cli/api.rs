@@ -64,6 +64,7 @@ fn parse_duration(arg: &str) -> Result<std::time::Duration, humantime::DurationE
     arg.parse::<humantime::Duration>().map(Into::into)
 }
 
+/// Generate a JWT token using the available config.
 #[derive(Clone, Debug, PartialEq, Eq, Parser)]
 pub struct GenerateJWTCommand;
 
