@@ -1,8 +1,10 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use influxdb::WriteQuery;
+
 use super::*;
-use crate::model::metadata::LedgerInclusionState;
+use crate::{analytics::measurement::Measurement, model::metadata::LedgerInclusionState};
 
 /// The type of payloads that occured within a single milestone.
 #[derive(Copy, Clone, Debug, Default)]
@@ -37,5 +39,21 @@ impl Analytics for BlockActivityMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         std::mem::take(self)
+    }
+}
+
+impl Measurement for BlockActivityMeasurement {
+    const NAME: &'static str = "stardust_block_activity";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("transaction_count", self.transaction_count as u64)
+            .add_field("treasury_transaction_count", self.treasury_transaction_count as u64)
+            .add_field("milestone_count", self.milestone_count as u64)
+            .add_field("tagged_data_count", self.tagged_data_count as u64)
+            .add_field("no_payload_count", self.no_payload_count as u64)
+            .add_field("confirmed_count", self.confirmed_count as u64)
+            .add_field("conflicting_count", self.conflicting_count as u64)
+            .add_field("no_transaction_count", self.no_transaction_count as u64)
     }
 }

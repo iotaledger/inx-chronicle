@@ -3,8 +3,13 @@
 
 use std::collections::HashMap;
 
+use influxdb::WriteQuery;
+
 use super::*;
-use crate::model::utxo::{Address, TokenAmount};
+use crate::{
+    analytics::measurement::Measurement,
+    model::utxo::{Address, TokenAmount},
+};
 
 /// Measures activity of the base token, such as Shimmer or IOTA.
 #[derive(Copy, Clone, Debug, Default)]
@@ -46,5 +51,15 @@ impl Analytics for BaseTokenActivityMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         std::mem::take(self)
+    }
+}
+
+impl Measurement for BaseTokenActivityMeasurement {
+    const NAME: &'static str = "stardust_base_token_activity";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("booked_amount", self.booked_amount.0)
+            .add_field("transferred_amount", self.transferred_amount.0)
     }
 }

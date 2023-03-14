@@ -1,8 +1,13 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use influxdb::WriteQuery;
+
 use super::*;
-use crate::model::{ledger::RentStructureBytes, ProtocolParameters, TryFromWithContext};
+use crate::{
+    analytics::measurement::Measurement,
+    model::{ledger::RentStructureBytes, ProtocolParameters, TryFromWithContext},
+};
 
 trait LedgerSize {
     fn ledger_size(&self, protocol_params: &ProtocolParameters) -> LedgerSizeMeasurement;
@@ -58,6 +63,17 @@ impl LedgerSizeMeasurement {
                     .wrapping_sub(rhs.total_storage_deposit_amount.0),
             ),
         }
+    }
+}
+
+impl Measurement for LedgerSizeMeasurement {
+    const NAME: &'static str = "stardust_ledger_size";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("total_key_bytes", self.total_key_bytes)
+            .add_field("total_data_bytes", self.total_data_bytes)
+            .add_field("total_storage_deposit_amount", self.total_storage_deposit_amount.0)
     }
 }
 

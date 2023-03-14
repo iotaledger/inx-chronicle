@@ -1,7 +1,10 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use influxdb::WriteQuery;
+
 use super::*;
+use crate::analytics::measurement::Measurement;
 
 /// Information about the claiming process.
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -40,5 +43,15 @@ impl Analytics for UnclaimedTokenMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         *self
+    }
+}
+
+impl Measurement for UnclaimedTokenMeasurement {
+    const NAME: &'static str = "stardust_unclaimed_rewards";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("unclaimed_count", self.unclaimed_count as u64)
+            .add_field("unclaimed_amount", self.unclaimed_amount.0)
     }
 }

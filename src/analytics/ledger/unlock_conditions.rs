@@ -1,7 +1,10 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use influxdb::WriteQuery;
+
 use super::*;
+use crate::analytics::measurement::Measurement;
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 #[allow(missing_docs)]
@@ -82,5 +85,23 @@ impl Analytics for UnlockConditionMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         *self
+    }
+}
+
+impl Measurement for UnlockConditionMeasurement {
+    const NAME: &'static str = "stardust_unlock_conditions";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("expiration_count", self.expiration.count as u64)
+            .add_field("expiration_amount", self.expiration.amount.0)
+            .add_field("timelock_count", self.timelock.count as u64)
+            .add_field("timelock_amount", self.timelock.amount.0)
+            .add_field("storage_deposit_return_count", self.storage_deposit_return.count as u64)
+            .add_field("storage_deposit_return_amount", self.storage_deposit_return.amount.0)
+            .add_field(
+                "storage_deposit_return_inner_amount",
+                self.storage_deposit_return_inner_amount,
+            )
     }
 }

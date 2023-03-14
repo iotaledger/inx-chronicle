@@ -3,8 +3,13 @@
 
 use std::collections::HashSet;
 
+use influxdb::WriteQuery;
+
 use super::*;
-use crate::model::utxo::{Address, AliasId, NftId};
+use crate::{
+    analytics::measurement::Measurement,
+    model::utxo::{Address, AliasId, NftId},
+};
 
 /// Nft activity statistics.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -25,6 +30,24 @@ impl Analytics for OutputActivityMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         std::mem::take(self)
+    }
+}
+
+impl Measurement for OutputActivityMeasurement {
+    const NAME: &'static str = "stardust_output_activity";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("alias_created_count", self.alias.created_count as u64)
+            .add_field("alias_state_changed_count", self.alias.state_changed_count as u64)
+            .add_field("alias_governor_changed_count", self.alias.governor_changed_count as u64)
+            .add_field("alias_destroyed_count", self.alias.destroyed_count as u64)
+            .add_field("nft_created_count", self.nft.created_count as u64)
+            .add_field("nft_transferred_count", self.nft.transferred_count as u64)
+            .add_field("nft_destroyed_count", self.nft.destroyed_count as u64)
+            .add_field("foundry_created_count", self.foundry.created_count as u64)
+            .add_field("foundry_transferred_count", self.foundry.transferred_count as u64)
+            .add_field("foundry_destroyed_count", self.foundry.destroyed_count as u64)
     }
 }
 

@@ -3,7 +3,10 @@
 
 #![allow(missing_docs)]
 
+use influxdb::WriteQuery;
+
 use super::*;
+use crate::analytics::measurement::Measurement;
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct LedgerOutputMeasurement {
@@ -60,5 +63,23 @@ impl Analytics for LedgerOutputMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         *self
+    }
+}
+
+impl Measurement for LedgerOutputMeasurement {
+    const NAME: &'static str = "stardust_ledger_outputs";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field("basic_count", self.basic.count as u64)
+            .add_field("basic_amount", self.basic.amount.0)
+            .add_field("alias_count", self.alias.count as u64)
+            .add_field("alias_amount", self.alias.amount.0)
+            .add_field("foundry_count", self.foundry.count as u64)
+            .add_field("foundry_amount", self.foundry.amount.0)
+            .add_field("nft_count", self.nft.count as u64)
+            .add_field("nft_amount", self.nft.amount.0)
+            .add_field("treasury_count", self.treasury.count as u64)
+            .add_field("treasury_amount", self.treasury.amount.0)
     }
 }

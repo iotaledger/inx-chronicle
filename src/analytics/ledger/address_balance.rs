@@ -3,8 +3,13 @@
 
 use std::collections::HashMap;
 
+use influxdb::WriteQuery;
+
 use super::*;
-use crate::model::utxo::{Address, TokenAmount};
+use crate::{
+    analytics::measurement::Measurement,
+    model::utxo::{Address, TokenAmount},
+};
 
 #[derive(Debug)]
 pub(crate) struct AddressBalanceMeasurement {
@@ -78,5 +83,19 @@ impl Analytics for AddressBalancesAnalytics {
             address_with_balance_count: self.balances.len(),
             token_distribution,
         }
+    }
+}
+
+impl Measurement for AddressBalanceMeasurement {
+    const NAME: &'static str = "stardust_addresses";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        let mut query = query.add_field("address_with_balance_count", self.address_with_balance_count as u64);
+        for (index, stat) in self.token_distribution.iter().enumerate() {
+            query = query
+                .add_field(format!("address_count_{index}"), stat.address_count)
+                .add_field(format!("total_amount_{index}"), stat.total_amount.0);
+        }
+        query
     }
 }

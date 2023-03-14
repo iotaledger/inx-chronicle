@@ -7,12 +7,12 @@ use futures::TryStreamExt;
 use thiserror::Error;
 
 use self::{
-    influx::PrepareQuery,
     ledger::{
         AddressActivityAnalytics, AddressActivityMeasurement, AddressBalancesAnalytics, BaseTokenActivityMeasurement,
         LedgerOutputMeasurement, LedgerSizeAnalytics, OutputActivityMeasurement, TransactionSizeMeasurement,
         UnclaimedTokenMeasurement, UnlockConditionMeasurement,
     },
+    measurement::PrepareQuery,
     tangle::{BlockActivityMeasurement, MilestoneSizeMeasurement, ProtocolParamsAnalytics},
 };
 use crate::{
@@ -31,8 +31,8 @@ use crate::{
     tangle::{BlockData, InputSource, Milestone},
 };
 
-mod influx;
 mod ledger;
+mod measurement;
 mod tangle;
 
 /// Provides an API to access basic information used for analytics

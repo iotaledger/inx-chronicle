@@ -3,9 +3,14 @@
 
 use std::collections::HashSet;
 
+use influxdb::WriteQuery;
+
 use super::*;
 use crate::{
-    analytics::{AnalyticsInterval, IntervalAnalytics},
+    analytics::{
+        measurement::{IntervalMeasurement, Measurement},
+        AnalyticsInterval, IntervalAnalytics,
+    },
     db::{mongodb::collections::OutputCollection, MongoDb},
     model::utxo::Address,
 };
@@ -61,5 +66,19 @@ impl Analytics for AddressActivityAnalytics {
         AddressActivityMeasurement {
             count: std::mem::take(self).addresses.len(),
         }
+    }
+}
+
+impl Measurement for AddressActivityMeasurement {
+    const NAME: &'static str = "stardust_active_addresses";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query.add_field("count", self.count as u64)
+    }
+}
+
+impl IntervalMeasurement for AddressActivityMeasurement {
+    fn name(interval: AnalyticsInterval) -> String {
+        format!("stardust_{interval}_active_addresses")
     }
 }

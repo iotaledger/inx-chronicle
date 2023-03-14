@@ -1,7 +1,10 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use influxdb::WriteQuery;
+
 use super::*;
+use crate::analytics::measurement::Measurement;
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct TransactionSizeBuckets {
@@ -60,5 +63,29 @@ impl Analytics for TransactionSizeMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         std::mem::take(self)
+    }
+}
+
+impl Measurement for TransactionSizeMeasurement {
+    const NAME: &'static str = "stardust_transaction_size_distribution";
+
+    fn add_fields(&self, mut query: WriteQuery) -> WriteQuery {
+        for (bucket, value) in self.input_buckets.single_buckets() {
+            query = query.add_field(format!("input_{bucket}"), value as u64);
+        }
+        query = query
+            .add_field("input_small", self.input_buckets.small as u64)
+            .add_field("input_medium", self.input_buckets.medium as u64)
+            .add_field("input_large", self.input_buckets.large as u64)
+            .add_field("input_huge", self.input_buckets.huge as u64);
+        for (bucket, value) in self.output_buckets.single_buckets() {
+            query = query.add_field(format!("output_{bucket}"), value as u64);
+        }
+        query = query
+            .add_field("output_small", self.output_buckets.small as u64)
+            .add_field("output_medium", self.output_buckets.medium as u64)
+            .add_field("output_large", self.output_buckets.large as u64)
+            .add_field("output_huge", self.output_buckets.huge as u64);
+        query
     }
 }

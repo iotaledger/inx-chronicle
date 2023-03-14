@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 
 pub(super) use self::{
     active_addresses::{AddressActivityAnalytics, AddressActivityMeasurement},
-    address_balance::{AddressBalanceMeasurement, AddressBalancesAnalytics},
+    address_balance::AddressBalancesAnalytics,
     base_token::BaseTokenActivityMeasurement,
     ledger_outputs::LedgerOutputMeasurement,
-    ledger_size::{LedgerSizeAnalytics, LedgerSizeMeasurement},
+    ledger_size::LedgerSizeAnalytics,
     output_activity::OutputActivityMeasurement,
     transaction_size::TransactionSizeMeasurement,
     unclaimed_tokens::UnclaimedTokenMeasurement,

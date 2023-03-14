@@ -1,7 +1,10 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use influxdb::WriteQuery;
+
 use super::*;
+use crate::analytics::measurement::Measurement;
 
 /// Milestone size statistics.
 #[derive(Copy, Clone, Debug, Default)]
@@ -31,5 +34,30 @@ impl Analytics for MilestoneSizeMeasurement {
 
     fn take_measurement(&mut self, _ctx: &dyn AnalyticsContext) -> Self::Measurement {
         std::mem::take(self)
+    }
+}
+
+impl Measurement for MilestoneSizeMeasurement {
+    const NAME: &'static str = "stardust_milestone_size";
+
+    fn add_fields(&self, query: WriteQuery) -> WriteQuery {
+        query
+            .add_field(
+                "total_milestone_payload_bytes",
+                self.total_milestone_payload_bytes as u64,
+            )
+            .add_field(
+                "total_tagged_data_payload_bytes",
+                self.total_tagged_data_payload_bytes as u64,
+            )
+            .add_field(
+                "total_transaction_payload_bytes",
+                self.total_transaction_payload_bytes as u64,
+            )
+            .add_field(
+                "total_treasury_transaction_payload_bytes",
+                self.total_treasury_transaction_payload_bytes as u64,
+            )
+            .add_field("total_milestone_bytes", self.total_milestone_bytes as u64)
     }
 }
