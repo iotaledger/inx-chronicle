@@ -8,7 +8,10 @@ mod test_rand {
     use std::{collections::HashSet, fs::File, io::BufReader};
 
     use chronicle::{
-        db::{mongodb::collections::BlockCollection, MongoDbCollectionExt},
+        db::{
+            mongodb::collections::{BlockCollection, ParentsCollection},
+            MongoDbCollectionExt,
+        },
         model::{
             metadata::{BlockMetadata, ConflictReason, LedgerInclusionState},
             payload::Payload,
@@ -106,6 +109,7 @@ mod test_rand {
     async fn test_block_children() {
         let db = setup_database("test-children").await.unwrap();
         let block_collection = setup_collection::<BlockCollection>(&db).await.unwrap();
+        let parents_collection = setup_collection::<ParentsCollection>(&db).await.unwrap();
 
         let parents = std::iter::repeat_with(BlockId::rand)
             .take(2)
@@ -154,8 +158,8 @@ mod test_rand {
             .unwrap();
         assert_eq!(block_collection.count().await.unwrap(), 10);
 
-        let mut s = block_collection
-            .get_block_children(&parents[0], 1.into(), 15, 100, 0)
+        let mut s = parents_collection
+            .get_block_children(&parents[0], 100, 0)
             .await
             .unwrap();
 

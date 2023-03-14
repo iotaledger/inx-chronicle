@@ -12,7 +12,7 @@ use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::SortOrder;
+use super::{parents::ParentChildRelationship, ParentsCollection, SortOrder};
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
@@ -74,6 +74,7 @@ impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
 /// The stardust blocks collection.
 pub struct BlockCollection {
     collection: mongodb::Collection<BlockDocument>,
+    parents_collection: ParentsCollection,
 }
 
 #[async_trait::async_trait]
@@ -81,8 +82,11 @@ impl MongoDbCollection for BlockCollection {
     const NAME: &'static str = "stardust_blocks";
     type Document = BlockDocument;
 
-    fn instantiate(_db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
-        Self { collection }
+    fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
+        Self {
+            collection,
+            parents_collection: db.collection(),
+        }
     }
 
     fn collection(&self) -> &mongodb::Collection<Self::Document> {
@@ -116,15 +120,6 @@ impl MongoDbCollection for BlockCollection {
                         .name("block_referenced_index_comp".to_string())
                         .build(),
                 )
-                .build(),
-            None,
-        )
-        .await?;
-
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "block.parents": 1 })
-                .options(IndexOptions::builder().name("block_parents_index".to_string()).build())
                 .build(),
             None,
         )
@@ -198,36 +193,6 @@ impl BlockCollection {
         .await?
         .try_next()
         .await
-    }
-
-    /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
-    pub async fn get_block_children(
-        &self,
-        block_id: &BlockId,
-        block_referenced_index: MilestoneIndex,
-        below_max_depth: u8,
-        page_size: usize,
-        page: usize,
-    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
-        let max_referenced_index = block_referenced_index + below_max_depth as u32;
-
-        Ok(self
-            .aggregate(
-                [
-                    doc! { "$match": {
-                        "metadata.referenced_by_milestone_index": { "$gte": block_referenced_index },
-                        "metadata.referenced_by_milestone_index": { "$lte": max_referenced_index },
-                        "block.parents": block_id,
-                    } },
-                    doc! { "$skip": (page_size * page) as i64 },
-                    doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
-                    doc! { "$limit": page_size as i64 },
-                    doc! { "$project": { "_id": 1 } },
-                ],
-                None,
-            )
-            .await?
-            .map_ok(|BlockIdResult { block_id }| block_id))
     }
 
     /// Get the blocks that were referenced by the specified milestone (in White-Flag order).
@@ -319,11 +284,22 @@ impl BlockCollection {
     {
         let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
 
+        let mut parent_child_rels = Vec::new();
+        let blocks_with_metadata = blocks_with_metadata.inspect(|doc| {
+            parent_child_rels.extend(doc.metadata.parents.iter().map(|&parent_id| ParentChildRelationship {
+                parent_id,
+                child_id: doc.block_id,
+                milestone_index: doc.metadata.referenced_by_milestone_index,
+            }));
+        });
+
         self.insert_many_ignore_duplicates(
             blocks_with_metadata,
             InsertManyOptions::builder().ordered(false).build(),
         )
         .await?;
+
+        self.parents_collection.insert_relationships(parent_child_rels).await?;
 
         Ok(())
     }

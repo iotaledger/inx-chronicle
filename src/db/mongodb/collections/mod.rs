@@ -12,6 +12,8 @@ mod ledger_update;
 mod milestone;
 /// Module containing Block outputs.
 mod outputs;
+// Module containing Block parent/child relationships.
+mod parents;
 /// Module containing the protocol parameters collection.
 mod protocol_update;
 /// Module containing the treasury model.
@@ -32,6 +34,7 @@ pub use self::{
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
         UtxoChangesResult,
     },
+    parents::ParentsCollection,
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},
 };

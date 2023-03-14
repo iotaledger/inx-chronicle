@@ -7,7 +7,8 @@ use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         mongodb::collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ParentsCollection,
+            ProtocolUpdateCollection,
         },
         MongoDb,
     },
@@ -179,22 +180,9 @@ async fn block_children(
     Pagination { page_size, page }: Pagination,
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
-    let block_referenced_index = database
-        .collection::<BlockCollection>()
-        .get_block_metadata(&block_id)
-        .await?
-        .ok_or(MissingError::NoResults)?
-        .referenced_by_milestone_index;
-    let below_max_depth = database
-        .collection::<ProtocolUpdateCollection>()
-        .get_protocol_parameters_for_ledger_index(block_referenced_index)
-        .await?
-        .ok_or(MissingError::NoResults)?
-        .parameters
-        .below_max_depth;
     let mut block_children = database
-        .collection::<BlockCollection>()
-        .get_block_children(&block_id, block_referenced_index, below_max_depth, page_size, page)
+        .collection::<ParentsCollection>()
+        .get_block_children(&block_id, page_size, page)
         .await
         .map_err(|_| MissingError::NoResults)?;
 
