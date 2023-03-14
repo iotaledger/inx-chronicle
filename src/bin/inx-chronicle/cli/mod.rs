@@ -92,10 +92,6 @@ impl ClArgs {
                 Subcommands::FillAnalytics(cmd) => {
                     cmd.handle(config).await?;
                 }
-                #[cfg(feature = "analytics")]
-                Subcommands::FillIntervalAnalytics(cmd) => {
-                    cmd.handle(config).await?;
-                }
                 #[cfg(debug_assertions)]
                 Subcommands::ClearDatabase { run } => {
                     tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
@@ -129,15 +125,10 @@ impl ClArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Subcommands {
-    /// Generate a JWT token using the available config.
     #[cfg(feature = "api")]
     GenerateJWT(api::GenerateJWTCommand),
-    /// Fill analytics from an input source.
     #[cfg(feature = "analytics")]
     FillAnalytics(analytics::FillAnalyticsCommand),
-    /// Fill interval analytics from Chronicle's database.
-    #[cfg(feature = "analytics")]
-    FillIntervalAnalytics(analytics::FillIntervalAnalyticsCommand),
     /// Clear the Chronicle database.
     #[cfg(debug_assertions)]
     ClearDatabase {
