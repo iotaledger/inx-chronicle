@@ -102,7 +102,7 @@ impl ParentsCollection {
         Ok(())
     }
 
-    /// Get the children of a [`Block`] as a stream of [`BlockId`]s.
+    /// Get the children of a [`Block`](crate::model::Block) as a stream of [`BlockId`]s.
     pub async fn get_block_children(
         &self,
         parent_id: &BlockId,
