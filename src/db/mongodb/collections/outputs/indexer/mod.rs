@@ -207,10 +207,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.address_unlock_condition": 1 })
+                .keys(doc! { "output.address_unlock_condition.address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_address_unlock_index".to_string())
+                        .name("output_address_unlock_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.address_unlock_condition": { "$exists": true },
                         })
@@ -223,10 +223,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.storage_deposit_return_unlock_condition": 1 })
+                .keys(doc! { "output.storage_deposit_return_unlock_condition.return_address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_storage_deposit_return_unlock_index".to_string())
+                        .name("output_storage_deposit_return_unlock_return_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.storage_deposit_return_unlock_condition": { "$exists": true },
                         })
@@ -239,10 +239,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.timelock_unlock_condition": 1 })
+                .keys(doc! { "output.timelock_unlock_condition.timestamp": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_timelock_unlock_index".to_string())
+                        .name("output_timelock_unlock_timestamp_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.timelock_unlock_condition": { "$exists": true },
                         })
@@ -255,10 +255,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.expiration_unlock_condition": 1 })
+                .keys(doc! { "output.expiration_unlock_condition.return_address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_expiration_unlock_index".to_string())
+                        .name("output_expiration_unlock_return_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.expiration_unlock_condition": { "$exists": true },
                         })
@@ -271,10 +271,26 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.state_controller_address_unlock_condition": 1 })
+                .keys(doc! { "output.expiration_unlock_condition.timestamp": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_state_controller_unlock_index".to_string())
+                        .name("output_expiration_unlock_timestamp_index".to_string())
+                        .partial_filter_expression(doc! {
+                            "output.expiration_unlock_condition": { "$exists": true },
+                        })
+                        .build(),
+                )
+                .build(),
+            None,
+        )
+        .await?;
+
+        self.create_index(
+            IndexModel::builder()
+                .keys(doc! { "output.state_controller_address_unlock_condition.address": 1 })
+                .options(
+                    IndexOptions::builder()
+                        .name("output_state_controller_unlock_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.state_controller_address_unlock_condition": { "$exists": true },
                         })
@@ -287,10 +303,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.governor_address_unlock_condition": 1 })
+                .keys(doc! { "output.governor_address_unlock_condition.address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_governor_address_unlock_index".to_string())
+                        .name("output_governor_address_unlock_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.governor_address_unlock_condition": { "$exists": true },
                         })
@@ -303,10 +319,10 @@ impl OutputCollection {
 
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "output.immutable_alias_address_unlock_condition": 1 })
+                .keys(doc! { "output.immutable_alias_address_unlock_condition.address": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("output_immutable_alias_address_unlock_index".to_string())
+                        .name("output_immutable_alias_address_unlock_address_index".to_string())
                         .partial_filter_expression(doc! {
                             "output.immutable_alias_address_unlock_condition": { "$exists": true },
                         })
