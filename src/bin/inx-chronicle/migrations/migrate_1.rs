@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_trait::async_trait;
-use chronicle::db::{mongodb::collections::OutputCollection, MongoDb, MongoDbCollectionExt};
+use chronicle::db::{
+    mongodb::collections::{BlockCollection, OutputCollection, ParentsCollection},
+    MongoDb, MongoDbCollection, MongoDbCollectionExt,
+};
+use mongodb::bson::{doc, Document};
 
 use super::Migration;
 
@@ -33,6 +37,27 @@ impl Migration for Migrate {
             .drop_index("output_immutable_alias_address_unlock_index", None)
             .await?;
         collection.drop_index("block_parents_index", None).await?;
+
+        let _ = db
+            .collection::<BlockCollection>()
+            .aggregate::<Document>(
+                [
+                    doc! { "$unwind": "$block.parents" },
+                    doc! { "$project": {
+                        "_id": 0,
+                        "parent_id": "$block.parents",
+                        "child_id": "$_id",
+                        "milestone_index": "$metadata.referenced_by_milestone_index",
+                    } },
+                    doc! { "$merge": {
+                        "into": ParentsCollection::NAME,
+                        "on": [ "parent_id", "child_id", "milestone_index" ],
+                        "whenMatched": "keepExisting",
+                    }},
+                ],
+                None,
+            )
+            .await?;
 
         Ok(())
     }

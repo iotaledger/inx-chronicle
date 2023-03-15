@@ -302,7 +302,7 @@ impl OutputCollection {
         ledger_index: MilestoneIndex,
     ) -> Result<impl Stream<Item = Result<LedgerOutput, Error>>, Error> {
         self.aggregate(
-            vec![
+            [
                 doc! { "$match": {
                     "metadata.booked.milestone_index" : { "$lte": ledger_index },
                     "metadata.spent_metadata.spent.milestone_index": { "$not": { "$lte": ledger_index } }
@@ -381,7 +381,7 @@ impl OutputCollection {
         }
         Ok(self
             .aggregate::<Res>(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.spent_metadata.spent.milestone_index": { "$eq": ledger_index }
                     } },
@@ -423,7 +423,8 @@ impl OutputCollection {
         ledger_index: MilestoneIndex,
     ) -> Result<Option<BalanceResult>, Error> {
         self
-            .aggregate([
+            .aggregate(
+                [
                     // Look at all (at ledger index o'clock) unspent output documents for the given address.
                     doc! { "$match": {
                         "details.address": &address,
