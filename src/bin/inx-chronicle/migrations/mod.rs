@@ -11,14 +11,16 @@ use chronicle::db::{
 use eyre::bail;
 
 pub mod migrate_0;
+pub mod migrate_1;
 
-pub type LatestMigration = migrate_0::Migrate;
+pub type LatestMigration = migrate_1::Migrate;
 
 /// The list of migrations, in order.
 const MIGRATIONS: &[&'static dyn DynMigration] = &[
     // In order to add a new migration, change the `LatestMigration` type above and add an entry at the bottom of this
     // list.
     &migrate_0::Migrate,
+    &migrate_1::Migrate,
 ];
 
 fn build_migrations(migrations: &[&'static dyn DynMigration]) -> HashMap<Option<usize>, &'static dyn DynMigration> {

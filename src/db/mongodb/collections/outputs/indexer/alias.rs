@@ -4,10 +4,11 @@
 use mongodb::bson::{self, doc};
 use primitive_types::U256;
 
-use super::queries::{
-    AppendQuery, CreatedQuery, GovernorQuery, IssuerQuery, NativeTokensQuery, SenderQuery, StateControllerQuery,
+use super::queries::{AppendQuery, CreatedQuery, GovernorQuery, IssuerQuery, NativeTokensQuery, SenderQuery};
+use crate::{
+    db::mongodb::collections::outputs::indexer::queries::AddressQuery,
+    model::{tangle::MilestoneTimestamp, utxo::Address},
 };
-use crate::model::{tangle::MilestoneTimestamp, utxo::Address};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[allow(missing_docs)]
@@ -27,7 +28,7 @@ impl From<AliasOutputsQuery> for bson::Document {
     fn from(query: AliasOutputsQuery) -> Self {
         let mut queries = Vec::new();
         queries.push(doc! { "output.kind": "alias" });
-        queries.append_query(StateControllerQuery(query.state_controller));
+        queries.append_query(AddressQuery(query.state_controller));
         queries.append_query(GovernorQuery(query.governor));
         queries.append_query(IssuerQuery(query.issuer));
         queries.append_query(SenderQuery(query.sender));
@@ -69,7 +70,7 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "alias" },
-                { "output.state_controller_address_unlock_condition.address": address },
+                { "details.address": address },
                 { "output.governor_address_unlock_condition.address": address },
                 { "output.features": {
                     "$elemMatch": {

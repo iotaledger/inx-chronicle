@@ -4,7 +4,7 @@
 use mongodb::bson::{self, doc};
 use primitive_types::U256;
 
-use super::queries::{AppendQuery, CreatedQuery, ImmutableAliasAddressQuery, NativeTokensQuery};
+use super::queries::{AddressQuery, AppendQuery, CreatedQuery, NativeTokensQuery};
 use crate::model::{tangle::MilestoneTimestamp, utxo::Address};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -22,7 +22,7 @@ impl From<FoundryOutputsQuery> for bson::Document {
     fn from(query: FoundryOutputsQuery) -> Self {
         let mut queries = Vec::new();
         queries.push(doc! { "output.kind": "foundry" });
-        queries.append_query(ImmutableAliasAddressQuery(query.alias_address));
+        queries.append_query(AddressQuery(query.alias_address));
         queries.append_query(NativeTokensQuery {
             has_native_tokens: query.has_native_tokens,
             min_native_token_count: query.min_native_token_count,
@@ -58,7 +58,7 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "foundry" },
-                { "output.immutable_alias_address_unlock_condition.address": address },
+                { "details.address": address },
                 { "output.native_tokens": { "$ne": [] } },
                 { "output.native_tokens": { "$not": {
                     "$elemMatch": {
