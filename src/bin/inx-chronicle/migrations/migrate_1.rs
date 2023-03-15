@@ -38,6 +38,8 @@ impl Migration for Migrate {
             .await?;
         collection.drop_index("block_parents_index", None).await?;
 
+        db.create_indexes::<ParentsCollection>().await?;
+
         let _ = db
             .collection::<BlockCollection>()
             .aggregate::<Document>(
