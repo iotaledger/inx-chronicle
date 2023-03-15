@@ -18,36 +18,12 @@ use crate::{
     model::{tangle::MilestoneIndex, BlockId},
 };
 
-/// The [`Id`] of a [`ParentsDocument`].
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-struct Id {
-    parent_id: BlockId,
-    child_id: BlockId,
-}
-
 /// Chronicle Parent Child Relationship record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParentsDocument {
-    _id: Id,
-    milestone_index: MilestoneIndex,
-}
-
-pub struct ParentChildRelationship {
-    pub parent_id: BlockId,
-    pub child_id: BlockId,
-    pub milestone_index: MilestoneIndex,
-}
-
-impl From<ParentChildRelationship> for ParentsDocument {
-    fn from(value: ParentChildRelationship) -> Self {
-        Self {
-            _id: Id {
-                parent_id: value.parent_id,
-                child_id: value.child_id,
-            },
-            milestone_index: value.milestone_index,
-        }
-    }
+    pub(crate) parent_id: BlockId,
+    pub(crate) child_id: BlockId,
+    pub(crate) milestone_index: MilestoneIndex,
 }
 
 /// The stardust blocks collection.
@@ -71,10 +47,11 @@ impl MongoDbCollection for ParentsCollection {
     async fn create_indexes(&self) -> Result<(), Error> {
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "milestone_index": 1 })
+                .keys(doc! { "parent_id": 1, "child_id": 1, "milestone_index": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("block_parents_milestone_index".to_string())
+                        .name("block_parents_index".to_string())
+                        .unique(true)
                         .build(),
                 )
                 .build(),
@@ -116,13 +93,13 @@ impl ParentsCollection {
         Ok(self
             .aggregate(
                 [
-                    doc! { "$match": { "_id.parent_id": parent_id } },
+                    doc! { "$match": { "parent_id": parent_id } },
                     doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": { "milestone_index": -1 } },
                     doc! { "$limit": page_size as i64 },
                     doc! { "$project": {
                         "_id": 0,
-                        "child_id": "$_id.child_id"
+                        "child_id": "$child_id"
                     } },
                 ],
                 None,

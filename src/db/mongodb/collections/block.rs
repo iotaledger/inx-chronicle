@@ -12,7 +12,7 @@ use packable::PackableExt;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use super::{parents::ParentChildRelationship, ParentsCollection, SortOrder};
+use super::{parents::ParentsDocument, ParentsCollection, SortOrder};
 use crate::{
     db::{
         mongodb::{InsertIgnoreDuplicatesExt, MongoDbCollection, MongoDbCollectionExt},
@@ -286,7 +286,7 @@ impl BlockCollection {
 
         let mut parent_child_rels = Vec::new();
         let blocks_with_metadata = blocks_with_metadata.inspect(|doc| {
-            parent_child_rels.extend(doc.metadata.parents.iter().map(|&parent_id| ParentChildRelationship {
+            parent_child_rels.extend(doc.metadata.parents.iter().map(|&parent_id| ParentsDocument {
                 parent_id,
                 child_id: doc.block_id,
                 milestone_index: doc.metadata.referenced_by_milestone_index,
