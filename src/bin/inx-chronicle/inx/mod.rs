@@ -343,17 +343,19 @@ impl InxWorker {
             .await?;
 
         // Update the children of a block.
-        let solidified_index = milestone.at.milestone_index - milestone.protocol_params.below_max_depth as u32;
-        let parent_children_rels = self
-            .db
-            .collection::<ParentsCollection>()
-            .get_solidified_relationships(solidified_index)
-            .await?;
+        if milestone.at.milestone_index.0 > milestone.protocol_params.below_max_depth as u32 {
+            let solidified_index = milestone.at.milestone_index - milestone.protocol_params.below_max_depth as u32;
+            let parent_children_rels = self
+                .db
+                .collection::<ParentsCollection>()
+                .get_solidified_relationships(solidified_index)
+                .await?;
 
-        self.db
-            .collection::<BlockCollection>()
-            .update_children(parent_children_rels)
-            .await?;
+            self.db
+                .collection::<BlockCollection>()
+                .update_children(parent_children_rels)
+                .await?;
+        }
 
         Ok(())
     }
