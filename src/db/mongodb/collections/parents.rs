@@ -22,9 +22,9 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParentsDocument {
     pub(crate) parent_id: BlockId,
-    pub(crate) parent_milestone_index: MilestoneIndex,
+    pub(crate) parent_referenced_index: MilestoneIndex,
     pub(crate) child_id: BlockId,
-    pub(crate) child_milestone_index: MilestoneIndex,
+    pub(crate) child_referenced_index: MilestoneIndex,
 }
 
 /// The stardust blocks collection.
@@ -48,10 +48,10 @@ impl MongoDbCollection for ParentsCollection {
     async fn create_indexes(&self) -> Result<(), Error> {
         self.create_index(
             IndexModel::builder()
-                .keys(doc! { "parent_id": 1, "child_id": 1, "milestone_index": 1 })
+                .keys(doc! { "parent_referenced_index": 1 })
                 .options(
                     IndexOptions::builder()
-                        .name("block_parents_index".to_string())
+                        .name("parent_referenced_index".to_string())
                         .unique(true)
                         .build(),
                 )
@@ -97,7 +97,7 @@ impl ParentsCollection {
             .aggregate::<ParentChildrenResult>(
                 [
                     doc! { "$match": {
-                        "parent_milestone_index": { "$eq": solidified_index },
+                        "parent_referenced_index": { "$eq": solidified_index },
                     } },
                     doc! { "$group": {
                         "_id": "$parent_id",

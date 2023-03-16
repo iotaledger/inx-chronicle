@@ -301,9 +301,9 @@ impl BlockCollection {
                 if let Some(parent_metadata) = self.get_block_metadata(parent_id).await? {
                     parent_child_rels.push(ParentsDocument {
                         parent_id: *parent_id,
-                        parent_milestone_index: parent_metadata.referenced_by_milestone_index,
+                        parent_referenced_index: parent_metadata.referenced_by_milestone_index,
                         child_id: *child_id,
-                        child_milestone_index: child_metadata.referenced_by_milestone_index,
+                        child_referenced_index: child_metadata.referenced_by_milestone_index,
                     })
                 }
             }
