@@ -6,7 +6,7 @@ use chronicle::db::{
     mongodb::collections::{BlockCollection, OutputCollection, ParentsCollection},
     MongoDb, MongoDbCollection, MongoDbCollectionExt,
 };
-use mongodb::bson::{doc, Document};
+use mongodb::{bson::{doc, Document}, options::CreateCollectionOptions};
 
 use super::Migration;
 
@@ -38,7 +38,11 @@ impl Migration for Migrate {
             .await?;
         collection.drop_index("block_parents_index", None).await?;
 
-        db.create_indexes::<ParentsCollection>().await?;
+        let options = CreateCollectionOptions::builder()
+            .capped(true)
+            .max(100000) // Maximum number of documents
+            .build();
+        db.create_indexes_with_options::<ParentsCollection>(options).await?;
 
         // FIXME: oh no, how do we get the referenced indexes of the parents??
         let _ = db

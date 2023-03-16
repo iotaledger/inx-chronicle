@@ -52,7 +52,6 @@ impl MongoDbCollection for ParentsCollection {
                 .options(
                     IndexOptions::builder()
                         .name("parent_referenced_index".to_string())
-                        .unique(true)
                         .build(),
                 )
                 .build(),
