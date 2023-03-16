@@ -326,7 +326,7 @@ impl BlockCollection {
         for (parent_id, children) in parent_children_rels {
             self.update_one(
                 doc! { "_id": parent_id },
-                doc! { "$set": { "children": children } },
+                doc! { "$set": { "children": mongodb::bson::to_bson(&children)? } },
                 None,
             )
             .await?;
