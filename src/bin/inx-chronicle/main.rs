@@ -171,7 +171,8 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
 
     let options = CreateCollectionOptions::builder()
         .capped(true)
-        .max(100000) // Maximum number of documents
+        .size(1_000_000_000) // Maximum byte size
+        .max(100_000) // Maximum number of documents
         .build();
     db.create_indexes_with_options::<collections::ParentsCollection>(options)
         .await?;
