@@ -14,7 +14,7 @@ use config::MongoDbConfig;
 use mongodb::{
     bson::{doc, Document},
     error::Error,
-    options::ClientOptions,
+    options::{ClientOptions, CreateCollectionOptions},
     Client,
 };
 
@@ -51,6 +51,17 @@ impl MongoDb {
     pub async fn create_indexes<T: MongoDbCollection + Send + Sync>(&self) -> Result<(), Error> {
         let collection = self.collection::<T>();
         collection.create_collection(self).await?;
+        collection.create_indexes().await?;
+        Ok(())
+    }
+
+    /// Creates a collection with options if it does not exist.
+    pub async fn create_indexes_with_options<T: MongoDbCollection + Send + Sync>(
+        &self,
+        options: CreateCollectionOptions,
+    ) -> Result<(), Error> {
+        let collection = self.collection::<T>();
+        collection.create_collection_with_options(self, options).await?;
         collection.create_indexes().await?;
         Ok(())
     }

@@ -7,7 +7,7 @@ use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         mongodb::collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ParentsCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection,
             ProtocolUpdateCollection,
         },
         MongoDb,
@@ -181,7 +181,7 @@ async fn block_children(
 ) -> ApiResult<BlockChildrenResponse> {
     let block_id = BlockId::from_str(&block_id).map_err(RequestError::from)?;
     let mut block_children = database
-        .collection::<ParentsCollection>()
+        .collection::<BlockCollection>()
         .get_block_children(&block_id, page_size, page)
         .await
         .map_err(|_| MissingError::NoResults)?;

@@ -1,7 +1,7 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{Stream, TryStreamExt};
+use futures::TryStreamExt;
 use mongodb::{
     bson::doc,
     error::Error,
@@ -22,8 +22,9 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParentsDocument {
     pub(crate) parent_id: BlockId,
+    pub(crate) parent_milestone_index: MilestoneIndex,
     pub(crate) child_id: BlockId,
-    pub(crate) milestone_index: MilestoneIndex,
+    pub(crate) child_milestone_index: MilestoneIndex,
 }
 
 /// The stardust blocks collection.
@@ -80,31 +81,34 @@ impl ParentsCollection {
     }
 
     /// Get the children of a [`Block`](crate::model::Block) as a stream of [`BlockId`]s.
-    pub async fn get_block_children(
+    /// 
+    /// Note, that for `solidified index` it must be true that: `solidified_index < current_ledger_index - below_max_depth`, or this method
+    /// may not return all of a parents children.
+    pub async fn get_solidified_relationships(
         &self,
-        parent_id: &BlockId,
-        page_size: usize,
-        page: usize,
-    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
+        solidified_index: MilestoneIndex,
+    ) -> Result<Vec<(BlockId, Vec<BlockId>)>, Error> {
         #[derive(Deserialize)]
-        struct ChildIdResult {
-            child_id: BlockId,
+        struct ParentChildrenResult {
+            parent_id: BlockId,
+            children: Vec<BlockId>,
         }
         Ok(self
-            .aggregate(
+            .aggregate::<ParentChildrenResult>(
                 [
-                    doc! { "$match": { "parent_id": parent_id } },
-                    doc! { "$skip": (page_size * page) as i64 },
-                    doc! { "$sort": { "milestone_index": -1 } },
-                    doc! { "$limit": page_size as i64 },
-                    doc! { "$project": {
-                        "_id": 0,
-                        "child_id": "$child_id"
+                    doc! { "$match": {
+                        "parent_milestone_index": { "$eq": solidified_index },
+                    } },
+                    doc! { "$group": {
+                        "_id": "$parent_id",
+                        "children": { "$push": "$child_id" },
                     } },
                 ],
                 None,
             )
             .await?
-            .map_ok(|ChildIdResult { child_id }| child_id))
+            .map_ok(|ParentChildrenResult { parent_id, children }| (parent_id, children))
+            .try_collect()
+            .await?)
     }
 }

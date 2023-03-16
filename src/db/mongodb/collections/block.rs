@@ -40,6 +40,8 @@ pub struct BlockDocument {
     raw: Vec<u8>,
     /// The block's metadata.
     metadata: BlockMetadata,
+    /// The block's children (updated once all children must have been arrived).
+    children: Vec<BlockId>,
 }
 
 impl From<BlockData> for BlockDocument {
@@ -56,6 +58,7 @@ impl From<BlockData> for BlockDocument {
             block,
             raw,
             metadata,
+            children: Vec::new(),
         }
     }
 }
@@ -67,6 +70,7 @@ impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
             block,
             raw,
             metadata,
+            children: Vec::new(),
         }
     }
 }
@@ -278,20 +282,32 @@ impl BlockCollection {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), Error>
     where
+        B: Clone,
         I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
         BlockDocument: From<B>,
     {
-        let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
+        // FIXME: unfortunately we need to collect into a Vec due to lifetime issues
+        let blocks_with_metadata = blocks_with_metadata
+            .into_iter()
+            .map(BlockDocument::from)
+            .collect::<Vec<BlockDocument>>();
 
-        let mut parent_child_rels = Vec::new();
-        let blocks_with_metadata = blocks_with_metadata.inspect(|doc| {
-            parent_child_rels.extend(doc.metadata.parents.iter().map(|&parent_id| ParentsDocument {
-                parent_id,
-                child_id: doc.block_id,
-                milestone_index: doc.metadata.referenced_by_milestone_index,
-            }));
-        });
+        let mut parent_child_rels = Vec::with_capacity(blocks_with_metadata.len());
+        for (child_id, child_metadata) in blocks_with_metadata.iter().map(|doc| (&doc.block_id, &doc.metadata)) {
+            for parent_id in child_metadata.parents.iter() {
+                // NOTE: we can certainly unwrap here also because it's guaranteed that we see the parents before the
+                // children!
+                if let Some(parent_metadata) = self.get_block_metadata(parent_id).await? {
+                    parent_child_rels.push(ParentsDocument {
+                        parent_id: *parent_id,
+                        parent_milestone_index: parent_metadata.referenced_by_milestone_index,
+                        child_id: *child_id,
+                        child_milestone_index: child_metadata.referenced_by_milestone_index,
+                    })
+                }
+            }
+        }
 
         self.insert_many_ignore_duplicates(
             blocks_with_metadata,
@@ -301,6 +317,20 @@ impl BlockCollection {
 
         self.parents_collection.insert_relationships(parent_child_rels).await?;
 
+        Ok(())
+    }
+
+    /// Updates the block with all of its children.
+    #[instrument(skip_all, err, level = "trace")]
+    pub async fn update_children(&self, parent_children_rels: Vec<(BlockId, Vec<BlockId>)>) -> Result<(), Error> {
+        for (parent_id, children) in parent_children_rels {
+            self.update_one(
+                doc! { "_id": parent_id },
+                doc! { "$set": { "children": children } },
+                None,
+            )
+            .await?;
+        }
         Ok(())
     }
 
@@ -380,6 +410,37 @@ impl BlockCollection {
         .map_ok(|RawResult { raw }| iota_types::block::Block::unpack_unverified(raw).unwrap().into())
         .try_next()
         .await
+    }
+
+    /// Get the children of a [`Block`](crate::model::Block) as a stream of [`BlockId`]s.
+    pub async fn get_block_children(
+        &self,
+        parent_id: &BlockId,
+        page_size: usize,
+        page: usize,
+    ) -> Result<impl Stream<Item = Result<BlockId, Error>>, Error> {
+        #[derive(Deserialize)]
+        struct ChildIdResult {
+            child_id: BlockId,
+        }
+        Ok(self
+            .aggregate(
+                [
+                    doc! { "$match": { "_id": parent_id } },
+                    doc! { "$unwind": "$children" },
+                    doc! { "$skip": (page_size * page) as i64 },
+                    // NOTE: sorting is not supported until this functionality is show to be efficient.
+                    // doc! { "$sort": { "child_milestone_index": -1 } },
+                    doc! { "$limit": page_size as i64 },
+                    doc! { "$project": {
+                        "_id": 0,
+                        "child_id": "$child_id"
+                    } },
+                ],
+                None,
+            )
+            .await?
+            .map_ok(|ChildIdResult { child_id }| child_id))
     }
 }
 

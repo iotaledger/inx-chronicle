@@ -9,8 +9,8 @@ use mongodb::{
     bson::{self, doc, Document},
     error::{Error, ErrorKind},
     options::{
-        AggregateOptions, CreateIndexOptions, DropIndexOptions, FindOneOptions, FindOptions, InsertManyOptions,
-        InsertOneOptions, ReplaceOptions, UpdateModifications, UpdateOptions,
+        AggregateOptions, CreateCollectionOptions, CreateIndexOptions, DropIndexOptions, FindOneOptions, FindOptions,
+        InsertManyOptions, InsertOneOptions, ReplaceOptions, UpdateModifications, UpdateOptions,
     },
     results::{CreateIndexResult, InsertManyResult, InsertOneResult, UpdateResult},
     Cursor, IndexModel,
@@ -45,6 +45,16 @@ pub trait MongoDbCollection {
     /// Creates the collection.
     async fn create_collection(&self, db: &MongoDb) -> Result<(), Error> {
         db.db().create_collection(Self::NAME, None).await.ok();
+        Ok(())
+    }
+
+    /// Creates the collection with options.
+    async fn create_collection_with_options(
+        &self,
+        db: &MongoDb,
+        options: CreateCollectionOptions,
+    ) -> Result<(), Error> {
+        db.db().create_collection(Self::NAME, options).await.ok();
         Ok(())
     }
 

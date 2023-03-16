@@ -16,6 +16,7 @@ mod process;
 use bytesize::ByteSize;
 use chronicle::db::MongoDb;
 use clap::Parser;
+use mongodb::options::CreateCollectionOptions;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -167,7 +168,13 @@ async fn build_indexes(db: &MongoDb) -> eyre::Result<()> {
     db.create_indexes::<collections::BlockCollection>().await?;
     db.create_indexes::<collections::LedgerUpdateCollection>().await?;
     db.create_indexes::<collections::MilestoneCollection>().await?;
-    db.create_indexes::<collections::ParentsCollection>().await?;
+
+    let options = CreateCollectionOptions::builder()
+        .capped(true)
+        .max(100000) // Maximum number of documents
+        .build();
+    db.create_indexes_with_options::<collections::ParentsCollection>(options)
+        .await?;
     let end_indexes = db.get_index_names().await?;
     for (collection, indexes) in end_indexes {
         if let Some(old_indexes) = start_indexes.get(&collection) {

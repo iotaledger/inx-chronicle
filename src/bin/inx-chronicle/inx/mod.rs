@@ -12,7 +12,7 @@ use chronicle::{
     db::{
         mongodb::collections::{
             ApplicationStateCollection, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
-            MilestoneCollection, OutputCollection, ProtocolUpdateCollection, TreasuryCollection,
+            MilestoneCollection, OutputCollection, ParentsCollection, ProtocolUpdateCollection, TreasuryCollection,
         },
         MongoDb,
     },
@@ -340,6 +340,19 @@ impl InxWorker {
                 milestone.at.milestone_timestamp,
                 milestone.payload.clone(),
             )
+            .await?;
+
+        // Update the children of a block.
+        let solidified_index = milestone.at.milestone_index - milestone.protocol_params.below_max_depth as u32;
+        let parent_children_rels = self
+            .db
+            .collection::<ParentsCollection>()
+            .get_solidified_relationships(solidified_index)
+            .await?;
+
+        self.db
+            .collection::<BlockCollection>()
+            .update_children(parent_children_rels)
             .await?;
 
         Ok(())
