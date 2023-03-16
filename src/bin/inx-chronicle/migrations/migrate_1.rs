@@ -40,6 +40,7 @@ impl Migration for Migrate {
 
         db.create_indexes::<ParentsCollection>().await?;
 
+        // FIXME: oh no, how do we get the referenced indexes of the parents??
         let _ = db
             .collection::<BlockCollection>()
             .aggregate::<Document>(
@@ -48,12 +49,13 @@ impl Migration for Migrate {
                     doc! { "$project": {
                         "_id": 0,
                         "parent_id": "$block.parents",
+                        "parent_referenced_index": 42,
                         "child_id": "$_id",
-                        "milestone_index": "$metadata.referenced_by_milestone_index",
+                        "child_referenced_index": "$metadata.referenced_by_milestone_index",
                     } },
                     doc! { "$merge": {
                         "into": ParentsCollection::NAME,
-                        "on": [ "parent_id", "child_id", "milestone_index" ],
+                        "on": [ "parent_id", "parent_referenced_index", "child_id", "child_referenced_index" ],
                         "whenMatched": "keepExisting",
                     }},
                 ],
