@@ -89,6 +89,7 @@ impl ParentsCollection {
     ) -> Result<Vec<(BlockId, Vec<BlockId>)>, Error> {
         #[derive(Deserialize)]
         struct ParentChildrenResult {
+            #[serde(rename = "_id")]
             parent_id: BlockId,
             children: Vec<BlockId>,
         }
