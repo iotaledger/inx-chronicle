@@ -44,28 +44,28 @@ impl Migration for Migrate {
             .build();
         db.create_indexes_with_options::<ParentsCollection>(options).await?;
 
-        // FIXME: oh no, how do we get the referenced indexes of the parents??
-        let _ = db
-            .collection::<BlockCollection>()
-            .aggregate::<Document>(
-                [
-                    doc! { "$unwind": "$block.parents" },
-                    doc! { "$project": {
-                        "_id": 0,
-                        "parent_id": "$block.parents",
-                        "parent_referenced_index": 42,
-                        "child_id": "$_id",
-                        "child_referenced_index": "$metadata.referenced_by_milestone_index",
-                    } },
-                    doc! { "$merge": {
-                        "into": ParentsCollection::NAME,
-                        "on": [ "parent_id", "parent_referenced_index", "child_id", "child_referenced_index" ],
-                        "whenMatched": "keepExisting",
-                    }},
-                ],
-                None,
-            )
-            .await?;
+        // // FIXME: oh no, how do we get the referenced indexes of the parents??
+        // let _ = db
+        //     .collection::<BlockCollection>()
+        //     .aggregate::<Document>(
+        //         [
+        //             doc! { "$unwind": "$block.parents" },
+        //             doc! { "$project": {
+        //                 "_id": 0,
+        //                 "parent_id": "$block.parents",
+        //                 "parent_referenced_index": 42,
+        //                 "child_id": "$_id",
+        //                 "child_referenced_index": "$metadata.referenced_by_milestone_index",
+        //             } },
+        //             doc! { "$merge": {
+        //                 "into": ParentsCollection::NAME,
+        //                 "on": [ "parent_id", "parent_referenced_index", "child_id", "child_referenced_index" ],
+        //                 "whenMatched": "keepExisting",
+        //             }},
+        //         ],
+        //         None,
+        //     )
+        //     .await?;
 
         Ok(())
     }
