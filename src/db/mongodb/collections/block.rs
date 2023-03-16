@@ -3,7 +3,7 @@
 
 use futures::{Stream, TryStreamExt};
 use mongodb::{
-    bson::doc,
+    bson::{doc, to_bson},
     error::Error,
     options::{IndexOptions, InsertManyOptions},
     IndexModel,
@@ -77,6 +77,7 @@ impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
 
 /// The stardust blocks collection.
 pub struct BlockCollection {
+    db: mongodb::Database,
     collection: mongodb::Collection<BlockDocument>,
     parents_collection: ParentsCollection,
 }
@@ -88,6 +89,7 @@ impl MongoDbCollection for BlockCollection {
 
     fn instantiate(db: &MongoDb, collection: mongodb::Collection<Self::Document>) -> Self {
         Self {
+            db: db.db(),
             collection,
             parents_collection: db.collection(),
         }
@@ -282,7 +284,6 @@ impl BlockCollection {
     #[instrument(skip_all, err, level = "trace")]
     pub async fn insert_blocks_with_metadata<I, B>(&self, blocks_with_metadata: I) -> Result<(), Error>
     where
-        B: Clone,
         I: IntoIterator<Item = B>,
         I::IntoIter: Send + Sync,
         BlockDocument: From<B>,
@@ -323,13 +324,38 @@ impl BlockCollection {
     /// Updates the block with all of its children.
     #[instrument(skip_all, err, level = "trace")]
     pub async fn update_children(&self, parent_children_rels: Vec<(BlockId, Vec<BlockId>)>) -> Result<(), Error> {
-        for (parent_id, children) in parent_children_rels {
-            self.update_one(
-                doc! { "_id": parent_id },
-                doc! { "$set": { "children": mongodb::bson::to_bson(&children)? } },
-                None,
-            )
-            .await?;
+        // for (parent_id, children) in parent_children_rels {
+        // self.update_one(
+        //     doc! { "_id": parent_id },
+        //     doc! { "$set": { "children": mongodb::bson::to_bson(&children)? } },
+        //     None,
+        // )
+        // .await?;
+        // }
+
+        // TODO: Replace `db.run_command` once the `BulkWrite` API lands in the Rust driver.
+        let update_docs = parent_children_rels
+            .into_iter()
+            .map(|(parent_id, children)| {
+                Ok(doc! {
+                    "q": { "_id": parent_id},
+                    // "u": to_document(&OutputDocument::from(output))?,
+                    "u": { "children": mongodb::bson::to_bson(&children)? },
+                    "upsert": true,
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        if !update_docs.is_empty() {
+            let mut command = doc! {
+                "update": Self::NAME,
+                "updates": update_docs,
+            };
+            if let Some(ref write_concern) = self.db.write_concern() {
+                command.insert("writeConcern", to_bson(write_concern)?);
+            }
+            let selection_criteria = self.db.selection_criteria().cloned();
+            let _ = self.db.run_command(command, selection_criteria).await?;
         }
         Ok(())
     }
