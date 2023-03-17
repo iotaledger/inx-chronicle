@@ -32,6 +32,7 @@ impl Migration for Migrate {
         collection
             .drop_index("output_immutable_alias_address_unlock_index", None)
             .await?;
+        collection.drop_index("block_parents_index", None).await?;
 
         Ok(())
     }

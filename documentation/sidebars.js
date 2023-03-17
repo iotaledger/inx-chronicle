@@ -40,6 +40,11 @@ module.exports = {
       items: [
         {
           type: "doc",
+          id: "reference/sync_and_analytics",
+          label: "Sync and Analytics",
+        },
+        {
+          type: "doc",
           id: "reference/authentication",
           label: "Authentication",
         },

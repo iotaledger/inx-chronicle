@@ -139,7 +139,7 @@ services:
     ports:
       - 9216:9261
     command:
-      - "--mongodb.uri=mongodb://root:root@mongo:27017"
+      - "--mongodb.uri=mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@mongo:27017"
       - "--mongodb.direct-connect=true"
       - "--web.listen-address=:9216"
       - "--log.level=info"
