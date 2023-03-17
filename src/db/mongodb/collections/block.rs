@@ -5,7 +5,7 @@ use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{IndexOptions, InsertManyOptions},
+    options::{AggregateOptions, Hint, IndexOptions, InsertManyOptions},
     IndexModel,
 };
 use packable::PackableExt;
@@ -121,15 +121,6 @@ impl MongoDbCollection for BlockCollection {
         )
         .await?;
 
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "block.parents": 1 })
-                .options(IndexOptions::builder().name("block_parents_index".to_string()).build())
-                .build(),
-            None,
-        )
-        .await?;
-
         Ok(())
     }
 }
@@ -224,7 +215,9 @@ impl BlockCollection {
                     doc! { "$limit": page_size as i64 },
                     doc! { "$project": { "_id": 1 } },
                 ],
-                None,
+                AggregateOptions::builder()
+                    .hint(Hint::Name("block_referenced_index_comp".to_owned()))
+                    .build(),
             )
             .await?
             .map_ok(|BlockIdResult { block_id }| block_id))
