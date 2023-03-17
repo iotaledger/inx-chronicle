@@ -34,7 +34,7 @@ pub use self::{
         NftOutputsQuery, OutputCollection, OutputMetadataResult, OutputWithMetadataResult, OutputsResult,
         UtxoChangesResult,
     },
-    parents::ParentsCollection,
+    parents::{ParentsCollection, ParentsDocument},
     protocol_update::ProtocolUpdateCollection,
     treasury::{TreasuryCollection, TreasuryResult},
 };

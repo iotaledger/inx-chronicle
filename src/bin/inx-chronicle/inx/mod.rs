@@ -8,7 +8,7 @@ mod influx;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 
@@ -16,7 +16,7 @@ use chronicle::{
     db::{
         mongodb::collections::{
             ApplicationStateCollection, BlockCollection, ConfigurationUpdateCollection, LedgerUpdateCollection,
-            MilestoneCollection, OutputCollection, ParentsCollection, ProtocolUpdateCollection, TreasuryCollection,
+            MilestoneCollection, OutputCollection, ParentsCollection, ProtocolUpdateCollection, TreasuryCollection, ParentsDocument,
         },
         MongoDb,
     },
@@ -33,11 +33,15 @@ use chronicle::{
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
-use tokio::{task::JoinSet, try_join};
+use tokio::{task::JoinSet, try_join, sync::Mutex};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
 pub use self::{config::InxConfig, error::InxWorkerError};
 use crate::migrations::{LatestMigration, Migration};
+
+lazy_static! {
+    static ref REFERENCED_CACHE: Arc<Mutex<HashMap<BlockId, MilestoneIndex>>> = Arc::new(Mutex::new(HashMap::new()));
+}
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;
@@ -361,6 +365,8 @@ impl InxWorker {
                 .collection::<BlockCollection>()
                 .update_children(parent_children_rels)
                 .await?;
+
+            prune_cache(&solidified_index).await;
         }
 
         Ok(())
@@ -396,9 +402,35 @@ impl InxWorker {
                             .insert_treasury_payloads(payloads)
                             .await?;
                     }
+
+                    for data in batch.iter() {
+                        update_cache(data.block_id, data.metadata.referenced_by_milestone_index).await;
+                    }
+
+                    let mut parent_child_rels = Vec::with_capacity(batch.len());
+                    for (child_id, child_metadata) in batch.iter().map(|child| (&child.block_id, &child.metadata)) {
+                        for parent_id in child_metadata.parents.iter() {
+                            // // NOTE: we can certainly unwrap here also because it's guaranteed that we see the
+                            // parents before the children!
+                            if let Some(parent_referenced_index) = get_cache_value(parent_id).await {
+                                parent_child_rels.push(ParentsDocument {
+                                    parent_id: *parent_id,
+                                    parent_referenced_index,
+                                    child_id: *child_id,
+                                    child_referenced_index: child_metadata.referenced_by_milestone_index,
+                                })
+                            }
+                        }
+                    }
+
                     db.collection::<BlockCollection>()
                         .insert_blocks_with_metadata(batch)
                         .await?;
+
+                    db.collection::<ParentsCollection>()
+                        .insert_relationships(parent_child_rels)
+                        .await?;
+
                     Result::<_>::Ok(())
                 });
                 Ok(tasks)
@@ -447,24 +479,17 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
     .and(Ok(()))
 }
 
-lazy_static! {
-    static ref REFERENCED_CACHE: Arc<Mutex<HashMap<BlockId, MilestoneIndex>>> = Arc::new(Mutex::new(HashMap::new()));
-}
-
 pub async fn update_cache(block_id: BlockId, milestone_index: MilestoneIndex) {
-    let mut cache = REFERENCED_CACHE.lock().unwrap();
+    let mut cache = REFERENCED_CACHE.lock().await;
     cache.insert(block_id, milestone_index);
 }
 
 pub async fn get_cache_value(block_id: &BlockId) -> Option<MilestoneIndex> {
-    let cache = REFERENCED_CACHE.lock().unwrap();
+    let cache = REFERENCED_CACHE.lock().await;
     cache.get(block_id).copied()
 }
 
-pub async fn prune_cache(block_ids: &[BlockId]) {
-    let mut cache = REFERENCED_CACHE.lock().unwrap();
-    for block_id in block_ids {
-        cache.remove(block_id);
-
-    }
+pub async fn prune_cache(solidified_index: &MilestoneIndex) {
+    let mut cache = REFERENCED_CACHE.lock().await;
+    cache.retain(|_, v| *v > *solidified_index);
 }

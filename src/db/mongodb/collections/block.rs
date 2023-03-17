@@ -79,7 +79,6 @@ impl From<(BlockId, Block, Vec<u8>, BlockMetadata)> for BlockDocument {
 pub struct BlockCollection {
     db: mongodb::Database,
     collection: mongodb::Collection<BlockDocument>,
-    parents_collection: ParentsCollection,
 }
 
 #[async_trait::async_trait]
@@ -91,7 +90,6 @@ impl MongoDbCollection for BlockCollection {
         Self {
             db: db.db(),
             collection,
-            parents_collection: db.collection(),
         }
     }
 
@@ -288,43 +286,13 @@ impl BlockCollection {
         I::IntoIter: Send + Sync,
         BlockDocument: From<B>,
     {
-        // let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
-
-        // FIXME: unfortunately we need to collect into a Vec due to lifetime issues
-        let blocks_with_metadata = blocks_with_metadata
-            .into_iter()
-            .map(BlockDocument::from)
-            .collect::<Vec<BlockDocument>>();
-
-        let mut parent_child_rels = Vec::with_capacity(blocks_with_metadata.len());
-        for (child_id, child_metadata) in blocks_with_metadata.iter().map(|doc| (&doc.block_id, &doc.metadata)) {
-            for parent_id in child_metadata.parents.iter() {
-                // // NOTE: we can certainly unwrap here also because it's guaranteed that we see the parents before the
-                // // children!
-                // if let Some(parent_metadata) = self.get_block_metadata(parent_id).await? {
-                //     parent_child_rels.push(ParentsDocument {
-                //         parent_id: *parent_id,
-                //         parent_referenced_index: parent_metadata.referenced_by_milestone_index,
-                //         child_id: *child_id,
-                //         child_referenced_index: child_metadata.referenced_by_milestone_index,
-                //     })
-                // }
-                parent_child_rels.push(ParentsDocument {
-                    parent_id: *parent_id,
-                    parent_referenced_index: 42.into(),
-                    child_id: *child_id,
-                    child_referenced_index: child_metadata.referenced_by_milestone_index,
-                })
-            }
-        }
+        let blocks_with_metadata = blocks_with_metadata.into_iter().map(BlockDocument::from);
 
         self.insert_many_ignore_duplicates(
             blocks_with_metadata,
             InsertManyOptions::builder().ordered(false).build(),
         )
         .await?;
-
-        self.parents_collection.insert_relationships(parent_child_rels).await?;
 
         Ok(())
     }

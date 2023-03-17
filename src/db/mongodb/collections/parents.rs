@@ -21,10 +21,10 @@ use crate::{
 /// Chronicle Parent Child Relationship record.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParentsDocument {
-    pub(crate) parent_id: BlockId,
-    pub(crate) parent_referenced_index: MilestoneIndex,
-    pub(crate) child_id: BlockId,
-    pub(crate) child_referenced_index: MilestoneIndex,
+    pub parent_id: BlockId,
+    pub parent_referenced_index: MilestoneIndex,
+    pub child_id: BlockId,
+    pub child_referenced_index: MilestoneIndex,
 }
 
 /// The stardust blocks collection.
