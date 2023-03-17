@@ -388,6 +388,7 @@ dependencies = [
  "inx",
  "iota-crypto 0.16.0",
  "iota-types",
+ "lazy_static",
  "mongodb",
  "packable",
  "pin-project",

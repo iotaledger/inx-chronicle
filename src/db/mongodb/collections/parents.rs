@@ -80,9 +80,9 @@ impl ParentsCollection {
     }
 
     /// Get the children of a [`Block`](crate::model::Block) as a stream of [`BlockId`]s.
-    /// 
-    /// Note, that for `solidified index` it must be true that: `solidified_index < current_ledger_index - below_max_depth`, or this method
-    /// may not return all of a parents children.
+    ///
+    /// Note, that for `solidified index` it must be true that: `solidified_index < current_ledger_index -
+    /// below_max_depth`, or this method may not return all of a parents children.
     pub async fn get_solidified_relationships(
         &self,
         solidified_index: MilestoneIndex,

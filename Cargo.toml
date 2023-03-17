@@ -74,6 +74,7 @@ zeroize = { version = "1.5", default-features = false, features = [ "std" ], opt
 # INX
 inx = { version = "1.0.0-beta.8", default-features = false, optional = true }
 tonic = { version = "0.8", default-features = false, optional = true }
+lazy_static = { version = "1.4.0", default-features = false, optional = true }
 
 [dev-dependencies]
 bincode = { version = "1.3", default-features = false }
@@ -83,49 +84,14 @@ ron = { version = "0.8", default-features = false }
 yazi = { version = "0.1", default-features = false }
 
 [features]
-default = [
-    "analytics",
-    "api",
-    "inx",
-    "metrics",
-    "poi",
-]
-analytics = [
-    "influx",
-]
-api = [
-    "dep:auth-helper",
-    "dep:axum",
-    "dep:ed25519",
-    "dep:ed25519-dalek",
-    "dep:hex",
-    "derive_more/from",
-    "dep:hyper",
-    "dep:rand",
-    "dep:regex",
-    "dep:rust-argon2",
-    "dep:serde_urlencoded",
-    "dep:tower",
-    "dep:tower-http",
-    "dep:zeroize",
-]
-influx = [
-    "dep:influxdb",
-]
-inx = [ 
-    "dep:inx",
-    "dep:tonic",
-]
-metrics = [
-    "influx",
-    "dep:chrono",
-]
-poi = [
-    "api",
-]
-rand = [
-    "iota-types/rand",
-]
+default = ["analytics", "api", "inx", "metrics", "poi"]
+analytics = ["influx"]
+api = ["dep:auth-helper", "dep:axum", "dep:ed25519", "dep:ed25519-dalek", "dep:hex", "derive_more/from", "dep:hyper", "dep:rand", "dep:regex", "dep:rust-argon2", "dep:serde_urlencoded", "dep:tower", "dep:tower-http", "dep:zeroize"]
+influx = ["dep:influxdb"]
+inx = ["dep:inx", "dep:tonic", "dep:lazy_static"]
+metrics = ["influx", "dep:chrono"]
+poi = ["api"]
+rand = ["iota-types/rand"]
 
 [profile.production]
 inherits = "release"

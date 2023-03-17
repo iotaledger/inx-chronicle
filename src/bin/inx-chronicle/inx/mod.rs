@@ -6,7 +6,11 @@ mod error;
 #[cfg(feature = "influx")]
 mod influx;
 
-use std::time::Duration;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use chronicle::{
     db::{
@@ -22,11 +26,13 @@ use chronicle::{
         metadata::LedgerInclusionState,
         payload::Payload,
         tangle::{MilestoneIndex, MilestoneIndexTimestamp},
+        BlockId,
     },
     tangle::{Milestone, Tangle},
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
+use lazy_static::lazy_static;
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
@@ -439,4 +445,26 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
         }
     }
     .and(Ok(()))
+}
+
+lazy_static! {
+    static ref REFERENCED_CACHE: Arc<Mutex<HashMap<BlockId, MilestoneIndex>>> = Arc::new(Mutex::new(HashMap::new()));
+}
+
+pub async fn update_cache(block_id: BlockId, milestone_index: MilestoneIndex) {
+    let mut cache = REFERENCED_CACHE.lock().unwrap();
+    cache.insert(block_id, milestone_index);
+}
+
+pub async fn get_cache_value(block_id: &BlockId) -> Option<MilestoneIndex> {
+    let cache = REFERENCED_CACHE.lock().unwrap();
+    cache.get(block_id).copied()
+}
+
+pub async fn prune_cache(block_ids: &[BlockId]) {
+    let mut cache = REFERENCED_CACHE.lock().unwrap();
+    for block_id in block_ids {
+        cache.remove(block_id);
+
+    }
 }

@@ -7,8 +7,7 @@ use axum::{extract::Path, routing::get, Extension};
 use chronicle::{
     db::{
         mongodb::collections::{
-            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection,
-            ProtocolUpdateCollection,
+            BlockCollection, LedgerUpdateCollection, MilestoneCollection, OutputCollection, ProtocolUpdateCollection,
         },
         MongoDb,
     },

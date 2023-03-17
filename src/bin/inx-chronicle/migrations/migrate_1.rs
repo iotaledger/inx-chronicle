@@ -6,7 +6,10 @@ use chronicle::db::{
     mongodb::collections::{BlockCollection, OutputCollection, ParentsCollection},
     MongoDb, MongoDbCollection, MongoDbCollectionExt,
 };
-use mongodb::{bson::{doc, Document}, options::CreateCollectionOptions};
+use mongodb::{
+    bson::{doc, Document},
+    options::CreateCollectionOptions,
+};
 
 use super::Migration;
 
