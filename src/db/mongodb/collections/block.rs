@@ -5,7 +5,7 @@ use futures::{Stream, TryStreamExt};
 use mongodb::{
     bson::doc,
     error::Error,
-    options::{AggregateOptions, Hint, IndexOptions, InsertManyOptions},
+    options::{IndexOptions, InsertManyOptions},
     IndexModel,
 };
 use packable::PackableExt;
