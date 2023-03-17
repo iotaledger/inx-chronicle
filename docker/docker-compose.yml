@@ -147,7 +147,7 @@ services:
       - "--collect-all"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana-oss:latest
     profiles:
       - metrics
     container_name: grafana
