@@ -340,7 +340,7 @@ impl BlockCollection {
                 Ok(doc! {
                     "q": { "_id": parent_id},
                     // "u": to_document(&OutputDocument::from(output))?,
-                    "u": { "children": mongodb::bson::to_bson(&children)? },
+                    "u": { "$set": { "children": mongodb::bson::to_bson(&children)? } },
                     "upsert": true,
                 })
             })
