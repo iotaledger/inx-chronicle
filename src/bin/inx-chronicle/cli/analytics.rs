@@ -1,6 +1,8 @@
 // Copyright 2023 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashSet;
+
 use chronicle::{
     analytics::{Analytic, AnalyticsInterval, IntervalAnalytic},
     db::{
@@ -21,23 +23,55 @@ use tracing::{debug, info};
 
 use crate::config::ChronicleConfig;
 
+/// This command accepts both milestone index and date ranges. The following rules apply:
+///
+/// - If both milestone and date are specified, the date will be used for interval analytics
+/// while the milestone will be used for per-milestone analytics.
+///
+/// - If only the milestone is specified, the date will be inferred from the milestone timestamp.
+///
+/// - If only the date is specified, the milestone will be inferred from the available data from that date.
+///
+/// - If neither are specified, then the entire range of available data will be used.
 #[derive(Clone, Debug, PartialEq, Eq, Parser)]
 pub struct FillAnalyticsCommand {
-    /// The inclusive starting milestone index.
+    /// The inclusive starting milestone index for per-milestone analytics.
     #[arg(short, long)]
     start_milestone: Option<MilestoneIndex>,
-    /// The inclusive ending milestone index.
+    /// The inclusive ending milestone index for per-milestone analytics.
     #[arg(short, long)]
     end_milestone: Option<MilestoneIndex>,
-    /// The number of parallel tasks to use when filling the analytics.
+    /// The inclusive starting date (YYYY-MM-DD).
+    #[arg(long, value_parser = parse_date)]
+    start_date: Option<Date>,
+    /// The inclusive ending date (YYYY-MM-DD).
+    #[arg(long, value_parser = parse_date)]
+    end_date: Option<Date>,
+    /// The number of parallel tasks to use when filling per-milestone analytics.
     #[arg(short, long, default_value_t = 1)]
     num_tasks: usize,
-    /// Select a subset of analytics to compute.
-    #[arg(long)]
+    /// Select a subset of per-milestone analytics to compute.
+    #[arg(long, value_enum, default_values_t = all_analytics())]
     analytics: Vec<AnalyticsChoice>,
-    /// The input source to use for filling the analytics.
-    #[arg(long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
+    /// The input source to use for filling per-milestone analytics.
+    #[arg(short, long, value_name = "INPUT_SOURCE", default_value = "mongo-db")]
     input_source: InputSourceChoice,
+    /// The interval to use for interval analytics.
+    #[arg(long, default_value = "day")]
+    interval: AnalyticsInterval,
+    /// The number of parallel tasks to use when filling interval analytics.
+    #[arg(long, default_value_t = 1)]
+    num_interval_tasks: usize,
+    /// Select a subset of interval analytics to compute.
+    #[arg(long, value_enum, default_values_t = all_interval_analytics())]
+    interval_analytics: Vec<IntervalAnalyticsChoice>,
+}
+
+fn parse_date(s: &str) -> eyre::Result<Date> {
+    Ok(Date::parse(
+        s,
+        time::macros::format_description!("[year]-[month]-[day]"),
+    )?)
 }
 
 impl FillAnalyticsCommand {
@@ -45,64 +79,122 @@ impl FillAnalyticsCommand {
         let Self {
             start_milestone,
             end_milestone,
+            start_date,
+            end_date,
             num_tasks,
             analytics,
             input_source,
+            interval,
+            interval_analytics,
+            num_interval_tasks,
         } = self;
         tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
         let db = MongoDb::connect(&config.mongodb).await?;
         let start_milestone = if let Some(index) = start_milestone {
-            *index
+            let ts = db
+                .collection::<MilestoneCollection>()
+                .get_milestone_timestamp(*index)
+                .await?
+                .ok_or_else(|| eyre::eyre!("Could not find requested milestone {}.", index))?;
+            index.with_timestamp(ts)
+        } else if let Some(start_date) = start_date {
+            let ts = start_date.midnight().assume_utc().unix_timestamp();
+            db.collection::<MilestoneCollection>()
+                .find_first_milestone((ts as u32).into())
+                .await?
+                .ok_or_else(|| eyre::eyre!("No milestones found after {start_date}."))?
         } else {
             db.collection::<MilestoneCollection>()
                 .get_oldest_milestone()
                 .await?
-                .map(|ts| ts.milestone_index)
-                .unwrap_or_default()
+                .ok_or_else(|| eyre::eyre!("No milestones in database."))?
         };
+        let (start_milestone, start_date) = (
+            start_milestone.milestone_index,
+            start_date.unwrap_or(
+                OffsetDateTime::try_from(start_milestone.milestone_timestamp)
+                    .unwrap()
+                    .date(),
+            ),
+        );
         let end_milestone = if let Some(index) = end_milestone {
-            *index
+            let ts = db
+                .collection::<MilestoneCollection>()
+                .get_milestone_timestamp(*index)
+                .await?
+                .ok_or_else(|| eyre::eyre!("Could not find requested milestone {}.", index))?;
+            index.with_timestamp(ts)
+        } else if let Some(end_date) = end_date {
+            let ts = end_date.next_day().unwrap().midnight().assume_utc().unix_timestamp();
+            db.collection::<MilestoneCollection>()
+                .find_last_milestone((ts as u32).into())
+                .await?
+                .ok_or_else(|| eyre::eyre!("No milestones found before {end_date}."))?
         } else {
             db.collection::<MilestoneCollection>()
                 .get_newest_milestone()
                 .await?
-                .map(|ts| ts.milestone_index)
-                .unwrap_or_default()
+                .ok_or_else(|| eyre::eyre!("No milestones in database."))?
         };
+        let (end_milestone, end_date) = (
+            end_milestone.milestone_index,
+            end_date.unwrap_or(
+                OffsetDateTime::try_from(end_milestone.milestone_timestamp)
+                    .unwrap()
+                    .date(),
+            ),
+        );
         if end_milestone < start_milestone {
             eyre::bail!("No milestones in range: {start_milestone}..={end_milestone}.");
         }
+        if end_date < start_date {
+            eyre::bail!("No dates in range: {start_date}..={end_date}.");
+        }
         let influx_db = InfluxDb::connect(&config.influxdb).await?;
 
-        match input_source {
-            #[cfg(feature = "inx")]
-            InputSourceChoice::Inx => {
-                tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
-                let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
-                fill_analytics(
-                    &db,
-                    &influx_db,
-                    &inx,
-                    start_milestone,
-                    end_milestone,
-                    *num_tasks,
-                    analytics,
-                )
-                .await?;
-            }
-            InputSourceChoice::MongoDb => {
-                fill_analytics(
-                    &db,
-                    &influx_db,
-                    &db,
-                    start_milestone,
-                    end_milestone,
-                    *num_tasks,
-                    analytics,
-                )
-                .await?;
-            }
-        };
+        tokio::try_join!(
+            async {
+                match input_source {
+                    #[cfg(feature = "inx")]
+                    InputSourceChoice::Inx => {
+                        tracing::info!("Connecting to INX at url `{}`.", config.inx.url);
+                        let inx = chronicle::inx::Inx::connect(config.inx.url.clone()).await?;
+                        fill_analytics(
+                            &db,
+                            &influx_db,
+                            &inx,
+                            start_milestone,
+                            end_milestone,
+                            *num_tasks,
+                            analytics,
+                        )
+                        .await?;
+                    }
+                    InputSourceChoice::MongoDb => {
+                        fill_analytics(
+                            &db,
+                            &influx_db,
+                            &db,
+                            start_milestone,
+                            end_milestone,
+                            *num_tasks,
+                            analytics,
+                        )
+                        .await?;
+                    }
+                }
+                Ok(())
+            },
+            fill_interval_analytics(
+                &db,
+                &influx_db,
+                start_date,
+                end_date,
+                *interval,
+                *num_interval_tasks,
+                interval_analytics
+            )
+        )?;
         Ok(())
     }
 }
@@ -128,12 +220,8 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     let chunk_size = (end_milestone.0 - start_milestone.0) / num_tasks as u32;
     let remainder = (end_milestone.0 - start_milestone.0) % num_tasks as u32;
 
-    let analytics_choices = if analytics.is_empty() {
-        all_analytics()
-    } else {
-        analytics.iter().copied().collect()
-    };
-    info!("Computing the following analytics: {:?}", analytics_choices);
+    let analytics_choices = analytics.iter().copied().collect::<HashSet<_>>();
+    info!("Computing the following analytics: {analytics_choices:?}");
 
     let mut chunk_start_milestone = start_milestone;
 
@@ -223,74 +311,6 @@ pub async fn fill_analytics<I: 'static + InputSource + Clone>(
     Ok(())
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Parser)]
-pub struct FillIntervalAnalyticsCommand {
-    /// The inclusive starting date (YYYY-MM-DD).
-    #[arg(short, long, value_parser = parse_date)]
-    start_date: Option<Date>,
-    /// The inclusive ending date (YYYY-MM-DD).
-    #[arg(short, long, value_parser = parse_date)]
-    end_date: Option<Date>,
-    /// The interval to use.
-    #[arg(short, long, default_value = "day")]
-    interval: AnalyticsInterval,
-    /// The number of parallel tasks to use when filling the analytics.
-    #[arg(short, long, default_value_t = 1)]
-    num_tasks: usize,
-    /// Select a subset of analytics to compute.
-    #[arg(long)]
-    analytics: Vec<IntervalAnalyticsChoice>,
-}
-
-fn parse_date(s: &str) -> eyre::Result<Date> {
-    Ok(Date::parse(
-        s,
-        time::macros::format_description!("[year]-[month]-[day]"),
-    )?)
-}
-
-impl FillIntervalAnalyticsCommand {
-    pub async fn handle(&self, config: &ChronicleConfig) -> eyre::Result<()> {
-        let Self {
-            start_date,
-            end_date,
-            interval,
-            num_tasks,
-            analytics,
-        } = self;
-        tracing::info!("Connecting to database using hosts: `{}`.", config.mongodb.hosts_str()?);
-        let db = MongoDb::connect(&config.mongodb).await?;
-
-        let start_date = if let Some(date) = start_date {
-            *date
-        } else {
-            db.collection::<MilestoneCollection>()
-                .get_oldest_milestone()
-                .await?
-                .map(|ts| OffsetDateTime::try_from(ts.milestone_timestamp).unwrap())
-                .unwrap_or_else(OffsetDateTime::now_utc)
-                .date()
-        };
-        let end_date = if let Some(date) = end_date {
-            *date
-        } else {
-            db.collection::<MilestoneCollection>()
-                .get_newest_milestone()
-                .await?
-                .map(|ts| OffsetDateTime::try_from(ts.milestone_timestamp).unwrap())
-                .unwrap_or_else(OffsetDateTime::now_utc)
-                .date()
-        };
-        if end_date < start_date {
-            eyre::bail!("No dates in range: {start_date}..={end_date}.");
-        }
-        let influx_db = InfluxDb::connect(&config.influxdb).await?;
-
-        fill_interval_analytics(&db, &influx_db, start_date, end_date, *interval, *num_tasks, analytics).await?;
-        Ok(())
-    }
-}
-
 pub async fn fill_interval_analytics(
     db: &MongoDb,
     influx_db: &InfluxDb,
@@ -302,11 +322,7 @@ pub async fn fill_interval_analytics(
 ) -> eyre::Result<()> {
     let mut join_set = tokio::task::JoinSet::new();
 
-    let analytics_choices = if analytics.is_empty() {
-        all_interval_analytics()
-    } else {
-        analytics.iter().copied().collect()
-    };
+    let analytics_choices = analytics.iter().copied().collect::<HashSet<_>>();
     info!("Computing the following {interval} analytics for {start_date}..{end_date}: {analytics_choices:?}",);
 
     for i in 0..num_tasks {

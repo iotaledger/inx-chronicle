@@ -138,20 +138,7 @@ impl AppendToQuery for AddressQuery {
     fn append_to(self, queries: &mut Vec<Document>) {
         if let Some(address) = self.0 {
             queries.push(doc! {
-                "output.address_unlock_condition.address": address
-            });
-        }
-    }
-}
-
-/// Queries for an unlock condition of type `state_controller_address`.
-pub(super) struct StateControllerQuery(pub(super) Option<Address>);
-
-impl AppendToQuery for StateControllerQuery {
-    fn append_to(self, queries: &mut Vec<Document>) {
-        if let Some(address) = self.0 {
-            queries.push(doc! {
-                "output.state_controller_address_unlock_condition.address": address
+                "details.address": address
             });
         }
     }
@@ -165,19 +152,6 @@ impl AppendToQuery for GovernorQuery {
         if let Some(address) = self.0 {
             queries.push(doc! {
                 "output.governor_address_unlock_condition.address": address
-            });
-        }
-    }
-}
-
-/// Queries for an unlock condition of type `immutable_alias_address`.
-pub(super) struct ImmutableAliasAddressQuery(pub(super) Option<Address>);
-
-impl AppendToQuery for ImmutableAliasAddressQuery {
-    fn append_to(self, queries: &mut Vec<Document>) {
-        if let Some(address) = self.0 {
-            queries.push(doc! {
-                "output.immutable_alias_address_unlock_condition.address": address
             });
         }
     }
