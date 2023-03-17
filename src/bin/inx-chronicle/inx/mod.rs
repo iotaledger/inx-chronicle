@@ -28,7 +28,7 @@ use chronicle::{
         tangle::{MilestoneIndex, MilestoneIndexTimestamp},
         BlockId,
     },
-    tangle::{Milestone, Tangle},
+    tangle::{Milestone, Tangle, BlockData},
 };
 use eyre::{bail, Result};
 use futures::{StreamExt, TryStreamExt};
@@ -375,6 +375,7 @@ impl InxWorker {
     #[instrument(skip_all, err, level = "trace")]
     async fn handle_cone_stream<'a>(&mut self, milestone: &Milestone<'a, Inx>) -> Result<()> {
         let cone_stream = milestone.cone_stream().await?;
+        let milestone_index = milestone.at.milestone_index;
 
         let mut tasks = cone_stream
             .try_chunks(INSERT_BATCH_SIZE)
@@ -403,9 +404,7 @@ impl InxWorker {
                             .await?;
                     }
 
-                    for data in batch.iter() {
-                        update_cache(data.block_id, data.metadata.referenced_by_milestone_index).await;
-                    }
+                    update_cache(&batch[..], milestone_index).await;
 
                     let mut parent_child_rels = Vec::with_capacity(batch.len());
                     for (child_id, child_metadata) in batch.iter().map(|child| (&child.block_id, &child.metadata)) {
@@ -479,9 +478,9 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
     .and(Ok(()))
 }
 
-pub async fn update_cache(block_id: BlockId, milestone_index: MilestoneIndex) {
+pub async fn update_cache(block_data: &[BlockData], milestone_index: MilestoneIndex) {
     let mut cache = REFERENCED_CACHE.lock().await;
-    cache.insert(block_id, milestone_index);
+    cache.extend(block_data.iter().map(|BlockData { block_id, .. }: &BlockData | (*block_id, milestone_index)));
 }
 
 pub async fn get_cache_value(block_id: &BlockId) -> Option<MilestoneIndex> {
