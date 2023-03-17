@@ -121,15 +121,6 @@ impl MongoDbCollection for BlockCollection {
         )
         .await?;
 
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "block.parents": 1 })
-                .options(IndexOptions::builder().name("block_parents_index".to_string()).build())
-                .build(),
-            None,
-        )
-        .await?;
-
         Ok(())
     }
 }
@@ -215,12 +206,14 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.referenced_by_milestone_index": { "$gte": block_referenced_index },
-                        "metadata.referenced_by_milestone_index": { "$lte": max_referenced_index },
+                        "metadata.referenced_by_milestone_index": {
+                            "$gte": block_referenced_index,
+                            "$lte": max_referenced_index
+                        },
                         "block.parents": block_id,
                     } },
-                    doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
+                    doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$limit": page_size as i64 },
                     doc! { "$project": { "_id": 1 } },
                 ],
