@@ -30,7 +30,7 @@ The starting index determines when Analytics can begin. Analytics are calculated
 
 # CLI Analytics
 
-Analytics can also be synced manually using one of two command-line arguments: `fill-analytics` and `fill-interval-analytics`. Neither should be run until Chronicle reports that it is healthy (see the `/health` endpoint) or else the results may not be correct. However, if this happens, re-running the analytics when Chronicle is healthy will overwrite the previous values.
+Analytics can also be synced manually using the `fill-analytics` command-line tool. It should not be run until Chronicle reports that it is healthy (see the `/health` endpoint) or else the results may not be correct. However, if this happens, re-running the analytics when Chronicle is healthy will overwrite the previous values.
 
 The `--num-tasks` flag can be used to parallelize these processes, but be warned: There is currently no feature to resume halted analytics. If the process is canceled without completing, it may be very difficult to restart it without re-calculating analytics.
 
