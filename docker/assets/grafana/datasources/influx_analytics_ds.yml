@@ -1,11 +1,11 @@
 apiVersion: 1
 
 deleteDatasources:
-  - name: InfluxDB Analytics
+  - name: InfluxDB-Analytics
     orgId: 1
 
 datasources:
-  - name: InfluxDB Analytics
+  - name: InfluxDB-Analytics
     type: influxdb
     access: proxy
     database: chronicle_analytics
