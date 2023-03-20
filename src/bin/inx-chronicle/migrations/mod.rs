@@ -90,12 +90,19 @@ pub async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
                 .await?
                 .is_some()
             {
+                #[cfg(feature = "inx")]
                 migrate(db).await?;
+                #[cfg(not(feature = "inx"))]
+                bail!("expected migration {}, found none", latest_version);
             }
         }
-        Some(v) if v == latest_version => (),
-        Some(_) => {
-            migrate(db).await?;
+        Some(v) => {
+            if v != latest_version {
+                #[cfg(feature = "inx")]
+                migrate(db).await?;
+                #[cfg(not(feature = "inx"))]
+                bail!("expected migration {}, found {}", latest_version, v);
+            }
         }
     }
     Ok(())
