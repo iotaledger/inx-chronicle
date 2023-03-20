@@ -125,10 +125,11 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 migration.migrate(db).await?;
             }
             None => {
-                bail!(
-                    "cannot migrate version {:?}, database is in invalid state",
-                    last_migration
-                );
+                if let Some(id) = last_migration {
+                    bail!("cannot migrate from version `{id}`; database is in invalid state");
+                } else {
+                    bail!("migration failure; database is in invalid state");
+                }
             }
         }
     }
