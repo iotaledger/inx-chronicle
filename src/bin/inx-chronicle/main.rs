@@ -49,6 +49,7 @@ async fn main() -> eyre::Result<()> {
 
     check_migration_version(&db).await?;
 
+    #[cfg(feature = "inx")]
     build_indexes(&db).await?;
 
     let mut tasks: JoinSet<eyre::Result<()>> = JoinSet::new();
