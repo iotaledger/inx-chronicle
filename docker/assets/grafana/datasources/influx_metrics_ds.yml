@@ -10,9 +10,11 @@ datasources:
     access: proxy
     database: chronicle_metrics
     user: root
+    password: password
     url: http://influx:8086
     jsonData:
       httpMode: GET
     secureJsonData:
       password: password
     uid: P291D6CCA1AE4887A
+    editable: true
