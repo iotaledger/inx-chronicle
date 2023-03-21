@@ -106,7 +106,7 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "nft" },
-                { "output.address_unlock_condition.address": address },
+                { "details.address": address },
                 { "output.features": { "$elemMatch": {
                     "kind": "issuer",
                     "address": address
@@ -172,7 +172,7 @@ mod test {
         let query_doc = doc! {
             "$and": [
                 { "output.kind": "nft" },
-                { "output.address_unlock_condition.address": address },
+                { "details.address": address },
                 { "output.native_tokens": { "$eq": [] } },
                 { "output.storage_deposit_return_unlock_condition": { "$exists": false } },
                 { "output.storage_deposit_return_unlock_condition.return_address": address },

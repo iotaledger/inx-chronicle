@@ -121,15 +121,6 @@ impl MongoDbCollection for BlockCollection {
         )
         .await?;
 
-        self.create_index(
-            IndexModel::builder()
-                .keys(doc! { "block.parents": 1 })
-                .options(IndexOptions::builder().name("block_parents_index".to_string()).build())
-                .build(),
-            None,
-        )
-        .await?;
-
         Ok(())
     }
 }
@@ -215,12 +206,14 @@ impl BlockCollection {
             .aggregate(
                 [
                     doc! { "$match": {
-                        "metadata.referenced_by_milestone_index": { "$gte": block_referenced_index },
-                        "metadata.referenced_by_milestone_index": { "$lte": max_referenced_index },
+                        "metadata.referenced_by_milestone_index": {
+                            "$gte": block_referenced_index,
+                            "$lte": max_referenced_index
+                        },
                         "block.parents": block_id,
                     } },
-                    doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$sort": {"metadata.referenced_by_milestone_index": -1} },
+                    doc! { "$skip": (page_size * page) as i64 },
                     doc! { "$limit": page_size as i64 },
                     doc! { "$project": { "_id": 1 } },
                 ],
@@ -237,7 +230,7 @@ impl BlockCollection {
     ) -> Result<Vec<BlockId>, Error> {
         let block_ids = self
             .aggregate::<BlockIdResult>(
-                vec![
+                [
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
                     doc! { "$project": { "_id": 1 } },
@@ -268,7 +261,7 @@ impl BlockCollection {
 
         Ok(self
             .aggregate::<QueryRes>(
-                vec![
+                [
                     doc! { "$match": { "metadata.referenced_by_milestone_index": index } },
                     doc! { "$sort": { "metadata.white_flag_index": 1 } },
                 ],
@@ -291,7 +284,7 @@ impl BlockCollection {
     pub async fn get_applied_blocks_in_white_flag_order(&self, index: MilestoneIndex) -> Result<Vec<BlockId>, Error> {
         let block_ids = self
             .aggregate::<BlockIdResult>(
-                vec![
+                [
                     doc! { "$match": {
                         "metadata.referenced_by_milestone_index": index,
                         "metadata.inclusion_state": LedgerInclusionState::Included,

@@ -137,7 +137,7 @@ impl MilestoneCollection {
         &self,
         index: MilestoneIndex,
     ) -> Result<Option<(MilestoneId, MilestoneIndexTimestamp, MilestonePayload)>, Error> {
-        self.aggregate::<MilestoneDocument>(vec![doc! { "$match": { "at.milestone_index": index } }], None)
+        self.aggregate::<MilestoneDocument>([doc! { "$match": { "at.milestone_index": index } }], None)
             .await?
             .map_ok(
                 |MilestoneDocument {
@@ -159,7 +159,7 @@ impl MilestoneCollection {
 
         Ok(self
             .aggregate::<MilestoneTimestampResult>(
-                vec![
+                [
                     doc! { "$match": { "at.milestone_index": index } },
                     doc! { "$project": {
                         "milestone_timestamp": "$at.milestone_timestamp"
@@ -305,7 +305,7 @@ impl MilestoneCollection {
 
         Ok(self
             .aggregate::<ReceiptAtIndex>(
-                vec![
+                [
                     doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$exists": true },
@@ -335,7 +335,8 @@ impl MilestoneCollection {
         }
 
         Ok(self
-            .aggregate([
+            .aggregate(
+                [
                     doc! { "$unwind": "$payload.essence.options"},
                     doc! { "$match": {
                         "payload.essence.options.receipt.migrated_at": { "$and": [ { "$exists": true }, { "$eq": migrated_at } ] },

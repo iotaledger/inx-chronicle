@@ -11,14 +11,16 @@ use chronicle::db::{
 use eyre::bail;
 
 pub mod migrate_0;
+pub mod migrate_1;
 
-pub type LatestMigration = migrate_0::Migrate;
+pub type LatestMigration = migrate_1::Migrate;
 
 /// The list of migrations, in order.
 const MIGRATIONS: &[&'static dyn DynMigration] = &[
     // In order to add a new migration, change the `LatestMigration` type above and add an entry at the bottom of this
     // list.
     &migrate_0::Migrate,
+    &migrate_1::Migrate,
 ];
 
 fn build_migrations(migrations: &[&'static dyn DynMigration]) -> HashMap<Option<usize>, &'static dyn DynMigration> {
@@ -88,12 +90,19 @@ pub async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
                 .await?
                 .is_some()
             {
+                #[cfg(feature = "inx")]
                 migrate(db).await?;
+                #[cfg(not(feature = "inx"))]
+                bail!("expected migration {}, found none", latest_version);
             }
         }
-        Some(v) if v == latest_version => (),
-        Some(_) => {
-            migrate(db).await?;
+        Some(v) => {
+            if v != latest_version {
+                #[cfg(feature = "inx")]
+                migrate(db).await?;
+                #[cfg(not(feature = "inx"))]
+                bail!("expected migration {}, found {}", latest_version, v);
+            }
         }
     }
     Ok(())
@@ -116,10 +125,11 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 migration.migrate(db).await?;
             }
             None => {
-                bail!(
-                    "cannot migrate version {:?}, database is in invalid state",
-                    last_migration
-                );
+                if let Some(id) = last_migration {
+                    bail!("cannot migrate from version `{id}`; database is in invalid state");
+                } else {
+                    bail!("migration failure; database is in invalid state");
+                }
             }
         }
     }
