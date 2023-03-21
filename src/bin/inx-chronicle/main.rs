@@ -115,7 +115,8 @@ async fn main() -> eyre::Result<()> {
 
     // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
     tokio::select! {
-        _ = process::interrupt_or_terminate() => {
+        res = process::interrupt_or_terminate() => {
+            res?;
             tracing::info!("received ctrl-c or terminate");
         },
         res = tasks.join_next() => {
@@ -129,7 +130,8 @@ async fn main() -> eyre::Result<()> {
 
     // Allow the user to abort if the tasks aren't shutting down quickly.
     tokio::select! {
-        _ = process::interrupt_or_terminate() => {
+        res = process::interrupt_or_terminate() => {
+            res?;
             tracing::info!("received second ctrl-c or terminate - aborting");
             tasks.shutdown().await;
             tracing::info!("Abort successful");
