@@ -156,7 +156,7 @@ pub async fn info(database: Extension<MongoDb>) -> ApiResult<InfoResponse> {
         .base_token;
 
     Ok(InfoResponse {
-        name: "Chronicle".into(),
+        name: chronicle::CHRONICLE_APP_NAME.into(),
         version: std::env!("CARGO_PKG_VERSION").to_string(),
         status: StatusResponse {
             is_healthy,

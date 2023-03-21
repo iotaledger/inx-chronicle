@@ -32,7 +32,7 @@ impl MongoDb {
     pub async fn connect(config: &MongoDbConfig) -> Result<Self, Error> {
         let mut client_options = ClientOptions::parse(&config.conn_str).await?;
 
-        client_options.app_name = Some("Chronicle".to_string());
+        client_options.app_name = Some(crate::CHRONICLE_APP_NAME.to_string());
 
         let client = Client::with_options(client_options)?;
 

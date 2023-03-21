@@ -1,28 +1,20 @@
 // Copyright 2022 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-pub async fn interrupt_or_terminate() {
+pub async fn interrupt_or_terminate() -> eyre::Result<()> {
     #[cfg(unix)]
     {
+        use eyre::eyre;
         use tokio::signal::unix::{signal, SignalKind};
-
-        let mut sigterm = signal(SignalKind::terminate()).expect("cannot listen to `SIGTERM`");
-        let mut sigint = signal(SignalKind::interrupt()).expect("cannot listen to `SIGINT`");
-
+        let mut terminate = signal(SignalKind::terminate()).map_err(|e| eyre!("cannot listen to `SIGTERM`: {e}"))?;
+        let mut interrupt = signal(SignalKind::interrupt()).map_err(|e| eyre!("cannot listen to `SIGINT`: {e}"))?;
         tokio::select! {
-            _ = sigterm.recv() => {
-                tracing::info!("received `SIGTERM`, sending shutdown signal")
-            }
-            _ = sigint.recv() => {
-                tracing::info!("received `SIGINT`, sending shutdown signal")
-            }
+            _ = terminate.recv() => {}
+            _ = interrupt.recv() => {}
         }
     }
     #[cfg(not(unix))]
-    {
-        use tokio::signal::ctrl_c;
+    tokio::signal::ctrl_c().await?;
 
-        ctrl_c().await.expect("cannot listen to `CTRL-C`");
-        tracing::info!("received `CTRL-C`, sending shutdown signal")
-    }
+    Ok(())
 }

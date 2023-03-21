@@ -86,7 +86,7 @@ async fn main() -> eyre::Result<()> {
             None
         };
 
-        let mut worker = inx::InxWorker::new(&db, &config.inx);
+        let mut worker = inx::InxWorker::new(db.clone(), config.inx.clone());
         #[cfg(feature = "influx")]
         if let Some(influx_db) = &influx_db {
             worker.set_influx_db(influx_db);
@@ -95,9 +95,7 @@ async fn main() -> eyre::Result<()> {
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {
-                res = worker.run() => {
-                    res?;
-                },
+                res = worker.run() => res?,
                 _ = handle.recv() => {},
             }
             Ok(())
@@ -107,9 +105,9 @@ async fn main() -> eyre::Result<()> {
     #[cfg(feature = "api")]
     if config.api.enabled {
         use futures::FutureExt;
+        let worker = api::ApiWorker::new(db.clone(), config.api.clone())?;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api)?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });
@@ -117,8 +115,12 @@ async fn main() -> eyre::Result<()> {
 
     // We wait for either the interrupt signal to arrive or for a component of our system to signal a shutdown.
     tokio::select! {
-        _ = process::interrupt_or_terminate() => {
-            tracing::info!("received ctrl-c or terminate");
+        res = process::interrupt_or_terminate() => {
+            if let Err(err) = res {
+                tracing::error!("subscribing to OS interrupt signals failed with error: {err}; shutting down");
+            } else {
+                tracing::info!("received ctrl-c or terminate; shutting down");
+            }
         },
         res = tasks.join_next() => {
             if let Some(Ok(Err(err))) = res {
@@ -131,8 +133,12 @@ async fn main() -> eyre::Result<()> {
 
     // Allow the user to abort if the tasks aren't shutting down quickly.
     tokio::select! {
-        _ = process::interrupt_or_terminate() => {
-            tracing::info!("received second ctrl-c or terminate - aborting");
+        res = process::interrupt_or_terminate() => {
+            if let Err(err) = res {
+                tracing::error!("subscribing to OS interrupt signals failed with error: {err}; aborting");
+            } else {
+                tracing::info!("received second ctrl-c or terminate; aborting");
+            }
             tasks.shutdown().await;
             tracing::info!("Abort successful");
         },
