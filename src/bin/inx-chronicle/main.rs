@@ -95,9 +95,7 @@ async fn main() -> eyre::Result<()> {
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
             tokio::select! {
-                res = worker.run() => {
-                    res?;
-                },
+                res = worker.run() => res?,
                 _ = handle.recv() => {},
             }
             Ok(())

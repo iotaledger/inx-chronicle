@@ -17,4 +17,5 @@ pub mod metrics;
 pub mod model;
 pub mod tangle;
 
+#[allow(missing_docs)]
 pub const CHRONICLE_APP_NAME: &str = "Chronicle";
