@@ -5,26 +5,15 @@ pub async fn interrupt_or_terminate() -> eyre::Result<()> {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{signal, SignalKind};
-
-        let mut sigterm = signal(SignalKind::terminate())?;
-        let mut sigint = signal(SignalKind::interrupt())?;
-
+        let mut terminate = signal(SignalKind::terminate())?;
+        let mut interrupt = signal(SignalKind::interrupt())?;
         tokio::select! {
-            _ = sigterm.recv() => {
-                tracing::info!("received `SIGTERM`, sending shutdown signal")
-            }
-            _ = sigint.recv() => {
-                tracing::info!("received `SIGINT`, sending shutdown signal")
-            }
+            _ = terminate.recv() => {}
+            _ = interrupt.recv() => {}
         }
     }
     #[cfg(not(unix))]
-    {
-        use tokio::signal::ctrl_c;
-
-        ctrl_c().await?;
-        tracing::info!("received `CTRL-C`, sending shutdown signal")
-    }
+    tokio::signal::ctrl_c().await?;
 
     Ok(())
 }
