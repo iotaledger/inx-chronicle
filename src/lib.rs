@@ -16,3 +16,5 @@ pub mod inx;
 pub mod metrics;
 pub mod model;
 pub mod tangle;
+
+pub const CHRONICLE_APP_NAME: &str = "Chronicle";
