@@ -1,3 +1,23 @@
+## [1.0.0-beta.37](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.36...v1.0.0-beta.37) (2023-03-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **db:** use address for unlock condition indexes (#1189)
+* **cli:** consolidate fill analytics once again (#1186)
+
+### Features
+
+* **cli:** consolidate fill analytics once again ([#1186](https://github.com/iotaledger/inx-chronicle/issues/1186)) ([5c4733f](https://github.com/iotaledger/inx-chronicle/commit/5c4733f7896a2f43044c6241aa86c34801b36559))
+
+
+### Bug Fixes
+
+* **api:** only perform write ops if a write feature is enabled ([#1200](https://github.com/iotaledger/inx-chronicle/issues/1200)) ([81db125](https://github.com/iotaledger/inx-chronicle/commit/81db125cad43e8b030512e1c8047d64fad325cd5))
+* **db:** remove parents index and fix the query ([#1195](https://github.com/iotaledger/inx-chronicle/issues/1195)) ([87eaa5e](https://github.com/iotaledger/inx-chronicle/commit/87eaa5ef67900a7d457560e7df821e95debd58ec))
+* **db:** use address for unlock condition indexes ([#1189](https://github.com/iotaledger/inx-chronicle/issues/1189)) ([d4fc220](https://github.com/iotaledger/inx-chronicle/commit/d4fc220c03aa1ccd9f77a80859a60d59963a42e0))
+* **logging:** cannot migrate error message ([#1199](https://github.com/iotaledger/inx-chronicle/issues/1199)) ([6cbde1b](https://github.com/iotaledger/inx-chronicle/commit/6cbde1b45c981b4814774c4c395870e0a51f82c9))
+
 ## [1.0.0-beta.36](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.35...v1.0.0-beta.36) (2023-03-10)
 
 

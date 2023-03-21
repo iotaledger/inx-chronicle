@@ -90,12 +90,19 @@ pub async fn check_migration_version(db: &MongoDb) -> eyre::Result<()> {
                 .await?
                 .is_some()
             {
+                #[cfg(feature = "inx")]
                 migrate(db).await?;
+                #[cfg(not(feature = "inx"))]
+                bail!("expected migration {}, found none", latest_version);
             }
         }
-        Some(v) if v == latest_version => (),
-        Some(_) => {
-            migrate(db).await?;
+        Some(v) => {
+            if v != latest_version {
+                #[cfg(feature = "inx")]
+                migrate(db).await?;
+                #[cfg(not(feature = "inx"))]
+                bail!("expected migration {}, found {}", latest_version, v);
+            }
         }
     }
     Ok(())
@@ -118,10 +125,11 @@ pub async fn migrate(db: &MongoDb) -> eyre::Result<()> {
                 migration.migrate(db).await?;
             }
             None => {
-                bail!(
-                    "cannot migrate version {:?}, database is in invalid state",
-                    last_migration
-                );
+                if let Some(id) = last_migration {
+                    bail!("cannot migrate from version `{id}`; database is in invalid state");
+                } else {
+                    bail!("migration failure; database is in invalid state");
+                }
             }
         }
     }
