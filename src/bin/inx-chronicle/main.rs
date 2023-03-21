@@ -85,7 +85,7 @@ async fn main() -> eyre::Result<()> {
             None
         };
 
-        let mut worker = inx::InxWorker::new(&db, &config.inx);
+        let mut worker = inx::InxWorker::new(db.clone(), config.inx.clone());
         #[cfg(feature = "influx")]
         if let Some(influx_db) = &influx_db {
             worker.set_influx_db(influx_db);
@@ -108,7 +108,7 @@ async fn main() -> eyre::Result<()> {
         use futures::FutureExt;
         let mut handle = shutdown_signal.subscribe();
         tasks.spawn(async move {
-            let worker = api::ApiWorker::new(&db, &config.api)?;
+            let worker = api::ApiWorker::new(db.clone(), config.api.clone())?;
             worker.run(handle.recv().then(|_| async {})).await?;
             Ok(())
         });

@@ -45,10 +45,10 @@ pub struct InxWorker {
 
 impl InxWorker {
     /// Creates an [`Inx`] client by connecting to the endpoint specified in `inx_config`.
-    pub fn new(db: &MongoDb, inx_config: &InxConfig) -> Self {
+    pub fn new(db: MongoDb, inx_config: InxConfig) -> Self {
         Self {
-            db: db.clone(),
-            config: inx_config.clone(),
+            db,
+            config: inx_config,
             #[cfg(feature = "influx")]
             influx_db: None,
         }
