@@ -1,3 +1,10 @@
+## [1.0.0-rc.1](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.37...v1.0.0-rc.1) (2023-03-22)
+
+
+### Bug Fixes
+
+* **inx:** prevent writing potentially wrong node configuration to db ([#1208](https://github.com/iotaledger/inx-chronicle/issues/1208)) ([2c33e3f](https://github.com/iotaledger/inx-chronicle/commit/2c33e3fcae993e7cffeffc4840f838c93496d8ae))
+
 ## [1.0.0-beta.37](https://github.com/iotaledger/inx-chronicle/compare/v1.0.0-beta.36...v1.0.0-beta.37) (2023-03-20)
 
 
