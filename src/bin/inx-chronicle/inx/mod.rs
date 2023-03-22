@@ -161,11 +161,6 @@ impl InxWorker {
             node_configuration.base_token.ticker_symbol
         );
 
-        self.db
-            .collection::<ConfigurationUpdateCollection>()
-            .upsert_node_configuration(node_status.ledger_index, node_configuration.into())
-            .await?;
-
         if let Some(latest) = self
             .db
             .collection::<ProtocolUpdateCollection>()
@@ -275,6 +270,11 @@ impl InxWorker {
                 .upsert_protocol_parameters(start_index, protocol_parameters.into())
                 .await?;
         }
+
+        self.db
+        .collection::<ConfigurationUpdateCollection>()
+        .upsert_node_configuration(node_status.ledger_index, node_configuration.into())
+        .await?;
 
         Ok((start_index, inx))
     }
