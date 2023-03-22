@@ -26,7 +26,7 @@ use chronicle::{
     tangle::{Milestone, Tangle},
 };
 use eyre::{bail, Result};
-use futures::{StreamExt, TryStreamExt};
+use futures::{stream::FuturesUnordered, StreamExt, TryStreamExt};
 use tokio::{task::JoinSet, try_join};
 use tracing::{debug, info, instrument, trace_span, Instrument};
 
@@ -35,6 +35,7 @@ use crate::migrations::{LatestMigration, Migration};
 
 /// Batch size for insert operations.
 pub const INSERT_BATCH_SIZE: usize = 1000;
+const CONCURRENT_BATCHES: usize = 10;
 
 pub struct InxWorker {
     db: MongoDb,
@@ -204,9 +205,7 @@ impl InxWorker {
 
             let mut starting_index = None;
 
-            let mut count = 0;
-            let mut tasks = unspent_output_stream
-                .inspect_ok(|_| count += 1)
+            let buffered = unspent_output_stream
                 .map(|msg| {
                     let msg = msg?;
                     let ledger_index = &msg.ledger_index;
@@ -226,16 +225,17 @@ impl InxWorker {
                 .try_chunks(INSERT_BATCH_SIZE)
                 // We only care if we had an error, so discard the other data
                 .map_err(|e| e.1)
-                // Convert batches to tasks
-                .try_fold(JoinSet::new(), |mut tasks, batch| async {
+                .map_ok(|batch| {
                     let db = self.db.clone();
-                    tasks.spawn(async move { insert_unspent_outputs(&db, &batch).await });
-                    Result::<_>::Ok(tasks)
+                    async move { insert_unspent_outputs(&db, &batch).await }
                 })
-                .await?;
+                .try_buffer_unordered(CONCURRENT_BATCHES)
+                .collect::<FuturesUnordered<_>>()
+                .await;
 
-            while let Some(res) = tasks.join_next().await {
-                res??;
+            let mut count = 0;
+            for res in buffered {
+                count += res?;
             }
 
             info!("Inserted {} unspent outputs.", count);
@@ -393,7 +393,7 @@ impl InxWorker {
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<()> {
+async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Result<usize> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -406,11 +406,11 @@ async fn insert_unspent_outputs(db: &MongoDb, outputs: &[LedgerOutput]) -> Resul
             Ok(())
         }
     }?;
-    Ok(())
+    Ok(outputs.len())
 }
 
 #[instrument(skip_all, err, fields(num = outputs.len()), level = "trace")]
-async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<()> {
+async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<usize> {
     let output_collection = db.collection::<OutputCollection>();
     let ledger_collection = db.collection::<LedgerUpdateCollection>();
     try_join! {
@@ -423,5 +423,5 @@ async fn update_spent_outputs(db: &MongoDb, outputs: &[LedgerSpent]) -> Result<(
             Ok(())
         }
     }
-    .and(Ok(()))
+    .and(Ok(outputs.len()))
 }
