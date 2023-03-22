@@ -271,11 +271,6 @@ impl InxWorker {
                 .await?;
         }
 
-        self.db
-        .collection::<ConfigurationUpdateCollection>()
-        .upsert_node_configuration(node_status.ledger_index, node_configuration.into())
-        .await?;
-
         Ok((start_index, inx))
     }
 
