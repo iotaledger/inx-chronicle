@@ -84,6 +84,7 @@ services:
       # - "-c"
       # - "config_testnet.json"
       # - "config_alphanet.json"
+      - "--p2p.autopeering.enabled=true”
       - "--inx.enabled=true"
       - "--inx.bindAddress=hornet:9029"
       - "--prometheus.enabled=true"
