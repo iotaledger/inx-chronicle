@@ -24,7 +24,7 @@ path = "src/bin/inx-chronicle/main.rs"
 # Required
 async-trait = { version = "0.1", default-features = false }
 bytesize = { version = "1.1", default-features = false }
-clap = { version = "4.1", default-features = false, features = ["env", "derive", "std", "help", "usage", "error-context", "wrap_help"] }
+clap = { version = "4.2", default-features = false, features = ["env", "derive", "std", "help", "usage", "error-context", "wrap_help"] }
 decimal = { version = "2.1", default-features = false, features = [ "serde" ] }
 derive_more = { version = "0.99", default-features = false, features = [ "add", "add_assign", "deref", "deref_mut", "sum" ] }
 dotenvy = { version = "0.15", default-features = false }
